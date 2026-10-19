@@ -34,15 +34,15 @@ input is refused. They are not offered by the module picker; use them in a proce
 
 | File | What it holds |
 |---|---|
-| `module.k7x` (or `module.yaml`) | What the module is: its plugin or the module it extends, its default parameter values, its engines. |
-| `ui.k7x` (or `ui.yaml`) | Its panel: the controls drawn on its card. See [Panels](./46-panels.md). |
+| `module.k7x` | What the module is: its plugin or the module it extends, its default parameter values, its engines. |
+| `ui.k7x` | Its panel: the controls drawn on its card. See [Panels](./46-panels.md). |
 | `widgets.js` | Drawing code for the panel's LCD screens. |
 | `jsdsp.ts` | Its DSP, written in TypeScript, for a `jsdsp` module. See [DSP in JavaScript and Faust](./49-dsp.md). |
 | `dsp.dsp` | Its DSP in Faust, for a `faust` module. |
 | `engines/<name>/` | One sub-module per engine, each with its own `module` and `ui` files. |
 | `base/` | Named starting states of the plugin (a synth's patches). |
 | `assets/` | Files the module loads, such as models or impulse responses. |
-| `controller.yaml` | MIDI CC bindings for its parameters. |
+| `controller.k7x` | MIDI CC bindings for its parameters. |
 
 ## The module file
 

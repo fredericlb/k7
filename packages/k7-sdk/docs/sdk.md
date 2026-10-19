@@ -25,7 +25,7 @@ registry is seeded with the four builtins and opened, never moved.
 already belong to — or under its own `plugin.<id>.*` prefix. Either way the installer records
 which plugin claimed the SID (`pluginOf`), a SID a plugin holds is refused to every other
 plugin, and command WORDS are refused when taken — one word, one verb, the same rule the
-builtins' yaml already obeys.
+builtins' `commands.yaml` already obeys.
 
 **A drawer is typed where it is mounted.** The SDK's `PaneDrawerContribution` takes `never` —
 the bottom type, which any real drawer assigns to — because the props a drawer gets are the

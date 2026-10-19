@@ -1,7 +1,7 @@
 # A surface file
 
 The rationale behind `packages/song-schema/src/yaml/surfaceSchema.ts` and
-`packages/song-schema/src/yaml/surfaceFile.ts` — `surfaces/<name>.yaml`, the special VIEW a project
+`packages/song-schema/src/yaml/surfaceFile.ts` — `surfaces/<name>.k7x`, the special VIEW a project
 asks its editor to draw. What a surface IS lives in `packages/song/docs/surfaces.md`; this page is
 about the file's shape and what the schema refuses.
 
@@ -83,14 +83,14 @@ bottom reads as the chain inside the node.
 
 ## `mapping`
 
-It is `views/mix.yaml`'s map, key for key — control id → `{ module, param }` — and it is the same map
+It is `views/mix.k7x`'s map, key for key — control id → `{ module, param }` — and it is the same map
 because it is the same question, asked by a surface instead of by a desk. Reusing `MixViewSchema`
 itself (rather than a record built the same way) is what keeps `module` meaning "the name the CHAINS
 file uses" in both places. Two shapes built alike would drift the first time one of them grew:
 `null` — a component named and not wired, which is what a scaffolded desk is made of — has to be
 legal in both, or the file `project surface new` writes will not load in the other. See
 `packages/song/docs/viewBindings.md` for why a binding cannot live in the module's own
-`controller.yaml`.
+`controller.k7x`.
 
 It is OPTIONAL, and an absent one is not an error in the schema. Which components a given type needs
 is the surface's own business, so a missing component is reported by whoever DRAWS the surface, on
@@ -103,9 +103,9 @@ A name under the workspace's `_playlists/`, not a path (`playlistPathOf`), and a
 surface only. It is what the song browser lists: the twelve songs that are to hand tonight, rather
 than the two hundred and seventy-nine on the volume.
 
-**This is where "which songs" lives**, and `songs.yaml` does not answer it: a playlist is a document
+**This is where "which songs" lives**, and `songs.k7x` does not answer it: a playlist is a document
 with a screen (k7's cog opens it), it can be shared between sets, and it is the thing a person has
-already written. What `songs.yaml` holds is the half a playlist has no place for: this set's CUE
+already written. What `songs.k7x` holds is the half a playlist has no place for: this set's CUE
 points on a song, which belong to the desk that plays it rather than to a list other sets read
 (`packages/song/docs/setProject.md`).
 
@@ -132,10 +132,10 @@ looking for the effect somewhere else.
 
 ## Reading the file
 
-YAML 1.2, as every other file here pins it: a scalar shaped like `5:1:1` stays a string, and a param
-name is arbitrary text that must not be reinterpreted on the way in.
+k7x, as every other file here: a param name is a quoted string, arbitrary text that is never
+reinterpreted on the way in.
 
-An empty file is an ERROR, which is where this parts company with `views/mix.yaml`. An empty desk map
+An empty file is an ERROR, which is where this parts company with `views/mix.k7x`. An empty desk map
 is a desk with nothing bound yet — a real state every project starts in. An empty surface file is a
 surface that does not say what it is, and the editor would have nothing to draw: `type` and `layout`
 are the whole of what makes it one. Both lists in that message are spelled from the enums rather than

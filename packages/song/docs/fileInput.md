@@ -3,10 +3,10 @@
 An io module is where signal enters or leaves a song. Three roles: `in`, a live interface
 channel; `out`, a sink; and `file`, whose audio comes off disk:
 
-```yaml
-# nodes/take.yaml — one use of the app's FILE input
-io: file
-source: "clips/original.wav"
+```k7x
+// nodes/take.k7x — one use of the app's FILE input
+io("file")
+source("clips/original.wav")
 ```
 
 The app offers it as `@meta/FILE`, beside `@meta/IN` and `@meta/OUT`. One role for
@@ -34,7 +34,7 @@ downstream can read it — silently: such a spelling passes its schema and still
 
 ## Absent is the useful case
 
-A chain **template** — the médiathèque's `graph.yaml`, `@studio/mediatek`'s `docs/chains.md` —
+A chain **template** — the médiathèque's `graph.k7x`, `@studio/mediatek`'s `docs/chains.md` —
 is generic by definition: it says how to treat something, not what to treat. Its input names no
 file, and whoever applies the template supplies the audio. A morceau hands over its master (see
 that package's `docs/variants.md`), and the drawing then says which file goes through the chain
@@ -57,7 +57,7 @@ that is not `in` is) and drawn with no channels at all.
 
 Playback **from a song**. The role, the field, the catalogue entry, the graph's treatment of it
 and the drawing are here; nothing compiles a FILE module into a `ProjectDoc` from a song's own
-YAML. In a song, audio reaches the engine as a clip on a track, and making a file input compile
+files. In a song, audio reaches the engine as a clip on a track, and making a file input compile
 to that is the piece still to write — deliberately not guessed at here, because the shape a song
 wants may differ.
 

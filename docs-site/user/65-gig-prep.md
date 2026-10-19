@@ -4,7 +4,7 @@ A desk plays files that sit on the **engine's machine**, measures each song befo
 
 ## 1. Get the songs onto the engine's machine
 
-The engine opens files on its own disk, and a venue may have no network. While a project is open, k7 checks once a minute which songs the project's desk names (the songs of the playlist in `surfaces/desk.yaml`) and copies every file of those songs' folders to the machine of the engine your session is bound to. Only what is missing or changed is sent, and an unchanged list is not sent again.
+The engine opens files on its own disk, and a venue may have no network. While a project is open, k7 checks once a minute which songs the project's desk names (the songs of the playlist in `surfaces/desk.k7x`) and copies every file of those songs' folders to the machine of the engine your session is bound to. Only what is missing or changed is sent, and an unchanged list is not sent again.
 
 What this means in practice:
 
@@ -27,7 +27,7 @@ Load each song and look at its tempo. If the analysis found double or half the r
 
 ## 3. Set your cues
 
-Hot cues set during a rehearsal are kept in the project's `mix.yaml` and come back whenever the song is on a deck in this set. See [Hot cues](./61-desk-decks.md#hot-cues).
+Hot cues set during a rehearsal are kept in the project's `mix.k7x` and come back whenever the song is on a deck in this set. See [Hot cues](./61-desk-decks.md#hot-cues).
 
 ## Separating stems
 
@@ -75,12 +75,12 @@ Without a chain it uses the one set with `system stems`. It needs a project open
 
 ### Let the desk separate on demand
 
-Add `stems: true` to `surfaces/desk.yaml`. A song put on a deck that has no stems then starts separating; a percentage shows over its stem knobs, and they light up when it is done. The record plays normally in the meantime.
+Add `stems: true` to `surfaces/desk.k7x`. A song put on a deck that has no stems then starts separating; a percentage shows over its stem knobs, and they light up when it is done. The record plays normally in the meantime.
 
 ## Checklist
 
 1. The playlist names every song by its path.
-2. `surfaces/desk.yaml` names that playlist.
+2. `surfaces/desk.k7x` names that playlist.
 3. The project has been open, connected to the stage engine, long enough for the songs to be copied (the browser shows discs, not clouds).
 4. The desk's analysis counter has finished.
 5. Tempos checked, octave errors corrected.

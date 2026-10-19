@@ -5,26 +5,25 @@ song's variants. It lives under `_playlists/`, at the root of the workspace, at 
 like:
 
 ```
-<workspace>/_playlists/ete-2026.yaml
-<workspace>/_playlists/live/thursday-rehearsal.yaml
+<workspace>/_playlists/ete-2026.k7x
+<workspace>/_playlists/live/thursday-rehearsal.k7x
 ```
 
-```yaml
-# _playlists/live/thursday-rehearsal.yaml
-title: Thursday rehearsal
-items:
-  - AC-DC/Back in Black/Hells Bells
-  - song: Nirvana/Nevermind/Lithium
-    variant: instrumental
-  - song: Miles Davis/Kind of Blue/So What
-    variant: sans-voix
+```k7x
+// _playlists/live/thursday-rehearsal.k7x
+title("Thursday rehearsal")
+items([
+  "AC-DC/Back in Black/Hells Bells",
+  song("Nirvana/Nevermind/Lithium").variant("instrumental"),
+  song("Miles Davis/Kind of Blue/So What").variant("sans-voix"),
+])
 ```
 
-## Here, and ALSO in the médiathèque — two homes, one format
+## Here, and ALSO in the médiathèque — two homes, one schema
 
 The médiathèque holds set lists of its own, under `playlists/` on its volume
-(`packages/ui-library/docs/playlists.md`). Same schema, same parser, same text edits: a file copied either way
-is read by both. What differs is the job.
+(`packages/ui-library/docs/playlists.md`). Same fields, same item rules; but the volume's are YAML, read
+through `packages/song-schema/src/mediaYaml.ts`, since the volume is no workspace. What differs is the job.
 
 **A playlist here is the account's document, written for one specific piece of work.** A gig's
 setlist belongs to the repository holding the songs played at it — under `_playlists/` it commits,
@@ -56,7 +55,7 @@ folder. Same reason as `/module-libraries`.
 
 ## The file IS the entry
 
-There is no folder around a playlist, and no `playlist.yaml` marker inside one: **the extension is
+There is no folder around a playlist, and no `playlist.k7x` marker inside one: **the extension is
 the rule** (`PLAYLIST_EXT`), where a song, a chain and a module are folders because each carries
 what its file names — a master, its nodes, its assets. A playlist carries only pointers; a folder
 around it would be an empty box.
@@ -104,20 +103,13 @@ filled.
 
 ## Writing a line without going through the serialiser
 
-`appendPlaylistItem` adds a line **to the text**. Same discipline as `yaml/edit.ts` takes with a
-project's files, for the same reason: these files carry comments and an order somebody chose, and
-round-tripping through an object would throw both away silently.
+`appendPlaylistItem` adds a line **to the document**, by key path. Same discipline as `yaml/edit.ts`
+takes with a project's files, for the same reason: these files carry comments and an order somebody
+chose, and round-tripping through an object would throw both away silently.
 
-It returns `null` — rather than an approximation — for shapes it cannot extend: a flow sequence
-spread over several lines, or an `items:` that is not a list. The surface then disables its button
-and says why; writing a second `items:` further down would produce a file whose two halves
-contradict each other.
-
-`yamlScalar` quotes **when it must and only then**. Song paths come out of `segment()` and so
-legitimately carry spaces, `&` and parentheses — all fine unquoted mid-scalar, and not at all in
-the lead. Quoted are: anything starting with an indicator, anything containing `: ` or ` #`, and
-anything YAML would read as other than a string (`No`, `null`, `42`). Quoting everything would be
-easier to write and would put two conventions in a file that is also hand-edited.
+It returns `false` — rather than an approximation — when `items` is not a list. The surface then
+disables its button and says why; writing a second `items` further down would produce a file whose
+two halves contradict each other.
 
 ## Creating, and adding a line
 
@@ -131,9 +123,9 @@ the chance to get wrong. It adds the extension if missing — the extension is w
 and refuses a name already taken rather than opening it: a "create" that quietly handed back
 someone else's setlist is how you edit the wrong one.
 
-`playlist song add` goes through `appendPlaylistItem`, so through the TEXT: the comments and the
-order written are still there afterwards. A shape the append cannot extend is refused by name,
-never worked around by writing a second `items:` further down.
+`playlist song add` goes through `appendPlaylistItem`, so through the document: the comments and
+the order written are still there afterwards. A shape the append cannot extend is refused by name,
+never worked around by writing a second `items` further down.
 
 The name goes through `playlistPathOf`, which refuses a `..` segment — and the verb additionally
 checks that the RESOLVED path stays under `_playlists/`, because that function splits on `/`:

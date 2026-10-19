@@ -31,8 +31,7 @@ const lane = (body: string) => {
   mkdirSync(join(song, "video_tracks"), { recursive: true });
   writeFileSync(join(song, "video_tracks", "main.k7x"), body, "utf8");
 };
-const read = () =>
-  readFileSync(join(song, "video_tracks", "main.k7x"), "utf8");
+const read = () => readFileSync(join(song, "video_tracks", "main.k7x"), "utf8");
 const shots = () => listVideoPlacements(read());
 
 beforeEach(() => {
@@ -44,9 +43,7 @@ afterEach(() => rmSync(song, { recursive: true, force: true }));
 
 describe("picture speed", () => {
   it("writes the factor, and drops the key again at 1", async () => {
-    lane(
-      '// A-roll\nevents([ref("a").start(0).length(4).source_from(2)])\n',
-    );
+    lane('// A-roll\nevents([ref("a").start(0).length(4).source_from(2)])\n');
     await runCommand("picture speed main 0 0.5", host(), "cli");
     expect(shots()[0]?.speed).toBe(0.5);
     expect(read()).toContain("// A-roll");
@@ -70,17 +67,13 @@ describe("picture speed", () => {
 
 describe("edits under a speed", () => {
   it("splits at the shot's speed: the tail's in-point is the head's length × speed on", async () => {
-    lane(
-      'events([ref("a").start(0).length(4).source_from(1).speed(2)])\n',
-    );
+    lane('events([ref("a").start(0).length(4).source_from(1).speed(2)])\n');
     await runCommand("picture split main 0 1.5", host(), "cli");
     expect(shots()[1]).toMatchObject({ start: 1.5, sourceFrom: 4, speed: 2 });
   });
 
   it("trims a head at the shot's speed, backwards too", async () => {
-    lane(
-      'events([ref("a").start(0).length(4).source_from(6).speed(-1)])\n',
-    );
+    lane('events([ref("a").start(0).length(4).source_from(6).speed(-1)])\n');
     await runCommand("picture head main 0 1", host(), "cli");
     // Running backwards, a head moved 1 s later starts 1 s EARLIER in the source.
     expect(shots()[0]).toMatchObject({ start: 1, sourceFrom: 5, length: 3 });

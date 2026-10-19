@@ -42,7 +42,7 @@ nodes of one mixer read as seventeen unrelated things, with what a node IS learn
 opening it. So the header says the MODULE, with the node's own name on hover — see
 `moduleDisplayName`.
 
-It is absent on a node that IS a module (a `modules/…/module.yaml` names itself) and on a track,
+It is absent on a node that IS a module (a `modules/…/module.k7x` names itself) and on a track,
 which has no module at all. That absence is what the header reads as "one name here".
 
 `WebChainStep.place` stands in for the node's own name where that name is a uuid — a chain
@@ -116,7 +116,7 @@ default is known only to the engine, so a widget with no value falls back to its
 STRING is a file-valued param (`model`), drawn as a dropdown over the module's `assets/` rather than
 a knob; the engine never sees it as a param (see `nodeProject`'s `numericParams`).
 
-`cc` comes from the `controller.yaml` in the module's FOLDER, so it is the module's and shared by
+`cc` comes from the `controller.k7x` in the module's FOLDER, so it is the module's and shared by
 every node of it, exactly as the panel is. It is keyed by the widget's `bind` string verbatim
 (`Cutoff`, `@monitor`), so a widget finds its own control by the one name it already has.
 
@@ -182,7 +182,7 @@ about what is automated.
 
 ## The graph's track side
 
-`positions` is where somebody PINNED a node, `graph.yaml`'s `positions:` verbatim. The layout
+`positions` is where somebody PINNED a node, `graph.k7x`'s `positions:` verbatim. The layout
 places only what has no entry there — a node dragged once stays put for ever.
 
 `trackAlternatives` has its own map for the reason `trackColors` and `trackClips` do: a lane's

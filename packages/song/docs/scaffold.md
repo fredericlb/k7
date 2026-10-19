@@ -14,7 +14,7 @@ same code.
 
 What the conversion costs is the comments of the files it generates. A chain file is written from
 data, so the notes the graph and the node files carried are not in it; every file that is MOVED
-rather than generated — `project.yaml`, a lane's `tracks/` file, `surfaces/`, `video_tracks/` —
+rather than generated — `project.k7x`, a lane's `tracks/` file, `surfaces/`, `video_tracks/` —
 keeps its own.
 
 Two shapes stay graphs:
@@ -46,9 +46,9 @@ example to edit.
 
 ## `video` is `arrangement` plus picture, by construction
 
-`videoProjectFiles` spreads `projectFiles` and adds four things: a `surfaces/viewport.yaml`, a
-clip, a `video_tracks/main.yaml`, and the bundled `clips/sample.mp4` — plus the two header lines
-`viewport:` and `layers:`, which live inside `project.yaml` rather than in a file of their own and
+`videoProjectFiles` spreads `projectFiles` and adds four things: a `surfaces/viewport.k7x`, a
+clip, a `video_tracks/main.k7x`, and the bundled `clips/sample.mp4` — plus the two header lines
+`viewport:` and `layers:`, which live inside `project.k7x` rather than in a file of their own and
 are therefore the one entry re-derived instead of shared.
 
 Built by **adding** rather than by restating, so the graph, the synth and the settings cannot
@@ -113,16 +113,16 @@ every song gets curves.
 ## The arrangement is a surface a song ASKS for
 
 The timeline is a surface ([surfaces.md](surfaces.md)), so a folder that draws one says so in
-`surfaces/timeline.yaml` — the way a set says it wants a desk. It is scaffolded because a new song
+`surfaces/timeline.k7x` — the way a set says it wants a desk. It is scaffolded because a new song
 is a song: the alternative was a first screen with no lanes on it and nothing to explain why. The
-`video` archetype's `surfaces/viewport.yaml` is declared the same way, since a song's picture and a
+`video` archetype's `surfaces/viewport.k7x` is declared the same way, since a song's picture and a
 song's sound are one folder and this archetype gets a lane of each — otherwise picture is a feature
 you could only discover by reading about it.
 
 ## Nothing points at the shared folders
 
 A project sees the workspace's own `_modules` and the account's library repository because of
-WHERE they are (sharedFolders.ts). Writing those lists into `project.yaml` would write down facts
+WHERE they are (sharedFolders.ts). Writing those lists into `project.k7x` would write down facts
 the loader already knows, and leave a project wrong the day one of them moves.
 
 ## Why the files are hand-authored

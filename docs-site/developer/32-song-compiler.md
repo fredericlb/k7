@@ -9,7 +9,7 @@ layouts. It reads; changing a project is `@studio/song-edit`'s job ([song-edit](
 
 | Function | File | What it does |
 |---|---|---|
-| `loadProject(path)` | `packages/song/src/project.ts` | The one entry the file service calls. A folder with `chains/`, `graph.yaml` or `modules/` goes to `compileNodeProject`; an older flat folder (`project` + `tracks/` with clip id lists) goes through `assembleFolder` in `packages/song/src/folder.ts` and `mapDoc`; a single `.yaml`/`.k7x` file holding `project` and `tracks` is mapped directly. Sets `recordDir` to `<project>/clips`. |
+| `loadProject(path)` | `packages/song/src/project.ts` | The one entry the file service calls. A folder with `chains/`, `graph.k7x` or `modules/` goes to `compileNodeProject`; an older flat folder (`project` + `tracks/` with clip id lists) goes through `assembleFolder` in `packages/song/src/folder.ts` and `mapDoc`; a single `.k7x` file holding `project` and `tracks` is mapped directly. Sets `recordDir` to `<project>/clips`. |
 | `compileNodeProject(dir)` | `packages/song/src/nodeProject.ts` | The compile proper, through `compileWithAutoFreezes`. |
 | `loadGraph(dir)`, `parseChains`, `checkChainInputs` | `packages/song/src/graph.ts` | The derived chain graph, its validation, and the port type checks. |
 | `loadModules`, `loadModuleRefs`, `loadChains`, `loadLanes`, `loadVideoTracks`, `loadProjectRoot`, `loadSettings`, `exportSub`, `readYamlEntities` | `packages/song/src/loader.ts` | Reading each file kind off disk, validated or not. |
@@ -26,8 +26,8 @@ reaches the engine.
 
 ## Two layouts, one compile
 
-A project's routing is written either as segments (`graph.yaml` + `nodes/<name>.yaml`) or as chain
-files (`chains/*.yaml` + `tracks/` + `vstpresets/` + `layout.yaml`). `isChainProject(dir)` in
+A project's routing is written either as segments (`graph.k7x` + `nodes/<name>.k7x`) or as chain
+files (`chains/*.k7x` + `tracks/` + `vstpresets/` + `layout.k7x`). `isChainProject(dir)` in
 `packages/song/src/chainProject.ts` decides by the presence of `chains/`.
 
 The compiler reads only segments. `loadChains` turns a chain project into segments
@@ -88,7 +88,7 @@ with **engines** runs as the one that is on (`engines.ts`, `asEngine`), its per-
 File-valued params and a `base:` named by the child are re-resolved against the whole ancestry's
 folders, nearest first (`withInheritedFiles`, `basePreset.ts`, `libraryFiles.ts`).
 
-Panels come from the `ui.yaml` beside each module, attached by ref in `applyUiLibrary`
+Panels come from the `ui.k7x` beside each module, attached by ref in `applyUiLibrary`
 (`packages/song/src/loader.ts`); `packages/song/src/uiLibrary.ts` holds the panel lookup helpers.
 
 ## Lanes
@@ -121,8 +121,8 @@ draws a `?`. A missing `extends` target is.
 
 Parsed files are cached against `(mtime, size)` once the mtime is old enough that a later write could
 not reproduce it (`packages/song/src/yaml/yamlCache.ts`, `settledParse`); module trees likewise
-(`moduleCache.ts`). Every file access goes through `packages/song/src/yaml/workspaceFile.ts`
-(`wsRead`, `wsWrite`, `wsList`…), which also hides the YAML/k7x choice — see [k7x](./34-k7x.md).
+(`moduleCache.ts`). A file is read and edited as k7x through `packages/song/src/yaml/workspaceDoc.ts`
+(`wsText`, `wsData`, `wsEdit`…), plain bytes through `workspaceFile.ts` — see [k7x](./34-k7x.md).
 
 ## Tests
 

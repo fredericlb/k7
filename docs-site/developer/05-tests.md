@@ -63,7 +63,7 @@ Other packages with a config of their own: `audio-passes`, `song-edit`, `song-vi
   `__tests__/**` as entry points, so test-only helpers are not reported as dead.
 - A test that needs a library or a media library sets `STUDIO_HOME` or `STUDIO_MEDIATEK` to its own
   temporary folder. `@studio/song/testSupport` has fixture helpers that copy a shipped demo project
-  and edit one value in it by YAML path (a path that does not exist throws).
+  and edit one value in it by key path (a path that does not exist throws).
 - Disk-touching tests should clean up their temporary folders; the 30-second timeout exists for
   them, not as a target.
 - Packages that need an i18n catalogue compile it first: `@studio/ui-rehearsal` has `pretest` and

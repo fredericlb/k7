@@ -18,30 +18,25 @@ IN -> fader -> MIX -> rec -> OUT
 | `rec` | A recorder on the master run. It captures the whole mix after the fader. |
 | `OUT` | The interface output. |
 
-`settings.yaml` turns the metronome off. `project.yaml` keeps a tempo of 120, which the metronome and delays written in beats use.
+`settings.k7x` turns the metronome off. `project.k7x` keeps a tempo of 120, which the metronome and delays written in beats use.
 
 ## First steps
 
 1. **Choose the input channel.** A new rig names no channel, so it says "no channel — it feeds nothing" until you pick one. Pick it on the `IN` node's card on the graph, or write it in the node file:
 
-   ```yaml
-   io: in
-   monitor: "on"
-   gain: 0
-   channel: [1]        # 1-based; a pair for a stereo input, e.g. [1, 2]
+   ```k7x
+   io("in")
+   monitor("on")
+   gain(0)
+   channel([1]) // 1-based; a pair for a stereo input, e.g. [1, 2]
    ```
 
    You can also write a channel label from the machine's settings (`channel: "guitar"`), which survives moving to another machine. `gain` is a trim in dB at the interface. Keep `"on"` in quotes.
 
 2. **Add effects** by putting modules between the input and the fader in the graph:
 
-   ```yaml
-   modules:
-     IN: [ amp ]
-     amp: [ fader ]
-     fader: [ MIX ]
-     MIX: [ rec ]
-     rec: [ OUT ]
+   ```k7x
+   modules({ IN: ["amp"], amp: ["fader"], fader: ["MIX"], MIX: ["rec"], rec: ["OUT"] })
    ```
 
    See the Chains section of this guide for adding modules.

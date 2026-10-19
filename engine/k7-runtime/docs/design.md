@@ -1,8 +1,8 @@
 # k7-runtime — design notes
 
 Everything above this engine is **Node and TypeScript**: `@studio/song` compiles a folder of
-YAML into a `ProjectDoc`, and `@studio/file-service` sends it over a WebSocket. YAML parsing
-never happens here. These notes describe the engine.
+k7x files into a `ProjectDoc`, and `@studio/file-service` sends it over a WebSocket. Parsing a
+workspace file never happens here. These notes describe the engine.
 
 ## The pipeline
 

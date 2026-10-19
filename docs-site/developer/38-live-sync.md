@@ -17,14 +17,10 @@ From `packages/live-sync/src/ops.ts`:
 
 ```ts
 type KeyPath = string[];
-type YamlOp =
-  | { op: "set"; path: KeyPath; yaml: string; was?: string | null; after?: string | null }
-  | { op: "delete"; path: KeyPath; was?: string | null };
 type K7xOp =
   | { op: "set"; path: KeyPath; k7x: string; was?: string | null; after?: string | null }
   | { op: "delete"; path: KeyPath; was?: string | null };
 type FileOp =
-  | { kind: "yaml"; file: string; ops: YamlOp[] }
   | { kind: "k7x"; file: string; ops: K7xOp[] }
   | { kind: "text"; file: string; text: string; was?: string | null }
   | { kind: "remove"; file: string; was?: string | null };
@@ -49,13 +45,11 @@ interface Sequenced { seq: number; batch: Batch; parked: Conflict[] }
 
 `fileOpFor(before, after)` in `packages/live-sync/src/fileOp.ts`:
 
-1. YAML (`.yaml`, `.yml`): diff the two parsed documents (`packages/live-sync/src/yamlOps.ts`), first
-   with keyed lists as item ops, then with each list as one value. The ops are kept **only if applying
-   them to `before` reproduces `after` byte for byte**; a correct diff can still miss a comment or a
-   key order, which is why the replay check exists.
-2. k7x: the same two passes with `diffK7x`/`applyK7x` (`packages/live-sync/src/k7xOps.ts`), which
-   splice a value's source verbatim.
-3. Otherwise: one `text` op with the whole new text and the old text's hash; a deleted file is a
+1. k7x: diff the two trees with `diffK7x` (`packages/live-sync/src/k7xOps.ts`), first with keyed
+   lists as item ops, then with each list as one value; `applyK7x` splices a value's source verbatim.
+   The ops are kept **only if applying them to `before` reproduces `after` byte for byte**; a correct
+   diff can still miss a comment or a layout, which is why the replay check exists.
+2. Otherwise: one `text` op with the whole new text and the old text's hash; a deleted file is a
    `remove` op.
 
 Because the writers in `@studio/song-edit` change one value and keep every other byte, almost every
@@ -68,7 +62,7 @@ edit made in k7 becomes a small path op.
 - deduplicates by `batch.id` (a resent batch gets its original entry back);
 - settles each file op against the current files (`settleFileOp`): a path op applies when the value
   at its path still equals its `was` (or already equals the target, which is skipped); a text op when
-  the current text's hash is its `was`. A late whole text of a non-YAML file may still be merged by
+  the current text's hash is its `was`. A late whole text of a file that is not k7x may still be merged by
   diff3 against a remembered base (`packages/live-sync/src/textMerge.ts`) if no region conflicts;
 - **parks** what does not settle as a `Conflict` (`kept` holds the value that won), applies the
   rest, and appends the entry with `seq = head + 1`.
@@ -98,7 +92,9 @@ carrying all its workspaces:
 | relay → replica | `{ t: "welcome", mode: "seed" \| "entries" \| "snapshot", head?, files?, conflicts? }`, `{ t: "seq", entry }`, `{ t: "refused", reason, min, server }`, `{ t: "error", error, reason? }` |
 
 `proto` is the replica's `SYNC_PROTO`; a level the relay does not serve is refused, and the
-replica stops until one side is updated (`packages/live-sync/docs/sync.md`, "Versions").
+replica stops until one side is updated (`packages/live-sync/docs/sync.md`, "Versions"). A `yaml`
+op is a retired kind (`RETIRED_OP_KINDS`): a hub skips one in a stored log, and a relay answers one
+on the wire `unknown-op`.
 `readToRelay` validates every frame field by field (`isBatch`, `isFileOp`): the relay trusts the
 socket's authentication, never its payload. The endpoint is `WS /api/sync` on the hub
 ([file-hub](./37-file-hub.md)), or the paired server's `wss://<host>/api/sync`.
@@ -106,9 +102,9 @@ socket's authentication, never its payload. The endpoint is `WS /api/sync` on th
 ## Tests
 
 - `packages/live-sync/src/converge.test.ts`: seeded random runs (many seeds × three replicas ×
-  hundreds of steps) of YAML, markdown and keyed-note edits with late and interleaved delivery and
+  hundreds of steps) of k7x, markdown and keyed-note edits with late and interleaved delivery and
   replicas falling behind; every replica must end equal to the room with nothing unconfirmed.
-- `packages/live-sync/src/corpus.test.ts` and `k7xCorpus.test.ts`: every YAML and k7x file under
+- `packages/live-sync/src/k7xCorpus.test.ts`: every k7x file under
   `demos/` and the library; each scalar edited and each keyed item edited, removed and added must give
   path ops that replay byte for byte.
 - Unit tests beside each module (`room.test.ts`, `fileOp.test.ts`, `listOps.test.ts`,

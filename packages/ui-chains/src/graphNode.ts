@@ -150,7 +150,7 @@ export interface GraphNode extends Carried, Flags {
   assembly?: string;
   /** Where this node belongs, having STEPPED ASIDE for an open frame — never written down (`pushAsideFrames`). */
   pushed?: Pt;
-  /** …and, on the BOX, what it is. `plugs` is what turns a plug into a graph.yaml address. */
+  /** …and, on the BOX, what it is. `plugs` is what turns a plug into a graph.k7x address. */
   assemblyOf?: {
     uses: string;
     open: boolean;

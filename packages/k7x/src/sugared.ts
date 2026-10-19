@@ -1,5 +1,5 @@
 // sugared.ts — new data applied to a document that may hold short forms, each kept while its expansion is unchanged.
-// A reader would get wrong that a short form is written back: one whose expansion changed goes, written in full (docs/bridge.md).
+// A reader would get wrong that a short form is written back: one whose expansion changed goes, written in full (song-schema's docs/sugar.md).
 
 import { applyData, isRecord, same } from "./applyData.ts";
 import type { K7Document } from "./edit.ts";

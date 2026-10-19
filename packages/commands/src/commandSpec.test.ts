@@ -298,6 +298,15 @@ describe("commands.yaml is well-formed against the providers", () => {
     );
     expect(mute).toEqual([]);
   });
+
+  it("names no YAML file in a hint or a help line, since a workspace file is .k7x", () => {
+    const yaml = loadCommandSpecs().flatMap((c) =>
+      [c.help ?? "", ...(c.args ?? []).map((a) => a.hint ?? "")]
+        .filter((s) => /\.ya?ml\b/.test(s))
+        .map((s) => `${c.command}: ${s}`),
+    );
+    expect(yaml).toEqual([]);
+  });
 });
 
 // The catalogue is the only place that can notice a sentence is missing — docs/completions.md.

@@ -74,7 +74,7 @@ Seconds (`12.5`) or `m:ss` (`1:30.5`) — `parseWallClock` from `@studio/song-vi
 parser `markers:` uses on the picture side. A `bar:beat:tick` is refused **by name** rather than
 mis-parsed.
 
-That is not a limitation, it is the file: `video_tracks/*.yaml` is in decimal seconds, and there is
+That is not a limitation, it is the file: `video_tracks/*.k7x` is in decimal seconds, and there is
 one `tempo:` and no tempo map. Accepting a musical spelling would mean two dialects for one number,
 with a conversion in between that the file never performs.
 
@@ -122,12 +122,12 @@ sends a number: it names the lane whose place is being taken, and this verb does
 
 ## `picture lane new` writes TWO files, and looks the second up first
 
-Every other verb here rewrites one lane. This one writes `video_tracks/<id>.yaml` **and** appends
+Every other verb here rewrites one lane. This one writes `video_tracks/<id>.k7x` **and** appends
 the id to `project.layers` — because `layers` is the membership, not just the order: a lane absent
 from it fails the picture compile by name. Two writes, one act.
 
-So `project.yaml` is found *before* either write happens. A song with none is refused with
-`no project.yaml — a picture lane has nowhere to be listed`, rather than left holding a lane file
+So `project.k7x` is found *before* either write happens. A song with none is refused with
+`no project.k7x — a picture lane has nowhere to be listed`, rather than left holding a lane file
 that would have to be listed by hand. Named nothing, it picks `layer-N` off the directory — the
 lanes are files, not something the song's own document holds.
 
@@ -137,7 +137,7 @@ picture lanes in one name space.
 ## `picture add` reports rather than refuses
 
 The `ref` names a `clips/` entry, and only the compiler reads those. A ref with no file is
-**placed, and said out loud** — `no clips/<ref>.yaml — the lane will report it until there is one`.
+**placed, and said out loud** — `no clips/<ref>.k7x — the lane will report it until there is one`.
 Refusing would mean this verb could not run before the clip exists, and the order people work in is
 not something a verb gets to choose. The lane already reports an unresolved ref on the surface
 itself.
@@ -152,6 +152,6 @@ A lane whose `events:` is in a shape the text edit cannot extend is refused with
   nothing here would know what to do about that.
 - **No split.** For picture it is two placements sharing a source with a computed `source_from`,
   which is a real feature and not a variation on these five — `picture split`, above.
-- **They do not touch `layers:`.** Which lanes exist and in what order is `project.yaml`'s, and a
+- **They do not touch `layers:`.** Which lanes exist and in what order is `project.k7x`'s, and a
   verb that placed a shot on a lane the song does not draw would be writing into a file nobody
   reads.

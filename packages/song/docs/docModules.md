@@ -2,20 +2,19 @@
 
 A note is a module. One input, no output, one field:
 
-```yaml
-# nodes/notes-amp.yaml
-extends: "@meta/doc"
-content: |
-  The NAM pulls hard: -6 dB before it,
-  or it clips on the attacks.
+```k7x
+// nodes/notes-amp.k7x
+extends("@meta/doc")
+content(`The NAM pulls hard: -6 dB before it,
+or it clips on the attacks.
+`)
 ```
 
 …wired from whatever it is about, like anything else:
 
-```yaml
-# graph.yaml
-modules:
-  ampli: [ reverb, notes-amp ]
+```k7x
+// graph.k7x
+modules({ ampli: ["reverb", "notes-amp"] })
 ```
 
 ## Why a note is IN the graph and not in a panel
@@ -52,7 +51,7 @@ module with its own settings. Two notes are two nodes of one module for the same
 4OSCs are; their setting happens to be text rather than a number. `mergeAuthored` makes the
 child win per key, so each note's `content` is its own, and `OWN_ONLY` needs no entry for it.
 
-The alternative costs more: a project-local `modules/docs/doc/module.yaml` would be a file every
+The alternative costs more: a project-local `modules/docs/doc/module.k7x` would be a file every
 project must scaffold before its first note. Built in, a note costs exactly one file — its node.
 
 `@meta` is its own namespace and not `@engine`, deliberately: the engine never hears of this.

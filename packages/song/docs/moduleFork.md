@@ -1,6 +1,6 @@
 # moduleFork — giving an engine module a folder
 
-A `@workspace` or `@k7-core` module already has a folder: `module.yaml`, and whichever of `ui.yaml`
+A `@workspace` or `@k7-core` module already has a folder: `module.k7x`, and whichever of `ui.k7x`
 and a `jsdsp.ts` it carries. Editing one is writing that folder directly — no
 special handling here, no redirect. `@workspace` takes the write immediately, like any other file
 k7 saves; `@k7-core` goes through the Edit-then-publish gate instead, since a save there commits and
@@ -26,11 +26,11 @@ So `materialiseEngineModule` is the act that makes it one:
    `instanceName`: this one is named after a PLUGIN's own slug and wants it bare, so the folder
    reads as the plugin it is, and the counter only appears when the name is already taken — two
    engine modules can slug the same.
-2. Write a `module.yaml` recording **which plugin** to load — the scan is a discovery aid, not the
+2. Write a `module.k7x` recording **which plugin** to load — the scan is a discovery aid, not the
    project's memory of what it uses, and the project must still open on a machine that has never
    scanned.
 3. Carry the panel across, if the engine ref had one drawn under it somewhere readable — its
-   header then names the new module instead of the ref it was drawn for, so a `ui.yaml` whose
+   header then names the new module instead of the ref it was drawn for, so a `ui.k7x` whose
    comment still points at `@engine/…` does not read as borrowed rather than given.
 4. Repoint every chain step naming the ref — *after* the file exists. A chain naming a module with
    no file is precisely what the compiler refuses to load.
@@ -52,7 +52,7 @@ Two details behind those four steps:
 
 ## Why a folder and not a node
 
-The obvious shape is a node file naming the plugin directly — `<slug>.yaml` in `nodes/`, which is
+The obvious shape is a node file naming the plugin directly — `<slug>.k7x` in `nodes/`, which is
 exactly what `createNode` already writes for an engine pick nobody has materialised. Two things
 rule it out as the general answer:
 

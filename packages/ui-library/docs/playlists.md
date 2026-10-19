@@ -41,8 +41,8 @@ and the row list are two views of one string, so opening the text half never sho
 disagrees with the rows above it.
 
 It also means the graphical edits go through the same three functions the format defines —
-`appendPlaylistItem`, `removePlaylistItem`, `movePlaylistItem` — which work on the text and never
-re-serialise. These files carry comments and an order somebody chose, and round-tripping a set list
+`appendMediaPlaylistItem`, `removeMediaPlaylistItem`, `moveMediaPlaylistItem` — which work on the
+text and never re-serialise. These files carry comments and an order somebody chose, and round-tripping a set list
 through a dumper is exactly the change nobody notices until their notes are gone.
 
 A shape those functions cannot take — an inline `items: [a, b]` — **disables the three buttons with

@@ -37,8 +37,7 @@ function songOf(ids: string[]) {
       }) as unknown as ProjectDoc,
   });
 }
-const colorOf = (id: string) =>
-  wsData(join(song, "tracks", `${id}.k7x`)).color;
+const colorOf = (id: string) => wsData(join(song, "tracks", `${id}.k7x`)).color;
 const order = () => wsData(join(song, "project.k7x")).trackOrder;
 
 describe("track arrange", () => {

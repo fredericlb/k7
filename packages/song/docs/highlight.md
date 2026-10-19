@@ -6,7 +6,7 @@ for hearing one part in the mix without touching the balance that was set.
 
 ## Project state, beside `soloed:`
 
-The highlighted lanes are a list at `project.yaml`'s root, `highlighted:`, written by `track highlight
+The highlighted lanes are a list at `project.k7x`'s root, `highlighted:`, written by `track highlight
 <lane>` (a toggle) — the place and the shape `soloed:` already has, and for its reason: it is a fact
 about how the song is being LISTENED to, kept across a reload and shared with whoever opens the
 project, and never a value of any module. A lane split into an audio and a MIDI half is one entry.

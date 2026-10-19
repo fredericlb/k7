@@ -1,5 +1,5 @@
 // dsp.dsp — le passe-bas en échelle de Moog, en Faust. La source que le moteur compile :
-// deux réglages, un filtre par canal, et rien d'autre. Voir module.yaml à côté, et
+// deux réglages, un filtre par canal, et rien d'autre. Voir module.k7x à côté, et
 // packages/song/docs/faustModules.md pour ce que le moteur en fait.
 
 import("stdfaust.lib");

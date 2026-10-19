@@ -1,21 +1,21 @@
-# `controller.yaml` — a module's MIDI map
+# `controller.k7x` — a module's MIDI map
 
 Which control change plays which of a module's params. One file, in the module's own folder,
-beside `module.yaml`:
+beside `module.k7x`:
 
-```yaml
-# MIDI map for instruments/synth — <param>: { ch, cc }. Shared by every node of this module.
-Filter Freq: { ch: 1, cc: 74 }
-Resonance: { ch: 1, cc: 71 }
+```k7x
+// MIDI map for instruments/synth — <param>: { ch, cc }. Shared by every node of this module.
+"Filter Freq"({ ch: 1, cc: 74 })
+Resonance({ ch: 1, cc: 71 })
 ```
 
-The key is the param exactly as a **widget binds it** (`ui.yaml`'s `bind:`), so the map and the
+The key is the param exactly as a **widget binds it** (`ui.k7x`'s `bind:`), so the map and the
 panel line up key for key and can be read side by side. `ch` is 1–16 as a musician counts them,
 not 0–15 as the wire does — this file is read by people; the runtime subtracts the one.
 
 ## Why the module's folder
 
-It is the fourth sibling of `module.yaml`, `ui.yaml` and `presets.yaml`, and it is there for the
+It is the fourth sibling of `module.k7x`, `ui.k7x` and `presets.k7x`, and it is there for the
 same reason the panel is: **the folder says which module it belongs to, the file only says how it
 is played.** A module is a device — the map is how your hands reach that device, and it should
 follow it into every project that names it, exactly as its face and its presets do.
@@ -29,7 +29,7 @@ Two consequences fall out of that, and both are the location working rather than
   layout unless the module travels too — and if the module came from the médiathèque, it does.
 
 A map on a **lane's** mixer control is not expressible: a lane is a module (trackModules.md), but
-a FLAT node has no folder to put a `controller.yaml` in. That is a real limit of this location,
+a FLAT node has no folder to put a `controller.k7x` in. That is a real limit of this location,
 and the graph declines to offer the menu there rather than writing somewhere the value could not
 be read back from.
 
@@ -70,7 +70,7 @@ the error says so rather than writing nowhere.
 
 ## The trap
 
-`nodeFiles` treats every `<name>.yaml` in a module folder as a NODE of the module,
+`nodeFiles` treats every `<name>.k7x` in a module folder as a NODE of the module,
 except the folder's own (`MODULE_OWN_BASES`). A sibling added without registering it there comes
 back as a module called `synth:controller`. That is why the list is a named export and not four
 string literals — and there is a test for exactly this, on every one of them.

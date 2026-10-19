@@ -1,4 +1,4 @@
-// The pattern's "Kit" part — the SAME module and the same file as pad.yaml beside it. What
+// The pattern's "Kit" part — the SAME module and the same file as pad.k7x beside it. What
 // makes these events sample one-shots rather than notes is that their sounds resolve to samples,
 // which is a fact about the events and not about the lane.
 extends("@meta/strudel-track")

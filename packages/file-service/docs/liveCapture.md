@@ -18,7 +18,7 @@ The file service writes through about a hundred call sites, and most bypass `rec
 take arriving or a tunnel upload writes without any verb at all. So capture keeps a
 ledger of the workspace and diffs a change against it, whoever made the change.
 
-- **A YAML file** keeps its last text in the ledger: it is the only kind diffed into path ops.
+- **A k7x file** keeps its last text in the ledger: it is the only kind diffed into path ops.
 - **Any other text file** keeps a content hash. It travels whole anyway, and the hash is what stops a
   file rewritten with the same content from sending anything. It is live-sync's `textHash`, not a
   sha1, because the same hash is the `was` its op carries and the room must compute it without `node:`.

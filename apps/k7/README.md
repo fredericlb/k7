@@ -1,13 +1,13 @@
 # k7
 
-A **text-based DAW**. Your song is a folder of YAML files; the terminal (or a web
+A **text-based DAW**. Your song is a folder of k7x files; the terminal (or a web
 editor) is your studio.
 
 k7 is a set of processes talking over a WebSocket, living inside the `studio`
 monorepo:
 
 ```
- song (YAML folder) ─► packages/ (Node)                 moteur   (C++)
+ song (k7x folder)  ─► packages/ (Node)                 moteur   (C++)
                       ├─ parse + validate (Zod)         ┌──────────────────────────┐
                       ├─ resolve clip paths ──project─► │ diff() vs current        │
                       ├─ compile to ProjectDoc (JSON)   │ apply() → Tracktion Edit │
@@ -56,7 +56,7 @@ packages/                  studio's shared tier (consumed as raw TS source):
   engine-protocol/         @studio/engine-protocol — the JSON wire shapes shared with the C++ engine
   file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
   ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)
-  ui-editor/               @studio/ui-editor       — CodeMirror YAML language + tracker note-grid (web UI)
+  ui-editor/               @studio/ui-editor       — CodeMirror k7x language + tracker note-grid (web UI)
   translator/              @studio/translator      — DAWproject (.dawproject) → song folder; `k7 import` is its caller
   web-protocol/            @studio/web-protocol    — the browser↔server wire types
 ```
@@ -66,41 +66,41 @@ The C++ engine is described in
 threading rules). Development conventions for future Claude Code sessions are in
 [CLAUDE.md](CLAUDE.md).
 
-## The song format — a YAML folder
+## The song format — a k7x folder
 
-A song is a **folder of YAML files**, read in-process and validated with Zod —
-no external tooling to install. Any YAML-aware editor works; the web editor adds
+A song is a **folder of k7x files** (`packages/k7x/docs/language.md`), read in-process and
+validated with Zod — no external tooling to install. Any text editor works; the web editor adds
 schema-driven autocompletion derived from the same Zod schemas.
 
 ```
-project.yaml           header + trackOrder + markers
-settings.yaml          project settings (metronome, count-in)
-graph.yaml            the routing graph — ONE `modules:` map, lanes included
-clips/<id>.yaml        audio clips
-sequences/<id>.yaml    MIDI clip config + inline notes ({t,d,k,v} mappings)
-curves/<id>.yaml       automation curves (lfo / custom points)
+project.k7x            header + trackOrder + markers
+settings.k7x           project settings (metronome, count-in)
+graph.k7x             the routing graph — ONE `modules:` map, lanes included
+clips/<id>.k7x         audio clips
+sequences/<id>.k7x     MIDI clip config + inline notes ({t,d,k,v} mappings)
+curves/<id>.k7x        automation curves (lfo / custom points)
 algo/<name>.strudel    live Strudel patterns (played only when a strudel lane links one)
-modules/<type>/<name>/module.yaml  modules: a plugin/io/rack + `params?`, optional `extends: "…"`
+modules/<type>/<name>/module.k7x   modules: a plugin/io/rack + `params?`, optional `extends: "…"`
                                    (type ∈ io|instruments|audio|transformers|video_effects — the folder gives the kind)
-nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANES too
+nodes/<name>.k7x       one USE of a module, flat, named by its file — the LANES too
 <name>/<name>.vstpreset · <name>/<audio>.wav   the module's own preset + rack audio
 ```
 
-- **A track is a MODULE.** It lives in `nodes/<name>.yaml` and what it `extends` says
+- **A track is a MODULE.** It lives in `nodes/<name>.k7x` and what it `extends` says
   what kind of lane it is: `@meta/track`, `@meta/strudel-track` or
   `@meta/group-track`. There is no `tracks/` folder, no `type:` and no `contentType:` —
   a lane is not typed by what it carries. It offers an `audio` and a `midi` output, holds
   events naming clips and events naming sequences in one list, and each leaves by the one
-  its own material fits (`gtr#audio:` / `gtr#midi:` in `graph.yaml` when the two need
+  its own material fits (`gtr#audio:` / `gtr#midi:` in `graph.k7x` when the two need
   different chains). See
   [packages/song/docs/trackModules.md](../../packages/song/docs/trackModules.md).
 - **A group holds no material — only membership.** `tracks` lists the member lane
   names. That's all a group is.
-- **Mute is the lane's BYPASS**, one name in `graph.yaml`'s `bypassed:`; solo is derived by
+- **Mute is the lane's BYPASS**, one name in `graph.k7x`'s `bypassed:`; solo is derived by
   the surface and written nowhere.
-- **A song holds picture too.** `video_tracks/<id>.yaml` places shots in SECONDS against the
+- **A song holds picture too.** `video_tracks/<id>.k7x` places shots in SECONDS against the
   wall clock, where lanes are placed in bars against the tempo. Both are drawn on the one
-  timeline, whose ruler reads either unit, and a `surfaces/viewport.yaml` composites the
+  timeline, whose ruler reads either unit, and a `surfaces/viewport.k7x` composites the
   frame. It is a second COMPILE of the same folder, so the document the engine is handed
   carries no picture at all. See
   [packages/song-video/docs/picture.md](../../packages/song-video/docs/picture.md).
@@ -110,7 +110,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   Nothing static can check that match, since labels only exist once the pattern runs,
   so it's checked when playback starts. **A `.strudel` file no lane links to is
   ignored**: `algo/` is a library you pick from, not a folder that autoloads.
-- **A strudel lane is a lane like any other**: a stable name, so `graph.yaml` can route
+- **A strudel lane is a lane like any other**: a stable name, so `graph.k7x` can route
   it and the mixer can set its gain and pan. How each event reads is the EVENT's business —
   a sound that resolves to a sample plays as a one-shot (`s("bd")`), anything else plays as
   a note for whatever instrument the chain provides (`s(…)` then picks a waveform, not a
@@ -125,18 +125,18 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   two modules. Its **kind** and input port come from its type folder. Several modules can
   extend one *base module*.
 - **A module is its own folder** `modules/<type>/<name>/` — the **folder** names the
-  module (how chains reference it via `use`), and the file inside is always `module.yaml`:
+  module (how chains reference it via `use`), and the file inside is always `module.k7x`:
   a flat mapping of the module's own attributes (a `plugin`/`io`/`rack`, optional
   `params`/`extends`), with **no `name:`**. The folder also holds the module's own
   `<name>.vstpreset` (overriding an extended module's) and its rack's audio. The io sink
-  is a module too (`modules/io/OUT/module.yaml`, `io: "out"`). `module new`
+  is a module too (`modules/io/OUT/module.k7x`, `io: "out"`). `module new`
   writes the right shape;
-  `demos/synth-demo.k7/modules/instruments/synth/module.yaml` is the
+  `demos/synth-demo.k7/modules/instruments/synth/module.k7x` is the
   reference, and `.../kit` shows `extends`.
 - **A project's USES of a module are nodes**, in a flat `nodes/` folder at the
   project root. The **filename names the node** — a chain says **`{module: "lead"}`**,
   not the module it came from — and the file says which module it uses with `extends:`.
-  Same flat shape as `module.yaml`; state only what this use changes. Each keeps its own
+  Same flat shape as `module.k7x`; state only what this use changes. Each keeps its own
   params and its own `nodes/<name>.vstpreset`, so tweaking one never touches the module
   or another use; the merge order is *extended base → the module → the node*. The folder
   is flat on purpose: a node does not mirror the folders of what it uses, so using a
@@ -144,7 +144,7 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   instruments/synth lead` scaffolds one and puts it in the graph, and `demos/synth-demo.k7/nodes/`
   is the worked example — one 4OSC module, a `lead` and a `pad`, each driving its own chain.
   See `packages/song/docs/nodes.md`.
-- A **chain** (in `graph.yaml`) is a signal path, written as a flat list of nodes: a
+- A **chain** (in `graph.k7x`) is a signal path, written as a flat list of nodes: a
   **head**, the modules the signal passes through, and the sink it ends at. `chains` is
   a **list**, not a map — a chain needn't be named.
 - **The head node says where the signal comes from, and names the chain.**

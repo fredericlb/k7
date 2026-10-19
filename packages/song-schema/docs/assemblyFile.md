@@ -6,19 +6,18 @@ documents an ASSEMBLY is, and the writer over the pair. The concept, and why it 
 
 ## Two files, because they answer two questions
 
-`assembly.yaml` says what the box **is** — its plugs, and the params promoted onto its face. It sits
-in the library beside an ordinary `graph.yaml` and `nodes/`, which say what it is **made of**: a
+`assembly.k7x` says what the box **is** — its plugs, and the params promoted onto its face. It sits
+in the library beside an ordinary `graph.k7x` and `nodes/`, which say what it is **made of**: a
 chain template with one more file, and that file is the whole difference.
 
-`assemblies/<name>.yaml` in a project says which of THIS project's nodes are one of those boxes.
-Nothing else: no wiring, no params, no position. Those are already in `graph.yaml`, where every
+`assemblies/<name>.k7x` in a project says which of THIS project's nodes are one of those boxes.
+Nothing else: no wiring, no params, no position. Those are already in `graph.k7x`, where every
 other per-node fact lives.
 
 ## A plug carries its member
 
-```yaml
-outputs:
-  - { name: mix, type: audio, node: fade }
+```k7x
+outputs([name("mix").type("audio").node("fade")])
 ```
 
 `PortSchema` (`moduleSchema.ts`) says `name`, `type` and `mandatory`; a plug adds `node`, and
@@ -32,9 +31,8 @@ reading, which is the same rule `graphSchema` applies to `#b` and `x#`.
 
 ## `params:` is keyed by the PROMOTED name
 
-```yaml
-params:
-  Level: { node: level, param: Gain }
+```k7x
+params({ Level: { node: "level", param: "Gain" } })
 ```
 
 The key is the word the box wears, not the plugin's. That is what lets one template promote two
@@ -50,7 +48,7 @@ a param and nothing else either.
 
 That indirection is the reason the whole feature works twice over. Instancing mints
 `<box>_<member>`; a MIGRATION folds nodes that already exist — `deckA`, `trimA`, `fadeA` — under the
-names they already have, so it renames nothing and touches no line of `graph.yaml`.
+names they already have, so it renames nothing and touches no line of `graph.k7x`.
 
 A member is a template name and a project node name, so a node rename walks the instances' members
 by value: `renameNodeInAssemblies` in `packages/song/src/assemblyEdit.ts`.

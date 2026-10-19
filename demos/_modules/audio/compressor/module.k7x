@@ -1,3 +1,3 @@
-// The Tracktion built-in compressor, given a face: `ui.yaml` beside this file lays out the
+// The Tracktion built-in compressor, given a face: `ui.k7x` beside this file lays out the
 // knobs and a screen, and `widgets.js` draws the screen — what is being compressed, live.
 extends("@engine/compressor")

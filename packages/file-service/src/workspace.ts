@@ -132,6 +132,7 @@ import {
   guardShared,
   moveEntryIn,
   moveLibraryModuleIn,
+  refuseYamlName,
   renameEntryIn,
   renameWithRetry,
   uploadFileIn,
@@ -159,9 +160,6 @@ import {
 } from "./workspaceModules.ts";
 
 export { isBinary, isProjectDir, skip };
-
-/** A YAML name, which a save refuses: every workspace document is .k7x. */
-const YAML_NAME = /\.ya?ml$/i;
 
 /** Every project folder under `root`, workspace-relative, at any depth — see docs/workspace.md. */
 export function projectDirsUnder(
@@ -824,9 +822,7 @@ export class Workspace {
     const abs = this.safePath(rel);
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
-    // A workspace holds no YAML file: one written here would sit unread beside its .k7x (docs/workspace.md).
-    if (YAML_NAME.test(abs))
-      throw new Error(`${rel}: a workspace file is .k7x, not YAML`);
+    refuseYamlName(rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileAtomic(abs, content);
     this.invalidateProjectDoc();

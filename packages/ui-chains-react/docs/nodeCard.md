@@ -106,7 +106,7 @@ gives for the glyph itself. Same table on both sides: the prefix the icon is pic
 prefix the name drops, so one cannot change without the other. It is optional, and a host supplying
 none gets the full name.
 
-Where it comes from is worth knowing, because it cannot come from the graph: `graph.yaml` says what
+Where it comes from is worth knowing, because it cannot come from the graph: `graph.k7x` says what
 a module is wired to, never what plugin it turns out to be, and a strip is defined by its TYPE
 (`Mixer`). So `trackMixersOf` reads it off the compiled project and hands it to `buildGraphDoc`,
 exactly as the clip extents are handed in. The document keys it by track, like `trackColors` and

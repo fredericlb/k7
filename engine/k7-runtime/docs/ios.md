@@ -53,7 +53,7 @@ its own tag (`[host]`, `[engine]`, `files |`). An app's own streams reach no Con
 |---|---|
 | frameworks, not static libraries, for the engine and the supervisor | the linker folds every archive each one links into it, with no list of dependency targets to keep in step; and they are the `.so` files Android loads |
 | NodeMobile from `fogtape/nodejs-mobile`, pinned by file and SHA-256 in `engine/k7-ios/scripts/pins.json` | the original nodejs-mobile stops at Node 18; the backend is bundled for node24 and imports `node:sqlite`. This one is built from the official tag (24.21.0), full flavour, since lite drops SQLite. A single maintainer, so it is never trusted at build time: a mismatch fails the stage |
-| NodeMobile's V8 is JIT-less | Apple allows no JIT to an app. Measured below, it is no obstacle to a server of YAML and HTTP |
+| NodeMobile's V8 is JIT-less | Apple allows no JIT to an app. Measured below, it is no obstacle to a server of k7x files and HTTP |
 | the CA bundle pinned the same way | the supervisor's mbedTLS needs roots as PEM, and iOS gives none; a studio behind a private CA is the user's to add, as on Android |
 | the bundle's files read where they lie, in the app bundle | an app bundle is a folder of real files, so nothing is unpacked: no `backend.zip`, no first-run percentage, no copy of Faust's libraries |
 | cleartext to loopback only (`NSAllowsLocalNetworking`) | the phone's own studio is plain http, as on desktop; every other host stays https |

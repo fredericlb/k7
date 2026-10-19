@@ -57,7 +57,7 @@ On the engine's built-ins, the check reads on `complete`, not on `params`: a bui
 successfully returns an empty `params` for some types, which says nothing. `dumpPluginParams`
 emits `complete:false` and exits **2** when `createNewPlugin` returns `nullptr`, i.e. when the
 type is not found. `resolveBuiltInType` (`engine/EditBuilder.cpp`) accepts either the display name
-or the internal identifier, so a `module.yaml` written in the human form survives an id rename.
+or the internal identifier, so a `module.k7x` written in the human form survives an id rename.
 
 ## What legitimately starts from zero
 

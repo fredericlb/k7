@@ -13,11 +13,11 @@ reverb after it; you stop paying for the twelve plugins before it.
 
 One field, on the module the freeze was taken at:
 
-```yaml
-# nodes/amp.yaml
-extends: "@workspace/audio/amp"
-params: { Gain: 3 }
-frozen: renders/amp.wav
+```k7x
+// nodes/amp.k7x
+extends("@workspace/audio/amp")
+params({ Gain: 3 })
+frozen("renders/amp.wav")
 ```
 
 `frozen:` is in `MODULE_FIELDS`, so an **alternative may carry its own** ([alternatives.md](alternatives.md)).

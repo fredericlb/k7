@@ -1,29 +1,28 @@
 // The takes verbs through the dispatcher, on a chain project: a MIDI pass filed as a take and comped
 // in, a span given back to the event's own material, a take dropped — and what the compile plays.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
+type Doc = Record<string, unknown>;
+type Event = {
+  start: string;
+  takes: { ref: string; start?: string }[];
+  comp: { take: string; from: string; to: string }[];
+  crossfades?: { at: string; length: string }[];
+};
 let root: string;
 let dir: string;
-const put = (rel: string, text: string): void => {
-  mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
-};
-const read = (rel: string): string => readFileSync(join(dir, rel), "utf8");
-const event = () => parse(read("tracks/keys.yaml")).events[0];
+const put = (rel: string, value: Doc): void => writeDoc(join(dir, rel), value);
+const read = (rel: string): Doc => wsData(join(dir, rel)) as Doc;
+const event = () => (read("tracks/keys.k7x").events as Event[])[0];
 const run = async (line: string) => {
   const h = testHost({ songPath: dir, project: () => loadProject(dir) });
   await runCommand(line, h, "cli");
@@ -33,19 +32,20 @@ const run = async (line: string) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "event-takes-"));
   dir = join(root, "song.k7");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put(
-    "tracks/keys.yaml",
-    'extends: "@meta/track"\nevents:\n  - { ref: riff, start: "2:1" }\n',
-  );
-  put(
-    "sequences/riff.yaml",
-    'from: "1:1"\nto: "3:1"\nnotes:\n  - { t: 0, d: 1, k: 60 }\n',
-  );
-  put(
-    "chains/keys.yaml",
-    "start: true\nsteps:\n  - { id: lane-keys, track: keys }\n  - to: [ { chain: MIX } ]\n",
-  );
+  put("project.k7x", { project: { name: "t", tempo: 120 } });
+  put("tracks/keys.k7x", {
+    extends: "@meta/track",
+    events: [{ ref: "riff", start: "2:1" }],
+  });
+  put("sequences/riff.k7x", {
+    from: "1:1",
+    to: "3:1",
+    notes: [{ t: 0, d: 1, k: 60 }],
+  });
+  put("chains/keys.k7x", {
+    start: true,
+    steps: [{ id: "lane-keys", track: "keys" }, { to: [{ chain: "MIX" }] }],
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -64,7 +64,7 @@ describe("event take midi", () => {
     expect(ev.takes).toHaveLength(1);
     const take = ev.takes[0].ref;
     expect(ev.comp).toEqual([{ take, from: "2:3", to: "3:1" }]);
-    const seq = parse(read(`sequences/${take}.yaml`));
+    const seq = read(`sequences/${take}.k7x`);
     expect(seq.notes).toEqual([{ t: 0.5, d: 0.5, k: 64 }]);
 
     // The compile plays the event's own riff (beats 4..12), the take over 6..8, then the riff again.

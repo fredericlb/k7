@@ -51,7 +51,7 @@ export const isMap = (n: unknown): n is K7MapNode =>
 export const isScalar = (n: unknown): n is K7ScalarNode =>
   (n as K7Node | undefined)?.kind === "scalar";
 
-/** The plain value a node stands for: what zod reads, exactly as YAML's toJS would give it. */
+/** The plain value a node stands for: what zod reads: plain objects, arrays and scalars. */
 export function toJS(node: K7Node): unknown {
   if (node.kind === "scalar") return node.value;
   if (node.kind === "list") return node.items.map(toJS);

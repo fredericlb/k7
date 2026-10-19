@@ -45,9 +45,7 @@ A video project is a folder like any song. The picture adds these files:
 | `surfaces/viewport.k7x` | asks for the viewport window; without it the lanes still compile and still show on the timeline, but nothing composites them |
 | the graph or chain files | `RENDER` (where every picture lane arrives) and `VIDEO_OUT` (the frame that leaves); shader runs on lanes |
 
-The examples in this guide use the `.k7x` spelling. A `.yaml` file holds exactly the same keys.
-
-```js
+```k7x
 // project.k7x
 project({
   name: "video-demo",

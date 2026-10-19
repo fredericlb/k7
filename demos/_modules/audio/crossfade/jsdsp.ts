@@ -1,8 +1,8 @@
 // The crossfade's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at runtime — a song
 // folder has no node_modules and should never need one (the `import type` is erased; see dspRunner.mjs).
 //
-// `input(0)` and `input(1)` index the ports module.yaml declares, in order: `a` then `b`. An index and not a
-// name, because this graph is compiled to JSON the engine reads with no module.yaml in sight, and position is
+// `input(0)` and `input(1)` index the ports module.k7x declares, in order: `a` then `b`. An index and not a
+// name, because this graph is compiled to JSON the engine reads with no module.k7x in sight, and position is
 // the one fact both documents can hold on their own.
 //
 // This is @studio/dsp's `crossfade()` graph, written out here: a module is a FOLDER you can copy, so it

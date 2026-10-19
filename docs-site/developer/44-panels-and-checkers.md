@@ -73,7 +73,7 @@ npm run lint:layouts
 npx tsx packages/ui-module-builder/scripts/checkLayouts.ts [module dirs...]
 ```
 
-With no argument it checks every `ui.k7x` / `ui.yaml` under `k7-core`. For each panel:
+With no argument it checks every `ui.k7x` under `k7-core`. For each panel:
 
 1. It parses against `UiFileSchema`.
 2. It applies `twinIssues` and, per page, `gridIssues`.

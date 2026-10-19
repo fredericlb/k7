@@ -128,7 +128,7 @@ reads as "no control here".
 COMPILER asks too, so the pads are the sounds the engine will really have — base module folded in and
 per-symbol overrides applied. The two flavours flatten into one row shape: a samples symbol names its
 own `clip`, a slice symbol names the rack's shared `source` and its window
-(`packages/song/docs/racks.md`). Sorted by symbol, so a pad does not move because a YAML key was retyped
+(`packages/song/docs/racks.md`). Sorted by symbol, so a pad does not move because a key was retyped
 in another order, and absent when the rack has none — no pads rather than an empty row, so the node
 keeps the size it had.
 

@@ -217,7 +217,7 @@ arm, gain or pan to offer — a full strip there would be four controls that do 
 `rackUI` gives a rack node one button per loaded sound, bound `@rack:<symbol>` — an intrinsic in the
 same family as `@mute`, routed by the renderer rather than sent to a plugin param, because a pad
 **fires** where every other widget **sets**. Synthesised for the reason `TRACK_UI` is: a rack's
-symbols are already known through `extends`, so a `ui.yaml` listing them would be two lists kept in
+symbols are already known through `extends`, so a `ui.k7x` listing them would be two lists kept in
 step.
 
 **A rack is drawn by OCTAVE: a tab per octave, each a 4×3 grid of its twelve notes.** A pad sits at
@@ -243,7 +243,7 @@ its node to show, and a grid of pads bolted underneath would be the app overruli
 
 `inputUI` gives an `io: in` node three dropdowns — its socket, its width, and its monitoring.
 Synthesised for the reason `TRACK_UI` and `rackUI` are (these are not the module's opinion but what
-it IS), and for a second, harder one: **`@meta/IN` cannot have a `ui.yaml` at all.** A `ui.yaml`
+it IS), and for a second, harder one: **`@meta/IN` cannot have a `ui.k7x` at all.** A `ui.k7x`
 is keyed by a library ref, and there is no `@engine` library — an engine module is a built-in with
 no folder anywhere (`@studio/song`'s `uiLibrary.ts` says so outright and `moduleRootFor` throws for
 it). Without `inputUI`, every live input in every project draws a card reading **"No Options"**, and
@@ -282,7 +282,7 @@ exists. Take the node's panel from `carryStep` (the step's raw `ui`) and only it
 authored panel (`withFolderOptions`) — is computed, measured, then dropped: every base dropdown draws
 `none` and nothing else, on a panel whose author wrote exactly what the format asks for.
 
-The list cannot live in the `ui.yaml`: which bases exist changes every time somebody snapshots one,
+The list cannot live in the `ui.k7x`: which bases exist changes every time somebody snapshots one,
 so a panel listing them would be a copy of a directory going stale between saves. The author writes
 `bind: @base` and says nothing more; the entries are the folder's, and they arrive on the step. Same
 contract as `@channel`, whose sets are the machine's — see `@studio/song`'s `docs/intrinsics.md`.
@@ -611,7 +611,7 @@ position down, so a moved card carries `pushed` — where it belongs — and k7'
 its auto-pin both read THAT rather than where the card is drawn. Pin the shoved position once and
 closing the box would leave the card there for good.
 
-### A plug is not a graph.yaml address
+### A plug is not a graph.k7x address
 
 `jackRef` answers a box's plug with the MEMBER behind it, and that one function is why no verb
 changed for any of this: a cable dropped on `turntableA#mix` writes `graph chain connect fadeA OUT`.
@@ -636,7 +636,7 @@ what keeps a split lane's two cables off one socket. A run leaving the lane bare
 **The main output IS drawn, and it carries a fader** — `drawMainOut`, on by default and everywhere.
 `MAIN_OUT_UI` is its panel: one widget, a fader bound to `Volume`, the song's output level
 (@studio/song's docs/masterVolume.md). A built-in UI like `TRACK_UI`, because this node has no
-`module.yaml` to declare one in — but with an ORDINARY bind rather than an `@` intrinsic, since
+`module.k7x` to declare one in — but with an ORDINARY bind rather than an `@` intrinsic, since
 `node param "OUT" Volume <dB>` is a real command. So the renderer's usual write path reaches it with
 nothing routed specially, and the header's fader and this one are two views of one number.
 
@@ -735,7 +735,7 @@ to the LATER shot, so two shots meeting at a boundary never both count — and t
 compute, from the same document the viewport draws.
 
 `insertFor` offers an arrow's `+` whenever at least one end is a module, and does **not** demand
-that both ends belong to the same CHAIN. `chains.yaml` states its edges outright, so an arrow IS the
+that both ends belong to the same CHAIN. `chains.k7x` states its edges outright, so an arrow IS the
 address; a same-chain rule would quietly refuse a track feeding a bus or a split's branch, which are
 ordinary arrows.
 
@@ -817,7 +817,7 @@ named explicitly — so `from` and the chain's own name are usually the same str
 
 - `!isTrack` — the track exists, so this is an ordinary source. `isChain` alone would mistake it for
   the chain of the same name.
-- `!== name` — the track does **not** exist (a rename `graph.yaml` has not caught up with). `isChain`
+- `!== name` — the track does **not** exist (a rename `graph.k7x` has not caught up with). `isChain`
   then finds this very chain, the link collapses to a self-loop, and `link()` drops it — taking the
   track node with it, so a stale reference makes the whole track *vanish* instead of showing up
   broken. Fall through and draw it; `validate()` says why.
@@ -981,7 +981,7 @@ nodes out and never calls `layout`, because a row of mixer strips is a row and n
 `layout` takes two overrides and applies them AFTER the rank snap and BEFORE the extents, so a held
 card both wins over the rows and still counts toward the graph's measured size.
 
-`positions` is what somebody PINNED — `chains.yaml`'s `positions:`, keyed by chains name — and it
+`positions` is what somebody PINNED — `chains.k7x`'s `positions:`, keyed by chains name — and it
 wins over everything the ranker decided except the one rule below; dagre only ever places what has
 no entry, so a module dragged once stays put and a new one still arrives laid out. `prev` is where
 each node was DRAWN last time, keyed by node id: the host's session memory, so an edit never
@@ -1132,7 +1132,7 @@ rules:
   still as tall as the tallest column. The arrow down a column is glued like one across a seam, and
   `rowSeams` (asked with `branch`) gives each seam whose left card is a module a second button, a
   BRANCH at `SEAM_BRANCH_AT` of its height, which stacks a new node under that card. `stacks` is in the
-  graph exactly when the project is a chain project, so a `graph.yaml` project gets no branch: it has
+  graph exactly when the project is a chain project, so a `graph.k7x` project gets no branch: it has
   no subchain to make.
 - its `track` option puts that LANE's own card at the **head** of the row, which one lane's signal
   path wants and a rank of channel strips has no use for. The lane is found by KIND and not by name
@@ -1193,8 +1193,8 @@ nobody answers at.
 
 `moduleCategoryOf` reads the segment after `modules/` or `_modules/` rather than a fixed index. The
 same module is named `modules/audio/reverb` by the médiathèque,
-`_modules/audio/delay/tape-delay/module.yaml` by a shared library, and
-`LEMO - DANSE/modules/audio/amp/module.yaml` by k7 in a workspace holding several projects — an
+`_modules/audio/delay/tape-delay/module.k7x` by a shared library, and
+`LEMO - DANSE/modules/audio/amp/module.k7x` by k7 in a workspace holding several projects — an
 index would be right for one of those and wrong for the others. Anything unrecognised draws as
 audio: a glyph is not worth refusing a preview over.
 

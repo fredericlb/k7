@@ -109,7 +109,7 @@ export default {
     };
     grid(ctx, b, -24, 24);
     curve(ctx, b, at, -24, 24, WHITE);
-    // The second mid is held flat by module.yaml, so its dot shows only once someone moves it.
+    // The second mid is held flat by module.k7x, so its dot shows only once someone moves it.
     for (const [, fc, g, , color] of bands) if (color !== GREY || g !== 0) dot(ctx, xOf(b, fc), yOf(b, at(fc), -24, 24), color);
     text(ctx, "EQ", b.x, 9, GREY, "left");
     const gl = bands[0][2];

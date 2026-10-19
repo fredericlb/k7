@@ -1,4 +1,4 @@
-# The edit path: from a gesture to a one-line YAML diff to the engine
+# The edit path: from a gesture to a one-line k7x diff to the engine
 
 Every arrangement edit travels the same road. Taking a clip drag on the timeline as the example:
 
@@ -79,24 +79,22 @@ browser shows it on its own channel.
 
 ## 5. The writer changes the value and nothing else
 
-`@studio/song-edit` writes YAML surgically: the comments, key order, flow style and every other
-event stay byte for byte. A placement is addressed by its **start in beats**, since one clip can
+`@studio/song-edit` writes k7x surgically, through a `K7Document` scope: the comments, key order,
+layout and every other event stay byte for byte. A placement is addressed by its **start in beats**, since one clip can
 be placed several times. The test that pins this, from `packages/song-edit/src/moveEvent.test.ts`:
 
-```yaml
-# before
-events:
-  - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
-  - { ref: snare, start: "2:1:1", fadeIn: "0:1", loop: 2, disabled: true }
-# after `event move drums 2:1:1 3:1:1` — exactly one line differs
-events:
-  - { ref: kick, start: "1:1:1", fadeIn: "0:1" }
-  - { ref: snare, start: "3:1:1", fadeIn: "0:1", loop: 2, disabled: true }
+```k7x
+// before
+events([
+  ref("kick").start("1:1:1").fadeIn("0:1"),
+  ref("snare").start("2:1:1").fadeIn("0:1").loop(2).disabled(true),
+])
+// after `event move drums 2:1:1 3:1:1` — exactly one line differs
+events([
+  ref("kick").start("1:1:1").fadeIn("0:1"),
+  ref("snare").start("3:1:1").fadeIn("0:1").loop(2).disabled(true),
+])
 ```
-
-Timecodes are always written **quoted**: unquoted, `3:1:1` is a YAML 1.1 sexagesimal number and the
-clip would reload at beat 11461. `TIMECODE_KEYS` in `packages/song-schema/src/yaml/placementSchema.ts`
-lists the keys this applies to.
 
 The one-line diff is what keeps edits mergeable by the live-sync relay and readable in history. A
 writer that re-serialised the file would be a bug even if the result parsed.
@@ -105,7 +103,7 @@ writer that re-serialised the file would be a bug even if the result parsed.
 
 `h.reload()` does not push at once: it marks the project dirty (`HeldPush`), and the run flushes it
 after its last write, so a verb that writes three files compiles once. `pushProject` compiles the
-folder to a `ProjectDoc` and sends it over the engine socket. The engine never reads YAML.
+folder to a `ProjectDoc` and sends it over the engine socket. The engine never reads a workspace file.
 
 Verbs that only touch a running parameter (a fader release through `node param`) also patch the
 live engine without a full reload.

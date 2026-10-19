@@ -6,7 +6,7 @@
 // Why it scans blocks rather than matching line by line: ../docs/lints.md.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const HEADER_MAX = 10;
 
@@ -83,7 +83,9 @@ const files = execFileSync(
   // The submodule carries its own rules and its own history.
   .filter((f) => !f.startsWith("commons/"))
   // Generated, and nobody reads it.
-  .filter((f) => !/\.generated\.|paraglide\//.test(f));
+  .filter((f) => !/\.generated\.|paraglide\//.test(f))
+  // A file deleted in the working tree is still in the index until the commit.
+  .filter((f) => existsSync(f));
 
 const longHeaders = [];
 const blocks = [];

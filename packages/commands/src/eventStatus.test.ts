@@ -33,8 +33,7 @@ function song(): string {
 
 const laneFile = () => join(dir, "nodes", "drums.k7x");
 const laneText = () => wsText(laneFile());
-const event = () =>
-  (wsData(laneFile()).events as Record<string, unknown>[])[0];
+const event = () => (wsData(laneFile()).events as Record<string, unknown>[])[0];
 
 /** Built from the file each time, so a second command sees what the first wrote — hence `toggle`. */
 const host = () =>

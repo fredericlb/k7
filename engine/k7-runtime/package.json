@@ -19,6 +19,7 @@
   "devDependencies": {
     "@studio/engine-client": "*",
     "@studio/engine-protocol": "*",
+    "@studio/k7x": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*"
   }

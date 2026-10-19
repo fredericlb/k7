@@ -6,16 +6,16 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setLibraryOverlays } from "@studio/song/sharedFolders";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let root: string;
@@ -26,41 +26,28 @@ let reloaded = 0;
 const homeBefore = process.env.STUDIO_HOME;
 
 /** A lane through one compressor node, the compressor holding two engines in `@workspace`; one library `k7-core`. */
-function song(node: string): void {
+function song(node: Record<string, unknown>): void {
   root = mkdtempSync(join(tmpdir(), "td-preset-"));
   home = join(root, "home");
   mkdirSync(join(home, "libraries", "k7-core", "modules"), { recursive: true });
   process.env.STUDIO_HOME = home;
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  gtr: [ comp ]\n  comp: [ OUT ]\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
-  writeFileSync(join(dir, "nodes", "comp.yaml"), node, "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { gtr: ["comp"], comp: ["OUT"] },
+  });
+  writeLane(dir, "gtr", "track", { events: [] });
+  writeNode(dir, "comp", node);
   const mod = join(root, "_modules", "audio", "compressor");
   for (const [at, body] of [
-    ["", "engine: tracktion\n"],
-    ["engines/tracktion", "plugin: { type: internal, name: compressor }\n"],
+    ["", { engine: "tracktion" }],
+    ["engines/tracktion", { plugin: { type: "internal", name: "compressor" } }],
     [
       "engines/vari-mu",
-      "plugin: { type: internal, name: airwindows_varimu }\n",
+      { plugin: { type: "internal", name: "airwindows_varimu" } },
     ],
-  ]) {
-    mkdirSync(join(mod, at), { recursive: true });
-    writeFileSync(join(mod, at, "module.yaml"), body, "utf8");
-  }
+  ] as const)
+    writeDoc(join(mod, at, "module.k7x"), body);
 }
 
 const host = () =>
@@ -75,16 +62,19 @@ const host = () =>
     },
   }) as never;
 
-const node = () => parse(readFileSync(join(dir, "nodes", "comp.yaml"), "utf8"));
+const COMP = "@workspace/audio/compressor";
+// biome-ignore lint/suspicious/noExplicitAny: the test reads arbitrary depths of the node's data.
+const node = (): any => wsData(join(dir, "nodes", "comp.k7x"));
 const kept = (...p: string[]) =>
   join(root, "_presets", "workspace", "audio", "compressor", ...p);
 
 beforeEach(() => {
   logs.length = 0;
   reloaded = 0;
-  song(
-    'extends: "@workspace/audio/compressor"\nengines:\n  tracktion:\n    params: { Ratio: 4, "Attack ms": 10 }\n',
-  );
+  song({
+    extends: COMP,
+    engines: { tracktion: { params: { Ratio: 4, "Attack ms": 10 } } },
+  });
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
@@ -93,17 +83,17 @@ afterEach(() => {
 });
 
 describe("node preset", () => {
-  it("saves a node's values under <ns>/<module path>/<name>.yaml in the workspace's _presets", async () => {
+  it("saves a node's values under <ns>/<module path>/<name>.k7x in the workspace's _presets", async () => {
     await runCommand('node preset save comp "big squash"', host(), "cli");
-    const file = kept("big squash.yaml");
+    const file = kept("big squash.k7x");
     expect(existsSync(file)).toBe(true);
-    expect(parse(readFileSync(file, "utf8"))).toEqual({
+    expect(wsData(file)).toEqual({
       engine: "tracktion",
       params: { Ratio: 4, "Attack ms": 10 },
     });
-    // Nothing is written into the module's own folder any more.
+    // Nothing is written into the module's own folder.
     expect(
-      existsSync(join(root, "_modules", "audio", "compressor", "presets.yaml")),
+      existsSync(join(root, "_modules", "audio", "compressor", "presets.k7x")),
     ).toBe(false);
   });
 
@@ -111,15 +101,12 @@ describe("node preset", () => {
     await runCommand("node preset save comp soft", host(), "cli");
     await runCommand("node preset save comp soft", host(), "cli");
     expect(logs.at(-1)).toMatch(/already exists/);
-    writeFileSync(
-      join(dir, "nodes", "comp.yaml"),
-      'extends: "@workspace/audio/compressor"\nengines:\n  tracktion:\n    params: { Ratio: 2 }\n',
-      "utf8",
-    );
-    await runCommand("node preset update comp workspace soft", host(), "cli");
-    expect(parse(readFileSync(kept("soft.yaml"), "utf8")).params).toEqual({
-      Ratio: 2,
+    writeNode(dir, "comp", {
+      extends: COMP,
+      engines: { tracktion: { params: { Ratio: 2 } } },
     });
+    await runCommand("node preset update comp workspace soft", host(), "cli");
+    expect(wsData(kept("soft.k7x")).params).toEqual({ Ratio: 2 });
   });
 
   it("keeps a preset in a library only for an admin, who edits it", async () => {
@@ -147,12 +134,12 @@ describe("node preset", () => {
           "workspace",
           "audio",
           "compressor",
-          "b-lib.yaml",
+          "b-lib.k7x",
         ),
       ),
     ).toBe(true);
     expect(listNodePresets(dir, "comp")).toEqual({
-      ref: "@workspace/audio/compressor",
+      ref: COMP,
       presets: [
         { scope: "workspace", name: "a-ws" },
         { scope: "k7-core", name: "b-lib" },
@@ -162,8 +149,7 @@ describe("node preset", () => {
   });
 
   it("applies a preset onto the node's file, on the engine that is on", async () => {
-    mkdirSync(kept(), { recursive: true });
-    writeFileSync(kept("hard.yaml"), "params:\n  Ratio: 10\n", "utf8");
+    writeDoc(kept("hard.k7x"), { params: { Ratio: 10 } });
     await runCommand("node preset apply comp workspace hard", host(), "cli");
     expect(node().engines.tracktion.params).toEqual({
       Ratio: 10,
@@ -173,12 +159,7 @@ describe("node preset", () => {
   });
 
   it("switches to the engine a preset was taken on before writing its values", async () => {
-    mkdirSync(kept(), { recursive: true });
-    writeFileSync(
-      kept("glue.yaml"),
-      "engine: vari-mu\nparams:\n  Drive: 0.3\n",
-      "utf8",
-    );
+    writeDoc(kept("glue.k7x"), { engine: "vari-mu", params: { Drive: 0.3 } });
     await runCommand('node preset apply comp workspace "glue"', host(), "cli");
     expect(node().engine).toBe("vari-mu");
     expect(node().engines["vari-mu"].params).toEqual({ Drive: 0.3 });
@@ -189,27 +170,20 @@ describe("node preset", () => {
     const base = join(root, "_modules", "audio", "compressor", "base", "Pads");
     mkdirSync(base, { recursive: true });
     writeFileSync(join(base, "warm.fxp"), "CcnK", "utf8");
-    writeFileSync(
-      join(dir, "nodes", "comp.yaml"),
-      'extends: "@workspace/audio/compressor"\nbase: "Pads/warm"\nengines:\n  tracktion:\n    params: { Ratio: 4 }\n',
-      "utf8",
-    );
+    writeNode(dir, "comp", {
+      extends: COMP,
+      base: "Pads/warm",
+      engines: { tracktion: { params: { Ratio: 4 } } },
+    });
     await runCommand('node preset save comp "warm squash"', host(), "cli");
-    expect(parse(readFileSync(kept("warm squash.yaml"), "utf8")).base).toBe(
-      "Pads/warm",
-    );
+    expect(wsData(kept("warm squash.k7x")).base).toBe("Pads/warm");
   });
 
   it("switches the node to a preset's base, drops the values set over the old one, and reloads", async () => {
     const base = join(root, "_modules", "audio", "compressor", "base", "Pads");
     mkdirSync(base, { recursive: true });
     writeFileSync(join(base, "warm.fxp"), "CcnK", "utf8");
-    mkdirSync(kept(), { recursive: true });
-    writeFileSync(
-      kept("warm.yaml"),
-      'base: "Pads/warm"\nparams:\n  Ratio: 6\n',
-      "utf8",
-    );
+    writeDoc(kept("warm.k7x"), { base: "Pads/warm", params: { Ratio: 6 } });
     await runCommand("node preset apply comp workspace warm", host(), "cli");
     expect(node().base).toBe("Pads/warm");
     // The node's own values were set over the old base: only the preset's are left.
@@ -218,12 +192,7 @@ describe("node preset", () => {
   });
 
   it("says so, and keeps the node's base, when the preset's base is not here", async () => {
-    mkdirSync(kept(), { recursive: true });
-    writeFileSync(
-      kept("gone.yaml"),
-      'base: "Pads/gone"\nparams:\n  Ratio: 3\n',
-      "utf8",
-    );
+    writeDoc(kept("gone.k7x"), { base: "Pads/gone", params: { Ratio: 3 } });
     await runCommand("node preset apply comp workspace gone", host(), "cli");
     expect(node().base).toBeUndefined();
     expect(node().engines.tracktion.params.Ratio).toBe(3);
@@ -233,25 +202,18 @@ describe("node preset", () => {
   it("lists and loads the presets of the module its attribute set swaps it for", async () => {
     // A second module with a patch, and the node's second set running as it.
     const synth = join(root, "_modules", "instruments", "synth");
+    writeDoc(join(synth, "module.k7x"), {
+      plugin: { type: "internal", name: "synth" },
+    });
     mkdirSync(join(synth, "base", "Pads"), { recursive: true });
-    writeFileSync(
-      join(synth, "module.yaml"),
-      "plugin: { type: internal, name: synth }\n",
-      "utf8",
-    );
     writeFileSync(join(synth, "base", "Pads", "warm.fxp"), "CcnK", "utf8");
-    writeFileSync(
-      join(dir, "nodes", "comp.yaml"),
-      'extends: "@workspace/audio/compressor"\nalternatives:\n  - { extends: "@workspace/instruments/synth" }\nalternative: "2"\n',
-      "utf8",
-    );
+    writeNode(dir, "comp", {
+      extends: COMP,
+      alternatives: [{ extends: "@workspace/instruments/synth" }],
+      alternative: "2",
+    });
     const shelf = join(root, "_presets", "workspace", "instruments", "synth");
-    mkdirSync(shelf, { recursive: true });
-    writeFileSync(
-      join(shelf, "Pads - warm.yaml"),
-      'base: "Pads/warm"\n',
-      "utf8",
-    );
+    writeDoc(join(shelf, "Pads - warm.k7x"), { base: "Pads/warm" });
     expect(listNodePresets(dir, "comp")).toMatchObject({
       ref: "@workspace/instruments/synth",
       presets: [{ scope: "workspace", name: "Pads - warm" }],
@@ -269,6 +231,6 @@ describe("node preset", () => {
   it("refuses a name that would leave the module's folder", async () => {
     await runCommand('node preset save comp "../../evil"', host(), "cli");
     expect(logs.at(-1)).toMatch(/invalid preset name/);
-    expect(existsSync(join(root, "_presets", "evil.yaml"))).toBe(false);
+    expect(existsSync(join(root, "_presets", "evil.k7x"))).toBe(false);
   });
 });

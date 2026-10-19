@@ -28,7 +28,9 @@ function song(): string {
   });
   writeLane(d, "gtr", "track", { events: [] });
   for (const m of ["amp", "cab"])
-    writeModule(d, "audio", m, { plugin: { type: "internal", name: "Chorus" } });
+    writeModule(d, "audio", m, {
+      plugin: { type: "internal", name: "Chorus" },
+    });
   return d;
 }
 

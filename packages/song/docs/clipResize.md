@@ -34,7 +34,7 @@ anything. `TIMECODE_KEYS` already quotes both words wherever they appear.
 `resizeTrackPlacement` reads both windows, aims the drag at the *effective* one (the extent
 on screen), and writes the result on the **placement**: its `start` when the left edge
 moved, its `loop` when the event repeats, its own `from`/`to` otherwise. The material's
-file is never touched — resizing one of four kicks placed from one `kick.yaml` leaves the
+file is never touched — resizing one of four kicks placed from one `kick.k7x` leaves the
 other three alone.
 
 The event's window is **clamped inside the material's** (`resizeToWindow`'s `bounds`): an

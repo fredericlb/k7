@@ -44,7 +44,7 @@ reason — `"99."` reads as "put this at the bottom," which is what it does.
 
 `orderTracks` is what the compiler calls, and it answers with one of two things:
 
-- `project.yaml`'s **`trackOrder`**, when the project states one — a list of lane ids, top first;
+- `project.k7x`'s **`trackOrder`**, when the project states one — a list of lane ids, top first;
 - the names, through `sortTracksByKind` above, when it does not.
 
 It is deliberately not a blend. Two rules that can both apply to one lane is two answers to "which

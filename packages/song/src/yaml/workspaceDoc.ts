@@ -32,23 +32,25 @@ export const wsText = (path: string): string =>
 export const wsData = (path: string): Record<string, unknown> =>
   k7xData(path, wsText(path));
 
-/** Runs `edit` on the file as a document and writes it atomically when its text changed; an absent file is empty under `create`. */
+/** Runs `edit` on the file as a document and writes it atomically when its text changed; an absent file is empty under `create`, and `raw` hands it the short forms as written. */
 export function wsEdit(
   path: string,
   edit: (doc: K7Document) => void,
-  opts: { create?: boolean } = {},
+  opts: { create?: boolean; raw?: boolean } = {},
 ): boolean {
   k7xOnly(path);
   const exists = existsSync(path);
   if (!exists && !opts.create) throw new Error(`${path}: no such file`);
   const before = exists ? readFileSync(path, "utf8") : "";
   const doc = new K7Document(before);
-  const sugar = sugarFor(path);
-  if (!sugar) edit(doc);
+  const sugar = opts.raw ? null : sugarFor(path);
+  const raw = doc.toJS();
+  // A file with no short form in it, or an edit that keeps them itself, edits the document as written.
+  if (!sugar?.parts.some((p) => p.present(raw))) edit(doc);
   else {
     // The edit sees the expanded data; what it leaves is put back over the short forms by the one rule.
     const scratch = new K7Document(
-      stringify(sugar.expand(doc.toJS()), { header: doc.header }),
+      stringify(sugar.expand(raw), { header: doc.header }),
     );
     edit(scratch);
     applySugared(doc, scratch.toJS(), sugar);

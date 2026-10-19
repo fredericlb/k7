@@ -1,6 +1,6 @@
 # AGENTS.md — k7
 
-A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
+A **text-based DAW**. Your song is a folder of k7x files; the terminal or a web editor
 is your studio.
 
 **This directory is the web editor, and only that.** The engine (`engine/k7-runtime`), its
@@ -10,7 +10,7 @@ rather than inside it, because they serve every audio app in the repo — the re
 
 | Package | Role |
 |---|---|
-| `frontend` (`k7-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
+| `frontend` (`k7-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: k7x code editor (CodeMirror), timeline, chains graph. |
 | `backend` (`k7-backend`) | Express — **the origin's OIDC flow, the account's preferences, the media library and the rehearsal recorder**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix, it mounts the rehearsal routes (`@studio/rehearsal-server`, `packages/rehearsal-server/docs/`), and it mounts the médiathèque (`src/media/`, `docs/media/`) — the catalogue, the shares, the hunt, THE engine registry and the file hub that starts each account's file service. It has no file routes of its own: every file operation is the file service's. |
 
 Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://app.priv.k7.rocks`
@@ -172,10 +172,10 @@ Read `packages/song/docs/surfaces.md`.
 **There is ONE layout, and nobody chooses it either.** Which panes it holds is what the open
 project DECLARES: `viewPanes` in `src/routes.ts` takes the surface flags and answers with the
 pane ring and the fullscreen list, and that one list closes the header buttons, the number keys,
-`ui <pane>` and the mobile tabs together. A project with no `surfaces/timeline.yaml` draws no
+`ui <pane>` and the mobile tabs together. A project with no `surfaces/timeline.k7x` draws no
 timeline, and the transport and the minimap go with it.
 
-`project.yaml` has no `project_type` and there is no `View` type: `surfaces/` answers the same
+`project.k7x` has no `project_type` and there is no `View` type: `surfaces/` answers the same
 question and is the only thing that answers it, so two sources cannot contradict. Read
 `packages/song/docs/surfaces.md` before touching any of it.
 
@@ -211,7 +211,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 ### Editor, chains, timeline
 
-- **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for YAML support and a
+- **Editor** — `@uiw/react-codemirror` with `@studio/ui-editor` for k7x support and a
   hint-driven completion source. Vim mode is on by default (a global preference in
   `<state>/preferences.yaml`). **There is no Save button here**: the buffer is written as soon
   as it is a document the compiler could read, and held back with the reason while it is not
@@ -267,8 +267,8 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   inserts are optional props the other two pass nothing for.
 - **Timeline** — vim-style: `hjkl` movement, `v` for visual selection, `z`/`Shift+z`
   for the zoom stack, `m`/`s` for mute/solo. Neither is a session flag: `m` rewrites the
-  lane's BYPASS in `graph.yaml` — a lane is a module, and its mute is that module's bypass —
-  and `s` toggles the lane in project.yaml's root `soloed:` list, several at once, resolved by
+  lane's BYPASS in `graph.k7x` — a lane is a module, and its mute is that module's bypass —
+  and `s` toggles the lane in project.k7x's root `soloed:` list, several at once, resolved by
   the ENGINE (`packages/song/docs/trackModules.md`). Selection
   and zoom are a stack; the innermost entry describes the view. Unlike chains, this one
   stays k7-only.

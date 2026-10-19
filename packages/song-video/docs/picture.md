@@ -4,11 +4,11 @@ An `.k7` folder holds sound **and image**. Same folder, same loader, read twice:
 
 | file | read by the SONG compile | read by the PICTURE compile |
 |---|---|---|
-| `project.yaml` | `tempo`, `sampleRate`, `timeSignature`, `markers` | `viewport`, `layers`, `markers` |
-| `nodes/<id>.yaml` | the lanes | — |
-| `graph.yaml` | the signal graph | — |
-| `clips/<id>.yaml` | a source (audio) | a source (video) |
-| `video_tracks/<id>.yaml` | — | one file per picture LANE |
+| `project.k7x` | `tempo`, `sampleRate`, `timeSignature`, `markers` | `viewport`, `layers`, `markers` |
+| `nodes/<id>.k7x` | the lanes | — |
+| `graph.k7x` | the signal graph | — |
+| `clips/<id>.k7x` | a source (audio) | a source (video) |
+| `video_tracks/<id>.k7x` | — | one file per picture LANE |
 
 `loadProject` produces the `ProjectDoc` the C++ engine is handed. `loadVideoProject`
 produces the `VideoProjectDoc` `@studio/ui-eyes` composites. **They share no field.**
@@ -40,12 +40,13 @@ which is what an audio lane is for.
 
 ## `viewport` is required, and `layers` is the membership
 
-```yaml
-project:
-  name: "the film"
-  tempo: 120                  # the SONG's; picture never reads it
-  viewport: [1280, 720, 30]   # width, height, EXPORT fps
-  layers: [main, pip]         # draw order, bottom first
+```k7x
+project({
+  name: "the film",
+  tempo: 120, // the SONG's; picture never reads it
+  viewport: [1280, 720, 30], // width, height, EXPORT fps
+  layers: ["main", "pip"], // draw order, bottom first
+})
 ```
 
 **`viewport` has no default.** A frame invented by the loader would silently letterbox every
@@ -75,7 +76,7 @@ picture will not compile" stay two different answers.
 
 ### Making a lane is therefore TWO writes
 
-`createVideoTrackFile` (`packages/song/src/loader.ts`) writes `video_tracks/<id>.yaml` **and**
+`createVideoTrackFile` (`packages/song/src/loader.ts`) writes `video_tracks/<id>.k7x` **and**
 appends `<id>` to `project.layers`, and the verb behind it — `picture lane new` — is what k7's
 timeline calls. It looks the project file up *before* either write: the half-done state is the one
 above, a lane that compiles perfectly and never appears, and it would have to be repaired by hand.
@@ -87,12 +88,13 @@ true first.
 
 ## A lane, and what `mute` means on one
 
-```yaml
-# video_tracks/main.yaml
-x: 0, y: 0, w: 1280, h: 720    # where in the viewport; omit for the full frame
-events:
-  - { ref: shot_a, start: 0, length: 4 }
-  - { ref: shot_b, start: 3, length: 0, source_from: 2.5, fade_in: 1 }
+```k7x
+// video_tracks/main.k7x
+x(0) y(0) w(1280) h(720)    // where in the viewport; omit for the full frame
+events([
+  ref("shot_a").start(0).length(4),
+  ref("shot_b").start(3).length(0).source_from(2.5).fade_in(1),
+])
 ```
 
 `fade_in`/`fade_out` say how a shot arrives and leaves, in seconds; a bare number is a dissolve and
@@ -119,7 +121,7 @@ separation between MATERIAL and ARRANGEMENT that a song's `from`/`to` versus `st
 **`mute` means hidden.** There is no sound on a lane, so the word has to mean the other thing;
 the alternative is a second word for the one gesture every lane in every app has.
 
-**And `solo` is `project.yaml`'s `soloed:`** — the SAME list a song's lanes use, not a second one.
+**And `solo` is `project.k7x`'s `soloed:`** — the SAME list a song's lanes use, not a second one.
 Each compile filters it to its own lanes, so soloing a shot silences nothing and soloing a guitar
 hides nothing; any picture solo hides every un-soloed picture lane, which is the mixer-wide rule
 audio already keeps. The fold is the browser's, since the browser is what composites
@@ -149,9 +151,9 @@ three-hour cut writes `10800`.
 
 ## A lane can be fed by a LENS or by SHAPES instead
 
-`kind: video` says a lane draws its placements. Wire an `io: camera` node to it in `graph.yaml` and
+`kind: video` says a lane draws its placements. Wire an `io: camera` node to it in `graph.k7x` and
 it draws a live picture instead — the same lane, the same rect, the same `mute`, the same passes
-over it. That is the one thing in the picture model that comes off `graph.yaml`'s SOURCES rather
+over it. That is the one thing in the picture model that comes off `graph.k7x`'s SOURCES rather
 than out of `video_tracks/`, and it is why it costs no new road: everything a live layer needs, a
 lane already had. See [packages/song/docs/camera.md](../../song/docs/camera.md).
 
@@ -166,7 +168,7 @@ move it. [shapes.md](shapes.md) is the page.
 - **`video_effect` chains.** That shape of `VideoPluginDoc` is modelled and uncompiled: nothing
   turns one into anything a renderer runs. Its SIBLINGS both have a format now — a `shaders`
   module compiles all the way to a GLSL pass on the frame ([shaders.md](shaders.md)), over the
-  `graph.yaml` → renderer path, and a **transition** has one that is deliberately not that path
+  `graph.k7x` → renderer path, and a **transition** has one that is deliberately not that path
   ([transitions.md](transitions.md)): a cut NAMES it, so it is never wired. What is missing is a
   plugin format for `video_effect` alone.
 - **A fade_out that reveals the shot beneath it on the SAME lane.** A reveal belongs to the incoming

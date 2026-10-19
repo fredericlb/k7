@@ -17,16 +17,16 @@ three ways to fill it.
 
 ```
 modules/audio/moogladder/
-  module.yaml       plugin: {type: faust}, params:
+  module.k7x        plugin: {type: faust}, params:
   dsp.dsp           the source           (FIXED name — FAUST_FILE)
-  ui.yaml           the face
-  presets.yaml      the named settings
+  ui.k7x            the face
+  presets.k7x       the named settings
   assets/           what its params name
 ```
 
 The filename is a constant and not a field, exactly like `jsdsp.ts`: the type says the file is there,
 and a module stays a folder you copy without rewriting anything inside it. No `.vstpreset` — a Faust
-module's state *is* its parameters, so `presets.yaml` suffices, same as for a jsdsp module.
+module's state *is* its parameters, so `presets.k7x` suffices, same as for a jsdsp module.
 
 ## What separates it from jsdsp: WHO compiles
 
@@ -46,16 +46,16 @@ compiler is already on the other side of the wire: a cache of its output would b
 truth for nobody's benefit. `readFaustSource` reads the file, full stop.
 
 That holds only while nothing here needs the parameter list WITHOUT an engine: the panel and the
-graph read the names from the `module.yaml`'s `params:`, which the author writes anyway. Needing them
+graph read the names from the `module.k7x`'s `params:`, which the author writes anyway. Needing them
 otherwise means `faust -json` at compile time and a sibling `dsp.json` after all.
 
 ## The parameters, and what nobody checks
 
 An `hslider("Cutoff", 1200, 20, 20000, 1)` gives name, minimum, maximum, default and step: the exact
-shape of `DspGraphParam`, so `params:`, `ui.yaml`, `presets.yaml`, automation and `viewBindings`
+shape of `DspGraphParam`, so `params:`, `ui.k7x`, `presets.k7x`, automation and `viewBindings`
 carry on knowing nothing about Faust.
 
-Neither side checks that the `module.yaml`'s `params:` and the source's `hslider`s speak of the same
+Neither side checks that the `module.k7x`'s `params:` and the source's `hslider`s speak of the same
 names, and nothing here can: the parameters are declared by the compiler, which is in the engine. A
 typo yields a setting nobody reads — the engine says so, one line per unknown name
 (`applyPluginParams`, PluginParams.cpp). That is the only net, and it is at runtime.

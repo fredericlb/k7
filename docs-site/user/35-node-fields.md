@@ -10,22 +10,19 @@ Where a node is written depends on the project layout:
 
 - **Chain layout**: a node is an item in a chain's `steps`, written inline with an `id`
   (see [Chains and the graph](./36-chains-graph.md)).
-- **Graph layout**: a node is a file `nodes/<name>.yaml`; the file name is the node's name.
-- A **module** is a folder holding `module.yaml` (and usually `ui.yaml`), under a type folder:
-  `_modules/audio/reverb/module.yaml` is `@workspace/audio/reverb`.
+- **Graph layout**: a node is a file `nodes/<name>.k7x`; the file name is the node's name.
+- A **module** is a folder holding `module.k7x` (and usually `ui.k7x`), under a type folder:
+  `_modules/audio/reverb/module.k7x` is `@workspace/audio/reverb`.
 
-```yaml
-# nodes/lead.yaml — one use of the workspace synth, brighter than the default
-extends: "@workspace/instruments/synth"
-params:
-  "Filter Freq": 90
+```k7x
+// nodes/lead.k7x — one use of the workspace synth, brighter than the default
+extends("@workspace/instruments/synth")
+params({ "Filter Freq": 90 })
 ```
 
-```yaml
-# _modules/instruments/synth/module.yaml
-plugin:
-  type: internal
-  name: 4osc
+```k7x
+// _modules/instruments/synth/module.k7x
+plugin({ type: "internal", name: "4osc" })
 ```
 
 Every key is checked: an unknown key (a typo such as `paramz:`) is refused rather than ignored.
@@ -98,13 +95,15 @@ A node's `extends` must resolve, or the project refuses to load with
 | `kit` | map of pad name → note | The pads of an SFZ drum kit, drawn as taps. |
 | `tap_outs` | map of pad name → subchain id | Pads that leave by an output of their own, each feeding a subchain of the node's chain. |
 
-```yaml
-type: rack
-extends: "@workspace/instruments/drumrack"
-rack:
-  symbols:
-    BD: { note: 36, sample: "@project/kick.wav" }
-    SN: { note: 38, sample: "@project/snare.wav" }
+```k7x
+type("rack")
+extends("@workspace/instruments/drumrack")
+rack({
+  symbols: {
+    BD: { note: 36, sample: "@project/kick.wav" },
+    SN: { note: 38, sample: "@project/snare.wav" },
+  },
+})
 ```
 
 ### Picture modules
@@ -117,10 +116,11 @@ rack:
 
 ### Automation
 
-```yaml
-automations:
-  - { param: "Filter Freq", curve: sweep }
-  - { param: Level, curve: "@meta/curves/env", trigger: lead }
+```k7x
+automations([
+  param("Filter Freq").curve("sweep"),
+  param("Level").curve("@meta/curves/env").trigger("lead"),
+])
 ```
 
 | Field | Type | Meaning |
@@ -137,7 +137,7 @@ automations:
 | `frozen` | text | Frozen at this module: a render stands in for everything upstream. Written by k7. |
 | `model_url` | `http(s)://…` | Where to download the model a file-valued param names when this machine lacks it. |
 | `disabled` | true/false | Left out of the render. |
-| `ui` | panel | An inline panel; normally the panel is the module's `ui.yaml` (see [Picture, surfaces and other files](./37-picture-surfaces.md#module-folder-files)). |
+| `ui` | panel | An inline panel; normally the panel is the module's `ui.k7x` (see [Picture, surfaces and other files](./37-picture-surfaces.md#module-folder-files)). |
 
 ### Lane fields
 

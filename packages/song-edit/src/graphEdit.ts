@@ -49,7 +49,8 @@ function editGraph(dir: string, edit: (graph: K7Scope) => void): string {
     return join(dir, "chains");
   }
   const { path } = graphFileOf(dir);
-  wsEdit(path, (doc) => edit(doc.at([])));
+  // graphFile's writers expand `runs` and put it back themselves, so they see the document as written.
+  wsEdit(path, (doc) => edit(doc.at([])), { raw: true });
   return path;
 }
 

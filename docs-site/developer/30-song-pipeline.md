@@ -11,7 +11,7 @@ the per-account process that serves them.
 | [song-schema](./31-song-schema.md) | `packages/song-schema` — the file format, browser-safe |
 | [The compiler](./32-song-compiler.md) | `packages/song` — loader, inheritance, compile |
 | [song-edit](./33-song-edit.md) | `packages/song-edit` — surgical writes |
-| [k7x](./34-k7x.md) | `packages/k7x` — the parser, the editor, the bridge to YAML |
+| [k7x](./34-k7x.md) | `packages/k7x` — the parser, the printer, the document every writer edits |
 | [song-strudel](./35-song-strudel.md) | `packages/song-strudel` — pattern lanes |
 | [file-service](./36-file-service.md) | `packages/file-service` — the per-account process and its HTTP API |
 | [file-hub](./37-file-hub.md) | `packages/file-hub` — spawning file services, libraries, the sync relay |
@@ -37,7 +37,7 @@ the per-account process that serves them.
 
 - **The engine never parses song files.** It receives a compiled `ProjectDoc`
   (`packages/engine-protocol/project.ts`) with absolute paths, diffs it against what it holds, and
-  plays. Everything about folders, inheritance and YAML lives in TypeScript.
+  plays. Everything about folders, inheritance and k7x lives in TypeScript.
 - **The browser validates what the compiler would read**, with the same zod schemas, before the
   buffer is written. That is why `@studio/song-schema` has no `node:` import, and why
   `@studio/song` (which reads disks) is a separate package.

@@ -39,7 +39,7 @@ is refused on purpose — the first word says which half of the project leaves.
 ## Splitting and consolidating material
 
 `packages/take-render/src/materialRender.ts` holds `consolidateAudioMaterial`: render a range on one
-lane (gaps kept as silence) into one new file, write its `clips/<id>.yaml`, and replace the
+lane (gaps kept as silence) into one new file, write its `clips/<id>.k7x`, and replace the
 placements. An audio split renders nothing: it places the same file twice, windowed either side of
 the cut (`splitAudioPlacement` in `packages/song-edit/src/materialCut.ts`, where the sequence split
 and consolidate are text edits too). The material a consolidate or a sequence split replaced is left
@@ -72,7 +72,7 @@ instead of replacing it.
 
 `event process` (`packages/commands/src/verbs/eventProcess.ts`) is `clip process` for one event: when
 anything else plays the same material, it first gives the event its own copy of the clip
-(`clips/<ref>-N.yaml`) and rewrites only that placement, so a right-click on one event never changes
+(`clips/<ref>-N.k7x`) and rewrites only that placement, so a right-click on one event never changes
 the others; a bounce that writes nothing undoes the copy.
 
 ## Freezing

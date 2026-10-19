@@ -49,22 +49,18 @@ What the rewrite costs: the deep form's sixth level is 1/4096 of a quarter, fine
 a few times land on the grid rather than exactly where they were. The worst of it is under half a
 tick — about a quarter of a millisecond at 110bpm.
 
-**The dot overlaps a YAML float**, where the colon form does not: `1.5` unquoted is a number in
-any YAML, while `25:1` is only a YAML 1.1 sexagesimal. So `TIMECODE` in
-`packages/song-schema/src/yaml/placementSchema.ts` accepts the dot — a timecode the schema refused
-would be written unquoted, and read back as 1.5.
+**The dot overlaps a number**, where the colon form does not: `1.5` unquoted is a number, while
+`25:1` unquoted does not parse. So `TIMECODE` in `packages/song-schema/src/yaml/placementSchema.ts`
+accepts the dot — a timecode is the quoted string `"1.5"`, and the number 1.5 is a beat.
 
 The model measures time in beats = QUARTER NOTES (Tracktion's unit; the ABC parser
 agrees — "whole-note = 4 beats"). A metrical beat is `Q = 4/denominator` quarter notes;
 a bar is `numerator` such beats.
 
-## A marker map's KEYS have to be quoted
+## A marker map's KEYS are quoted
 
-The markers are the one place in the model where a timecode is a **key** rather than a value, which
-is why `yaml/edit.ts` has `setQuotedKeyMap` beside `setFileValue`. `setFileValue` takes a plain
-object and `createNode` gives every key the plain style — correct under YAML 1.2 and a disaster
-under 1.1, where `2:1:1` unquoted is a sexagesimal integer. `quoteTimecodes` cannot rescue it
-either: it walks values under known keys.
+The markers are the one place in the model where a timecode is a **key** rather than a value. A
+k7x key that is not a bare name is quoted, so `"2:1:1": "verse"` needs no writer of its own.
 
 ## A clip's window edge needs the grid
 

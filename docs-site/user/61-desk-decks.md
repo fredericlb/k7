@@ -129,7 +129,7 @@ Each deck has eight cue buttons, each with its own colour.
 | Tap a set cue | Jumps there. A running loop is turned off first. |
 | Tap an empty cue | Nothing. |
 
-The cue buttons are drawn on an empty deck too, greyed. Cues are saved in the project's `mix.yaml`, under the song, as seconds into the file, so they survive tempo changes and come back the next time the song is on a deck in this set. Another set has its own cues for the same song. See [The desk's files](./63-desk-files.md#the-cue-sheet-mixyaml).
+The cue buttons are drawn on an empty deck too, greyed. Cues are saved in the project's `mix.k7x`, under the song, as seconds into the file, so they survive tempo changes and come back the next time the song is on a deck in this set. Another set has its own cues for the same song. See [The desk's files](./63-desk-files.md#the-cue-sheet-mixk7x).
 
 ## Loops
 

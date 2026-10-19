@@ -159,7 +159,7 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          packages/song-schema/src/builtinParams.generated.ts. A GENERATOR, like the one
                          above: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace k7-runtime`. docs/builtinParams.md.
-  gen-surge-panel.mjs    write the Surge XT module's panel (ui.yaml + widgets.js in k7-core) from
+  gen-surge-panel.mjs    write the Surge XT module's panel (ui.k7x + widgets.js in k7-core) from
                          `--dump-surge-layout`, and a factory preset per patch in its base/. A GENERATOR,
                          output committed: run it after bumping Surge or changing the patches.
                          `npm run gen:surge-panel --workspace k7-runtime`. docs/surgePlugin.md.

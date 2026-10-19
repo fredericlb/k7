@@ -10,9 +10,7 @@
     "./print": "./src/print.ts",
     "./native": "./src/native.ts",
     "./document": "./src/edit.ts",
-    "./from-yaml": "./src/fromYaml.ts",
-    "./sugared": "./src/sugared.ts",
-    "./yaml-bridge": "./src/yamlBridge.ts"
+    "./sugared": "./src/sugared.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -24,9 +22,6 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

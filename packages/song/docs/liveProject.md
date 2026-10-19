@@ -6,14 +6,14 @@ are named after what they **are** — nothing is arranged, and there is no lane 
 
 ```
 rig.k7/
-  project.yaml            no layers — a name, a tempo, a rate (+ a viewport in live-video)
-  settings.yaml           metronome off
-  graph.yaml              four lines, six in live-video
-  nodes/IN.yaml           the live input — OUT is a built-in sink, no file needed
-  nodes/fader.yaml        the fader — a use of the library's shared strip
-  nodes/rec.yaml          the recorder, on the master run — a rig is something you keep
-  nodes/CAM.yaml          live-video ONLY: the webcam
-  surfaces/viewport.yaml  live-video ONLY: the frame it fills
+  project.k7x             no layers — a name, a tempo, a rate (+ a viewport in live-video)
+  settings.k7x            metronome off
+  graph.k7x               four lines, six in live-video
+  nodes/IN.k7x            the live input — OUT is a built-in sink, no file needed
+  nodes/fader.k7x         the fader — a use of the library's shared strip
+  nodes/rec.k7x           the recorder, on the master run — a rig is something you keep
+  nodes/CAM.k7x           live-video ONLY: the webcam
+  surfaces/viewport.k7x   live-video ONLY: the frame it fills
 ```
 
 That is the file MAP. A new rig is then converted to chain files, the main layout
@@ -29,12 +29,13 @@ to do was **ask for one**.
 
 ## INPUT → FADER, and no track anywhere
 
-```yaml
-modules:
-  IN:    [ fader ]   # the input runs into the fader…
-  fader: [ MIX ]     # …and the fader into the mixer's sum
-  MIX:   [ rec ]     # …through the RECORDER, on the master run…
-  rec:   [ OUT ]     # …and out to the interface
+```k7x
+modules({
+  IN: ["fader"], // the input runs into the fader…
+  fader: ["MIX"], // …and the fader into the mixer's sum
+  MIX: ["rec"], // …through the RECORDER, on the master run…
+  rec: ["OUT"], // …and out to the interface
+})
 ```
 
 `fader: [ MIX ]` rather than `fader: [ OUT ]`, and the difference is entirely in what it SAYS: the
@@ -88,15 +89,15 @@ tap and a param watch, as any other node does.
 
 ### The fader is the SHARED strip — the same one every project's mixer node is
 
-`nodes/fader.yaml` extends `@meta/audio/mixer`, k7's own strip ([metaModules.md](metaModules.md)), and two separate things make that the only
+`nodes/fader.k7x` extends `@meta/audio/mixer`, k7's own strip ([metaModules.md](metaModules.md)), and two separate things make that the only
 right answer rather than merely a tidy one.
 
 **The plugin has to be `Mixer`.** `trackMixer` finds the last one in a track's chain, and *a track
 with none has nowhere to put a level*. A fader built out of any other plugin — Tracktion's
 volume-and-pan, a jsdsp gain — is a fader **no surface can drive**: the strip on screen finds
-nothing to move and the rig is adjustable only by editing YAML.
+nothing to move and the rig is adjustable only by editing its files.
 
-**And the face lives on the library module, not on the plugin.** A card draws the `ui.yaml` beside
+**And the face lives on the library module, not on the plugin.** A card draws the `ui.k7x` beside
 the module it resolves to; the plugin's params alone draw nothing. The library's `mixer/` carries
 one — a fader and four knobs, `Volume` `Pan` `Low` `Mid` `High`. A project-owned copy of the same
 plugin compiles to the same audio and gives you **a card with no controls on it**, which is how
@@ -115,10 +116,10 @@ output level ([masterVolume.md](masterVolume.md)), and they are two different nu
 
 ## What the input says — and the one thing it does not
 
-```yaml
-io: in
-monitor: "on"       # audible without arming anything — QUOTED, or YAML 1.1 reads it as `true`
-gain: 0             # a trim in dB at the interface, ahead of everything
+```k7x
+io("in")
+monitor("on") // audible without arming anything — the word, not a boolean
+gain(0) // a trim in dB at the interface, ahead of everything
 ```
 
 `monitor: "on"` rather than the default `auto` is the one opinion the scaffold has: `auto` means
@@ -136,9 +137,9 @@ That is the **only** thing a fresh live project says, and it is worth saying: a 
 is otherwise indistinguishable from a rig that is broken. Pick a socket on the node's card — the
 dropdown lists what this machine declares — or write it:
 
-```yaml
-channel: [1]        # 1-based; a PAIR for a stereo input, e.g. [1, 2]
-channel: "guitar"   # …or a label from <state>/preferences.yaml (channels.in)
+```k7x
+channel([1])        // 1-based; a PAIR for a stereo input, e.g. [1, 2]
+channel("guitar")   // …or a label from <state>/preferences.yaml (channels.in)
 ```
 
 A label is the spelling that survives being opened on another machine
@@ -155,20 +156,21 @@ The picture's half is the sound's half again, sentence for sentence, and that is
 | | sound | picture |
 |---|---|---|
 | the source | `IN` — an interface channel | `CAM` — a webcam |
-| owned as | `nodes/IN.yaml` | `nodes/CAM.yaml` |
+| owned as | `nodes/IN.k7x` | `nodes/CAM.k7x` |
 | chosen by | `channel:`, blank until you pick | `camera:`, blank meaning the machine's own |
 | lands on | `MIX`, the mixer's sum | `RENDER`, where lanes composite |
 | its strip | a track it materialises | a layer it synthesises |
 | authored lane | none | none |
 
-```yaml
-modules:
-  IN:    [ fader ]   # the input runs into the fader…
-  fader: [ MIX ]     # …and the fader into the mixer's sum
-  MIX:   [ rec ]
-  rec:   [ OUT ]
-  CAM:   [ RENDER ]  # …and the lens composites into the frame
-  RENDER: [ VIDEO_OUT ]
+```k7x
+modules({
+  IN: ["fader"], // the input runs into the fader…
+  fader: ["MIX"], // …and the fader into the mixer's sum
+  MIX: ["rec"],
+  rec: ["OUT"],
+  CAM: ["RENDER"], // …and the lens composites into the frame
+  RENDER: ["VIDEO_OUT"],
+})
 ```
 
 `CAM: [ RENDER ]` rather than a bare `CAM: []`. Both compile to the same full-frame layer — a
@@ -180,10 +182,10 @@ compiler still means something to the reader.
 exception to "no surface at all", and it is not a softening of the rule: an arrangement left
 undrawn is still on disk and still plays, whereas a frame nothing composites is *not shown* —
 there is no fallback view for picture the way the timeline is a fallback for lanes. So the viewport
-comes with the shape, and `project.yaml` gains the one size a rig has:
+comes with the shape, and `project.k7x` gains the one size a rig has:
 
-```yaml
-  viewport: [1280, 720, 30]
+```k7x
+viewport([1280, 720, 30])
 ```
 
 ### A picture is not the same question as `video_tracks/`

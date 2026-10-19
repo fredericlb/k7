@@ -111,7 +111,7 @@ struct ClipDoc {
     Beats start = 0.0;
     Beats length = 0.0;   // 0 == use the source's natural length
     Beats offset = 0.0;   // audio: source in-point; midi: playStart
-    // The clip FILE's window into its source (clips/<id>.yaml from/to) — SECONDS, since a file has no tempo; every placement plays that slice and no more.
+    // The clip FILE's window into its source (clips/<id>.k7x from/to) — SECONDS, since a file has no tempo; every placement plays that slice and no more.
     double sourceFrom = 0.0;  // 0 == from the file's start
     double sourceTo = 0.0;    // 0 == to the file's end
     Beats fadeIn = 0.0;
@@ -186,9 +186,9 @@ struct ProjectDoc {
     std::string recordDir;
     // False while a TAKE is recorded: the armed lane keeps playing, its punch already cut out (song docs/takes.md).
     bool recordMute = true;
-    // The metronome enable from settings.yaml: click during playback, emphasising each bar's first beat; a surface toggles it by re-sending.
+    // The metronome enable from settings.k7x: click during playback, emphasising each bar's first beat; a surface toggles it by re-sending.
     bool metronome = false;
-    // How loud the click is, 0.2 … 1 (settings.yaml `metronome_level`) — NEVER 0, which Tracktion clamps to 0.2; silence is `metronome` above.
+    // How loud the click is, 0.2 … 1 (settings.k7x `metronome_level`) — NEVER 0, which Tracktion clamps to 0.2; silence is `metronome` above.
     double metronomeLevel = 0.6;
     // Count-in length in BARS rolled clicking before capture, so the take starts on the beat; 0 == none, and Tracktion clamps above two.
     int countIn = 0;

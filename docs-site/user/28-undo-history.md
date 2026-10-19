@@ -14,7 +14,7 @@ When the text editor has the focus, Ctrl+Z first undoes your typing in that buff
 has nothing left to undo, the next Ctrl+Z reaches the song's journal. In the command bar or another
 text field, Ctrl+Z stays with that field.
 
-After an undo, a toast names the file that changed (`Undone : nodes/drums.yaml`, `(+2)` when more
+After an undo, a toast names the file that changed (`Undone : nodes/drums.k7x`, `(+2)` when more
 than one did) and the editor shows it. The song reloads and the engine plays the restored version.
 
 Undoing a step that **bounced audio** (`track process`, `clip process`, `event process`) asks first —

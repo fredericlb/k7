@@ -55,7 +55,7 @@ outside it — a library's folder, `@meta` — gets its own recursive `fs.watch`
 live sync is off; such a root that does not exist is simply not watched, so an older project costs
 nothing for the newer format's folders. The workspace's capture can be replaced while a project is
 served, so asking again with a different feed re-subscribes rather than keeps the stopped one.
-`layout.yaml` is not watched: where a card sits feeds the segments, which are read fresh on every
+`layout.k7x` is not watched: where a card sits feeds the segments, which are read fresh on every
 load, and none of the cached reads — the module map and the ref map — looks at it.
 
 ## Why a watcher is not enough on its own

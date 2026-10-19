@@ -3,18 +3,17 @@
 A project can run its mix through an Airwindows-style **console**: a CHANNEL plugin on every lane
 and a BUSS plugin on the sum. The two halves are one system, so the project names the system once:
 
-```yaml
-# project.yaml
-project:
-  console: "@k7-core/console/console-6"
+```k7x
+// project.k7x
+project({ console: "@k7-core/console/console-6" })
 ```
 
 A system is a folder of a library's `console/` type, holding exactly two modules:
 
 ```
 <library>/modules/console/<system>/
-  channel/   module.yaml, ui.yaml
-  buss/      module.yaml, ui.yaml
+  channel/   module.k7x, ui.k7x
+  buss/      module.k7x, ui.k7x
 ```
 
 ## Why a project setting and not two modules
@@ -58,7 +57,7 @@ ref and never a node name.
 
 ## Implicit
 
-Choosing a console never touches `graph.yaml`: the halves are not nodes, and the graph you drew
+Choosing a console never touches `graph.k7x`: the halves are not nodes, and the graph you drew
 stays the graph you drew. The graph does not draw it either: which console a project runs is a
 setting of the project (Settings › Project), and that is where it is read and changed. A tag on
 every strip and on the `MIX` sum would repeat one fact across the whole graph.

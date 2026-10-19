@@ -184,12 +184,18 @@ describe("picture lane new", () => {
     writeFileSync(join(song, "project.k7x"), body, "utf8");
 
   it("writes the lane AND lists it in project.layers", async () => {
-    project('project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n');
+    project(
+      'project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n',
+    );
     lane("events([])\n");
     await runCommand("picture lane new broll", host(), "cli");
     expect(read("broll")).toContain("events([])");
     expect(
-      parse(readFileSync(join(song, "project.k7x"), "utf8")).project.layers,
+      (
+        parse(readFileSync(join(song, "project.k7x"), "utf8")).project as {
+          layers?: string[];
+        }
+      ).layers,
     ).toEqual(["main", "broll"]);
   });
 
@@ -206,7 +212,9 @@ describe("picture lane new", () => {
   });
 
   it("refuses a name a lane already has, and writes nothing", async () => {
-    project('project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n');
+    project(
+      'project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n',
+    );
     lane("// the camera\nevents([])\n");
     await runCommand("picture lane new main", host(), "cli");
     expect(refusals.join(" ")).toMatch(/already exists/);
@@ -288,7 +296,9 @@ describe("picture key / unkey", () => {
     await runCommand("picture key main 4 scale 7 1.2 inout", host(), "cli");
     expect(refusals).toEqual([]);
     // shot_b starts at 4, so a key at 7 on the timeline is 3 s into the shot.
-    expect(parse(read()).events[1].animate).toEqual({
+    expect(
+      (parse(read()).events as { animate?: unknown }[])[1].animate,
+    ).toEqual({
       scale: [{ t: 3, v: 1.2, ease: "inout" }],
     });
     expect(read()).toContain("// the camera");

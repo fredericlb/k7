@@ -1,27 +1,18 @@
 # Panels
 
 A module's **panel** is the grid of controls drawn on its card in the chains view. It lives in the
-module folder as `ui.k7x` (or `ui.yaml`). The [module builder](./45-module-builder.md) edits it
+module folder as `ui.k7x`. The [module builder](./45-module-builder.md) edits it
 visually; this page is the reference for the file itself.
 
 ## A panel file
 
-```js
+```k7x
 // k7-core/modules/audio/compressor/engines/surge/ui.k7x
 cols(4)
 rows(4)
 widgets({
   surge: { type: "knob", col: 0, row: 0, colSpan: 4, rowSpan: 4, label: "Surge", bind: "Surge", min: 0, max: 1 },
 })
-```
-
-The same panel in YAML:
-
-```yaml
-cols: 4
-rows: 4
-widgets:
-  surge: { type: knob, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: Surge, bind: Surge, min: 0, max: 1 }
 ```
 
 ## Top-level fields

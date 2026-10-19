@@ -1,15 +1,17 @@
 # A shot's animation — keys on the placement
 
-```yaml
-# video_tracks/main.yaml
-events:
-  - ref: shot_a
-    start: 4
-    length: 6
-    animate:
-      scale: [[0, 1], { t: 6, v: 1.2, ease: inout }]   # a slow push in
-      x: [[0, 0], [6, -80]]                            # …drifting left
-      opacity: [[0, 0], [0.5, 1]]                      # …faded up over half a second
+```k7x
+// video_tracks/main.k7x
+events([
+  ref("shot_a")
+    .start(4)
+    .length(6)
+    .animate({
+      scale: [[0, 1], t(6).v(1.2).ease("inout")], // a slow push in
+      x: [[0, 0], [6, -80]], // …drifting left
+      opacity: [[0, 0], [0.5, 1]], // …faded up over half a second
+    }),
+])
 ```
 
 `@studio/song-schema`'s `keyframes.ts` is the format and its arithmetic; `ui-eyes`' `motion.ts`

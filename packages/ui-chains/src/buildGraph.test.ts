@@ -431,7 +431,7 @@ describe("cable signal through a pass-through chain", () => {
 describe("a chain whose source track no longer exists", () => {
   it("still draws the track node instead of vanishing", () => {
     const { nodes, edges } = buildGraph(
-      // `tracks` is empty: chains.yaml still says "vox", but tracks/ has moved on.
+      // `tracks` is empty: chains.k7x still says "vox", but tracks/ has moved on.
       graph(
         {
           vox: {

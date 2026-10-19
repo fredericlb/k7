@@ -1,4 +1,4 @@
-// The card a CAMERA node draws. `@meta/CAM` has no folder, so it can carry no `ui.yaml` — which
+// The card a CAMERA node draws. `@meta/CAM` has no folder, so it can carry no `ui.k7x` — which
 // is why this panel is synthesised and not authored, and why getting it wrong would leave every
 // camera in every project reading "No Options". See packages/song/docs/camera.md.
 

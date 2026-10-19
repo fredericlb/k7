@@ -148,7 +148,7 @@ const screens = {
   },
 };
 
-// One voice and one sample screen per track tab, named `<screen>_<track>` as ui.yaml places them.
+// One voice and one sample screen per track tab, named `<screen>_<track>` as ui.k7x places them.
 for (let n = 1; n <= 10; n++) {
   screens[`voice_screen_${n}`] = (lcd) => voice(lcd, n);
   screens[`sample_screen_${n}`] = (lcd) => sample(lcd, n);

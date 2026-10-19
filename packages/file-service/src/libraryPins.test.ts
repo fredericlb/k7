@@ -78,4 +78,11 @@ describe("ensureLibraryPins", () => {
     expect(pins()).toEqual({ "k7-core": 2 });
     expect(existsSync(join(ws, LEGACY_LIBRARY_PINS_FILE))).toBe(false);
   });
+
+  it("leaves legacy pins that do not read on disk, and writes none over them", () => {
+    writeFileSync(join(ws, LEGACY_LIBRARY_PINS_FILE), "k7-core: [2\n");
+    expect(ensureLibraryPins(ws, { fresh: true, admin: true })).toBeNull();
+    expect(existsSync(join(ws, LEGACY_LIBRARY_PINS_FILE))).toBe(true);
+    expect(existsSync(join(ws, "_library-pins.k7x"))).toBe(false);
+  });
 });

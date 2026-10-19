@@ -101,7 +101,11 @@ describe("picture import", () => {
     await runCommand("picture import imports/cut.otio", host(), "cli");
     expect(refusals).toEqual([]);
     expect(
-      parse(readFileSync(join(bare, "project.k7x"), "utf8")).project.viewport,
+      (
+        parse(readFileSync(join(bare, "project.k7x"), "utf8")).project as {
+          viewport?: number[];
+        }
+      ).viewport,
     ).toEqual([1920, 1080, 25]);
     expect(existsSync(join(bare, "video_tracks", "import-1.k7x"))).toBe(true);
     expect(loadVideoProject(bare).videoTracks.map((t) => t.id)).toEqual([

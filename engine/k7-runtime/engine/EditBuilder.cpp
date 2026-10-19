@@ -134,7 +134,7 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     }
 }
 
-// ASCII case-insensitive equality: plugin names and formats round-trip through JSON and YAML, whose casing we do not control.
+// ASCII case-insensitive equality: plugin names and formats round-trip through JSON and k7x, whose casing we do not control.
 bool iequals(const std::string& a, const std::string& b) {
     return a.size() == b.size() &&
            std::equal(a.begin(), a.end(), b.begin(),

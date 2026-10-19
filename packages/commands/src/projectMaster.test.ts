@@ -3,16 +3,12 @@
 // being ACCEPTED (Tracktion clamps it, so the file would disagree with the sound for ever), unity
 // being written instead of removed, and the two spellings drifting apart.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { MASTER_MAX_DB } from "@studio/song-schema/yaml/projectSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -32,17 +28,16 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const projectYaml = () => readFileSync(join(dir, "project.yaml"), "utf8");
+const projectText = () => wsText(join(dir, "project.k7x"));
+const master = () =>
+  (wsData(join(dir, "project.k7x")).project as { masterVolume?: number })
+    .masterVolume;
 
 beforeEach(() => {
   logs.length = 0;
   applied = [];
   dir = mkdtempSync(join(tmpdir(), "td-master-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
   mkdirSync(join(dir, "nodes"), { recursive: true });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -50,7 +45,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 describe("project master", () => {
   it("writes the level, and the compiled doc carries it to the engine", async () => {
     await runCommand("project master -4.5", host(), "cli");
-    expect(projectYaml()).toContain("masterVolume: -4.5");
+    expect(master()).toBe(-4.5);
     // The half that matters: the engine reads the DOC, not the file.
     expect(loadProject(dir).masterVolume).toBe(-4.5);
   });
@@ -59,7 +54,7 @@ describe("project master", () => {
     // The rule `type:` and `status:` already follow: nothing to say means nothing written.
     await runCommand("project master -4.5", host(), "cli");
     await runCommand("project master 0", host(), "cli");
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
     // …and unity is still what the doc reports, which is the point of the default.
     expect(loadProject(dir).masterVolume).toBe(0);
   });
@@ -71,7 +66,7 @@ describe("project master", () => {
   it("REFUSES above the fader's top instead of clamping to it", async () => {
     // Tracktion's curve gives every value over +6 one position: accepting 12 would set 6.
     await runCommand(`project master ${MASTER_MAX_DB + 6}`, host(), "cli");
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
     expect(logs.join(" ")).toContain("outside the fader");
     // …and says where the headroom actually is, which is not here.
     expect(logs.join(" ")).toContain("STRIPS");
@@ -86,7 +81,7 @@ describe("project master", () => {
     await runCommand("project master loud", host(), "cli");
     expect(logs.join(" ")).toContain("expects a number");
 
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
   });
 
   it("takes the top of the fader itself — the bound is inclusive", async () => {
@@ -105,7 +100,7 @@ describe("project master", () => {
 describe('node param "OUT" Volume', () => {
   it("writes the same level `project master` does", async () => {
     await runCommand('node param "OUT" Volume -4.5', host(), "cli");
-    expect(projectYaml()).toContain("masterVolume: -4.5");
+    expect(master()).toBe(-4.5);
     expect(loadProject(dir).masterVolume).toBe(-4.5);
     expect(applied.map((p) => p.masterVolume)).toEqual([-4.5]);
   });
@@ -113,7 +108,7 @@ describe('node param "OUT" Volume', () => {
   it("removes the line at unity, like the verb does", async () => {
     await runCommand('node param "OUT" Volume -4.5', host(), "cli");
     await runCommand('node param "OUT" Volume 0', host(), "cli");
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
   });
 
   it("refuses outside the fader rather than clamping", async () => {
@@ -123,7 +118,7 @@ describe('node param "OUT" Volume', () => {
       "cli",
     );
     expect(logs.join(" ")).toContain("outside the fader");
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
   });
 
   // Answered BEFORE the plugin lookup, or the message would list every module in the song.
@@ -137,6 +132,6 @@ describe('node param "OUT" Volume', () => {
   it("sends MIX to OUT rather than refusing it blankly", async () => {
     await runCommand('node param "MIX" Volume -3', host(), "cli");
     expect(logs.join(" ")).toContain('node param "OUT" Volume -3');
-    expect(projectYaml()).not.toContain("masterVolume");
+    expect(projectText()).not.toContain("masterVolume");
   });
 });

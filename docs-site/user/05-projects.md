@@ -113,7 +113,7 @@ Tags are short words the home page shows as badges beside a project's name, for 
 | `project untag <tag>` | Remove a tag. |
 
 The editor's task panel also has an "Add a tag…" field for the open project. Tags are stored in the
-project's `project.yaml`, under `project: tags:`.
+project's `project.k7x`, under `project: tags:`.
 
 ## Importing a project from another DAW
 

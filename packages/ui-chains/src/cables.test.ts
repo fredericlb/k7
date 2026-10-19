@@ -328,7 +328,7 @@ describe("insertFor", () => {
   });
 
   it("offers one ACROSS chains too — an arrow is an arrow", () => {
-    // A same-chain rule would refuse this; `chains.yaml` states its edges. docs/graphBuild.md.
+    // A same-chain rule would refuse this; `chains.k7x` states its edges. docs/graphBuild.md.
     expect(
       insertFor(
         "a",

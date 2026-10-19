@@ -6,7 +6,7 @@ namespace studio {
 
 namespace te = tracktion::engine;
 
-// Renaming this renames the id a module.yaml may name the built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name the built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* ArpeggiatorPlugin::xmlTypeName = "studio_arpeggiator";
 
 namespace {

@@ -4,7 +4,7 @@
 
 namespace studio::eurorack {
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* TextureSynthesizerPlugin::xmlTypeName = "studio_texture_synthesizer";
 
 TextureSynthesizerPlugin::TextureSynthesizerPlugin(tracktion::engine::PluginCreationInfo info)

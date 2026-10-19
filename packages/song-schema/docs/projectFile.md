@@ -1,4 +1,4 @@
-# project.yaml
+# project.k7x
 
 The rationale behind `packages/song-schema/src/yaml/projectSchema.ts` — the file's two tiers, the
 fields that are dead and still accepted, and the archetypes.
@@ -20,7 +20,7 @@ command that accepted what the file refuses would write a project that will not 
 own parameter is wider still (to +24), so widening this again is a one-line change.
 
 `masterVolume` is a fact about the mix rather than about this machine, which is why it is in
-`project.yaml` and not in `settings.yaml` beside the metronome: it moves playback, `--render` and a
+`project.k7x` and not in `settings.k7x` beside the metronome: it moves playback, `--render` and a
 freeze together, and it travels in a share. A monitoring level that only changed what you hear in
 this room would be a different field in a different file. Absent means UNITY, and unity is never
 written. See `packages/song/docs/masterVolume.md`.
@@ -59,7 +59,7 @@ The fourth is named after what it IS, being the one that opens on none:
 | archetype | the surfaces it writes, and what fills them |
 |---|---|
 | `arrangement` | `timeline` — a lane, a synth, a pattern |
-| `mix` | `turntables` — two decks meeting at a crossfade, an empty `songs.yaml` |
+| `mix` | `turntables` — two decks meeting at a crossfade, an empty `songs.k7x` |
 | `video` | `timeline` + `viewport` — the arrangement, plus a lane of picture |
 | `live` | **none** — an input, the lane it lands on, and the master run (`packages/song/docs/liveProject.md`) |
 
@@ -76,7 +76,7 @@ in it, and being surfaceless is a fact anyone can read off the folder rather tha
 disagree with it.
 
 **`mix` writes a SET**, and that pair of names is the one mismatch here. `mix` is what you ASK for,
-named like its two neighbours; a set is what lands on disk — `songs.yaml`, decks, a desk — and
+named like its two neighbours; a set is what lands on disk — `songs.k7x`, decks, a desk — and
 `packages/song/docs/setProject.md` is its page. One word cannot be right for both audiences.
 
 ## Marker keys
@@ -85,7 +85,7 @@ named like its two neighbours; a set is what lands on disk — `songs.yaml`, dec
 of `TIMECODE` where it overlaps, which is the point: `"90"` and `"1:30"` are legal under both, and
 the DIALECT decides what they mean — bar 90 in a song, ninety seconds in a cut. The decimal part is
 what a musical timecode cannot say, and the only thing outside the overlap. It is quoted for the same
-YAML 1.1 sexagesimal reason every other timecode here is.
+reason every other timecode here is: a timecode is a string.
 
 ## `soloed`
 

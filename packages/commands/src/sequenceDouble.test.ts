@@ -4,17 +4,12 @@
 // what a LENGTH is when the file states no window, and that the copies land inside the journal's
 // one entry. The writer's own rules are packages/song-schema's doubleSequence.test.ts.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
@@ -22,33 +17,30 @@ const logs: string[] = [];
 let reloaded = 0;
 let snapped: string[] = [];
 
-const SEQ = `notes:
-  - { t: 0, d: 1, k: 60 }
-  - { t: 2.5, d: 0.5, k: 64, v: 0.8 }
-`;
+const SEQ = [
+  { t: 0, d: 1, k: 60 },
+  { t: 2.5, d: 0.5, k: 64, v: 0.8 },
+];
 
-function song(seq = SEQ, place = ""): string {
+/** A lane placing the sequence — the half of the act that lives outside the sequence file. */
+const LANE = {
+  extends: "@meta/track",
+  events: [{ ref: "melody", start: "1:1:1", loop: 4 }],
+};
+
+function song(seq: unknown[] = SEQ, place?: Record<string, unknown>): string {
   const d = mkdtempSync(join(tmpdir(), "td-seqdouble-"));
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "sequences"), { recursive: true });
-  writeFileSync(join(d, "sequences", "melody.yaml"), seq, "utf8");
-  if (place) {
-    mkdirSync(join(d, "nodes"), { recursive: true });
-    writeFileSync(join(d, "nodes", "lead.yaml"), place, "utf8");
-  }
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(d, "sequences", "melody.k7x"), { notes: seq });
+  if (place) writeDoc(join(d, "nodes", "lead.k7x"), place);
   return d;
 }
 
-/** A lane placing the sequence — the half of the act that lives outside the sequence file. */
-const LANE = `extends: "@meta/track"
-events:
-  - { ref: melody, start: "1:1:1", loop: 4 }
-`;
-const lane = () => readFileSync(join(dir, "nodes", "lead.yaml"), "utf8");
+const laneLoop = () =>
+  (wsData(join(dir, "nodes", "lead.k7x")).events as { loop?: number }[])[0]
+    ?.loop;
 
 const host = (num = 4, den = 4) =>
   ({
@@ -69,9 +61,10 @@ const host = (num = 4, den = 4) =>
   }) as never;
 
 const notes = () =>
-  parse(readFileSync(join(dir, "sequences", "melody.yaml"), "utf8"), {
-    version: "1.2",
-  }).notes as { t: number; k: number }[];
+  wsData(join(dir, "sequences", "melody.k7x")).notes as {
+    t: number;
+    k: number;
+  }[];
 const run = (line: string, num?: number, den?: number) =>
   runCommand(line, host(num, den), "cli");
 
@@ -98,17 +91,17 @@ describe("sequence double", () => {
 
   it("backs the file up first, so one press is one Ctrl+Z", async () => {
     await run("sequence double melody");
-    expect(snapped).toEqual([join(dir, "sequences", "melody.yaml")]);
+    expect(snapped).toEqual([join(dir, "sequences", "melody.k7x")]);
   });
 
   it("refuses a sequence that is not there, by name", async () => {
     await run("sequence double nope");
-    expect(logs.join("\n")).toMatch(/no sequence file: sequences\/nope\.yaml/);
+    expect(logs.join("\n")).toMatch(/no sequence file: sequences\/nope\.k7x/);
     expect(reloaded).toBe(0);
   });
 
   it("refuses an EMPTY sequence rather than making it twice as empty", async () => {
-    dir = song("notes: []\n");
+    dir = song([]);
     await run("sequence double melody");
     expect(logs.join("\n")).toMatch(/no notes/);
     expect(reloaded).toBe(0);
@@ -118,14 +111,17 @@ describe("sequence double", () => {
     // The window doubled, so four passes of it would be twice the arrangement — see song-edit's docs/sequenceLoops.md.
     dir = song(SEQ, LANE);
     await run("sequence double melody");
-    expect(lane()).toContain("loop: 2");
+    expect(laneLoop()).toBe(2);
     expect(logs.join("\n")).toMatch(/1 placement\(s\) now loop half/);
   });
 
   it("names a placement it could NOT halve, rather than leaving it unsaid", async () => {
-    dir = song(SEQ, LANE.replace("loop: 4", "loop: 3"));
+    dir = song(SEQ, {
+      ...LANE,
+      events: [{ ...LANE.events[0], loop: 3 }],
+    });
     await run("sequence double melody");
-    expect(lane()).toContain("loop: 3");
+    expect(laneLoop()).toBe(3);
     expect(logs.join("\n")).toMatch(/lead at 1:1:1 still loops 3/);
   });
 

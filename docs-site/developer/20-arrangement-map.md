@@ -58,7 +58,7 @@ reach it. See [Testing](./28-arrangement-tests.md).
 
 ## Pages in this range
 
-- [The edit path: gesture to YAML to engine](./21-edit-path.md)
+- [The edit path: gesture to k7x to engine](./21-edit-path.md)
 - [The timeline component](./22-timeline-component.md)
 - [Clip and note editors, curves](./23-clip-editors-code.md)
 - [MIDI, recording and takes](./24-recording-code.md)

@@ -112,7 +112,7 @@ To play a parameter from a hardware controller:
 2. Or bind it directly: `module cc synth Cutoff 1 74` binds CC 74 on channel 1. Use `none` to
    unbind.
 
-Bindings are kept in the module folder's `controller.yaml`, so every node of that module answers
+Bindings are kept in the module folder's `controller.k7x`, so every node of that module answers
 the same CC.
 
 ## Automation

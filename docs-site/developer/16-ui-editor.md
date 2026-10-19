@@ -6,12 +6,13 @@
 
 | Subpath | File | Holds |
 |---|---|---|
-| `./yaml/language` | `packages/ui-editor/src/yaml/language.ts` | The YAML language mode for project files. |
-| `./yaml/completions` | `packages/ui-editor/src/yaml/completions.ts` | A completion source for field names and values, with the cursor's context read from the lezer tree (`yaml/keyPath.ts`). Names YAML would misread are quoted, the label stays bare. |
+| `./k7x/language`, `./k7x/completions` | `src/k7x/` | The k7x language mode for workspace files, and a completion source for field names and values at the cursor's key path. |
 | `./yaml/vocabulary` | `packages/ui-editor/src/yaml/vocabulary.ts` | `schemaVocabulary(path, hints)`: turns a file path into a file kind and asks `@studio/song-schema` for that kind's fields and values (Zod introspection), adding project values from the file service's hints (modules to extend, tracks, io sinks). |
-| `./yaml/entityLinks` | `packages/ui-editor/src/yaml/entityLinks.ts` | Dotted underline on a value naming a file; `Ctrl`/`⌘`-click opens it. Which fields link comes from `hints.paths`, the values from the same syntax tree as completion (`yaml/entityValues.ts`). |
-| `./yaml/previewGutter`, `./yaml/previewTriggers` | `src/yaml/previewGutter.ts`, `src/yaml/previewTriggers.ts` | The ▶ audition gutter on lines naming something playable. |
-| `./k7x/language`, `./k7x/completions` | `src/k7x/` | The same for `.k7x` files. |
+| `./k7x/tree` | `packages/ui-editor/src/k7x/tree.ts` | The buffer's k7x tree as a CodeMirror field, kept through a half-typed edit (`packages/ui-editor/docs/k7xTree.md`). |
+| `./k7x/entityLinks` | `packages/ui-editor/src/k7x/entityLinks.ts` | Dotted underline on a value naming a file; `Ctrl`/`⌘`-click opens it. Which fields link comes from `hints.paths`, the values from that tree (`k7x/entityValues.ts`). |
+| `./k7x/previewGutter` | `src/k7x/previewGutter.ts`, `src/k7x/previewTriggers.ts` | The ▶ audition gutter on lines naming something playable. |
+| `./k7x/bufferEdit`, `./buffer-sync` | `src/k7x/bufferEdit.ts`, `src/bufferSync.ts` | A k7x writer run on an open buffer, dispatched as CodeMirror changes so undo and the cursor survive. |
+| `./yaml/completions` | `packages/ui-editor/src/yaml/completions.ts` | The YAML completion source, for the médiathèque's own YAML files only. |
 | `./faust/language` | `src/faust/language.ts` | Faust highlighting. |
 | `./tracker/notes`, `./tracker/plugin` | `src/tracker/` | The tracker and roll note grids. |
 | `./lint` | `packages/ui-editor/src/lint.ts` | Draws located findings (line, col, message, severity) as underlines and gutter marks; `refreshLint` re-lints when new findings arrive for an unchanged document. |
@@ -22,7 +23,7 @@ The vocabulary is derived from the schemas rather than tabulated, so completion 
 
 ## How k7 assembles the editor
 
-`EditorPane.tsx` builds the extension list per file kind: vim (`@replit/codemirror-vim`, at `Prec.highest` so basicSetup's keymap does not outrank it) when the preference is on; `Mod-s` and the vim ex command `:w` both call the pane's save; for `.yaml`, the language, schema completion (basicSetup's word completion is turned off so it does not compete), lint from the project's load diagnostics, entity links, the preview gutter and slice colours; for `.k7x`, its language, completion and lint; for `.strudel`, JavaScript. Extensions are memoised and callbacks held in refs, so typing never reconfigures CodeMirror.
+`EditorPane.tsx` builds the extension list per file kind: vim (`@replit/codemirror-vim`, at `Prec.highest` so basicSetup's keymap does not outrank it) when the preference is on; `Mod-s` and the vim ex command `:w` both call the pane's save; for `.k7x`, the language, schema completion (basicSetup's word completion is turned off so it does not compete), lint from the project's load diagnostics, entity links, the preview gutter and slice colours; for `.strudel`, JavaScript. Extensions are memoised and callbacks held in refs, so typing never reconfigures CodeMirror.
 
 `EditorTab.tsx` keeps **one** editor instance for both the full page and the popin, so the open file, its unsaved text and its undo history cannot fork. It is 1600 lines; the file tree (`FileTree.tsx`) and breadcrumb are already separate, and the toolbar and the file actions are the next things to move out.
 

@@ -9,11 +9,11 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { librariesFixture } from "@studio/song/testSupport";
+import { parse } from "@studio/k7x/document";
+import { librariesFixture, writeDoc } from "@studio/song/testSupport";
 import { parseAssembly } from "@studio/song-schema/yaml/assemblyFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -31,33 +31,30 @@ const host = () =>
     reload: () => {},
   }) as never;
 
-const graph = () => readFileSync(join(dir, "graph.yaml"), "utf8");
+const graph = () => readFileSync(join(dir, "graph.k7x"), "utf8");
+const graphData = () =>
+  parse(graph()) as Record<string, Record<string, unknown>>;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "asm-verb-"));
   dir = join(root, "song.k7");
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-  writeFileSync(join(dir, "graph.yaml"), "modules:\n  MIX: [ OUT ]\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(dir, "graph.k7x"), { modules: { MIX: ["OUT"] } });
   // A template in the library: two members, wired, one of them bypassed.
   const lib = join(librariesFixture(root), "assemblies", "turntable");
-  mkdirSync(join(lib, "nodes"), { recursive: true });
-  writeFileSync(
-    join(lib, "assembly.yaml"),
-    "label: Turntable\noutputs:\n  - { name: mix, type: audio, node: fade }\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(lib, "graph.yaml"),
-    "modules:\n  deck: [ fade ]\n  fade: [ MIX ]\nbypassed: [ deck ]\n",
-    "utf8",
-  );
+  writeDoc(join(lib, "assembly.k7x"), {
+    label: "Turntable",
+    outputs: [{ name: "mix", type: "audio", node: "fade" }],
+  });
+  writeDoc(join(lib, "graph.k7x"), {
+    modules: { deck: ["fade"], fade: ["MIX"] },
+    bypassed: ["deck"],
+  });
   for (const n of ["deck", "fade"])
-    writeFileSync(
-      join(lib, "nodes", `${n}.yaml`),
-      `extends: "@k7-core/audio/utility/${n}"\n`,
-      "utf8",
-    );
+    writeDoc(join(lib, "nodes", `${n}.k7x`), {
+      extends: `@k7-core/audio/utility/${n}`,
+    });
   logs.length = 0;
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -69,17 +66,17 @@ describe("assembly new", () => {
       host(),
       "cli",
     );
-    expect(existsSync(join(dir, "nodes", "turntableA_deck.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "turntableA_deck.k7x"))).toBe(true);
     expect(
-      readFileSync(join(dir, "nodes", "turntableA_fade.yaml"), "utf8"),
+      readFileSync(join(dir, "nodes", "turntableA_fade.k7x"), "utf8"),
     ).toContain("@k7-core/audio/utility/fade");
-    const g = graph();
-    expect(g).toContain("turntableA_deck: [ turntableA_fade ]");
+    const g = graphData();
+    expect(g.modules.turntableA_deck).toEqual(["turntableA_fade"]);
     // A destination the template does not own is copied verbatim — that is where its signal leaves to.
-    expect(g).toContain("turntableA_fade: [ MIX ]");
-    expect(g).toContain("bypassed: [ turntableA_deck ]");
+    expect(g.modules.turntableA_fade).toEqual(["MIX"]);
+    expect(g.bypassed).toEqual(["turntableA_deck"]);
     // …and the graph it was written into is untouched.
-    expect(g).toContain("MIX: [ OUT ]");
+    expect(g.modules.MIX).toEqual(["OUT"]);
   });
 
   it("writes the record, mapping the template's names to this project's", async () => {
@@ -89,7 +86,7 @@ describe("assembly new", () => {
       "cli",
     );
     const a = parseAssembly(
-      readFileSync(join(dir, "assemblies", "turntableA.yaml"), "utf8"),
+      readFileSync(join(dir, "assemblies", "turntableA.k7x"), "utf8"),
     ).value;
     expect(a?.uses).toBe("@k7-core/turntable");
     expect(a?.members).toEqual({
@@ -176,9 +173,9 @@ describe("assembly dissolve", () => {
     const before = graph();
     logs.length = 0;
     await runCommand("assembly dissolve turntableA", host(), "cli");
-    expect(existsSync(join(dir, "assemblies", "turntableA.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "assemblies", "turntableA.k7x"))).toBe(false);
     expect(graph()).toBe(before);
-    expect(existsSync(join(dir, "nodes", "turntableA_deck.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "nodes", "turntableA_deck.k7x"))).toBe(true);
   });
 });
 
@@ -191,9 +188,9 @@ describe("assembly delete", () => {
     );
     logs.length = 0;
     await runCommand("assembly delete turntableA", host(), "cli");
-    expect(existsSync(join(dir, "assemblies", "turntableA.yaml"))).toBe(false);
-    expect(existsSync(join(dir, "nodes", "turntableA_deck.yaml"))).toBe(false);
-    expect(existsSync(join(dir, "nodes", "turntableA_fade.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "assemblies", "turntableA.k7x"))).toBe(false);
+    expect(existsSync(join(dir, "nodes", "turntableA_deck.k7x"))).toBe(false);
+    expect(existsSync(join(dir, "nodes", "turntableA_fade.k7x"))).toBe(false);
     expect(graph()).not.toContain("turntableA_");
   });
 
@@ -212,7 +209,7 @@ describe("a node underneath a box", () => {
     );
     await runCommand("node delete turntableA_deck", host(), "cli");
     const a = parseAssembly(
-      readFileSync(join(dir, "assemblies", "turntableA.yaml"), "utf8"),
+      readFileSync(join(dir, "assemblies", "turntableA.k7x"), "utf8"),
     ).value;
     expect(a?.members).toEqual({ fade: "turntableA_fade" });
   });
@@ -225,6 +222,6 @@ describe("a node underneath a box", () => {
     );
     await runCommand("node delete turntableA_deck", host(), "cli");
     await runCommand("node delete turntableA_fade", host(), "cli");
-    expect(existsSync(join(dir, "assemblies", "turntableA.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "assemblies", "turntableA.k7x"))).toBe(false);
   });
 });

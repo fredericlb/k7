@@ -1,29 +1,21 @@
 // `track group` — a group lane over the tracks named, written where a lane goes, and a track already in a group
 // taken out of it. Through the dispatcher, asserting the files and the compiled groups.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileNodeProject } from "@studio/song/nodeProject";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
-const put = (rel: string, text: string): void => {
-  mkdirSync(join(dir, rel, ".."), { recursive: true });
-  writeFileSync(join(dir, rel), text, "utf8");
-};
-const yamlOf = (rel: string) => parse(readFileSync(join(dir, rel), "utf8"));
+const doc = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
+const dataOf = (rel: string) => wsData(join(dir, rel));
 const run = async (line: string) => {
   const h = testHost({ songPath: dir, project: () => compileNodeProject(dir) });
   await runCommand(line, h, "cli");
@@ -33,24 +25,24 @@ const run = async (line: string) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "track-group-"));
   dir = join(root, "song.k7");
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
+  doc("project.k7x", { project: { name: "t", tempo: 120 } });
   for (const lane of ["kick", "snare", "bass"]) {
-    put(`tracks/${lane}.yaml`, 'extends: "@meta/track"\nevents: []\n');
-    put(
-      `chains/${lane}.yaml`,
-      `start: true\nsteps:\n  - { id: lane-${lane}, track: ${lane} }\n  - to: [ { chain: MIX } ]\n`,
-    );
+    doc(`tracks/${lane}.k7x`, { extends: "@meta/track", events: [] });
+    doc(`chains/${lane}.k7x`, {
+      start: true,
+      steps: [{ id: `lane-${lane}`, track: lane }, { to: [{ chain: "MIX" }] }],
+    });
   }
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 it("writes a group lane over the tracks, and its chain, named group-N when unnamed", async () => {
   await run("track group kick,snare");
-  expect(yamlOf("tracks/group-1.yaml")).toEqual({
+  expect(dataOf("tracks/group-1.k7x")).toEqual({
     extends: "@meta/group-track",
     tracks: ["kick", "snare"],
   });
-  expect(existsSync(join(dir, "chains/group-1.yaml"))).toBe(true);
+  expect(existsSync(join(dir, "chains/group-1.k7x"))).toBe(true);
   const p = compileNodeProject(dir);
   expect(p.groups.map((g) => g.id)).toEqual(["group-1"]);
   expect(
@@ -64,8 +56,8 @@ it("writes a group lane over the tracks, and its chain, named group-N when unnam
 it("takes a track out of the group it was in", async () => {
   await run("track group kick,snare drums");
   await run("track group snare,bass low");
-  expect(yamlOf("tracks/drums.yaml").tracks).toEqual(["kick"]);
-  expect(yamlOf("tracks/low.yaml").tracks).toEqual(["snare", "bass"]);
+  expect(dataOf("tracks/drums.k7x").tracks).toEqual(["kick"]);
+  expect(dataOf("tracks/low.k7x").tracks).toEqual(["snare", "bass"]);
 });
 
 it("refuses a group as a member, and a track that is not there", async () => {
@@ -76,5 +68,5 @@ it("refuses a group as a member, and a track that is not there", async () => {
   expect((await run("track group nope")).lines.refuse.join(" ")).toContain(
     "no track 'nope'",
   );
-  expect(existsSync(join(dir, "tracks/group-1.yaml"))).toBe(false);
+  expect(existsSync(join(dir, "tracks/group-1.k7x"))).toBe(false);
 });

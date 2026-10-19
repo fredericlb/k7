@@ -63,7 +63,7 @@ Three readings:
    had Tilt and a live `k7-runtime.exe` during the measurement. **Practical consequence: conclude
    nothing from a gap of less than 15 % at 64 tracks** without first stopping the dev session and
    repeating the pass.
-2. **The two benches measure different things.** Cold-cache they are both dominated by the same YAML
+2. **The two benches measure different things.** Cold-cache they are both dominated by the same file
    reads and return the same figure, which suggests `buildGraphDoc` costs nothing extra. In the open
    the gap is **11 to 13 ms** on the quiet passes — `buildGraphDoc`'s own work, the clip extents.
    That is the item to watch as a song grows.
@@ -73,7 +73,7 @@ Page: [`packages/song/docs/benchSettle.md`](../packages/song/docs/benchSettle.md
 
 ### Do not cache zod's `safeParse`
 
-The YAML parse is cached, the `safeParse` is not, and it looks like the next item along. Measured:
+The k7x parse is cached, the `safeParse` is not, and it looks like the next item along. Measured:
 **1.0 % of a 64-track compile**, 1 to 2.5 % at 8. And caching it would break an invariant `loader.ts`
 states outright — the cached parse is safe *only because* `r.data` is a fresh structure, so nothing
 shared escapes the loop. Do not do it.

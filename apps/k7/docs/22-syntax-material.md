@@ -1,17 +1,16 @@
 # Material
 
-## clips/<id>.yaml
+## clips/<id>.k7x
 
 An audio clip — a source path, resolved against the project folder, and optionally a window into it.
 
-```yaml schema=Clip
-source: clips/kick.wav
+```k7x schema=Clip
+source("clips/kick.wav")
+// The FILENAME is the id: this is clips/kick.k7x.
 
-# The FILENAME is the id: this is clips/kick.yaml.
-
-# from: 0.25   # start the sample 0.25s into the file, not at its beginning
-# to: 1.5      # …and end it there, not at the file's end
-# from: "2:1"  # …or musically: bar 2, beat 1 OF THE FILE, at the project tempo
+// from(0.25)   — start the sample 0.25s into the file, not at its beginning
+// to(1.5)      — …and end it there, not at the file's end
+// from("2:1")  — …or musically: bar 2, beat 1 OF THE FILE, at the project tempo
 ```
 
 `from`/`to` trim the SAMPLE. They belong to the clip and not to a placement, so every track that plays the clip
@@ -38,7 +37,7 @@ marked in violet, with a fainter line where each later pass begins, and the head
 That is what explains the pane's width, because it spans the clip's whole extent on the timeline: a clip looped
 three times is one pass of material and two passes of the same thing again.
 
-## sequences/<id>.yaml
+## sequences/<id>.k7x
 
 A MIDI sequence holds its notes inline as compact {t,d,k,v} structs — t/d in beats, k a MIDI key, v an optional 0..1 velocity. Toggle Tracker to edit them on a grid.
 
@@ -54,7 +53,7 @@ The piano roll and the tracker mark that window the same way the waveform does �
 picked out — and here it says one more thing: notes lying **outside** it are in the file and are not played. A
 window that starts past the first beat, or ends before the last hit, is exactly when that is worth seeing.
 
-They mark it whether the sequence is PLACED on a track or opened as a file: `sequences/melody.yaml` in the editor
+They mark it whether the sequence is PLACED on a track or opened as a file: `sequences/melody.k7x` in the editor
 draws the same band, read from the text as you type it, and a `to:` reaching past the last note keeps its bars on
 the grid rather than clipping them — the silence at the end is deliberate, and the band is what says so.
 
@@ -70,48 +69,41 @@ selection holds, and right-clicking one offers to remove or to split it. Backspa
 timeline the same way. Each of those is a command line, so each is one undo. Hold Ctrl to leave the grid; you hear
 every note you press, through the track's own instrument.
 
-```yaml schema=Sequence
-# sequences/melody.yaml
-# from: "1:1"        # start at the sequence's own beginning (the default)
-# to: "3:1"          # …and end it at bar 3, whatever the last note does
-# use_rack: drumrack   # a rack module whose symbols name these notes —
-#                      # the tracker then labels rows by symbol, not by key
-notes:
-  - { t: 0, d: 1, k: 60 }
-  - { t: 1, d: 1, k: 62 }
-  - { t: 2, d: 1, k: 64 }
-  - { t: 3, d: 1, k: 65 }
+```k7x schema=Sequence
+// sequences/melody.k7x
+// from("1:1")        — start at the sequence's own beginning (the default)
+// to("3:1")          — …and end it at bar 3, whatever the last note does
+// use_rack("drumrack") — a rack module whose symbols name these notes:
+//                      the tracker then labels rows by symbol, not by key
+notes([t(0).d(1).k(60), t(1).d(1).k(62), t(2).d(1).k(64), t(3).d(1).k(65)])
 ```
 
-## curves/<id>.yaml — LFO
+## curves/<id>.k7x — LFO
 
 An automation curve. An LFO is generated: shape, frequency in cycles per BAR, optional phase. `polarity` decides how a module's automation maps it — unipolar sweeps the parameter's whole range, bipolar rides ± half a range around wherever the knob sits. `amplitude`, on every kind of curve, scales that: 0.5 sweeps half the range, or rides a quarter of it either side. `duration` stops an LFO that long after it starts — a length like `"2:0"` (two bars) — and the knob stays where it stopped; with a condition that retriggers it, every restart runs that long again. `cut` keeps one half of what the curve puts out: `positive` drops everything below 0, so a bipolar curve only ever pushes the knob up from where it sits; `negative` drops everything above 0, so it only pulls it down; `none`, the default, keeps both. A unipolar curve never goes below 0, so on one `positive` changes nothing and `negative` leaves it flat. `ui curve` opens an editor that writes all of these for you; `ui curve <id>` opens it on that curve.
 
-```yaml schema=Curve
-type: lfo
-shape: sine          # sine | triangle | saw | square
-frequency: 0.5       # cycles per bar
-polarity: bipolar    # unipolar | bipolar
-amplitude: 0.8       # 0..1, the whole range at 1
-cut: positive        # none | positive (keep 0..1) | negative (keep -1..0)
-# phase: 0.25        # 0..1
-# duration: "2:0"    # how long it runs, a length — "0", the default, is for ever
+```k7x schema=Curve
+type("lfo")
+shape("sine") // sine | triangle | saw | square
+frequency(0.5) // cycles per bar
+polarity("bipolar") // unipolar | bipolar
+amplitude(0.8) // 0..1, the whole range at 1
+cut("positive") // none | positive (keep 0..1) | negative (keep -1..0)
+// phase(0.25)        — 0..1
+// duration("2:0")    — how long it runs, a length — "0", the default, is for ever
 ```
 
-## curves/<id>.yaml — custom
+## curves/<id>.k7x — custom
 
 A drawn curve: timecoded points, interpolated between. At least one point; times are the same bars:beats:ticks the timeline uses, so they must be quoted.
 
-```yaml schema=Curve
-type: custom
-polarity: unipolar
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "3:1:1", value: 1 }
-  - { time: "5:1:1", value: 0 }
+```k7x schema=Curve
+type("custom")
+polarity("unipolar")
+points([time("1:1:1").value(0), time("3:1:1").value(1), time("5:1:1").value(0)])
 ```
 
-## curves/<id>.yaml — adsr
+## curves/<id>.k7x — adsr
 
 An envelope, in **milliseconds**, restarted every time an event fires it — where the two curves
 above are functions of song time and run whether anything plays or not. Bind it like any other
@@ -126,31 +118,32 @@ where decay lands and sustain holds.
 Milliseconds, and not bars, for the reason the LFO is the other way round: an envelope is a
 gesture of the hand, and a 20 ms attack is 20 ms whatever the tempo.
 
-```yaml schema=Curve
-type: adsr
-attack: 5           # ms, 0 is instant
-decay: 120          # ms, down to `level`
-sustain: 200        # ms — a HOLD, not a level
-release: 400        # ms, back to nothing
-level: 0.6          # 0..1, where decay lands
-polarity: unipolar  # unipolar | bipolar
+```k7x schema=Curve
+type("adsr")
+attack(5) // ms, 0 is instant
+decay(120) // ms, down to `level`
+sustain(200) // ms — a HOLD, not a level
+release(400) // ms, back to nothing
+level(0.6) // 0..1, where decay lands
+polarity("unipolar") // unipolar | bipolar
 ```
 
-## curves/<id>.yaml — on/off
+## curves/<id>.k7x — on/off
 
 For a switch rather than a knob — a bypass, a toggle, a button. Drawn points like a custom curve,
 but each is 0 or 1, and it HOLDS until the next one: the parameter flips, it never ramps. No
 `amplitude` and no `polarity`, which a switch has no use for.
 
-```yaml schema=Curve
-type: onoff
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "5:1:1", value: 1 }   # on from bar 5
-  - { time: "9:1:1", value: 0 }   # off again from bar 9
+```k7x schema=Curve
+type("onoff")
+points([
+  time("1:1:1").value(0),
+  time("5:1:1").value(1), // on from bar 5
+  time("9:1:1").value(0), // off again from bar 9
+])
 ```
 
-## curves/<id>.yaml — conditions
+## curves/<id>.k7x — conditions
 
 Any curve can say WHEN it runs, as a list of `conditions` — it runs while ANY of them holds. Four
 kinds: `start` (from a moment on), `end` (until a moment),
@@ -160,26 +153,24 @@ reached. `retrigger: true` restarts the curve the moment its condition comes tru
 top of its cycle, a drawn curve from its first point — where without it the curve carries on as if it
 had been running all along; on an `event`, it restarts at every event rather than only the first.
 
-```yaml schema=Curve
-type: lfo
-shape: saw
-frequency: 1
-conditions:
-  - type: between      # start | end | between | event
-    start: "9:1:1"     # start and end are timecodes; `start` and `end` alone take `at`
-    end: "17:1:1"
-    retrigger: true    # restart when the condition comes true
-  - type: start        # …and again from bar 33, whichever holds
-    at: "33:1:1"
+```k7x schema=Curve
+type("lfo")
+shape("saw")
+frequency(1)
+conditions([
+  type("between") // start | end | between | event
+    .start("9:1:1") // start and end are timecodes; `start` and `end` alone take `at`
+    .end("17:1:1")
+    .retrigger(true), // restart when the condition comes true
+  type("start") // …and again from bar 33, whichever holds
+    .at("33:1:1"),
+])
 ```
 
-```yaml schema=Curve
-type: custom
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "1:3:1", value: 1 }
-conditions:
-  - { type: event, event: Note On, retrigger: true }
+```k7x schema=Curve
+type("custom")
+points([time("1:1:1").value(0), time("1:3:1").value(1)])
+conditions([type("event").event("Note On").retrigger(true)])
 ```
 
 An envelope follows the same rules with its note-ons as triggers: a window keeps only the notes
@@ -190,17 +181,18 @@ Two notes closer together than the envelope is long do not stack: the running on
 the next fires. One automation lane holds one value, so there is nothing to sum. Per-note
 modulation, where overlapping notes each keep their own envelope, is the plugin's own business.
 
-## clips/<id>.yaml — corrected onsets
+## clips/<id>.k7x — corrected onsets
 
 The engine detects onsets in the audio itself — the transient marks the slicer cuts on, and the grey
 lines a clip draws. One threshold governs the whole file, so raising it finds more of them and lowering
 it finds fewer. This block is for the ones it still gets wrong.
 
-```yaml schema=Clip
-source: clips/prise-01.wav
-onsets:
-  added: [1.24]        # a hit the detector missed, in SECONDS into the file
-  removed: [3.51]      # something it marked that is not a hit
+```k7x schema=Clip
+source("clips/prise-01.wav")
+onsets({
+  added: [1.24], // a hit the detector missed, in SECONDS into the file
+  removed: [3.51], // something it marked that is not a hit
+})
 ```
 
 What is stored is the **difference**, not the resulting list, and that is the point: the detected set is
@@ -220,30 +212,20 @@ The recorder writes these for you — the review screen at the end of a take dra
 waveform and lets you drag, add and remove them — and `clip onset add|remove|move` is the same edit from
 the command bar.
 
-## clips/<id>.yaml — warped
+## clips/<id>.k7x — warped
 
 A stretch map: `markers` pairs [timeline beat, source second], monotonic, at least two — the clip follows the song tempo instead of its own. Written by the importer, and editable with `clip warp <clip> <sec> <beat>`, which places a point or moves the one already at that second. `clip warp remove` drops one. Moving a point leaves its neighbours where they are, so only the two segments touching it change rate. A clip with no map gets its two anchors seeded on the first call — that map is an identity and changes no sound; the third point is what makes it a warp.
 
-```yaml schema=Clip
-source: clips/break.wav
-warp:
-  algorithm: elastique
-  markers:
-    - [0, 0]
-    - [4, 1.9382]
-    - [8, 3.8764]
+```k7x schema=Clip
+source("clips/break.wav")
+warp({ algorithm: "elastique", markers: [[0, 0], [4, 1.9382], [8, 3.8764]] })
 ```
 
-### clips/<id>.yaml — the map kept, the stretching off
+### clips/<id>.k7x — the map kept, the stretching off
 
 `disable: true` switches the stretching off **without losing the map**: no placement of the clip follows the grid any more, and the markers wait in the file for you to turn it back on. Use it when the same sample is wanted at its own rate — another song, another tempo, a one-shot — where deleting the map would mean computing it again. One event can refuse on its own instead, with `warp: false` beside it in the track file.
 
-```yaml schema=Clip
-source: clips/break.wav
-warp:
-  algorithm: elastique
-  disable: true
-  markers:
-    - [0, 0]
-    - [8, 3.8764]
+```k7x schema=Clip
+source("clips/break.wav")
+warp({ algorithm: "elastique", disable: true, markers: [[0, 0], [8, 3.8764]] })
 ```

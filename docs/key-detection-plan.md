@@ -148,7 +148,7 @@ a confidence.
 
 ## What shipping it would require
 
-- **The same escape hatch as the grid**: a correctable key, in `mix.yaml`, beside `bpm` and `beat`.
+- **The same escape hatch as the grid**: a correctable key, in `mix.k7x`, beside `bpm` and `beat`.
   Same gesture, same file, same reason (an opinion belonging to that set), and it costs one `key:`
   field.
 - **Saying what is not known.** A weak correlation must display as a doubt and not as an answer —
@@ -166,7 +166,7 @@ detector is only one way of filling its box, and the less reliable of the two.
 
 The other way is already 90 % built:
 
-- `mix.yaml` already carries per-set corrections, `bpm` and `beat`, with their shared entry editor.
+- `mix.k7x` already carries per-set corrections, `bpm` and `beat`, with their shared entry editor.
   A `key:` beside them is the same field, the same gesture, the same file;
 - the wheel, its neighbours and `compatible()` are written and tested — they never depended on the
   detector;
@@ -178,7 +178,7 @@ records mix — that is the difference between a feature and a trap.
 
 Cheapest first:
 
-1. `key:` in `mix.yaml` + the wheel on screen. The whole feature, with no detection at all, on the
+1. `key:` in `mix.k7x` + the wheel on screen. The whole feature, with no detection at all, on the
    grid's exact model. **This is the recommendation.**
 2. An import: read a `TKEY` when a file carries one (none here, but bought files often do), and
    offer it as a starting value.

@@ -47,9 +47,10 @@ describe("parseLaunch", () => {
       repo: "band",
       project: "winter.k7",
     });
-    expect(parseLaunch("/band/winter.k7/edit/tracks/a.yaml", "k7", K7)).toEqual(
-      { repo: "band", project: "winter.k7" },
-    );
+    expect(parseLaunch("/band/winter.k7/edit/tracks/a.k7x", "k7", K7)).toEqual({
+      repo: "band",
+      project: "winter.k7",
+    });
   });
 
   it("ends the project at the LAST segment carrying the suffix, under the given base", () => {

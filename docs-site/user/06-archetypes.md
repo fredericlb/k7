@@ -48,20 +48,20 @@ the pattern change while it plays.
 "two decks, a crossfade, and an empty set list"
 
 A DJ set. It has no arrangement, no tempo and no time signature, only a sample rate. It declares a
-`turntables` surface, `surfaces/desk.yaml`, drawn as the DJ desk pane.
+`turntables` surface, `surfaces/desk.k7x`, drawn as the DJ desk pane.
 
 - Two decks, **deckA** and **deckB**. Each deck is a channel strip: input trim, tempo, EQ (low, mid,
   high), filter, a headphone cue send, channel level, echo, and a fade. The two fades are the
   crossfader. Both decks meet at `MIX`, then `OUT`.
 - Each deck can play a whole record or its four separated stems, each stem with its own control.
-- `surfaces/desk.yaml` binds every control of the desk (crossfade, tempo, EQ, filter, cue, trim,
+- `surfaces/desk.k7x` binds every control of the desk (crossfade, tempo, EQ, filter, cue, trim,
   level, echo, stems) to the module parameter it moves. Two lines are left commented:
   - `playlist:` names the set list the desk's browser shows. A new set has none, and the desk says
     so until you name one.
   - `stems: true` lets the desk separate a record you load unprepared.
-- `mix.yaml` is the set's cue sheet: the desk writes your cue points there, song by song.
+- `mix.k7x` is the set's cue sheet: the desk writes your cue points there, song by song.
 
-**First steps:** write a playlist in the workspace's `_playlists/`, name it in `surfaces/desk.yaml`,
+**First steps:** write a playlist in the workspace's `_playlists/`, name it in `surfaces/desk.k7x`,
 then load songs onto the decks. The DJ section of this guide covers the desk in full.
 
 ## video
@@ -70,7 +70,7 @@ then load songs onto the decks. The DJ section of this guide covers the desk in 
 
 Everything the `arrangement` archetype writes, plus picture:
 
-- `project.yaml` adds `viewport: [1280, 720, 30]` (the frame's width, height and frames per second;
+- `project.k7x` adds `viewport: [1280, 720, 30]` (the frame's width, height and frames per second;
   the fps is used by export) and `layers: [main]` (the draw order of the picture lanes).
 - A sample video, `clips/sample.mp4`, copied into the project. Each frame shows its frame number, so
   a sync problem is easy to see.
@@ -109,7 +109,7 @@ Nothing is arranged, and the project declares no surface, so it opens on the cha
 
 The `live` rig, plus a camera:
 
-- `viewport: [1280, 720, 30]` in `project.yaml`.
+- `viewport: [1280, 720, 30]` in `project.k7x`.
 - **CAM**, the webcam. It names no camera, so it uses the machine's default one. Pick another on the
   node's card, by the camera's name.
 - `CAM` runs into `RENDER`, so the camera fills the frame without any video lane.

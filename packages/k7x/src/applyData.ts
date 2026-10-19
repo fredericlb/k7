@@ -37,7 +37,7 @@ export function applyData(
   doc.setIn(path, after);
 }
 
-/** A list edited at its middle: the common head and tail stay, an equal-length middle is edited item by item, else spliced. */
+/** A list edited at its middle: the common head and tail stay, an equal-length middle is edited item by item, else spliced around the items it keeps. */
 function applyList(
   doc: PathEditor,
   before: unknown[],
@@ -70,11 +70,72 @@ function applyList(
     doc.setIn(path, []);
     return;
   }
-  for (let i = oldMid.length - 1; i >= 0; i--)
-    doc.deleteIn([...path, head + i]);
-  newMid.forEach((v, i) => {
-    doc.insertIn(path, head + i, v);
+  const anchors = commonItems(oldMid, newMid);
+  // From the last stretch to the first, so an edit never shifts the index of one still to come.
+  for (let s = anchors.length - 1; s >= 0; s--) {
+    const [a0, b0] =
+      s === 0 ? [0, 0] : [anchors[s - 1][0] + 1, anchors[s - 1][1] + 1];
+    const [a1, b1] = anchors[s];
+    applyStretch(
+      doc,
+      oldMid.slice(a0, a1),
+      newMid.slice(b0, b1),
+      path,
+      head + a0,
+    );
+  }
+}
+
+/** One stretch between kept items: edited item by item when its length holds, else its old items deleted and the new inserted. */
+function applyStretch(
+  doc: PathEditor,
+  before: unknown[],
+  after: unknown[],
+  path: K7Path,
+  at: number,
+): void {
+  if (before.length === after.length) {
+    before.forEach((v, i) => {
+      applyData(doc, v, after[i], [...path, at + i]);
+    });
+    return;
+  }
+  for (let i = before.length - 1; i >= 0; i--) doc.deleteIn([...path, at + i]);
+  after.forEach((v, i) => {
+    doc.insertIn(path, at + i, v);
   });
+}
+
+// Past this many comparisons a middle is spliced whole rather than matched.
+const MATCH_BUDGET = 1_000_000;
+
+/** The index pairs of the longest run of items both lists hold in order, ending with the pair one past both ends. */
+function commonItems(before: unknown[], after: unknown[]): [number, number][] {
+  const n = before.length;
+  const m = after.length;
+  const end: [number, number] = [n, m];
+  if (!n || !m || n * m > MATCH_BUDGET) return [end];
+  const len: number[][] = Array.from({ length: n + 1 }, () =>
+    new Array(m + 1).fill(0),
+  );
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      len[i][j] = same(before[i], after[j])
+        ? len[i + 1][j + 1] + 1
+        : Math.max(len[i + 1][j], len[i][j + 1]);
+  const pairs: [number, number][] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (same(before[i], after[j])) {
+      pairs.push([i, j]);
+      i++;
+      j++;
+    } else if (len[i + 1][j] >= len[i][j + 1]) i++;
+    else j++;
+  }
+  pairs.push(end);
+  return pairs;
 }
 
 const STRINGS = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`/g;

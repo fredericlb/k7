@@ -15,8 +15,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readChainProject } from "@studio/song/chainProject";
 import { loadGraph } from "@studio/song/graph";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
 
@@ -26,9 +27,11 @@ const put = (rel: string, text: string): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
   writeFileSync(join(dir, rel), text, "utf8");
 };
+const doc = (rel: string, value: Record<string, unknown>): void =>
+  writeDoc(join(dir, rel), value);
 const read = (rel: string): string => readFileSync(join(dir, rel), "utf8");
-const chain = (name: string) =>
-  parseYaml(read(`chains/${name}.yaml`), { version: "1.2" });
+// biome-ignore lint/suspicious/noExplicitAny: a chain file's data, read loosely by the assertions.
+const chain = (name: string): any => wsData(join(dir, `chains/${name}.k7x`));
 
 const ORIGINAL_IDS = [
   "in-1",
@@ -42,48 +45,55 @@ const ORIGINAL_IDS = [
   "syn-2",
 ];
 
+const AMP = "@workspace/audio/amp";
+/** gtr's chain, its drive naming `drive` as its preset. */
+const gtrChain = (drive = "gtr-drive.vstpreset") =>
+  doc("chains/gtr.k7x", {
+    start: true,
+    steps: [
+      { id: "in-1", extends: AMP },
+      { id: "lane-gtr", track: "gtr", bypass: true },
+      { id: "amp-1", extends: AMP, bypass: true },
+      { id: "syn-1", extends: AMP, vstpreset: "shared.vstpreset" },
+      { id: "drv-1", extends: AMP, vstpreset: drive },
+      {
+        to: [
+          { chain: "MIX", level: 1 },
+          { chain: "verb", level: 0.3 },
+          { chain: "bus", level: 0.5 },
+        ],
+      },
+    ],
+  });
+
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-chains-"));
   dir = join(root, "song.k7");
-  mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", "amp", "module.yaml"),
-    "plugin: { type: internal, name: Amp }\n",
-    "utf8",
-  );
-  put("project.yaml", "project:\n  name: t\n  tempo: 120\n");
-  put(
-    "tracks/gtr.yaml",
-    'extends: "@meta/track"\ncolor: "#ff0000"\nevents:\n  - { ref: riff, start: "1:1:1" }\n',
-  );
-  put("tracks/bass.yaml", 'extends: "@meta/track"\nevents: []\n');
-  const amp = '"@workspace/audio/amp"';
-  put(
-    "chains/gtr.yaml",
-    [
-      "start: true",
-      "steps:",
-      `  - { id: in-1, extends: ${amp} }`,
-      "  - { id: lane-gtr, track: gtr, bypass: true }",
-      `  - { id: amp-1, extends: ${amp}, bypass: true }`,
-      `  - { id: syn-1, extends: ${amp}, vstpreset: shared.vstpreset }`,
-      `  - { id: drv-1, extends: ${amp}, vstpreset: gtr-drive.vstpreset }`,
-      "  - to: [ { chain: MIX, level: 1 }, { chain: verb, level: 0.3 }, { chain: bus, level: 0.5 } ]",
-      "",
-    ].join("\n"),
-  );
-  put(
-    "chains/verb.yaml",
-    `steps:\n  - { id: verb-1, extends: ${amp} }\n  - to: [ { chain: MIX } ]\n`,
-  );
-  put(
-    "chains/bus.yaml",
-    `steps:\n  - { id: bus-1, extends: ${amp} }\n  - to: [ { chain: MIX } ]\n`,
-  );
-  put(
-    "chains/bass.yaml",
-    `start: true\nsteps:\n  - { id: lane-bass, track: bass }\n  - { id: syn-2, extends: ${amp}, vstpreset: shared.vstpreset }\n  - to: [ { chain: bus } ]\n`,
-  );
+  writeDoc(join(root, "_modules", "audio", "amp", "module.k7x"), {
+    plugin: { type: "internal", name: "Amp" },
+  });
+  doc("project.k7x", { project: { name: "t", tempo: 120 } });
+  doc("tracks/gtr.k7x", {
+    extends: "@meta/track",
+    color: "#ff0000",
+    events: [{ ref: "riff", start: "1:1:1" }],
+  });
+  doc("tracks/bass.k7x", { extends: "@meta/track", events: [] });
+  gtrChain();
+  doc("chains/verb.k7x", {
+    steps: [{ id: "verb-1", extends: AMP }, { to: [{ chain: "MIX" }] }],
+  });
+  doc("chains/bus.k7x", {
+    steps: [{ id: "bus-1", extends: AMP }, { to: [{ chain: "MIX" }] }],
+  });
+  doc("chains/bass.k7x", {
+    start: true,
+    steps: [
+      { id: "lane-bass", track: "bass" },
+      { id: "syn-2", extends: AMP, vstpreset: "shared.vstpreset" },
+      { to: [{ chain: "bus" }] },
+    ],
+  });
   put("vstpresets/amp-1.vstpreset", "AMP-STATE");
   put("vstpresets/gtr-drive.vstpreset", "DRIVE-STATE");
   put("vstpresets/shared.vstpreset", "SHARED-STATE");
@@ -98,21 +108,24 @@ const run = async (line: string) => {
 
 describe("track duplicate, in a chain project", () => {
   it("copies the lane chain's subchains under fresh ids, a link to one never read as a top-level chain", async () => {
-    put(
-      "chains/bass.yaml",
-      [
-        "start: true",
-        "steps:",
-        "  - { id: lane-bass, track: bass }",
-        "  - to: [ { chain: verb, level: 0.5 }, { chain: bus, level: 1 } ]",
-        "subchains:",
-        "  - id: verb",
-        "    steps:",
-        '      - { id: sub-1, extends: "@workspace/audio/amp" }',
-        "      - to: [ { chain: MIX } ]",
-        "",
-      ].join("\n"),
-    );
+    doc("chains/bass.k7x", {
+      start: true,
+      steps: [
+        { id: "lane-bass", track: "bass" },
+        {
+          to: [
+            { chain: "verb", level: 0.5 },
+            { chain: "bus", level: 1 },
+          ],
+        },
+      ],
+      subchains: [
+        {
+          id: "verb",
+          steps: [{ id: "sub-1", extends: AMP }, { to: [{ chain: "MIX" }] }],
+        },
+      ],
+    });
     const h = await run("track duplicate bass");
     expect(h.lines.refuse).toEqual([]);
     const c = chain("bass-copy");
@@ -125,23 +138,24 @@ describe("track duplicate, in a chain project", () => {
     expect(c.subchains[0].steps[0].id).not.toBe("sub-1");
     // The top-level `verb` is gtr's alone: duplicating bass copies none of it.
     expect(readdirSync(join(dir, "chains")).sort()).toEqual([
-      "bass-copy.yaml",
-      "bass.yaml",
-      "bus.yaml",
-      "gtr.yaml",
-      "verb.yaml",
+      "bass-copy.k7x",
+      "bass.k7x",
+      "bus.k7x",
+      "gtr.k7x",
+      "verb.k7x",
     ]);
   });
 
-  it("writes the lane's tracks/ file with its events and colour, and no graph.yaml nor nodes/", async () => {
+  it("writes the lane's tracks/ file with its events and colour, and no graph.k7x nor nodes/", async () => {
     const h = await run("track duplicate gtr");
     expect(h.lines.refuse).toEqual([]);
-    expect(read("tracks/gtr-copy.yaml")).toContain("ref: riff");
-    expect(read("tracks/gtr-copy.yaml")).toContain("#ff0000");
-    expect(existsSync(join(dir, "graph.yaml"))).toBe(false);
+    const copy = wsData(join(dir, "tracks/gtr-copy.k7x"));
+    expect(copy.events).toEqual([expect.objectContaining({ ref: "riff" })]);
+    expect(copy.color).toBe("#ff0000");
+    expect(existsSync(join(dir, "graph.k7x"))).toBe(false);
     expect(existsSync(join(dir, "nodes"))).toBe(false);
     expect(h.lines.log[0]).toMatch(
-      /^\+ track gtr-copy \(tracks\/gtr-copy\.yaml, chains\/gtr-copy\.yaml/,
+      /^\+ track gtr-copy \(tracks\/gtr-copy\.k7x, chains\/gtr-copy\.k7x/,
     );
   });
 
@@ -162,13 +176,7 @@ describe("track duplicate, in a chain project", () => {
 
   it("copies no preset a chain file names outside the project's presets folder", async () => {
     writeFileSync(join(root, "secret.vstpreset"), "SECRET", "utf8");
-    put(
-      "chains/gtr.yaml",
-      read("chains/gtr.yaml").replace(
-        "gtr-drive.vstpreset",
-        "../../secret.vstpreset",
-      ),
-    );
+    gtrChain("../../secret.vstpreset");
     const h = await run("track duplicate gtr");
     expect(h.lines.refuse).toEqual([]);
     const drv = chain("gtr-copy").steps[4];
@@ -201,7 +209,7 @@ describe("track duplicate, in a chain project", () => {
     const verb = chain("gtr-copy_verb_1");
     expect(verb.start).toBeUndefined();
     expect(verb.steps[0].id).not.toBe("verb-1");
-    expect(read("chains/verb.yaml")).toContain("verb-1");
+    expect(chain("verb").steps[0].id).toBe("verb-1");
   });
 
   it("leaves a project that reads clean, with the copy in the graph", async () => {
@@ -215,22 +223,19 @@ describe("track duplicate, in a chain project", () => {
 
   it("leaves the copy's events empty with the empty form", async () => {
     await run("track duplicate empty gtr");
-    expect(read("tracks/gtr-copy.yaml")).toContain("events: []");
+    expect(wsData(join(dir, "tracks/gtr-copy.k7x")).events).toEqual([]);
     expect(chain("gtr-copy").steps[0].track).toBe("gtr-copy");
   });
 
   it("takes the next free name when the first is a chain already", async () => {
-    put(
-      "chains/gtr-copy.yaml",
-      `steps:\n  - { id: x-1, extends: "@workspace/audio/amp" }\n`,
-    );
+    doc("chains/gtr-copy.k7x", { steps: [{ id: "x-1", extends: AMP }] });
     await run("track duplicate gtr");
-    expect(existsSync(join(dir, "tracks", "gtr-copy-2.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "tracks", "gtr-copy-2.k7x"))).toBe(true);
     expect(chain("gtr-copy-2").steps[0].track).toBe("gtr-copy-2");
   });
 
   it("refuses a lane with no tracks/ file", async () => {
     const h = await run("track duplicate nope");
-    expect(h.lines.refuse[0]).toContain("tracks/nope.yaml does not exist");
+    expect(h.lines.refuse[0]).toContain("tracks/nope.k7x does not exist");
   });
 });

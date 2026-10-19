@@ -5,8 +5,8 @@
 // A module file is a flat struct of its own attributes, with no `package` clause —
 // that keeps sibling modules in this folder from colliding on `name`.
 //
-// Two NODES use this module — nodes/lead.yaml and nodes/pad.yaml, which
-// chains.yaml names "lead" and "pad". They live in the project's flat nodes/ folder
+// Two NODES use this module — nodes/lead.k7x and nodes/pad.k7x, which
+// chains.k7x names "lead" and "pad". They live in the project's flat nodes/ folder
 // rather than beside this file, and reach it through `extends`; whatever you change here
 // reaches both.
 extends("@workspace/instruments/fourosc")

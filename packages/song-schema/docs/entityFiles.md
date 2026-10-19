@@ -1,7 +1,7 @@
 # Clips, sequences, curves and video tracks
 
 The rationale behind `packages/song-schema/src/yaml/entitySchemas.ts` — the per-entity shapes. Each
-is a FLAT file keyed by its own filename (`clips/kick.yaml` has no `id:`, the name is the id), which
+is a FLAT file keyed by its own filename (`clips/kick.k7x` has no `id:`, the name is the id), which
 also rules out one file declaring several ids.
 
 ## `warp.disable`
@@ -17,9 +17,9 @@ the two into one answer.
 They window the SOURCE FILE: the clip plays that slice of it and nothing else, wherever it is placed.
 Written EITHER way, and the spelling picks the meaning:
 
-```yaml
-from: 0.25      # a bare number is SECONDS into the file — tempo-independent, so the trim never moves
-from: "2:1"     # a timecode is MUSICAL, converted at the project tempo, for material played to the click
+```k7x
+from(0.25)      // a bare number is SECONDS into the file — tempo-independent, so the trim never moves
+from("2:1")     // a timecode is MUSICAL, converted at the project tempo, for material played to the click
 ```
 
 Both, because both are right for different material. A trimmed field recording wants seconds; a take

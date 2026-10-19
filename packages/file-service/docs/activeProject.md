@@ -27,7 +27,7 @@ the workspace, the same root the walk starts from.
 What the wider tree costs, and how each is paid:
 
 - **A file may belong to a project that is not playing.** `projectPaths.ts`'s rules match on
-  `(^|/)`, so `other.k7/clips/a.yaml` is a clip by every test there is — and looking its id up
+  `(^|/)`, so `other.k7/clips/a.k7x` is a clip by every test there is — and looking its id up
   in the ACTIVE project's compiled doc answers with the wrong thing or with nothing.
   `inActiveProject()` is the predicate that stops it, and k7's editor gates its minimap item
   and its clip/sequence panel on it. Opening such a file gives you its TEXT, which is right: it
@@ -60,8 +60,8 @@ Without an existence check the sequence is:
 2. `activeProject` set to a path with nothing at it, and the active-project marker written,
    so a reload arrives broken too;
 3. the first thing to compile it — `/project-doc` — reaches `@studio/song`'s `loadProject`,
-   which finds no directory, falls through to "not a folder project", finds no `.yaml` either,
-   and reports **`unsupported song '01_danse.k7' — use a .yaml file or a folder project`**.
+   which finds no directory, falls through to "not a folder project", finds no `.k7x` either,
+   and reports **`unsupported song '01_danse.k7' — use a .k7x file or a folder project`**.
 
 Every word of that is true and none of it is the problem. So `setActiveProject` checks
 existence **before** the name rule and says what actually happened, and `isProjectDir` itself

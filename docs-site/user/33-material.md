@@ -6,7 +6,7 @@ be placed any number of times, on any number of lanes.
 
 **Curves** are automation shapes that drive a module's parameters.
 
-All three are flat files named by their id: `clips/kick.yaml` is the clip `kick`.
+All three are flat files named by their id: `clips/kick.k7x` is the clip `kick`.
 
 ## Clips
 
@@ -14,9 +14,9 @@ A clip file names a media file and, optionally, which part of it to use. Whether
 video is decided by the source's extension: `.mp4 .mov .m4v .webm .mkv` are video, anything else is
 audio.
 
-```yaml
-# clips/kick.yaml
-source: clips/kick.wav
+```k7x
+// clips/kick.k7x
+source("clips/kick.wav")
 ```
 
 ```js
@@ -70,12 +70,9 @@ A video clip takes no window: the trim of a shot is on the picture lane's event 
 A sequence is a list of MIDI notes. Times are in **beats** (quarter notes) from the start of the
 sequence, as plain numbers; fractions are allowed, so microtiming is just a decimal.
 
-```yaml
-# sequences/melody.yaml
-notes:
-  - { t: 0, d: 1, k: 60 }
-  - { t: 1, d: 1, k: 62, v: 0.8 }
-  - { t: 2, d: 0.5, k: 64 }
+```k7x
+// sequences/melody.k7x
+notes([t(0).d(1).k(60), t(1).d(1).k(62).v(0.8), t(2).d(0.5).k(64)])
 ```
 
 ```js
@@ -141,20 +138,17 @@ A curve is a shape over time that a module's automation binds to one of its para
 
 There are four types, chosen by `type`.
 
-```yaml
-# curves/sweep.yaml — drawn by hand
-type: custom
-points:
-  - { time: "1:1:1", value: 0 }
-  - { time: "2:1:1", value: 1 }
-  - { time: "4:1:1", value: 0.2 }
+```k7x
+// curves/sweep.k7x — drawn by hand
+type("custom")
+points([time("1:1:1").value(0), time("2:1:1").value(1), time("4:1:1").value(0.2)])
 ```
 
-```yaml
-# curves/wobble.yaml — one sine cycle per bar, swinging -1..1
-type: lfo
-polarity: bipolar
-frequency: 1
+```k7x
+// curves/wobble.k7x — one sine cycle per bar, swinging -1..1
+type("lfo")
+polarity("bipolar")
+frequency(1)
 ```
 
 ### Fields every curve but `onoff` takes
@@ -218,9 +212,8 @@ holds; outside them the parameter holds its value at the nearest edge.
 Each condition also takes `retrigger: true`, which restarts the curve's own time at the start of each
 stretch instead of letting it carry on from the song's start.
 
-```yaml
-type: lfo
-frequency: 2
-conditions:
-  - { type: between, start: "9:1", end: "17:1", retrigger: true }
+```k7x
+type("lfo")
+frequency(2)
+conditions([type("between").start("9:1").end("17:1").retrigger(true)])
 ```

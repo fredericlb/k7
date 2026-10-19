@@ -1,6 +1,6 @@
 # Chains
 
-## graph.yaml
+## graph.k7x
 
 The routing graph, declared as SEGMENTS: each module says where its signal goes next. Nothing
 declares a chain — the chains are DERIVED by following the arrows.
@@ -15,18 +15,19 @@ is called after that lane; a run the signal joins into is called after the modul
 That name is an identity: it is the routing target, the bus's track, and the prefix of every
 plugin id under it.
 
-```yaml schema=GraphFile
-modules:
-  melody: [ synth ]
-  gtr: [ amp ]
-  synth: [ OUT ]
-  # `amp` feeds the reverb, which nothing else does — so the reverb is simply the
-  # next module on the gtr run, not a chain of its own.
-  amp: [ reverb ]
-  reverb: [ convolution ]
-  convolution: [ OUT ]
+```k7x schema=GraphFile
+modules({
+  melody: ["synth"],
+  gtr: ["amp"],
+  synth: ["OUT"],
+  // `amp` feeds the reverb, which nothing else does — so the reverb is simply the
+  // next module on the gtr run, not a chain of its own.
+  amp: ["reverb"],
+  reverb: ["convolution"],
+  convolution: ["OUT"],
+})
 
-bypassed: [ convolution ]
+bypassed(["convolution"])
 ```
 
 `bypassed` lists the modules the signal passes through untouched. They keep their place and their
@@ -40,8 +41,8 @@ surface derives it by bypassing every other lane.
 
 `bus_only` is the fourth section, and it is about a **bus** rather than a module:
 
-```yaml schema=GraphFile
-bus_only: [ eqA ]
+```k7x schema=GraphFile
+bus_only(["eqA"])
 ```
 
 A bus named here is heard through its destinations and nowhere else — its own dry path to the
@@ -50,19 +51,17 @@ chain is named after its first module, so `bypassed: [ eqA ]` would mute the bus
 EQ off with it**, silently. See `@studio/song`'s `docs/busOnly.md` for the whole argument.
 
 `tap_feeds` says which runs are fed by one TAP of a rack rather than by a cable — the compiler writes
-it from a node's `tap_outs:` (see the instruments page), and a `graph.yaml` may state it by hand:
+it from a node's `tap_outs:` (see the instruments page), and a `graph.k7x` may state it by hand:
 
-```yaml schema=GraphFile
-tap_feeds:
-  - { node: kit, tap: Snare, to: snare-verb }
+```k7x schema=GraphFile
+tap_feeds([node("kit").tap("Snare").to("snare-verb")])
 ```
 
 `positions` is where you PUT a node on the graph, if you did — dragging a module's header
 writes one, and the layout only ever places the nodes that have no entry here:
 
-```yaml schema=GraphFile
-positions:
-  reverb: { x: 420, y: 180 }
+```k7x schema=GraphFile
+positions({ reverb: { x: 420, y: 180 } })
 ```
 
 Purely cosmetic: nothing about the signal reads it, and deleting the section (or running
@@ -81,7 +80,7 @@ A module name is one of three things:
 
 - `synth` — a module of this project, by the name of its folder under `modules/`.
 - `lead` — one USE of a module, by the name of its file in `nodes/`. A node is
-  `nodes/lead.yaml`, and it says which module it uses with `extends:` — the folder is
+  `nodes/lead.k7x`, and it says which module it uses with `extends:` — the folder is
   flat, so where the file sits tells you nothing and does not have to. **A lane is one of
   these**, extending a `@meta/…-track` module.
 - `"@engine/audio/amp/nam"` — an INHERITED module, by its ref: the level it lives at (`@engine`,
@@ -89,14 +88,12 @@ A module name is one of three things:
   — they are the machine's plugin scan, the médiathèque, and the `_modules` beside the song. It
   arrives merged through its own `extends`, so it behaves exactly like a local one.
 
-A ref must be QUOTED, as a key and as a destination alike. YAML reserves `@` as the first character
-of a plain scalar, and an unquoted one stops the file parsing — which is why picking one from the
-editor's completion list brings its quotes with it.
+A ref must be QUOTED, as a key and as a destination alike: `@` is no letter of a bare key, and an
+unquoted one stops the file parsing — which is why picking one from the editor's completion list
+brings its quotes with it.
 
-```yaml schema=GraphFile
-modules:
-  gtr: [ "@engine/audio/amp/nam" ]
-  "@engine/audio/amp/nam": [ OUT ]
+```k7x schema=GraphFile
+modules({ gtr: ["@engine/audio/amp/nam"], "@engine/audio/amp/nam": ["OUT"] })
 ```
 
 ## One module, two voices
@@ -108,12 +105,8 @@ lane they serve reads best — `synth-melody` says whose it is. A node MAY take 
 already has (a lane called `polysynth` beside the module `polysynth` is what an import writes): the
 node wins the bare name and the module stays reachable through its ref.
 
-```yaml schema=GraphFile
-modules:
-  melody: [ synth-melody ]
-  pad: [ synth-pad ]
-  synth-melody: [ OUT ]
-  synth-pad: [ OUT ]
+```k7x schema=GraphFile
+modules({ melody: ["synth-melody"], pad: ["synth-pad"], synth-melody: ["OUT"], synth-pad: ["OUT"] })
 ```
 
 ## Live inputs
@@ -123,13 +116,14 @@ lane**: name the lane as its destination, and the signal lands there. This is th
 appears on the right-hand side of an arrow, and it is the only thing that may — a lane's material
 is its clips, so anything else aimed at one is discarded.
 
-```yaml schema=GraphFile
-modules:
-  # …and from the lane onward, the lane's own run: through an amp, out to the mix
-  gtr: [ "@engine/audio/amp/nam" ]
-  # input 1 arrives on the `gtr` lane — the arrow points the way the signal travels
-  "@engine/io/IN:in-1": [ gtr ]
-  "@engine/audio/amp/nam": [ OUT ]
+```k7x schema=GraphFile
+modules({
+  // …and from the lane onward, the lane's own run: through an amp, out to the mix
+  gtr: ["@engine/audio/amp/nam"],
+  // input 1 arrives on the `gtr` lane — the arrow points the way the signal travels
+  "@engine/io/IN:in-1": ["gtr"],
+  "@engine/audio/amp/nam": ["OUT"],
+})
 ```
 
 The module itself names no lane, which is what lets `IN` come from the engine and get one node per
@@ -137,7 +131,7 @@ project: the node carries the channel, and which lane it feeds is a per-project 
 input sitting INSIDE a lane's run works too — `gtr: [ "IN:gtr" ]` — and lands on the same lane;
 that is the shape the migration below writes.
 
-Note `IN:in-1`, with a colon: `in-1.yaml` is a NODE of the `IN` module, not a folder inside
+Note `IN:in-1`, with a colon: `in-1.k7x` is a NODE of the `IN` module, not a folder inside
 it. Two shapes that don't work, and what they say:
 
 - an input whose run reaches no lane — nothing owns the signal. Reported as `an input's signal has
@@ -160,5 +154,5 @@ which renames the plugin ids under it. And a module the list used in SEVERAL cha
 one node per chain: a chain list means one plugin per chain, while a segment file names each
 module once, so leaving it shared would collapse two instruments into one.
 
-The migration rewrites `graph.yaml` and nothing else. Moving the lanes themselves out of
+The migration rewrites `graph.k7x` and nothing else. Moving the lanes themselves out of
 `tracks/` and into `nodes/` is by hand, and the table in Tracks says what each one becomes.

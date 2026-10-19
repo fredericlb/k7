@@ -10,7 +10,7 @@
 // See engine/k7-runtime/docs/recorder.md for the ring, and what a `damaged` take means.
 plugin({ type: "internal", name: "Recorder" })
 // No `params:` — nothing here is a knob. Its three controls are INTRINSICS that fire rather than
-// set (`@rec:record`, `@rec:clear`, `@rec:save`), which is why they live in ui.yaml and not here.
+// set (`@rec:record`, `@rec:clear`, `@rec:save`), which is why they live in ui.k7x and not here.
 //
 // In a paragraph: a recorder captures what passes through it, keeps its takes in a stack, and
 // sends the one on top to the médiathèque's `recordings/` zone when you save. Nothing it does

@@ -1,16 +1,15 @@
 // `node param <node> ir <file>` — a cabinet IR picked from the libraries' `irs/`, through the same verb an
 // amp `model` is, and checked against the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { librariesFixture } from "@studio/song/testSupport";
+import {
+  librariesFixture,
+  writeDoc,
+  writeNode,
+} from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -26,7 +25,12 @@ const host = () =>
     refuse: (l: string[]) => logs.push(...l),
     reload: () => {},
   }) as never;
-const node = () => readFileSync(join(dir, "nodes", "amp.yaml"), "utf8");
+const node = () => wsText(join(dir, "nodes", "amp.k7x"));
+const params = () =>
+  (wsData(join(dir, "nodes", "amp.k7x")).params ?? {}) as Record<
+    string,
+    unknown
+  >;
 
 beforeEach(() => {
   logs.length = 0;
@@ -37,18 +41,12 @@ beforeEach(() => {
   mkdirSync(join(lib, "models", "proteus"), { recursive: true });
   writeFileSync(join(lib, "models", "proteus", "ts9.json"), "{}");
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-  mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", "amp", "module.yaml"),
-    "plugin: { type: internal, name: Neural Amp Modeler }\n",
-  );
-  writeFileSync(
-    join(dir, "nodes", "amp.yaml"),
-    'extends: "@workspace/audio/amp"\n',
-  );
-  writeFileSync(join(dir, "graph.yaml"), "modules:\n  amp: [ OUT ]\n");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(root, "_modules", "audio", "amp", "module.k7x"), {
+    plugin: { type: "internal", name: "Neural Amp Modeler" },
+  });
+  writeNode(dir, "amp", { extends: "@workspace/audio/amp" });
+  writeDoc(join(dir, "graph.k7x"), { modules: { amp: ["OUT"] } });
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
@@ -61,7 +59,7 @@ it("writes a library IR by the name it was picked with", async () => {
     host(),
     "cli",
   );
-  expect(node()).toContain('ir: "@k7-core/deluxe/big.wav"');
+  expect(params().ir).toBe("@k7-core/deluxe/big.wav");
 });
 
 it("refuses a file no library holds, and writes nothing", async () => {
@@ -91,7 +89,7 @@ it("takes an amp `model` from a library's models/ by its @ name, and refuses one
     host(),
     "cli",
   );
-  expect(node()).toContain('model: "@k7-core/proteus/ts9.json"');
+  expect(params().model).toBe("@k7-core/proteus/ts9.json");
   logs.length = 0;
   const before = node();
   await runCommand(

@@ -51,7 +51,7 @@ reason: inventing a second `items:` key lower down would write a file whose two 
 ## `playlist song remove <playlist> <n>` and `playlist song move <playlist> <from> <to>`
 
 The other two thirds of editing a set list. Until these existed, `PlaylistPane` could append and
-nothing else, so **taking a song out or changing the running order meant opening the YAML** — on the
+nothing else, so **taking a song out or changing the running order meant opening the file** — on the
 one screen whose whole job is the order of an evening, and usually shortly before one.
 
 **They count from 1, and they address a line by POSITION rather than by song.** A set list may name

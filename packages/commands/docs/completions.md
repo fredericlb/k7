@@ -5,7 +5,7 @@ vocabularies sit side by side there and they answer three different questions:
 
 | | question | where |
 |---|---|---|
-| `PROVIDERS` | what are the candidate VALUES, right now, in this project | `complete:` in the yaml |
+| `PROVIDERS` | what are the candidate VALUES, right now, in this project | `complete:` in `commands.yaml` |
 | `PROVIDER_CLASS` / `ARG_CLASSES` | what KIND of thing is it, in one word, so a line reads as a coloured sentence | derived |
 | `PROVIDER_HINT` / `CLASS_HINT` | what does this field accept, as a clue beside it | derived, overridable by `hint:` |
 

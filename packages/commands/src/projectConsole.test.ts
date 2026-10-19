@@ -1,18 +1,12 @@
 // `project console` — what the settings' Project tab runs. Through the dispatcher and asserting
 // the FILE, for the reason bypass.test.ts gives. See packages/song/docs/console.md.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { librariesFixture } from "@studio/song/testSupport";
+import { librariesFixture, writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 const SYS = "@k7-core/console/console-6";
@@ -26,18 +20,12 @@ beforeEach(() => {
   reloaded = 0;
   root = mkdtempSync(join(tmpdir(), "td-pconsole-"));
   dir = join(root, "song.k7");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t" } });
   const lib = librariesFixture(root);
-  for (const half of ["channel", "buss"]) {
-    const at = join(lib, "modules", "console", "console-6", half);
-    mkdirSync(at, { recursive: true });
-    writeFileSync(
-      join(at, "module.yaml"),
-      `plugin: { type: internal, name: Console 6 ${half} }\n`,
-      "utf8",
-    );
-  }
+  for (const half of ["channel", "buss"])
+    writeDoc(join(lib, "modules", "console", "console-6", half, "module.k7x"), {
+      plugin: { type: "internal", name: `Console 6 ${half}` },
+    });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -54,7 +42,7 @@ const host = () =>
   }) as never;
 
 const project = () =>
-  parse(readFileSync(join(dir, "project.yaml"), "utf8")).project;
+  wsData(join(dir, "project.k7x")).project as { console?: string };
 
 describe("project console", () => {
   it("writes the system and reloads", async () => {

@@ -1,18 +1,16 @@
 // `node tap note|sample|add|remove` — a rack NODE's kit, written into the node and never the module,
 // its samples checked against the libraries' `samples/` (packages/song/docs/racks.md).
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { librariesFixture } from "@studio/song/testSupport";
+import {
+  librariesFixture,
+  writeDoc,
+  writeNode,
+} from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let root: string;
@@ -27,12 +25,12 @@ const host = () =>
     refuse: (l: string[]) => logs.push(...l),
     reload: () => {},
   }) as never;
+const DRUMS = "@workspace/instruments/drums";
 const moduleFile = () =>
-  join(root, "_modules", "instruments", "drums", "module.yaml");
+  join(root, "_modules", "instruments", "drums", "module.k7x");
+const kitFile = () => join(dir, "nodes", "kit.k7x");
 const kit = () =>
-  parse(readFileSync(join(dir, "nodes", "kit.yaml"), "utf8"), {
-    version: "1.2",
-  }) as {
+  wsData(kitFile()) as {
     rack?: { symbols?: Record<string, { note: number; sample?: string }> };
     alternatives?: { rack?: { symbols?: Record<string, { note: number }> } }[];
   };
@@ -44,18 +42,11 @@ beforeEach(() => {
   mkdirSync(join(lib, "samples", "kicks"), { recursive: true });
   writeFileSync(join(lib, "samples", "kicks", "808 deep.wav"), "");
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-  mkdirSync(join(root, "_modules", "instruments", "drums"), {
-    recursive: true,
-  });
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
   // The generic sampler: a rack with no sounds of its own.
-  writeFileSync(moduleFile(), "type: rack\n");
-  writeFileSync(
-    join(dir, "nodes", "kit.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\n',
-  );
-  writeFileSync(join(dir, "graph.yaml"), "modules:\n  kit: [ OUT ]\n");
+  writeDoc(moduleFile(), { type: "rack" });
+  writeNode(dir, "kit", { extends: DRUMS, type: "rack" });
+  writeDoc(join(dir, "graph.k7x"), { modules: { kit: ["OUT"] } });
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
@@ -66,7 +57,7 @@ it("adds a tap to the NODE on the first free note, and leaves the module alone",
   await runCommand("node tap add kit", host(), "cli");
   await runCommand("node tap add kit SN", host(), "cli");
   expect(kit().rack?.symbols).toEqual({ T1: { note: 36 }, SN: { note: 37 } });
-  expect(readFileSync(moduleFile(), "utf8")).toBe("type: rack\n");
+  expect(wsData(moduleFile())).toEqual({ type: "rack" });
 });
 
 it("adds a tap on a GIVEN note — an empty pad of the octave grid — and refuses a taken one", async () => {
@@ -112,37 +103,33 @@ it("removes a tap, and refuses one the node does not have", async () => {
 });
 
 it("refuses to remove an inherited tap, leaving a node with no rack of its own untouched", async () => {
-  writeFileSync(
-    moduleFile(),
-    "type: rack\nrack:\n  symbols:\n    BD: { note: 36 }\n",
-  );
+  writeDoc(moduleFile(), {
+    type: "rack",
+    rack: { symbols: { BD: { note: 36 } } },
+  });
+  const before = wsText(kitFile());
   await runCommand("node tap remove kit BD", host(), "cli");
   expect(logs.join(" ")).toContain("comes from kit's module");
-  expect(readFileSync(join(dir, "nodes", "kit.yaml"), "utf8")).toBe(
-    'extends: "@workspace/instruments/drums"\ntype: rack\n',
-  );
+  expect(wsText(kitFile())).toBe(before);
 });
 
 it("writes into the ALTERNATIVE that is on, as a knob does", async () => {
-  writeFileSync(
-    join(dir, "nodes", "kit.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\nalternatives:\n  - name: b\nalternative: b\n',
-  );
+  writeNode(dir, "kit", {
+    extends: DRUMS,
+    type: "rack",
+    alternatives: [{ name: "b" }],
+    alternative: "b",
+  });
   await runCommand("node tap add kit BD", host(), "cli");
   expect(kit().rack).toBeUndefined();
   expect(kit().alternatives?.[0].rack?.symbols).toEqual({ BD: { note: 36 } });
 });
 
 it("refuses a node that is not a rack", async () => {
-  mkdirSync(join(root, "_modules", "audio", "amp"), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", "amp", "module.yaml"),
-    "plugin: { type: internal, name: Chorus }\n",
-  );
-  writeFileSync(
-    join(dir, "nodes", "amp.yaml"),
-    'extends: "@workspace/audio/amp"\n',
-  );
+  writeDoc(join(root, "_modules", "audio", "amp", "module.k7x"), {
+    plugin: { type: "internal", name: "Chorus" },
+  });
+  writeNode(dir, "amp", { extends: "@workspace/audio/amp" });
   await runCommand("node tap add amp", host(), "cli");
   expect(logs.join(" ")).toContain("is not a rack");
 });

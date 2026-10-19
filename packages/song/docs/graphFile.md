@@ -1,6 +1,6 @@
 # graphFile.ts — extended notes
 
-graph.yaml declares SEGMENTS — one `modules:` map, each node listing where its signal goes (a LANE is a module
+graph.k7x declares SEGMENTS — one `modules:` map, each node listing where its signal goes (a LANE is a module
 too, see trackModules.md, which is why there is no second half) — and the
 chains are derived from them (chainsGraph.ts). Everything here follows from that: an edit is an edge rewire, and
 a module is named exactly once.
@@ -33,17 +33,14 @@ The four edits the app actually makes (the honest test set):
 - The file has to already be in the library's own flow spacing (`[ a, b ]`). Edit a file written any other way
   and every flow line in it is re-spaced — a diff on nodes nobody touched. `formatChains` emits the canonical
   form, and the migration writes it.
-- `OPTS` pins YAML 1.2 (keeps `5:1:1`-shaped scalars as strings — see moduleFile.ts) and `lineWidth: 0` (keeps
-  destinations on ONE line; at the default of 80 a node that grows past it is re-emitted across several lines).
+- A node's destinations are written `inline`, on ONE line whatever their length: at the printer's 100 columns a
+  node that grew past it would be re-emitted across several lines.
 
 ## The colon
 
-Module names carry `:` — `eq_dj:vox` is a node, `@engine/io/IN:in-1` an inherited one. They are map KEYS, which
-is where `:` is most dangerous: it is YAML's own key/value indicator. It
-survives, because 1.2 allows `:` inside a plain scalar when no space follows. Nothing about that is obvious, and
-it is the first thing that would break silently, so chainsYaml.test.ts pins it.
-
-A ref starting with `@` is a different matter: `@` really is reserved, so those keys must be quoted. The library
+Module names carry `:` — `eq_dj:vox` is a node, `@engine/io/IN:in-1` an inherited one. They are map KEYS, and
+a k7x key holding `:` is quoted, like one holding a space. A ref starting with `@` is quoted for the same reason.
+The library
 quotes them on its own — but `renameNode` clears the scalar's `type` when it swaps a name, or every module
 renamed over a ref would keep wearing the ref's quotes.
 
@@ -68,7 +65,7 @@ that the last chain to arrive would swallow the whole master run as its own next
 and every word holds for it unchanged — it is the compositor's sum, every video lane arrives there, and the run
 out of it is the picture's master chain (videoOutputs.md).
 
-`deriveChains` accepts the raw value, since project.yaml may inline it, and validates: a caller holding an
+`deriveChains` accepts the raw value, since project.k7x may inline it, and validates: a caller holding an
 unparsed object should still get chains or a clear failure, never a half-read graph. A file in the chain-LIST
 format is named precisely rather than reported as an unknown key — someone opening such a project needs the
 migration, not a schema error.

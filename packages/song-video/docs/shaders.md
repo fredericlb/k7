@@ -1,13 +1,14 @@
 # The `shaders` module — GLSL over the picture, driven by sound
 
-```yaml
-# graph.yaml
-modules:
-  drums:  [ MIX, glow#audio ]   # the track feeds the mix AND the shader's audio input
-  MIX:    [ OUT ]
-  main:   [ glow ]              # the video track crosses the shader…
-  glow:   [ RENDER ]            # …before reaching the compositor
-  RENDER: [ VIDEO_OUT ]
+```k7x
+// graph.k7x
+modules({
+  drums: ["MIX", "glow#audio"], // the track feeds the mix AND the shader's audio input
+  MIX: ["OUT"],
+  main: ["glow"], // the video track crosses the shader…
+  glow: ["RENDER"], // …before reaching the compositor
+  RENDER: ["VIDEO_OUT"],
+})
 ```
 
 A `shaders` module takes **one image**, renders **one image**, and additionally accepts an
@@ -29,8 +30,8 @@ a crossfade's second input.
 
 ```
 modules/shaders/glow/
-  module.yaml            type: shader, shader: pulse, params: P1..P4
-  ui.yaml                the dropdown + the four knobs
+  module.k7x             type: shader, shader: pulse, params: P1..P4
+  ui.k7x                 the dropdown + the four knobs
   shaders/
     pulse/
       vertex.glsl
@@ -47,16 +48,15 @@ folder is what lets the menu offer `ripple` instead of two half-choices that can
 A folder missing either stage **is not offered**: offering it compiles a program with no vertex
 stage, and the failure talks about GL rather than about a file someone has not finished writing.
 
-`shaders/` sits beside the `module.yaml` and not in `assets/`, on the model of `base/`: `assets/` is
+`shaders/` sits beside the `module.k7x` and not in `assets/`, on the model of `base/`: `assets/` is
 a flat list of files that a parameter NAMES, filtered by extension (`assetExtsFor`). A shader is a
 directory — it would be the only entry there that is not a file.
 
 ## The dropdown is filled by the DISK
 
-```yaml
-# ui.yaml
-widgets:
-  pick: { type: dropdown, col: 0, row: 0, colSpan: 4, bind: "@shader" }
+```k7x
+// ui.k7x
+widgets({ pick: { type: "dropdown", col: 0, row: 0, colSpan: 4, bind: "@shader" } })
 ```
 
 The panel says **nothing** about its entries: which shaders exist changes the moment someone drops
@@ -129,12 +129,13 @@ and freezing it into a cached document would freeze it for good.
 
 ## Where a pass may go: both
 
-```yaml
-modules:
-  main:   [ glow ]         # on a TRACK — the layer is processed before being composited
-  glow:   [ RENDER ]
-  RENDER: [ grade ]        # on the IMAGE — the whole frame, once the layers are composited
-  grade:  [ VIDEO_OUT ]
+```k7x
+modules({
+  main: ["glow"], // on a TRACK — the layer is processed before being composited
+  glow: ["RENDER"],
+  RENDER: ["grade"], // on the IMAGE — the whole frame, once the layers are composited
+  grade: ["VIDEO_OUT"],
+})
 ```
 
 One implementation, allowed anywhere a video cable goes. Both are ordinary chains; only where the
@@ -157,7 +158,7 @@ In all three the node keeps its card, its knobs and its menu — a half-typed fr
 the viewport with it, the posture `presetFor` holds against a vanished base. The error names the
 **node** (`glow`) and not the file, because the node is what is on screen and what one would click.
 
-An unreadable `graph.yaml` is treated the same: compiling the picture is *best-effort*, because the
+An unreadable `graph.k7x` is treated the same: compiling the picture is *best-effort*, because the
 song compiler already reports the error, in the editor, on the offending line. Losing the effects is
 recoverable by reading that message; losing the frame is a black screen with no explanation.
 
@@ -193,7 +194,7 @@ wiring error port checking already reports.
 
 | | |
 |---|---|
-| written | `modules/shaders/<name>/` + a video run in `graph.yaml` |
+| written | `modules/shaders/<name>/` + a video run in `graph.k7x` |
 | declared | `src/moduleTypes.ts` — `MODULE_TYPES.shaders`, `SHADER_PARAMS`, `SHADERS_DIR` |
 | read | `src/shaders.ts` — `moduleShaderChoices` / `readShader`, ancestry included |
 | derived | `src/chainsGraph.ts`: a video track is a track, so `main: [ glow ]` is a run |

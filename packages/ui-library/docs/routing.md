@@ -106,10 +106,10 @@ looked for among them.
 
 An address under a section that is not in `SECTION_IDS` is not a 404 inside the app:
 `fromLocation` drops what it cannot read and lands on the default section, so a stale bookmark
-to `/media/modules/x/ui.yaml` opens the songs rather than nothing.
+to `/media/modules/x/ui.k7x` opens the songs rather than nothing.
 
 A section that opens something must be in `CARRIES`, and the failure if it is not is quiet:
-the editor pushes `/<section>/x/graph.yaml`, `fromLocation` reads that back as the bare
+the editor pushes `/<section>/x/graph.k7x`, `fromLocation` reads that back as the bare
 section, and the URL→state effect applies `file: null` and shuts the editor a tick after it
 opened.
 

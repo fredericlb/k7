@@ -42,10 +42,9 @@ another computer still draws something.
 Wire the camera to a picture lane instead of `RENDER`, and that lane draws the camera instead of its
 shots, inside the lane's rectangle:
 
-```yaml
-# graph.yaml
-modules:
-  cam: [ main ]
+```k7x
+// graph.k7x
+modules({ cam: ["main"] })
 ```
 
 A lane drawing a camera draws nothing while its lens is shut. With `monitor: auto` the lens opens

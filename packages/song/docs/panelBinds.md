@@ -1,6 +1,6 @@
 # Panel binds — `npm run lint:panels`
 
-A panel control is bound to a param by NAME (`bind:` in a module's `ui.yaml`), and the engine applies
+A panel control is bound to a param by NAME (`bind:` in a module's `ui.k7x`), and the engine applies
 a value by finding that name in the plugin's parameter list (`applyPluginParams`). A name the plugin
 does not have is dropped with a warning in the engine's log and nothing on screen: the control moves,
 the value is saved in the song, and the sound does not change. `scripts/checkPanelBinds.ts` finds

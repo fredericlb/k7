@@ -12,8 +12,19 @@ export interface K7Reader {
 const OK = 0;
 const SYNTAX_ERROR = 1;
 
+/** The part of WebAssembly this file uses, typed here so it compiles whatever lib a host's tsconfig names. */
+interface Instance {
+  exports: unknown;
+}
+interface WasmApi {
+  Module: new (bytes: Uint8Array) => object;
+  Instance: new (module: object) => Instance;
+  instantiate(bytes: Uint8Array): Promise<{ instance: Instance }>;
+}
+const wasm = (globalThis as { WebAssembly?: WasmApi }).WebAssembly;
+
 interface Abi {
-  memory: WebAssembly.Memory;
+  memory: { buffer: ArrayBuffer };
   k7x_input(len: number): number;
   k7x_data(len: number): number;
   k7x_output_ptr(): number;
@@ -24,7 +35,7 @@ interface Abi {
 let reader: K7Reader | null | undefined;
 let pending: Promise<void> | null = null;
 
-function wasmReader(instance: WebAssembly.Instance): K7Reader {
+function wasmReader(instance: Instance): K7Reader {
   const x = instance.exports as unknown as Abi;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -84,15 +95,14 @@ function current(): K7Reader | null {
     reader = addonReader(addon);
     return reader;
   }
-  if (typeof WebAssembly !== "object") return reader;
+  if (!wasm) return reader;
   try {
-    reader = wasmReader(
-      new WebAssembly.Instance(new WebAssembly.Module(bytes())),
-    );
+    reader = wasmReader(new wasm.Instance(new wasm.Module(bytes())));
     kind = "wasm";
   } catch {
     // A browser's main thread refuses a synchronous compile past a size; parse.ts answers until the async one lands.
-    pending ??= WebAssembly.instantiate(bytes())
+    pending ??= wasm
+      .instantiate(bytes())
       .then(({ instance }) => {
         reader ??= wasmReader(instance);
         kind = "wasm";

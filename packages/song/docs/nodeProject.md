@@ -5,7 +5,7 @@ are files of `src/compile/`, each reading the inputs loaded once: what it reads 
 (`inputs.ts`), which track each chain lands on (`ownership.ts`), the frozen points (`freeze.ts`),
 the plugins and their automation (`plugins.ts`), and one placement's clip (`clips.ts`).
 
-A node project (`project.yaml` + `graph.yaml` + `modules/` + tracks/clips/sequences)
+A node project (`project.k7x` + `graph.k7x` + `modules/` + tracks/clips/sequences)
 is a graph: chains route a track `from` through modules (`use`) to the OUT sink. A
 module carries a plugin (or io, or a rack) and params, and may `extends` another module
 to inherit its defaults. The engine consumes the flat
@@ -67,7 +67,7 @@ always the module's OWN path (inside its folder, where a UI edit is written) —
 extended module's preset is never overwritten.
 
 The blob is named by what the step IS, and it sits beside that step's own file: a node
-(`"lead"`) saves to `nodes/lead.vstpreset`, next to `nodes/lead.yaml`, so tweaking
+(`"lead"`) saves to `nodes/lead.vstpreset`, next to `nodes/lead.k7x`, so tweaking
 one use never overwrites the module's state or another use's. The loader carries the folder
 on the module as `home` — a node's path does not follow from a category and a module name
 the way a module's does.

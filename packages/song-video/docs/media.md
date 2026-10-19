@@ -1,11 +1,11 @@
 # Footage the picture can use — optimized copies, proxies and stills
 
-```yaml
-# clips/interview.yaml
-source: clips/interview.mov                   # what the camera wrote: 4K HEVC, 10-bit
-optimized: clips/interview.optimized.mp4      # full resolution, 8-bit H.264 — preview and export
-proxy: clips/interview.proxy.mp4              # 720p — the preview alone
-sound: clips/interview.sound.wav              # the shot's sound, the engine's (../../song/docs/videoSound.md)
+```k7x
+// clips/interview.k7x
+source("clips/interview.mov") // what the camera wrote: 4K HEVC, 10-bit
+optimized("clips/interview.optimized.mp4") // full resolution, 8-bit H.264 — preview and export
+proxy("clips/interview.proxy.mp4") // 720p — the preview alone
+sound("clips/interview.sound.wav") // the shot's sound, the engine's (../../song/docs/videoSound.md)
 ```
 
 `picture prepare <lane>` makes the copies (`packages/commands/src/verbs/pictureMedia.ts`), and

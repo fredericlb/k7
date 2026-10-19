@@ -60,6 +60,24 @@ describe("applyIn", () => {
     );
   });
 
+  it("edits an item in place beside a splice, the comments of the items it keeps kept", () => {
+    const notes = [
+      { t: 0, d: 1, k: 60 },
+      { t: 1, d: 0.5, k: 62 },
+      { t: 2, d: 1, k: 64 },
+      { t: 1.5, d: 0.5, k: 62 },
+    ];
+    expect(applied(["notes"], notes)).toBe(
+      NOTES.replace(
+        "t(1).d(1).k(62), // the second",
+        "t(1).d(0.5).k(62), // the second",
+      ).replace(
+        "  t(2).d(1).k(64),",
+        "  t(2).d(1).k(64),\n  t(1.5).d(0.5).k(62),",
+      ),
+    );
+  });
+
   it("creates a missing path and replaces a value of another shape", () => {
     expect(applied(["extra", "x"], [1])).toBe(`${NOTES}extra({ x: [1] })\n`);
     expect(applied(["params"], 3)).toBe(

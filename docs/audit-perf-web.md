@@ -90,7 +90,7 @@ Measured on the reference song: **329 `readdir` = 11.7 ms, 419 `stat` = 11.9 ms*
 
 - `readdirSync(recursive: true)` gains nothing (23.6 ms against 23.5): it stats internally to decide
   whether to descend. Dead end.
-- The 419 `stat`s are on files whose content is REALLY read: 291 `module.yaml`, 42 `ui.yaml`, 68
+- The 419 `stat`s are on files whose content is REALLY read: 291 `module.k7x`, 42 `ui.k7x`, 68
   files under `nodes/`. That leaves a dozen or so `jsdsp.ts` and `.vstpreset` of which only the PATH
   is kept — 4 % of the total. Shrinking `DEFINITION` is not worth its risk.
 - A DIRECTORY's mtime does not move when a file's content changes (NTFS), so it cannot replace the

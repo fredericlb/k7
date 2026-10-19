@@ -25,6 +25,15 @@ import {
 } from "@studio/web-protocol/paths";
 import { RECYCLE_DIR } from "./workspaceFilter.ts";
 
+/** A YAML name, which a workspace refuses: every workspace document is .k7x. */
+const YAML_NAME = /\.ya?ml$/i;
+
+/** Throws on a YAML name, which would sit unread beside its .k7x — the one refusal of every route that names a file (docs/workspace.md). */
+export function refuseYamlName(rel: string): void {
+  if (YAML_NAME.test(rel))
+    throw new Error(`${rel}: a workspace file is .k7x, not YAML`);
+}
+
 /** The members of the workspace the mutations read. */
 export interface EntriesHost {
   readonly root: string;
@@ -76,6 +85,7 @@ export function uploadFileIn(
   const clean = segs.join("/");
   const base = dir && dir !== "." ? dir.replace(/\/+$/, "") : "";
   const rel = base ? `${base}/${clean}` : clean;
+  refuseYamlName(rel);
   const abs = h.safePath(rel);
   guardShared(h.toRel, abs, "add a file to");
   if (existsSync(abs)) {
@@ -177,6 +187,7 @@ export async function renameEntryIn(
   // A single path segment — no separators or traversal (the new name stays in place).
   const clean = basename(newName).replace(/[\\/]/g, "").trim();
   if (!isPlainSegment(clean)) throw new Error(`invalid name: ${newName}`);
+  refuseYamlName(clean);
   const destAbs = h.safePath(h.toRel(join(dirname(abs), clean)));
   if (destAbs === abs) return { path: h.toRel(abs) }; // no-op rename to the same name
   if (existsSync(destAbs)) {

@@ -1,7 +1,7 @@
 // The B deck — backbeat. It lands on the crossfade's `b` port, which is why its chain ends
 // there and it runs no modules of its own.
 //
-// BYPASSED on purpose, in chains.yaml, and this is the one thing about the demo worth reading
+// BYPASSED on purpose, in chains.k7x, and this is the one thing about the demo worth reading
 // twice.
 //
 // `out` compiles as a PARALLEL path in this compiler — that is what makes a send a send, the

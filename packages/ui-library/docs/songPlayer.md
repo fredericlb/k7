@@ -164,7 +164,7 @@ clicking a song opens something.
 
 ## An address for a song
 
-`/songs/<artist>/<album>/<title>/song.yaml` is an address, like `/modules/audio/reverb/ui.yaml`. See
+`/songs/<artist>/<album>/<title>/song.yaml` is an address, like `/modules/audio/reverb/ui.k7x`. See
 [routing.md](routing.md): `CARRIES` says which sections carry a file path after their first segment.
 
 ## The sidecar may not exist

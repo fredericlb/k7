@@ -6,11 +6,9 @@ note and morphed by a knob.
 
 ## The slot is filled by a STRING param of the same name
 
-```yaml
-extends: "@k7-core/instruments/synth/wavetable"
-params:
-  Table: "@k7-core/basic.wav"
-  Position: 0.4
+```k7x
+extends("@k7-core/instruments/synth/wavetable")
+params({ Table: "@k7-core/basic.wav", Position: 0.4 })
 ```
 
 A Faust knob is always a number, so a string param on a Faust module can only be a file, and that

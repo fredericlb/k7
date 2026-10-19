@@ -1,11 +1,12 @@
 // `project tempo` and `project meter` write the two numbers the footer shows — and refuse a typo
 // rather than write a song at 0 bpm or in 4/5.
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let dir: string;
@@ -19,16 +20,17 @@ const host = () =>
     reload: () => {},
   }) as never;
 const project = () =>
-  parse(readFileSync(join(dir, "project.yaml"), "utf8")).project;
+  wsData(join(dir, "project.k7x")).project as {
+    tempo?: number;
+    timeSignature?: string;
+  };
 
 beforeEach(() => {
   logs.length = 0;
   dir = mkdtempSync(join(tmpdir(), "tempo-"));
-  writeFileSync(
-    join(dir, "project.yaml"),
-    `project:\n  name: t\n  tempo: 120\n  timeSignature: "4/4"\n  sampleRate: 48000\n`,
-    "utf8",
-  );
+  writeDoc(join(dir, "project.k7x"), {
+    project: { name: "t", tempo: 120, timeSignature: "4/4", sampleRate: 48000 },
+  });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

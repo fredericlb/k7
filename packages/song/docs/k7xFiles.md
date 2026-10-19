@@ -18,8 +18,10 @@ read, listed or written. The plan this belongs to is [k7x-plan.md](../../../docs
 - **An edit of a file with short forms sees their expanded data.** The edit runs on a scratch
   document of that data, and the result goes back over the real one by `applySugared`
   (`packages/k7x/src/sugared.ts`, `packages/song-schema/docs/sugar.md`), so a writer never has to know
-  that `notes("c4 d4")` is a string. A writer that keeps a short form itself — the graph's `runs(...)`
-  — edits the raw document instead.
+  that `notes("c4 d4")` is a string. A file that holds no short form is edited as written, so a
+  key renamed or an item inserted keeps its line and its comments: a data diff would delete and
+  re-add it. A writer that keeps a short form itself — graphFile's, which rename inside `runs(...)`
+  — passes `raw` and edits the document as written too.
 - **An absent file is an error unless the caller says `create`**: then it is an empty document, and
   is only written once the edit put something in it.
 - **A finding carries the line of the k7x text.** Each parser validates the file's data and places
@@ -41,5 +43,3 @@ k7x path ops, diffed on the k7x text itself (`packages/live-sync/docs/ops.md`).
 ## Known limits
 
 - **A finding with no path has no line**, since the line is computed from the key path.
-- **Entity links and the preview gutter** give a `.k7x` file colours, completion and lint, not the
-  click-through to a referenced file or the play button beside a sample.

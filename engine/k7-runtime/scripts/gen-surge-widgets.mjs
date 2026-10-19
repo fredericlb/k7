@@ -1,5 +1,5 @@
 // gen-surge-widgets.mjs — the Surge XT panel's widgets.js, as text: the screens' draw functions around the tables
-// the engine's dump names things from. Split from gen-surge-panel.mjs, which lays out ui.yaml and calls this.
+// the engine's dump names things from. Split from gen-surge-panel.mjs, which lays out ui.k7x and calls this.
 // The one thing a reader would get wrong: this is a TEMPLATE — the code inside the backquotes runs in the browser.
 
 export function widgetsJs({ oscTypes, fxTypes, lfoShapes, routes, screens }) {

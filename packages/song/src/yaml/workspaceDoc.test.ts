@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { K7SyntaxError } from "@studio/k7x/parse";
+import { splitNote } from "@studio/song-schema/yaml/sequenceFile";
 import { expandNotes } from "@studio/song-schema/yaml/sugar";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -99,7 +100,41 @@ describe("editing a .k7x file", () => {
   });
 });
 
+describe("editing a file that could hold short forms but does not", () => {
+  it("splits a note in a full-form sequence, every other note's comment kept", () => {
+    const src =
+      "notes([\n  t(0).d(1).k(60), // the root\n  t(1).d(1).k(62), // the second\n  t(2).d(1).k(64), // the third\n])\n";
+    writeFileSync(at("sequences/melody.k7x"), src);
+    wsEdit(at("sequences/melody.k7x"), (d) => splitNote(d.at([]), 62, 1, 1.5));
+    const out = read("sequences/melody.k7x");
+    expect(out).toContain("t(1).d(0.5).k(62), // the second");
+    expect(out).toContain("t(2).d(1).k(64), // the third");
+    expect(out).toContain("// the root");
+  });
+
+  it("renames a graph key where it stands", () => {
+    const src = 'modules({\n  a: ["b"], // first\n  b: ["OUT"],\n})\n';
+    writeFileSync(at("graph.k7x"), src);
+    wsEdit(at("graph.k7x"), (d) => d.renameKey(["modules", "a"], "z"));
+    expect(read("graph.k7x")).toBe(src.replace("a:", "z:"));
+  });
+});
+
 describe("editing a file written with short forms", () => {
+  it("hands a raw edit the short forms as written", () => {
+    const src = 'runs([["a", "b", "OUT"]])\n';
+    writeFileSync(at("graph.k7x"), src);
+    let seen: unknown;
+    wsEdit(
+      at("graph.k7x"),
+      (d) => {
+        seen = d.toJS();
+      },
+      { raw: true },
+    );
+    expect(seen).toEqual({ runs: [["a", "b", "OUT"]] });
+  });
+
   const SEQ = '// the riff\nnotes("c4 d4") // two notes\nto("2:1")\n';
   const seq = "sequences/riff.k7x";
 

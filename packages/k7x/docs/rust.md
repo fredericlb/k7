@@ -78,8 +78,7 @@ and no node has a destructor. The C ABI keeps one arena per thread and resets it
 
 ## Why the edits are not ported
 
-A write's time is not k7x's. On the largest file (`surge-xt/ui.k7x`, 300 KB) one write spends
-~324 ms in the `yaml` library — the writer's document, its print, and `applyYaml` parsing it back
-(`docs/bridge.md`) — and 10–11 ms in k7x's own document work; a typical node file's whole write is
-0.04 ms. Porting `edit.ts` and `print.ts` would buy at most that 3 %. What a write costs is the YAML
-the writers still speak.
+A write is cheap already. On the largest file (`surge-xt/ui.k7x`, 300 KB) k7x's own document work
+is 10–11 ms, and a typical node file's whole write is 0.04 ms. A ported document would also have to
+cross into WebAssembly on every edit a writer makes, where the parse crosses once per file, so
+what `edit.ts` and `print.ts` would save is too small to pay for that boundary.

@@ -2,39 +2,41 @@
 
 An k7 project carries a `surfaces/` folder. One file, one surface:
 
-```yaml
-# surfaces/timeline.yaml — the arrangement
-type: timeline
-layout: split
+```k7x
+// surfaces/timeline.k7x — the arrangement
+type("timeline")
+layout("split")
 ```
 
-```yaml
-# surfaces/viewport.yaml — the frame its video lanes composite onto
-type: viewport
-layout: floating
+```k7x
+// surfaces/viewport.k7x — the frame its video lanes composite onto
+type("viewport")
+layout("floating")
 ```
 
-```yaml
-# surfaces/desk.yaml — the DJ desk
-type: turntables
-layout: split
-mapping:
-  crossfade:   { module: crossfade, param: Mix }
-  deckA.tempo: { module: tempoA,    param: Target BPM }
-  deckA.eqLow: { module: eqA,       param: Low }
-  # …
+```k7x
+// surfaces/desk.k7x — the DJ desk
+type("turntables")
+layout("split")
+mapping({
+  crossfade: { module: "crossfade", param: "Mix" },
+  "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+  "deckA.eqLow": { module: "eqA", param: "Low" },
+  // …
+})
 ```
 
-```yaml
-# surfaces/master.yaml — the mastering strip, over ONE quick-master node
-type: mastering
-layout: split
-mapping:
-  comp.low:        { module: master_qm_1, param: Low Amount }
-  comp.mid:        { module: master_qm_1, param: Mid Amount }
-  spread.width:    { module: master_qm_1, param: Width }
-  limiter.ceiling: { module: master_qm_1, param: Ceiling }
-  # …ten in all, every one of them the same module
+```k7x
+// surfaces/master.k7x — the mastering strip, over ONE quick-master node
+type("mastering")
+layout("split")
+mapping({
+  "comp.low": { module: "master_qm_1", param: "Low Amount" },
+  "comp.mid": { module: "master_qm_1", param: "Mid Amount" },
+  "spread.width": { module: "master_qm_1", param: "Width" },
+  "limiter.ceiling": { module: "master_qm_1", param: "Ceiling" },
+  // …ten in all, every one of them the same module
+})
 ```
 
 The id is the **filename**, as in every flat entity folder here.
@@ -42,10 +44,10 @@ The id is the **filename**, as in every flat entity folder here.
 ## Adding one
 
 ```
-project surface new timeline           → surfaces/timeline.yaml
-project surface new viewport           → surfaces/viewport.yaml
-project surface new turntables desk    → surfaces/desk.yaml
-project surface new mastering master   → surfaces/master.yaml
+project surface new timeline           → surfaces/timeline.k7x
+project surface new viewport           → surfaces/viewport.k7x
+project surface new turntables desk    → surfaces/desk.k7x
+project surface new mastering master   → surfaces/master.k7x
 ```
 
 Under `project`, with the markers and the alternatives: a surface is a property of the **project**
@@ -67,15 +69,16 @@ slot per type — so a second is a file that changes nothing and shows nothing.
 
 A `turntables` surface comes out with every component listed, each waiting for a module:
 
-```yaml
-type: turntables
-layout: split
-mapping:
-  crossfade: null # a crossfade module — its mix param
-  deckA.tempo: null # a tempo module — deck A's stretch
-  deckA.eqLow: null # an eq module — deck A's low band
-  deckA.eqMid: null # the SAME eq module — its mid
+```k7x
+type("turntables")
+layout("split")
+mapping({
+  crossfade: null, // a crossfade module — its mix param
+  "deckA.tempo": null, // a tempo module — deck A's stretch
+  "deckA.eqLow": null, // an eq module — deck A's low band
+  "deckA.eqMid": null, // the SAME eq module — its mid
   …
+})
 ```
 
 **`null`, not a comment.** A commented line is not something a parser will ever tell you that you
@@ -105,7 +108,7 @@ expectation that changes takes the scaffold's sentence with it.
 ### A mapping holds a node's NAME, so a rename asks first
 
 `surfacesNaming(dir, module)` lists the surfaces whose `mapping` names a module — empty for almost
-every project, and asked before a node is RENAMED. A mapping is the only place outside `graph.yaml`
+every project, and asked before a node is RENAMED. A mapping is the only place outside `graph.k7x`
 where a node's name is a reference, and nothing writes one back: a desk pointing at a name that has
 moved loses the knob silently, with a screen that draws and a control that does nothing. So the
 rename declines instead, and says which file is holding the name. A surface that would not parse
@@ -148,7 +151,7 @@ says it.
 
 ### Why `type` is an enum and a control id is not
 
-`views/mix.yaml` deliberately does **not** validate its control ids: they are the app's vocabulary,
+`views/mix.k7x` deliberately does **not** validate its control ids: they are the app's vocabulary,
 and a schema that guessed would go stale the day a panel gains a knob
 ([viewBindings.md](viewBindings.md)). That reasoning is right and it does not extend to `type`.
 
@@ -200,7 +203,7 @@ precisely because the lanes are visible, so the project looks like it is working
 `video_tracks/` is silent, the way a rig is about its timeline.
 
 And it is the only surface that **writes into the graph**: declaring a viewport adds the run
-`RENDER: [ VIDEO_OUT ]` to `graph.yaml`, the picture's two outputs, which `createSurfaceFile` lays
+`RENDER: [ VIDEO_OUT ]` to `graph.k7x`, the picture's two outputs, which `createSurfaceFile` lays
 down straight away and which opening a project catches up if it is not there. A surface that
 composites a picture with no way for the picture to get out would be a half-made declaration. See
 [videoOutputs.md](videoOutputs.md).
@@ -208,7 +211,7 @@ composites a picture with no way for the picture to get out would be a half-made
 ### Why `viewport` is `floating`-only
 
 A picture is something you watch WHILE you work on what draws it — the lanes on the timeline, the
-shader node on the graph, the YAML of a layer. As a page it would be what you look at INSTEAD, and
+shader node on the graph, the text of a layer. As a page it would be what you look at INSTEAD, and
 every edit would be a trip to another page to see what it did. So it is a window over the layout,
 moved by its title bar and sized by any edge, over whichever page is on screen.
 
@@ -241,7 +244,7 @@ A `split` surface does not raise the question: **a pane is mounted once and neve
 zoom stack, the viewport a GL context and a `<video>` per layer, the desk its document — all cheap
 to keep, all maddening to rebuild (`apps/k7/frontend/docs/shell.md`).
 
-## `mapping` is `views/mix.yaml`'s binding, reused
+## `mapping` is `views/mix.k7x`'s binding, reused
 
 Key for key: control id → `{ module, param }` **or `null`** — the same `ViewBindingSchema`,
 nullable. The same map because it is the same question, asked by a surface instead of by the desk's
@@ -249,7 +252,7 @@ own file, and reusing it is what keeps `module` meaning "the name the **chains f
 places. A second shape that happened to agree would drift the first time one of them grew a field.
 
 Read [viewBindings.md](viewBindings.md) for why a binding cannot live in the module's own
-`controller.yaml`: a set puts a tempo module on each deck, one `controller.yaml` serves every node of
+`controller.k7x`: a set puts a tempo module on each deck, one `controller.k7x` serves every node of
 a module, and "deck A's fader drives deck A's stretch" is unsayable in it.
 
 ## An unwired component is a SCREEN error, not a load error
@@ -296,13 +299,13 @@ not found. Keeping them apart is what lets each say something true: *"you have n
 
 ## How it reaches the screen
 
-Parsed by the **file service**, not the browser — unlike `views/mix.yaml`, which the DJ desk reads
+Parsed by the **file service**, not the browser — unlike `views/mix.k7x`, which the DJ desk reads
 itself because the desk is the only thing that wants it. A surface decides what the shell *draws*,
 so its validity belongs with the project's other diagnostics, and two parsers would be two answers
 to "is this surface valid".
 
 ```
-surfaces/<id>.yaml
+surfaces/<id>.k7x
   → SurfaceSchema          packages/song-schema/src/yaml/surfaceSchema.ts   (browser-safe)
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it

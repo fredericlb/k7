@@ -3,8 +3,8 @@
 ## A lane's level is a module
 
 There is no mixer object in k7. Every lane's chain ends in a **Mixer** module — the built-in
-`packages/song/meta/audio/mixer/module.yaml` (an internal plugin) with its panel in
-`packages/song/meta/audio/mixer/ui.yaml`: Volume fader −60..+6 dB, Pan −1..1, High/Mid/Low −18..18
+`packages/song/meta/audio/mixer/module.k7x` (an internal plugin) with its panel in
+`packages/song/meta/audio/mixer/ui.k7x`: Volume fader −60..+6 dB, Pan −1..1, High/Mid/Low −18..18
 dB, and a `@highlight` button. `track new` writes the strip with the lane because a lane without one
 has nowhere to put a level. Because the strip is a module, its values follow alternatives and presets
 like any other module's, and the chains graph is what draws it.
@@ -24,7 +24,7 @@ verbs:
 | Verb | Writes |
 |---|---|
 | `track mute` | The lane's bypass in the graph (`bypassed:`), since a lane is a module. |
-| `track solo` | Membership of `soloed:` at the root of `project.yaml`; several at once, resolved by the engine. |
+| `track solo` | Membership of `soloed:` at the root of `project.k7x`; several at once, resolved by the engine. |
 | `track highlight` | Membership of `highlighted:`; the compile (`packages/song/src/highlight.ts`) adds 10 dB to the last strip's output. |
 
 `apps/k7/frontend/src/hooks/useTrackControls.ts` is the one implementation the timeline buttons, the graph's lane controls
@@ -55,7 +55,7 @@ aiming the peak at −6 dB, clamped to the fader's range — and the shell write
 
 ## The mastering surface
 
-A project declares a `mastering` surface (`surfaces/<id>.yaml`, layout `split`), whose `mapping` names
+A project declares a `mastering` surface (`surfaces/<id>.k7x`, layout `split`), whose `mapping` names
 which module parameter each of thirteen controls drives (schema:
 `packages/song-schema/src/yaml/mixViewSchema.ts`, `surfaceSchema.ts`). `apps/k7/frontend/src/components/MasteringTab.tsx`
 draws them as three appliances, with the control list in `apps/k7/frontend/src/mastering/controls.ts`

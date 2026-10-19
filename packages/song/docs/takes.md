@@ -4,17 +4,20 @@ An event can be played several times over: each pass is a TAKE, kept beside the 
 COMP says which take is heard over which span of song time. Nothing is ever recorded over: the
 choice of the best performance is a line in the lane file, made and unmade by a command.
 
-```yaml
-# tracks/gtr.yaml
-events:
-  - ref: gtr_solo                 # the event's own material — take "1" of the view
-    start: "5:1"
-    takes:
-      - { ref: gtr_5.3_261008T101500, start: "5:3" }   # a pass, and where its first beat lands
-      - { ref: gtr_5.1_261008T102210, start: "5:1" }
-    comp:
-      - { take: gtr_5.3_261008T101500, from: "5:3", to: "6:1" }
-      - { take: gtr_5.1_261008T102210, from: "7:1", to: "9:1" }
+```k7x
+// tracks/gtr.k7x
+events([
+  ref("gtr_solo") // the event's own material — take "1" of the view
+    .start("5:1")
+    .takes([
+      ref("gtr_5.3_261008T101500").start("5:3"), // a pass, and where its first beat lands
+      ref("gtr_5.1_261008T102210").start("5:1"),
+    ])
+    .comp([
+      take("gtr_5.3_261008T101500").from("5:3").to("6:1"),
+      take("gtr_5.1_261008T102210").from("7:1").to("9:1"),
+    ]),
+])
 ```
 
 ## The takes live ON the event, and the comp is compiled away

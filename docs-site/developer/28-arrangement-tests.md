@@ -11,7 +11,7 @@ about a gesture's feel or a drawing. Exercise those in the running app.
 npm test                                   # every workspace, from the repo root
 cd apps/k7/frontend && npx vitest run      # the frontend's pure modules
 cd packages/commands && npx vitest run     # the verbs
-cd packages/song-edit && npx vitest run    # the YAML writers
+cd packages/song-edit && npx vitest run    # the k7x writers
 npx vitest run src/snap.test.ts            # one file, from inside its package
 ```
 

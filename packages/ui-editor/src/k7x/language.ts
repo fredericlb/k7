@@ -84,7 +84,7 @@ const k7x = StreamLanguage.define<K7xState>({
   },
 });
 
-// The YAML mode's palette, a key taking the accent as a YAML key does.
+// The YAML mode's palette, a key taking the accent there as here.
 const k7xHighlight = HighlightStyle.define([
   { tag: t.comment, color: "var(--sh-muted-foreground)", fontStyle: "italic" },
   { tag: t.string, color: "var(--sh-green)" },

@@ -65,9 +65,9 @@ type Binding = { param: string; curve: string };
 const automations = (): Binding[] | undefined =>
   wsData(join(dir, "nodes", "osc.k7x")).automations as Binding[] | undefined;
 const curveValues = (id: string): number[] =>
-  (
-    wsData(join(dir, "curves", `${id}.k7x`)).points as { value: number }[]
-  ).map((p) => p.value);
+  (wsData(join(dir, "curves", `${id}.k7x`)).points as { value: number }[]).map(
+    (p) => p.value,
+  );
 
 beforeEach(() => {
   ({ root, dir } = song());
@@ -130,10 +130,7 @@ describe("track automation add", () => {
       host({ "Filter Freq": 100 }),
       "cli",
     );
-    expect(curveValues("gtr-Filter-Freq")[0]).toBeCloseTo(
-      100 / 135.0762329,
-      4,
-    );
+    expect(curveValues("gtr-Filter-Freq")[0]).toBeCloseTo(100 / 135.0762329, 4);
   });
 
   it("refuses an unknown track", async () => {

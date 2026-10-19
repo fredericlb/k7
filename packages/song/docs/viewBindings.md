@@ -1,16 +1,16 @@
-# `views/mix.yaml` — what a desk's controls drive
+# `views/mix.k7x` — what a desk's controls drive
 
 A project folder gets a `views/` directory: one file per VIEW that has controls of its own,
 saying what each of them is wired to. The first is the DJ desk's Mix view.
 
-```yaml
-# views/mix.yaml
-crossfade:   { module: crossfade, param: Mix }
-deckA.tempo: { module: tempoA, param: Target BPM }
-deckB.tempo: { module: tempoB, param: Target BPM }
+```k7x
+// views/mix.k7x
+crossfade({ module: "crossfade", param: "Mix" })
+"deckA.tempo"({ module: "tempoA", param: "Target BPM" })
+"deckB.tempo"({ module: "tempoB", param: "Target BPM" })
 ```
 
-## Why not the module's `controller.yaml`
+## Why not the module's `controller.k7x`
 
 That file does the same job for MIDI — `<param>: { ch, cc }` — and is the obvious place to
 look. It cannot hold this, for a reason its own doc states:
@@ -25,8 +25,8 @@ kinds of fact:
 
 | | belongs to | travels with |
 |---|---|---|
-| `controller.yaml` — a MIDI CC | the **device** | the module, into every project that names it |
-| `views/mix.yaml` — a desk control | **this set** | the project |
+| `controller.k7x` — a MIDI CC | the **device** | the module, into every project that names it |
+| `views/mix.k7x` — a desk control | **this set** | the project |
 
 A CC is a property of the thing you plugged in. Which fader of *your* desk moves *this* set's
 crossfade is a property of the set. They are different files because they are different
@@ -40,7 +40,7 @@ it, which is a macro and a thing people want.
 
 `module` is the name the **chains file** uses (`crossfade`, `tempoA`), not a médiathèque ref:
 a set has two uses of the tempo module and a ref could not tell them apart. `param` is spelled
-exactly as the module's `ui.yaml` binds it, so this file, the panel and a MIDI map line up key
+exactly as the module's `ui.k7x` binds it, so this file, the panel and a MIDI map line up key
 for key and can be read side by side.
 
 ## The control ids are the app's, not the format's

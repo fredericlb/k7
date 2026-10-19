@@ -2,21 +2,17 @@
 
 ## k7x
 
-A `.k7x` file holds exactly the data its `.yaml` twin would, written in a syntax that looks like
-Strudel. It is **read, never run**: nothing in it computes, and `tempo(60 * 2)` is an error, not 120.
+Every file of a workspace is a `.k7x` file, written in a syntax that looks like Strudel. It is
+**read, never run**: nothing in it computes, and `tempo(60 * 2)` is an error, not 120.
 
-### What works today
+### What k7 does with it
 
-- k7 reads `.k7x` files everywhere it reads YAML: projects, libraries, modules, panels, presets.
-  The bundled demos and the `@k7-core` library are written in k7x.
-- When both `name.k7x` and `name.yaml` exist, the `.k7x` file is the one read.
-- The editor highlights and completes `.k7x` files and checks them as you type, like YAML.
+- Projects, libraries, modules, panels, presets and playlists are all `.k7x` files; a `.yaml` file in a
+  workspace is not read. The bundled demos and the `@k7-core` library are written the same way.
+- The editor highlights and completes `.k7x` files and checks them as you type.
 - When k7 changes a value in a `.k7x` file (a knob, a drag on the timeline, a command), only that
   value is rewritten; comments and layout stay.
-- New files k7 creates are YAML, unless the server operator has switched k7x on for every device; then
-  they are created as `.k7x`. Converting a whole workspace from YAML to k7x is likewise an operator
-  action: each file is converted only if it reads back to the same data, and the originals are kept
-  in a hidden backup folder.
+- Every file k7 creates for you is a `.k7x` file.
 
 ### Syntax
 
@@ -33,15 +29,15 @@ project({
 markers({ "1:1": "Intro", "9:1": "Verse" })
 ```
 
-| YAML | k7x |
+| Data | k7x |
 |---|---|
-| `tempo: 120` | `tempo(120)` |
-| `name: "Lead"` | `name("Lead")` |
-| `layers: [main, pip]` | `layers(["main", "pip"])` |
-| `project: { name: x }` | `project({ name: "x" })` |
-| a list of maps `- { ref: kick, start: "1:1" }` | `[ref("kick").start("1:1")]` |
-| `video: true` | `video(true)` — or just `video()` |
-| `key: null` | `key(null)` |
+| a number | `tempo(120)` |
+| a string | `name("Lead")` |
+| a list | `layers(["main", "pip"])` |
+| a map | `project({ name: "x" })` |
+| a list of maps | `[ref("kick").start("1:1")]` |
+| true | `video(true)` — or just `video()` |
+| null | `key(null)` |
 
 Rules:
 
@@ -64,7 +60,7 @@ only once per file and once per object or chain. Timecodes are strings: `start("
 
 Two short forms exist in k7x only: `notes("c4 e4 g4")` in a sequence (see
 [Clips, sequences and curves](./33-material.md#the-short-note-form-k7x-only)) and `runs([...])` in a
-graph (see [Chains and the graph](./36-chains-graph.md#the-graph-layout-graphyaml-and-nodes)).
+graph (see [Chains and the graph](./36-chains-graph.md#the-graph-layout-graphk7x-and-nodes)).
 
 ### k7x syntax errors
 
@@ -95,8 +91,8 @@ never written: it is held, with the reason shown, until it parses. A file that p
 schema is held too if the version on disk was valid, so a half-typed value never replaces a working
 file.
 
-A file kind k7 does not know (a `.md` file, a YAML file outside the known folders) is only checked
-for syntax.
+A `.k7x` file outside the known folders is only checked for syntax; a file that is not k7x at all
+(a `.md` file, say) is not checked.
 
 ### Reading an error
 
@@ -109,7 +105,7 @@ from 0.
 | Message | Meaning |
 |---|---|
 | `Unrecognized key: "x"` | A key the file kind does not have, often a typo. Keys are never silently ignored. |
-| `Invalid input: expected string, received number` | Usually an unquoted timecode, `start: 5`. Quote it. |
+| `Invalid input: expected string, received number` | Usually a timecode written as a number, `start(5)`. Quote it. |
 | `expected a timecode like 25:1, 8:1:2 or 8:1:2:2.120` | A value that is not a timecode. |
 | `expected seconds (0.25) or a timecode like 2:1` | A window edge that is neither. |
 | `'to' must be greater than 'from'` | A backwards window. |

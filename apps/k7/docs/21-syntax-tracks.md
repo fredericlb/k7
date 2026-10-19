@@ -1,6 +1,6 @@
 # Tracks
 
-A track is a **module**. It lives in `nodes/<name>.yaml` like every other use of a module,
+A track is a **module**. It lives in `nodes/<name>.k7x` like every other use of a module,
 and what it `extends` says what kind of lane it is. There is no `tracks/` folder.
 
 Three built-in modules, and none of them has a file anywhere — they belong to the studio, so a
@@ -17,19 +17,21 @@ each one is audio or notes on its own. One lane can hold both: two bars of a sam
 line for a synth, on one row, with one colour and one strip.
 
 A lane has two outputs, `audio` and `midi`, and an event leaves by the one its material fits.
-`graph.yaml` names the output when the two need different chains:
+`graph.k7x` names the output when the two need different chains:
 
-```yaml schema=GraphFile
-modules:
-  gtr#audio: [ amp ]      # the events naming clips
-  gtr#midi:  [ synth ]    # the events naming sequences
+```k7x schema=GraphFile
+modules({
+  "gtr#audio": ["amp"], // the events naming clips
+  "gtr#midi": ["synth"], // the events naming sequences
+})
 ```
 
 …and says nothing when they do not, which is the ordinary case:
 
-```yaml schema=GraphFile
-modules:
-  gtr: [ amp ]            # everything this lane holds, down one chain
+```k7x schema=GraphFile
+modules({
+  gtr: ["amp"], // everything this lane holds, down one chain
+})
 ```
 
 A track has no `volume` and no `pan`: they would be the one part of its sound sitting outside its
@@ -38,7 +40,7 @@ level is a MODULE — put a `mixer` at the end of the track's chain and set its 
 and three tone bands (see Instruments).
 
 **And no `mute` either.** A lane is a module, so it has the bypass button every module node
-carries, and that is its mute: one name in `graph.yaml`'s `bypassed:` (see Chains). On a source,
+carries, and that is its mute: one name in `graph.k7x`'s `bypassed:` (see Chains). On a source,
 bypass reads as *produces nothing* rather than *passes through untouched* — which is what muting
 a lane means. Solo is not written down at all: the surface derives it by bypassing
 every other lane.
@@ -73,20 +75,19 @@ timeline draws that event's stretch icon with a line through it.
 Neither field is ever written at its default: switching one off and back on leaves the file
 exactly as it was.
 
-## nodes/<name>.yaml — clips
+## nodes/<name>.k7x — clips
 
-```yaml schema=Module
-extends: "@meta/track"
-# color: "#c8a97e"   # the lane's colour, and its icon's in the timeline
-# disabled: true     # excluded from the render entirely, chains and all
-events:
-  - { ref: kick, start: "1:1:1" }
-  - { ref: snare, start: "2:1:1", loop: 4 }   # four passes of the snare's window, back to back
-  - { ref: kick, start: "6:1:1", fadeIn: "0:1:0", fadeOut: "0:1:0" }
-  - { ref: kick, start: "8:1:1", gain: -2 }   # this event alone, 2 dB down
-
-# Timecodes are always written QUOTED. Under YAML 1.2 (what we read) bare
-# 1:1:1 is already a string — but under 1.1 it is the number 3661.
+```k7x schema=Module
+extends("@meta/track")
+// color("#c8a97e")   — the lane's colour, and its icon's in the timeline
+// disabled(true)     — excluded from the render entirely, chains and all
+events([
+  ref("kick").start("1:1:1"),
+  ref("snare").start("2:1:1").loop(4), // four passes of the snare's window, back to back
+  ref("kick").start("6:1:1").fadeIn("0:1:0").fadeOut("0:1:0"),
+  ref("kick").start("8:1:1").gain(-2), // this event alone, 2 dB down
+])
+// Timecodes are strings, so they are QUOTED: a bare 1:1:1 is no k7x value.
 ```
 
 `fadeIn` and `fadeOut` are **lengths**, not positions: `"0:1"` is one beat. That matters because
@@ -115,27 +116,29 @@ event gain gtr 2:1:1 0          # back to unity — the field is removed
 Only an audio event has one. A sequence's events all play through the lane's one instrument, so
 there is no level that is one event's alone; its notes' velocities are how it gets louder.
 
-## nodes/<name>.yaml — sequences
+## nodes/<name>.k7x — sequences
 
 The same file. Nothing here says "MIDI": these events name `sequences/…`, so they are notes, and
 they leave by the lane's `midi` output.
 
-```yaml schema=Module
-extends: "@meta/track"
-events:
-  - { ref: melody, start: "1:1:1" }
-  - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
+```k7x schema=Module
+extends("@meta/track")
+events([
+  ref("melody").start("1:1:1"),
+  ref("melody").start("5:1:1").loop(8), // the same sequence, eight times over
+])
 ```
 
-## nodes/<name>.yaml — both
+## nodes/<name>.k7x — both
 
 Also the same file — one lane holding both kinds at once:
 
-```yaml schema=Module
-extends: "@meta/track"
-events:
-  - { ref: riff, start: "1:1:1" }     # a clip  — leaves by `audio`
-  - { ref: melody, start: "3:1:1" }   # a sequence — leaves by `midi`
+```k7x schema=Module
+extends("@meta/track")
+events([
+  ref("riff").start("1:1:1"), // a clip  — leaves by `audio`
+  ref("melody").start("3:1:1"), // a sequence — leaves by `midi`
+])
 ```
 
 Wire it bare (`gtr: [ amp ]`) and all of it goes through the amp, notes included, which is
@@ -146,18 +149,18 @@ If you wire only ONE of them and the lane holds the other kind, the project refu
 names the key to add. That is deliberate: a clip with nowhere to go would be drawn on the
 timeline and simply never heard.
 
-## nodes/<name>.yaml — group
+## nodes/<name>.k7x — group
 
 No material and no signal of its own — only the member lane names it nests. On the timeline,
 shift-click the names of the tracks to group, then right-click one of them and pick **Group the N
 tracks** (or type `track group kick,snare drums`). A track already in a group moves to the new one.
 
-```yaml schema=Module
-extends: "@meta/group-track"
-tracks: [pad, kit]
+```k7x schema=Module
+extends("@meta/group-track")
+tracks(["pad", "kit"])
 ```
 
-## nodes/<name>.yaml — strudel
+## nodes/<name>.k7x — strudel
 
 Plays one `algo/` pattern, in the engine; the lane's name picks the part by its `.label`. The
 first lane on a file (by name) also plays the unlabelled events and any label no lane claims. How
@@ -173,9 +176,9 @@ synth" is written down. Wired bare, the lane plays both through one chain; its s
 the head of it, so an instrument there covers them — wire `#audio` and `#midi` apart for a kit and a
 synth on one lane. Saving the pattern file changes what plays without stopping.
 
-```yaml schema=Module
-extends: "@meta/strudel-track"
-strudel: algo/pattern.strudel
+```k7x schema=Module
+extends("@meta/strudel-track")
+strudel("algo/pattern.strudel")
 ```
 
 ## Moving the whole song along
@@ -197,9 +200,9 @@ A lane and a module share one set of names, because they are the same kind of th
 step naming `lead` must mean exactly one node, so a lane may not be called what a module is
 called — which in practice means a lane and the synth it feeds need different names:
 
-```yaml exempt="two files, shown together"
-# nodes/melody.yaml       -> the lane
-# nodes/synth-melody.yaml -> the 4OSC it plays through
+```k7x exempt="two files, shown together"
+// nodes/melody.k7x       -> the lane
+// nodes/synth-melody.k7x -> the 4OSC it plays through
 ```
 
 In a project where a lane and its instrument share a name, that is the one thing to tell apart.
@@ -224,7 +227,7 @@ An audio lane and a sequence lane kept side by side for one part are one lane �
 halves need different chains, that is what `#audio:` / `#midi:` is for.
 
 Such a project opens with a refusal naming every lane. A **streaming** lane is the one that needs
-more than the new name: only `graph.yaml` can say whether a pattern's events are notes or samples
+more than the new name: only `graph.k7x` can say whether a pattern's events are notes or samples
 (`pad#midi: [ synth ]`).
 
 A lane's **alternatives** and its **freeze** belong to every module rather than to lanes alone:

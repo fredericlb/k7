@@ -90,11 +90,15 @@ export function migrateNamespaceText(
 /** The k7x text a legacy pins or manifest file upgrades to, or null when it is not one this reads. */
 function legacyUpgrade(file: string): { to: string; text: string } | null {
   const yaml = readFileSync(file, "utf8");
-  if (basename(file) === LEGACY_LIBRARY_PINS_FILE)
-    return {
-      to: join(dirname(file), LIBRARY_PINS_FILE),
-      text: stringifyLibraryPins(parseLegacyLibraryPins(yaml)),
-    };
+  if (basename(file) === LEGACY_LIBRARY_PINS_FILE) {
+    const pins = parseLegacyLibraryPins(yaml);
+    return pins
+      ? {
+          to: join(dirname(file), LIBRARY_PINS_FILE),
+          text: stringifyLibraryPins(pins),
+        }
+      : null;
+  }
   const manifest = parseLegacyLibraryManifest(yaml);
   return manifest
     ? {

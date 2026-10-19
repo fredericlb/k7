@@ -44,9 +44,8 @@ widget its panel would be inert.
   by a deviceId, which is salted per browser and rotates. `default` clears it. Nothing is checked
   against the machine here: which cameras exist is the browser's to say, and the surface offering
   the choice offers only what it enumerated ([camera.md](camera.md)).
-- **`@monitor`** — `off` / `auto` (audible once armed) / `on`. Written quoted: `on` and `off` are
-  YAML 1.1 booleans, and `monitor: on` read by anything that does not parse 1.2 stops being a
-  word.
+- **`@monitor`** — `off` / `auto` (audible once armed) / `on`, the word: `monitor("on")`, never a
+  boolean.
 - **`@gain`** — the input trim in dB, unclamped. Tracktion does not clamp it either; what is
   *useful* (±24 dB) is a judgement for the surface offering the control, not for the writer
   taking a number someone typed.
@@ -80,11 +79,11 @@ command says so out loud. It is the only thing here that writes outside the proj
 
 ## What is still a verb of its own, and why
 
-- **`node bypass`** — it writes `graph.yaml`, not the module's file. Where a module sits in
+- **`node bypass`** — it writes `graph.k7x`, not the module's file. Where a module sits in
   the signal path is not one of its own fields.
 - **`track mute` / `track solo` / `track gain` / `track pan`** — a track's intrinsics are drawn
   from `@mute`, `@solo`, `@arm`, `@output-volume`, `@pan`, but they are not written into the lane's
-  file: mute is the module's bypass in `graph.yaml`, solo is `soloed:` in `project.yaml`, and
+  file: mute is the module's bypass in `graph.k7x`, solo is `soloed:` in `project.k7x`, and
   level and pan are params of the mixer module at the end of the chain. Different files, so
   different verbs.
 

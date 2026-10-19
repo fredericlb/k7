@@ -32,7 +32,7 @@ The desk's view of it is `Envelope` in `waveform.ts`: 8192 peak buckets per file
 
 `DeckTempo` (`deckVocabulary.ts`) holds `natural` (what the record is), `target` (what it plays at), `seconds`, optional `phase`, and `keylock`.
 
-- **Correction.** `corrected` (in `grid.ts`) lays the media library's stored BPM over the analysis: it replaces `natural`, and `target` follows only if the fader had not moved. The library value arrives with the load (`DeckLoad.bpm`, from the entry's `meta.bpm`), and `÷2`/`×2` write it via `POST /bpm` on the library with `force: true` before taking it locally (`MixView.correctTempo`). A correction belongs to the record, which is why it is not in `mix.yaml`.
+- **Correction.** `corrected` (in `grid.ts`) lays the media library's stored BPM over the analysis: it replaces `natural`, and `target` follows only if the fader had not moved. The library value arrives with the load (`DeckLoad.bpm`, from the entry's `meta.bpm`), and `÷2`/`×2` write it via `POST /bpm` on the library with `force: true` before taking it locally (`MixView.correctTempo`). A correction belongs to the record, which is why it is not in `mix.k7x`.
 - **Rate.** `platterRate` (in `deck.ts`) is `target / natural` (0 when stopped). The cold tempo module is never a plugin; its `Target BPM` is lent to the graph through `offlinePublish`.
 - **Keylock.** `platterKey` sends `Key = 1` only while not scratching; a hand on the record is always varispeed.
 - **Drag.** `nudge` updates the target on every pixel; a throttle (`LIVE_WARP_MS`) re-sends the document, and `release` sends the final value unconditionally.
@@ -65,7 +65,7 @@ Two buttons, one choice: `master` is the leading deck or null.
 
 ## Cues
 
-Cues live in the project's `mix.yaml` (schema `packages/song-schema/src/yaml/mixSchema.ts`, reader/editor `packages/song-schema/src/yaml/mixFile.ts`): `cues:` entries keyed by `@k7-core/<media-library id>`, `markers` positional (`MARKER_SLOTS = 8`) in **source seconds**.
+Cues live in the project's `mix.k7x` (schema `packages/song-schema/src/yaml/mixSchema.ts`, reader/editor `packages/song-schema/src/yaml/mixFile.ts`): `cues:` entries keyed by `@k7-core/<media-library id>`, `markers` positional (`MARKER_SLOTS = 8`) in **source seconds**.
 
 - `CueButtons.tsx`: a press captures the needle on `pointerdown`; after `HOLD_MS = 1000` it sets the cue at that captured position, otherwise a release jumps.
 - `useDeckSet.setCue` edits the **text** with `withMarkers` and writes it back, so the file's comments survive. It refuses to write a sheet it has not read for this project (`mixReadFor`), so a failed read cannot erase it.

@@ -225,7 +225,7 @@ export function pushBelowInputs<N extends { id: string; y: number; h: number }>(
 export function layout(
   nodes: RawNode[],
   raw: RawEdge[],
-  // Where somebody PINNED nodes (chains.yaml `positions:`, by chains name) — see docs/graphBuild.md.
+  // Where somebody PINNED nodes (chains.k7x `positions:`, by chains name) — see docs/graphBuild.md.
   positions?: Record<string, { x: number; y: number }>,
   // Where each node was DRAWN last time, by node id — the host's session memory, outranked by a pin.
   prev?: ReadonlyMap<string, { x: number; y: number }>,

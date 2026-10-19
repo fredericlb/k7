@@ -9,17 +9,12 @@
 // log line said what the handler MEANT, and the handler meant the right thing about the wrong
 // words. A test on `setModuleAutomation` alone could never have seen it.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { splitWords } from "./commands";
@@ -32,42 +27,21 @@ let dir: string;
 function song(): { root: string; dir: string } {
   const r = mkdtempSync(join(tmpdir(), "td-automate-"));
   const d = join(r, "song.k7");
-  mkdirSync(d, { recursive: true });
-  writeFileSync(
-    join(d, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n  sampleRate: 48000\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "graph.yaml"),
-    "modules:\n  gtr: [ osc ]\n  osc: [ OUT ]\n",
-    "utf8",
-  );
-  mkdirSync(join(d, "nodes"), { recursive: true });
-  writeFileSync(
-    join(d, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
+  writeDoc(join(d, "project.k7x"), {
+    project: { name: "t", tempo: 120, sampleRate: 48000 },
+  });
+  writeDoc(join(d, "graph.k7x"), { modules: { gtr: ["osc"], osc: ["OUT"] } });
+  writeLane(d, "gtr", "track", { events: [] });
   // A module lives at `@workspace` now, used through a node of the same bare name.
-  const md = join(r, "_modules", "instruments", "osc");
-  mkdirSync(md, { recursive: true });
-  writeFileSync(
-    join(md, "module.yaml"),
-    "plugin:\n  type: internal\n  name: 4osc\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(d, "nodes", "osc.yaml"),
-    'extends: "@workspace/instruments/osc"\n',
-    "utf8",
-  );
-  mkdirSync(join(d, "curves"), { recursive: true });
-  writeFileSync(
-    join(d, "curves", "sweep.yaml"),
-    "type: lfo\nshape: sine\nfrequency: 1\n",
-    "utf8",
-  );
+  writeDoc(join(r, "_modules", "instruments", "osc", "module.k7x"), {
+    plugin: { type: "internal", name: "4osc" },
+  });
+  writeNode(d, "osc", { extends: "@workspace/instruments/osc" });
+  writeDoc(join(d, "curves", "sweep.k7x"), {
+    type: "lfo",
+    shape: "sine",
+    frequency: 1,
+  });
   return { root: r, dir: d };
 }
 
@@ -86,9 +60,11 @@ const host = () =>
     showNativePluginUI: () => {},
   }) as never;
 
-/** The node file's text, which is the only thing that counts. */
-const moduleText = (): string =>
-  readFileSync(join(dir, "nodes", "osc.yaml"), "utf8");
+/** The node file's bindings, which are the only thing that counts. */
+const bindings = (): { param: string; curve: string }[] | undefined =>
+  wsData(join(dir, "nodes", "osc.k7x")).automations as
+    | { param: string; curve: string }[]
+    | undefined;
 
 beforeEach(() => {
   ({ root, dir } = song());
@@ -119,57 +95,48 @@ describe("splitWords", () => {
 describe("node automate", () => {
   it("binds a curve to a one-word param", async () => {
     await runCommand("node automate osc Level sweep", host(), "cli");
-    const text = moduleText();
-    expect(text).toContain("automations:");
-    expect(text).toContain("param: Level");
-    expect(text).toContain('curve: "@meta/curves/sweep"');
+    expect(bindings()).toEqual([
+      { param: "Level", curve: "@meta/curves/sweep" },
+    ]);
   });
 
   it("binds a param whose name has SPACES — the case the old split mangled", async () => {
     // The example in the command's own usage text, and the one that produced `o` and `weep`.
     await runCommand("node automate osc Filter Freq sweep", host(), "cli");
-    const text = moduleText();
-    expect(text).toContain("param: Filter Freq");
-    expect(text).toContain('curve: "@meta/curves/sweep"');
-    // `not.toContain("weep")` would be the obvious assertion and is useless: "sweep" contains it.
-    expect(text).not.toContain("curve: weep");
-    expect(text).not.toContain("param: c Filter Freq");
+    expect(bindings()).toEqual([
+      { param: "Filter Freq", curve: "@meta/curves/sweep" },
+    ]);
   });
 
   it("keyed by PARAM: binding a second curve to one knob replaces the first", async () => {
-    writeFileSync(
-      join(dir, "curves", "other.yaml"),
-      "type: lfo\nshape: saw\n",
-      "utf8",
-    );
+    writeDoc(join(dir, "curves", "other.k7x"), { type: "lfo", shape: "saw" });
     await runCommand("node automate osc Level sweep", host(), "cli");
     await runCommand("node automate osc Level other", host(), "cli");
-    const text = moduleText();
-    expect(text).toContain('curve: "@meta/curves/other"');
-    expect(text).not.toContain("@meta/curves/sweep");
+    expect(bindings()).toEqual([
+      { param: "Level", curve: "@meta/curves/other" },
+    ]);
   });
 
   it("`none` unbinds, and takes the whole `automations:` key with the last one", async () => {
     await runCommand("node automate osc Level sweep", host(), "cli");
-    expect(moduleText()).toContain("automations:");
+    expect(bindings()).toHaveLength(1);
     await runCommand("node automate osc Level none", host(), "cli");
-    const text = moduleText();
-    expect(text).not.toContain("automations:");
+    expect(bindings()).toBeUndefined();
     // An unbind is not a deletion: the curve file is still there to bind again.
-    expect(existsSync(join(dir, "curves", "sweep.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "curves", "sweep.k7x"))).toBe(true);
   });
 
   it("`none` unbinds a param whose name has a space — what the graph's `×` on an automation cable sends", async () => {
     await runCommand("node automate osc Filter Freq sweep", host(), "cli");
     await runCommand("node automate osc Filter Freq none", host(), "cli");
-    expect(moduleText()).not.toContain("Filter Freq");
-    expect(existsSync(join(dir, "curves", "sweep.yaml"))).toBe(true);
+    expect(bindings()).toBeUndefined();
+    expect(existsSync(join(dir, "curves", "sweep.k7x"))).toBe(true);
   });
 
   it("refuses a line with too few words, rather than writing something", async () => {
     await runCommand("node automate osc", host(), "cli");
     expect(logs.join(" ")).toContain("usage: node automate");
-    expect(moduleText()).not.toContain("automations:");
+    expect(bindings()).toBeUndefined();
   });
 });
 

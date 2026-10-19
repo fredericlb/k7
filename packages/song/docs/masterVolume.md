@@ -4,22 +4,23 @@ The last gain in the song, and the app's **one global output control**. Tracktio
 fader is pinned to 0 dB by `EditBuilder` and nothing reaches it; the level the song carries is
 this one.
 
-```yaml
-# project.yaml
-project:
-  name: danse
-  tempo: 120
-  masterVolume: -3      # dB, -100..+12 — 0 is unity
+```k7x
+// project.k7x
+project({
+  name: "danse",
+  tempo: 120,
+  masterVolume: -3, // dB, -100..+12 — 0 is unity
+})
 ```
 
 Set it with the **fader under the header meter**, with `node param "OUT" Volume <dB>`, or with
 `project master <dB>`. **Absent means unity, and unity is never written**: 0 removes the line
 rather than writing a zero, the rule `type:` and a module's `status:` already follow.
 
-## It is a NODE's param, stored in `project.yaml`
+## It is a NODE's param, stored in `project.k7x`
 
 `OUT` is one of the two built-in outputs ([masterChain.md](masterChain.md)) — a NAME rather than a
-module on disk, so it has no `module.yaml` for a param to land in, and this field is where its one
+module on disk, so it has no `module.k7x` for a param to land in, and this field is where its one
 param lives instead.
 
 That is a storage detail, and everything above it treats the level as what it is: a param on a node
@@ -37,8 +38,8 @@ through; a level belongs to what LEAVES.
 
 ## It belongs to the SONG, not to the machine
 
-It is part of the document and travels in a share. That is why it sits in `project.yaml` beside the
-tempo rather than in `settings.yaml` beside the metronome: a level that only changed what you hear
+It is part of the document and travels in a share. That is why it sits in `project.k7x` beside the
+tempo rather than in `settings.k7x` beside the metronome: a level that only changed what you hear
 in this room would be a monitoring preference, which is a different field in a different file and
 does not exist yet.
 
@@ -138,7 +139,7 @@ master put back to unity would never come back down.
 | | |
 |---|---|
 | the node | `OUT` — `moduleTypes.ts`'s `OUT_NODE`, the interface end of the master chain |
-| authored | `project.yaml`'s `project.masterVolume` — `ProjectSettingsSchema` |
+| authored | `project.k7x`'s `project.masterVolume` — `ProjectSettingsSchema` |
 | compiled | `ProjectDoc.masterVolume` — `nodeProject.ts`, `project.ts`, defaulted to 0 |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc` |
 | decoded | `docFromJson` in `engine/k7-runtime/server/DocJson.cpp` |

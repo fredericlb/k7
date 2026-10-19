@@ -9,7 +9,7 @@ This section covers:
 | This page | What a mix project is, how to create one, what it contains |
 | [The DJ desk: decks](./61-desk-decks.md) | Loading a record, playing it, the platter, tempo, sync, cues, loops |
 | [The DJ desk: mixer and effects](./62-desk-mixer.md) | Trim, EQ, filter, echo, stems, channel faders, crossfader, headphones |
-| [The desk's files](./63-desk-files.md) | `surfaces/desk.yaml`, its control ids, and the cue sheet `mix.yaml` |
+| [The desk's files](./63-desk-files.md) | `surfaces/desk.k7x`, its control ids, and the cue sheet `mix.k7x` |
 | [Playlists](./64-playlists.md) | Set lists in a workspace, and how a desk names one |
 | [Preparing a gig](./65-gig-prep.md) | Analysis, copying songs to the engine's machine, stem separation |
 | [Reference tracks](./66-reference-tracks.md) | Finished mixes you listen against, played by the browser |
@@ -30,17 +30,17 @@ Once the project is open:
 
 1. Make a playlist, if you do not have one: open the playlists panel (the list icon in the footer, or `ui playlists` in the command bar) and press **New playlist**, or run `playlist new <name>`.
 2. Add songs to it (see [Playlists](./64-playlists.md)).
-3. Tell the desk which playlist to show: open `surfaces/desk.yaml` and uncomment the `playlist:` line, naming your playlist.
+3. Tell the desk which playlist to show: open `surfaces/desk.k7x` and uncomment the `playlist:` line, naming your playlist.
 
-   ```yaml
-   type: turntables
-   layout: split
-   playlist: ete-2026
+   ```k7x
+   type("turntables")
+   layout("split")
+   playlist("ete-2026")
    ```
 
 4. Press `4` (or run `ui turntables`) to bring the desk to full screen, click the middle of a record, and pick a song.
 
-Until step 3 is done, the desk says so at its top: "This surface names no playlist. Add a `playlist: <name>` line to `surfaces/desk.yaml`".
+Until step 3 is done, the desk says so at its top: "This surface names no playlist. Add a `playlist: <name>` line to `surfaces/desk.k7x`".
 
 ## What a mix project contains
 
@@ -48,12 +48,12 @@ A new mix project is an ordinary k7 project folder. What makes it a set is that 
 
 | File or folder | What it holds |
 |---|---|
-| `project.yaml` | The name and the sample rate (48000). No tempo and no time signature: a set has no bars. |
-| `surfaces/desk.yaml` | The desk: its type, its layout, the playlist it lists, whether it separates stems, and which module each control drives. See [The desk's files](./63-desk-files.md). |
-| `mix.yaml` | The cue sheet: the cue points this set has stored, song by song. The desk writes it when you set a cue. |
-| `graph.yaml` | The signal graph: each deck through its strip, both meeting at `MIX`, then `OUT`. |
+| `project.k7x` | The name and the sample rate (48000). No tempo and no time signature: a set has no bars. |
+| `surfaces/desk.k7x` | The desk: its type, its layout, the playlist it lists, whether it separates stems, and which module each control drives. See [The desk's files](./63-desk-files.md). |
+| `mix.k7x` | The cue sheet: the cue points this set has stored, song by song. The desk writes it when you set a cue. |
+| `graph.k7x` | The signal graph: each deck through its strip, both meeting at `MIX`, then `OUT`. |
 | `nodes/` | One file per node: the two decks, their platters, tempo, trim, EQ, filter, level, echo, fade and headphone send, and the stem lanes. |
-| `assemblies/turntableA.yaml`, `turntableB.yaml` | Draws each deck's nodes as one box on the graph. Changes nothing about the sound. |
+| `assemblies/turntableA.k7x`, `turntableB.k7x` | Draws each deck's nodes as one box on the graph. Changes nothing about the sound. |
 
 ### The signal path of one deck
 
@@ -71,7 +71,7 @@ platter -> tempo -> trim -> EQ -> filter -> level -> echo -> fade -> MIX -> OUT
 - The two **fades** are the crossfader: one per deck, driven in mirror by a single control.
 - `MIX -> OUT` is the master run. A module put on that line (a limiter, for example) processes the whole blend.
 
-You can open the graph (`3`, or the `graph` panel at the bottom) to see and change any of it. The desk reads whatever the graph and `surfaces/desk.yaml` say; see the Chains section of this guide for editing the graph.
+You can open the graph (`3`, or the `graph` panel at the bottom) to see and change any of it. The desk reads whatever the graph and `surfaces/desk.k7x` say; see the Chains section of this guide for editing the graph.
 
 ## Adding a desk to another project
 
@@ -81,7 +81,7 @@ Any project can carry a desk. Run:
 project surface new turntables desk
 ```
 
-This writes `surfaces/desk.yaml` with every control listed as `null`. The desk refuses to draw until the required controls name a module; see [The desk's files](./63-desk-files.md). A project can declare only one `turntables` surface.
+This writes `surfaces/desk.k7x` with every control listed as `null`. The desk refuses to draw until the required controls name a module; see [The desk's files](./63-desk-files.md). A project can declare only one `turntables` surface.
 
 ## Where to find the desk
 
@@ -95,9 +95,9 @@ Messages appear as cards across the top of the desk:
 
 | Message | Meaning and fix |
 |---|---|
-| A list of "Le composant … de cette vue n'est pas mappé à un module" (the whole desk is replaced) | A required control has no module under `mapping:` in `surfaces/desk.yaml`. Add one line per listed control. |
+| A list of "Le composant … de cette vue n'est pas mappé à un module" (the whole desk is replaced) | A required control has no module under `mapping:` in `surfaces/desk.k7x`. Add one line per listed control. |
 | "This surface names no playlist…" | Add a `playlist:` line to the surface file. |
-| A card naming `_playlists/<name>.yaml` with "the playlist this surface names cannot be found" | The name in `playlist:` matches no file. Check the spelling, or create it with `playlist new`. |
+| A card naming `_playlists/<name>.k7x` with "the playlist this surface names cannot be found" | The name in `playlist:` matches no file. Check the spelling, or create it with `playlist new`. |
 | "this file does not read as a playlist" | The playlist file does not parse. Open it in the playlists panel and repair it. |
 | A card listing controls with a message each | A binding names a module or parameter the project does not have. |
 | "this machine's file service is not answering — the media library is unreachable" | The desk cannot list the songs on the engine's machine. |

@@ -1,4 +1,4 @@
-// `graph chain connect` — the patch-cable verb, through the dispatcher, asserting graph.yaml.
+// `graph chain connect` — the patch-cable verb, through the dispatcher, asserting graph.k7x.
 // What matters: it CREATES an arrow (no existing one required, unlike `node insert`), it never
 // unwires what the source already feeds, and every refusal leaves the file byte-identical.
 
@@ -69,21 +69,21 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("graph chain connect", () => {
   it("draws a new arrow without touching what the source already feeds", async () => {
     await runCommand("graph chain connect amp reverb", host(), "cli");
-    expect(chains()).toContain("amp: [ OUT, reverb ]");
+    expect(feeds("amp")).toEqual(["OUT", "reverb"]);
     expect(logs.join(" ")).toContain("connected amp → reverb");
     expect(reloads).toBe(1);
   });
 
   it("wires an unwired module to the sink — how a placed module joins the song", async () => {
     await runCommand("graph chain connect reverb OUT", host(), "cli");
-    expect(chains()).toContain("reverb: [ OUT ]");
+    expect(feeds("reverb")).toEqual(["OUT"]);
   });
 
   it("wires to MIX as readily as to OUT — all four built-in outputs are nodes", async () => {
     // The two verbs used to spell `name === "OUT"` by hand, so a set's `fadeA: [ MIX ]` was unwireable.
     await runCommand("graph chain connect reverb MIX", host(), "cli");
     expect(logs.join(" ")).not.toContain("no node");
-    expect(chains()).toContain("reverb: [ MIX ]");
+    expect(feeds("reverb")).toEqual(["MIX"]);
   });
 
   it("refuses an arrow that is already there, writing nothing", async () => {
@@ -115,36 +115,24 @@ describe("graph chain connect", () => {
   it("LETS a live input feed a lane — which is what recording onto one is", async () => {
     // The one exception the model makes; refusing every track left an `IN` node with nowhere to go.
     // io is a plain NODE now, never a shared module.
-    writeFileSync(join(dir, "nodes", "mic.yaml"), "io: in\n", "utf8");
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: []\n",
-      "utf8",
-    );
+    writeNode(dir, "mic", { io: "in" });
+    setGraph({ gtr: ["amp"], amp: ["OUT"], mic: [] });
     await runCommand("graph chain connect mic gtr", host(), "cli");
     expect(logs.join(" ")).toContain("connected mic → gtr");
-    expect(chains()).toContain("mic: [ gtr ]");
+    expect(feeds("mic")).toEqual(["gtr"]);
   });
 
   it("LETS a MIDI device feed a lane too — its notes are what that lane records", async () => {
-    writeFileSync(join(dir, "nodes", "keys.yaml"), "io: midi\n", "utf8");
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  keys: []\n",
-      "utf8",
-    );
+    writeNode(dir, "keys", { io: "midi" });
+    setGraph({ gtr: ["amp"], amp: ["OUT"], keys: [] });
     await runCommand("graph chain connect keys gtr", host(), "cli");
     expect(logs.join(" ")).toContain("connected keys → gtr");
   });
 
   it("…and still when the input is UPSTREAM, not the node the cable leaves", async () => {
     // What decides is the run REACHING the source, not the source itself — `runCarriesInput`.
-    writeFileSync(join(dir, "nodes", "mic.yaml"), "io: in\n", "utf8");
-    writeFileSync(
-      join(dir, "graph.yaml"),
-      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: [ reverb ]\n  reverb: []\n",
-      "utf8",
-    );
+    writeNode(dir, "mic", { io: "in" });
+    setGraph({ gtr: ["amp"], amp: ["OUT"], mic: ["reverb"], reverb: [] });
     // The derivation splits this into TWO chains, so only walking the feeds finds the preamp.
     await runCommand("graph chain connect reverb gtr", host(), "cli");
     expect(logs.join(" ")).toContain("connected reverb → gtr");
@@ -159,8 +147,8 @@ describe("graph chain connect", () => {
 describe("node insert, born at the cursor", () => {
   it("a trailing x,y pins the spliced node where the + was clicked", async () => {
     await runCommand("node insert gtr amp reverb 300,140", host(), "cli");
-    expect(chains()).toContain("gtr: [ reverb ]");
-    expect(chains()).toContain("reverb: [ amp ]");
+    expect(feeds("gtr")).toEqual(["reverb"]);
+    expect(feeds("reverb")).toEqual(["amp"]);
     expect(chains()).toContain("reverb: { x: 300, y: 140 }");
   });
 });
@@ -168,8 +156,8 @@ describe("node insert, born at the cursor", () => {
 describe("graph chain disconnect", () => {
   it("pulls one cable, and the module it stranded stays placed", async () => {
     await runCommand("graph chain disconnect amp OUT", host(), "cli");
-    expect(chains()).toContain("amp: []");
-    expect(chains()).toContain("gtr: [ amp ]");
+    expect(feeds("amp")).toEqual([]);
+    expect(feeds("gtr")).toEqual(["amp"]);
     expect(reloads).toBe(1);
   });
 
@@ -186,8 +174,7 @@ describe("graph chain replug", () => {
   it("moves one end in one write — the old arrow gone, the new one there", async () => {
     // The target end of gtr→amp moves to reverb.
     await runCommand("graph chain replug gtr amp gtr reverb", host(), "cli");
-    expect(chains()).toContain("gtr: [ reverb ]");
-    expect(chains()).not.toContain("gtr: [ amp ]");
+    expect(feeds("gtr")).toEqual(["reverb"]);
     expect(reloads).toBe(1);
   });
 
@@ -217,7 +204,7 @@ describe("graph chain replug", () => {
 describe("a cable to a picture lane", () => {
   it("connects, a lane being a node like any other", async () => {
     await runCommand("graph chain connect amp main", host(), "cli");
-    expect(chains()).toContain("amp: [ OUT, main ]");
+    expect(feeds("amp")).toEqual(["OUT", "main"]);
     expect(reloads).toBe(1);
   });
 

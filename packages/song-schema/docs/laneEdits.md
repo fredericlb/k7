@@ -36,10 +36,8 @@ still override either by hand; nothing here writes one there.
 
 ## Plain values, not document nodes
 
-`placementAt` returns `toJSON()` and not the document node, and the difference is not cosmetic: its
-one caller — `movePlacementToTrack` — SPREADS what it gets, and spreading a YAMLMap copies the MAP's
-own fields rather than the placement's, so a drag onto another lane would write
-`{ items: […], flow: true, range: […] }` into the file and the lane would stop compiling. A node
+`placementAt` returns plain values and not the document node, and the difference is not cosmetic:
+its one caller — `movePlacementToTrack` — SPREADS what it gets into another lane's file. A node
 cannot cross documents anyway — it carries a `range` into offsets of the file it was parsed from —
 so no reader wants one. `placementValues` is the list to its one, and hands back plain values for
 the same reason.
@@ -100,7 +98,7 @@ Moving a clip does change the id, and that costs nothing — `clipMoved` re-inse
 what the engine logs and what a `/waveform` request carries.
 
 `materialRefOf` is the inverse, for the readers that want the file rather than the placement: a
-clip's own `clips/<ref>.yaml`, its onset corrections, and the editor asked to open "the clip's own
+clip's own `clips/<ref>.k7x`, its onset corrections, and the editor asked to open "the clip's own
 definition" from a right-click. All are properties of the material, shared by every placement of it.
 It splits on the LAST `@` and only when what follows is a number — a ref may legitimately contain
 one, nothing forbidding it in an entity name — and a string it cannot parse is returned whole, which

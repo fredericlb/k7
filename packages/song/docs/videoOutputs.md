@@ -8,12 +8,13 @@ A graph has **four** built-in outputs, not two. The first pair belongs to the so
 | `RENDER` | the **compositor's sum** — where every video track arrives, exactly as every audio track arrives at `MIX`. Carries no parameter |
 | `VIDEO_OUT` | the **picture that leaves**, the one the `viewport` composes. Carries no parameter either — a picture has no level |
 
-```yaml
-# graph.yaml
-modules:
-  drums:  [ MIX ]
-  MIX:    [ OUT ]            # the sound's master chain
-  RENDER: [ VIDEO_OUT ]      # …and the picture's
+```k7x
+// graph.k7x
+modules({
+  drums: ["MIX"],
+  MIX: ["OUT"], // the sound's master chain
+  RENDER: ["VIDEO_OUT"], // …and the picture's
+})
 ```
 
 The run between the two is the **video master chain**: its modules (`video_effects`, `shaders`)
@@ -24,7 +25,7 @@ to put a treatment on the whole. Not `video_transitions`: a transition is not a 
 ## What crosses this run, and what does not
 
 A **`shaders`** module on `RENDER -> VIDEO_OUT` processes the composited frame, in GLSL, down to
-the pixel ([shaders.md](../../song-video/docs/shaders.md)). The path from a `graph.yaml` to
+the pixel ([shaders.md](../../song-video/docs/shaders.md)). The path from a `graph.k7x` to
 `@studio/ui-eyes` is `src/videoChains.ts`.
 
 One **other** form of `VideoPluginDoc` is modelled and never compiled: `video_effect` has no plugin
@@ -67,8 +68,8 @@ anything reads its graph, **including those written before these names existed**
 a `viewport` gets nothing, and never sees either name — including in completion, which offers them
 only to a project that has video tracks.
 
-The write is **textual** rather than YAML re-read and re-emitted, for the usual reason here: a
-`graph.yaml` is commented and hand-edited, and re-serialising would reformat the whole file to add
+The write is **textual** rather than the file re-read and re-emitted, for the usual reason here: a
+`graph.k7x` is commented and hand-edited, and re-serialising would reformat the whole file to add
 one line. The line goes at the **end** of the `modules:` map, where the signal arrives.
 
 A block map extends over "the lines indented under the key": a comment indented with the map
@@ -82,7 +83,7 @@ surface, the file service opens a project whose surfaces it has just read. Askin
 mean importing `surfaces.ts`, which imports this file, and the cycle would serve to re-examine a
 settled question.
 
-`ensureVideoRun` is **best-effort** throughout: no `graph.yaml`, no `modules:` map, a read-only
+`ensureVideoRun` is **best-effort** throughout: no `graph.k7x`, no `modules:` map, a read-only
 folder — the project is left as it is and opens anyway. Gaining a convenience is not a condition
 for opening a song.
 
@@ -105,7 +106,7 @@ must not lose its card in the meantime.
 
 | | |
 |---|---|
-| written | `graph.yaml` — a run from `RENDER` to `VIDEO_OUT`, added unasked |
+| written | `graph.k7x` — a run from `RENDER` to `VIDEO_OUT`, added unasked |
 | added | `src/videoOutputs.ts` — `ensureVideoRun`, called at surface creation and at open |
 | derived | `src/chainsGraph.ts`: `RENDER` starts a run, like `@in`, like `MIX`, like a track |
 | validated | `src/graph.ts`: `isSink` takes all four names at their word, `validate()` exempts `from: RENDER` |
@@ -121,4 +122,4 @@ npx vitest run packages/ui-chains/src/buildSums.test.ts
 ```
 
 And by hand, the real test of the automatic add: take a project with a `viewport` and without the
-line, open it, read its `graph.yaml` back.
+line, open it, read its `graph.k7x` back.

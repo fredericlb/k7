@@ -11,11 +11,11 @@ dialect: the node project you already know, with one entity fewer and two files 
 
 | file | what it holds |
 |---|---|
-| `project.yaml` | the set's settings, and nothing about shape — there is no arrangement because none is declared |
-| `mix.yaml` | this set's CUE points, song by song — see [mixFile.md](mixFile.md) |
-| `graph.yaml` | the routing segments, exactly as in a song |
-| `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
-| `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
+| `project.k7x` | the set's settings, and nothing about shape — there is no arrangement because none is declared |
+| `mix.k7x` | this set's CUE points, song by song — see [mixFile.md](mixFile.md) |
+| `graph.k7x` | the routing segments, exactly as in a song |
+| `nodes/<name>.k7x` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
+| `surfaces/desk.k7x` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
 
 ## Two files are what make it a set
 
@@ -23,12 +23,12 @@ A `turntables` surface, and the **playlist** it names. Neither needs a folder su
 and neither needs an app of its own: k7 draws the desk from its declaration exactly as it draws
 a timeline or a viewport from theirs.
 
-```yaml
-# surfaces/desk.yaml
-type: turntables
-layout: split
-playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
-stems: true               # separate a record put on unprepared (the CHAIN is the machine's)
+```k7x
+// surfaces/desk.k7x
+type("turntables")
+layout("split")
+playlist("ete-2026") // → <espace>/_playlists/ete-2026.k7x
+stems(true) // separate a record put on unprepared (the CHAIN is the machine's)
 ```
 
 `split` is a PANE: the desk sits over the chains, half the column each, and a set — declaring no
@@ -39,7 +39,7 @@ of its own: a fader on the desk is a param on a module in the graph.
 `_modules`, so one set list serves every project in the workspace and is committed with the work
 it was written for ([playlists.md](playlists.md)). Nothing inside the project restates it: two
 files answering one question is one too many, and the playlist is the better of the two — it has
-a screen and it is shareable. The CUE sheet is a separate document, `mix.yaml`
+a screen and it is shareable. The CUE sheet is a separate document, `mix.k7x`
 ([mixFile.md](mixFile.md)).
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
@@ -54,11 +54,10 @@ editable catalogue, so a crossfade copied into the project would be a second cro
 maintains and nobody would notice drifting from the one everybody else uses. A node is the whole
 use:
 
-```yaml
-# nodes/crossfade.yaml
-extends: "@k7-core/audio/utility/crossfade"
-params:
-  Mix: 0.5
+```k7x
+// nodes/crossfade.k7x
+extends("@k7-core/audio/utility/crossfade")
+params({ Mix: 0.5 })
 ```
 
 `kind`, `inputs` and `category` are inherited by NOT being stated — the two audio ports, the
@@ -82,11 +81,11 @@ nothing can resolve.
 
 ## A deck is a lane with no arrangement
 
-In a song, `nodes/bass.yaml` **is** the arrangement. On a deck there is nothing to arrange — the
+In a song, `nodes/bass.k7x` **is** the arrangement. On a deck there is nothing to arrange — the
 material is whichever song from the playlist was loaded ten seconds ago, and it will be a
 different one in four minutes — so it authors no `events:` at all.
 
-The file still exists, deliberately. Inferring the decks from `graph.yaml`'s keys costs three
+The file still exists, deliberately. Inferring the decks from `graph.k7x`'s keys costs three
 things:
 
 - k7 keeps a useful error for a chain naming a node that has no file, and inference would have
@@ -102,24 +101,25 @@ being exactly "one use of a module, with its own settings".
 
 The graph is the shape a chain cannot express on its own, because **a chain carries one signal**:
 
-```yaml
-modules:
-  deckA: [ platterA ]       # the lane's SOURCE: the platter that reads the record…
-  platterA: [ tempoA ]      # …through its OWN tempo…
-  tempoA: [ trimA ]         # …into the deck's bus, which the TRIM heads
-  stemBassA: [ platterBassA ]  # …and one lane per separated instrument, each with its own reader
-  platterBassA: [ cutBassA ]
-  cutBassA: [ trimA ]       #    through the cut that SUBTRACTS it, into the same bus
-  # …drums, other, vocals alike, ×2 decks
-  trimA: [ eqA ]            # the bus carries the strip: trim, EQ, filter
-  eqA: [ filterA ]
-  filterA: [ levelA, cueA ] # …and SPLITS: the channel fader, and the pre-fade headphone tap
-  cueA: [ CUE ]
-  levelA: [ echoA ]         # the echo sits AFTER the fader, so a cut leaves its tail ringing
-  echoA: [ fadeA ]          # …and ends on this deck's own fade
-  fadeA: [ MIX ]            # which lands on the mixer's sum, like deck B's
-bypassed: [ deckA, deckB, stemBassA, … ]   # every source is heard through its bus only
-bus_only: [ trimA, trimB ]                 # …and the strip's HEAD loses its dry path
+```k7x
+modules({
+  deckA: ["platterA"], // the lane's SOURCE: the platter that reads the record…
+  platterA: ["tempoA"], // …through its OWN tempo…
+  tempoA: ["trimA"], // …into the deck's bus, which the TRIM heads
+  stemBassA: ["platterBassA"], // …and one lane per separated instrument, each with its own reader
+  platterBassA: ["cutBassA"],
+  cutBassA: ["trimA"], //    through the cut that SUBTRACTS it, into the same bus
+  // …drums, other, vocals alike, ×2 decks
+  trimA: ["eqA"], // the bus carries the strip: trim, EQ, filter
+  eqA: ["filterA"],
+  filterA: ["levelA", "cueA"], // …and SPLITS: the channel fader, and the pre-fade headphone tap
+  cueA: ["CUE"],
+  levelA: ["echoA"], // the echo sits AFTER the fader, so a cut leaves its tail ringing
+  echoA: ["fadeA"], // …and ends on this deck's own fade
+  fadeA: ["MIX"], // which lands on the mixer's sum, like deck B's
+})
+bypassed(["deckA", "deckB", "stemBassA", "…"]) // every source is heard through its bus only
+bus_only(["trimA", "trimB"]) // …and the strip's HEAD loses its dry path
 ```
 
 **The platters are the source, and there is one per lane that plays a file** — the record, and
@@ -152,8 +152,8 @@ would otherwise double, but neither bus is hidden from anything.
 Each fade has **one** parameter and it IS that lane's gain, so its panel reads true on its own:
 `0` silent, `1` full. The opposition is in the mapping, as a mirror:
 
-```yaml
-crossfade: { module: fadeA, param: Level, invert: true, also: { module: fadeB, param: Level } }
+```k7x
+crossfade({ module: "fadeA", param: "Level", invert: true, also: { module: "fadeB", param: "Level" } })
 ```
 
 `also` is the one exception to "a control drives at most one param". It earns it by being narrow
@@ -211,7 +211,7 @@ an open gap rather than a bug in this file: a run consumed by a port has no way,
 heard only there.
 
 The four files come from `playlist stems` (`@studio/commands`) — or, for a record put on
-unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What
+unprepared, from the desk itself, which is what `surfaces/desk.k7x`'s `stems:` line is for. What
 the desk does with them either way is `packages/k7-plugins/docs/turntables/stems.md`.
 
 **A set with one lane a deck** draws no stem column at all — the designed answer to an unwired
@@ -263,12 +263,12 @@ feeder, so it is a step inside deck A's run rather than a meeting point of its o
 
 ## The eighteen nodes of a deck are drawn as ONE box
 
-`assemblies/turntableA.yaml` and `turntableB.yaml`, written by the scaffold beside the nodes
+`assemblies/turntableA.k7x` and `turntableB.k7x`, written by the scaffold beside the nodes
 above, say that this deck's lane, its four stem lanes, its five platters, its tempo and its whole
 strip are one appliance called a **turntable**. On the graph that is one card with two plugs —
 `mix` and `cue` — and eight knobs, and an open button that unfolds it in place.
 
-**It changes nothing here.** No node is renamed, no arrow moved, and `graph.yaml` is not touched:
+**It changes nothing here.** No node is renamed, no arrow moved, and `graph.k7x` is not touched:
 a set with those two files reads to the graph it read to without them, which is what
 `assemblies.test.ts`'s "an assembly is a DRAWING" case pins. The plugs and the knobs come from the
 template the files name, `@k7-core/turntable`, which lives in the account's library —

@@ -120,7 +120,7 @@ describe("what the transport reports to a stall watcher", () => {
   it("names the ROUTE and the bytes, not the whole path", () => {
     // A path carrying a file name would make every read its own line, and the busiest route
     // unfindable — which is the one thing the report exists to point at.
-    const p = fget("/file?path=nodes/lead.yaml");
+    const p = fget("/file?path=nodes/lead.k7x");
     releaseAll();
     return p.then(() => {
       expect(seen.map((s) => s.name)).toEqual(["GET /file"]);

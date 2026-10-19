@@ -20,7 +20,7 @@ Each of these already exists under a name close enough to confuse, and none of t
 | existing | what it is | why not |
 |---|---|---|
 | a group LANE (`@meta/group-track`, `ProjectDoc.groups`, [mixFolding.md](mixFolding.md)) | a mixer relationship over lanes | members must be **lanes**. It holds `deckA` and the stem lanes; it cannot hold `trimA`, `platterA` or `fadeA`, which are modules. And it carries mute/solo, not topology |
-| a chain TEMPLATE (a library's `chains/<ref>.yaml`) | one run of nodes, fed by what it is put after and ending at `@out` | nothing inlines one into a host graph. It is edited standalone, bounced offline (`processChain.ts`) or copied onto the bench. Its ends are unnamed and it has one of each ([sharedFolders.md](sharedFolders.md)) |
+| a chain TEMPLATE (a library's `chains/<ref>.k7x`) | one run of nodes, fed by what it is put after and ending at `@out` | nothing inlines one into a host graph. It is edited standalone, bounced offline (`processChain.ts`) or copied onto the bench. Its ends are unnamed and it has one of each ([sharedFolders.md](sharedFolders.md)) |
 | `frozen: "inside"` ([freeze.md](freeze.md)) | one card standing for everything upstream | a **render**, not a document node. It cannot be opened, and it refuses when the region leaks |
 
 The word is **assembly** deliberately. `group` is taken by the first row and `rack` by
@@ -40,19 +40,22 @@ by its library like everything else in it:
 <libraries>/k7/assemblies/    @k7-core/turntable
 ```
 
-A template is a FOLDER laid out as a project's graph is — `graph.yaml` and `nodes/` — plus one
+A template is a FOLDER laid out as a project's graph is — `graph.k7x` and `nodes/` — plus one
 file that is the whole of what makes it an assembly:
 
-```yaml
-# <library>/assemblies/turntable/assembly.yaml
-label: Turntable
-inputs: []                                     # a turntable is a SOURCE, and that is a real state
-outputs:
-  - { name: mix, type: audio, node: fade }     # which member's output leaves by this plug
-  - { name: cue, type: audio, node: cue }
-params:                                        # what is PROMOTED onto the box's face
-  Trim: { node: trim, param: Trim }
-  Level: { node: level, param: Gain }
+```k7x
+// <library>/assemblies/turntable/assembly.k7x
+label("Turntable")
+inputs([]) // a turntable is a SOURCE, and that is a real state
+outputs([
+  name("mix").type("audio").node("fade"), // which member's output leaves by this plug
+  name("cue").type("audio").node("cue"),
+])
+params({
+  // what is PROMOTED onto the box's face
+  Trim: { node: "trim", param: "Trim" },
+  Level: { node: "level", param: "Gain" },
+})
 ```
 
 A plug is `PortSchema` plus the member it stands for. `port` is written only when that member
@@ -65,14 +68,15 @@ copied from.
 
 ### The instance — a flat entity folder in the project
 
-```yaml
-# <project>.k7/assemblies/turntableA.yaml
-uses: "@k7-core/turntable"
-members:
-  deck: deckA
-  trim: trimA
-  fade: fadeA
-  # …
+```k7x
+// <project>.k7/assemblies/turntableA.k7x
+uses("@k7-core/turntable")
+members({
+  deck: "deckA",
+  trim: "trimA",
+  fade: "fadeA",
+  // …
+})
 ```
 
 The id is the **filename**, as in every flat entity folder here (`surfaces/`, `clips/`, `curves/`).
@@ -80,21 +84,21 @@ The id is the **filename**, as in every flat entity folder here (`surfaces/`, `c
 `members:` maps the **template's** name to **this project's** node name, and that indirection is
 what makes both halves work. `assembly new` mints `<box>_<member>`; the set scaffold folds nodes
 that already exist under the names they already have and **renames nothing** — one file per deck,
-and `graph.yaml` untouched.
+and `graph.k7x` untouched.
 
 ## Expanded, not referenced
 
-The nodes and their wiring are ordinary entries in `graph.yaml`. `assembly new` copies the
+The nodes and their wiring are ordinary entries in `graph.k7x`. `assembly new` copies the
 template's node files into `nodes/` and its segments into the graph, every name inside swapped for
 the instance's; a destination the template does not own — `MIX`, `CUE` — is copied verbatim, which
 is how a template says where its signal leaves to.
 
 So `node param`, `node bypass`, `graph move`, `graph unlink`, `node replace`, a `surfaces/` mapping,
 the compiler and the engine all keep working on the members with no knowledge of the box. The box's
-own position is `graph.yaml`'s `positions:` under the instance's name, which needs no schema change:
+own position is `graph.k7x`'s `positions:` under the instance's name, which needs no schema change:
 one flat key space.
 
-The alternative — one line in `graph.yaml` naming a template, expanded at load — buys a terse file
+The alternative — one line in `graph.k7x` naming a template, expanded at load — buys a terse file
 and costs everything above: nothing inside would be editable per instance, and every writer would
 have to learn to address a node that has no file.
 
@@ -112,7 +116,7 @@ and no knobs — which is the honest reading of a template nobody has published 
 
 ## A node's name follows, where a surface's does not
 
-A member is the one reference outside `graph.yaml` that **can** be written back, so it is:
+A member is the one reference outside `graph.k7x` that **can** be written back, so it is:
 `node replace`'s rename repoints it, and `node delete` drops it — taking the record with the last
 member, since a box about nothing is not a box. A `surfaces/` mapping is the opposite case and
 declines instead ([surfaces.md](surfaces.md)); the difference is only that nothing writes one back.
@@ -133,7 +137,7 @@ showing the real ones, and the cable lands on the real one. A member inside a fr
 pinnable nor draggable — its place is the frame's, and a `graph move` writing it would be a number
 that means nothing once the box closes.
 
-### A plug is not a `graph.yaml` address
+### A plug is not a `graph.k7x` address
 
 `jackRef` is what turns a gesture into a line, and this is the one seam that keeps every verb
 unchanged: for a box it answers the **member** behind the plug. A cable dropped on `turntableA#mix`
@@ -171,7 +175,7 @@ timer — the rule a shared module already follows (`apps/k7/frontend/docs/share
 - **Nesting.** An assembly may not contain an assembly. One level, the way a `tabs` widget's pages
   are one level, and for the same reason: there is no tree to reason about.
 - **A surface mapping naming a box.** `{ module: turntableA, param: Trim }` would let
-  `surfaces/desk.yaml` stop spelling `trimA`. It is a small resolution step on top of what the wire
+  `surfaces/desk.k7x` stop spelling `trimA`. It is a small resolution step on top of what the wire
   already carries, and it can be added once the promotion has one consumer that is real.
 - **Per-instance promotion.** See above: the template decides, once.
 
@@ -197,7 +201,7 @@ stays followable end to end. See `packages/ui-chains/docs/graphBuild.md`.
 ## Two things a box has to keep working
 
 **It can be moved.** A box is drawn as a card and pinned like one, though it is no key of
-`graph.yaml`'s `modules:` — one flat key space, so `graph move turntableA 200 80` writes its name
+`graph.k7x`'s `modules:` — one flat key space, so `graph move turntableA 200 80` writes its name
 into `positions:` beside every node's. The verb's guard reads `g.assemblies` as well as the modules
 and the lanes, or it refuses the very thing the drag just addressed.
 

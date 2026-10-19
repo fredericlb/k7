@@ -3,8 +3,8 @@
 //
 // The builder ARRIVES as the argument, so nothing is imported at runtime and this folder needs no node_modules.
 //
-// `input(0)` and `input(1)` index the ports module.yaml declares, in order: `a` then `b`. An index and not a
-// name, because this graph is compiled to JSON the engine reads with no module.yaml in sight, and position is
+// `input(0)` and `input(1)` index the ports module.k7x declares, in order: `a` then `b`. An index and not a
+// name, because this graph is compiled to JSON the engine reads with no module.k7x in sight, and position is
 // the one fact both documents can hold on their own.
 
 import type { GraphBuilder } from "@studio/dsp";

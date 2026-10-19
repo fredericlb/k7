@@ -1,12 +1,13 @@
 # A shot's speed — one signed number
 
-```yaml
-# video_tracks/main.yaml
-events:
-  - { ref: run,   start: 0,  length: 4, speed: 0.5 }          # slow motion
-  - { ref: crowd, start: 4,  length: 2, speed: 3 }            # fast
-  - { ref: face,  start: 6,  length: 3, speed: 0 }            # held on its first frame
-  - { ref: glass, start: 9,  length: 2, source_from: 5, speed: -1 }   # backwards from 5 s
+```k7x
+// video_tracks/main.k7x
+events([
+  ref("run").start(0).length(4).speed(0.5), // slow motion
+  ref("crowd").start(4).length(2).speed(3), // fast
+  ref("face").start(6).length(3).speed(0), // held on its first frame
+  ref("glass").start(9).length(2).source_from(5).speed(-1), // backwards from 5 s
+])
 ```
 
 ## One mapping, signed, for every case

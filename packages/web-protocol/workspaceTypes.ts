@@ -7,7 +7,7 @@ import type { ProjectApp } from "./projects.ts";
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
 export interface FileNode {
   name: string; // basename
-  path: string; // workspace-relative, POSIX separators (e.g. "modules/instruments/synth/module.yaml")
+  path: string; // workspace-relative, POSIX separators (e.g. "modules/instruments/synth/module.k7x")
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
@@ -23,7 +23,7 @@ export interface ForkedModule {
   chains: string[]; // the chains repointed at the copy
 }
 
-// A module's `ui.yaml`, which may not exist yet: `path` is then where it WOULD go, and the first save creates it.
+// A module's `ui.k7x`, which may not exist yet: `path` is then where it WOULD go, and the first save creates it.
 export interface ModuleUiFile {
   ref: string; // the module the panel draws, e.g. "@engine/audio/delay/tape-delay"
   path: string; // workspace-relative
@@ -127,7 +127,7 @@ export interface Hints {
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
   clips: string[];
-  // Video track ids (video_tracks/<id>.yaml) — the song's picture lanes, and what `layers:` may name.
+  // Video track ids (video_tracks/<id>.k7x) — the song's picture lanes, and what `layers:` may name.
   videoTracks: string[];
   sequences: string[];
   chains: string[];
@@ -148,7 +148,7 @@ export interface Hints {
       symbols: { symbol: string; note: number; from?: number; to?: number }[];
     }
   >;
-  keywords: string[]; // words YAML gives meaning to (true/false/null, …)
+  keywords: string[]; // words the file format gives meaning to (true/false/null, …)
   // Scanned plugin names by format, lowercased key — from the engine's scan cache (~/.k7/exts.json).
   pluginNames: Record<string, string[]>;
   // "kind:name" -> the project-relative file defining it (module|base|sink|track|clip|sequence|chain).
@@ -167,7 +167,7 @@ export interface IoPort {
   label?: string; // the `channel:` as authored, when it named a label
   unknownLabel?: boolean; // …and this rig has no input by that name
   namespace: string; // the shared catalogue it came from, "" for a project's own
-  generic: boolean; // the folder's module.yaml rather than one of its nodes
+  generic: boolean; // the folder's module.k7x rather than one of its nodes
 }
 
 // One entry of the shared `_modules` catalogue (mirrors @studio/song/moduleCatalogue) — what the module builder lists.
@@ -182,7 +182,7 @@ export interface CatalogueModule {
   // Where the module builder opens it, workspace-relative; absent for an ENGINE module, whose substance is the plugin.
   path?: string;
   nodes: number; // how many nodes sit beside it
-  hasUi: boolean; // it already has a `ui.yaml` beside it
+  hasUi: boolean; // it already has a `ui.k7x` beside it
   panel?: { cols: number; rows: number }; // its panel grid, what the picker sizes a card by
 }
 

@@ -94,7 +94,7 @@ export function widgetTarget(
     return n.module
       ? { kind: "recorder", module: n.module, verb, pluginId: n.pluginId }
       : null;
-  // …and a PROJECT setting, which lives in project.yaml, before the `@` arm for the same reason.
+  // …and a PROJECT setting, which lives in project.k7x, before the `@` arm for the same reason.
   const setting = projectBindField(w.bind);
   if (setting) return { kind: "project", field: setting };
   // A STRIP's highlight is its LANE's, like the lane card's mute and solo — not a field of the mixer module.

@@ -148,7 +148,7 @@ public function wrapping them. Counted so the figure does not surprise the next 
 **Tooling with no entry point** — programs, not dead code, but nothing wires them:
 
 - `packages/song/scripts/` — run by hand, apart from `checkPanelBinds.ts`, which is `npm run lint:panels`.
-  `migrateK7x.ts` turns a workspace's YAML files into `.k7x`; `projectFingerprint.ts` records what a
+  `projectFingerprint.ts` records what a
   real project compiles to, to diff before and after a refactor.
 - `packages/k7-plugins/scripts/turntables/put-on.ts` — this one is **documented** and run by hand
   (`../packages/k7-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
@@ -232,7 +232,6 @@ carrying `email?: string | null`.
 | With no test file at all: `graph-model`. | — |
 | Read in code and absent from **every** `.md`: `STUDIO_MODELS`, `STUDIO_SCRATCH`, `CHROME`. | `packages/song/src/modelCache.ts`, `engine/k7-runtime/scripts/` |
 | Imported without being declared: `ui-chains-react`, `ui-rehearsal`, `score` and `k7-plugins` (`@storybook/react-vite`, in their `*.stories.tsx`; the root declares it). | — |
-| `yaml` in `k7-frontend` is not only test: `rackBuilder.ts`, `sliceSymbols.ts` and `components/TakeRow.tsx` import it in production. | `apps/k7/frontend` |
 | `packages/web-protocol` depends on `@studio/engine-protocol` alone, which has no dependency of its own, and that is RIGHT — what it takes from it is types. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
 | Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL`, `STUDIO_DEMOS`, `STUDIO_MODELS`, `STUDIO_WEB_PORT`, `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 

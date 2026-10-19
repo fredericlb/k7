@@ -38,14 +38,14 @@ since both io roles share this one entry.
 
 ## Module nodes
 
-A module's folder holds one `module.yaml` and nothing else that is a module. A project's
+A module's folder holds one `module.k7x` and nothing else that is a module. A project's
 USES of modules are files in a flat `nodes/` folder at its root, where the filename is
 the node name and chains say that alone:
 
 ```
-modules/instruments/synth/module.yaml   ->  "synth"   (the module)
-nodes/lead.yaml                         ->  "lead"    (one use of it)
-nodes/pad.yaml                          ->  "pad"     (another)
+modules/instruments/synth/module.k7x    ->  "synth"   (the module)
+nodes/lead.k7x                          ->  "lead"    (one use of it)
+nodes/pad.k7x                           ->  "pad"     (another)
 ```
 
 The full page is **`docs/nodes.md`** — where the type comes from when there is no
@@ -69,7 +69,7 @@ it. See `docs/moduleAssets.md` for the whole of it.
   what was actually written, not the loader's resolved copy.
 - **`decorate`** adds the loader's fields (kind/inputs from the type folder, resolved
   preset/asset paths) to a module. The persisted plugin state is `<name>.vstpreset` beside
-  its `module.yaml`.
+  its `module.k7x`.
 - **`loadNodes`** is the separate pass over `nodes/`, and it deliberately decorates
   LESS: no `kind`, `inputs` or `category`, because a flat folder has no type folder to read
   them off. Leaving them absent is what lets them arrive from what the node `extends`

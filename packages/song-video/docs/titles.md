@@ -13,15 +13,16 @@ its box the same way whichever made it.
 
 ## A title is a block, not a line
 
-```yaml
-# modules/shapes/lower_third/module.yaml
-type: shape
-shape: text
-content: "Ada Lovelace\nAnalyst"   # a written break is kept
-align: left                         # left | center | right, inside `w`
-background: "rgba(0, 0, 0, 0.6)"    # a box behind the lines, hugging them
-shadow: true                        # for text straight over a picture
-params: { x: 80, y: 560, w: 520, font_size: 40, line_height: 1.2, padding: 14 }
+```k7x
+// modules/shapes/lower_third/module.k7x
+type("shape")
+shape("text")
+content(`Ada Lovelace
+Analyst`) // a written break is kept
+align("left") // left | center | right, inside `w`
+background("rgba(0, 0, 0, 0.6)") // a box behind the lines, hugging them
+shadow(true) // for text straight over a picture
+params({ x: 80, y: 560, w: 520, font_size: 40, line_height: 1.2, padding: 14 })
 ```
 
 `w` is the width the lines WRAP in. A single word wider than it is condensed to fit, as a line
@@ -35,17 +36,18 @@ field, a string or a switch no knob can be.
 
 ## Captions are MATERIAL, placed like a shot
 
-```yaml
-# clips/subs.yaml
-source: clips/subs.srt
-font_size: 36                       # px of the viewport
-background: "rgba(0, 0, 0, 0.6)"    # absent, the text carries a shadow instead
-position: bottom                    # bottom | top | middle
-margin: 40                          # px from that edge
+```k7x
+// clips/subs.k7x
+source("clips/subs.srt")
+font_size(36) // px of the viewport
+background("rgba(0, 0, 0, 0.6)") // absent, the text carries a shadow instead
+position("bottom") // bottom | top | middle
+margin(40) // px from that edge
 
-# video_tracks/subtitles.yaml
-events:
-  - { ref: subs, start: 0 }         # the file's 00:00:00 at the song's 0 s
+// video_tracks/subtitles.k7x
+events([
+  ref("subs").start(0), // the file's 00:00:00 at the song's 0 s
+])
 ```
 
 A subtitle file is a clip and not a lane's setting, for the reason a video file is. Its cue

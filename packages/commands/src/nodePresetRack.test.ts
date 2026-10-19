@@ -6,15 +6,18 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { librariesFixture } from "@studio/song/testSupport";
+import {
+  librariesFixture,
+  writeDoc,
+  writeNode,
+} from "@studio/song/testSupport";
+import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let root: string;
@@ -32,10 +35,15 @@ const host = () =>
       reloaded++;
     },
   }) as never;
-const node = (name: string) =>
-  parse(readFileSync(join(dir, "nodes", `${name}.yaml`), "utf8"));
+// biome-ignore lint/suspicious/noExplicitAny: the test reads arbitrary depths of the node's data.
+const node = (name: string): any => wsData(join(dir, "nodes", `${name}.k7x`));
 const kept = (name: string) =>
-  join(root, "_presets", "workspace", "instruments", "drums", `${name}.yaml`);
+  join(root, "_presets", "workspace", "instruments", "drums", `${name}.k7x`);
+const DRUMS = "@workspace/instruments/drums";
+const KIT = {
+  BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
+  SN: { note: 38 },
+};
 
 beforeEach(() => {
   logs.length = 0;
@@ -45,27 +53,23 @@ beforeEach(() => {
   mkdirSync(join(lib, "samples", "kicks"), { recursive: true });
   writeFileSync(join(lib, "samples", "kicks", "808.wav"), "");
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
-  mkdirSync(join(root, "_modules", "instruments", "drums"), {
-    recursive: true,
+  writeDoc(join(dir, "project.k7x"), { project: { name: "song" } });
+  writeDoc(join(root, "_modules", "instruments", "drums", "module.k7x"), {
+    type: "rack",
   });
-  writeFileSync(
-    join(root, "_modules", "instruments", "drums", "module.yaml"),
-    "type: rack\n",
-  );
-  writeFileSync(
-    join(dir, "nodes", "kit.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n    SN: { note: 38 }\n',
-  );
-  writeFileSync(
-    join(dir, "nodes", "other.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    HH: { note: 42 }\n',
-  );
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  kit: [ OUT ]\n  other: [ OUT ]\n",
-  );
+  writeNode(dir, "kit", {
+    extends: DRUMS,
+    type: "rack",
+    rack: { symbols: KIT },
+  });
+  writeNode(dir, "other", {
+    extends: DRUMS,
+    type: "rack",
+    rack: { symbols: { HH: { note: 42 } } },
+  });
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { kit: ["OUT"], other: ["OUT"] },
+  });
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
@@ -74,71 +78,47 @@ afterEach(() => {
 
 it("keeps a kit of library samples as a preset, one pad per line", async () => {
   await runCommand("node preset save kit house", host(), "cli");
-  const text = readFileSync(kept("house"), "utf8");
-  expect(text).toContain(
-    '  BD: { note: 36, sample: "@k7-core/kicks/808.wav" }\n',
-  );
-  expect(parse(text)).toEqual({
-    rack: {
-      BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
-      SN: { note: 38 },
-    },
-  });
+  const text = wsText(kept("house"));
+  expect(text).toContain('BD: { note: 36, sample: "@k7-core/kicks/808.wav" }');
+  expect(text).toContain("SN: { note: 38 }");
+  expect(wsData(kept("house"))).toEqual({ rack: KIT });
 });
 
 it("loads a kit onto another node IN PLACE of its own, and reloads", async () => {
   await runCommand("node preset save kit house", host(), "cli");
   await runCommand("node preset apply other workspace house", host(), "cli");
-  expect(node("other").rack.symbols).toEqual({
-    BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
-    SN: { note: 38 },
-  });
+  expect(node("other").rack.symbols).toEqual(KIT);
   expect(reloaded).toBe(1);
 });
 
 it("loads a kit onto a node that states no pads of its own", async () => {
-  writeFileSync(
-    join(dir, "nodes", "other.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\n',
-  );
+  writeNode(dir, "other", { extends: DRUMS, type: "rack" });
   await runCommand("node preset save kit house", host(), "cli");
   await runCommand("node preset apply other workspace house", host(), "cli");
-  expect(node("other").rack.symbols).toEqual({
-    BD: { note: 36, sample: "@k7-core/kicks/808.wav" },
-    SN: { note: 38 },
-  });
+  expect(node("other").rack.symbols).toEqual(KIT);
 });
 
 it("refuses a kit with a pad playing a project's own sample", async () => {
-  writeFileSync(
-    join(dir, "nodes", "kit.yaml"),
-    'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@project/kick.wav" }\n',
-  );
+  writeNode(dir, "kit", {
+    extends: DRUMS,
+    type: "rack",
+    rack: { symbols: { BD: { note: 36, sample: "@project/kick.wav" } } },
+  });
   await runCommand("node preset save kit local", host(), "cli");
   expect(logs.at(-1)).toMatch(/@project\/kick\.wav.*only this project has/);
   expect(existsSync(kept("local"))).toBe(false);
 });
 
 it("refuses to load a kit onto a node that is no rack, writing nothing", async () => {
-  mkdirSync(join(root, "_modules", "audio", "comp"), { recursive: true });
-  writeFileSync(
-    join(root, "_modules", "audio", "comp", "module.yaml"),
-    "plugin: { type: internal, name: compressor }\n",
-  );
-  writeFileSync(
-    join(dir, "nodes", "comp.yaml"),
-    'extends: "@workspace/audio/comp"\n',
-  );
-  mkdirSync(join(root, "_presets", "workspace", "audio", "comp"), {
-    recursive: true,
+  writeDoc(join(root, "_modules", "audio", "comp", "module.k7x"), {
+    plugin: { type: "internal", name: "compressor" },
   });
-  writeFileSync(
-    join(root, "_presets", "workspace", "audio", "comp", "odd.yaml"),
-    "rack:\n  BD: { note: 36 }\n",
-  );
+  const comp = writeNode(dir, "comp", { extends: "@workspace/audio/comp" });
+  const before = wsText(comp);
+  writeDoc(join(root, "_presets", "workspace", "audio", "comp", "odd.k7x"), {
+    rack: { BD: { note: 36 } },
+  });
   await runCommand("node preset apply comp workspace odd", host(), "cli");
   expect(logs.at(-1)).toMatch(/holds a kit and 'comp' is not a rack/);
-  expect(readFileSync(join(dir, "nodes", "comp.yaml"), "utf8")).toBe(
-    'extends: "@workspace/audio/comp"\n',
-  );
+  expect(wsText(comp)).toBe(before);
 });

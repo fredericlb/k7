@@ -303,7 +303,7 @@ starts and prewarms again when it stops. Sidecars already written stay written, 
 costs only what was in flight.
 
 On `/waveform` itself: `whole=1` asks for the source's full duration rather than the
-placement's span — what a `clips/*.yaml` shows. `sensitivity` re-detects the source's
+placement's span — what a `clips/*.k7x` shows. `sensitivity` re-detects the source's
 transients at that threshold and REMEMBERS it, because it is written into the sidecar; absent,
 the source keeps whichever it was last built with. Bounded, because 0 makes every bucket an
 onset and a large value makes none, so neither end is a useful thing to ask for.

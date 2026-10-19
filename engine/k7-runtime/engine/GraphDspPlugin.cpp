@@ -7,7 +7,7 @@ namespace studio {
 
 namespace te = tracktion::engine;
 
-// Renaming this renames the id a module.yaml may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
+// Renaming this renames the id a module.k7x may name a built-in by — see resolveBuiltInType in EditBuilder.cpp.
 const char* GraphDspPlugin::xmlTypeName = "studio_dspgraph";
 
 // GENERATED — packages/dsp/graphs/autowah.json verbatim, so change the JS, never this (docs/dspGraph.md).

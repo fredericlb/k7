@@ -313,7 +313,7 @@
   help: "set the viewport's aspect ratio (e.g. project aspect 16:9)"
   surfaces: [cli]
   args: [{ name: ratio, hint: "16:9 or 9:16" }]
-# The song's one tempo and its time signature, written into project.yaml — what the footer's
+# The song's one tempo and its time signature, written into project.k7x — what the footer's
 # "120 bpm · 4/4" edits on a click. The arrangement is in bars, so a tempo change plays the same
 # song faster or slower; a video lane's shots are in seconds and stay put.
 - command: "project tempo"
@@ -384,8 +384,8 @@
 # --- mixer ---
 # `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
 # are — these two never took a state to set, so naming them `mute`/`solo` implied one.
-# Mute is the lane's bypass (graph.yaml's `bypassed:`); solo is PROJECT state —
-# membership in project.yaml's root `soloed:` list, several lanes at once, resolved by
+# Mute is the lane's bypass (graph.k7x's `bypassed:`); solo is PROJECT state —
+# membership in project.k7x's root `soloed:` list, several lanes at once, resolved by
 # the engine (any soloed track silences the rest).
 - command: "track mute"
   sid: track.mute
@@ -406,7 +406,7 @@
   menu: [track, group]
   args: [{ name: track, complete: tracks }]
 # The mixer's HIGHLIGHT: a lane heard 10 dB up while it is on, its fader untouched — project state
-# like solo, at project.yaml's root. See @studio/song's docs/highlight.md.
+# like solo, at project.k7x's root. See @studio/song's docs/highlight.md.
 - command: "track highlight"
   sid: track.highlight
   readable:
@@ -915,7 +915,7 @@
     ]
 
 # --- curves (automation shapes) ---
-# A curve is a normalised function of song time, living in curves/<id>.yaml, which a
+# A curve is a normalised function of song time, living in curves/<id>.k7x, which a
 # module's `automation:` then binds to a parameter. Creating one is its own step because
 # the binding names it: you make the curve, then point a parameter at it.
 - command: "curve new"
@@ -997,7 +997,7 @@
 #
 # `node param "OUT" Volume <dB>` is the SAME write (one implementation, `writeMasterVolume`), and is
 # what the header's fader and its Fix button both send. This verb stays because it is the line a
-# person types, and because a node whose param lives in `project.yaml` deserves a name that says so.
+# person types, and because a node whose param lives in `project.k7x` deserves a name that says so.
 #
 # It is the SONG's, not the machine's: it travels in a share, and it is metered — the header bar
 # reads the mix with this applied, which is what lets Fix write it and see the clip light clear.
@@ -1030,7 +1030,7 @@
   surfaces: [cli]
   args: [{ name: system, optional: true, hint: "@<library>/console/<system>, or none" }]
 
-# The TAGS the home page files a song under, `project.tags` in project.yaml. The tag is the rest of the
+# The TAGS the home page files a song under, `project.tags` in project.k7x. The tag is the rest of the
 # line; case does not make a second one. See verbs/projectTags.ts.
 - command: "project tag"
   sid: project.tag
@@ -1274,7 +1274,7 @@
     ]
 
 # --- which version of each library the workspace plays (see docs/library-versions-plan.md) ---
-# The pin is the WORKSPACE's, in `_library-pins.yaml`, so neither verb needs a project open.
+# The pin is the WORKSPACE's, in `_library-pins.k7x`, so neither verb needs a project open.
 # Upgrading never changes a fork: it names the `_modules` ones whose base moved, to listen again.
 - command: "library versions"
   sid: library.versions
@@ -1316,7 +1316,7 @@
     [
       {
         name: name,
-        hint: "what to call it — subfolders count (live/repet), .yaml is added",
+        hint: "what to call it — subfolders count (live/repet), .k7x is added",
       },
     ]
 # Prepare a whole set at once: separate every song the playlist names, so a deck can subtract a
@@ -1432,7 +1432,7 @@
 # than about time. A lane stating no rect fills the frame, so this is what a viewport drag writes
 # the moment you move or resize one. See apps/k7/frontend/docs/picture.md.
 # A lane's two mixer words, spelled for PICTURE. `mute` is HIDDEN — there is no sound on a lane —
-# and lives in the lane's own file. `solo` is `soloed:` at project.yaml's root, the SAME list audio
+# and lives in the lane's own file. `solo` is `soloed:` at project.k7x's root, the SAME list audio
 # uses: each compile filters it to its own lanes, so soloing a shot silences nothing.
 - command: "picture mute"
   sid: picture.mute
@@ -1759,7 +1759,7 @@
   confirm: true
   args: [{ name: track, complete: tracks }]
 # A templated set of nodes, drawn as one box. Instancing copies the template's node files into
-# the project and its wiring into graph.yaml, so what lands on disk is an ordinary graph plus one
+# the project and its wiring into graph.k7x, so what lands on disk is an ordinary graph plus one
 # record saying which nodes are that box — nothing about the sound changes, in either direction.
 # See packages/song/docs/assemblies.md.
 - command: "assembly new"
@@ -1806,7 +1806,7 @@
 # Gives a module the ENGINE reports a folder in this project. A scanned plugin has no files
 # anywhere — a chain can name `@engine/nam` and nothing is on disk — and that is fine until
 # you want to draw its panel or give it presets, because both are FILES in a module's folder.
-# So this is the moment it stops being ambient: a folder appears, its module.yaml records
+# So this is the moment it stops being ambient: a folder appears, its module.k7x records
 # which plugin to load, and every chain step naming the ref follows.
 # A module of the origin's libraries is nobody's to change but its admins'. To make it yours, fork it:
 # `@account/<path>` extends it, carries its panel, and this project's refs follow. The account library
@@ -1870,7 +1870,7 @@
 # `param` is the engine's display name for it ("Filter Freq"), which is what the
 # module UI's widgets bind to — and what `list params` prints.
 # Bypass a module: it keeps its place in the graph and its params, but passes its input
-# straight through — its name joins graph.yaml's `bypassed` list. Bare, it toggles —
+# straight through — its name joins graph.k7x's `bypassed` list. Bare, it toggles —
 # that's what the graph's bypass button sends.
 # Longest-prefix dispatch keeps this distinct from "node param".
 # INTRINSICS take no verb of their own. A module's own field rather than a plugin's parameter,
@@ -2245,7 +2245,7 @@
         hint: "a number — or the state an @intrinsic takes, or a file the module carries (`none` clears it)",
       },
     ]
-# Binds a MIDI control change to one of a module's params, in the `controller.yaml` in the
+# Binds a MIDI control change to one of a module's params, in the `controller.k7x` in the
 # module's own folder — so the map follows the module into every project that names it, and
 # every NODE of it plays by the same one. `none` in place of the channel unbinds.
 - command: "module cc"
@@ -2755,9 +2755,9 @@
 # in; you supply the node to drop in.
 #
 # The arrow comes first (before, after) so the node name lands last, where a person types it.
-# No chain to name: the two ends ARE an edge in graph.yaml, so there is nothing to disambiguate.
+# No chain to name: the two ends ARE an edge in graph.k7x, so there is nothing to disambiguate.
 # The bottom `+` under a card in a chain project: the new node goes UNDER the one above, both in a
-# subchain run in that one's place — the per-track row draws the pair as one column. A graph.yaml
+# subchain run in that one's place — the per-track row draws the pair as one column. A graph.k7x
 # project has no subchains, so it refuses. See packages/song/docs/chainFiles.md, "Subchains".
 - command: "node stack"
   sid: node.stack
@@ -2836,7 +2836,7 @@
         hint: 'JSON {node: {x,y}} in world px — what the layout placed',
       },
     ]
-# Pin a node where a drag (or a hand) put it — graph.yaml's `positions:`. The graph lays
+# Pin a node where a drag (or a hand) put it — graph.k7x's `positions:`. The graph lays
 # out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
 # it back to the layout. The web sends this when a node's header is dropped.
 - command: "graph move"
@@ -2957,7 +2957,7 @@
     fr: "Activer ou désactiver le métronome"
 # …and how loud it is, kept apart from the switch: turning the click off and back on has to bring
 # back the level you had, which one field could not do. A PROJECT setting like the flag, written to
-# settings.yaml as `metronome_level` and read by the engine off the compiled document.
+# settings.k7x as `metronome_level` and read by the engine off the compiled document.
 #
 # The floor is 0.2 rather than 0, and it is Tracktion's rather than ours — `Edit::setClickTrackVolume`
 # clamps there, so a smaller number would be written down and then played at 0.2. Silence is the

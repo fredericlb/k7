@@ -63,7 +63,9 @@ const files = execFileSync(
   // The submodule brings its own docs and its own truth about them.
   .filter((f) => !f.startsWith("commons/"))
   // Build and install output, in case an ignore rule ever misses one.
-  .filter((f) => !/(^|\/)(node_modules|dist|dev-dist|build|out)\//.test(f));
+  .filter((f) => !/(^|\/)(node_modules|dist|dev-dist|build|out)\//.test(f))
+  // A file deleted in the working tree is still in the index until the commit; it names nothing.
+  .filter((f) => existsSync(f));
 
 const dead = [];
 let cited = 0;

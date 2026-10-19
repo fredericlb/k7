@@ -11,13 +11,13 @@ load is worse than no example: it is a recipe for a file the app rejects.
 
 A fenced block declares which schema it must satisfy in its info string:
 
-    ```yaml schema=Track
+    ```k7x schema=Module
 
 and one that cannot be validated says so instead, with a reason:
 
-    ```yaml exempt="shows several files at once"
+    ```k7x exempt="shows several files at once"
 
-A plain ```` ```yaml ```` with neither **fails**, since silence is how an unchecked example
+A plain ```` ```k7x ```` with neither **fails**, since silence is how an unchecked example
 gets in.
 
 ## 2. A field is added and nobody writes it down

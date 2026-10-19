@@ -1,15 +1,17 @@
 # A shot's own effect, a grade, a look
 
-```yaml
-# graph.yaml — runs nothing feeds, each landing on the lane its shots are on
-modules:
-  warm: [ main ]                 # nodes/warm.yaml  extends "@k7-core/shaders/grade"
-  film: [ main ]                 # nodes/film.yaml  extends "@k7-core/shaders/look", lut: looks/film.cube
+```k7x
+// graph.k7x — runs nothing feeds, each landing on the lane its shots are on
+modules({
+  warm: ["main"], // nodes/warm.k7x  extends "@k7-core/shaders/grade"
+  film: ["main"], // nodes/film.k7x  extends "@k7-core/shaders/look", lut: looks/film.cube
+})
 
-# video_tracks/main.yaml
-events:
-  - { ref: interview, start: 0, length: 6, effect: warm }
-  - { ref: street,    start: 6, length: 4, effect: film }
+// video_tracks/main.k7x
+events([
+  ref("interview").start(0).length(6).effect("warm"),
+  ref("street").start(6).length(4).effect("film"),
+])
 ```
 
 ## A shot's effect is a STRETCH that runs for the whole shot

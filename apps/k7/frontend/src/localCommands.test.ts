@@ -54,9 +54,9 @@ describe("every shell command is one the dispatcher recognises", () => {
 
   it("tells `ui file` from the TREE's verbs, which share no head with it", () => {
     // `file new x` against `ui file x` would be the one real collision: the tree's verbs are an `fs` group, and the group name settles it.
-    expect(isUiLine("file kick.yaml")).toBe(true); // `ui file` — open it
+    expect(isUiLine("file kick.k7x")).toBe(true); // `ui file` — open it
     for (const l of [
-      "fs file new clips kick.yaml",
+      "fs file new clips kick.k7x",
       "fs file rename a b",
       "fs file delete a",
       "fs folder new clips takes",
@@ -64,7 +64,7 @@ describe("every shell command is one the dispatcher recognises", () => {
     ])
       expect(isUiLine(l), l).toBe(false);
     // …and a file whose NAME starts with a verb is still a file to open.
-    expect(isUiLine("file newsletter.yaml")).toBe(true);
+    expect(isUiLine("file newsletter.k7x")).toBe(true);
   });
 
   it("names nothing twice", () => {
@@ -198,8 +198,8 @@ describe("runLocal — the registry as the dispatcher reads it", () => {
     });
     runLocal(ctx, "fs folder new clips takes");
     expect(createFolder).toHaveBeenCalledWith("clips", "takes");
-    runLocal(ctx, "fs file new clips kick.yaml");
-    expect(createFile).toHaveBeenCalledWith("clips", "kick.yaml");
+    runLocal(ctx, "fs file new clips kick.k7x");
+    expect(createFile).toHaveBeenCalledWith("clips", "kick.k7x");
   });
 
   it("leaves a bare transport verb to the service while the engine socket is down", () => {

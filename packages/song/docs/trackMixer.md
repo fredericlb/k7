@@ -8,7 +8,7 @@ bands, over the engine's own internal plugin (`MixerPlugin.cpp`), so nothing has
 for a song to have faders.
 
 **A node, and never a project-owned copy of the module.** A copy compiles to exactly the same
-audio and draws **a card with no controls on it**: a card draws the `ui.yaml` beside the module it
+audio and draws **a card with no controls on it**: a card draws the `ui.k7x` beside the module it
 resolves to, and the library's `mixer/` is what carries one — a fader and four knobs. The same
 argument, at more length and with the way it was found, is in
 [liveProject.md](liveProject.md). It is also the general rule: a project owns a module when it
@@ -21,18 +21,19 @@ controls for one value (`graphDoc.ts` leaves `stage` off any `Mixer` plugin). No
 bypass block or the alternative badges: a strip is never off and has one attribute set, so the name
 takes the header's whole width (`strip` on the graph node).
 
-```yaml
-# graph.yaml
-modules:
-  pad:      [ synth-pad ]
-  synth-pad: [ mix-pad ]     # …and the strip goes here, at the end
-  mix-pad:  [ MIX ]
-  MIX:      [ OUT ]
+```k7x
+// graph.k7x
+modules({
+  pad: ["synth-pad"],
+  synth-pad: ["mix-pad"], // …and the strip goes here, at the end
+  mix-pad: ["MIX"],
+  MIX: ["OUT"],
+})
 ```
 
 ## Why a module and not a field
 
-A lane could have carried `volume:` and `pan:` in `nodes/<id>.yaml`, and it would have been less
+A lane could have carried `volume:` and `pan:` in `nodes/<id>.k7x`, and it would have been less
 to write. It would also have been a second place for a level to live: the strip already exists as
 a plugin the engine hosts, with automation, a panel and a MIDI map like every other module. Two
 answers to "how loud is this lane" is the one thing the graph model refuses everywhere else.
@@ -40,7 +41,7 @@ answers to "how loud is this lane" is the one thing the graph model refuses ever
 So the fader on a lane's timeline gutter, the one on its card in the chains graph, and the whole
 Mixer view are **three drawings of this one node**, and `node param mix-pad Volume -6` is what
 each of them sends. A hand-rolled strip per lane would drift from the panel the library module's
-`ui.yaml` declares — the module grows a knob and the strip never shows it.
+`ui.k7x` declares — the module grows a knob and the strip never shows it.
 
 ## It goes LAST
 
@@ -72,10 +73,10 @@ the next `track new`.
 
 ## Where it comes from
 
-- **`track new`** writes it with the lane. A project with no `graph.yaml` has nowhere to wire one:
+- **`track new`** writes it with the lane. A project with no `graph.k7x` has nowhere to wire one:
   the lane is still made, and the missing strip is *said* rather than thrown.
 - **`scripts/migrateTrackMixer.ts`** gives one to every lane that predates the rule. Dry by
-  default, idempotent, and through the yaml Document API, so `graph.yaml` keeps its comments.
+  default, idempotent, and through the k7x document, so `graph.k7x` keeps its comments.
 - **The importer** writes one per lane it emits (`packages/translator/docs/import.md`), as a NODE
   on k7's own `@meta/audio/mixer` — it does not go through this file, a foreign
   project's chain being built from scratch with nothing to splice into.

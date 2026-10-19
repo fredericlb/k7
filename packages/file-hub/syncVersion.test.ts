@@ -16,6 +16,7 @@ import {
   ENTRIES,
   entryLine,
   filesAt,
+  HistoryGap,
   parseEntryLine,
   parseState,
   stateText,
@@ -222,6 +223,27 @@ describe("the log's version", () => {
         `${JSON.stringify({ v: 2, ...entry(2, "b") })}\n`,
     );
     expect(() => filesAt(dir, 2)).toThrow(NeedsUpdate);
+  });
+
+  it("refuses a point a skipped retired op reaches, or one still holding a YAML file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ver-retired-"));
+    const at = (seq: number, ops: unknown[]): string =>
+      entryLine({
+        ...entry(seq, ""),
+        batch: { ...entry(seq, "").batch, ops },
+      } as Sequenced);
+    writeFileSync(
+      join(dir, ENTRIES),
+      at(1, [{ kind: "text", file: "song.yaml", text: "bpm: 120\n" }]) +
+        at(2, [{ kind: "yaml", file: "song.yaml", ops: [] }]) +
+        at(3, [
+          { kind: "remove", file: "song.yaml" },
+          { kind: "text", file: "song.k7x", text: "bpm(121)\n" },
+        ]),
+    );
+    expect(() => filesAt(dir, 1)).toThrow(HistoryGap);
+    expect(() => filesAt(dir, 2)).toThrow(HistoryGap);
+    expect(filesAt(dir, 3)).toEqual({ "song.k7x": "bpm(121)\n" });
   });
 
   it("does not load a room whose log a newer k7 wrote", async () => {

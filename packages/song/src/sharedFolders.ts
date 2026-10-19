@@ -166,14 +166,15 @@ export function workspacePins(from: string): LibraryPins {
   }
 }
 
-/** A legacy `_library-pins.yaml` written as `_library-pins.k7x` and removed; an unwritable folder still answers its pins. */
+/** A legacy `_library-pins.yaml` written as `_library-pins.k7x` and removed; one that does not read stays, answering no pins. */
 function upgradePins(legacy: string, file: string): LibraryPins {
-  let pins: LibraryPins;
+  let pins: LibraryPins | null;
   try {
     pins = parseLegacyLibraryPins(readFileSync(legacy, "utf8"));
   } catch {
     return {};
   }
+  if (!pins) return {};
   try {
     writeFileAtomic(file, stringifyLibraryPins(pins));
     rmSync(legacy, { force: true });

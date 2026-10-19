@@ -15,12 +15,12 @@ Every mutation crosses one of two choke points, and both wrap it in
 - **`POST /command` → `runWebCommand`** — every UI action that dispatches a command,
   including `track process` / `clip process` (`engineLink.ts`).
 
-`recordChange` snapshots the project's text files (small YAML) before and after the
+`recordChange` snapshots the project's text files (small k7x files) before and after the
 mutation and diffs them, so it catches an edit however it was written. Binary files (a
 process *bounce*, which overwrites a rendered `.wav`) are handled by the `snapshot(abs)`
 callback the mutation calls **before** it overwrites one: that stashes the pre-image
 bytes, and the after-image is read from disk once the mutation returns. A process step
-therefore ends up as one entry holding both the repointed clip YAML (text diff) and the
+therefore ends up as one entry holding both the repointed clip file (text diff) and the
 render backup (blob), undone atomically.
 
 The `snapshot` callback — not size/mtime — is the authority for overwrites, so a

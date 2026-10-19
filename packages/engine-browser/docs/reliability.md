@@ -120,7 +120,7 @@ forget — every connection sends one.
 
 ### Who calls `sendProject`, and what is not folded
 
-k7 never calls it: its documents are **compiled** from a folder of YAML, which the file service
+k7 never calls it: its documents are **compiled** from a folder of k7x files, which the file service
 does, so its browser only drives transport. An app that builds its own document (a module preview,
 a deck) has nothing to compile and no reason to go through a second process to reach a socket it
 already holds.

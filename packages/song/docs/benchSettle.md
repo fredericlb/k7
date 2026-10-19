@@ -38,7 +38,7 @@ Same machine, two benches run sequentially.
 
 **The two benches do not measure the same thing.** `buildGraphDoc` costs **35.65 ms against
 21.36** — the ~14 ms gap is its own work, the clip extents. In the mixed regime both are
-dominated by the same uncached YAML reads, which return a figure identical to within 0.6 % and
+dominated by the same uncached file reads, which return a figure identical to within 0.6 % and
 hide that whole item.
 
 **The curve is gentle.** 8× the tracks costs 5.8× (compile) and 8.5× (graphDoc).
@@ -59,7 +59,7 @@ that do not mean the same thing.
 
 ## What must NOT be cached
 
-Zod's `safeParse` (`loader.ts`) is not cached although the YAML parse is, and it looks like the
+Zod's `safeParse` (`loader.ts`) is not cached although the k7x parse is, and it looks like the
 next item along. Measured: **1.0 % of a 64-track compile**, 1 to 2.5 % at 8. And caching it would
 break an invariant `loader.ts` states outright — the cached parse is safe *only because* `r.data`
 is a fresh structure zod rebuilds, so nothing shared escapes the loop. Caching `r.data` would be

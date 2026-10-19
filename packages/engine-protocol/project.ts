@@ -5,10 +5,10 @@
 // This is NOT "a k7 song". It is the OUTPUT of a compiler, and any app that can build
 // one can drive the engine — pl8's module preview is a one-track doc, a DJ deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
-// YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
+// workspace compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.
 
-// A named timeline marker from project.yaml's `markers` map; `beat` is that timecode in timeline beats.
+// A named timeline marker from project.k7x's `markers` map; `beat` is that timecode in timeline beats.
 export interface Marker {
   tc: string; // the map key — a canonical timecode, e.g. "5:1:1"
   name: string;
@@ -18,7 +18,7 @@ export interface Marker {
 // Project-level playback/recording settings, carried on every ProjectDoc and defaulted when the file is absent.
 export interface SettingsDoc {
   metronome: boolean; // the project's stored click-track default (the engine also has a live toggle)
-  /** How loud the click is, 0.2 … 1 (`settings.yaml`'s `metronome_level`); never 0, because silencing it is `metronome: false`. */
+  /** How loud the click is, 0.2 … 1 (`settings.k7x`'s `metronome_level`); never 0, because silencing it is `metronome: false`. */
   metronomeLevel: number;
   countIn: number; // BARS the transport rolls before an armed track records; 0 == immediately
 }
@@ -208,5 +208,5 @@ export interface ProjectDoc {
   tracks: TrackDoc[];
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
   markers: Marker[]; // sorted by beat
-  settings: SettingsDoc; // always present, defaulted when settings.yaml is absent
+  settings: SettingsDoc; // always present, defaulted when settings.k7x is absent
 }

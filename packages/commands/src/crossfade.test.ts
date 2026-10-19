@@ -17,7 +17,8 @@ const put = (rel: string, bytes: Buffer): void => {
   mkdirSync(join(dir, rel, ".."), { recursive: true });
   writeFileSync(join(dir, rel), bytes);
 };
-const doc = (rel: string, value: unknown): void => writeDoc(join(dir, rel), value);
+const doc = (rel: string, value: unknown): void =>
+  writeDoc(join(dir, rel), value);
 const events = () =>
   wsData(join(dir, "tracks/gtr.k7x")).events as Record<string, unknown>[];
 const run = async (line: string) => {

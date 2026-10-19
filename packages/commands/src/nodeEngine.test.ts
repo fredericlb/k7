@@ -2,18 +2,13 @@
 // which must land in THAT engine's params. Through the dispatcher and asserting the FILE, for the
 // reason bypass.test.ts gives. See packages/song/docs/engines.md.
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeDoc, writeLane, writeNode } from "@studio/song/testSupport";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { setModuleAsset, setModuleParam } from "@studio/song-edit/projectEdit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
 
 let root: string;
@@ -22,38 +17,25 @@ const logs: string[] = [];
 let reloaded = 0;
 
 /** A lane through one compressor node, the compressor holding two engines in `@workspace`. */
-function song(node: string): void {
+function song(node: Record<string, unknown>): void {
   root = mkdtempSync(join(tmpdir(), "td-engine-"));
   dir = join(root, "song.k7");
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, "project.yaml"),
-    "project:\n  name: t\n  tempo: 120\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "graph.yaml"),
-    "modules:\n  gtr: [ comp ]\n  comp: [ OUT ]\n",
-    "utf8",
-  );
-  writeFileSync(
-    join(dir, "nodes", "gtr.yaml"),
-    'extends: "@meta/track"\nevents: []\n',
-    "utf8",
-  );
-  writeFileSync(join(dir, "nodes", "comp.yaml"), node, "utf8");
+  writeDoc(join(dir, "project.k7x"), { project: { name: "t", tempo: 120 } });
+  writeDoc(join(dir, "graph.k7x"), {
+    modules: { gtr: ["comp"], comp: ["OUT"] },
+  });
+  writeLane(dir, "gtr", "track", { events: [] });
+  writeNode(dir, "comp", node);
   const mod = join(root, "_modules", "audio", "compressor");
   for (const [at, body] of [
-    ["", "engine: tracktion\n"],
-    ["engines/tracktion", "plugin: { type: internal, name: compressor }\n"],
+    ["", { engine: "tracktion" }],
+    ["engines/tracktion", { plugin: { type: "internal", name: "compressor" } }],
     [
       "engines/vari-mu",
-      "plugin: { type: internal, name: airwindows_varimu }\n",
+      { plugin: { type: "internal", name: "airwindows_varimu" } },
     ],
-  ]) {
-    mkdirSync(join(mod, at), { recursive: true });
-    writeFileSync(join(mod, at, "module.yaml"), body, "utf8");
-  }
+  ] as const)
+    writeDoc(join(mod, at, "module.k7x"), body);
 }
 
 const host = () =>
@@ -68,12 +50,13 @@ const host = () =>
     },
   }) as never;
 
-const node = () => parse(readFileSync(join(dir, "nodes", "comp.yaml"), "utf8"));
+// biome-ignore lint/suspicious/noExplicitAny: the test reads arbitrary depths of the node's data.
+const node = (): any => wsData(join(dir, "nodes", "comp.k7x"));
 
 beforeEach(() => {
   logs.length = 0;
   reloaded = 0;
-  song('extends: "@workspace/audio/compressor"\n');
+  song({ extends: "@workspace/audio/compressor" });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -97,9 +80,11 @@ describe("node engine", () => {
 
   it("writes on the ALTERNATIVE that is on", async () => {
     rmSync(root, { recursive: true, force: true });
-    song(
-      'extends: "@workspace/audio/compressor"\nalternative: b\nalternatives:\n  - name: b\n',
-    );
+    song({
+      extends: "@workspace/audio/compressor",
+      alternative: "b",
+      alternatives: [{ name: "b" }],
+    });
     await runCommand("node engine comp vari-mu", host(), "cli");
     expect(node().engine).toBeUndefined();
     expect(node().alternatives[0].engine).toBe("vari-mu");

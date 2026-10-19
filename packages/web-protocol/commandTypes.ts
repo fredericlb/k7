@@ -14,7 +14,7 @@ export type ArgClass =
   | "text";
 // The PRECISE type of thing an argument names, where `kind` is only its colour — see docs/document.md.
 export type ArgProvider =
-  // A BOX this project declares — `assemblies/<name>.yaml`, see packages/song/docs/assemblies.md.
+  // A BOX this project declares — `assemblies/<name>.k7x`, see packages/song/docs/assemblies.md.
   | "assemblies"
   // …and a TEMPLATE the library holds, which is what a new one is made from.
   | "assemblyTemplates"
@@ -34,7 +34,7 @@ export type ArgProvider =
   | "moduleEngines"
   // One of this project's USES of a module, which is what the `node …` verbs address — packages/song/docs/nodes.md.
   | "nodes"
-  // A PICTURE lane of this song — video_tracks/<id>.yaml, read off the folder rather than the compile.
+  // A PICTURE lane of this song — video_tracks/<id>.k7x, read off the folder rather than the compile.
   | "pictureLanes"
   // A set list of the REPOSITORY — with `libraries`, a provider that reads nothing of the open project.
   | "playlists"

@@ -6,7 +6,7 @@ A project finds the modules it can extend **by where they are**:
 ws/_modules/                  the workspace's own  → @workspace/<type>/<name>
 <libraries>/k7/modules/      a library, `k7`     → @k7-core/<type>/<name>
 <libraries>/k7/chains/       …its chains          → @k7-core/<path>
-<libraries>/k7/presets/      …its presets         → <ns>/<module path>/<name>.yaml
+<libraries>/k7/presets/      …its presets         → <ns>/<module path>/<name>.k7x
 ws/_presets/                  the workspace's presets, the same shape
 <libraries>/drums/…           another, `drums`     → @drums/…
 ws/song/                      a project
@@ -35,7 +35,7 @@ makes `@k7-core` mean it.
 
 **A library is a series of frozen VERSIONS, and the workspace pins one.** `<name>/1/`, `<name>/2/`…
 are published and never written again; `<name>/draft/` is the one its admins edit. A workspace
-names the version of each library it uses in `_library-pins.yaml` at its root, and every function
+names the version of each library it uses in `_library-pins.k7x` at its root, and every function
 here that turns a name into a folder takes the path it resolves FROM (`libraryRoot(name, from)`),
 walks up to that file, and answers the pinned version's folder. Unpinned is version 1. What forced
 it: a desktop whose k7 is too old for the newest version keeps playing an older one, and the
@@ -111,15 +111,16 @@ library a path is in — through its overlay's root when it has one — which is
 
 ## A chain template is ONE file
 
-`<library>/chains/<path>.yaml` is the chain `@<library>/<path>`, written as a project's chain file is
+`<library>/chains/<path>.k7x` is the chain `@<library>/<path>`, written as a project's chain file is
 ([chainFiles.md](chainFiles.md)): its steps in order, each node an item with its `id`, and last the
 one link it makes.
 
-```yaml
-# <library>/chains/process/normalize.yaml
-steps:
-  - { id: 0706883d-…, extends: "@k7-core/cold/normalize", params: { Target: -1 } }
-  - to: [ { chain: "@out" } ]
+```k7x
+// <library>/chains/process/normalize.k7x
+steps([
+  id("0706883d-…").extends("@k7-core/cold/normalize").params({ Target: -1 }),
+  to([chain("@out")]),
+])
 ```
 
 - **No `start`, no `ports`.** A template is fed by whatever it is put after — a clip's audio in a
@@ -165,7 +166,7 @@ has to answer "which ones are those" — and it has to answer from the FILES, be
 resolve them, since **a ref that resolves to nothing is exactly the one worth fetching**.
 
 Two ways a project reaches a library module, and both count: a module of its own that `extends` it,
-and a chain step naming it outright. `graph.yaml` declares SEGMENTS, so a library module may be a
+and a chain step naming it outright. `graph.k7x` declares SEGMENTS, so a library module may be a
 `modules:` KEY (a node that exists before anything is wired to it), a destination, or a name in
 `bypassed:` — read as the file is shaped rather than through the derived chains, which would need
 the whole graph model to answer a question about names. A chain may name a NODE of a library module
@@ -189,18 +190,18 @@ desk's surface names, and a playlist lives at the WORKSPACE root beside `_module
 inside the project. That is the cost of a set list being a document other projects can open, and
 it is paid once, here.
 
-Read off the YAML before anything resolves it, for the same reason the modules are. A line naming a
+Read off the file before anything resolves it, for the same reason the modules are. A line naming a
 song by its bare TITLE is therefore skipped — resolving that needs the catalogue, which is the thing
 being synced — so it arrives on the desk as a song the cache has not got, which it is. The
 unambiguous path form is what a click writes and what the desk's own listing offers.
 
 `mediatekPathPrefix` answers a folder PREFIX rather than a file list, because a module IS its
-folder: the jsdsp source and the panel are as much part of it as `module.yaml`, and a
+folder: the jsdsp source and the panel are as much part of it as `module.k7x`, and a
 sync that fetched only the file named would land a module that loads nothing.
 
 ## Where a panel lives — and why there is no list for it
 
-A module's UI panel is the `ui.yaml` in the module's own folder (see uiLibrary.ts). Not a
+A module's UI panel is the `ui.k7x` in the module's own folder (see uiLibrary.ts). Not a
 parallel tree at a place of its own: a project draws modules from several libraries, so one
 hard-coded place cannot serve them all — and a panel filed apart from its module is free to
 disagree with it about which module it draws.

@@ -9,10 +9,10 @@ file and the change is heard on the next pass.
 1. Write the pattern in `algo/<name>.strudel`.
 2. Create a lane that extends `@meta/strudel-track` and names the file:
 
-   ```yaml
-   # tracks/pad.yaml
-   extends: "@meta/strudel-track"
-   strudel: algo/pattern.strudel
+   ```k7x
+   // tracks/pad.k7x
+   extends("@meta/strudel-track")
+   strudel("algo/pattern.strudel")
    ```
 
 3. Route the lane. A pattern lane holds nothing until the transport rolls, so the routing names its

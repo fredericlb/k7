@@ -40,8 +40,8 @@ the library one and repoints the project at it.
 | Concern | Where |
 |---|---|
 | Library home, versions, pins, the root a name resolves to | `packages/song/src/sharedFolders.ts` |
-| Version manifest (`library.yaml`: `name`, `version`, `requires`, `notes`) and `LIBRARY_LEVEL` | `packages/song-schema/src/libraryVersions.ts` |
-| The workspace's pins (`_library-pins.yaml`), written once | `packages/file-service/src/libraryPins.ts` |
+| Version manifest (`library.k7x`: `name`, `version`, `requires`, `notes`) and `LIBRARY_LEVEL` | `packages/song-schema/src/libraryVersions.ts` |
+| The workspace's pins (`_library-pins.k7x`), written once | `packages/file-service/src/libraryPins.ts` |
 | `library versions`, `library upgrade` | `packages/commands/src/verbs/library.ts` |
 | The origin's list, seeding, drafts, publishing | `packages/file-hub/libraries.ts` (`LibraryStore`) |
 | Routes for the list and publishing | `packages/file-hub/librariesRoutes.ts` |
@@ -91,7 +91,7 @@ one commit.
 ## Presets
 
 Presets are files in a tree beside the modules: `_presets/` in the workspace, `presets/` in a
-library, at `<root>/<namespace>/<module path>/<name>.yaml`. Vocabulary and schema:
+library, at `<root>/<namespace>/<module path>/<name>.k7x`. Vocabulary and schema:
 `packages/song-schema/src/presets.ts`; reading and writing: `packages/song-edit/src/presets.ts`;
 verbs: `packages/commands/src/verbs/preset.ts`. Applying a preset writes into the node's file and
 reaches the engine as a values-only diff.
@@ -106,8 +106,8 @@ reaches the engine as a values-only diff.
 | Drawing | `packages/ui-chains/src/assembly.ts` (`foldAssemblies`) |
 | Template editor | `packages/ui-module-builder/src/AssemblyBuilder.tsx` |
 
-A template is a folder under a library's `assemblies/` holding `assembly.(k7x|yaml)` beside an
-ordinary `graph` and `nodes/`. A project instance is `assemblies/<name>.yaml` in the project.
+A template is a folder under a library's `assemblies/` holding `assembly.k7x` beside an
+ordinary `graph` and `nodes/`. A project instance is `assemblies/<name>.k7x` in the project.
 `assembly new` copies each member to `nodes/<name>_<member>`, merges the template's wiring with the
 names remapped, and refuses a clash.
 

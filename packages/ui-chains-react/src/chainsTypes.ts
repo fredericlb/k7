@@ -41,7 +41,7 @@ export type GraphMenuCtx =
       param: string;
       /** Its label, for a menu that reads as the knob does. */
       label: string;
-      /** The CC bound to it today, if any (the module's `controller.yaml`). */
+      /** The CC bound to it today, if any (the module's `controller.k7x`). */
       cc?: WebCc;
       /** A curve drives it today — what makes removing the automation an entry. */
       automated?: boolean;

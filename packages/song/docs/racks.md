@@ -82,15 +82,11 @@ remove: the notes are where the SFZ file put its sounds, and a node that remappe
 second keymap over the first, which a drum part written for General MIDI would then miss. To play a
 kit from other notes, change the kit.
 
-```yaml
-# k7-rack/engines/naked-drums/module.yaml
-extends: "@engine/sfz-player"
-params:
-  sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
-kit:
-  Kick: 36
-  Snare: 38
-  HatClosed: 42
+```k7x
+// k7-rack/engines/naked-drums/module.k7x
+extends("@engine/sfz-player")
+params({ sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz" })
+kit({ Kick: 36, Snare: 38, HatClosed: 42 })
 ```
 
 ### A kit from an SFZ drum kit
@@ -109,17 +105,16 @@ the full kit stays an SFZ instrument and the rack is the light, editable copy.
 through a reverb, the kick dry. The node says so in `tap_outs:`, a tap's name to a subchain's id,
 on a rack's sounds and a kit's pads alike, and `node tap out <node> <tap> <subchain|none>` writes it.
 
-```yaml
-# chains/drums.yaml
-steps:
-  - { id: lane-drums, track: drums }
-  - { id: kit-1, extends: "@k7-core/instruments/k7-rack", tap_outs: { Snare: snare-fx } }
-  - to: [ { chain: MIX } ]
-subchains:
-  - id: snare-fx
-    steps:
-      - { id: snare-verb, extends: "@k7-core/audio/verb" }
-      - to: [ { chain: MIX } ]
+```k7x
+// chains/drums.k7x
+steps([
+  id("lane-drums").track("drums"),
+  id("kit-1").extends("@k7-core/instruments/k7-rack").tap_outs({ Snare: "snare-fx" }),
+  to([chain("MIX")]),
+])
+subchains([
+  id("snare-fx").steps([id("snare-verb").extends("@k7-core/audio/verb"), to([chain("MIX")])]),
+])
 ```
 
 - **On the node, not in the subchain.** Which pad goes where is a choice made on the instrument,
@@ -154,15 +149,14 @@ left (`packages/ui-chains/docs/graphBuild.md`). A pad sits AT its note, the plac
 from, and an empty cell is an add tap on that note (`node tap at`). A rack with NO sounds still
 draws one octave of add taps, because a kit node is born empty and that is how it gets its first sound.
 
-```yaml
-# modules/instruments/kit/module.yaml
-extends: instruments/drumrack     # a base may ship sounds; this adds and overrides per symbol
-type: rack
-rack:
-  rack_type: samples              # each symbol names its OWN clip…
-  symbols:
-    SN: { note: 38, clip: snare }
-    HH: { note: 42, clip: hat }
+```k7x
+// modules/instruments/kit/module.k7x
+extends("instruments/drumrack") // a base may ship sounds; this adds and overrides per symbol
+type("rack")
+rack({
+  rack_type: "samples", // each symbol names its OWN clip…
+  symbols: { SN: { note: 38, clip: "snare" }, HH: { note: 42, clip: "hat" } },
+})
 ```
 
 Two flavours. **`samples`** gives each symbol its own `clip`; **`slice`** cuts every symbol out of
@@ -180,10 +174,10 @@ graph alike.
 A rack node carries its sounds (`WebChainStep.rack`) and turns them into a widget grid: one
 `button` per symbol, labelled with it, four to a row. Synthesised rather than authored, exactly as
 a track node's mixer strip is, and for the same reason — the pads are not the module's opinion
-about its panel, they are what it IS. Asking someone to also write a `ui.yaml` listing the sounds
+about its panel, they are what it IS. Asking someone to also write a `ui.k7x` listing the sounds
 would be asking them to keep two lists in step.
 
-An **authored `ui.yaml` wins**: a rack with a hand-made panel has said what its node should show,
+An **authored `ui.k7x` wins**: a rack with a hand-made panel has said what its node should show,
 and a grid of pads bolted underneath would be the app overruling the file.
 
 ### `@rack:<symbol>` is an intrinsic that FIRES

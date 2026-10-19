@@ -58,8 +58,9 @@ describe("a legacy YAML pins or manifest file", () => {
     expect(
       parseLegacyLibraryPins("k7-core: 7\ndrums: draft\nbass: soon\n"),
     ).toEqual({ "k7-core": 7, drums: "draft" });
-    expect(parseLegacyLibraryPins("- not a map")).toEqual({});
-    expect(parseLegacyLibraryPins("a: [\n")).toEqual({});
+    expect(parseLegacyLibraryPins("")).toEqual({});
+    expect(parseLegacyLibraryPins("- not a map")).toBeNull();
+    expect(parseLegacyLibraryPins("a: [\n")).toBeNull();
     expect(parseLegacyLibraryManifest("name: k7-core\nversion: 2\n")).toEqual({
       name: "k7-core",
       version: 2,

@@ -297,10 +297,10 @@ function portOn(n: GraphNode, side: "in" | "out"): string | undefined {
   return jacks?.length === 1 ? jacks[0].name : undefined;
 }
 
-/** The chains.yaml name a JACK click has in hand — `insertFor`'s resolution, plus `#port`.
+/** The chains.k7x name a JACK click has in hand — `insertFor`'s resolution, plus `#port`.
  *
  * An ASSEMBLY answers with the MEMBER behind the plug, never with itself: the box is a drawing and
- * `graph.yaml` has no key for it, so a cable dropped on `turntableA#mix` writes `fadeA`. Its bare
+ * `graph.k7x` has no key for it, so a cable dropped on `turntableA#mix` writes `fadeA`. Its bare
  * name is still its own — that is what a pin and `graph move` address. See docs/graphBuild.md. */
 export function jackRef(n: GraphNode, port?: string): string {
   if (n.assemblyOf && port) {

@@ -14,7 +14,6 @@ import { join, relative } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { build } from "esbuild";
 import { toJS } from "../src/ast.ts";
-import { fromYaml } from "../src/fromYaml.ts";
 import { nativeData, nativeReady } from "../src/native.ts";
 import { K7SyntaxError, parseTree } from "../src/parse.ts";
 import { stringify } from "../src/print.ts";
@@ -29,23 +28,14 @@ function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) return walk(abs);
-    return /\.(ya?ml|k7x)$/.test(name) ? [abs] : [];
+    return name.endsWith(".k7x") ? [abs] : [];
   });
 }
 
-// Every corpus file as k7x text: YAML converted, a .k7x file read as is.
-const corpus: [string, string][] = [];
-for (const file of ["demos", "k7-core"].flatMap((d) => walk(join(ROOT, d)))) {
-  const raw = readFileSync(file, "utf8");
-  try {
-    corpus.push([
-      relative(ROOT, file),
-      file.endsWith(".k7x") ? raw : fromYaml(raw),
-    ]);
-  } catch {
-    // A YAML file fromYaml refuses is no k7x file, so it is not in the corpus.
-  }
-}
+// Every .k7x file of the corpus, as written.
+const corpus: [string, string][] = ["demos", "k7-core"]
+  .flatMap((d) => walk(join(ROOT, d)))
+  .map((file) => [relative(ROOT, file), readFileSync(file, "utf8")]);
 
 const big = stringify(
   Object.fromEntries(

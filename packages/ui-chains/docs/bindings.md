@@ -3,9 +3,8 @@
 A "mapped" surface — the DJ desk, the mastering strip — carries a `mapping:` in its `surfaces/`
 file, keyed by CONTROL:
 
-```yaml
-mapping:
-  deckA.eqLow: { module: eqA, param: Low-shelf gain }
+```k7x
+mapping({ "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" } })
 ```
 
 Turning that into "put this parameter on this plugin" needs three questions answered, and

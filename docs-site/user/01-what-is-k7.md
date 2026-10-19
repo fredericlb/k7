@@ -1,6 +1,6 @@
 # What k7 is
 
-k7 is a text-first DAW. A song is a folder of plain text files (YAML), and every view on screen
+k7 is a text-first DAW. A song is a folder of plain text files (k7x), and every view on screen
 (the timeline, the graph of chains, the DJ desk, the picture) is a way of reading and editing
 those files. You can type a change into the editor, drag a clip on the timeline, or run a command
 in the command bar. Each one writes the same files, and the engine plays what the files say.

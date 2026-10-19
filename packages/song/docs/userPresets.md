@@ -9,8 +9,8 @@ presets a person saves or hand-authors.
 One FILE per preset, in a presets tree beside the modules rather than in a module's folder:
 
 ```
-<workspace>/_presets/<ns>/<module path>/<name>.yaml      kept in the workspace
-<library>/presets/<ns>/<module path>/<name>.yaml         kept in a library
+<workspace>/_presets/<ns>/<module path>/<name>.k7x       kept in the workspace
+<library>/presets/<ns>/<module path>/<name>.k7x          kept in a library
 ```
 
 Two coordinates, and they answer different questions. The **tree** is where the preset is KEPT —
@@ -26,22 +26,19 @@ module folder holds what the module IS; a preset is a use of it.
 
 `_presets/` sits beside `_modules/`, so it is the same `@workspace` level and travels with the
 workspace's repository. `presets/` is a family of a library repository like `modules/` and
-`chains/`. A `presets.yaml` left in a module folder is read by nothing; the name stays reserved so
+`chains/`. A `presets.k7x` left in a module folder is read by nothing; the name stays reserved so
 it never loads as a node.
 
 ## The file
 
-```yaml
-# preset for @k7-core/audio/dynamics/compressor
-engine: vari-mu
-params:
-  Intensty: 0.6
-  Output Level: 0.8
+```k7x
+// preset for @k7-core/audio/dynamics/compressor
+engine("vari-mu")
+params({ Intensty: 0.6, "Output Level": 0.8 })
 ```
 
-One param per line, hand-written rather than through `stringify`, so changing one value is a
-one-line diff. A key is quoted only when YAML needs it: plugin param names carry spaces, and
-quoting every one would be noise.
+One param per line, so changing one value is a one-line diff. A key is quoted only when it is not a
+bare name: plugin param names carry spaces, and quoting every one would be noise.
 
 **Numbers only** in `params:`. A node's `params:` may hold a filename, but that is an asset, not
 a setting a preset should silently move.
@@ -51,11 +48,9 @@ a setting a preset should silently move.
 A rack node has no knobs worth naming; its sound is its KIT, the `rack: symbols:` of the node
 (`racks.md`). So a preset also keeps `rack:`, one pad per line, a note and a sample:
 
-```yaml
-# preset for @k7-core/instruments/drums
-rack:
-  BD: { note: 36, sample: "@k7-core/kicks/808.wav" }
-  SN: { note: 38 }
+```k7x
+// preset for @k7-core/instruments/drums
+rack({ BD: { note: 36, sample: "@k7-core/kicks/808.wav" }, SN: { note: 38 } })
 ```
 
 **Only library samples.** A pad playing `@project/…` is refused at save, and so is a legacy pad
@@ -139,11 +134,11 @@ with a name on it — a preset that looks saved and is not.
 So the blob has a place of its own, deliberately **not** among the presets:
 
 ```
-modules/<type>/<name>/module.yaml    what it does
-modules/<type>/<name>/ui.yaml        how it's drawn
+modules/<type>/<name>/module.k7x     what it does
+modules/<type>/<name>/ui.k7x         how it's drawn
 modules/<type>/<name>/<name>.vstpreset   its default state, read by the loader
 modules/<type>/<name>/base/          named blobs: whole states, kept
-_presets/<ns>/<type>/<name>/*.yaml    named settings — numbers, outside the module
+_presets/<ns>/<type>/<name>/*.k7x     named settings — numbers, outside the module
 ```
 
 The two do not compete, and the difference is worth holding on to:
@@ -169,10 +164,10 @@ rather than as a `.vstpreset` (`engine/k7-runtime/docs/surgePlugin.md`).
 
 A module or a node names the base it starts from:
 
-```yaml
-extends: "@k7-core/instruments/wurli"
-base: warm            # base/warm.vstpreset, here or in an ancestor's folder
-params: { Volume: 0.7 }
+```k7x
+extends("@k7-core/instruments/wurli")
+base("warm") // base/warm.vstpreset, here or in an ancestor's folder
+params({ Volume: 0.7 })
 ```
 
 **Per INSTANCE**, because a node has its own file: two nodes of one module can sit on two bases,
@@ -213,7 +208,7 @@ else, which is the same failure that function stops for asset files.
 ### The dropdown
 
 A module with bases offers `@base` in the builder's parameter list, so a widget can be bound to
-it like any other. The ENTRIES are not written into `ui.yaml`: the graph fills them at draw time
+it like any other. The ENTRIES are not written into `ui.k7x`: the graph fills them at draw time
 from what the loader found (`withFolderOptions` in `@studio/ui-chains`'s `graph.ts`), because a base can be snapshotted after the panel
 was authored and a list copied into the panel would go stale between saves. Same reason a live
 input's socket list is the machine's rather than the panel's.

@@ -1,9 +1,9 @@
 # `bus_only:` — dropping a bus's dry path
 
-A fourth section of `graph.yaml`, beside `modules:`, `bypassed:` and `positions:`:
+A fourth section of `graph.k7x`, beside `modules:`, `bypassed:` and `positions:`:
 
-```yaml
-bus_only: [ eqA, eqB ]
+```k7x
+bus_only(["eqA", "eqB"])
 ```
 
 It says: **this bus is heard by its destinations and nowhere else.** Its own dry path to the

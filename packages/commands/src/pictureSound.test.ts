@@ -14,8 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compileNodeProject } from "@studio/song/nodeProject";
 import { parse } from "@studio/k7x/document";
+import { compileNodeProject } from "@studio/song/nodeProject";
 import { writeDoc } from "@studio/song/testSupport";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

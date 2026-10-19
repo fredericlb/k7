@@ -19,7 +19,7 @@ workspaces somewhere nobody chose. Under it:
 ```text
 $STUDIO_FILES_ROOT/
   libraries.json                  the account libraries' list
-  libraries/<name>/1/ 2/ … draft/ published versions (each with library.yaml) and the admin draft
+  libraries/<name>/1/ 2/ … draft/ published versions (each with library.k7x) and the admin draft
   libraries/.sync-relay/ …        the libraries' live rooms (origin)
   libraries/.sync-replica/ | .sync-follow/   the hub's own library replica
   <account-slug>/                 the account's STUDIO_HOME
@@ -84,14 +84,14 @@ libraries follow the first paired account.
 
 `packages/file-hub/libraries.ts` (`LibraryStore`):
 
-- A library is a folder of **versions**: `1/`, `2/`… frozen, each with a `library.yaml`
+- A library is a folder of **versions**: `1/`, `2/`… frozen, each with a `library.k7x`
   (`{ name, version, requires, notes? }`), and an admin's `draft/`. A version is never rewritten.
 - A listed library missing on disk is installed from its seed (`$STUDIO_LIBRARY_SEED`: a folder of
   library folders, or `name=folder,…`), copied to a dot-named sibling then renamed into place; with
   no seed it starts empty.
 - `publish` copies the draft to `max + 1` with a new manifest. `requires` (the lowest
   `LIBRARY_LEVEL` that runs it) defaults to the previous version's.
-- Which version a workspace uses is the workspace's `_library-pins.yaml`, read by `@studio/song`; the
+- Which version a workspace uses is the workspace's `_library-pins.k7x`, read by `@studio/song`; the
   hub does not pin.
 
 Distribution: on the origin, each library folder is relayed as a live room of the reserved

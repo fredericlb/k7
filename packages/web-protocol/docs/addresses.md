@@ -98,14 +98,14 @@ scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are
 
 `PROJECT_SUFFIXES` has one entry, `.k7`, because one app opens a project. Everything an k7 project
 can BE is a shape *inside* `.k7` rather than a folder kind of its own: a song carries
-`video_tracks/` and a `viewport` surface, a set carries `songs.yaml` and a `turntables` surface
+`video_tracks/` and a `viewport` surface, a set carries `songs.k7x` and a `turntables` surface
 (`PROJECT_SHAPES` in `@studio/song`). See `packages/song-video/docs/picture.md` and
 `packages/song/docs/setProject.md`. It stays a `Record<ProjectApp, string>`, so an app added to
 `ProjectApp` fails to compile until its suffix is stated.
 
 `projectApp` reads the NAME, not the contents, and the two are different questions: "who opens
 this" and "can the engine be given it". Only the second needs a file opened, which is why the
-first can be answered without a checkout at all. A `project.yaml` is what makes a project
+first can be answered without a checkout at all. A `project.k7x` is what makes a project
 COMPILE, and `@studio/song` asks that question its own way, on the machine's own clone.
 
 k7 IS its service, so a project's address has no mount in front of it:

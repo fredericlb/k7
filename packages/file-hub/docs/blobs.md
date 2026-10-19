@@ -1,6 +1,6 @@
 # Binary files: a ref in the text, the bytes in a store
 
-A workspace holds audio, presets, amp models and images beside its YAML. They travel through the same
+A workspace holds audio, presets, amp models and images beside its k7x files. They travel through the same
 relay as everything else (`syncRelay.md`), but their bytes do not: an op carries a REF, and the bytes go
 through a content-addressed store beside the relay, `/api/sync/blobs` (`../blobStore.ts`). The ref is
 `@studio/live-sync`'s `blobRef` (`../../live-sync/src/blob.ts`); the capture that makes it is
