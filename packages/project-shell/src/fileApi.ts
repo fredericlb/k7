@@ -218,12 +218,15 @@ export async function fsend<T>(
   method: string,
   path: string,
   body: unknown,
+  /** `fence: false` for a POST that changes no project file (a waveform prewarm): reads around it stay shareable. */
+  options: { fence?: boolean } = {},
 ): Promise<T> {
+  const fence = options.fence !== false;
   // THE choke point: every write in every app that mounts this shell — see docs/fileApi.md.
   const frozen = cfg().frozen;
   if (frozen) throw new ReadOnlyDocument(frozen.why);
   // Both edges, and both matter — see docs/fileApi.md.
-  epoch++;
+  if (fence) epoch++;
   const post = () =>
     fetch(cfg().base + path, {
       method,
@@ -231,12 +234,12 @@ export async function fsend<T>(
       body: JSON.stringify(body),
     });
   let res = await post().finally(() => {
-    epoch++;
+    if (fence) epoch++;
   });
   // A 401 is the hub refusing the ticket before the service saw anything, so asking again writes once.
   if (res.status === 401 && (await renewTicket()))
     res = await post().finally(() => {
-      epoch++;
+      if (fence) epoch++;
     });
   if (!res.ok) {
     const e: Error & { status?: number } = new Error(

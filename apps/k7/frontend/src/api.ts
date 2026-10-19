@@ -277,11 +277,11 @@ export const api = {
   shareLinkStart: () => fsend<ShareProgress | null>("POST", "/share/link", {}),
   shareLinkProgress: () => fget<ShareProgress | null>("/share/link"),
   prewarmWaveforms: () =>
-    fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}),
+    fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}, { fence: false }),
   waveformStatus: () => fget<WaveformStatus>("/waveforms/status"),
   // Stop the batch: it decodes audio in a second engine process, which is not what the machine should be doing while the transport plays.
   cancelWaveformPrewarm: () =>
-    fsend<WaveformStatus>("POST", "/waveforms/cancel", {}),
+    fsend<WaveformStatus>("POST", "/waveforms/cancel", {}, { fence: false }),
 
   /** Ask the MACHINE what an `@engine/…` plugin has, by loading one on purpose — SECONDS, and `null` is 'cannot load', not an empty list. */
   scanPluginParams: async (

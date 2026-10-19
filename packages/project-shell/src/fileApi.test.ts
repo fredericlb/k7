@@ -159,6 +159,15 @@ describe("a token-derived read, once settled", () => {
     expect(served.filter((u) => u.endsWith("/graph"))).toHaveLength(2);
   });
 
+  it("survives a POST that writes no project file", async () => {
+    await settle("/graph");
+    const warmed = fsend("POST", "/waveforms/prewarm", {}, { fence: false });
+    releaseAll();
+    await warmed;
+    await settle("/graph");
+    expect(served.filter((u) => u.endsWith("/graph"))).toHaveLength(1);
+  });
+
   it("is not kept past a few seconds", async () => {
     vi.useFakeTimers();
     await settle("/graph");

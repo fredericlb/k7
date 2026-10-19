@@ -57,7 +57,10 @@ the project at a given token. Their settled body is kept for five seconds under
 
 The key keeps this as safe as joining a request:
 
-- **A write** from this tab bumps the epoch.
+- **A write** from this tab bumps the epoch. The exception is a POST that changes no project file,
+  such as a waveform prewarm, which writes only sidecars outside the token. It passes
+  `{ fence: false }`. Without that, the prewarm the page sends on opening landed between the two
+  reads every time.
 - **An outside edit** moves the token at the next poll. The page reacts to that move by asking
   again, and the new token makes it a new key.
 
