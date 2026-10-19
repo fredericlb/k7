@@ -60,8 +60,12 @@ export const wsExists = (path: string): boolean => existsSync(realPath(path));
 /** A file's text, a .k7x one as YAML; throws like readFileSync when neither spelling exists. */
 export function wsRead(path: string): string {
   const real = realPath(path);
-  const text = readFileSync(real, "utf8");
-  return isK7xPath(real) ? toYaml(text, sugarFor(real)) : text;
+  return fromRaw(real, readFileSync(real, "utf8"));
+}
+
+/** The YAML text of a file already read: a .k7x one turned into YAML, by the short form its path writes. */
+export function fromRaw(real: string, raw: string): string {
+  return isK7xPath(real) ? toYaml(raw, sugarFor(real)) : raw;
 }
 
 /** A file's text as it is on disk, a .k7x one NOT turned into YAML — for what must be read before any parse. */
