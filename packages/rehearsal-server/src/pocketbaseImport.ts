@@ -46,7 +46,8 @@ async function reader(src: PocketbaseSource) {
       for (let page = 1; ; page++) {
         const data = (await (
           await get(
-            `/api/collections/${enc(coll)}/records?page=${page}&perPage=500&sort=created`,
+            // By id: these collections have no `created` field, and PocketBase refuses a sort on one with a 400.
+            `/api/collections/${enc(coll)}/records?page=${page}&perPage=500&sort=id`,
           )
         ).json()) as { items: Record<string, unknown>[]; totalPages: number };
         out.push(...data.items);
