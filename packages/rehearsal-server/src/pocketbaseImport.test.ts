@@ -94,6 +94,26 @@ describe("the import from PocketBase", () => {
     expect(store.attachmentFile("pbsheet0000001")).toBeNull();
   });
 
+  it("imports into a store that already holds rows of its own", async () => {
+    const store = openStore();
+    store.addRecords("Sessions", [{ Uid: "s1" }]);
+    const counts = await importFromPocketbase(
+      { url, email: "a", password: "pw" },
+      store,
+    );
+    expect(counts).toMatchObject({ Songs: 1 });
+    expect(store.getRecord("Songs", "pbsong00000001")).not.toBeNull();
+    expect(store.listRecords("Sessions")).toHaveLength(1);
+  });
+
+  it("does nothing once one of its rows is in the store", async () => {
+    const store = openStore();
+    const src = { url, email: "a", password: "pw" };
+    await importFromPocketbase(src, store);
+    expect(await importFromPocketbase(src, store)).toBeNull();
+    expect(store.listRecords("Songs")).toHaveLength(1);
+  });
+
   it("leaves the store empty when PocketBase fails halfway, so the next start retries", async () => {
     failSheets = true;
     const store = openStore();

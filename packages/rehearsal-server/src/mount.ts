@@ -121,16 +121,22 @@ export const mountRehearsal = (
   return {
     serve(server) {
       console.log(`   rehearsal: data in ${env.dataDir}`);
-      // Once, while the store is empty and a PocketBase is named: the server's rows move out of it — ../docs/store.md.
+      // Once, while none of its rows is here and a PocketBase is named: the server's rows move out of it — ../docs/store.md.
       const pb = env.pocketbase;
-      if (pb && store.isEmpty()) {
+      if (!pb && env.pocketbaseUrl)
+        console.warn(
+          `   ⚠️  rehearsal: POCKETBASE_URL is set but POCKETBASE_EMAIL or POCKETBASE_PASSWORD is not — nothing is imported`,
+        );
+      if (pb) {
         console.log(`   rehearsal: importing from PocketBase at ${pb.url}…`);
         ready = importFromPocketbase(pb, store).then(
           (counts) =>
             console.log(
-              `   rehearsal: imported ${Object.entries(counts)
-                .map(([k, n]) => `${n} ${k}`)
-                .join(", ")}`,
+              counts
+                ? `   rehearsal: imported ${Object.entries(counts)
+                    .map(([k, n]) => `${n} ${k}`)
+                    .join(", ")}`
+                : "   rehearsal: already imported from PocketBase — its POCKETBASE_* variables can go",
             ),
           (err: unknown) => {
             importFailed = `the rehearsal store could not be imported from PocketBase: ${(err as Error).message}`;

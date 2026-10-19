@@ -91,16 +91,24 @@ transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop 
 ## The one-time import from PocketBase
 
 The server's rows used to live in PocketBase. At boot, when `POCKETBASE_URL`, `_EMAIL` and
-`_PASSWORD` are set and the store holds no row, `../src/pocketbaseImport.ts` copies every
-collection `schema.ts` names, plus every sheet with its bytes, keeping the ids. It never writes to
-PocketBase.
+`_PASSWORD` are set and none of PocketBase's rows is in the store yet, `../src/pocketbaseImport.ts`
+copies every collection `schema.ts` names, plus every sheet with its bytes, keeping the ids. It
+never writes to PocketBase.
+
+- **"Already imported" is read off the ids, not off an empty store.** Any row written before the
+  credentials were set (a session, a star) would otherwise close the import for good, leaving the
+  songbook empty with no error. Kept ids make the test exact: one PocketBase id present means an
+  earlier boot imported it, and the boot says so. Ids are random, so a row the store made itself
+  does not collide with one from PocketBase.
+- **A URL without its credentials is reported.** Compose always names `POCKETBASE_URL`; with no
+  `_EMAIL` or `_PASSWORD`, the boot warns that nothing is imported instead of skipping silently.
 
 - **Routes wait for it.** Every rehearsal route waits until the import is done, so nothing is
   written into a store that is only half filled. Only the rehearsal paths wait: k7's other `/api`
   routes share the process and never do.
 - **All rows or none.** The sheets are written first, then every row in one transaction. A
-  PocketBase that fails partway leaves no row behind, the routes answer 503 saying why, and the
-  next start tries again. A sheet written again on a retry replaces the earlier copy.
+  PocketBase that fails partway leaves none of its rows behind, the routes answer 503 saying why,
+  and the next start tries again. A sheet written again on a retry replaces the earlier copy.
 - **Only the fields `schema.ts` names.** PocketBase's own columns (`created`, `collectionId`…) and
   any field abandoned since are left behind.
 

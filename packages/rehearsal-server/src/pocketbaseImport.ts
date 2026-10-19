@@ -1,5 +1,5 @@
 // pocketbaseImport.ts — the one-time move of the server's rows and sheets out of PocketBase into the store.
-// Runs at boot when POCKETBASE_* are set and the store holds no row; ids are kept, so every reference holds.
+// Runs at boot when POCKETBASE_* are set and none of its rows is here yet; ids are kept, so every reference holds.
 // What reads wrong: it only READS PocketBase, which stays untouched until removed by hand — ../docs/store.md.
 
 import { SCHEMA } from "./schema.ts";
@@ -56,15 +56,20 @@ async function reader(src: PocketbaseSource) {
   };
 }
 
-/** Copy every collection schema.ts names, then every sheet with its bytes; the counts, per collection. */
+/** Copy every collection schema.ts names, then every sheet with its bytes; the counts per collection, or null when a PocketBase row is already here. */
 export async function importFromPocketbase(
   src: PocketbaseSource,
   store: Store,
-): Promise<Record<string, number>> {
+): Promise<Record<string, number> | null> {
   const pb = await reader(src);
   const counts: Record<string, number> = {};
   const rows: Record<string, Record<string, unknown>[]> = {};
   for (const coll of Object.keys(SCHEMA)) rows[coll] = await pb.records(coll);
+  // Ids are kept, so one of them already in the store means an earlier boot imported; rows written since don't count.
+  const done = Object.entries(rows).some(([coll, items]) =>
+    items.some((item) => store.getRecord(coll, String(item.id))),
+  );
+  if (done) return null;
   const sheets = await pb.records("song_sheets");
   // One sheet at a time and before any row: a sheet written again on a retry replaces itself.
   for (const s of sheets)
@@ -75,7 +80,7 @@ export async function importFromPocketbase(
       String(s.song),
       String(s.id),
     );
-  // In one transaction: the store stays empty unless every row landed, and an empty store is what makes the next boot retry.
+  // In one transaction: no PocketBase row lands unless every one does, and none here is what makes the next boot retry.
   store.inTransaction(() => {
     for (const [coll, items] of Object.entries(rows)) {
       const names = new Set(SCHEMA[coll].map((f) => f.name));

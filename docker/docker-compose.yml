@@ -52,7 +52,7 @@ services:
       # Signs the rehearsal recorder's personal tokens, saved in users' settings. Unset is the
       # default derived from SESSION_SECRET that k7 always used, which keeps issued tokens valid.
       K7_API_TOKEN_SECRET: ${K7_API_TOKEN_SECRET:-}
-      # Where the rehearsal store is imported from, ONCE, while k7.db is still empty —
+      # Where the rehearsal store is imported from, ONCE, while none of its rows is in k7.db —
       # packages/rehearsal-server/docs/store.md. Drop all three with the pocketbase service.
       POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
       POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:-}
