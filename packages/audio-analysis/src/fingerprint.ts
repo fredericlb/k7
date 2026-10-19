@@ -7,16 +7,23 @@ import { closeSync, openSync, readSync, statSync } from "node:fs";
 
 const HEAD = 65536;
 const TAIL = 65536;
-const FNV_OFFSET = 0xcbf29ce484222325n;
-const FNV_PRIME = 0x100000001b3n;
-const MASK64 = (1n << 64n) - 1n;
+// FNV-1a/64 in two 32-bit halves: a BigInt per byte allocated 128 KB of them per read, 7x slower on a phone.
+const OFFSET_HI = 0xcbf29ce4;
+const OFFSET_LO = 0x84222325;
+const PRIME_LO = 0x1b3; // the prime is 2^40 + 0x1b3
 
 /** `<size>-<16 hex digits>`, cheap enough to recompute on every read of the sidecar. */
 export function fileFingerprint(source: string): string {
   const size = statSync(source).size;
-  let h = FNV_OFFSET;
+  let hi = OFFSET_HI;
+  let lo = OFFSET_LO;
   const step = (byte: number): void => {
-    h = ((h ^ BigInt(byte)) * FNV_PRIME) & MASK64;
+    lo = (lo ^ byte) >>> 0;
+    // (hi·2^32 + lo)·(2^40 + 0x1b3) mod 2^64: lo·0x1b3 carries into hi, lo·2^40 lands in hi shifted by 8.
+    const low = lo * PRIME_LO;
+    const carry = Math.floor(low / 0x100000000);
+    hi = (Math.imul(hi, PRIME_LO) + (lo << 8) + carry) >>> 0;
+    lo = low >>> 0;
   };
   // Size as 8 little-endian bytes.
   let s = size;
@@ -44,5 +51,5 @@ export function fileFingerprint(source: string): string {
   } finally {
     closeSync(fd);
   }
-  return `${size}-${h.toString(16).padStart(16, "0")}`;
+  return `${size}-${hi.toString(16).padStart(8, "0")}${lo.toString(16).padStart(8, "0")}`;
 }

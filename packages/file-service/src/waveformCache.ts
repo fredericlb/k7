@@ -46,12 +46,13 @@ export async function ensureFileEnvelope(
   sensitivity?: number,
 ): Promise<FileEnvelope> {
   const mtimeMs = statSync(source).mtimeMs; // throws ENOENT for a missing source
-  const wanted = sensitivity ?? storedSensitivity(source);
   const usable = (e: FileEnvelope): boolean =>
     sensitivity === undefined || e.sensitivity === sensitivity;
 
   const hit = memo.get(source);
   if (hit && hit.mtimeMs === mtimeMs && usable(hit.env)) return hit.env;
+  // Past the memo only: it parses the whole sidecar, which every request in a burst would otherwise pay.
+  const wanted = sensitivity ?? storedSensitivity(source);
 
   const fp = fileFingerprint(source);
   const cached = readSidecar(source);
@@ -60,18 +61,28 @@ export async function ensureFileEnvelope(
     return cached;
   }
 
+  return sharedDecode(
+    source,
+    wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
+    engineBin,
+  );
+}
+
+/** ONE decode per source and threshold, joined by a request and the prewarm alike — docs/waveformCache.md. */
+async function sharedDecode(
+  source: string,
+  sensitivity: number,
+  engineBin: string | null,
+  signal?: AbortSignal,
+): Promise<FileEnvelope> {
   // Joined rather than started again — the sidecar this leaves is the same one either way.
-  const key = `${source}\u0000${wanted ?? ""}`;
+  const key = `${source}\u0000${sensitivity}`;
   const running = inFlight.get(key);
   if (running) return running;
-
+  const mtimeMs = statSync(source).mtimeMs;
   const decode = (async (): Promise<FileEnvelope> => {
     // A null engineBin is the hosted service: ffmpeg decodes, as in pl8 (docs/waveformCache.md).
-    const env = await analyseFile(
-      source,
-      wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
-      { engineBin },
-    );
+    const env = await analyseFile(source, sensitivity, { engineBin, signal });
     memo.set(source, { mtimeMs, env });
     return env;
   })();
@@ -151,15 +162,16 @@ export async function runWaveformBatch(
     for (let s = queue.shift(); s !== undefined; s = queue.shift()) {
       if (signal?.aborted) return;
       // The threshold the PREVIOUS sidecar carried, so a prewarm never quietly resets a tuned one.
-      const ok = await analyseFile(
+      const ok = await sharedDecode(
         s,
         storedSensitivity(s) ?? DEFAULT_TRANSIENT_SENSITIVITY,
-        { engineBin, signal },
+        engineBin,
+        signal,
       ).then(
         () => true,
         () => false,
       );
-      invalidateEnvelope(s); // re-read the freshly-written sidecar next time
+      freshMemo.delete(s); // its stamp changed: the next freshness check re-reads it
       if (!signal?.aborted) onResult?.(s, ok);
     }
   };

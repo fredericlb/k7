@@ -45,7 +45,7 @@ import {
   setEditorVim,
 } from "@studio/song/preferences";
 import type { ProjectDoc } from "@studio/song/project";
-import { loadProject } from "@studio/song/project";
+import { loadProjectWithFreezes } from "@studio/song/project";
 import {
   isLibraryName,
   LIBRARIES_DIR,
@@ -219,12 +219,17 @@ function confined(
   if (inside === null) throw new Error(`path escapes the ${what}: ${rel}`);
   return inside;
 }
-
 export class Workspace {
   readonly root: string;
   readonly rootIsProject: boolean;
   private activeProject: string | null;
-  private docCache: { dir: string; rev: string; doc: ProjectDoc } | null = null;
+  // The automatic freezes come out of the same compile, so `autoFreezes()` never compiles again; absent when a doc was SET.
+  private docCache: {
+    dir: string;
+    rev: string;
+    doc: ProjectDoc;
+    freezes?: AutoFreeze[];
+  } | null = null;
   // The picture compile's own cache — see cachedVideoDoc for why it is not a branch inside the one above.
   private videoCache: {
     dir: string;
@@ -240,6 +245,8 @@ export class Workspace {
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
   private readonly wf: WaveformOps;
+  /** The project an `/open` set up in THIS process — a remembered one still gets its prewarm on its first open. */
+  private opened: string | null = null;
 
   constructor(root: string) {
     this.root = resolve(root);
@@ -369,6 +376,9 @@ export class Workspace {
       throw new Error(
         `not a project (the folder must end in ${Object.values(PROJECT_SUFFIXES).join(", ")}): ${rel}`,
       );
+    // Opened again as it is: the revision token already sees any change to its files, so nothing is thrown away.
+    if (this.opened === abs && this.activeProject === abs) return abs;
+    this.opened = abs;
     this.activeProject = abs;
     this.writeActiveMarker(abs);
     this.repairVideoOutputs(abs);
@@ -557,8 +567,8 @@ export class Workspace {
     const rev = this.revision().rev;
     if (this.docCache && this.docCache.dir === dir && this.docCache.rev === rev)
       return this.docCache.doc;
-    const doc = loadProject(dir);
-    this.docCache = { dir, rev, doc };
+    const { doc, freezes } = loadProjectWithFreezes(dir);
+    this.docCache = { dir, rev, doc, freezes };
     return doc;
   }
   setCachedProjectDoc(dir: string, doc: ProjectDoc): void {
@@ -611,6 +621,7 @@ export class Workspace {
     // The walk a mutation already has open, else its own and a NARROW one — see docs/workspace.md.
     return this.revisionOf(this.walkScope ?? walkProject(dir, true));
   }
+
 
   /** The token from a walk — projectWalk.ts — with this workspace's mutation counter. */
   private revisionOf(files: WalkedFile[]): string {
@@ -683,7 +694,11 @@ export class Workspace {
   autoFreezes(): AutoFreeze[] {
     return this.onRevision(
       "autoFreezes",
-      (dir) => compileWithAutoFreezes(dir).freezes,
+      (dir) => {
+        // Off the memoised compile when it holds them: one compile answers the doc and its freezes.
+        this.cachedProjectDoc(dir);
+        return this.docCache?.freezes ?? compileWithAutoFreezes(dir).freezes;
+      },
       [],
     );
   }
