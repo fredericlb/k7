@@ -2,6 +2,7 @@
   "appId": "se.frediver.k7",
   "appName": "k7",
   "webDir": "dist",
+  "backgroundColor": "#07031F",
   "server": { "androidScheme": "https" },
   "android": { "allowMixedContent": false }
 }

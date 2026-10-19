@@ -1,6 +1,6 @@
-// Renders icon/k7.svg into every platform's app icon: web, desktop, Android, iOS, the engine's window.
+// Renders icon/k7.svg into every platform's app icon (web, desktop, Android, iOS, the engine's window), and icon/k7-splash.svg into each startup splash.
 // Run by hand after changing the SVG: node apps/k7/frontend/scripts/icons.mjs (apps/k7/frontend/docs/icons.md).
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -74,6 +74,45 @@ const TARGETS = [
 
 const FAVICON_SIZES = [16, 32, 48];
 
+// The startup splash, drawn transparent: each platform paints #07031F behind it (apps/k7/frontend/docs/icons.md).
+const splashSvg = readFileSync(
+  join(frontend, "icon", "k7-splash.svg"),
+  "utf8",
+).replace(/^<\?xml[^>]*>\s*/, "");
+const SPLASH_TARGETS = [
+  {
+    out: "engine/k7-android/app/src/main/res/drawable-nodpi/splash_art.png",
+    width: 960,
+  },
+  {
+    out: "engine/k7-ios/k7/Assets.xcassets/Splash.imageset/splash@2x.png",
+    width: 560,
+  },
+  {
+    out: "engine/k7-ios/k7/Assets.xcassets/Splash.imageset/splash@3x.png",
+    width: 840,
+  },
+];
+// The desktop's splash is a data URL with nothing fetched, so it carries the drawing inline, minus the namespaces HTML does not need.
+const SPLASH_INLINE = "apps/k7-standalone/src/splashArt.json";
+
+async function renderSplash(browser, width) {
+  const tab = await browser.newPage({ viewport: { width, height: width } });
+  await tab.setContent(
+    `<!doctype html><html><body style="margin:0;background:transparent">${splashSvg.replace("<svg ", `<svg style="display:block;width:${width}px;height:auto" `)}</body></html>`,
+  );
+  const png = await tab.locator("svg").screenshot({ omitBackground: true });
+  await tab.close();
+  return png;
+}
+
+function inlineSplash() {
+  return splashSvg
+    .replace(/\s+xmlns(:\w+)?="[^"]*"/g, "")
+    .replace(/>\s+</g, "><")
+    .trim();
+}
+
 function page(size, shape, width) {
   return `<!doctype html><html><body style="margin:0;background:transparent">
 <div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;${SHAPES[shape]}">
@@ -129,6 +168,16 @@ try {
     favicons.push({ size, png: await render(browser, size, "none", 1) });
   writeFileSync(join(frontend, "public", "favicon.ico"), ico(favicons));
   console.log("apps/k7/frontend/public/favicon.ico");
+  for (const { out, width } of SPLASH_TARGETS) {
+    mkdirSync(dirname(join(repo, out)), { recursive: true });
+    writeFileSync(join(repo, out), await renderSplash(browser, width));
+    console.log(out);
+  }
+  writeFileSync(
+    join(repo, SPLASH_INLINE),
+    `${JSON.stringify({ svg: inlineSplash() }, null, 2)}\n`,
+  );
+  console.log(SPLASH_INLINE);
 } finally {
   await browser.close();
 }

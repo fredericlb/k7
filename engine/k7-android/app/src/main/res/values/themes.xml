@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_background">#FF07031F</color>
+    <!-- The window draws the splash until the shell page paints over it, which shows the same splash while k7 starts. -->
+    <style name="AppTheme.Launch" parent="AppTheme.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash</item>
+    </style>
+</resources>
