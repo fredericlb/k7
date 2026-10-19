@@ -7,7 +7,11 @@ import { Button } from "@frediverse/ui/button";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import { Cloud, Disc3, FolderTree, Search } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
-import { RECORDINGS_DIR, SONG_FILE } from "@studio/mediatek/types";
+import {
+  type MediatekEntry,
+  RECORDINGS_DIR,
+  SONG_FILE,
+} from "@studio/mediatek/types";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
@@ -34,6 +38,7 @@ import { SongEditor } from "./SongEditor";
 import { assetActions, songActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
 import { useLibraryRoute } from "./useLibraryRoute";
+import { useSongTap } from "./useSongTap";
 
 export function MediaLibrary({
   vimMode = false,
@@ -121,6 +126,8 @@ export function MediaLibrary({
   }, [entries, file, section]);
   /** What is open: what the tree marks active, opens down to, and what the middle of the screen shows. */
   const opened = editingSong;
+  // On a narrow screen the songs' tree IS the page until a song opens — ../docs/responsive.md.
+  const treeIsPage = section === "songs" && !editingSong;
   /** Where a drop lands, family-relative: the section, plus the folder the drop resolved to. */
   const assetsTarget = useCallback(
     (dir: string): string => (dir ? `${section}/${dir}` : section),
@@ -140,6 +147,14 @@ export function MediaLibrary({
   }, [target]);
   // The queue and the destination are the provider's, above this screen.
   const playback = usePlayback();
+  // A tap opens the song; a double tap on a touch screen plays it instead (../docs/responsive.md).
+  const tapSong = useSongTap(
+    useCallback(
+      (entry: MediatekEntry) =>
+        openFile(`${relative(entry.path)}/${SONG_FILE}`),
+      [openFile],
+    ),
+  );
 
   // The folder PICKER beside the drag: `webkitdirectory` is the input's property, not the click's (../docs/library.md).
   const pickRef = useRef<HTMLInputElement>(null);
@@ -237,7 +252,7 @@ export function MediaLibrary({
   return (
     <div className="relative flex min-h-0 flex-1">
       {/* The tree's drawer button, on a narrow screen only — see ../docs/responsive.md. */}
-      {!treeOpen ? (
+      {!treeOpen && !treeIsPage ? (
         <Button
           variant="secondary"
           size="icon"
@@ -260,8 +275,13 @@ export function MediaLibrary({
       {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
       <aside
         // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
-        className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
-          treeOpen ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl" : "hidden"
+        // touch-manipulation: no double-tap zoom, since a double tap on a song plays it.
+        className={`flex shrink-0 touch-manipulation flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
+          treeIsPage
+            ? "m-3 min-w-0 flex-1 md:flex-none"
+            : treeOpen
+              ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl"
+              : "hidden"
         }`}
       >
         <div className="min-h-0 flex-1 overflow-auto">
@@ -317,7 +337,7 @@ export function MediaLibrary({
             opensOnName={(n) => isSongFolder(entries, n.path)}
             onOpen={(n) => {
               const entry = entryAt(entries, n.path);
-              if (entry && isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
+              if (entry && isSong(entry)) tapSong(entry);
             }}
             // A song wears the glyph of its own tab; one only on the server, a cloud.
             icon={(n) => {
@@ -432,6 +452,8 @@ export function MediaLibrary({
         </main>
       ) : (
         <LibraryContents
+          // The tree took the narrow screen, and these rows are the same songs it lists.
+          narrowHidden={treeIsPage}
           notice={notice}
           error={error}
           present={present}
