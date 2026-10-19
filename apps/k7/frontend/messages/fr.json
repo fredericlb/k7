@@ -1083,7 +1083,7 @@
   "cmds.placeholder": "que voulez-vous faire ?",
   "account.serverLabel": "serveur k7",
   "account.serverHint": "Le serveur k7 avec lequel cette machine synchronise vos espaces de travail",
-  "account.signInSync": "Se connecter, et synchroniser avec ce serveur",
+  "account.serverTitle": "Se connecter à un serveur k7",
   "account.signInAccount": "Se connecter avec votre compte k7",
   "account.signOut": "Se déconnecter",
   "panel.close": "fermer le panneau",

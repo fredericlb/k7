@@ -293,6 +293,8 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
         }
         // The studio's sign-in, however it was reached — a click, a script, a redirect: it goes to the browser.
         if appOf(url) != nil && url.path == "/auth/login" {
+            // The server the page's popin named is where the account will sync once signed in.
+            SyncPairing.choose(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "server" }?.value)
             signIn()
             return decisionHandler(.cancel)
         }
