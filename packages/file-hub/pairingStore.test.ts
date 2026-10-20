@@ -66,7 +66,11 @@ describe("PairingStore", () => {
       phase: "waiting",
     });
     expect(again.ofAccount("bob@x.test")?.phase).toBe("paired");
-    expect(statSync(join(dir, ".sync-pairing.json")).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX mode: a file there always reads 0o666.
+    if (process.platform !== "win32")
+      expect(statSync(join(dir, ".sync-pairing.json")).mode & 0o777).toBe(
+        0o600,
+      );
   });
 
   it("drops what has been kept long enough, and what was forgotten", () => {

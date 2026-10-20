@@ -11,6 +11,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { listFilesUnder } from "./listFiles";
 
 let dir = "";
+// Windows refuses a file symlink without Developer Mode, so the link is only made where it can be.
+const LINKS = process.platform !== "win32";
+const link = LINKS ? ["link.wav"] : [];
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 function tree(): string {
@@ -26,7 +29,7 @@ function tree(): string {
     mkdirSync(join(dir, f, ".."), { recursive: true });
     writeFileSync(join(dir, f), "");
   }
-  symlinkSync(join(dir, "a.wav"), join(dir, "link.wav"));
+  if (LINKS) symlinkSync(join(dir, "a.wav"), join(dir, "link.wav"));
   return dir;
 }
 
@@ -34,7 +37,7 @@ describe("listFilesUnder", () => {
   it("lists every file, relative and POSIX, skipping dot-entries", () => {
     expect(listFilesUnder(tree()).sort()).toEqual([
       "a.wav",
-      "link.wav",
+      ...link,
       "node_modules/d.wav",
       "x/b.wav",
       "x/y/c.wav",
@@ -45,7 +48,7 @@ describe("listFilesUnder", () => {
     const root = tree();
     expect(
       listFilesUnder(root, { maxDepth: 1, skipDirs: ["node_modules"] }).sort(),
-    ).toEqual(["a.wav", "link.wav", "x/b.wav"]);
+    ).toEqual(["a.wav", ...link, "x/b.wav"]);
     expect(
       listFilesUnder(root, { dotfiles: true, regularOnly: true }).sort(),
     ).toEqual([
