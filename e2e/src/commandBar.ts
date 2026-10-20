@@ -9,7 +9,13 @@ export const commandBar = (page: Page): Locator =>
 /** The bar, opened from the Menu's Commands item on a phone, where it is a popin rather than docked. */
 export async function openCommandBar(page: Page): Promise<Locator> {
   const bar = commandBar(page);
-  if (!(await bar.isVisible()) && (await folded(page)))
+  if (!(await folded(page))) return bar;
+  // A phone's toast sits where the popin's suggestions open, and covers them until it is closed.
+  for (const close of await page
+    .getByRole("button", { name: "Dismiss", exact: true })
+    .all())
+    if (await close.isVisible()) await close.click();
+  if (!(await bar.isVisible()))
     await (await navControl(page, "Commands")).click();
   return bar;
 }

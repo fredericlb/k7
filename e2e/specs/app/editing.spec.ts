@@ -135,6 +135,8 @@ test("project undo takes the typed tempo back, project redo puts it again", asyn
 test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", async ({
   k7,
 }) => {
+  // Hardware-keyboard shortcuts; a phone undoes through the command bar, which the test before this one drives.
+  test.skip(k7.target === "android", "no hardware keyboard on a phone");
   const page = await k7.open(`/@local/${WS}/${PROJECT}`);
   const watch = watchPage(page);
   await openProject(page);
@@ -151,9 +153,11 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
 
   // With the typing spent, one more press only says so: the project journal waits for a second one.
   await page.keyboard.press("Control+z");
-  await expect(
-    page.getByRole("status").filter({ hasText: /^No more typing to undo/ }),
-  ).toBeVisible();
+  // That answer is a status-line message, which a phone does not draw.
+  if (!(await folded(page)))
+    await expect(
+      page.getByRole("status").filter({ hasText: /^No more typing to undo/ }),
+    ).toBeVisible();
   await expect(text).toContainText("tempo: 120");
 
   await pressUntil(page, "Control+y", () =>
