@@ -46,6 +46,12 @@ export async function seedFixtures(
 ) {
   await files.removeWorkspace(workspace);
   await files.createWorkspace(workspace);
+  // A recreated workspace can keep its old library pin; the fixtures are written for the newest @k7-core.
+  const upgrade = await files.command(workspace, "library upgrade k7-core");
+  if (upgrade.refused)
+    throw new Error(
+      `library upgrade refused: ${JSON.stringify(upgrade.output)}`,
+    );
   for (const file of walk(FIXTURES_DIR)) {
     const path = relative(FIXTURES_DIR, file).split("\\").join("/");
     if (path === "README.md") continue;
