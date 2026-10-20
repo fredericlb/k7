@@ -1,0 +1,37 @@
+{
+  "t": "state",
+  "owns": { "engine": true, "engineQueries": true },
+  "status": "error",
+  "error": "engine binary not found (build it)",
+  "safeMode": { "crashes": 3, "suspect": "Diva" },
+  "ownsEngine": true,
+  "userStopped": false,
+  "engineId": "e1",
+  "enginePort": 8766,
+  "registryUrl": "https://app.k7.rocks",
+  "lastHeartbeatOk": true,
+  "pluginCount": 1,
+  "plugins": [{ "name": "Diva", "format": "VST3", "manufacturer": "u-he", "role": "instrument" }],
+  "pluginsSig": "p1",
+  "audioDevices": [
+    { "name": "Focusrite USB ASIO", "deviceType": "ASIO", "current": false, "currentInput": false, "inputs": 0, "outputs": 0 },
+    { "name": "Speakers (Focusrite USB Audio)", "deviceType": "Windows Audio", "current": true, "currentInput": true, "inputs": 2, "outputs": 2 }
+  ],
+  "audioPriority": ["Focusrite USB ASIO", "Speakers (Focusrite USB Audio)"],
+  "audioMenuSig": "a1",
+  "editPlugins": [{ "session": "s1", "id": "n4", "name": "Diva", "hasNativePluginUI": true }],
+  "editPluginsSig": "x1",
+  "sessions": [{ "id": "s1", "project": "@local/w/song", "loaded": true, "playing": true, "tracks": 4, "listeners": 2 }],
+  "sessionsSig": "s1",
+  "instances": [{ "url": "https://app.k7.rocks", "removable": true }],
+  "instanceCheck": { "url": "https://play.st0.app", "state": "refused", "message": "certificate not trusted" },
+  "paths": { "root": "/home/u/.k7", "mergedLog": "/home/u/.k7/logs/merged.log" },
+  "downloads": [
+    { "name": "nbo-wurt", "label": "Wurlitzer", "received": 1024, "total": 7947927, "phase": "failed", "error": "disk full" }
+  ],
+  "instruments": [{ "name": "nbo-wurt", "label": "Wurlitzer", "bytes": 7947927, "wanted": true, "installed": false }],
+  "pairRequests": [
+    { "requestId": "r1", "name": "iPhone · Safari", "ip": "192.168.1.20", "code": "482913", "since": 1760000000000 }
+  ],
+  "pairedDevices": [{ "deviceId": "d1", "name": "iPad", "created": 1760000000000, "lastSeen": 1760000600000 }]
+}
