@@ -96,6 +96,9 @@ export function PlaylistRows({
           variant={searching ? "default" : "secondary"}
           size="sm"
           onClick={() => setSearching((s) => !s)}
+          // Named apart from its label, which a narrow screen hides along with the name it gave.
+          aria-label={l.search}
+          aria-pressed={searching}
         >
           <Search className="h-4 w-4 sm:mr-1" />
           <span className="hidden sm:inline">{l.search}</span>
@@ -106,6 +109,7 @@ export function PlaylistRows({
           disabled={!rows.length}
           onClick={onQueueAll}
           title={l.queueAllTitle}
+          aria-label={l.queueAll}
         >
           <ListPlus className="h-4 w-4 sm:mr-1" />
           <span className="hidden sm:inline">{l.queueAll}</span>
