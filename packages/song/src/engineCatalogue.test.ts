@@ -9,9 +9,25 @@ import {
   isPluginScanned,
   scannedPluginNames,
   scannedPlugins,
+  writeScanCopy,
 } from "./engineCatalogue";
 
 // The scan read as a catalogue: what to LOAD and which type FOLDER, both silent when wrong.
+
+describe("an account's copy of the scan", () => {
+  it("is written in the scan's own shape, and read back", () => {
+    const plugins = [{ name: "Serum", format: "VST3", role: "instrument" }];
+    expect(writeScanCopy(plugins, file)).toBe(true);
+    expect(scannedPlugins(file).map((p) => p.name)).toEqual(["Serum"]);
+  });
+
+  // Its mtime is in every project's revision token: a copy saying the same must not be touched.
+  it("is left alone when it already says the same", () => {
+    const plugins = [{ name: "Diva", format: "VST3" }];
+    writeScanCopy(plugins, file);
+    expect(writeScanCopy(plugins, file)).toBe(false);
+  });
+});
 
 let dir: string;
 let file: string;

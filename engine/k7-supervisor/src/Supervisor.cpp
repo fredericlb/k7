@@ -84,6 +84,8 @@ struct Supervisor::Impl {
     std::optional<std::pair<std::string, std::string>> lastAttempt;
     std::vector<std::uint64_t> timers;
     std::uint64_t pluginsTimer = 0;
+    // The engine said its scan was still running at the last ask, so the list is about to change.
+    bool pluginsScanning = false;
     /** One tunnel agent per registry, the way IN for a server that cannot dial this machine. */
     std::map<std::string, std::shared_ptr<tunnel::TunnelAgent>> tunnels;
     /** A heartbeat is in flight: the next tick skips rather than stack a second one behind it. */
@@ -516,8 +518,10 @@ struct Supervisor::Impl {
             then();
             return;
         }
-        engine->listPlugins([this, then](auto plugins) {
-            if (plugins) {
+        engine->listPlugins([this, then](auto catalogue) {
+            if (catalogue) {
+                pluginsScanning = catalogue->scanning;
+                const auto* plugins = &catalogue->plugins;
                 std::string sig;
                 for (const auto& p : *plugins) sig += p.format + std::string(1, '\0') + p.name + "\n";
                 // A rescan that found the same catalogue must still land: a null count is the spinner.
@@ -532,10 +536,10 @@ struct Supervisor::Impl {
         });
     }
 
-    /** Ask hard until the scan lands, keeping the spinner honest, then once a minute. */
+    /** Ask hard until the scan lands, and while the engine says one runs, then once a minute. */
     void schedulePlugins()
     {
-        pluginsTimer = loop.after(snap.pluginCount ? kPluginsPoll : kPluginsPollFast, [this] {
+        pluginsTimer = loop.after(snap.pluginCount && !pluginsScanning ? kPluginsPoll : kPluginsPollFast, [this] {
             if (!shuttingDown) pollPlugins([this] { schedulePlugins(); });
         });
     }

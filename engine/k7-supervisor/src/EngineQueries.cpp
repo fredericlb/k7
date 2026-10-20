@@ -255,11 +255,11 @@ void EngineQueries::setAudioDevice(const std::string& name, const std::string& d
     });
 }
 
-void EngineQueries::listPlugins(Reply<std::vector<Plugin>> done)
+void EngineQueries::listPlugins(Reply<Catalogue> done)
 {
     worker_->enqueue([w = worker_, &loop = loop_, done = std::move(done)] {
         auto msg = w->request({{"type", "list-plugins"}}, "plugins", kPluginsMs);
-        std::optional<std::vector<Plugin>> out;
+        std::optional<Catalogue> out;
         if (msg) {
             std::vector<Plugin> list;
             for (const auto& p : msg->value("plugins", json::array()))
@@ -268,7 +268,7 @@ void EngineQueries::listPlugins(Reply<std::vector<Plugin>> done)
                 const auto an = lower(a.name), bn = lower(b.name);
                 return an != bn ? an < bn : a.format < b.format;
             });
-            out = std::move(list);
+            out = Catalogue{std::move(list), flag(*msg, "scanning")};
         }
         loop.post([done, out] { done(out); });
     });

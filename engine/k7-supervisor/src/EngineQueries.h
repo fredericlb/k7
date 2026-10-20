@@ -39,8 +39,14 @@ public:
     /** Switch interface; the engine answers with the same device list. */
     void setAudioDevice(const std::string& name, const std::string& deviceType, Reply<std::vector<protocol::AudioDevice>> done);
 
+    /** The installed catalogue, and whether the engine is still scanning it, which means this list is about to change. */
+    struct Catalogue {
+        std::vector<protocol::Plugin> plugins;
+        bool scanning = false;
+    };
+
     /** The installed catalogue, sorted so a reordered scan is not a changed catalogue. */
-    void listPlugins(Reply<std::vector<protocol::Plugin>> done);
+    void listPlugins(Reply<Catalogue> done);
 
     /** The plugin INSTANCES across every session, each naming its own. */
     void listEditPlugins(Reply<std::vector<protocol::EditPlugin>> done);

@@ -1,5 +1,5 @@
 // relayGate.ts — what the relay lets through for an account holding NO claim on the engine: the
-// probe a picker needs (whoami, this device's key, the plugin list) and their answers, nothing
+// probe a picker needs (whoami, this device's key, the plugin list and its scan) and their answers, nothing
 // else. Anything more is HELD while a claim may still be landing — a page opens its socket and
 // claims at the same moment — and the socket is closed when none comes. The claim is asked again
 // on every frame, so a takeover stops the loser at its next one. A `whoami` loses its token for an
@@ -12,11 +12,14 @@ const PROBE_REQUESTS: ReadonlySet<string> = new Set([
   "whoami",
   "pair",
   "list-plugins",
+  // Where the engine's plugin scan stands — what the home page follows (engine-browser's scanWatch.ts).
+  "plugin-scan",
 ]);
 /** What an engine may answer to a browser without a claim. */
 const PROBE_ANSWERS: ReadonlySet<string> = new Set([
   "whoami",
   "plugins",
+  "plugin-scan",
   "error",
 ]);
 /** How long frames past the probe wait for a claim before the socket is closed. */

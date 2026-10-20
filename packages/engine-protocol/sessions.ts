@@ -26,6 +26,7 @@ export function sessionFor(service: string, who?: string | null): SessionId {
 /** The reply types that are the MACHINE's and so carry no session — a closed set, not a tendency. See docs/sessions.md. */
 export const ENGINE_GLOBAL_REPLIES = [
   "plugins", // the installed catalogue, answered from a scan thread with no session in scope
+  "plugin-scan", // …and where that scan stands, broadcast while it runs
   "audio-devices", // one interface per process, and every session must learn a switch
   "sessions", // the one question whose answer is about the OTHER sessions
   "edit-plugins", // asked by the supervisor, which drives none; each row names its own session

@@ -1,7 +1,45 @@
 // Tests for the shared decoders and outbox: what both clients fill in when a frame leaves a field out.
 
 import { describe, expect, it } from "vitest";
-import { decodeIoLevels, decodeState, Outbox } from "./decode.ts";
+import {
+  decodeIoLevels,
+  decodePluginScan,
+  decodeState,
+  Outbox,
+} from "./decode.ts";
+
+describe("decodePluginScan", () => {
+  it("reads a frame the engine sent mid-scan", () => {
+    expect(
+      decodePluginScan({
+        type: "plugin-scan",
+        scanning: true,
+        done: 3,
+        total: 40,
+        current: "Serum.vst3",
+        version: 0,
+      }),
+    ).toEqual({
+      scanning: true,
+      done: 3,
+      total: 40,
+      current: "Serum.vst3",
+      version: 0,
+    });
+  });
+
+  // A field of the wrong type reads as absent, never as a scan: "scanning" must be said, not guessed.
+  it("reads anything odd as an idle engine", () => {
+    expect(
+      decodePluginScan({ type: "plugin-scan", scanning: "yes", done: -1 }),
+    ).toEqual({ scanning: false, done: 0, total: 0, current: "", version: 0 });
+  });
+
+  it("refuses another frame", () => {
+    expect(decodePluginScan({ type: "plugins" })).toBeNull();
+    expect(decodePluginScan(null)).toBeNull();
+  });
+});
 
 describe("decodeState", () => {
   it("fills an empty frame with silence", () => {

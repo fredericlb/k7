@@ -116,6 +116,31 @@ export function decodeIoLevels(m: IoLevelsFrame): IoLevels {
   };
 }
 
+/** Where the engine's plugin scan stands — a `plugin-scan` frame; `total` is 0 while the folders are still listed. */
+export interface PluginScanStatus {
+  scanning: boolean;
+  done: number;
+  total: number;
+  /** The file being LOADED, "" while files are only stat'ed. */
+  current: string;
+  /** Scans this engine process has finished; it moves when one ends. */
+  version: number;
+}
+
+/** A `plugin-scan` frame read defensively, or null when it is not one — engine/k7-runtime/docs/protocol.md. */
+export function decodePluginScan(m: unknown): PluginScanStatus | null {
+  const f = m as Partial<Record<keyof PluginScanStatus | "type", unknown>>;
+  if (!f || typeof f !== "object" || f.type !== "plugin-scan") return null;
+  const n = (v: unknown) => (typeof v === "number" && v >= 0 ? v : 0);
+  return {
+    scanning: f.scanning === true,
+    done: n(f.done),
+    total: n(f.total),
+    current: typeof f.current === "string" ? f.current : "",
+    version: n(f.version),
+  };
+}
+
 /** What a client holds while its socket is down: bounded, oldest out, and nothing replayed past its age. */
 export class Outbox {
   private held: { at: number; s: string }[] = [];
