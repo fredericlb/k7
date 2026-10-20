@@ -4,7 +4,7 @@ A `{file}.cache` sidecar carries a peak/RMS envelope, three colour bands, onsets
 this package is the only thing that writes one. It also measures a file's true peak. Both start
 from the same decode.
 
-## One producer, two decoders
+## One producer, three decoders
 
 The arithmetic lives here once. What varies is where the samples come from:
 
@@ -15,9 +15,13 @@ The arithmetic lives here once. What varies is where the samples come from:
   never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
   analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
   image for the rehearsal recorder's takes.
+- **WebAssembly** where there is neither — the Android app, whose engine is a library inside the
+  app rather than a binary to spawn, and which carries no ffmpeg (`engine/k7-runtime/docs/android.md`).
+  See [the WebAssembly decoder](#the-webassembly-decoder) below.
 
-`DecodeOptions.engineBin` picks between them, and nothing downstream knows which ran: both hand
-over interleaved float32 frames at the file's own rate, every channel. On wav and flac the two
+`DecodeOptions.engineBin` picks the engine, and a missing ffmpeg falls through to WebAssembly unless
+`wasm: false` says not to. Nothing downstream knows which ran: all three hand
+over interleaved float32 frames at the file's own rate, every channel. On wav and flac the three
 produce identical sidecars, measured. On mp3 they do not: ffmpeg trims the encoder delay and JUCE
 does not, so the engine's decode is longer by it — 1105 samples, 25 ms, on the file measured in
 `packages/stem-separation/docs/stemSplit.md` — and its onsets sit that much later. The fingerprint
@@ -27,6 +31,40 @@ cannot tell the two apart, so a sidecar from either is read as fresh by the othe
 interleaved float32, little-endian. The header travels in the stream because the engine has no
 ffprobe to ask beforehand. The `frames` it states is not trusted for geometry: frames are counted
 as they arrive, the same as on the ffmpeg path.
+
+## The WebAssembly decoder
+
+It is [symphonia](https://github.com/pdeljanov/Symphonia) 0.6 for the containers and every codec
+but one, and [opus-rs](https://github.com/restsend/opus-rs) for Opus, which symphonia does not
+decode. Both are built into the same module as the measure (`rust/src/decode.rs`, behind the
+crate's `decode` feature, which only the WebAssembly build turns on, so the iOS addon does not carry
+them). Pure Rust was chosen over Android's own MediaCodec because it is one path on every host,
+testable on a dev machine against ffmpeg, with no native build per platform. opus-rs over the
+other pure-Rust Opus decoders because it is the one that is both close to libopus (1e-5) and fast:
+`opus-decoder` was as close and 120 times slower.
+
+- **Formats:** wav, aiff, flac, mp3, ogg vorbis, ogg opus, AAC-LC and ALAC in mp4/m4a, and webm or
+  mkv carrying Opus or Vorbis. A camera's mp4 or .mov and a browser's webm recording are read for
+  the sound beside the picture. **Not** HE-AAC or multichannel Opus: those fail with "unsupported",
+  which marks the file rather than stopping a sweep.
+- **It matches ffmpeg's length, frame for frame.** Every codec here primes or pads, and ffmpeg trims
+  both, so the decoder does too; a sidecar's buckets are arithmetic on the length, and a few
+  hundred extra frames at the end were measured to move a dozen onsets. mp3 is trimmed by symphonia's
+  gapless decoding. AAC's priming is stated only in the mp4 edit list, which symphonia reads but does
+  not apply, so `rust/src/edit.rs` reads it. Opus's pre-skip comes from the ogg page or the OpusHead
+  (`rust/src/opus.rs`), and its end padding from the ogg page or, in webm, from the last block
+  group's `DiscardPadding`, which symphonia parses and ignores (`rust/src/webm.rs`).
+  `decodeWasm.test.ts` holds flac, mp3, m4a, ogg, opus and webm to ffmpeg's frame count and to 1e-4
+  per sample.
+- **Values agree, bytes may not.** wav, flac, vorbis and Opus sidecars are byte-identical to
+  ffmpeg's; mp3 and AAC agree to ~1e-6, so a sidecar's last digits can differ. The fingerprint
+  cannot tell, as with the engine.
+- **The file is not handed over.** The module imports one function, `host.read(ptr, len, pos)`,
+  which `decodeWasm.ts` answers with `fs.readSync`; a two-hour flac is never held whole.
+  Decoding is synchronous inside the module, so `decodeWasm.ts` takes 64k frames at a time and
+  lets the event loop through between them.
+- **It costs 1.7 MB.** The module grows from 24 KB to ~1.7 MB, checked in as base64 in
+  `src/waveformWasm.generated.ts`, which biome is told to skip.
 
 ## The mono sum is the first two channels averaged
 
@@ -45,7 +83,7 @@ And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours 
 1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked
 three times, since none alone suffices: against the length ffprobe claims before ffmpeg starts,
 against the `frames` of the engine's header, and against the frames actually counted, which is the
-one a lying header cannot get past. Past it the decode is killed with a `TooLongError`. The
+one a lying header cannot get past, and the only one on the WebAssembly path. Past it the decode is killed with a `TooLongError`. The
 true-peak measurement and the extraction stream what they read, hold nothing, and are not capped.
 
 ## ffmpeg opens files, not URLs

@@ -1,15 +1,34 @@
 # Getting a video ready — the probe, the plan, the copies
 
 What a picture clip's copies are FOR is [../../song-video/docs/media.md](../../song-video/docs/media.md).
-This page covers the three modules that make them: `probe.ts` asks ffprobe, `plan.ts` decides, and
-`transcode.ts` runs ffmpeg.
+This page covers the modules that make them: `probe.ts` asks ffprobe, `mp4Probe.ts` reads the
+boxes where there is none, `plan.ts` decides, and `transcode.ts` runs ffmpeg.
 
-## ffmpeg, and nothing else
+## ffmpeg makes every copy
 
 Unlike a shot's sound (`packages/audio-analysis/docs/analysis.md`), a video copy has no engine
 fallback: the engine decodes audio only. Without ffmpeg there is nothing to make, and the verb says
 so rather than guessing. The hosted image has ffmpeg (`docs/images.md`). A desktop needs it
-installed.
+installed. The phone has none (`engine/k7-runtime/docs/android.md`).
+
+## Without ffmpeg, an mp4 or a .mov is still read
+
+Knowing what a file IS is what lets a host with no ffmpeg say "ready as it is" rather than refuse,
+and a phone's own camera files are mp4. So `probeVideo` falls back to `mp4Probe.ts`, which reads
+`moov` for the first video track and answers in ffprobe's own names: the codec from the sample
+entry, the pixel format from `avcC`/`hvcC`/`av1C`/`vpcC` (ProRes from its fourcc), the size from
+the sample entry, the rate from `stts`. `mp4Probe.test.ts` holds it to ffprobe on H.264, HEVC, AV1,
+VP9 and ProRes encodes. Any other container is still a `NoFfmpegError`. Facts read this way carry
+`noFfmpeg`, and `picture prepare` then asks for nothing it cannot make: a source too tall to
+preview is previewed as it is, and one that needs a copy is named, with what it is.
+
+## The phone's browser plays HEVC
+
+The playable list is what every browser decodes, which leaves HEVC out. On Android the browser is
+the WebView, which hands HEVC to the phone's hardware decoder, so `ANDROID_PLAYABLE_CODECS` adds it
+and what the phone's camera records plays without a copy. A 10-bit HDR recording is still refused:
+whether a WebView takes it depends on the phone. The list is chosen by `process.platform`, so it is
+the platform of the file service, which on the phone is also where the page runs.
 
 The file probed and copied is an upload, so both open it under `-protocol_whitelist file,pipe`
 through `@studio/ffmpeg`'s `input()` (`packages/ffmpeg/docs/ffmpeg.md`): a crafted container must

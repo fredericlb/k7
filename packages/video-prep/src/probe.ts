@@ -1,9 +1,10 @@
 // probe.ts — what a video file IS, asked of ffprobe: its first video stream's codec, size, pixel
 // format and frame rate, and the file's duration. ffmpeg is the only thing here that opens every
-// container a camera writes; without it the answer is a NoFfmpegError, never a guess.
-// See docs/videoPrep.md.
+// container a camera writes; without it an mp4 or a .mov is read from its boxes (mp4Probe.ts), and
+// anything else is a NoFfmpegError, never a guess. See docs/videoPrep.md.
 
 import { ffprobeBin, input, NoFfmpegError, run } from "@studio/ffmpeg";
+import { probeMp4 } from "./mp4Probe";
 
 export { NoFfmpegError };
 
@@ -21,6 +22,8 @@ export interface VideoFacts {
   seconds: number;
   /** The container, by ffprobe's format name: "mov,mp4,m4a,3gp,3g2,mj2", "matroska,webm", … */
   container: string;
+  /** Read from the boxes because there is no ffmpeg here: nothing can be made from this file on this host. */
+  noFfmpeg?: true;
 }
 
 // "30000/1001" → 29.97; ffprobe states a rate as a fraction.
@@ -46,7 +49,15 @@ export const probeArgs = (source: string): string[] => [
 
 /** The facts of `source`'s first video stream, or null when it has none — an audio file, a still in a container. */
 export async function probeVideo(source: string): Promise<VideoFacts | null> {
-  const out = await run(ffprobeBin(), probeArgs(source), { why: WHY });
+  let out: string;
+  try {
+    out = await run(ffprobeBin(), probeArgs(source), { why: WHY });
+  } catch (e) {
+    if (!(e instanceof NoFfmpegError)) throw e;
+    const read = probeMp4(source);
+    if (read === undefined) throw e;
+    return read && { ...read, noFfmpeg: true };
+  }
   const j = JSON.parse(out) as {
     streams?: Record<string, unknown>[];
     format?: Record<string, unknown>;

@@ -16,7 +16,8 @@
       "!**/*.css",
       "!**/*.json",
       "!**/*.jsonc",
-      "!engine/k7-runtime"
+      "!engine/k7-runtime",
+      "!**/waveformWasm.generated.ts"
     ]
   },
   "linter": {
