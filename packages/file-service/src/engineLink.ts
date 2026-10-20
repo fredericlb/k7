@@ -47,6 +47,7 @@ import { awaitSessions, reconcileEngine } from "./engineReconcile.ts";
 import {
   dropLink,
   ensureEngine,
+  flushProject,
   hasSelectedEngine,
   isReady,
   linkHooks,
@@ -411,7 +412,7 @@ export function startEngineForActive(ws: Workspace): void {
   // …and the module folders, for a different consumer — see docs/activeProject.md.
   watchModuleFolders(p, ws.liveCapture);
   if (switching) {
-    ensureEngine(ws)?.flush();
+    flushProject(ws);
     // A document built for the project we are LEAVING must not survive into this one.
     dropClientProject(ws);
     // …nor its module watch, or every project ever opened would keep four directory handles.
@@ -460,7 +461,7 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   if (e) {
     try {
       e.transport("stop");
-      e.flush();
+      flushProject(ws);
     } catch {
       /* engine offline — nothing to unload */
     }

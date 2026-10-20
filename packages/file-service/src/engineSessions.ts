@@ -230,6 +230,17 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
   return client;
 }
 
+/** Flush the session's project and switch its record off: record is the engine SESSION's, and must not outlive the project (docs/engineLoad.md). */
+export function flushProject(ws: Workspace | null): void {
+  const c = ensureEngine(ws);
+  if (!c) return;
+  c.flush();
+  c.setRecordEnabled(false);
+  // The dry run reads this to put record back; a state frame from before the switch must not be what it finds.
+  const l = links.get(sessionOf(ws));
+  if (l) l.recordEnabled = false;
+}
+
 /** Whether this session's socket is open. A fresh one is not, and says so. */
 export function isReady(ws: Workspace | null): boolean {
   return links.get(sessionOf(ws))?.ready ?? false;

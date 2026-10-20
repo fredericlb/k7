@@ -43,8 +43,18 @@ class FakeClient {
   preview(file: string, start: number, length: number) {
     this.previews.push([file, start, length]);
   }
+  /** What reached the engine that a project switch is about, in order. */
+  wire: string[] = [];
   sendProject() {}
-  flush() {}
+  flush() {
+    this.wire.push("flush");
+  }
+  setRecordEnabled(on: boolean) {
+    this.wire.push(`record ${on}`);
+  }
+  transport(verb: string) {
+    this.wire.push(verb);
+  }
   setAudioDevice() {}
 }
 vi.mock("@studio/engine-client/engineClient", async (orig) => ({
@@ -65,6 +75,7 @@ const {
   startEngineForActive,
   unloadEngineIfServing,
 } = await import("./engineLink.ts");
+const { links } = await import("./engineSessions.ts");
 
 const wsFor = (_email: string, name = "songs") => ({
   root: join(rootDir(), name),
@@ -262,6 +273,33 @@ describe("unloadEngineIfServing", () => {
     const { project } = serveIn("songs-two");
     expect(await unloadEngineIfServing(join(rootDir(), "songs"))).toBe(false);
     expect(await unloadEngineIfServing(project)).toBe(true);
+  });
+});
+
+// Record is the SESSION's on the engine, so a switch that kept it would open the next song with Play refused — docs/engineLoad.md.
+describe("a project switch", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:4000/${Math.random()}`);
+  });
+
+  it("switches record off with the flush, and forgets it was on", () => {
+    const root = join(rootDir(), "recording");
+    const ws = (project: string) => ({
+      ...wsServing("owner@x.org", join(root, project)),
+      root,
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(ws("take.k7") as any);
+    const client = built.at(-1);
+    if (!client) throw new Error("no engine client was built");
+    // The engine's state frame: the take's project left record on.
+    client.handlers.get("state")?.({ playing: false, recordEnabled: true });
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(ws("other.k7") as any);
+    expect(client.wire).toEqual(["flush", "record false"]);
+    // What the dry run reads to put record back after its half second: off, not the take's.
+    expect(links.get(client.session)?.recordEnabled).toBe(false);
   });
 });
 
