@@ -1788,6 +1788,14 @@ Every row of chrome is a row the panes do not get. On a phone in landscape the w
 tall, so the header and footer are trimmed to what a touch target needs and no more. The one control that
 could not simply move is the command bar's opener: a phone has no double-Shift, so the menu carries it.
 
+**The shell's root clips its overflow** (`overflow-hidden` on `App.tsx`'s outer box). A pane
+wider than the screen — the DJ desk in portrait wants about 810px of a 420px phone — would
+otherwise widen the DOCUMENT, and a phone's browser answers a wider document by growing its layout
+viewport to match: every `fixed` box, every dialog and sheet, is then laid out in an 810×1650 page
+the screen shows the top-left corner of. The song browser opens half off the screen, and a tap on
+its row lands on whatever the screen has at that point instead. A pane that overflows is cut at the
+edge; it never moves the dialogs.
+
 Being a phone is a question of SIZE, not of pointer (`useIsMobile.ts`): an iPad gets the desktop
 layout. What a touch screen of any size does need is the right-click, and a finger held still is one
 (`longPress.ts`, [contextMenu.md](contextMenu.md)).

@@ -2937,7 +2937,8 @@ export default function App({
       <SongClockProvider value={songClock}>
         {/* …and the ONE decoder their screens draw a module's sound files with — every graph, the per-track one included. */}
         <LcdSoundsContext.Provider value={shellSounds}>
-          <div className="relative flex h-full flex-col bg-background text-foreground">
+          {/* `overflow-hidden`: a pane wider than the screen must not widen the page, or a phone moves every dialog off it (docs/shell.md). */}
+          <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground">
             {/* The shared bar (@frediverse/ui/app-header) with k7's contents; `items` is empty on purpose — docs/shell.md. */}
             <AppHeader
               // `plain`, not the house tint: k7 keeps its violet for what is lit, and a violet bar would drown it (docs/shell.md).
