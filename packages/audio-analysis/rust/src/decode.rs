@@ -2,61 +2,103 @@
 // A reader would get wrong where the stream facts come from: the first DECODED buffer, since a container may not state them.
 
 use crate::edit::{Edit, read_edit};
+use crate::opus::{self, Opus};
+use crate::webm;
 use std::io::{ErrorKind, Seek, SeekFrom};
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{CODEC_TYPE_NULL, Decoder as Codec, DecoderOptions};
+use symphonia::core::codecs::CodecParameters;
+use symphonia::core::codecs::audio::well_known::CODEC_ID_OPUS;
+use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error;
-use symphonia::core::formats::{FormatOptions, FormatReader};
+use symphonia::core::formats::FormatReader;
+use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::{MediaSource, MediaSourceStream};
-use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 // The engine's bounds on a header (engine/k7-runtime/engine/Decode.cpp): past them it is a corrupt file.
 const MAX_CHANNELS: usize = 32;
 const MAX_SAMPLE_RATE: u32 = 768_000;
 
+/// symphonia's decoders, or opus-rs for the one codec symphonia does not decode.
+enum Codec {
+    Symphonia(Box<dyn AudioDecoder>),
+    Opus(Box<Opus>),
+}
+
 /// One file being decoded: the first audio track, every channel, at its own rate.
 pub struct Decoder {
     format: Box<dyn FormatReader>,
-    codec: Box<dyn Codec>,
+    codec: Codec,
     track: u32,
     pub sample_rate: u32,
     pub channels: usize,
     pending: Vec<f32>,
+    scratch: Vec<f32>,
     edit: Option<Edit>,
-    // Frames still to drop at the start, and still to keep, by the mp4 edit list.
+    // Opus's pre-skip, which no symphonia decoder is there to trim.
+    priming: u64,
+    // Frames still to drop at the start, and still to keep, by the mp4 edit list and the priming.
     skip: u64,
     left: Option<u64>,
+    // A webm's end padding: this many frames are held back, and the last of them never handed over.
+    hold: u64,
+    held: Vec<f32>,
     ended: bool,
 }
 
 impl Decoder {
     /// Opens `source`; `extension` only helps the probe, which reads the content either way.
     pub fn open(mut source: Box<dyn MediaSource>, extension: &str) -> Result<Self, String> {
+        let edit = read_edit(&mut *source);
+        source.seek(SeekFrom::Start(0)).map_err(|e| format!("cannot read: {e}"))?;
+        let padding = webm::end_padding(&mut *source, opus::RATE);
+        source.seek(SeekFrom::Start(0)).map_err(|e| format!("cannot read: {e}"))?;
         let mut hint = Hint::new();
         if !extension.is_empty() {
             hint.with_extension(extension);
         }
-        // Gapless trims the encoder delay and padding, as ffmpeg does, so onsets land where ffmpeg puts them.
-        let edit = read_edit(&mut *source);
-        source.seek(SeekFrom::Start(0)).map_err(|e| format!("cannot read: {e}"))?;
-        let options = FormatOptions { enable_gapless: true, ..Default::default() };
-        let probed = symphonia::default::get_probe()
-            .format(&hint, MediaSourceStream::new(source, Default::default()), &options, &MetadataOptions::default())
+        let format = symphonia::default::get_probe()
+            .probe(&hint, MediaSourceStream::new(source, Default::default()), Default::default(), Default::default())
             .map_err(|e| format!("unsupported format: {e}"))?;
-        let format = probed.format;
-        let track = format
+        let (track, delay, params) = format
             .tracks()
             .iter()
-            .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+            .find_map(|t| match &t.codec_params {
+                Some(CodecParameters::Audio(a)) if a.codec != CODEC_ID_NULL_AUDIO => Some((t.id, t.delay, a.clone())),
+                _ => None,
+            })
             .ok_or("no audio stream")?;
-        let codec = symphonia::default::get_codecs()
-            .make(&track.codec_params, &DecoderOptions::default())
-            .map_err(|e| format!("unsupported codec: {e}"))?;
-        let track = track.id;
-        let mut d = Decoder { format, codec, track, sample_rate: 0, channels: 0, pending: Vec::new(), edit, skip: 0, left: None, ended: false };
+        let extra = params.extra_data.as_deref();
+        let mut hold = 0;
+        let (codec, priming) = if params.codec == CODEC_ID_OPUS {
+            let channels = params.channels.as_ref().map(|c| c.count()).or(opus::head_channels(extra)).unwrap_or(2);
+            hold = padding.unwrap_or(0);
+            (Codec::Opus(Box::new(Opus::new(channels)?)), opus::pre_skip(delay, extra))
+        } else {
+            // Gapless is on by default: mp3's encoder delay is trimmed as ffmpeg trims it.
+            let codec = symphonia::default::get_codecs()
+                .make_audio_decoder(&params, &AudioDecoderOptions::default())
+                .map_err(|e| format!("unsupported codec: {e}"))?;
+            (Codec::Symphonia(codec), 0)
+        };
+        let mut d = Decoder {
+            format,
+            codec,
+            track,
+            sample_rate: 0,
+            channels: 0,
+            pending: Vec::new(),
+            scratch: Vec::new(),
+            edit,
+            priming,
+            skip: 0,
+            left: None,
+            hold,
+            held: Vec::new(),
+            ended: false,
+        };
         let mut first = Vec::new();
-        d.decode_packet(&mut first)?;
+        while d.channels == 0 && !d.ended {
+            d.decode_packet(&mut first)?;
+        }
         if d.channels == 0 {
             return Err("no audio decoded".into());
         }
@@ -78,7 +120,11 @@ impl Decoder {
     fn decode_packet(&mut self, out: &mut Vec<f32>) -> Result<(), String> {
         loop {
             let packet = match self.format.next_packet() {
-                Ok(p) => p,
+                Ok(Some(p)) => p,
+                Ok(None) => {
+                    self.ended = true;
+                    return Ok(());
+                }
                 Err(Error::IoError(e)) if e.kind() == ErrorKind::UnexpectedEof => {
                     self.ended = true;
                     return Ok(());
@@ -90,33 +136,50 @@ impl Decoder {
                 }
                 Err(e) => return Err(format!("cannot read: {e}")),
             };
-            if packet.track_id() != self.track {
+            if packet.track_id != self.track {
                 continue;
             }
-            let decoded = match self.codec.decode(&packet) {
-                Ok(b) => b,
-                // A corrupt frame is skipped, as ffmpeg skips it, rather than failing the whole file.
-                Err(Error::DecodeError(_)) => continue,
-                Err(e) => return Err(format!("cannot decode: {e}")),
+            let mut samples = std::mem::take(&mut self.scratch);
+            samples.clear();
+            let (rate, channels) = match &mut self.codec {
+                Codec::Symphonia(codec) => match codec.decode(&packet) {
+                    Ok(b) => {
+                        b.copy_to_vec_interleaved(&mut samples);
+                        (b.spec().rate(), b.spec().channels().count())
+                    }
+                    // A corrupt frame is skipped, as ffmpeg skips it, rather than failing the whole file.
+                    Err(Error::DecodeError(_)) => (0, 0),
+                    Err(e) => return Err(format!("cannot decode: {e}")),
+                },
+                Codec::Opus(o) => match (o.channels, o.decode(&packet.data)) {
+                    (ch, Ok(s)) => {
+                        // Opus is trimmed here, packet by packet: no decoder of symphonia's applies the container's trims.
+                        let frames = s.len() / ch;
+                        let head = (packet.trim_start.get() as usize).min(frames);
+                        let tail = (packet.trim_end.get() as usize).min(frames - head);
+                        samples.extend_from_slice(&s[head * ch..(frames - tail) * ch]);
+                        (opus::RATE, ch)
+                    }
+                    (_, Err(_)) => (0, 0),
+                },
             };
-            let spec = *decoded.spec();
-            let channels = spec.channels.count();
+            if channels == 0 {
+                self.scratch = samples;
+                continue;
+            }
             if self.channels == 0 {
-                if channels == 0 || channels > MAX_CHANNELS || spec.rate == 0 || spec.rate > MAX_SAMPLE_RATE {
-                    return Err(format!("implausible stream ({channels} channel(s) at {} Hz)", spec.rate));
+                if channels > MAX_CHANNELS || rate == 0 || rate > MAX_SAMPLE_RATE {
+                    return Err(format!("implausible stream ({channels} channel(s) at {rate} Hz)"));
                 }
                 self.channels = channels;
-                self.sample_rate = spec.rate;
-                (self.skip, self.left) = self.edit.map_or((0, None), |e| e.frames(spec.rate));
-            } else if channels != self.channels || spec.rate != self.sample_rate {
+                self.sample_rate = rate;
+                (self.skip, self.left) = self.edit.map_or((0, None), |e| e.frames(rate));
+                self.skip += self.priming;
+            } else if channels != self.channels || rate != self.sample_rate {
                 return Err("the stream changes its channels or rate midway".into());
             }
-            if decoded.frames() == 0 {
-                continue;
-            }
-            let mut buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
-            buf.copy_interleaved_ref(decoded);
-            self.emit(out, buf.samples());
+            self.emit(out, &samples);
+            self.scratch = samples;
             return Ok(());
         }
     }
@@ -134,7 +197,14 @@ impl Decoder {
             self.ended = *left == 0;
         }
         let from = drop as usize * ch;
-        out.extend_from_slice(&samples[from..from + take as usize * ch]);
+        let kept = &samples[from..from + take as usize * ch];
+        if self.hold == 0 {
+            out.extend_from_slice(kept);
+            return;
+        }
+        self.held.extend_from_slice(kept);
+        let ready = self.held.len().saturating_sub(self.hold as usize * ch);
+        out.extend(self.held.drain(..ready));
     }
 }
 

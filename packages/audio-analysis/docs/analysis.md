@@ -34,28 +34,36 @@ as they arrive, the same as on the ffmpeg path.
 
 ## The WebAssembly decoder
 
-It is [symphonia](https://github.com/pdeljanov/Symphonia), built into the same module as the
-measure (`rust/src/decode.rs`, behind the crate's `decode` feature, which only the WebAssembly
-build turns on, so the iOS addon does not carry it). A pure-Rust decoder was chosen over Android's
-own MediaCodec because it is one path on every host, testable on a dev machine against ffmpeg, with
-no native build per platform.
+It is [symphonia](https://github.com/pdeljanov/Symphonia) 0.6 for the containers and every codec
+but one, and [opus-rs](https://github.com/restsend/opus-rs) for Opus, which symphonia does not
+decode. Both are built into the same module as the measure (`rust/src/decode.rs`, behind the
+crate's `decode` feature, which only the WebAssembly build turns on, so the iOS addon does not carry
+them). Pure Rust was chosen over Android's own MediaCodec because it is one path on every host,
+testable on a dev machine against ffmpeg, with no native build per platform. opus-rs over the
+other pure-Rust Opus decoders because it is the one that is both close to libopus (1e-5) and fast:
+`opus-decoder` was as close and 120 times slower.
 
-- **Formats:** wav, aiff, flac, mp3, ogg vorbis, AAC-LC and ALAC in mp4/m4a — and in a camera's mp4
-  or .mov, whose sound is the AAC beside the picture. **Not** Opus, HE-AAC,
-  webm or mkv: those fail with "unsupported", which marks the file rather than
-  stopping a sweep.
-- **It matches ffmpeg's positions.** Gapless is on, so mp3's encoder delay is trimmed as ffmpeg
-  trims it. symphonia reads an mp4's edit list without trimming by it, and that edit list is the only
-  place AAC's priming is stated, so `rust/src/edit.rs` reads it and the decoder drops and cuts by it.
-  `decodeWasm.test.ts` holds flac, mp3 and m4a to ffmpeg's frame count and to 1e-4 per sample.
-- **Values agree, bytes may not.** wav and flac sidecars are byte-identical to ffmpeg's; mp3 and AAC
-  agree to ~1e-6, so a sidecar's last digits can differ. Vorbis is clamped to ±1 where ffmpeg lets
-  an over through: peaks above full scale read 1.0. The fingerprint cannot tell, as with the engine.
+- **Formats:** wav, aiff, flac, mp3, ogg vorbis, ogg opus, AAC-LC and ALAC in mp4/m4a, and webm or
+  mkv carrying Opus or Vorbis. A camera's mp4 or .mov and a browser's webm recording are read for
+  the sound beside the picture. **Not** HE-AAC or multichannel Opus: those fail with "unsupported",
+  which marks the file rather than stopping a sweep.
+- **It matches ffmpeg's length, frame for frame.** Every codec here primes or pads, and ffmpeg trims
+  both, so the decoder does too; a sidecar's buckets are arithmetic on the length, and a few
+  hundred extra frames at the end were measured to move a dozen onsets. mp3 is trimmed by symphonia's
+  gapless decoding. AAC's priming is stated only in the mp4 edit list, which symphonia reads but does
+  not apply, so `rust/src/edit.rs` reads it. Opus's pre-skip comes from the ogg page or the OpusHead
+  (`rust/src/opus.rs`), and its end padding from the ogg page or, in webm, from the last block
+  group's `DiscardPadding`, which symphonia parses and ignores (`rust/src/webm.rs`).
+  `decodeWasm.test.ts` holds flac, mp3, m4a, ogg, opus and webm to ffmpeg's frame count and to 1e-4
+  per sample.
+- **Values agree, bytes may not.** wav, flac, vorbis and Opus sidecars are byte-identical to
+  ffmpeg's; mp3 and AAC agree to ~1e-6, so a sidecar's last digits can differ. The fingerprint
+  cannot tell, as with the engine.
 - **The file is not handed over.** The module imports one function, `host.read(ptr, len, pos)`,
   which `decodeWasm.ts` answers with `fs.readSync`; a two-hour flac is never held whole.
   Decoding is synchronous inside the module, so `decodeWasm.ts` takes 64k frames at a time and
   lets the event loop through between them.
-- **It costs about a megabyte.** The module grows from 24 KB to ~1 MB, checked in as base64 in
+- **It costs 1.7 MB.** The module grows from 24 KB to ~1.7 MB, checked in as base64 in
   `src/waveformWasm.generated.ts`, which biome is told to skip.
 
 ## The mono sum is the first two channels averaged

@@ -142,11 +142,14 @@ const ffmpeg = (() => {
 
 describe.runIf(ffmpeg)("against ffmpeg", () => {
   const src = wav("source.wav", 10);
-  // mp3 and AAC both carry an encoder delay ffmpeg trims: a decoder that does not is off by it.
+  // mp3, AAC and Opus all carry an encoder delay ffmpeg trims, and Opus in webm an end padding too.
   const encodings: [string, string[]][] = [
     ["flac", []],
     ["mp3", ["-c:a", "libmp3lame", "-b:a", "192k"]],
     ["m4a", ["-c:a", "aac", "-b:a", "192k"]],
+    ["ogg", ["-c:a", "libvorbis"]],
+    ["opus", ["-c:a", "libopus"]],
+    ["webm", ["-c:a", "libopus"]],
   ];
 
   it.each(encodings)(

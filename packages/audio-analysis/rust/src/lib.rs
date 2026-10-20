@@ -9,5 +9,9 @@ pub mod ffi;
 #[cfg(all(feature = "decode", target_arch = "wasm32"))]
 pub mod ffi_decode;
 pub mod measure;
+#[cfg(feature = "decode")]
+pub mod opus;
+#[cfg(feature = "decode")]
+pub mod webm;
 
 pub use measure::{Measure, Measured, autocorr, push_mono};
