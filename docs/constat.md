@@ -119,8 +119,17 @@ which holds them at ~130 ms instead of ~465.
 1. **`App.tsx`: 4,000 lines and 72 `useState`.** The six panes are memoised and `App` hands them
    only stable props, which `apps/k7/frontend/src/paneProps.test.ts` holds; a hidden pane renders
    on a reload and on nothing else of the shell's (`apps/k7/frontend/docs/shell.md`, "The panes are
-   memoised"). Unmeasured: `?profile=1` puts each pane's render time in `window.__k7PaneRenders`,
-   and a before/after on a real song is still owed.
+   memoised"). Measured with `?profile=1` (`window.__k7PaneRenders`) on the e2e fixture
+   `mastering.k7`, three passes each side, render time summed over the gesture:
+
+   | gesture | whole shell | the visible timeline | each hidden pane |
+   |---|---|---|---|
+   | 30 caret moves | 180 → 180 ms | 71 → 64 ms | 1–7 → 0.0 ms |
+   | 20 timeline scrolls | 29 → 24 ms | 5.2 → 0.0 ms | 1–3 → 0.0 ms |
+   | 5 palette open/close | 96 → 72 ms | 17.9 → 0.0 ms | 3–7 → 0.0 ms |
+
+   A caret move still costs what it did: it changes the visible timeline's props, which is a real
+   render. What is gone is every render that changed nothing.
 2. **Engine side**: `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
    during a knob drag; `diff()` rebuilding four `std::map`s with concatenated keys per apply; and the
    pattern clock path paying **two deep copies of the `ProjectDoc`** per tick, at 6.7 Hz.
