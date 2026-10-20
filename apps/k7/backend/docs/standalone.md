@@ -28,6 +28,22 @@ service's entry.
 The desktop still lets `K7_OIDC_ISSUER` and `K7_OIDC_CLIENT_ID` override the provider, for testing
 against another one.
 
+## Ready means the library is there
+
+**On a standalone the backend LISTENS only once the hub's first library ensure has settled**
+(`src/listenGate.ts`, `LibraryStore.firstEnsure`). Every host calls the backend ready on its first
+answer — the desktop on any HTTP reply (`waitListening`), the phone and the iPhone on
+`/api/registry/hello` — and shows k7 then. A workspace created before the bundled `k7-core` is
+installed has no library to resolve its refs against, and the local user is no admin who could add
+one; so the copy is part of the start, and neither a person nor a test reaches "create a workspace"
+before it. The hosted server listens at once, as it always has: its libraries are an admin's, and a
+container that waits to answer fails its healthcheck.
+
+| case | what happens |
+|---|---|
+| the copy fails | the backend listens anyway and logs `libraries \| '<name>' could not be installed: <why>`; creating a workspace answers 503 with that reason, not the admin message (`packages/file-service/src/libraries.ts`, `libraryRefusal`). Everything that needs no new workspace still works |
+| the copy is still running after 45 s | the backend listens anyway, under the hosts' own 60 s for a first answer, so a slow phone starts late rather than fails; a workspace asked for meanwhile WAITS, since its request queues behind the copy in the hub |
+
 ## It answers its own machine only
 
 `/auth/local` hands a session to whoever asks, so this backend must be unreachable by anyone but the

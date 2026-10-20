@@ -58,6 +58,8 @@ export interface MediaMount {
   pairedServer(req: Request): { base: string; token: string } | null;
   /** How full the accounts' file hub is, for the readiness probe (../readiness.ts). */
   fileStatus(): ReturnType<FileHub["status"]>;
+  /** The hub's first library ensure, started on the first call: what a standalone waits for before it listens (../listenGate.ts). */
+  librariesSettled(): ReturnType<FileHub["libraries"]["firstEnsure"]>;
 }
 
 /** Mount every media route on `app`; call it after setupAuth and before the SPA fallback. */
@@ -183,6 +185,7 @@ export function mountMedia(
     issueApiToken,
     pairedServer: (req) => serverOf(fileHub, req),
     fileStatus: () => fileHub.status(),
+    librariesSettled: () => fileHub.libraries.firstEnsure(),
     serve(server, url) {
       // Created on boot, so an empty volume is a working library rather than a 404 until an upload.
       try {

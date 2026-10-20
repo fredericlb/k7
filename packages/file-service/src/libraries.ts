@@ -6,6 +6,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  accountLibraries,
   isLibraryName,
   isVersionedLibrary,
   librariesHome,
@@ -57,6 +58,28 @@ export async function askHubSync(
   if (!r.ok)
     throw new Error(`the hub could not prepare the libraries (${r.status})`);
   return ((await r.json()) as { notes?: LibraryNote[] }).notes ?? [];
+}
+
+/** What a workspace created with no library on this machine is told; an origin's admin adds one. */
+export const NO_LIBRARIES =
+  "no libraries — an admin adds them in k7's Libraries page";
+
+/** Null once this machine has a library, after waiting for the hub's ensure in progress; else the status and why not. */
+export async function libraryRefusal(): Promise<{
+  status: number;
+  error: string;
+} | null> {
+  if (accountLibraries().length) return null;
+  // The hub's ensures run one at a time, so this one starts only once a first copy of the bundled library has ended.
+  const notes = await askHubSync().catch((): LibraryNote[] => []);
+  if (accountLibraries().length) return null;
+  const failed = notes.filter((n) => n.state === "failed");
+  if (!failed.length) return { status: 400, error: NO_LIBRARIES };
+  const why = failed.map((n) => `'${n.name}': ${n.note}`).join("; ");
+  return {
+    status: 503,
+    error: `the libraries could not be installed: ${why}`,
+  };
 }
 
 /** The libraries on disk, by name. */
