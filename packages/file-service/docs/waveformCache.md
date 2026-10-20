@@ -4,7 +4,7 @@ The on-disk waveform cache is a `{source}.cache` sidecar beside each audio file:
 placement-independent peak+RMS envelope, its **transient onsets**, three colour bands and a tempo,
 stamped with a cheap content fingerprint. `@studio/audio-analysis` builds it — the arithmetic, the
 fingerprint, the format — decoding through the engine's `--decode` on a machine that has one and
-through ffmpeg on the hosted service, which has none
+through its WebAssembly decoder on the hosted service, which has none
 (`packages/audio-analysis/docs/analysis.md`).
 
 What stays here is the part that is genuinely this service's: WHEN a sidecar is (re)built, and the
@@ -124,7 +124,7 @@ file are one decode, and both callers get its answer. A failed one is dropped ra
 the next ask should start a decode again, not inherit the first one's error.
 
 Where there is no engine binary — the hosted file service, whose engine is on the musician's machine
-— the decode goes through ffmpeg, as the media library's does, and the sidecar is the same file. Without that,
+— the decode goes through the WebAssembly decoder, as the media library's does, and the sidecar is the same file. Without that,
 every clip whose sidecar is missing or stale on the server — a freeze render just uploaded, a new
 take — would draw no waveform at all.
 

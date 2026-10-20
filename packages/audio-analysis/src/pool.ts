@@ -4,16 +4,24 @@
 // The one thing a reader would get wrong: a deadline TERMINATES the worker, since a decode stuck inside
 // the WebAssembly module never comes back to read its abort signal.
 
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
 import { analyseFile } from "./analyse.ts";
 import { checkSidecar, type SidecarCheck } from "./check.ts";
+import {
+  type Loudness,
+  type Piece,
+  partFor,
+  type Target,
+  type Transcoded,
+  transcode,
+} from "./transcode.ts";
 
-/** Workers at most, per kind of job: a sidecar check must never wait behind a decode. */
-const WORKERS = { analyse: 2, check: 1 } as const;
+/** Workers at most, per kind of job: a sidecar check must never wait behind a decode, nor a waveform behind a transcode. */
+const WORKERS = { analyse: 2, check: 1, transcode: 2 } as const;
 type Kind = keyof typeof WORKERS;
 
 /** How long one analysis may run before its worker is killed: a two-hour file decodes in a fraction of it. */
@@ -34,6 +42,8 @@ interface Job {
   inline: () => Promise<unknown>;
   /** The same work on another worker, for when a neighbour's deadline killed this one. */
   again: () => Promise<unknown>;
+  /** Run once its worker is gone, after a deadline: what the killed work left on disk. */
+  after?: () => void;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -42,7 +52,7 @@ interface Slot {
   jobs: Map<number, Job>;
 }
 
-const pools: Record<Kind, Slot[]> = { analyse: [], check: [] };
+const pools: Record<Kind, Slot[]> = { analyse: [], check: [], transcode: [] };
 let nextId = 0;
 let broken = false;
 
@@ -66,7 +76,15 @@ function take(slot: Slot, id: number): Job | undefined {
 /** A started worker; its jobs go inline together when it dies, and the pool stays inline from then on. */
 function spawn(kind: Kind): Slot {
   const slots = pools[kind];
-  const worker = new Worker(entry());
+  const url = entry();
+  // From source the worker is TypeScript with extensionless imports: it loads under tsx whatever started this process.
+  const fromSource = url.pathname.endsWith(".ts");
+  const worker = new Worker(
+    url,
+    fromSource
+      ? { execArgv: [...process.execArgv, "--import", "tsx"] }
+      : undefined,
+  );
   worker.unref();
   const slot: Slot = { worker, jobs: new Map() };
   worker.on("message", (m: { id: number; value?: unknown; error?: string }) => {
@@ -100,7 +118,13 @@ function expire(kind: Kind, slot: Slot, id: number, why: Error): void {
   if (slots.includes(slot)) slots.splice(slots.indexOf(slot), 1);
   const job = take(slot, id);
   const rest = [...slot.jobs.keys()].map((other) => take(slot, other));
-  void slot.worker.terminate();
+  void slot.worker.terminate().finally(() => {
+    try {
+      job?.after?.();
+    } catch (e) {
+      console.warn(`after a deadline: ${(e as Error).message}`);
+    }
+  });
   job?.reject(why);
   for (const other of rest) other?.again().then(other.resolve, other.reject);
 }
@@ -119,7 +143,12 @@ function run<T>(
   kind: Kind,
   message: Record<string, unknown>,
   inline: () => Promise<T>,
-  limits: { signal?: AbortSignal; deadline?: () => Error; ms?: number } = {},
+  limits: {
+    signal?: AbortSignal;
+    deadline?: () => Error;
+    ms?: number;
+    after?: () => void;
+  } = {},
 ): Promise<T> {
   if (broken) return inline();
   let slot: Slot;
@@ -137,6 +166,7 @@ function run<T>(
       reject,
       inline,
       again: () => run(kind, message, inline, limits),
+      after: limits.after,
     };
     const { deadline, ms } = limits;
     if (deadline && ms)
@@ -170,6 +200,37 @@ export function analyseOffThread(
       signal: decode.signal,
       ms: deadlineMs,
       deadline: () => new DeadlineError(source, deadlineMs),
+    },
+  );
+}
+
+/** A transcode that ran past its deadline, its worker terminated and its half-written file removed. */
+export class TranscodeDeadlineError extends Error {
+  constructor(dest: string, ms: number) {
+    super(`writing ${dest} took longer than ${Math.round(ms / 1000)} s`);
+    this.name = "TranscodeDeadlineError";
+  }
+}
+
+/** `transcode`, off the request thread, killed past `deadlineMs` — which the caller sets, since a join of hours is minutes of work. */
+export function transcodeOffThread(
+  pieces: Piece[],
+  dest: string,
+  target: Target,
+  options: { loudness?: Loudness; signal?: AbortSignal; deadlineMs: number },
+): Promise<Transcoded> {
+  const { loudness, signal, deadlineMs } = options;
+  const part = partFor(dest);
+  return run(
+    "transcode",
+    { type: "transcode", pieces, dest, target, loudness, part },
+    () => transcode(pieces, dest, target, { loudness, signal, part }),
+    {
+      signal,
+      ms: deadlineMs,
+      deadline: () => new TranscodeDeadlineError(dest, deadlineMs),
+      // A terminated worker runs no `finally`: its part file is removed once it is gone.
+      after: () => rmSync(part, { force: true }),
     },
   );
 }

@@ -10,13 +10,14 @@ import { instantiate, wasmModule } from "./native.ts";
 /** Frames per block: about 1.4 s at 48 kHz, a few milliseconds of decoding. */
 const BLOCK = 1 << 16;
 
-interface DecodeAbi {
+export interface DecodeAbi {
   memory: { buffer: ArrayBuffer };
   dec_hint(len: number): number;
   dec_open(len: number): number;
   dec_rate(): number;
   dec_channels(): number;
   dec_next(frames: number): number;
+  dec_seek(seconds: number): number;
   dec_frames_ptr(): number;
   dec_error_ptr(): number;
   dec_error_len(): number;

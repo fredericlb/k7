@@ -76,8 +76,12 @@ other pure-Rust Opus decoders because it is the one that is both close to libopu
 
 A service runs `analyseFile` through `pool.ts` rather than on its own thread: the file service, and
 k7's backend, whose one process serves every account. Two decoding workers at most, since each decode
-holds a mono copy of its file, and one more for sidecar checks, which must never wait behind a decode.
+holds a mono copy of its file, one more for sidecar checks, which must never wait behind a decode,
+and two for re-encodes ([transcode.md](transcode.md)), so a waveform never waits behind a splice.
 `analyse-worker.mjs` is bundled beside each bundle that uses it (`apps/k7/backend/scripts/bundle.mjs`).
+From source the worker is TypeScript whose imports name no extension, so it is started under tsx's
+loader whatever started the process — a test runner included, where it would otherwise fail to load
+and leave every job inline.
 
 A worker is **terminated** past `ANALYSE_DEADLINE_MS`, ten minutes. The abort signal is not enough:
 it is read between blocks, and a decode stuck inside the WebAssembly module never reaches the next

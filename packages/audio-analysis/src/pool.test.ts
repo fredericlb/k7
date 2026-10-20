@@ -1,10 +1,15 @@
 // pool.test.ts — the worker pool: an analysis past its deadline is refused and its worker killed, and the pool goes on.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { analyseOffThread, DeadlineError } from "./pool.ts";
+import {
+  analyseOffThread,
+  DeadlineError,
+  TranscodeDeadlineError,
+  transcodeOffThread,
+} from "./pool.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "analysis-pool-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -44,5 +49,27 @@ describe("the analysis pool", () => {
     ).rejects.toBeInstanceOf(DeadlineError);
     const env = await analyseOffThread(src, 0.5, { engineBin: null });
     expect(env.seconds).toBeCloseTo(20, 1);
+  });
+
+  it("transcodes on a worker, and leaves nothing behind past a deadline", async () => {
+    const src = wav("long.wav", 30);
+    const out = join(dir, "out.webm");
+    await expect(
+      transcodeOffThread(
+        [{ source: src }],
+        out,
+        { kind: "opus" },
+        { deadlineMs: 1 },
+      ),
+    ).rejects.toBeInstanceOf(TranscodeDeadlineError);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(readdirSync(dir).filter((f) => f.includes("out.webm"))).toEqual([]);
+    const r = await transcodeOffThread(
+      [{ source: src }],
+      out,
+      { kind: "opus" },
+      { deadlineMs: 60_000 },
+    );
+    expect(r.frames).toBe(30 * 48_000);
   });
 });

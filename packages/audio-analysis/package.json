@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Measuring an audio FILE: decode it (the engine's `--decode` where there is one, WebAssembly otherwise, ffmpeg for a format WebAssembly cannot open), build the `{file}.cache` sidecar — peak/RMS/three-band envelope, onsets, tempo — and read its true peak. The only producer of the sidecar. Node-only, unlike @studio/audio-probe, which only MEASURES already-decoded audio. Consumed as source.",
+  "description": "Measuring and re-encoding an audio FILE: decode it (the engine's `--decode` where there is one, WebAssembly otherwise, ffmpeg for a format WebAssembly cannot open), build the `{file}.cache` sidecar — peak/RMS/three-band envelope, onsets, tempo — read its true peak, and write it again as Opus/WebM, FLAC or WAV on a worker pool. The only producer of the sidecar. Node-only, unlike @studio/audio-probe, which only MEASURES already-decoded audio. Consumed as source.",
   "exports": {
     "./fingerprint": "./src/fingerprint.ts",
     "./decode": "./src/decode.ts",
@@ -13,6 +13,7 @@
     "./peak": "./src/peak.ts",
     "./extract": "./src/extract.ts",
     "./pool": "./src/pool.ts",
+    "./transcode": "./src/transcode.ts",
     "./check": "./src/check.ts"
   },
   "scripts": {
