@@ -4,16 +4,15 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ffmpegBin } from "@studio/ffmpeg";
 import type { Annotation, Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
-import { concatArgs, runTool } from "../ffmpeg.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import type { FieldsOf } from "../schema.ts";
 import { audioExtOf, audioMimeOf } from "../serve.ts";
+import { joinTakes } from "../transcode.ts";
 import {
   CACHE_DIR,
   fetching,
@@ -368,17 +367,14 @@ function cachePathFor(rec: SessionRow | null): string | null {
   );
 }
 
-// A re-encode of hours of audio is minutes of CPU at most: past this, the child is stuck and is killed.
+// A re-encode of hours of audio is minutes of CPU at most: past this, the worker is stuck and is killed.
 const CONCAT_TIMEOUT_MS = 30 * 60_000;
 
-// Several audio files into one webm/opus FILE, through ffmpeg's concat filter; the caller owns the path it resolves.
+// Several audio files into one webm/opus FILE, joined in order; the caller owns the path it resolves.
 async function concatRecordings(paths: string[]): Promise<string> {
   const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
   try {
-    await runTool(ffmpegBin(), concatArgs(paths, outPath), {
-      timeoutMs: CONCAT_TIMEOUT_MS,
-      what: "ffmpeg concat",
-    });
+    await joinTakes(paths, outPath, { timeoutMs: CONCAT_TIMEOUT_MS });
   } catch (e) {
     safeUnlink(outPath);
     throw e;
