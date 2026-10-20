@@ -141,12 +141,15 @@ void EngineHost::reset(const std::string& session) {
     impl_->session(session).edit.reset();       // destroys the playback context and every plugin in it
     impl_->session(session).current = ProjectDoc{};   // empty baseline → the next apply() is a full build
     impl_->session(session).baseDir.clear();
+    clearStandingWarnings(session);   // the plugins they were about went with the edit
     std::cerr << "[reset] project state flushed\n";
 }
 
 void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir) {
     // Building a graph is where nearly every warning comes from, so name the project they are about for as long as the build runs.
     WarningScope ws{session};
+    // Every plugin is made again, so the last build's complaints go and this one's are kept for a late client (docs/sessions.md).
+    BuildScope build{session, true};
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
     // The transport of the edit about to go: a rebuild must not send the playhead home (docs/engineHost.md).
     struct HeldTransport { tt::TimePosition at; tt::TimeRange loop; bool looping; bool playing; };
@@ -297,6 +300,7 @@ static void removeClipFor(te::AudioTrack& t, const ClipDoc& c) {
 
 ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
     WarningScope ws{session};   // same reason as applyFull, for the incremental path
+    BuildScope build{session, false};   // …adding to the standing warnings rather than replacing them
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
     ProjectDiff d = diff(impl_->session(session).current, target);
 

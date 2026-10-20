@@ -25,6 +25,30 @@ const refusedForNoArm = (ctx: LocalCtx): boolean => {
   return true;
 };
 
+/** A step sent to the engine: where the playhead read when it was sent, where it was sent to, and when. */
+export interface SentStep {
+  from: number;
+  to: number;
+  at: number;
+}
+
+/** How long a sent step outranks the playhead it was sent from; past it the engine is presumed to have refused it. */
+export const STEP_ECHO_MS = 1000;
+
+/** Where a step starts: the last one's TARGET while the playhead still reads what it read then, else the playhead (docs/timeline.md). */
+export function stepOrigin(
+  playhead: number,
+  last: SentStep | null,
+  now: number,
+): number {
+  return last && last.from === playhead && now - last.at < STEP_ECHO_MS
+    ? last.to
+    : playhead;
+}
+
+// The one step in flight, shared by both directions: `,` right after `.` steps back from where `.` went.
+let lastStep: SentStep | null = null;
+
 const step = (
   dir: 1 | -1,
   name: string,
@@ -34,11 +58,15 @@ const step = (
   name,
   readable,
   run: (ctx) => {
+    const playhead = ctx.store.getSnapshot().playhead;
+    const now = Date.now();
     const to = ctx.timelineRef.current?.stepTarget(
-      ctx.store.getSnapshot().playhead,
+      stepOrigin(playhead, lastStep, now),
       dir,
     );
-    if (to !== null && to !== undefined) ctx.seek(to);
+    if (to === null || to === undefined) return true;
+    lastStep = { from: playhead, to, at: now };
+    ctx.seek(to);
     return true;
   },
 });

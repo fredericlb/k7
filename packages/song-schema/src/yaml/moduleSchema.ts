@@ -27,27 +27,43 @@ export const RackSoundSchema = z.object({
   mute: z.boolean().optional(),
 });
 
+// A key that is no rack field, most often a pad written outside `symbols:`, is an error and never an empty kit (packages/song/docs/racks.md).
+const notARackField = {
+  error: (i: { code: string; keys?: string[] }) =>
+    i.code === "unrecognized_keys"
+      ? `not a rack field: ${(i.keys ?? []).join(", ")} — a rack's pads go under \`symbols:\``
+      : undefined,
+};
 // The rack's two flavours by `rack_type`: a discriminated union gives the better error for the flavour asked for.
-const SamplesRack = z.object({
-  rack_type: z.literal("samples").default("samples"),
-  symbols: z.record(
-    z.string(),
-    // A tap may be written before its sample is picked: an empty one plays nothing and says so on its card.
-    RackSoundSchema,
-  ),
-});
-const SliceRack = z.object({
-  rack_type: z.literal("slice"),
-  source: z.string().min(1),
-  symbols: z.record(
-    z.string(),
-    RackSoundSchema.extend({
-      from: z.number().min(0),
-      to: z.number().positive(),
-    }),
-  ),
-});
-export const RackSchema = z.union([SliceRack, SamplesRack]);
+const SamplesRack = z.strictObject(
+  {
+    rack_type: z.literal("samples").default("samples"),
+    symbols: z.record(
+      z.string(),
+      // A tap may be written before its sample is picked: an empty one plays nothing and says so on its card.
+      RackSoundSchema,
+    ),
+  },
+  notARackField,
+);
+const SliceRack = z.strictObject(
+  {
+    rack_type: z.literal("slice"),
+    source: z.string().min(1),
+    symbols: z.record(
+      z.string(),
+      RackSoundSchema.extend({
+        from: z.number().min(0),
+        to: z.number().positive(),
+      }),
+    ),
+  },
+  notARackField,
+);
+export const RackSchema = z.discriminatedUnion("rack_type", [
+  SliceRack,
+  SamplesRack,
+]);
 
 /** One named port a module declares for itself; `mandatory` is an INPUT's business — see docs/moduleFile.md. */
 const PortSchema = z
@@ -344,9 +360,13 @@ const MODULE_FIELDS = {
   rack: z
     .preprocess((v) => {
       const r = (v ?? {}) as Record<string, unknown>;
-      return typeof r === "object" && r.symbols == null
-        ? { ...r, symbols: {} }
-        : r;
+      if (typeof r !== "object") return r;
+      // The flavour is spelled out so the union picks its branch, and that branch's error, by it.
+      return {
+        ...r,
+        rack_type: r.rack_type ?? "samples",
+        symbols: r.symbols ?? {},
+      };
     }, RackSchema)
     .optional(),
   // Taps that leave by an output of their own, each feeding a SUBCHAIN of the node's chain file: tap → subchain id (packages/song/docs/racks.md).

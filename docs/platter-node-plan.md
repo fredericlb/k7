@@ -114,12 +114,10 @@ remains the last place in that file that fabricates a plugin.
 
 ## Two things worth knowing
 
-**The platter is registered but not CATALOGUED.** `registerBuiltInPlugins` does create its type,
-but `builtInPlugins()` does not list it — so it is absent from `--dump-builtin-params`, absent from
-`BUILTIN_PLUGINS`, and the plugin picker does not offer it. Nothing here breaks, because
-`enginePlugin` passes an `internal`'s name **as is** without consulting the catalogue. But until it
-is there, its parameters can be neither proposed nor validated by the module builder. One `e(…)`
-line in `PluginScan.cpp`.
+**The platter is CATALOGUED.** `builtInPlugins()` lists it as `Turntable`, so a project's needs
+find it and its engine is not reported as missing it (`engine/k7-runtime/docs/turntable.md`).
+`enginePlugin` passes an `internal`'s name **as is** without consulting the catalogue either way.
+`BUILTIN_PLUGINS` holds its parameters once `gen:builtin-params` is re-run against a built engine.
 
 **A parameter CAN be a file**, and the mechanism exists: `bind: model` + `filepicker`, and
 `nodeProject.ts` turns a module's `model:` into `namFile`. An analogous line would make `deck:` →

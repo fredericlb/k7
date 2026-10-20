@@ -95,6 +95,17 @@ interface EngineMessage extends StateFrame, IoLevelsFrame {
   build?: string; // …the release stamp it was built from
   safeMode?: EngineSafeMode; // …present only while it runs without external plugins
   requests?: PairRequest[]; // 'pair-requests', to the machine's own clients only
+  warnings?: unknown; // 'applied': the warnings the session's project was BUILT with, absent from an older engine
+}
+
+/** An `applied` frame's `warnings`, read defensively: the engine's word is not trusted for shape. */
+function readStanding(list: unknown[]): EngineWarning[] {
+  return list.flatMap((w) => {
+    const x = w as Partial<EngineWarning> | null;
+    return x && typeof x === "object" && typeof x.message === "string"
+      ? [{ subject: String(x.subject ?? ""), message: x.message }]
+      : [];
+  });
 }
 
 export abstract class EngineEvents extends EngineLink {
@@ -104,6 +115,7 @@ export abstract class EngineEvents extends EngineLink {
   private presetsCbs = new Set<PresetsCb>();
   private busyCbs = new Set<BusyCb>();
   private warningCbs = new Set<WarningCb>();
+  private standingCbs = new Set<(w: EngineWarning[]) => void>();
   private restartCbs = new Set<() => void>();
   private pairRequestsCbs = new Set<(r: PairRequest[]) => void>();
   private pairedDevicesCbs = new Set<(d: PairedDevice[]) => void>();
@@ -137,7 +149,10 @@ export abstract class EngineEvents extends EngineLink {
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
-    else if (m.type === "whoami") {
+    else if (m.type === "applied" && Array.isArray(m.warnings)) {
+      const standing = readStanding(m.warnings);
+      for (const cb of this.standingCbs) cb(standing);
+    } else if (m.type === "whoami") {
       if (typeof m.boot === "string" && m.boot) {
         // A different process behind the same engine id: the supervisor relaunched it, i.e. it died.
         const restarted = this.boot !== null && this.boot !== m.boot;
@@ -200,6 +215,12 @@ export abstract class EngineEvents extends EngineLink {
   onWarning(cb: WarningCb): () => void {
     this.warningCbs.add(cb);
     return () => this.warningCbs.delete(cb);
+  }
+
+  /** After every apply, the WHOLE set of warnings the project was built with, a no-op apply included — engine/k7-runtime/docs/sessions.md. */
+  onStandingWarnings(cb: (w: EngineWarning[]) => void): () => void {
+    this.standingCbs.add(cb);
+    return () => this.standingCbs.delete(cb);
   }
 
   /** The engine came back as ANOTHER process — it crashed (or was restarted) and lost what it held. */

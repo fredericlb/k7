@@ -120,6 +120,14 @@ export function useEngineLink(
       pushLog("error", `engine: ${text}`);
       onStatus(`engine: ${text}`);
     });
+    // What the project was BUILT with, after every apply: a no-op apply's busy cleared the badges a build made before this page connected.
+    const offStanding = engine.onStandingWarnings((list) =>
+      setEngineWarnings(
+        Object.fromEntries(
+          list.filter((w) => w.subject).map((w) => [w.subject, w.message]),
+        ),
+      ),
+    );
     // A crash is not a blip: the engine lost the project, and that is said where it cannot be missed.
     const offRestart = engine.onEngineRestart(() => {
       pushLog("error", "engine: it crashed and was restarted");
@@ -176,6 +184,7 @@ export function useEngineLink(
       offLiveParams();
       offPresets();
       offWarning();
+      offStanding();
       offRestart();
       offSafeMode();
       offBusy();
