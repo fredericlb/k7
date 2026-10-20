@@ -313,24 +313,26 @@ short service on its own after a few minutes.
 The phone runs the desktop's backend and hub, so it is a live-sync replica the same way
 (`apps/k7-standalone/docs/sync.md`): an account PAIRED with the origin has its workspaces kept in
 step with the origin's, and the phone's libraries follow the origin's read-only
-(`packages/file-hub/docs/fileHub.md`). `SyncPairing.kt` is `pairSync.ts` in Kotlin, with the same
-rules — once per account per run, never for the local user, refused when the browser is signed in
-to the origin as someone else. It **asks first**, in a dialog over the app ("Sync this phone's workspaces with
-app.k7.rocks?"), since the browser coming up on its own reads as a bug, and says how it ended — paired, not stored,
-not finished — in a toast. A browser signed in as another account gets a dialog naming both accounts and a Try again.
+(`packages/file-hub/docs/fileHub.md`). The pairing is the BACKEND's, the one the desktop uses too
+(`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"), with the same rules — once per
+account per run, never for the local user, refused when the browser is signed in to the origin as
+someone else. `SyncPairing.kt` keeps what only the app can do: it **asks first**, in a dialog over the
+app ("Sync this phone's workspaces with app.k7.rocks?"), since the browser coming up on its own reads
+as a bug, opens the browser, and says how it ended — paired, not stored, not finished — in a toast. A
+browser signed in as another account gets a dialog naming both accounts and a Try again.
 
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
-  token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), so
-  the app listens on `127.0.0.1` on a port of its own while the browser is in front; a second rule
-  for phones would be a second hole to keep shut.
+  token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and
+  that return is the backend's own fixed port; a second rule for phones would be a second hole to keep shut.
 - **It starts when k7's view says who is signed in** (`assets/account.js`) on the phone's own
-  studio, and the backend says that account is unpaired (`GET /api/sync/remote`). The pairing is
-  stored with the view's session cookie, read from the `CookieManager`, so the backend knows which
-  account it is for. The device is named after the phone's maker and model.
-- **The listener lives in the app's process, and what it waits for is on disk.** Android may freeze or kill a
-  process whose activity is behind the browser: frozen, the browser's redirect waits until the app is back in
-  front; killed, the next start listens again on the same port with the same state, for as long as the pairing had
-  left, and the browser's page reloaded delivers the answer. The token itself is never written down.
+  studio, and the backend says that account is unpaired. The app talks to the backend with the view's
+  session cookie, read from the `CookieManager`, so the backend knows which account it is for. The
+  device is named after the phone's maker and model.
+- **A process killed behind the browser loses nothing.** Android may freeze or kill a process whose
+  activity is behind the browser, and the backend with it: frozen, the browser's redirect waits until
+  the app is back in front; killed, the backend finds the pairing on disk at the next start, the
+  browser's page reloaded delivers the answer, and the app says the ending — and hands a paired
+  token to the supervisor — whenever it next asks.
 - **The server is the person's choice, as on desktop.** Sign in opens the same popin
   (`ServerDialog.tsx`), and the address rides on the `/auth/login` the shell already intercepts, as
   `?server=`: the page has no other way to the shell that both phones share. The shell keeps it
@@ -542,9 +544,9 @@ also catches the GL driver's chatter, which is noise.
   the camera of an app behind.
 - **The media session has not been driven on a phone yet**: background playback in a hidden view,
   the notification on Android 12 and 13+, and a headset's buttons are each still to check.
-- **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow
-  and has not been compiled or driven; the browser reaching the app's loopback port while the app
-  is behind it is the part to check first.
+- **Pairing has not been run on a phone.** `SyncPairing.kt` has not been compiled or driven against
+  the backend's pairing routes; the Custom Tab reaching the backend's port while the app is behind
+  it, and a pairing finished after the app was killed, are the parts to check first.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
   the browser handoff, the home page's account control, the status-bar colour and k7's engine section above are
   the design; each needs checking against a live studio.
