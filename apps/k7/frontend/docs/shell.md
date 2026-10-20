@@ -422,7 +422,8 @@ the engine's name in the bar exists to prevent.
 truncated to a few characters says nothing — while the mode badges, the waiting-for-engine line and the
 error count stay, since each is a state you would otherwise leave by surprise. The tempo and meter
 move into the same info popover (`shell/TempoMeter.tsx`, drawn by both): read rarely, still editable
-on a tap.
+on a tap. What is left starts at the left edge with the metronome, the logo gone, and the states sit at
+the right end, so one appearing never moves a control from under a thumb.
 
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
