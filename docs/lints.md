@@ -27,7 +27,7 @@ scanned: the submodule brings its own docs and its own truth about them.
 
 **What counts as "a path into this repo"** is anchored on the four TOP folders — `packages`,
 `apps`, `engine`, `commons` — and deliberately NOT on `docs/` or `scripts/`. Those two are written
-relative to the zone a page is talking about: the root `AGENTS.md` says `docs/picture.md` meaning
+relative to the zone a page is talking about: `architecture.md` says `docs/picture.md` meaning
 k7's, and moteur's `protocol.md` says `scripts/two-sessions.ts` meaning its own. A check anchored
 on them would report a hundred sentences that are perfectly clear to a reader.
 
