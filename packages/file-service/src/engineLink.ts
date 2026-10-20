@@ -189,7 +189,7 @@ function resendServed(ws: Workspace): void {
 }
 
 /** The dry run's hands on one session's engine link. */
-function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
+export function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
   const session = sessionOf(ws);
   // Whether record was on when the dry run began: rolling would RECORD, count-in, take and all.
   let recordWasOn = false;
@@ -201,7 +201,8 @@ function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
     sendProject: (d) => c.sendProject(d),
     play: () => {
       recordWasOn = links.get(session)?.recordEnabled ?? false;
-      if (recordWasOn) c.setRecordEnabled(false);
+      // Off whatever the link read: a press younger than the last state frame is on at the engine (docs/engineLoad.md).
+      c.setRecordEnabled(false);
       c.transport("play");
     },
     stopAndRewind: () => {
