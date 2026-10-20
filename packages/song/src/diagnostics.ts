@@ -2,12 +2,17 @@
 // library module that would not read, a field nothing reads, a plugin k7 cannot load. What a
 // reader gets wrong: "accepted" must never quietly mean "ignored". See docs/loader.md.
 
-import { NOT_SUPPORTED_TYPE } from "@studio/song-schema/moduleTypes";
+import {
+  hostsPlugin,
+  NOT_SUPPORTED_TYPE,
+  OFFLINE_TYPE,
+} from "@studio/song-schema/moduleTypes";
+import { reachesEngine } from "./compile/plugins";
 import { loadProjectRoot } from "./entities";
 import { loadModuleRefs } from "./moduleRefs";
 import { resolveModuleMap } from "./moduleResolve";
 import { loadModules } from "./moduleTree";
-import type { RawProjectRoot } from "./rawDoc";
+import type { LoadedModule, RawProjectRoot } from "./rawDoc";
 import { entityFileFor } from "./yaml/moduleIO";
 
 /** One located finding for the editor's inline squiggles; mirrored on the wire by web-shared's Diagnostic. */
@@ -63,15 +68,26 @@ export function deadProjectFields(dir: string): Diagnostic[] {
   return dead;
 }
 
-export function notSupportedModules(dir: string): Diagnostic[] {
+type PluginRef = { type?: unknown; name?: unknown };
+
+// One finding per project module whose RESOLVED plugin `judge` has something to say about, at the entry's own file.
+function pluginFindings(
+  dir: string,
+  judge: (
+    p: PluginRef,
+    name: string,
+    m: LoadedModule,
+  ) => Pick<Diagnostic, "message" | "severity"> | null,
+): Diagnostic[] {
   const out: Diagnostic[] = [];
   const authored = loadModules(dir); // authored, no validate
-  // RESOLVED, because the marker may be INHERITED: a node on `@meta/not-supported` need not restate it (docs/notSupported.md).
+  // RESOLVED, because the plugin may be INHERITED: a node on `@meta/not-supported` need not restate it (docs/notSupported.md).
   const resolved = resolveModuleMap(authored, loadModuleRefs(dir));
   for (const [name, m] of Object.entries(resolved)) {
-    const p = m?.plugin;
+    const p = m?.plugin as PluginRef | undefined;
     if (!p || typeof p !== "object") continue;
-    if (String(p.type ?? "").toLowerCase() !== NOT_SUPPORTED_TYPE) continue;
+    const finding = judge(p, name, m);
+    if (!finding) continue;
     const own = authored[name];
     out.push({
       // The entry's OWN file, not the generic's — and a node's is flat, with no type folder in it.
@@ -81,9 +97,37 @@ export function notSupportedModules(dir: string): Diagnostic[] {
           : `modules/${m.category}/${m.file}/${m.node ?? "module"}.k7x`,
       line: 1,
       col: 1,
-      severity: "warning",
-      message: `plugin "${p.name || name}" is not supported — it will be bypassed`,
+      ...finding,
     });
   }
   return out;
+}
+
+export function notSupportedModules(dir: string): Diagnostic[] {
+  return pluginFindings(dir, (p, name) =>
+    String(p.type ?? "").toLowerCase() === NOT_SUPPORTED_TYPE
+      ? {
+          severity: "warning",
+          message: `plugin "${p.name || name}" is not supported — it will be bypassed`,
+        }
+      : null,
+  );
+}
+
+// A plugin type no engine loads compiles to NOTHING, so it is said here as an error rather than played as silence (docs/loader.md).
+export function unknownPluginModules(dir: string): Diagnostic[] {
+  return pluginFindings(dir, (p, name, m) => {
+    if (m.kind !== "plugin" || !hostsPlugin(m.category)) return null;
+    const type = String(p.type ?? "").toLowerCase();
+    if (
+      type === NOT_SUPPORTED_TYPE ||
+      type === OFFLINE_TYPE ||
+      reachesEngine(type)
+    )
+      return null;
+    return {
+      severity: "error",
+      message: `plugin "${p.name || name}" has type "${String(p.type ?? "")}", which no engine loads — it plays nothing (a built-in is "internal")`,
+    };
+  });
 }

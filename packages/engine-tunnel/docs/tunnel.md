@@ -97,6 +97,12 @@ path the server can aim at whichever machine runs the weaker one.
 It starts from the tree's own segment rule, `isPlainSegment` (`packages/web-protocol/docs/paths.md`),
 and refuses more: the rest of the table is what an engine's machine would mis-open.
 
+**A path under a root is spelt `<root>/<segment>/…` by the SERVER, whatever its separator**, and the
+path maps do not read `\` as one: on a POSIX server `\` is a legal file-name character, so only the
+server knows which it meant. A Windows server respells a job's paths (`jobSpelling.ts`), and what a
+browser hands an engine is built in that spelling to begin with — a deck's record
+(`playablePath`, `packages/k7-plugins/src/turntables/service.ts`).
+
 **A file the engine holds open is never waited for.** On Windows a rename over a file another
 process has open is refused, and the engine keeps open the clips of what it played. The new version
 is then placed BESIDE it, `clip~<server mtime>.wav`, and the map names that copy from then on:

@@ -449,15 +449,27 @@ describe("which addresses open a project", () => {
       expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
   });
 
-  it("finds the home's own pages at the mount, exactly one segment", () => {
+  it("finds the home's own pages at the mount", () => {
     expect(isHomePage("/libraries", "/")).toBe(true);
     expect(isHomePage("/settings/", "/")).toBe(true);
     expect(isHomePage("/tasks", "/")).toBe(true);
     expect(isHomePage("/about", "/")).toBe(true);
     expect(isHomePage("/k7/settings", "/k7/")).toBe(true);
-    expect(isHomePage("/settings/x.k7", "/")).toBe(false);
     expect(isHomePage("/external", "/")).toBe(false);
     expect(isHomePage("/", "/")).toBe(false);
+  });
+
+  it("takes every page BELOW a home page as the home's, `/settings/engine` loaded by its address", () => {
+    expect(isHomePage("/settings/engine", "/")).toBe(true);
+    expect(isHomePage("/k7/settings/engine", "/k7/")).toBe(true);
+    // A bare word opens no workspace any more, so nothing below a reserved one is a project.
+    expect(isHomePage("/settings/x.k7", "/")).toBe(true);
+    expect(isHomePage("/libraries/anything", "/")).toBe(true);
+    // Only the head: a workspace may hold a project of that name.
+    expect(isHomePage("/@local/settings/x.k7", "/")).toBe(false);
+    expect(isHomePage("/@local/ws/settings", "/")).toBe(false);
+    // …and agreeing with isProjectAddress, which already read the head alone.
+    expect(isProjectAddress(`${O}/settings/engine`)).toBe(false);
   });
 
   it("takes `media` as a PREFIX, every address below it included", () => {

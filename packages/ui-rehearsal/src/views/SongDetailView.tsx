@@ -197,7 +197,8 @@ export function SongDetailView({
     setSaving(true);
     try {
       await onSave(tab, draft);
-      // The reloaded song comes back through the effect above, into the read-only view.
+      // Saved: the editor closes on the rendered sheet, and the reloaded song refreshes it through the effect above.
+      setEditing(draft === "");
     } finally {
       setSaving(false);
     }
