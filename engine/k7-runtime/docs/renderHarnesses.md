@@ -124,7 +124,7 @@ that check is a MARGIN rather than exact silence: the fader's own curve decides 
 question being asked is only whether the plugin ran at all.
 
 The parameter is `Volume`, capitalised, which is the name the plugin publishes
-(`packages/song-schema/src/builtinParams.generated.ts`). A lowercase key matches nothing and
+(`packages/song-schema/src/builtinParams.generated.json`). A lowercase key matches nothing and
 changes nothing, silently, which is the failure this case is shaped to catch.
 
 The trim case is the opposite. `MasterGainPlugin` takes dB straight to a linear factor with no

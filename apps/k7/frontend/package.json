@@ -25,6 +25,7 @@
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*",
+    "@studio/http-client": "*",
     "@studio/k7-plugins": "*",
     "@studio/k7-sdk": "*",
     "@studio/k7x": "*",

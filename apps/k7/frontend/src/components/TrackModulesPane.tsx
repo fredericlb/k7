@@ -15,11 +15,12 @@ import {
   type NodeEngines,
   type TapAction,
 } from "@studio/ui-chains-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { useLatest } from "../hooks/useLatest";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { laneHasInput } from "../laneInput";
@@ -254,8 +255,7 @@ export function TrackModulesPane({
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
   // The pads light here too, as in the graph panes: the notes under the playhead, and a pad just clicked.
   const rackLit = useLiveRackLit(project, graph);
-  const laidRef = useRef(laid);
-  laidRef.current = laid;
+  const laidRef = useLatest(laid);
   const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   // Bypasses clicked but not yet in `graph`, painted on after layout (usePendingBypass.ts).

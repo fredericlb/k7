@@ -180,7 +180,7 @@ grid and the ceiling with the word length on, the low cut thinning the mid and s
 and the HF limit pulling high notes down while leaving low ones alone.
 
 The second line creates the plugin, reads its ten parameters and writes
-`packages/song-schema/src/builtinParams.generated.ts`. A plugin that fails to instantiate, or
+`packages/song-schema/src/builtinParams.generated.json`. A plugin that fails to instantiate, or
 whose ranges are not what you thought, shows up there immediately — and that file is committed, so
 `git diff` is the comparison.
 

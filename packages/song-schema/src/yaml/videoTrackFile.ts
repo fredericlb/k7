@@ -12,6 +12,7 @@ import {
   keysOf,
   splitAnimate,
 } from "../keyframes";
+import { spliceList } from "./timeSplice";
 
 export interface VideoPlacement {
   /** The `ref:` value — a clips/ id whose source is a video file; EMPTY on an ACTIVATION (song-video/docs/shapes.md). */
@@ -218,27 +219,20 @@ export function spliceVideoTime(
   lenSeconds: number,
   mode: "insert" | "delete",
 ): { moved: number; removed: number } {
-  let moved = 0;
-  let removed = 0;
   const events = eventsOf(doc);
-  if (!(lenSeconds > 0) || !events) return { moved, removed };
-  const end = atSeconds + lenSeconds;
-  // Descending, so removing one does not shift the address of the next.
-  for (let i = events.length - 1; i >= 0; i--) {
-    const start = num(events[i]?.start);
-    if (mode === "delete" && start >= atSeconds - 1e-6 && start < end - 1e-6) {
-      doc.deleteIn(["events", i]);
-      removed++;
-      continue;
-    }
-    const from = mode === "delete" ? end : atSeconds;
-    if (start < from - 1e-6) continue;
-    const next = start + (mode === "delete" ? -lenSeconds : lenSeconds);
-    // Milliseconds, the same rounding a drag writes, so a round trip compares byte for byte.
-    doc.setIn(["events", i, "start"], ms(next));
-    moved++;
-  }
-  return { moved, removed };
+  if (!events) return { moved: 0, removed: 0 };
+  return spliceList(
+    {
+      count: events.length,
+      positionOf: (i) => num(events[i]?.start),
+      remove: (i) => doc.deleteIn(["events", i]),
+      // Milliseconds, the same rounding a drag writes, so a round trip compares byte for byte.
+      move: (i, to) => doc.setIn(["events", i, "start"], ms(to)),
+    },
+    atSeconds,
+    lenSeconds,
+    mode,
+  );
 }
 
 /** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation; false when it has none. */

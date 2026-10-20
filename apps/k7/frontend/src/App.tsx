@@ -196,6 +196,8 @@ import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
+import { useLatest } from "./hooks/useLatest";
+import { isTyping } from "./hooks/useWindowKey";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
@@ -551,8 +553,7 @@ export default function App({
   // Counters that move only when a reload could concern them (reloadScope.ts); the raw key is for what reads everything.
   const chainsKey = useScopedKey(reload, movedTheChains);
   // The key a graph handed back by a command answers — ChainsTab's `seedGraph`.
-  const reloadKeyRef = useRef(reloadKey);
-  reloadKeyRef.current = reloadKey;
+  const reloadKeyRef = useLatest(reloadKey);
   const surfacesKey = useScopedKey(reload, movedTheSurfaces);
   const audioKey = useScopedKey(reload, movedTheAudio);
   // A sample rendered or replaced under a screen: drawn again from the new file, not the one decoded first.
@@ -704,8 +705,7 @@ export default function App({
   const recordWithoutArm =
     (recordEnabled || midiRecord) && !armed.length && !midiArmed && !videoArmed;
   // …read by the command path through a ref, so the transport callbacks are not rebuilt on every arm.
-  const recordWithoutArmRef = useRef(recordWithoutArm);
-  recordWithoutArmRef.current = recordWithoutArm;
+  const recordWithoutArmRef = useLatest(recordWithoutArm);
   // A take of the takes view is drawn THERE, so the record panel must not take its slot; set by useTakeRecording below.
   const takeActiveRef = useRef(false);
   // An audio take shows its envelope; a take of a MIDI lane alone shows its notes instead.
@@ -902,8 +902,7 @@ export default function App({
   }, [videoTracks]);
 
   // Read by `onLaneToggle`, which must not re-bind every time the picture doc is refetched.
-  const videoTracksRef = useRef(videoTracks);
-  videoTracksRef.current = videoTracks;
+  const videoTracksRef = useLatest(videoTracks);
 
   // Has the engine every plugin the open project uses? The header's warning when not — hooks/useEngineCompat.ts.
   const engineCompat = useEngineCompat(
@@ -1063,8 +1062,7 @@ export default function App({
     panel === "graph" ||
     panel === "mix" ||
     (panel === "event" && graphSlot?.kind === "trackModules");
-  const graphOnScreenRef = useRef(graphOnScreen);
-  graphOnScreenRef.current = graphOnScreen;
+  const graphOnScreenRef = useLatest(graphOnScreen);
 
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
@@ -1261,8 +1259,7 @@ export default function App({
     [engineWarnings, instrumentWarnings],
   );
   // What one-shot commands are doing to the lanes, shown at once until the document agrees (pendingEdits.ts).
-  const docRef = useRef(projectDoc);
-  docRef.current = projectDoc;
+  const docRef = useLatest(projectDoc);
   // A MIDI take that made a new clip, and the lane's clips before it: the one not among them opens once the document shows it.
   const landedMidiRef = useRef<{ track: string; before: Set<string> } | null>(
     null,
@@ -1433,10 +1430,6 @@ export default function App({
     },
     [projectDoc?.masterVolume, quietCommandFiles, reloadWith],
   );
-
-  // A ref because `runCommand` reads it and is itself a dependency of half the app.
-  const docTracksRef = useRef(docTracks);
-  docTracksRef.current = docTracks;
 
   // Per-track mixer state + the shared mute/solo/arm toggle handler.
   const { trackControls, onTrackToggle, onTrackSet, onTrackArm } =
@@ -2025,8 +2018,7 @@ export default function App({
   );
 
   // The picture's shape for a drop to read: a phone clip turns an untouched landscape picture to 9:16 (hooks/useTimelineDrop.ts).
-  const videoDocRef = useRef(videoDoc);
-  videoDocRef.current = videoDoc;
+  const videoDocRef = useLatest(videoDoc);
   const pictureShape = useCallback(() => {
     const d = videoDocRef.current;
     if (!d) return null;
@@ -2068,8 +2060,7 @@ export default function App({
   // What the status line said about the file, so the canvas's answer is added to it rather than replacing it.
   const focusLine = useRef("");
   // Read through a ref: `openInEditor` follows fullscreen and focus, and the panels this is handed to are memoised.
-  const openInEditorRef = useRef(openInEditor);
-  openInEditorRef.current = openInEditor;
+  const openInEditorRef = useLatest(openInEditor);
   const focusRowInPanes = useCallback(
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a lane lives in `nodes/`, or in a chain project's `tracks/` (packages/song/docs/chainFiles.md).
@@ -2104,8 +2095,7 @@ export default function App({
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
   // Read through a ref: the graph's insert callbacks are built on this one, and the chains pane is memoised.
-  const paletteOpenRef = useRef(paletteOpen);
-  paletteOpenRef.current = paletteOpen;
+  const paletteOpenRef = useLatest(paletteOpen);
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
@@ -2446,14 +2436,7 @@ export default function App({
         journalArmedAt.current = 0;
       } else {
         // A plain input (command bar, a rename field) keeps its own native text undo.
-        const t = e.target as HTMLElement | null;
-        if (
-          t &&
-          (t.tagName === "INPUT" ||
-            t.tagName === "TEXTAREA" ||
-            t.isContentEditable)
-        )
-          return;
+        if (isTyping(e)) return;
       }
       e.preventDefault();
       e.stopPropagation();

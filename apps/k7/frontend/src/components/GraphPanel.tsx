@@ -30,6 +30,7 @@ import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
+import { useLatest } from "../hooks/useLatest";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
@@ -231,8 +232,7 @@ export function GraphPanel({
   // The rack pads light here too: this panel draws the same nodes, so it owes them the same answer (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
   // …and they PLAY here too, by the same hook as the chains pane.
-  const laidRef = useRef(laid);
-  laidRef.current = laid;
+  const laidRef = useLatest(laid);
   const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   // Bypasses clicked but not yet in `graph`, painted on after layout (usePendingBypass.ts).

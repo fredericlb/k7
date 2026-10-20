@@ -3,6 +3,12 @@
 // host setting it once through `configureLibrary` (../docs/host.md).
 
 import { type EngineAccess, engineAccess } from "@studio/engine-browser/access";
+import {
+  failed,
+  fetchWithin,
+  readJson as json,
+} from "@studio/http-client/call";
+import { upload } from "@studio/http-client/upload";
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing, LibraryPlacement } from "@studio/mediatek/types";
@@ -16,7 +22,6 @@ import type {
 import { apiBase, libraryConfig } from "./config";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
-import { upload } from "./upload";
 
 /** The folder a song would land in already holds one — its own type so the dialogue can offer to replace. */
 export class SongExists extends Error {}
@@ -29,44 +34,12 @@ const PLAYER_MS = 10_000;
 const ANALYSE_MS = 10 * 60_000;
 
 /** `fetch` within `ms` — null for an upload, which a slow link makes long and only the user may cut. */
-async function request(
+const request = (
   url: string,
   init: RequestInit = {},
   ms: number | null = TIMEOUT_MS,
-): Promise<Response> {
-  const limit = ms === null ? null : AbortSignal.timeout(ms);
-  const signals = [init.signal, limit].filter((s): s is AbortSignal => !!s);
-  try {
-    return await fetch(url, {
-      ...init,
-      signal: signals.length > 1 ? AbortSignal.any(signals) : signals[0],
-    });
-  } catch (e) {
-    // The caller's own cancel stays an AbortError; only the budget running out is reworded.
-    if (limit?.aborted && !init.signal?.aborted)
-      throw new Error(libraryConfig().noAnswer((ms ?? 0) / 1000));
-    throw e;
-  }
-}
-
-/** The sentence a failed response carries, or a status code when it carries none (../docs/api.md). */
-async function failed(
-  res: Response,
-  what: string,
-): Promise<Error & { status?: number }> {
-  const detail = (await res.json().catch(() => ({}))) as { error?: string };
-  const e: Error & { status?: number } = new Error(
-    detail.error ?? `${what} ${res.status}`,
-  );
-  // Carried, because ONE caller has to tell "there is nothing there" from "it went wrong".
-  e.status = res.status;
-  return e;
-}
-
-async function json<T>(res: Response, what: string): Promise<T> {
-  if (!res.ok) throw await failed(res, what);
-  return (await res.json()) as T;
-}
+): Promise<Response> =>
+  fetchWithin(url, init, ms, (s) => new Error(libraryConfig().noAnswer(s)));
 
 const get = async <T>(path: string, what: string): Promise<T> =>
   json(await request(`${apiBase()}/api/mediatek${path}`), what);

@@ -3,9 +3,10 @@
 // `runCommand` exists to feed are all absent. What is left is the write, the reload it implies
 // and one line to say what happened. See ../../docs/external.md.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
+import { useLatest } from "./useLatest";
 import { useRevision } from "./useRevision";
 
 export interface SurfaceCommands {
@@ -33,8 +34,7 @@ export function useSurfaceCommands(
   }, [rev, bumpReload]);
 
   // In a ref so the runner below keeps one identity: it is a key listener's dependency, and the handler rebinds as the surface's state moves.
-  const localRef = useRef(local);
-  localRef.current = local;
+  const localRef = useLatest(local);
 
   const send = useCallback(
     async (line: string, reload: boolean) => {

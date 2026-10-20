@@ -2,9 +2,10 @@
 // XT `.fxp`), and which one a module or node has chosen. Why a base is not a preset: docs/userPresets.md.
 // A base may sit in a subfolder, and is then named by its path: `Pads/Bell Pad`.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isBelow } from "@studio/web-protocol/paths";
+import { listFilesUnder } from "./listFiles";
 import { wsExists } from "./yaml/workspaceFile";
 
 /** The folder a module keeps its bases in, and the extensions a base file carries. */
@@ -22,27 +23,14 @@ const baseName = (file: string): string | undefined => {
 /** The bases in ONE folder, by name and without the extension — subfolders as `<dir>/<name>` — in a stable order. */
 export function basesIn(folder: string | null | undefined): string[] {
   if (!folder) return [];
-  const out: string[] = [];
-  const walk = (abs: string, rel: string, depth: number): void => {
-    let entries: import("node:fs").Dirent[];
-    try {
-      entries = readdirSync(abs, { withFileTypes: true });
-    } catch {
-      return; // no base/ folder, or one that cannot be read — both are "this module has none"
-    }
-    for (const e of entries) {
-      if (e.name.startsWith(".")) continue;
-      const child = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isDirectory()) {
-        if (depth < MAX_DEPTH) walk(join(abs, e.name), child, depth + 1);
-        continue;
-      }
-      const name = e.isFile() ? baseName(child) : undefined;
-      if (name) out.push(name);
-    }
-  };
-  walk(join(folder, MODULE_BASES_DIR), "", 0);
-  return out.sort((a, b) => a.localeCompare(b));
+  // No base/ folder, or one that cannot be read — both are "this module has none".
+  return listFilesUnder(join(folder, MODULE_BASES_DIR), {
+    maxDepth: MAX_DEPTH,
+    regularOnly: true,
+  })
+    .map(baseName)
+    .filter((n): n is string => !!n)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 /** The file a `base:` names, or undefined so the caller falls back to the module's default — never one outside `base/`. */

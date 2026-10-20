@@ -24,6 +24,7 @@ import {
 import type { EngineClient } from "@studio/engine-browser";
 import { useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
+import { useWindowKey } from "../hooks/useWindowKey";
 import { m } from "../paraglide/messages.js";
 import { EditorSettingsPage } from "./EditorSettingsPage";
 import { IoPanel } from "./IoPanel";
@@ -79,13 +80,9 @@ export function SettingsPanel({
   onClose: () => void;
 }) {
   // Escape closes it, which a docked panel must not lose: it is opened mid-gesture, and a surface you have to aim at is one you leave open.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useWindowKey((e) => {
+    if (e.key === "Escape") onClose();
+  });
 
   return (
     <aside className="flex w-[24rem] min-w-0 shrink-0 flex-col border-l border-border bg-background">

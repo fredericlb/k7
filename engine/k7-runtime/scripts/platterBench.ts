@@ -8,6 +8,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { emptyDoc, pluginDoc, trackDoc } from "@studio/engine-protocol/build";
 import type WebSocket from "ws";
 import { wavFile } from "./wav.ts";
 
@@ -72,54 +73,16 @@ export function peakHz(x: Float32Array, rate: number, n = 4096): number {
 }
 
 /** One track, one platter, nothing else — the smallest document that plays a record without a clip. */
-export function platterDoc(source: string, rate: number, params = {}) {
-  return {
-    name: "turntable",
-    tempo: 120,
-    sampleRate: rate,
-    timeSigNumerator: 4,
-    timeSigDenominator: 4,
-    masterVolume: 0,
-    masterPlugins: [],
-    recordDir: "",
-    settings: { metronome: false, countIn: 0 },
-    groups: [],
-    markers: [],
-    tracks: [
-      {
-        id: "deckA",
-        name: "deckA",
-        role: "regular",
-        contentType: "audio",
-        group: "",
-        generated: false,
-        color: "",
-        mute: false,
-        solo: false,
-        disabled: false,
-        inputChannels: [],
-        outputChannels: [],
-        monitor: "auto",
-        inputGain: 0,
-        clips: [],
-        plugins: [
-          {
-            id: PLUGIN,
-            type: "studio_turntable",
-            name: "platter",
-            path: "",
-            deckFile: source,
-            presetSave: "",
-            role: "instrument",
-            enabled: true,
-            params: { Rate: 1, Seek: 0, Gain: 1, ...params },
-          },
-        ],
-        sends: [],
-        automation: [],
-      },
-    ],
-  };
+export function platterDoc(source: string, rate: number, params = {}, name = "turntable") {
+  const platter = pluginDoc({
+    id: PLUGIN,
+    type: "studio_turntable",
+    name: "platter",
+    deckFile: source,
+    role: "instrument",
+    params: { Rate: 1, Seek: 0, Gain: 1, ...params },
+  });
+  return emptyDoc({ name, sampleRate: rate, tracks: [trackDoc("deckA", { plugins: [platter] })] });
 }
 
 // The stream at the DEVICE's rate brought to the rate the analyses count in, linearly, phase carried across chunks (docs/audit-stabilite.md).

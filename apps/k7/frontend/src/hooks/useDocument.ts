@@ -2,7 +2,8 @@
 // AND again, on a backoff, while asking fails. The three panes that draw a compiled document
 // (the timeline, the chains, the graph panel) share it. See docs/shell.md.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useLatest } from "./useLatest";
 
 /** How long to wait before retry number `attempt` — doubling from half a second, capped at five, and exported because it is what a test can reach. */
 export function retryDelay(attempt: number): number {
@@ -18,8 +19,7 @@ export function useDocument<T>(
   const [error, setError] = useState<string | null>(null);
 
   // Through a ref so the effect depends on `reloadKey` ALONE: a caller's `load` is a fresh function every render.
-  const loadRef = useRef(load);
-  loadRef.current = load;
+  const loadRef = useLatest(load);
 
   useEffect(() => {
     let alive = true;

@@ -154,5 +154,5 @@ It renders the same note twice changing only `masterPlugins`, and compares the p
 `volume` of 0 on the master: −7.5 dBFS without the chain, −100 dBFS with.
 
 A trap that holds for any module: the parameter is called **`Volume`**, with the capital the plugin
-publishes (`builtinParams.generated.ts`). A lower-case key matches nothing, raises no error, and the
+publishes (`builtinParams.generated.json`). A lower-case key matches nothing, raises no error, and the
 render comes out **identical** — so nothing tells you the case is wrong.

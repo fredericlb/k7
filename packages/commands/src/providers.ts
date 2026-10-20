@@ -2,13 +2,14 @@
 // what the palette shows for each: a label beside a value, the argument's display class,
 // and its one-line hint. Read by commandSpec.ts; see docs/completions.md.
 
-import { type Dirent, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { chainNames } from "@studio/audio-passes/processChain";
 import { libraryAssemblies, projectAssemblies } from "@studio/song/assemblies";
 import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
+import { listFilesUnder } from "@studio/song/listFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { isDocName } from "@studio/song/yaml/workspaceFile";
@@ -101,22 +102,14 @@ export const PROVIDERS = {
   playlists: (h) => {
     const root = h.repoDir;
     if (!root) return [];
-    const out: string[] = [];
-    const walk = (at: string, under: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(at, { withFileTypes: true });
-      } catch {
-        return; // no folder yet: an account with no set list has none, which is not an error
-      }
-      for (const e of entries) {
-        const name = under ? `${under}/${e.name}` : e.name;
-        if (e.isDirectory()) walk(join(at, e.name), name);
-        else if (e.isFile() && isDocName(e.name)) out.push(stripDocExt(name));
-      }
-    };
-    walk(join(root, PLAYLISTS_DIR), "");
-    return out.sort();
+    // No folder yet is an account with no set list, which is not an error.
+    return listFilesUnder(join(root, PLAYLISTS_DIR), {
+      dotfiles: true,
+      regularOnly: true,
+    })
+      .filter((p) => isDocName(p.slice(p.lastIndexOf("/") + 1)))
+      .map(stripDocExt)
+      .sort();
   },
   /** This song's picture LANES, off the folder — a lane the compiler refuses still has a file to name. */
   pictureLanes: (h) => {
@@ -185,27 +178,9 @@ export const PROVIDERS = {
       ".m4a",
       ".opus",
     ]);
-    const files: string[] = [];
-    const walk = (dir: string) => {
-      try {
-        for (const e of readdirSync(dir, { withFileTypes: true })) {
-          if (e.name.startsWith(".") || e.name === "node_modules") continue;
-          const full = join(dir, e.name);
-          if (e.isDirectory()) {
-            walk(full);
-            continue;
-          }
-          if (
-            AUDIO_EXT.has(e.name.slice(e.name.lastIndexOf(".")).toLowerCase())
-          )
-            files.push(relative(h.songPath, full).split("\\").join("/"));
-        }
-      } catch {
-        /* dir unreadable */
-      }
-    };
-    walk(h.songPath);
-    return files;
+    return listFilesUnder(h.songPath, { skipDirs: ["node_modules"] }).filter(
+      (p) => AUDIO_EXT.has(p.slice(p.lastIndexOf(".")).toLowerCase()),
+    );
   },
 } satisfies Record<string, (h: CommandHost) => string[]>;
 

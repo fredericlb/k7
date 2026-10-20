@@ -17,6 +17,7 @@ import {
   CommandBar,
   type CommandBarHandle,
 } from "../components/CommandBar";
+import { useWindowKey } from "../hooks/useWindowKey";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
@@ -199,21 +200,17 @@ export function Home() {
 
   /** Two bare Shifts give it the keyboard, the editor's own gesture; the bar never takes focus itself, and `e.repeat` drops a held Shift. */
   const lastShiftAt = useRef(0);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Shift" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
-        lastShiftAt.current = 0;
-        return;
-      }
-      const now = e.timeStamp;
-      if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
-        lastShiftAt.current = 0;
-        cmdRef.current?.focus();
-      } else lastShiftAt.current = now;
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useWindowKey((e) => {
+    if (e.key !== "Shift" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+      lastShiftAt.current = 0;
+      return;
+    }
+    const now = e.timeStamp;
+    if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
+      lastShiftAt.current = 0;
+      cmdRef.current?.focus();
+    } else lastShiftAt.current = now;
+  });
 
   /** Unfold a workspace, or go back to the list — `replace`, browsing three of them not being worth three back-button entries. */
   const open = useCallback(

@@ -39,8 +39,8 @@ What the wider tree costs, and how each is paid:
   import. That is a gain rather than a cost: importing lands a new project at the workspace root,
   which is exactly where the tree looks.
 
-`workspaceTree()` is kept as an alias of `tree()`: `/workspace-tree` asks it of a workspace the
-home page has not opened, which is a different question with the same answer.
+`/workspace-tree` answers `tree()` too: it asks it of a workspace the home page has not opened,
+which is a different question with the same answer.
 
 ## Opening a project that is not there
 

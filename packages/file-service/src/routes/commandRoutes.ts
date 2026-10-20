@@ -86,12 +86,12 @@ commandRouter.post(
 // Peek without applying, so the client can enable Ctrl+Z/Y and label its toast.
 commandRouter.get(
   "/history",
-  wrap((req, res) => res.json(req.ws!.historyState())),
+  wrap((req, res) => res.json(req.ws!.history.state())),
 );
 // The History panel's list: the journal, oldest first — docs/history.md.
 commandRouter.get(
   "/history/entries",
-  wrap((req, res) => res.json(req.ws!.historyList())),
+  wrap((req, res) => res.json(req.ws!.history.list())),
 );
 // Without `confirm` a process step reports `needsConfirm` and is NOT applied, since it restores a bounced file.
 const undoBody = z.object({ confirm: z.boolean().optional() });
@@ -101,7 +101,10 @@ for (const dir of ["undo", "redo"] as const) {
     validate(undoBody),
     wrap(async (req, res) => {
       const { confirm } = req.body as z.infer<typeof undoBody>;
-      const next = dir === "undo" ? req.ws!.peekUndo() : req.ws!.peekRedo();
+      const next =
+        dir === "undo"
+          ? req.ws!.history.peekUndo()
+          : req.ws!.history.peekRedo();
       if (!next) {
         res.json({ applied: false });
         return;
@@ -113,8 +116,8 @@ for (const dir of ["undo", "redo"] as const) {
       // Throws, having written nothing, when the step's audio is kept by another engine — docs/history.md.
       const done =
         dir === "undo"
-          ? await req.ws!.undoHistory()
-          : await req.ws!.redoHistory();
+          ? await req.ws!.history.undo()
+          : await req.ws!.history.redo();
       // The step rewrote the open project's files, and only a push tells the engine — as `PUT /file` does (docs/history.md).
       if (done) startEngineForActive(req.ws!);
       res.json(done ? { applied: true, ...done } : { applied: false });

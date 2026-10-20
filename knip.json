@@ -60,9 +60,6 @@
     "packages/audio-probe": {
       "entry": ["scripts/*.ts"]
     },
-    "packages/song-schema": {
-      "entry": ["src/builtinParams.generated.ts"]
-    },
     "packages/file-service": {
       "entry": ["src/render.ts"]
     },

@@ -76,7 +76,9 @@ import type { PasteResult } from "../gridCaret";
 import type { HistoryMark } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
+import { useLatest } from "../hooks/useLatest";
 import { useVideoDrag } from "../hooks/useVideoDrag";
+import { isTyping } from "../hooks/useWindowKey";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
@@ -557,20 +559,17 @@ function TimelineTabView({
   }, [engineLoop, proj]);
   // The clip being moved. A ref shadows it so the key handler reads the live value without re-binding on each nudge.
   const [move, setMove] = useState<Move | null>(null);
-  const moveRef = useRef<Move | null>(move);
-  moveRef.current = move;
+  const moveRef = useLatest<Move | null>(move);
   /** Which mode the keyboard is in — DERIVED here beside the two states it reads, so nothing can come to disagree (timelineMode.ts). */
   const mode = timelineMode(move, sel);
-  const modeRef = useRef<TimelineMode>(mode);
-  modeRef.current = mode;
+  const modeRef = useLatest<TimelineMode>(mode);
   /** Where an OS file drag is hovering — the lane it would land on and the beat it would land at, drawn until it leaves. */
   const [dropAt, setDropAt] = useState<{ lane: string; beat: number } | null>(
     null,
   );
   /** …and the TOOL, which is CHOSEN rather than derived: what a press means. Session only, never written (timelineTools.ts). */
   const [tool, setTool] = useState<Tool>("pointer");
-  const toolRef = useRef<Tool>(tool);
-  toolRef.current = tool;
+  const toolRef = useLatest<Tool>(tool);
   // The tool's icon as the pointer — undefined for the arrow, whose picture the system already draws (modeIcons.tsx).
   const toolCursor = tool === "pointer" ? undefined : cursorOf(tool);
   // Read by the pointer-drag callbacks, which are defined above both — a drop uses the same commit enter does.
@@ -649,8 +648,7 @@ function TimelineTabView({
   }, [rows, view]);
 
   // The caret walks every drawn row, but holds a BEAT only on rows that can carry a clip (see docs/timeline.md).
-  const rowsRef = useRef(visRows);
-  rowsRef.current = visRows;
+  const rowsRef = useLatest(visRows);
 
   // The beat range on screen, and the only bounds the caret and selection know: the song, or the zoomed rectangle.
   const beatLo = view ? view.beatStart : 0;
@@ -967,8 +965,7 @@ function TimelineTabView({
   );
 
   // A ref so the key handler can branch on "is a selection live" without rebinding the listener on every head move.
-  const selRef = useRef<Selection | null>(sel);
-  selRef.current = sel;
+  const selRef = useLatest<Selection | null>(sel);
 
   const moveHead = useCallback(
     (dBeat: number, dRow: number) =>
@@ -1183,10 +1180,8 @@ function TimelineTabView({
   });
 
   // A live prop read from pointer callbacks that must not re-bind on every frame — as `commitMoveRef` does.
-  const feedMoveRef = useRef(feedMove);
-  feedMoveRef.current = feedMove;
-  const feedTimecodeRef = useRef(feedTimecode);
-  feedTimecodeRef.current = feedTimecode;
+  const feedMoveRef = useLatest(feedMove);
+  const feedTimecodeRef = useLatest(feedTimecode);
 
   // The move as `event move`'s four values, in ONE place, so a live drag and its release cannot disagree.
   const moveArgs = useCallback((m: Move) => {
@@ -1370,14 +1365,7 @@ function TimelineTabView({
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable)
-      )
-        return;
+      if (isTyping(e)) return;
       // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
       if (modeRef.current === "move") {
         // Move swallows keys HARD, the ones it answers and every other: a nudge must not also scroll the pane.

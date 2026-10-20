@@ -31,7 +31,9 @@ import { clamp } from "../clamp";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { warpLine } from "../clipWarp";
 import type { MenuCtx } from "../contextMenu";
+import { useLatest } from "../hooks/useLatest";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
+import { isTyping, useWindowKey } from "../hooks/useWindowKey";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
@@ -221,23 +223,16 @@ export function AudioClipPanel({
     return () => ro.disconnect();
   }, []);
   // Esc stops the take, captured so it reads as 'leave the take' wherever the pointer went, and only while one is ROLLING.
-  useEffect(() => {
-    if (!rolling) return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      const typing =
-        el?.tagName === "INPUT" ||
-        el?.tagName === "TEXTAREA" ||
-        el?.isContentEditable === true;
-      if (e.key === "Escape" && !typing) {
+  useWindowKey(
+    (e) => {
+      if (e.key === "Escape" && !isTyping(e)) {
         e.preventDefault();
         e.stopPropagation();
         onStop?.();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onStop, rolling]);
+    },
+    { enabled: rolling, capture: true },
+  );
   // `arrayEq`: `armed` is a new array every frame, and without it the panel re-rendered at frame rate.
   const armed = useEngineState((s) => s.armed, arrayEq);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
@@ -371,8 +366,7 @@ export function AudioClipPanel({
   );
 
   // What is shown RIGHT NOW, for the pinch to measure from: the gesture outlives any render, so its baseline cannot live in a closure.
-  const shownRef = useRef(win.shown);
-  shownRef.current = win.shown;
+  const shownRef = useLatest(win.shown);
   // …and where the window actually SITS, in bars into the reach — the CLAMPED start, not `asked`, and a ref for the same reason.
   const atRef = useRef({ start: 0, bars: 1 });
   atRef.current = {

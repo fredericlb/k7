@@ -131,7 +131,7 @@ The JavaScript comes from `packages/song-strudel/src/engineEntry.ts`, bundled by
 npm run gen:strudel-bundle --workspace k7-runtime
 ```
 
-Other generators in the same workspace: `gen:builtin-params` (writes `packages/song-schema/src/builtinParams.generated.ts` from `--dump-builtin-params`) and `gen:surge-panel`.
+Other generators in the same workspace: `gen:builtin-params` (writes `packages/song-schema/src/builtinParams.generated.json` from `--dump-builtin-params`) and `gen:surge-panel`.
 
 ## Tests
 

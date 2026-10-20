@@ -3,7 +3,7 @@
 // arithmetic is gridCaret.ts; what is here is the state, the key listener and the drag.
 // See apps/k7/frontend/docs/clipEditors.md.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clampCell,
   type GridBounds,
@@ -13,6 +13,8 @@ import {
   moveCell,
   selBox,
 } from "../gridCaret";
+import { useLatest } from "./useLatest";
+import { isTyping } from "./useWindowKey";
 
 export interface GridCaret {
   caret: GridCell;
@@ -53,12 +55,9 @@ export function useGridCaret({
   const [sel, setSel] = useState<GridSelection | null>(null);
 
   // Read by the key listener and the drag, so neither rebinds on every head move — the timeline holds its selection in a ref too.
-  const selRef = useRef<GridSelection | null>(sel);
-  selRef.current = sel;
-  const caretRef = useRef<GridCell>(caret);
-  caretRef.current = caret;
-  const boundsRef = useRef<GridBounds>(bounds);
-  boundsRef.current = bounds;
+  const selRef = useLatest<GridSelection | null>(sel);
+  const caretRef = useLatest<GridCell>(caret);
+  const boundsRef = useLatest<GridBounds>(bounds);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetKey is the TRIGGER — a new clip or view, not a value this body reads.
   useEffect(() => {
@@ -128,14 +127,7 @@ export function useGridCaret({
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable)
-      )
-        return;
+      if (isTyping(e)) return;
       const selecting = !!selRef.current;
       if (selecting && e.key === "Escape") {
         clearSelect();

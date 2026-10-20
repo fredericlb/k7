@@ -210,7 +210,7 @@ docRouter.get(
 // The whole workspace, not the open project — k7's home page looking inside a repository (docs/fileRoutes.md).
 docRouter.get(
   "/workspace-tree",
-  wrap((req, res) => res.json(req.ws!.workspaceTree())),
+  wrap((req, res) => res.json(req.ws!.tree())),
 );
 docRouter.get(
   "/hints",
