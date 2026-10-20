@@ -1,7 +1,7 @@
 // decode.ts — an audio file to interleaved f32 frames, through the ENGINE's `--decode` where one is
-// at hand and through ffmpeg otherwise, plus the two readings made from them: JUCE's mono sum and
-// the stream facts the envelope needs. The frame count comes from the DECODE rather than from a
-// header, because a bucket boundary is arithmetic on it. See docs/analysis.md.
+// at hand, through ffmpeg otherwise, and through the WebAssembly decoder where there is no ffmpeg
+// either; plus JUCE's mono sum and the stream facts the envelope needs. The frame count comes from
+// the DECODE rather than from a header, because a bucket boundary is arithmetic on it. See docs/analysis.md.
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import {
@@ -12,6 +12,7 @@ import {
   run,
   spawnError,
 } from "@studio/ffmpeg";
+import { decodeWithWasm, wasmDecodes } from "./decodeWasm.ts";
 
 export { NoFfmpegError };
 
@@ -35,6 +36,8 @@ export class TooLongError extends Error {
 /** Where a decode comes from: the engine binary when there is one, ffmpeg when `engineBin` is null. */
 export interface DecodeOptions {
   engineBin?: string | null;
+  /** Without ffmpeg, decode with the WebAssembly build rather than throw a NoFfmpegError; on unless said. */
+  wasm?: boolean;
   /** Refuse past this many frames, before decoding when the header says so and while decoding otherwise. */
   maxFrames?: number;
   /** Kills the decoder, so it lets go of the file — Windows cannot rename a folder a reader holds open. */
@@ -211,6 +214,7 @@ export async function decodeFrames(
   onFrames: OnFrames,
   {
     engineBin = null,
+    wasm = true,
     signal,
     maxFrames = Number.POSITIVE_INFINITY,
   }: DecodeOptions = {},
@@ -225,6 +229,38 @@ export async function decodeFrames(
       signal,
       maxFrames,
     );
+  const useWasm = wasm && wasmDecodes();
+  if (!(useWasm && missingFfprobe === ffprobeBin())) {
+    try {
+      return await decodeWithFfmpeg(source, onFrames, signal, maxFrames);
+    } catch (e) {
+      if (!(e instanceof NoFfmpegError && useWasm)) throw e;
+      missingFfprobe = ffprobeBin();
+    }
+  }
+  let frames = 0;
+  return decodeWithWasm(
+    source,
+    (samples, channels, n) => {
+      // Counted as they arrive: no header is trusted with the length here either.
+      if (frames + n > maxFrames)
+        throw new TooLongError(source, frames + n, maxFrames);
+      frames += n;
+      onFrames(samples, channels, n);
+    },
+    signal,
+  );
+}
+
+/** The ffprobe found missing, so a host without ffmpeg asks for it once rather than once per file. */
+let missingFfprobe: string | null = null;
+
+async function decodeWithFfmpeg(
+  source: string,
+  onFrames: OnFrames,
+  signal: AbortSignal | undefined,
+  maxFrames: number,
+): Promise<StreamFacts> {
   const { claimed, ...facts } = await probe(source);
   if (claimed > maxFrames) throw new TooLongError(source, claimed, maxFrames);
   // No `-ar` and no `-ac`: resampling moves every onset, and ffmpeg's downmix weights a centre channel.

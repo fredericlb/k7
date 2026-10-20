@@ -77,7 +77,12 @@ export async function extractSound(
   { engineBin = null, signal }: DecodeOptions = {},
 ): Promise<StreamFacts | null> {
   try {
-    return await extractWith(source, dest, { engineBin: null, signal });
+    // With an engine at hand it is the fallback, since it reads the video containers WebAssembly does not.
+    return await extractWith(source, dest, {
+      engineBin: null,
+      wasm: !engineBin,
+      signal,
+    });
   } catch (e) {
     if (/no audio stream/.test((e as Error).message)) return null;
     if (!(e instanceof NoFfmpegError) || !engineBin) throw e;

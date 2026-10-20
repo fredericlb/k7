@@ -15,7 +15,7 @@ export interface NativeMeasure {
 /** The part of WebAssembly this file uses, typed here so it compiles whatever lib a host's tsconfig names. */
 interface WasmApi {
   Module: new (bytes: Uint8Array) => object;
-  Instance: new (module: object) => { exports: unknown };
+  Instance: new (module: object, imports: object) => { exports: unknown };
 }
 const wasm = (globalThis as { WebAssembly?: WasmApi }).WebAssembly;
 
@@ -73,9 +73,32 @@ function loadAddon(path: string): Addon | null {
   }
 }
 
+/** What the module imports: the decoder's file reads (decodeWasm.ts), which a measure never makes. */
+export interface Host {
+  read(ptr: number, len: number, pos: number): number;
+}
+const NO_FILE: Host = { read: () => -1 };
+
+/** A fresh instance of the module, with its own memory: one per file, so closing it lets that memory go. */
+export function instantiate(module: object, host: Host = NO_FILE): unknown {
+  return new (wasm as WasmApi).Instance(module, { host }).exports;
+}
+
+/** The compiled module, or null in a runtime with no WebAssembly. */
+export function wasmModule(): object | null {
+  if (compiled === undefined) {
+    try {
+      compiled = wasm ? new wasm.Module(Buffer.from(WASM, "base64")) : null;
+    } catch {
+      // A JIT-less V8 has no WebAssembly: the JS measure runs instead.
+      compiled = null;
+    }
+  }
+  return compiled;
+}
+
 function wasmMeasure(module: object): NativeMeasure {
-  let x: Abi | null = new (wasm as WasmApi).Instance(module)
-    .exports as unknown as Abi;
+  let x: Abi | null = instantiate(module) as Abi;
   const abi = (): Abi => {
     if (!x) throw new Error("waveform: measure used after close()");
     return x;
@@ -137,17 +160,10 @@ export function openMeasure(): NativeMeasure | null {
       return addonMeasure(addon);
     }
   }
-  if (compiled === undefined) {
-    try {
-      compiled = wasm ? new wasm.Module(Buffer.from(WASM, "base64")) : null;
-    } catch {
-      // A JIT-less V8 has no WebAssembly: the JS measure runs instead.
-      compiled = null;
-    }
-  }
-  if (!compiled) return null;
+  const module = wasmModule();
+  if (!module) return null;
   kind = "wasm";
-  return wasmMeasure(compiled);
+  return wasmMeasure(module);
 }
 
 /** Which build the last measure ran on: what a test and a log say they measured. */

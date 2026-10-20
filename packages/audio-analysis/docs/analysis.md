@@ -4,7 +4,7 @@ A `{file}.cache` sidecar carries a peak/RMS envelope, three colour bands, onsets
 this package is the only thing that writes one. It also measures a file's true peak. Both start
 from the same decode.
 
-## One producer, two decoders
+## One producer, three decoders
 
 The arithmetic lives here once. What varies is where the samples come from:
 
@@ -15,9 +15,13 @@ The arithmetic lives here once. What varies is where the samples come from:
   never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
   analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
   image for the rehearsal recorder's takes.
+- **WebAssembly** where there is neither — the Android app, whose engine is a library inside the
+  app rather than a binary to spawn, and which carries no ffmpeg (`engine/k7-runtime/docs/android.md`).
+  See [the WebAssembly decoder](#the-webassembly-decoder) below.
 
-`DecodeOptions.engineBin` picks between them, and nothing downstream knows which ran: both hand
-over interleaved float32 frames at the file's own rate, every channel. On wav and flac the two
+`DecodeOptions.engineBin` picks the engine, and a missing ffmpeg falls through to WebAssembly unless
+`wasm: false` says not to. Nothing downstream knows which ran: all three hand
+over interleaved float32 frames at the file's own rate, every channel. On wav and flac the three
 produce identical sidecars, measured. On mp3 they do not: ffmpeg trims the encoder delay and JUCE
 does not, so the engine's decode is longer by it — 1105 samples, 25 ms, on the file measured in
 `packages/stem-separation/docs/stemSplit.md` — and its onsets sit that much later. The fingerprint
@@ -27,6 +31,31 @@ cannot tell the two apart, so a sidecar from either is read as fresh by the othe
 interleaved float32, little-endian. The header travels in the stream because the engine has no
 ffprobe to ask beforehand. The `frames` it states is not trusted for geometry: frames are counted
 as they arrive, the same as on the ffmpeg path.
+
+## The WebAssembly decoder
+
+It is [symphonia](https://github.com/pdeljanov/Symphonia), built into the same module as the
+measure (`rust/src/decode.rs`, behind the crate's `decode` feature, which only the WebAssembly
+build turns on, so the iOS addon does not carry it). A pure-Rust decoder was chosen over Android's
+own MediaCodec because it is one path on every host, testable on a dev machine against ffmpeg, with
+no native build per platform.
+
+- **Formats:** wav, aiff, flac, mp3, ogg vorbis, AAC-LC and ALAC in mp4/m4a. **Not** Opus, HE-AAC,
+  webm or video containers: those fail with "unsupported", which marks the file rather than
+  stopping a sweep.
+- **It matches ffmpeg's positions.** Gapless is on, so mp3's encoder delay is trimmed as ffmpeg
+  trims it. symphonia reads an mp4's edit list without trimming by it, and that edit list is the only
+  place AAC's priming is stated, so `rust/src/edit.rs` reads it and the decoder drops and cuts by it.
+  `decodeWasm.test.ts` holds flac, mp3 and m4a to ffmpeg's frame count and to 1e-4 per sample.
+- **Values agree, bytes may not.** wav and flac sidecars are byte-identical to ffmpeg's; mp3 and AAC
+  agree to ~1e-6, so a sidecar's last digits can differ. Vorbis is clamped to ±1 where ffmpeg lets
+  an over through: peaks above full scale read 1.0. The fingerprint cannot tell, as with the engine.
+- **The file is not handed over.** The module imports one function, `host.read(ptr, len, pos)`,
+  which `decodeWasm.ts` answers with `fs.readSync`; a two-hour flac is never held whole.
+  Decoding is synchronous inside the module, so `decodeWasm.ts` takes 64k frames at a time and
+  lets the event loop through between them.
+- **It costs about a megabyte.** The module grows from 24 KB to ~1 MB, checked in as base64 in
+  `src/waveformWasm.generated.ts`, which biome is told to skip.
 
 ## The mono sum is the first two channels averaged
 
@@ -45,7 +74,7 @@ And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours 
 1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked
 three times, since none alone suffices: against the length ffprobe claims before ffmpeg starts,
 against the `frames` of the engine's header, and against the frames actually counted, which is the
-one a lying header cannot get past. Past it the decode is killed with a `TooLongError`. The
+one a lying header cannot get past, and the only one on the WebAssembly path. Past it the decode is killed with a `TooLongError`. The
 true-peak measurement and the extraction stream what they read, hold nothing, and are not capped.
 
 ## ffmpeg opens files, not URLs

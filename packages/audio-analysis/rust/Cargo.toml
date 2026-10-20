@@ -15,3 +15,10 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[features]
+# The decoder, for a host with no ffmpeg and no engine: only the WebAssembly build turns it on (docs/analysis.md).
+decode = ["dep:symphonia"]
+
+[dependencies]
+symphonia = { version = "0.5", optional = true, default-features = false, features = ["mp3", "aac", "isomp4", "flac", "ogg", "vorbis", "wav", "pcm", "aiff", "alac"] }

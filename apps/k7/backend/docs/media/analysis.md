@@ -63,7 +63,7 @@ same song again gets a 304 decided on two `stat`s, before anything is read or co
 
 ## Three ways it stops
 
-- **No decoder.** A `NoFfmpegError` ends the sweep for good and says so once on the log: every
+- **No decoder.** A `NoFfmpegError` — no ffmpeg, and no WebAssembly to fall back on — ends the sweep for good and says so once on the log: every
   other file would fail the same way, and a deployment without ffmpeg is not something a retry
   loop fixes.
 - **A file that throws** is marked on the volume, in `.analysis/marks.json`
