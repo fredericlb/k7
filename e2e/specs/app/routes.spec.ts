@@ -194,10 +194,12 @@ test("the documentation host draws a guide, a page and its nav", async ({
   k7,
   baseURL,
 }) => {
+  // Asked before the URL is read: the apps have no baseURL to parse.
+  test.skip(TARGET !== "web", "the apps have no docs.<domain> host");
   const app = new URL(baseURL ?? "");
   test.skip(
-    TARGET !== "web" || !app.hostname.startsWith("app."),
-    "the docs host is the hosted instance's docs.<domain>; the apps have none",
+    !app.hostname.startsWith("app."),
+    "the docs host is the hosted instance's docs.<domain>",
   );
   const docs = `${app.protocol}//docs.${app.hostname.slice("app.".length)}`;
   const page = await k7.open(`${docs}/`);
