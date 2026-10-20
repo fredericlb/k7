@@ -133,6 +133,18 @@ Shares are behind a button on a project's row, so behind a list that needs the f
 That does not touch the installation argument — a new account has published nothing — but it is
 the price noted there.
 
+### The engine's plugin scan is a bar, never a wait
+
+The engine scans its plugins at every start, and a project naming an external plugin waits for
+that scan before it goes to the engine (`packages/file-service/docs/engineLoad.md`). The home page
+says it is running — "Scanning plugins… N / M", a thin bar above the command bar
+(`projects/PluginScanBar.tsx`) — so that a project opened just then does not seem slow for no
+reason. Which engine: the one the policy would play the account's projects on, else the one the
+account remembers, else the only one that answered; on the desktop that is the app's own. With
+none, or one that reports no scan, there is no bar. It is asked after the list, beside it, and
+never in front of it, for the reason above: the list needs no engine. The page listens on a
+socket that claims nothing (`packages/engine-browser/docs/access.md`), since it plays nothing.
+
 ## The rule that holds everything
 
 **The folder's suffix makes it a project.** `mysong.k7` opens in k7, and

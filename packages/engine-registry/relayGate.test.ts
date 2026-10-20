@@ -84,7 +84,11 @@ describe("the gate", () => {
     gate.fromClient(text({ type: "pair", key: "k" }));
     gate.fromClient(text({ type: "whoami" }));
     gate.fromClient(text({ type: "list-plugins" }));
-    expect(sent).toHaveLength(3);
+    gate.fromClient(text({ type: "plugin-scan" }));
+    expect(sent).toHaveLength(4);
+    expect(
+      passes(gate.fromEngine(text({ type: "plugin-scan", scanning: true }))),
+    ).toBe(true);
     expect(passes(gate.fromEngine(text({ type: "whoami", id: "e1" })))).toBe(
       true,
     );

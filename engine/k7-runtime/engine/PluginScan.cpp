@@ -28,6 +28,7 @@
 #include "MixBlend.h"              // a module's @mix pair, registered and never listed
 #include "RecorderPlugin.h"         // …and the recorder NODE, which the document declares
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
+#include "ScanProgress.h"   // which cached entry is reused, which is gone
 
 #include <algorithm>
 #include <chrono>
@@ -378,10 +379,13 @@ bool pluginCacheWarm() {
     return externals || !hostsExternalPlugins();
 }
 
-std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
+std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan, const PluginScanProgress& progress) {
     juce::AudioPluginFormatManager formats;
     formats.addDefaultFormats();
     const auto exe = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    const auto report = [&progress](int done, int total, const std::string& loading) {
+        if (progress) progress(done, total, loading);
+    };
 
     // Diagnostics to the engine log, so an empty result is debuggable: which formats are compiled in, and counts.
     std::cerr << "[scan] formats:";
@@ -391,14 +395,21 @@ std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
     const Cache old = forceRescan ? Cache{} : loadCacheMap();
     Cache fresh;
     std::vector<PluginInfo> result;
-    int totalFiles = 0, loaded = 0;
+    int loaded = 0;
 
+    // Every format's files listed FIRST, so the progress has a total from the first file on.
+    std::vector<std::pair<juce::AudioPluginFormat*, juce::StringArray>> listed;
+    int totalFiles = 0;
+    report(0, 0, {});
     for (auto* format : formats.getFormats()) {
-        const auto files =
-            format->searchPathsForPlugins(format->getDefaultLocationsToSearch(), true, false);
+        auto files = format->searchPathsForPlugins(format->getDefaultLocationsToSearch(), true, false);
         std::cerr << "[scan] " << format->getName() << ": " << files.size() << " file(s)\n";
         totalFiles += files.size();
+        listed.emplace_back(format, std::move(files));
+    }
 
+    int done = 0;
+    for (auto& [format, files] : listed) {
         int i = 0;
         for (const auto& identifier : files) {
             ++i;
@@ -407,19 +418,22 @@ std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
 
             // Reuse a cached entry only when the file is unchanged AND it carries a full description, so a plain rescan upgrades older ones.
             const auto it = old.find(id);
-            const bool cachedHasDesc =
+            const CachedScanEntry was{
+                it != old.end() ? (long long)it->second.mtime : 0,
                 it != old.end() && !it->second.plugins.empty() &&
-                std::all_of(it->second.plugins.begin(), it->second.plugins.end(),
-                            [](const PluginInfo& pi) { return !pi.descXml.empty(); });
-            if (it != old.end() && it->second.mtime == mtime && cachedHasDesc) {
+                    std::all_of(it->second.plugins.begin(), it->second.plugins.end(),
+                                [](const PluginInfo& pi) { return !pi.descXml.empty(); })};
+            if (reuseCachedEntry(it != old.end() ? &was : nullptr, mtime)) {
                 fresh[id] = it->second;                              // unchanged -> reuse cache
             } else {
                 // Live progress: what we're loading right now (flushed immediately).
-                std::cerr << "[scan] (" << i << "/" << files.size() << ") scanning "
-                          << juce::File(identifier).getFileName() << std::endl;
+                const auto file = juce::File(identifier).getFileName().toStdString();
+                std::cerr << "[scan] (" << i << "/" << files.size() << ") scanning " << file << std::endl;
+                report(done, totalFiles, file);
                 fresh[id] = {mtime, scanOne(exe, *format, identifier)};  // new/changed -> load
                 ++loaded;
             }
+            report(++done, totalFiles, {});
 
             for (const auto& p : fresh[id].plugins)
                 result.push_back(p);
@@ -437,7 +451,12 @@ std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
     }
     std::cerr << "[scan] + " << builtins.size() << " built-in plugin(s)\n";
 
+    std::vector<std::string> cachedIds;
+    std::set<std::string> present;
+    for (const auto& [id, e] : old) cachedIds.push_back(id);
+    for (const auto& [id, e] : fresh) present.insert(id);
     std::cerr << "[scan] " << totalFiles << " file(s) enumerated, " << loaded << " loaded this pass, "
+              << droppedEntries(cachedIds, present).size() << " gone, "
               << result.size() << " plugin(s) total -> " << extsCacheFile().getFullPathName() << "\n";
 
     saveCacheMap(fresh);   // fresh holds only current files -> uninstalled plugins drop out

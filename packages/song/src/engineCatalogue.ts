@@ -4,9 +4,9 @@
 // No wrapper file mirrors that scan, so `_modules` holds only what someone authored — a jsdsp
 // source, a rack's sample map.
 //
-// A leaf: nothing here imports beyond song-schema, so loader.ts can use it without a cycle.
+// A leaf: nothing here imports beyond song-schema and the atomic write, so loader.ts can use it without a cycle.
 
-import { statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { BUILTIN_PLUGINS } from "@studio/song-schema/builtinParams";
 import {
@@ -20,6 +20,7 @@ import {
   metaRef,
   slugifyPluginName,
 } from "@studio/song-schema/moduleTypes";
+import { writeFileAtomic } from "./atomicWrite";
 import type { LoadedModule } from "./rawDoc";
 import { studioHome } from "./studioHome";
 import { wsExists, wsRead } from "./yaml/workspaceFile";
@@ -82,6 +83,25 @@ export function scannedPlugins(file = extsPath()): ScannedPlugin[] {
   );
   memo.set(file, { stamp, plugins });
   return plugins;
+}
+
+/** An engine's `plugins` reply written as an account's copy of the scan; false when the file already said exactly that — docs/enginePlugin.md. */
+export function writeScanCopy(
+  plugins: unknown[],
+  file: string = extsPath(),
+): boolean {
+  // The scan file's own shape, so every reader of it works unchanged.
+  const text = JSON.stringify({ entries: [{ plugins }] });
+  let was: string | null = null;
+  try {
+    was = readFileSync(file, "utf8");
+  } catch {
+    /* no copy yet */
+  }
+  // Left alone when it says the same: its mtime is in every project's revision token.
+  if (was === text) return false;
+  writeFileAtomic(file, text, { durable: false });
+  return true;
 }
 
 // "<format>|<name>", both lowercased — the engine's iequals(format) && iequals(name) match.

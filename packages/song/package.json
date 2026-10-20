@@ -52,6 +52,7 @@
     "./yaml/materialFile": "./src/yaml/materialFile.ts",
     "./folder": "./src/folder.ts",
     "./engineCatalogue": "./src/engineCatalogue.ts",
+    "./externalPlugins": "./src/externalPlugins.ts",
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./studioHome": "./src/studioHome.ts",
     "./modelCache": "./src/modelCache.ts",

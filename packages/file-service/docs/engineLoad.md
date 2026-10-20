@@ -9,6 +9,7 @@ service reports the project ready, one phase at a time:
 
 | phase | what runs | what the screen shows |
 |---|---|---|
+| `scanning` | the engine's plugin scan, for a project naming an external plugin (below) | files done of files listed, and a bar that fills once they are listed |
 | `copying` | the `sync` job (`engineSync.md`) | files and megabytes, and a bar that fills |
 | `applying` | the engine applying the document, plugins included | a sentence, and a bar that cannot be measured |
 | `warming` | the DRY RUN | a sentence |
@@ -34,6 +35,30 @@ address, since the one it replaces was dropped with every socket.
 Not on the editor's own second `POST /open`, not on a save, not on a reconnect to the same engine:
 those resend a document the engine already holds warm, and a dry run on each would make every edit a
 stall.
+
+## A project naming an external plugin waits for the engine's scan
+
+The engine scans its plugins at every start (`engine/k7-runtime/docs/plugins.md`), and until that
+scan ends the account's copy of the catalogue is the one from before it. A project compiled from it
+goes out without any plugin installed since: the node is dropped, the track is silent, and a later
+recompile is a second build. So a LOAD whose project names an external plugin is held in
+`scanning` while the engine says it scans (`engineScanGate.ts`); once it says the scan ended, the
+catalogue it ended on is written as the account's copy, the project is compiled again and sent, and
+the load goes on to `copying`. `GET /workspace` answers the count as `engineScan`.
+
+**Only a load waits, and only for a project that needs it.** A project whose modules all run
+built-ins — Surge, 4OSC, the eurorack set, Faust, jsdsp, AirWindows — is known without a scan and
+never waits. Which projects need it is `namesExternalPlugin` (`packages/song/docs/enginePlugin.md`),
+asked once per revision since it reads the whole project. A save or an edit under an open project
+is never held: a rescan asked from the settings must not take Play away from a song already playing.
+
+**Nothing waits for ever**, since a gate that does is a project nobody can open:
+
+| the engine | what the gate does |
+|---|---|
+| says nothing on the link yet | asks `plugin-scan` once; an engine silent for 3 s, or answering that it does not know the verb, is older than the question and is not asked again on that link |
+| reports no progress for a minute (one plugin's load is bounded at 23 s), or holds the project ten minutes in all | gives up: the project goes out as it compiles, its unscanned plugins reported missing as for any absent plugin, and `engineScan.stalled` says so for 30 s, which k7 shows once in its status line. That scan is not waited for again |
+| closes the link | lets the project go to whichever link the session dials next, which is judged afresh |
 
 ## The dry run
 

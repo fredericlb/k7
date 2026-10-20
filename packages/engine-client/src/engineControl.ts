@@ -7,10 +7,12 @@ import { EventEmitter } from "node:events";
 import type { TransportAction } from "@studio/engine-protocol";
 import {
   decodeIoLevels,
+  decodePluginScan,
   decodeState,
   Outbox,
   type PluginInfo,
   type PluginParamInfo,
+  type PluginScanStatus,
 } from "@studio/engine-protocol/decode";
 import {
   DEFAULT_SESSION,
@@ -26,6 +28,7 @@ export type {
   IoLevels,
   PluginInfo,
   PluginParamInfo,
+  PluginScanStatus,
 } from "@studio/engine-protocol/decode";
 
 // A finished take, ready to become a clip. Position in SECONDS: the engine has no tempo map, so the brain converts.
@@ -72,6 +75,8 @@ export class EngineControl extends EventEmitter {
   protected ws?: WebSocket;
   // Stamped, because what is queued is REPLAYED — the same queue as the browser client's.
   private outbox = new Outbox(ENGINE_OUTBOX_MAX, ENGINE_OUTBOX_TTL_MS);
+  /** The engine's scan as last heard on this link; null until it has said, which an older engine never does. */
+  pluginScan: PluginScanStatus | null = null;
 
   /** @param session which project this client drives; it must match what the app's BROWSER half passes — see `@studio/engine-protocol/docs/sessions.md`. */
   constructor(
@@ -128,6 +133,14 @@ export class EngineControl extends EventEmitter {
         case "plugins":
           this.emit("plugins", (msg.plugins ?? []) as PluginInfo[]);
           break;
+        // Where the engine's scan stands, kept as well as emitted: a gate asks it of a link opened mid-scan.
+        case "plugin-scan": {
+          const scan = decodePluginScan(msg);
+          if (!scan) break;
+          this.pluginScan = scan;
+          this.emit("pluginScan", scan);
+          break;
+        }
         case "audio-devices":
           this.emit("audioDevices", (msg.devices ?? []) as AudioDeviceInfo[]);
           break;
@@ -233,6 +246,11 @@ export class EngineControl extends EventEmitter {
   // Ask for the CACHED plugin list (no scanning); `filter` narrows by format substring. Replies with 'plugins'.
   listPlugins(filter?: string): void {
     this.send({ type: "list-plugins", ...(filter ? { filter } : {}) });
+  }
+
+  /** Ask where the engine's plugin scan stands; answered as 'pluginScan', and broadcast the same way while one runs. */
+  askPluginScan(): void {
+    this.send({ type: "plugin-scan" });
   }
 
   // Ask for an incremental scan and the fresh list; a genuinely forced rescan must DELETE the engine's own ~/.k7/exts.json first.

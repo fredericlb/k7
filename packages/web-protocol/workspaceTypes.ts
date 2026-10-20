@@ -51,14 +51,26 @@ export interface WorkspaceInfo {
   engineSync?: EngineSyncState | null;
   // Where the opened project stands on its way to playable; null once it is — packages/file-service/docs/engineLoad.md.
   engineLoad?: EngineLoadPhase | null;
+  // The engine's plugin scan while a project naming an external plugin waits for it, or the scan it gave up on — docs/engineLoad.md there.
+  engineScan?: EngineScanState | null;
   // The open project is a bundled demo, which the next start of the service overwrites — packages/file-service/src/demos.ts.
   activeIsDemo?: boolean;
   // The change token as of this answer, set by `/open` alone: the page's views start from it rather than fetching twice.
   rev?: string;
 }
 
-// Copied to the engine's machine, applied by the engine, then played half a second in silence.
-export type EngineLoadPhase = "copying" | "applying" | "warming";
+// Held for the engine's plugin scan when it names an external plugin, copied to the engine's machine, applied, then played half a second in silence.
+export type EngineLoadPhase = "scanning" | "copying" | "applying" | "warming";
+
+// Where the engine's plugin scan stands, as the gate holding a project for it reads it; `total` is 0 while the folders are listed.
+export interface EngineScanState {
+  done: number;
+  total: number;
+  // The plugin file being loaded, "" between loads.
+  current: string;
+  // The scan stopped answering or ran past its bound: the project went on without it, its unscanned plugins reported missing.
+  stalled?: boolean;
+}
 
 // A copy to the engine's machine: only the files it had to copy count; `error`/`failed` once it went wrong.
 export interface EngineSyncState {

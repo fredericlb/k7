@@ -23,7 +23,8 @@ ticket names it, and that is what binds it at the hub (`packages/file-hub/docs/f
 
 **Every wait is one bar along the bottom** (`@studio/project-shell/progress`), never a screen: the
 sign-in check, the files, the address resolved, the sync, then — with the project already drawn —
-the engine looked for, the copy, the apply and the warm-up (`components/StartupBar.tsx`). A wait
+the engine looked for, the engine's plugin scan when the project names an external plugin, the
+copy, the apply and the warm-up (`components/StartupBar.tsx`). A wait
 that hides the project tells a beginner nothing about what they are waiting FOR; a line under a
 song they can already read and edit does.
 
@@ -35,6 +36,15 @@ Before the first answer the phase is unknown, and unknown holds Play too: starte
 pressed in that window reached the engine ahead of the project, and the build dropped it. Every
 poll answer is applied, not only a changed one: the answer to the request an engine's arrival
 makes can land after a newer one, and a poll that skipped "unchanged" would leave it standing.
+
+**The plugin scan is one more step of that bar, and only for some projects.** A project whose
+modules name an external plugin is held at the file service while the engine scans
+(`engineLoad: "scanning"`, `packages/file-service/docs/engineLoad.md`), and the bar reads "Scanning
+plugins… N / M" from the poll's `engineScan`. The project is drawn meanwhile, as for every other
+wait; a plugin the stale scan does not know yet shows missing on its node until the scan ends and
+the revision moves. A scan the service gave up on is said once, in the status line, as an error:
+the plugins it had not reached stay drawn missing, which is otherwise indistinguishable from a
+plugin that is not installed.
 
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in

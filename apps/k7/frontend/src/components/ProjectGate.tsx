@@ -113,6 +113,13 @@ export function ProjectGate({
         }),
         resume: m["project.resume"](),
         loading: {
+          scanningTitle: m["pluginScan.waitTitle"](),
+          scanningBody: m["pluginScan.waitBody"](),
+          scanningCount: (done, total) =>
+            m["pluginScan.progress"]({
+              done: String(done),
+              total: String(total),
+            }),
           copyingTitle: m["engineLoad.copyingTitle"](),
           copyingBody: m["engineLoad.copyingBody"](),
           applyingTitle: m["engineLoad.applyingTitle"](),

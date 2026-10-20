@@ -3,8 +3,28 @@
 // editable the whole time; this only says what Play is waiting for. See ../../docs/shell.md.
 
 import { GateProgress } from "@studio/project-shell/progress";
-import type { EngineLoadPhase, EngineSyncState } from "@studio/web-protocol";
+import type {
+  EngineLoadPhase,
+  EngineScanState,
+  EngineSyncState,
+} from "@studio/web-protocol";
 import { m } from "../paraglide/messages.js";
+
+/** The engine's plugin scan as one line and a fraction, the same on the home page and under a project. */
+export function scanStep(scan: { done: number; total: number } | null): {
+  label: string;
+  pct: number | null;
+} {
+  if (!scan || scan.total <= 0)
+    return { label: m["pluginScan.listing"](), pct: null };
+  return {
+    label: m["pluginScan.progress"]({
+      done: String(scan.done),
+      total: String(scan.total),
+    }),
+    pct: Math.min(100, Math.round((scan.done / scan.total) * 100)),
+  };
+}
 
 /** The step under way, or null when there is nothing left to wait for. */
 export function startupStep({
@@ -12,16 +32,20 @@ export function startupStep({
   hasEngine,
   load,
   sync,
+  scan = null,
   connecting,
 }: {
   searching: boolean;
   hasEngine: boolean;
   load: EngineLoadPhase | null | undefined;
   sync: EngineSyncState | null;
+  /** The engine's plugin scan, while a project naming an external plugin waits for it. */
+  scan?: EngineScanState | null;
   connecting: boolean;
 }): { label: string; pct: number | null } | null {
   if (!hasEngine)
     return searching ? { label: m["startup.searching"](), pct: null } : null;
+  if (load === "scanning") return scanStep(scan);
   if (load === "copying") {
     const measured = sync && sync.bytes > 0;
     return {

@@ -2,11 +2,11 @@
 // that engine's tunnel. Only a claim binds: the registry lists every engine to everyone, and
 // driving one is the claim's to grant, never a header's. See docs/fileHub.md.
 
-import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { EngineRegistry } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
+import { writeScanCopy } from "@studio/song/engineCatalogue";
 import {
   AUTO_RENDERS_HOME_DIR,
   HISTORY_HOME_DIR,
@@ -33,6 +33,8 @@ export interface BindingDeps {
 
 /** How long the engine gets to list its plugins; a cold scan is slow, and nothing waits on this. */
 const PLUGINS_TIMEOUT_MS = 30_000;
+/** How long a scan running at the bind is listened to for the list it ends on: a cold one loads every plugin. */
+const SCAN_LISTEN_MS = 15 * 60_000;
 
 /** The libraries, read-only: the hub's ONE folder of each, every account's alike. */
 const librariesRoots = (inst: Pick<Instance, "home">): TunnelRoot[] => [
@@ -198,7 +200,7 @@ export function releaseIfUnclaimed(
   return run;
 }
 
-/** The engine's plugin list, written where the file service reads the scan — `<home>/exts.json`. */
+/** The engine's plugin list, written where the file service reads the scan — `<home>/exts.json` — and again when a scan running at the bind ends. */
 async function refreshPlugins(
   deps: BindingDeps,
   inst: Instance,
@@ -206,30 +208,27 @@ async function refreshPlugins(
 ): Promise<void> {
   const ch = await deps.tunnels.openReady(id, [], PLUGINS_TIMEOUT_MS);
   if (!ch) return;
-  const plugins = await new Promise<unknown[] | null>((resolve) => {
-    const timer = setTimeout(() => resolve(null), PLUGINS_TIMEOUT_MS);
+  const at = join(inst.home, "exts.json");
+  let heard = false;
+  await new Promise<void>((resolve) => {
+    let timer = setTimeout(resolve, PLUGINS_TIMEOUT_MS);
     ch.on("message", (d: Buffer) => {
       try {
         const m = JSON.parse(d.toString("utf8"));
         if (m.type !== "plugins") return;
+        heard = true;
+        // Left alone when it says the same: a rewrite at every bind threw away the compile an open had just made (packages/file-service/docs/workspace.md).
+        writeScanCopy(Array.isArray(m.plugins) ? m.plugins : [], at);
         clearTimeout(timer);
-        resolve(Array.isArray(m.plugins) ? m.plugins : []);
+        // A scan still running replaces this list when it ends, and broadcasts the new one (engine/k7-runtime/docs/plugins.md).
+        if (m.scanning === true) timer = setTimeout(resolve, SCAN_LISTEN_MS);
+        else resolve();
       } catch {
-        /* not JSON — not the answer */
+        /* not JSON, or a copy that would not write — not the answer */
       }
     });
     ch.send(JSON.stringify({ type: "list-plugins" }));
   });
   ch.close();
-  if (!plugins) {
-    deps.log(`[${inst.slug}] engine ${id} never listed its plugins`);
-    return;
-  }
-  // The scan file's own shape, so every reader of it works unchanged.
-  const at = join(inst.home, "exts.json");
-  const text = JSON.stringify({ entries: [{ plugins }] });
-  // Left alone when it says the same: its mtime is in the project's revision token, and a rewrite at every
-  // bind threw away the compile an open had just made (packages/file-service/docs/workspace.md).
-  if ((await readFile(at, "utf8").catch(() => null)) === text) return;
-  await writeFile(at, text);
+  if (!heard) deps.log(`[${inst.slug}] engine ${id} never listed its plugins`);
 }

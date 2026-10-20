@@ -14,7 +14,7 @@ interval is the whole of the design.
 | `kDevicesPoll` (10 s) | this is what notices an interface being plugged in or pulled out — and it is the one poll that TOUCHES A DRIVER. See below. |
 | `kSessionsPoll` (2 s) | an app connecting or a song loading is a human-speed event, and the submenu redraws only when the signature moves anyway. |
 | `kEditPluginsPoll` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
-| `kPluginsPoll` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `kPluginsPollFast` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
+| `kPluginsPoll` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands, and while the engine's `plugins` reply says `scanning` — the engine scans at every start, and the list it answers then is about to change — we ask at `kPluginsPollFast` (2 s) instead, to keep the spinner and the count honest; that poll reschedules itself rather than sitting on one interval. The scan's progress is not carried here: the page follows it on the engine's own socket (`engine/k7-runtime/docs/plugins.md`). |
 | `kBackoffMaxS` (30 s) | the relaunch backoff for a crashing engine, doubling from 1 s. One that dies on startup — a bad audio device, a missing DLL — would otherwise be relaunched forever at one per second, and the log would be nothing but that. |
 | `kDeregisterBound` (1.5 s) | a hung registry must not hold the quit open. An app gives the supervisor a few seconds in total before it kills it. |
 

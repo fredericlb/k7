@@ -471,7 +471,9 @@ private:
 
 // --- Plugin discovery, out-of-process and cached in `<state>/exts.json`; what each entry point does is in docs/engineHost.md ---
 std::vector<PluginInfo> loadPluginCache();
-std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan);
+/** Where a scan stands: files done of those listed (0 while listing), and the file being LOADED, "" for one only stat'ed. */
+using PluginScanProgress = std::function<void(int done, int total, const std::string& loading)>;
+std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan, const PluginScanProgress& progress = {});
 /** Whether this build can host an external plugin at all — false on Android, where only the built-ins exist. */
 bool hostsExternalPlugins();
 /** Whether `<state>/exts.json` needs no scan: written, holding this binary's built-ins, and an external if this build can host one. */

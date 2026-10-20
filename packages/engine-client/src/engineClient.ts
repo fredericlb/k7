@@ -13,6 +13,7 @@ export type {
   EngineState,
   PluginInfo,
   PluginParamInfo,
+  PluginScanStatus,
   RecordedTake,
   TransportAction,
 } from "./engineControl";

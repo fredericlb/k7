@@ -128,6 +128,15 @@ k7 opts in: it opens a project, and a project is the server's. The media library
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.
 
+## Following a scan claims nothing
+
+`watchPluginScan` (`scanWatch.ts`) holds one socket to one engine and hears its `plugin-scan`
+frames: it asks once, then listens to what the engine broadcasts while a scan runs. It sends no
+session and no claim, so the relay passes it as it passes a probe (`plugin-scan` is among the
+probe's verbs and answers, `@studio/engine-registry/relayGate.ts`), and a page that drives nothing
+— k7's home page — can say a scan is running without taking the engine from whoever plays on it.
+Its URL is asked on every dial, since a relayed one carries a ticket that ages.
+
 ## Outside this object
 
 - **`EngineClient`**: opening the socket with the service's session
