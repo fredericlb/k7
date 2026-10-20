@@ -64,7 +64,8 @@ class AppViewsPlugin : Plugin() {
     private var apps: Map<String, Uri> = emptyMap()
     private var visible: String? = null
     private var topPx = 0
-    private var bottomPx = 0
+    // The navigation bar and the keyboard, measured up from the WINDOW's bottom, which the frame may already stop short of.
+    private var bottomInsetPx = 0
     private var leftPx = 0
     private var rightPx = 0
     private lateinit var back: OnBackPressedCallback
@@ -92,10 +93,12 @@ class AppViewsPlugin : Plugin() {
             topPx = bars.top
             leftPx = bars.left
             rightPx = bars.right
-            bottomPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()).bottom
+            bottomInsetPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()).bottom
             place()
             insets
         }
+        // A window resized for the keyboard moves the frame's bottom only at the next layout, so the padding is measured again then.
+        frame.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> padBottom() }
         lightBarsBefore = barIcons().isAppearanceLightStatusBars
         topColorJs = context.assets.open("top-color.js").bufferedReader().use { it.readText() }
         accountJs = context.assets.open("account.js").bufferedReader().use { it.readText() }
@@ -278,7 +281,16 @@ class AppViewsPlugin : Plugin() {
                 rightMargin = rightPx
             }
         }
-        frame.setPadding(0, 0, 0, bottomPx)
+        padBottom()
+    }
+
+    // Only the part of the bars and keyboard that covers the frame: a window the system already shrank for the keyboard must not lose it twice.
+    private fun padBottom() {
+        val at = IntArray(2)
+        frame.getLocationInWindow(at)
+        val belowFrame = frame.rootView.height - (at[1] + frame.height)
+        val pad = maxOf(0, bottomInsetPx - belowFrame)
+        if (frame.paddingBottom != pad) frame.setPadding(0, 0, 0, pad)
     }
 
     // Until the page has said, the shell page's own background shows through.

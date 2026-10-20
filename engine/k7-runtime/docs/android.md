@@ -156,6 +156,11 @@ What the app views do that a browser would do on its own:
 - **Insets on every side.** Android 15 draws every app edge to edge, so the views are inset by the
   system bars and the cutout on the left and right too — a landscape phone's navigation bar and
   notch are on a side — and the status-bar strip still spans the whole width.
+- **The keyboard is subtracted once.** Its inset is measured from the window's bottom, and whether the
+  system has already shrunk the activity above it depends on the device and the edge-to-edge mode. So
+  the frame is padded only by the part of the bars and keyboard below its own bottom, measured again
+  at every layout; padding by the whole inset on a phone that resizes left a keyboard-high band of the
+  shell page between the view and the keyboard.
 
 **No `cap sync`.** Gradle stages the page the way it stages the engine: `stageShell` runs the
 workspace's `npm run build` and lays `dist/` out as `cap copy` would (`public/`,
