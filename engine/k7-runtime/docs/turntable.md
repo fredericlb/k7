@@ -7,6 +7,12 @@ It exists because the other answer was measured and refused. A deck is normally 
 timeline, and moving one costs a re-insertion; driven at gesture rates that came out as a third of
 a beat of error, worse the faster it was driven (`packages/k7-plugins/docs/turntables/scratch.md`).
 
+It is CATALOGUED, as `Turntable` with the role `instrument` (a source: no audio in). A mix project's
+deck nodes name it through `@meta/audio/turntable`, and an engine's compatibility with a project is
+scored against the catalogue, so a platter left out of it reads as "this engine is missing:
+studio_turntable" on every engine that plays the deck. `packages/song/src/metaCatalogue.test.ts`
+holds every `@meta` module's built-in to that.
+
 ## Rate, not position
 
 The parameter is a **speed**, signed. That is what a hand imparts to a record, and it makes reverse
