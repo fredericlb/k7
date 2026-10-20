@@ -1,8 +1,9 @@
 // workspaceFiles.ts — the read-only calls the home page's workspace tree makes: one file's
 // content. Same transport as api.ts's `accountFiles`.
 
+import { readJson as json } from "@studio/http-client/call";
 import { type FileContent, WORKSPACE_HEADER } from "@studio/web-protocol";
-import { type AccountFiles, filesHeaders, json } from "./api";
+import { type AccountFiles, filesHeaders } from "./api";
 
 /** What the read-only tree and its viewer read through: one workspace's files. */
 export interface TreeSource {

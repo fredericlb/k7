@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@frediverse/ui": "*",
+    "@studio/http-client": "*",
     "@studio/lyrics": "*",
     "@studio/recorder": "*",
     "@studio/score": "*",
