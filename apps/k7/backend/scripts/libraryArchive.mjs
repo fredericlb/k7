@@ -1,7 +1,7 @@
-// libraryArchive.mjs — the `k7-core` library a desktop or phone bundle carries: the newest version the
-// origin PUBLISHED that this build runs, manifest included, so the hub installs it under its own
-// number (packages/file-hub/libraries.ts). Unreachable origin: the repo's folder, which installs as
-// version 1, said loudly. See ../../../../docs/library-versions-plan.md.
+// libraryArchive.mjs — the `k7-core` library a desktop or phone bundle carries: the newest version this
+// build runs, manifest included, so the hub installs it under its own number (packages/file-hub/libraries.ts).
+// The origin's published one, unless the repo's `k7-core/library.k7x` declares a higher number; the
+// repo's too when the origin cannot answer, said loudly. See ../../../../docs/library-versions-plan.md.
 
 import { createHash } from "node:crypto";
 import {
@@ -26,15 +26,32 @@ function buildLevel(repo) {
   return Number(m[1]);
 }
 
-/** Download the newest runnable published `k7-core` into `dest`; answers its version, or throws. */
-async function fromOrigin(origin, level, dest) {
+/** The version the repo's `k7-core/library.k7x` declares, or 0 when it declares none this build runs. */
+function repoVersion(repo, level) {
+  let text;
+  try {
+    text = readFileSync(join(repo, "k7-core", "library.k7x"), "utf8");
+  } catch {
+    return 0;
+  }
+  const version = Number(/^version\((\d+)\)/m.exec(text)?.[1] ?? 0);
+  const requires = Number(/^requires\((\d+)\)/m.exec(text)?.[1] ?? 1);
+  return requires <= level ? version : 0;
+}
+
+/** The newest `k7-core` the origin publishes that a build at `level` runs; throws when there is none. */
+async function originNewest(origin, level) {
   const r = await fetch(`${origin}${PUBLIC}`);
   if (!r.ok) throw new Error(`${origin} answered ${r.status}`);
   const k7 = (await r.json()).libraries.find((l) => l.name === "k7-core");
   const runnable = (k7?.versions ?? []).filter((v) => v.requires <= level);
   if (!runnable.length)
     throw new Error(`${origin} publishes no k7-core for level ${level}`);
-  const version = Math.max(...runnable.map((v) => v.version));
+  return Math.max(...runnable.map((v) => v.version));
+}
+
+/** Download version `version` of the origin's `k7-core` into `dest`, or throw. */
+async function fromOrigin(origin, version, dest) {
   const base = `${origin}${PUBLIC}/k7-core/${version}`;
   const listing = await fetch(base);
   if (!listing.ok) throw new Error(`${base} answered ${listing.status}`);
@@ -50,23 +67,31 @@ async function fromOrigin(origin, level, dest) {
     mkdirSync(dirname(at), { recursive: true });
     writeFileSync(at, bytes);
   }
-  return version;
 }
 
-/** Lay the bundle's `k7-core` library out at `dest`: published when the origin answers, else the repo's. */
+/** Lay the bundle's `k7-core` library out at `dest`: the origin's newest, else the repo's when newer or the origin is out of reach. */
 export async function bundleLibrary(repo, dest) {
   const origin = (
     process.env.STUDIO_LIBRARY_ORIGIN ?? "https://app.k7.rocks"
   ).replace(/\/+$/, "");
+  const level = buildLevel(repo);
+  const ours = repoVersion(repo, level);
   rmSync(dest, { recursive: true, force: true });
   try {
-    const version = await fromOrigin(origin, buildLevel(repo), dest);
-    console.log(`library: k7-core ${version}, published by ${origin}`);
-    return;
+    const version = await originNewest(origin, level);
+    // A tie is the origin's: the number it publishes is what an upgrade from it will mean.
+    if (version >= ours) {
+      await fromOrigin(origin, version, dest);
+      console.log(`library: k7-core ${version}, published by ${origin}`);
+      return;
+    }
+    console.log(
+      `library: k7-core ${ours} from the repo, newer than ${origin}'s ${version}`,
+    );
   } catch (e) {
     rmSync(dest, { recursive: true, force: true });
     console.warn(
-      `\n!! library: ${e.message}\n!! bundling the repo's k7-core instead, which a new install reads as version 1\n`,
+      `\n!! library: ${e.message}\n!! bundling the repo's k7-core instead, which a new install reads as version ${ours || 1}\n`,
     );
   }
   cpSync(join(repo, "k7-core"), dest, {

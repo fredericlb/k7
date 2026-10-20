@@ -177,6 +177,87 @@ describe("the hub's libraries", () => {
     ]);
   });
 
+  it("adds a seed that gains a manifest to a machine holding it as version 1, and keeps 1", async () => {
+    const store = new LibraryStore(data, seed);
+    await store.ensure();
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([1]);
+    // The repo's k7-core changes and declares version 2: the next start adds it.
+    writeFileSync(
+      join(seed, "k7-core", "modules", "mix.k7x"),
+      'plugin("fixed")\n',
+    );
+    writeFileSync(
+      join(seed, "k7-core", "library.k7x"),
+      'name("k7-core")\nversion(2)\nrequires(1)\nnotes("fixed")\n',
+    );
+    expect(await store.ensure()).toMatchObject([
+      {
+        name: "k7-core",
+        state: "seeded",
+        note: expect.stringContaining("version 2"),
+      },
+    ]);
+    const mix = (v: number) =>
+      readFileSync(
+        join(store.home, "k7-core", String(v), "modules", "mix.k7x"),
+        "utf8",
+      );
+    expect(mix(1)).toBe('plugin("mixer")\n');
+    expect(mix(2)).toBe('plugin("fixed")\n');
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([1, 2]);
+    expect(await store.ensure()).toMatchObject([
+      { name: "k7-core", state: "current" },
+    ]);
+  });
+
+  // An admin may publish their own 2 before the seed declares one: the seed never overwrites it.
+  it("adds a seed whose number an admin's publish took as the next free version, once", async () => {
+    const store = new LibraryStore(data, seed);
+    await store.ensure({ draft: true });
+    writeFileSync(
+      join(store.home, "k7-core", "draft", "modules", "mix.k7x"),
+      'plugin("admin")\n',
+    );
+    await store.publish("k7-core", { notes: "the admin's" });
+    writeFileSync(
+      join(seed, "k7-core", "modules", "mix.k7x"),
+      'plugin("fixed")\n',
+    );
+    writeFileSync(
+      join(seed, "k7-core", "library.k7x"),
+      'name("k7-core")\nversion(2)\nrequires(1)\nnotes("fixed")\n',
+    );
+    expect(await store.ensure()).toMatchObject([
+      {
+        name: "k7-core",
+        state: "seeded",
+        note: expect.stringContaining("version 3"),
+      },
+    ]);
+    const mix = (v: number) =>
+      readFileSync(
+        join(store.home, "k7-core", String(v), "modules", "mix.k7x"),
+        "utf8",
+      );
+    expect(mix(2)).toBe('plugin("admin")\n');
+    expect(mix(3)).toBe('plugin("fixed")\n');
+    expect(store.versions("k7-core")).toEqual([
+      { name: "k7-core", version: 1, requires: 1 },
+      { name: "k7-core", version: 2, requires: 1, notes: "the admin's" },
+      { name: "k7-core", version: 3, requires: 1, notes: "fixed", seed: 2 },
+    ]);
+    // Found again under its new number: no fourth copy on the next start.
+    expect(await store.ensure()).toMatchObject([
+      { name: "k7-core", state: "current" },
+    ]);
+    expect(store.versions("k7-core").map((m) => m.version)).toEqual([1, 2, 3]);
+    // A later publish numbers past it.
+    expect(await store.publish("k7-core")).toMatchObject({
+      ok: true,
+      manifest: { version: 4 },
+    });
+  });
+
   it("refuses to publish under a name that is no library", async () => {
     const store = new LibraryStore(data, seed);
     expect(await store.publish("../k7")).toEqual({

@@ -87,8 +87,17 @@ drums(2)
   version of `k7` the build runs, `library.k7x` included, and install it under that number on first
   run, with no network. A folder rather than an archive: the bundle is files already, and the hub
   copies a folder. An app update carrying a newer version adds it as one more frozen version and
-  moves no pin. A build that cannot reach the origin bundles the repo's `k7-core` and says so:
-  that one installs as version 1, which is what it is on an origin seeded from it.
+  moves no pin.
+- **The repo's `k7-core/` is a published version too**: its `library.k7x` declares its number,
+  which is what it installs as on an origin seeded from it (the dev server) and on every machine
+  whose bundle carries it. So **a change to `k7-core` content raises that number** in the same
+  commit: a version a machine holds is never rewritten, and an unchanged number reaches nobody. The
+  bundle carries the origin's newest runnable version, unless the repo's declares a higher one — a
+  tie is the origin's, since its number is what an upgrade from it means — and the repo's when the
+  origin cannot be reached, said loudly. The hazard this leaves: the repo and an origin's admins
+  number one series from two places, so a phone holding the repo's 2 never fetches an origin's
+  different 2. A seed never overwrites a version an admin published; it takes the next free number
+  (`../packages/file-hub/docs/fileHub.md`).
 - **Upgrade is a per-workspace action**, the verb `library upgrade <library> [version]` and the
   strip above the editor's file tree: it fetches the version if the machine lacks it, then rewrites
   the pin and recompiles the song. It lists the forks whose base changed between the two versions —

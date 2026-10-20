@@ -130,7 +130,8 @@ hands the hub its own seed.
 
 A project opens only once the origin has a library (`packages/project-shell/docs/launch.md`).
 The app sets `STUDIO_LIBRARY_SEED=k7-core=<folder>`: the `k7-core` folder from a checkout, or in
-the packaged app the newest PUBLISHED version the build could fetch, `library.k7x` included
+the packaged app the newest PUBLISHED version the build could find — the origin's, or the repo's
+when it declares a higher number — `library.k7x` included
 (`apps/k7/backend/scripts/libraryArchive.mjs`). With no list written, the hub lists the seed's `k7`
 and installs it under its version number in `workspaces/libraries/k7` on first ask; no network. An
 update of the app carrying a newer version adds it beside the others, and the workspaces move to it

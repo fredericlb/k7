@@ -1,0 +1,4 @@
+name("k7-core")
+version(2)
+requires(1)
+notes("The Sampler loads: an internal module, no longer a type no engine knows. The one-knob modules state their values as their own, and every file is k7x.")
