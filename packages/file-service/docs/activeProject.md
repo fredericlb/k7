@@ -262,6 +262,14 @@ nothing arrives, so a stale one outlives its request and eats the following comm
   names both remaining states: "engine did not answer" alone could not tell a dropped link from a
   silent engine, and the engine prints its own `[rec]` line either way, so saying which half to look
   in is the difference between a report and a dead end.
+
+  Before it, the arm waits for the session's link to OPEN (`armOnceOpen` in `src/engineArm.ts`,
+  five seconds), and does not refuse a link still dialling. In the desktop app every tab brought to
+  the front re-binds this service to the engine and re-dials the session's link, and the editor is
+  drawn while that socket is still opening: refusing an arm clicked then would answer "engine
+  offline", with the engine running and the project on its way. The document needs no such wait, since the
+  client queues it until the socket opens, and the arm sent after the open goes out behind it. A
+  link that never opens says so, as a link still opening, never as an engine that is not there.
 - **`awaitSessions`** takes the same shape. Its reply is engine-GLOBAL and carries no session, so it
   passes every client's filter (`forSession` in `packages/engine-protocol/sessions.ts`).
 - **`awaitPluginParams`** matches on the id, and the hazard is one notch worse: `plugin-param-list`

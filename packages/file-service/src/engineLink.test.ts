@@ -63,7 +63,6 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
 }));
 
 const {
-  awaitArm,
   awaitPluginParams,
   enginePreview,
   ensureEngine,
@@ -346,112 +345,7 @@ describe("the dry run's record", () => {
   });
 });
 
-// `armed` is BROADCAST, so the wait picks out its own answer and lets go — docs/activeProject.md.
-describe("awaitArm", () => {
-  // An emitter that records what is still attached: the leak is the point of half these tests.
-  class ArmSpy {
-    sent: string[] = [];
-    listeners = new Map<string, Set<(...a: never[]) => void>>();
-    on(event: string, fn: (...a: never[]) => void) {
-      (
-        this.listeners.get(event) ??
-        this.listeners.set(event, new Set()).get(event)
-      )?.add(fn);
-    }
-    off(event: string, fn: (...a: never[]) => void) {
-      this.listeners.get(event)?.delete(fn);
-    }
-    stated: (boolean | undefined)[] = [];
-    arm(track: string, armed?: boolean) {
-      this.sent.push(track);
-      this.stated.push(armed);
-    }
-    emit(event: string, arg: unknown) {
-      for (const fn of [...(this.listeners.get(event) ?? [])])
-        (fn as (a: unknown) => void)(arg);
-    }
-    /** Listeners still attached — must be none once the wait is over. */
-    attached() {
-      let n = 0;
-      for (const s of this.listeners.values()) n += s.size;
-      return n;
-    }
-  }
-  const spy = () =>
-    new ArmSpy() as unknown as ArmSpy & Parameters<typeof awaitArm>[0];
-
-  it("sends the arm and resolves with what the engine answered", async () => {
-    const c = spy();
-    const out: string[] = [];
-    const p = awaitArm(c, "gtr", out, () => true);
-    expect(c.sent).toEqual(["gtr"]);
-    c.emit("armed", { track: "gtr", armed: true });
-    expect(await p).toBe(true);
-    expect(out).toEqual([]);
-    expect(c.attached()).toBe(0);
-  });
-
-  it("passes a stated arm on, and leaves a bare one a toggle", async () => {
-    const c = spy();
-    const out: string[] = [];
-    const on = awaitArm(c, "gtr", out, () => true, 1000, true);
-    c.emit("armed", { track: "gtr", armed: true });
-    await on;
-    const toggle = awaitArm(c, "gtr", out, () => true);
-    c.emit("armed", { track: "gtr", armed: false });
-    await toggle;
-    expect(c.stated).toEqual([true, undefined]);
-  });
-
-  it("IGNORES the answer to another track's arm", async () => {
-    // A frame for `bass` taken as `gtr`'s answer left the real answer with nobody waiting.
-    const c = spy();
-    const out: string[] = [];
-    const p = awaitArm(c, "gtr", out, () => true, 50);
-    c.emit("armed", { track: "bass", armed: true });
-    c.emit("armed", { track: "gtr", armed: false });
-    expect(await p).toBe(false);
-    expect(out).toEqual([]);
-  });
-
-  it("surfaces the engine's refusal and stops waiting", async () => {
-    const c = spy();
-    const out: string[] = [];
-    const p = awaitArm(c, "gtr", out, () => true);
-    c.emit("engineError", 'track "gtr" has no input — nothing to record');
-    expect(await p).toBeUndefined();
-    expect(out).toEqual(['track "gtr" has no input — nothing to record']);
-    expect(c.attached()).toBe(0);
-  });
-
-  it("names the track and says the link was UP when nothing answered", async () => {
-    const c = spy();
-    const out: string[] = [];
-    expect(await awaitArm(c, "gtr", out, () => true, 5)).toBeUndefined();
-    expect(out[0]).toContain('"gtr"');
-    expect(out[0]).toContain("[rec]"); // where to look next, rather than a dead end
-  });
-
-  it("says the LINK DROPPED when it is no longer up", async () => {
-    // The same silence, a different fault: worth telling apart before anyone reads engine logs.
-    const c = spy();
-    const out: string[] = [];
-    expect(await awaitArm(c, "gtr", out, () => false, 5)).toBeUndefined();
-    expect(out[0]).toContain("dropped");
-  });
-
-  it("lets go of its listeners on a timeout, so the next error is not swallowed", async () => {
-    // A `once` never fires on a timeout, so the stale listener eats the next message.
-    const c = spy();
-    const out: string[] = [];
-    await awaitArm(c, "gtr", out, () => true, 5);
-    expect(c.attached()).toBe(0);
-    c.emit("engineError", "a later, unrelated failure");
-    expect(out).toHaveLength(1); // still just the timeout line
-  });
-});
-
-/** The arm's shape, one notch worse: the reply is engine-GLOBAL and slow — docs/activeProject.md. */
+/** The arm's shape (engineArm.test.ts), one notch worse: the reply is engine-GLOBAL and slow — docs/activeProject.md. */
 describe("awaitPluginParams", () => {
   class ListSpy {
     asked: [string, string][] = [];
