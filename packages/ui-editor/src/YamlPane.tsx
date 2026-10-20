@@ -95,7 +95,9 @@ export function YamlPane({
       ),
       editorLabel(label ?? path),
     ];
-    return vimMode && !readOnly ? [vim(), vimUndoSteps(), ...base, vimModeStatus()] : base;
+    return vimMode && !readOnly
+      ? [vim(), vimUndoSteps(), ...base, vimModeStatus()]
+      : base;
   }, [vimMode, readOnly, onSave, faust, js, k7x, label, path]);
 
   // A row edit beside the text lands as its own splices, so the cursor and the undo history stay.
