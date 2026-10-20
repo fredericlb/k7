@@ -4,7 +4,7 @@ import type { Page } from "@playwright/test";
 import { commandBar, expectStatus, runCommand } from "../../src/commandBar.ts";
 import { expectFile, readFile, restoreProject } from "../../src/disk.ts";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
-import { navControl, tempoReadout } from "../../src/nav.ts";
+import { folded, navControl, tempoReadout } from "../../src/nav.ts";
 import { expect, test } from "../../src/target.ts";
 import { clockOf } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
@@ -31,6 +31,12 @@ async function openProject(page: Page): Promise<void> {
 /** Opens project.k7x in the editor and retypes the tempo, in vim's keys when the editor is in vim mode (the account default). */
 async function typeTempo(page: Page, tempo: number): Promise<void> {
   await (await navControl(page, "Editor")).click();
+  // A phone folds the file tree into a drawer, opened by its "files" button (EditorTab.tsx).
+  if (await folded(page)) {
+    const files = button(page, "files");
+    if ((await files.getAttribute("aria-expanded")) !== "true")
+      await files.click();
+  }
   await page
     .getByRole("complementary")
     .getByRole("button", { name: "project.k7x", exact: true })

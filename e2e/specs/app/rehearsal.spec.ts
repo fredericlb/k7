@@ -14,18 +14,25 @@ async function sweep(page: Page): Promise<void> {
   const api = page.request;
   // Absolute, off the page: a phone's WebView hands its request context no base URL.
   const at = (path: string) => new URL(path, page.url()).href;
-  const songs = (await (await api.get(at("/api/songs"))).json()) as {
-    id: string;
-    artist: string;
-  }[];
+  const songs = await listed<{ id: string; artist: string }>(
+    page,
+    at("/api/songs"),
+  );
   for (const s of songs.filter((x) => x.artist === ARTIST))
     expect((await api.delete(at(`/api/songs/${s.id}`))).ok()).toBe(true);
-  const pages = (await (await api.get(at("/api/pages"))).json()) as {
-    id: string;
-    nametag: string;
-  }[];
+  const pages = await listed<{ id: string; nametag: string }>(
+    page,
+    at("/api/pages"),
+  );
   for (const p of pages.filter((x) => x.nametag === NAMETAG))
     expect((await api.delete(at(`/api/pages/${p.id}`))).ok()).toBe(true);
+}
+
+/** A list route's rows, or none when it answers something else: a clean-up has nothing to remove then. */
+async function listed<T>(page: Page, url: string): Promise<T[]> {
+  const res = await page.request.get(url);
+  const body: unknown = res.ok() ? await res.json() : [];
+  return Array.isArray(body) ? (body as T[]) : [];
 }
 
 /** Makes the suite's songbook song and types its lyrics; answers once Save has written them. */
