@@ -163,7 +163,11 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     // The dry run is playing a silenced copy; its restore sends the latest document — docs/engineLoad.md.
     if (isWarming(session)) return;
     const c = ensureEngine(ws);
-    if (!c) return endLoad(session);
+    // On no engine at all: whichever is bound next holds nothing of it, whatever its address.
+    if (!c) {
+      sentTo.delete(session);
+      return endLoad(session);
+    }
     const url = selectedEngine();
     if (url && sentTo.get(session) !== url && loadPhase(session) === null)
       beginLoad(session);
@@ -232,13 +236,18 @@ export function engineLoadOf(ws: Workspace | null): EngineLoadPhase | null {
   }
   const url = selectedEngine();
   const project = ws?.activeProjectPath();
+  const serving = !!ws && !!project && served.get(session)?.project === project;
+  // No engine bound: the project is on none, so Play waits — the page's own socket may be up already.
+  if (serving && !url) {
+    sentTo.delete(session);
+    return loadPhase(session) ?? "copying";
+  }
   // An engine selected after the project opened holds nothing yet, and a Play it answered now would be lost to the build.
   if (
     ws &&
     url &&
-    project &&
+    serving &&
     loadPhase(session) === null &&
-    served.get(session)?.project === project &&
     sentTo.get(session) !== url
   ) {
     sentTo.set(session, url);
@@ -458,6 +467,8 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   const leaving = sessionOf(ws);
   // Read BEFORE `served.delete` below: it is the only record of which folder was being served.
   const leftProject = served.get(leaving)?.project ?? null;
+  // Nothing will be served, so nothing is on its way; a dry run's stop goes out ahead of the flush.
+  endLoad(leaving);
   const e = ensureEngine(ws);
   if (e) {
     try {
