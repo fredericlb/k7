@@ -43,8 +43,18 @@ class FakeClient {
   preview(file: string, start: number, length: number) {
     this.previews.push([file, start, length]);
   }
+  /** What reached the engine that a project switch is about, in order. */
+  wire: string[] = [];
   sendProject() {}
-  flush() {}
+  flush() {
+    this.wire.push("flush");
+  }
+  setRecordEnabled(on: boolean) {
+    this.wire.push(`record ${on}`);
+  }
+  transport(verb: string) {
+    this.wire.push(verb);
+  }
   setAudioDevice() {}
 }
 vi.mock("@studio/engine-client/engineClient", async (orig) => ({
@@ -63,7 +73,9 @@ const {
   sessionOf,
   setSelectedEngine,
   startEngineForActive,
+  unloadEngineIfServing,
 } = await import("./engineLink.ts");
+const { links } = await import("./engineSessions.ts");
 
 const wsFor = (_email: string, name = "songs") => ({
   root: join(rootDir(), name),
@@ -226,6 +238,68 @@ describe("enginePreview", () => {
     expect(client.session).toBe(sessionOf(wsFor("fred@parapluie.org")));
     expect(client.session).not.toBe(SESSIONS.k7); // the bare id is the silent wrong room
     expect(client.previews).toEqual([["C:/a.wav", 0, 0.5]]);
+  });
+});
+
+// A workspace removed or renamed hands its ROOT, while `served` holds a project inside it — docs/workspaces.md.
+describe("unloadEngineIfServing", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:3000/${Math.random()}`);
+  });
+
+  const serveIn = (name: string) => {
+    const ws = wsFor("owner@x.org", name);
+    const project = join(ws.root, "clip-lane.k7");
+    const serving = { ...wsServing("owner@x.org", project), root: ws.root };
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(serving as any);
+    return { root: ws.root, project };
+  };
+
+  it("unloads a session serving a project UNDER the workspace root", async () => {
+    const { root } = serveIn("removed-ws");
+    expect(await unloadEngineIfServing(root)).toBe(true);
+    // A second call finds nothing: the session no longer names the gone folder.
+    expect(await unloadEngineIfServing(root)).toBe(false);
+  });
+
+  it("still unloads by the project's own path", async () => {
+    const { project } = serveIn("by-project");
+    expect(await unloadEngineIfServing(project)).toBe(true);
+  });
+
+  it("leaves a sibling workspace whose name merely starts the same", async () => {
+    const { project } = serveIn("songs-two");
+    expect(await unloadEngineIfServing(join(rootDir(), "songs"))).toBe(false);
+    expect(await unloadEngineIfServing(project)).toBe(true);
+  });
+});
+
+// Record is the SESSION's on the engine, so a switch that kept it would open the next song with Play refused — docs/engineLoad.md.
+describe("a project switch", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:4000/${Math.random()}`);
+  });
+
+  it("switches record off with the flush, and forgets it was on", () => {
+    const root = join(rootDir(), "recording");
+    const ws = (project: string) => ({
+      ...wsServing("owner@x.org", join(root, project)),
+      root,
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(ws("take.k7") as any);
+    const client = built.at(-1);
+    if (!client) throw new Error("no engine client was built");
+    // The engine's state frame: the take's project left record on.
+    client.handlers.get("state")?.({ playing: false, recordEnabled: true });
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(ws("other.k7") as any);
+    expect(client.wire).toEqual(["flush", "record false"]);
+    // What the dry run reads to put record back after its half second: off, not the take's.
+    expect(links.get(client.session)?.recordEnabled).toBe(false);
   });
 });
 

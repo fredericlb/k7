@@ -79,6 +79,9 @@ export function PresetButton({
         className={`dgx-engine dgx-preset${current ? " on" : ""}`}
         style={{ minWidth: presetButtonW(engines) }}
         title={title}
+        // Named after the preset it holds, so a screen reader hears what is loaded; the title is its description.
+        aria-label={current ? `preset: ${current}` : "preset"}
+        aria-haspopup="menu"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();

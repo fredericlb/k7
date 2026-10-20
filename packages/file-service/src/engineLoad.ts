@@ -17,14 +17,30 @@ const TAIL_MS = 1500;
 /** -100 dB is exactly zero on the engine's master gain. */
 const SILENT_DB = -100;
 
+/** One session's load: its phase, the engine link warming it, and how to cut its dry run short. */
+interface Load {
+  phase: EngineLoadPhase;
+  engine?: unknown;
+  /** Stops a dry run that has played, AT ONCE, and wakes its waits — docs/engineLoad.md. */
+  cancel?: () => void;
+}
+
 /** The phase of each session whose project is still being made ready, and the engine link warming it. */
-const loads = new Map<string, { phase: EngineLoadPhase; engine?: unknown }>();
+const loads = new Map<string, Load>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Replace `session`'s load, cutting the one it replaces short first: its stop must reach the engine before anything else does. */
+function replaceLoad(session: string, next: Load | null): void {
+  const prev = loads.get(session);
+  if (next) loads.set(session, next);
+  else loads.delete(session);
+  prev?.cancel?.();
+}
+
 /** A project was opened in `session`: the gate waits until the load ends. */
 export function beginLoad(session: string): void {
-  loads.set(session, { phase: "copying" });
+  replaceLoad(session, { phase: "copying" });
 }
 
 export function loadPhase(session: string): EngineLoadPhase | null {
@@ -33,7 +49,7 @@ export function loadPhase(session: string): EngineLoadPhase | null {
 
 /** Stop waiting — a failed copy, no engine at all: the project screen says what is wrong. */
 export function endLoad(session: string): void {
-  loads.delete(session);
+  replaceLoad(session, null);
 }
 
 /** Whether documents must be held back: the engine is playing a silenced copy, which the restore replaces. */
@@ -69,9 +85,28 @@ export async function warmUp(
   // A fresh load, or one still waiting on an engine the session has since left (docs/engineLoad.md).
   const takeOver = load?.phase === "applying" && load.engine !== deps.engine;
   if (load?.phase !== "copying" && !takeOver) return;
-  const mine = { phase: "applying" as EngineLoadPhase, engine: deps.engine };
-  loads.set(session, mine);
   let played = false;
+  let stopped = false;
+  // The dry run's one stop, whoever asks first: its own timer, or the load that replaced it.
+  const stop = (): void => {
+    if (!played || stopped) return;
+    stopped = true;
+    deps.stopAndRewind();
+  };
+  let wake = (): void => {};
+  const woken = new Promise<void>((r) => {
+    wake = r;
+  });
+  const wait = (ms: number) => Promise.race([sleep(ms), woken]);
+  const mine: Load = {
+    phase: "applying",
+    engine: deps.engine,
+    cancel: () => {
+      stop();
+      wake();
+    },
+  };
+  loads.set(session, mine);
   try {
     const deadline = Date.now() + APPLY_TIMEOUT_MS;
     while (!(await deps.loaded())) {
@@ -87,22 +122,25 @@ export async function warmUp(
         deps.log("the engine did not report the project loaded in time");
         return;
       }
-      await sleep(POLL_MS);
+      await wait(POLL_MS);
     }
     if (loads.get(session) !== mine) return;
     mine.phase = "warming";
     deps.sendProject({ ...doc, masterVolume: SILENT_DB });
     deps.play();
     played = true;
-    await sleep(DRY_RUN_MS);
-    deps.stopAndRewind();
-    await sleep(TAIL_MS);
+    await wait(DRY_RUN_MS);
+    stop();
+    // Replaced: the next load's document is on its way, and a tail waited out here would land in the middle of it.
+    if (loads.get(session) !== mine) return;
+    await wait(TAIL_MS);
   } catch (e) {
     deps.log(`dry run: ${(e as Error).message}`);
   } finally {
+    stop();
     const ours = loads.get(session) === mine;
     if (ours) loads.delete(session);
-    // The restore is what un-silences the master, so it runs whenever the silenced copy went out.
-    if (played || ours) deps.restore();
+    // Un-silences the master — unless a newer load holds the session, whose own document does that (docs/engineLoad.md).
+    if (ours || (played && !loads.has(session))) deps.restore();
   }
 }

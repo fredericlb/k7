@@ -101,8 +101,16 @@ export function askChoice(
   });
 }
 
+/** The buttons' words when a question brings none: the host's language, English until it passes its own. */
+export interface AskLabels {
+  cancel: string;
+  confirm: string;
+}
+
+const ENGLISH: AskLabels = { cancel: "Cancel", confirm: "Confirm" };
+
 /** Mount once, at the app root. One question at a time: a second would be a stack nobody asked for. */
-export function AskHost() {
+export function AskHost({ labels }: { labels?: Partial<AskLabels> } = {}) {
   const [pending, setPending] = useState<Pending | null>(null);
   useEffect(() => {
     listener = setPending;
@@ -115,7 +123,12 @@ export function AskHost() {
   return (
     <AskDialog
       key={pending.id}
-      pending={pending}
+      pending={{
+        ...pending,
+        cancelLabel: pending.cancelLabel ?? labels?.cancel ?? ENGLISH.cancel,
+        confirmLabel:
+          pending.confirmLabel ?? labels?.confirm ?? ENGLISH.confirm,
+      }}
       onDone={(v) => {
         setPending(null);
         pending.settle(v);
@@ -174,7 +187,7 @@ function AskDialog({
     >
       <button
         type="button"
-        aria-label={pending.cancelLabel ?? "Annuler"}
+        aria-label={pending.cancelLabel ?? ENGLISH.cancel}
         className="absolute inset-0 bg-black/50"
         onClick={cancel}
       />
@@ -207,7 +220,7 @@ function AskDialog({
             onClick={cancel}
             className="rounded border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
           >
-            {pending.cancelLabel ?? "Annuler"}
+            {pending.cancelLabel ?? ENGLISH.cancel}
           </button>
           {text?.actions?.map((a) => (
             <button
@@ -249,7 +262,7 @@ function AskDialog({
                   : "bg-primary text-primary-foreground hover:bg-primary/90",
               )}
             >
-              {pending.confirmLabel ?? "Confirmer"}
+              {pending.confirmLabel ?? ENGLISH.confirm}
             </button>
           )}
         </div>

@@ -354,13 +354,13 @@ function isReservedPrefix(
   return belowMount(pathname, base)?.[0] === word;
 }
 
-/** Is this address one of the pages that hang off k7's home — `/libraries`, `/settings`, `/about`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
+/** Is this address one of the pages that hang off k7's home, or any page below one (`/settings/engine`)? Read before `parseLaunch`, which would take the word for a workspace. */
 export function isHomePage(pathname: string, base: string): boolean {
   return (
-    isReservedPage(pathname, base, LIBRARIES_PAGE) ||
-    isReservedPage(pathname, base, SETTINGS_PAGE) ||
-    isReservedPage(pathname, base, ABOUT_PAGE) ||
-    isReservedPage(pathname, base, TASKS_PAGE) ||
+    isReservedPrefix(pathname, base, LIBRARIES_PAGE) ||
+    isReservedPrefix(pathname, base, SETTINGS_PAGE) ||
+    isReservedPrefix(pathname, base, ABOUT_PAGE) ||
+    isReservedPrefix(pathname, base, TASKS_PAGE) ||
     isReservedPrefix(pathname, base, MEDIA_PAGE) ||
     isReservedPrefix(pathname, base, REHEARSAL_PAGE)
   );

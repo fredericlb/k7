@@ -31,6 +31,10 @@ song they can already read and edit does.
 files may still be on their way, and the edit it builds when they land drops a transport already
 rolling. So Play stays "loading the project" until the file service's `engineLoad` is null, read on
 every `/workspace` poll (faster while it is not), rather than freeing on the engine's first frame.
+Before the first answer the phase is unknown, and unknown holds Play too: started at null, a Play
+pressed in that window reached the engine ahead of the project, and the build dropped it. Every
+poll answer is applied, not only a changed one: the answer to the request an engine's arrival
+makes can land after a newer one, and a poll that skipped "unchanged" would leave it standing.
 
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in
@@ -416,7 +420,16 @@ left (`MobileInfo`), beside the back arrow. Their labels and figures would take 
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure
-the engine's name in the bar exists to prevent.
+the engine's name in the bar exists to prevent. The dot is an image named like the desktop's light
+(*Engine connected*, *Engine disconnected*, *No engine*), so the state is readable without opening the
+popover by a screen reader and by the functional suite alike.
+
+**The footer keeps state and drops prose.** On a phone it shows no status line — a sentence
+truncated to a few characters says nothing — while the mode badges, the waiting-for-engine line and the
+error count stay, since each is a state you would otherwise leave by surprise. The tempo and meter
+move into the same info popover (`shell/TempoMeter.tsx`, drawn by both): read rarely, still editable
+on a tap. What is left starts at the left edge with the metronome, the logo gone, and the states sit at
+the right end, so one appearing never moves a control from under a thumb.
 
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —

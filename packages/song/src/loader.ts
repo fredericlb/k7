@@ -25,6 +25,7 @@ export {
   deadProjectFields,
   libraryModuleIssues,
   notSupportedModules,
+  unknownPluginModules,
 } from "./diagnostics";
 export {
   checkProjectFormat,

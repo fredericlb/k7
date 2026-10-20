@@ -61,6 +61,11 @@ export function mediaLabels(): LibraryLabels {
       renamePlaceholder: m["media.tree.renamePlaceholder"](),
       renameSubmit: m["media.tree.renameSubmit"](),
       more: m["media.tree.more"](),
+      showAll: m["media.tree.showAll"](),
+      showFavorites: m["media.tree.showFavorites"](),
+      favorite: m["media.tree.favorite"](),
+      unfavorite: m["media.tree.unfavorite"](),
+      noFavorites: m["media.tree.noFavorites"](),
     },
     contents: {
       emptyLibrary: m["media.contents.emptyLibrary"](),
@@ -128,6 +133,7 @@ export function mediaLabels(): LibraryLabels {
       noMasterShort: m["media.song.noMasterShort"](),
       analysing: m["media.song.analysing"](),
       analyse: m["media.song.analyse"](),
+      editor: (name) => m["media.song.editor"]({ name }),
     },
     playlists: {
       unreadable: m["media.playlists.unreadable"](),

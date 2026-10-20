@@ -7,9 +7,14 @@
     <!-- The IPv4 the activity shows, so a browser knows what to dial. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. Asked on first need (MicAccess.kt). -->
+    <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. Asked on first need (DeviceAccess.kt). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- A page's camera — a picture lane's take, a live-video webcam — asked on first need (PageCapture.kt). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Not required: CAMERA alone implies both features below, and a device without them would be refused the app. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <!-- MediaPlaybackService and EngineService: the process kept in front while busy, screen off or app behind another. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />

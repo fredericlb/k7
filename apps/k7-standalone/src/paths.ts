@@ -57,6 +57,8 @@ function newestBuild(project: string, name: string): string | null {
   const build = join(repoRoot(), "engine", project, "build");
   if (!existsSync(build)) return null;
   const found = readdirSync(build)
+    // A phone's preset (android-*, ios-*) builds a binary this desktop cannot run.
+    .filter((preset) => !/^(android|ios)-/.test(preset))
     .flatMap((preset) =>
       CONFIGS.map((cfg) => ({
         path: join(build, preset, cfg, exe(name)),

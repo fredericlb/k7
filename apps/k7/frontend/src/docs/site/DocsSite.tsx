@@ -70,6 +70,7 @@ export function DocsSite({ appUrl }: { appUrl: string }) {
           <a
             key={g.guide}
             href={`/${g.guide}`}
+            aria-current={page?.guide === g.guide ? "true" : undefined}
             className={[
               "shrink-0 rounded px-2 py-1 text-xs hover:bg-accent hover:text-foreground",
               page?.guide === g.guide
@@ -89,7 +90,10 @@ export function DocsSite({ appUrl }: { appUrl: string }) {
 
       <div className="flex min-h-0 flex-1">
         {nav.length > 0 && (
-          <nav className="hidden w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border bg-card/40 p-2 md:flex">
+          <nav
+            aria-label={GUIDES.find((g) => g.guide === page?.guide)?.label}
+            className="hidden w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border bg-card/40 p-2 md:flex"
+          >
             {nav.map((group) => (
               <div key={group.label} className="flex flex-col">
                 {group.label && (
@@ -101,6 +105,9 @@ export function DocsSite({ appUrl }: { appUrl: string }) {
                   <a
                     key={item.route}
                     href={item.route}
+                    aria-current={
+                      item.route === page?.route ? "page" : undefined
+                    }
                     className={[
                       "rounded px-2 py-1 pl-3 text-xs hover:bg-accent hover:text-foreground",
                       item.route === page?.route

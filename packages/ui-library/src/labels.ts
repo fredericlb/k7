@@ -47,6 +47,12 @@ export interface LibraryLabels {
     renameSubmit: string;
     /** The ⋮ button on a row, which opens the same menu a right-click does. */
     more: string;
+    /** The selector above the songs' tree: every song, or only the starred ones. */
+    showAll: string;
+    showFavorites: string;
+    favorite: string;
+    unfavorite: string;
+    noFavorites: string;
   };
   contents: {
     emptyLibrary: string;
@@ -112,6 +118,8 @@ export interface LibraryLabels {
     noMasterShort: string;
     analysing: string;
     analyse: string;
+    /** The song-info text editor's accessible name, `name` being the song's folder. */
+    editor: (name: string) => string;
   };
   playlists: {
     unreadable: string;

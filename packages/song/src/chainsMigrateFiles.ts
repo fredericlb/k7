@@ -41,6 +41,7 @@ import {
   loadProjectRoot,
   loadVideoTracks,
 } from "./loader";
+import { forgetModuleReads } from "./moduleCache";
 import { resolveModuleMap } from "./moduleResolve";
 import { lanesOf } from "./trackModule";
 import { entityFiles } from "./yaml/moduleIO";
@@ -221,5 +222,7 @@ export function migrateToChainFiles(
   }
   rmSync(nodesDir, { recursive: true, force: true });
   rmSync(join(dir, GRAPH_FILE), { force: true });
+  // Its nodes are chains now: what was read of the node project must not answer for this one (docs/moduleCache.md).
+  forgetModuleReads(dir);
   return result;
 }

@@ -17,7 +17,7 @@ import {
   loadProjectRoot,
   nodeNameTaken,
 } from "@studio/song/loader";
-import type { ProjectDoc } from "@studio/song/project";
+import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { surfacesNaming } from "@studio/song/surfaces";
 import { selectModuleAlternative } from "@studio/song-edit/alternativeSwitch";
 import {
@@ -31,6 +31,7 @@ import {
   setModuleFrozen,
 } from "@studio/song-edit/projectEdit";
 import { renamedInstance } from "@studio/song-schema/instanceName";
+import { MASTER_OWNER } from "@studio/song-schema/moduleTypes";
 import { freezeUpstreamRender } from "@studio/take-render/render";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { withModuleParams } from "../moduleValues";
@@ -44,22 +45,39 @@ export interface PluginModule {
   module: string;
   id: string;
   type: string;
+  // The lane that plays it, or MASTER_OWNER for a node on the master run.
   track: string;
 }
 
+// The lanes' plugins AND the master run's, since a mastering node lives on no lane (docs/verbs.md).
 export function collectPluginModules(project: ProjectDoc): PluginModule[] {
   const out: PluginModule[] = [];
-  for (const t of project.tracks)
-    for (const p of t.plugins) {
+  const add = (owner: string, plugins: readonly PluginDoc[]) => {
+    for (const p of plugins) {
       const i = p.id.indexOf(":");
       out.push({
         module: i >= 0 ? p.id.slice(i + 1) : p.id,
         id: p.id,
         type: p.type,
-        track: t.id,
+        track: owner,
       });
     }
+  };
+  for (const t of project.tracks) add(t.id, t.plugins);
+  add(MASTER_OWNER, project.masterPlugins ?? []);
   return out;
+}
+
+/** The held project with `patch` applied to every plugin, the master run's included. */
+export function mapPlugins(
+  p: ProjectDoc,
+  patch: (pl: PluginDoc) => PluginDoc,
+): ProjectDoc {
+  return {
+    ...p,
+    tracks: p.tracks.map((t) => ({ ...t, plugins: t.plugins.map(patch) })),
+    ...(p.masterPlugins ? { masterPlugins: p.masterPlugins.map(patch) } : {}),
+  };
 }
 
 /** `node alternative create|copy` — one shape, one difference. */
@@ -210,17 +228,11 @@ export const NODE_VERBS: Record<string, SidHandler> = {
       const p = h.project();
       const pluginId = `${chain}:${module}`;
       let found = false;
-      const np: ProjectDoc = {
-        ...p,
-        tracks: p.tracks.map((t) => ({
-          ...t,
-          plugins: t.plugins.map((pl) => {
-            if (pl.id !== pluginId) return pl;
-            found = true;
-            return { ...pl, enabled: !bypass }; // PluginDoc.enabled means "not bypassed"
-          }),
-        })),
-      };
+      const np = mapPlugins(p, (pl) => {
+        if (pl.id !== pluginId) return pl;
+        found = true;
+        return { ...pl, enabled: !bypass }; // PluginDoc.enabled means "not bypassed"
+      });
       // An io module or a dangling step has no plugin to diff, so it falls back to the full reload.
       if (found) await h.applyProject(np);
       else await h.reload();

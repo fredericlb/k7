@@ -162,6 +162,8 @@ const prefsSchema = z.object({
   engineId: z.string().optional(),
   commands: z.record(z.string(), commandPrefSchema).optional(),
   playbackTarget: z.string().optional(),
+  // The songs and albums starred in the médiathèque, as library paths (packages/ui-library/docs/library.md).
+  favorites: z.array(z.string()).optional(),
 });
 // Under the home directory so a dev run needs no volume (packages/user-prefs/docs/store.md).
 const PREFS_DIR =

@@ -20,8 +20,13 @@ An empty `rack:` — no value, `{}`, or a `symbols:` with nothing under it — r
 no pads of its own, the same as no `rack:` at all. It is what a hand-edit leaves after deleting the
 last pad, and refusing it would make the node vanish from the graph over a blank line.
 
+A key in `rack:` that is none of `rack_type`, `source` and `symbols` IS refused, with its name. The
+usual one is a pad written beside `symbols:` instead of under it — the shape a PRESET's kit has —
+and read leniently it would be the empty kit above: a node that compiles, draws, and plays nothing.
+
 A kit can be kept and reloaded as a PRESET of its rack module — the `rack:` of a preset file,
 which loads in place of the node's own taps and refuses a `@project/` sample (`userPresets.md`).
+A preset's `rack:` is the kit itself, its pads at the top, since it holds nothing but the pads.
 
 ## A tap is a note and a library SAMPLE
 

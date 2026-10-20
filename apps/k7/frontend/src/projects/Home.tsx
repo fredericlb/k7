@@ -3,7 +3,6 @@
 // service, and the two polls — for the presentational body beside it. The list is the SERVER's
 // files and needs no engine. See ../../docs/projects.md.
 
-import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import type {
   AccountLibrary,
@@ -12,6 +11,7 @@ import type {
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AskHostK7 } from "../AskHostK7";
 import {
   barTint,
   CommandBar,
@@ -234,7 +234,7 @@ export function Home() {
     <HomeShell subtitle={m["home.projects"]()}>
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
-      <AskHost />
+      <AskHostK7 />
       {/* Where the page's passing notices are drawn. */}
       <Toaster dismissLabel={m["common.dismiss"]()} />
 

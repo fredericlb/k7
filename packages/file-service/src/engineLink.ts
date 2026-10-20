@@ -47,6 +47,7 @@ import { awaitSessions, reconcileEngine } from "./engineReconcile.ts";
 import {
   dropLink,
   ensureEngine,
+  flushProject,
   hasSelectedEngine,
   isReady,
   linkHooks,
@@ -71,6 +72,7 @@ import { saveTake } from "./recorderSave.ts";
 import { serviceRenderer } from "./renderers.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
+import type { JournalMode } from "./workspaceHistory.ts";
 
 export {
   awaitPluginParams,
@@ -161,7 +163,11 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     // The dry run is playing a silenced copy; its restore sends the latest document — docs/engineLoad.md.
     if (isWarming(session)) return;
     const c = ensureEngine(ws);
-    if (!c) return endLoad(session);
+    // On no engine at all: whichever is bound next holds nothing of it, whatever its address.
+    if (!c) {
+      sentTo.delete(session);
+      return endLoad(session);
+    }
     const url = selectedEngine();
     if (url && sentTo.get(session) !== url && loadPhase(session) === null)
       beginLoad(session);
@@ -230,13 +236,18 @@ export function engineLoadOf(ws: Workspace | null): EngineLoadPhase | null {
   }
   const url = selectedEngine();
   const project = ws?.activeProjectPath();
+  const serving = !!ws && !!project && served.get(session)?.project === project;
+  // No engine bound: the project is on none, so Play waits — the page's own socket may be up already.
+  if (serving && !url) {
+    sentTo.delete(session);
+    return loadPhase(session) ?? "copying";
+  }
   // An engine selected after the project opened holds nothing yet, and a Play it answered now would be lost to the build.
   if (
     ws &&
     url &&
-    project &&
+    serving &&
     loadPhase(session) === null &&
-    served.get(session)?.project === project &&
     sentTo.get(session) !== url
   ) {
     sentTo.set(session, url);
@@ -411,7 +422,7 @@ export function startEngineForActive(ws: Workspace): void {
   // …and the module folders, for a different consumer — see docs/activeProject.md.
   watchModuleFolders(p, ws.liveCapture);
   if (switching) {
-    ensureEngine(ws)?.flush();
+    flushProject(ws);
     // A document built for the project we are LEAVING must not survive into this one.
     dropClientProject(ws);
     // …nor its module watch, or every project ever opened would keep four directory handles.
@@ -456,11 +467,13 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   const leaving = sessionOf(ws);
   // Read BEFORE `served.delete` below: it is the only record of which folder was being served.
   const leftProject = served.get(leaving)?.project ?? null;
+  // Nothing will be served, so nothing is on its way; a dry run's stop goes out ahead of the flush.
+  endLoad(leaving);
   const e = ensureEngine(ws);
   if (e) {
     try {
       e.transport("stop");
-      e.flush();
+      flushProject(ws);
     } catch {
       /* engine offline — nothing to unload */
     }
@@ -477,11 +490,12 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   if (leftProject) forgetModuleWatch(leftProject);
 }
 
-/** Unload whichever sessions are serving `projectAbs` — every one of them, not one global. */
-export async function unloadEngineIfServing(
-  projectAbs: string,
-): Promise<boolean> {
-  const holders = [...served.values()].filter((s) => s.project === projectAbs);
+/** Unload whichever sessions serve a project AT or UNDER `abs` — a project, or a whole workspace (docs/workspaces.md). */
+export async function unloadEngineIfServing(abs: string): Promise<boolean> {
+  const holders = [...served.values()].filter((s) => {
+    const rel = relative(abs, s.project);
+    return rel === "" || !climbsOut(rel);
+  });
   for (const s of holders) await unloadEngine(s.ws);
   return holders.length > 0;
 }
@@ -735,8 +749,8 @@ export async function runWebCommand(
   userEmail?: string,
   // The folder the verbs act on when it is not the open project. Absolute; the route checks it.
   at?: string,
-  // Build the graph a writing command's reply carries, in the same module stamp as its reload.
-  opts: { graph?: boolean } = {},
+  // Build the graph a writing command's reply carries, and say how its writes are journalled.
+  opts: { graph?: boolean; journal?: JournalMode } = {},
 ): Promise<WebCommandRun> {
   const out: CommandOutput = [];
   const held: HeldPush = { dir: null };
@@ -768,6 +782,7 @@ export async function runWebCommand(
         out.push(`error: ${(e as Error).message}`);
       }
     },
+    opts.journal,
   );
   // A verb writes beside the service, so the stamp must hear of it BEFORE the graph is built — docs/moduleWatch.md.
   if (after !== before) moduleFoldersMoved();

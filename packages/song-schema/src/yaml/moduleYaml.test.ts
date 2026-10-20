@@ -131,6 +131,16 @@ rack({ rack_type: "slice", symbols: { BD: { note: 36, from: 0, to: 0.5 } } })
     expect(bad.value).toBeNull();
   });
 
+  it("refuses pads written outside `symbols:` rather than reading an empty kit", () => {
+    const { value, issues } = parseModule(
+      `type("rack")\nrack({ Kick: { note: 36, sample: "@k7-core/k.wav" } })\n`,
+    );
+    expect(value).toBeNull();
+    expect(issues.map((i) => i.message).join("\n")).toMatch(
+      /not a rack field: Kick/,
+    );
+  });
+
   it.each(["rack(null)\n", "rack({})\n", "rack({ symbols: null })\n"])(
     "reads an empty rack as a kit with no pads of its own: %j",
     (rack) => {

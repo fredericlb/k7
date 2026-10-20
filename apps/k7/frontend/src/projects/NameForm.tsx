@@ -47,6 +47,8 @@ export interface NameFieldProps {
   onSubmit: () => void;
   busy: boolean;
   placeholder?: string;
+  /** The field's accessible name; the placeholder stands in when absent. */
+  label?: string;
   autoFocus?: boolean;
   /** Why the name is refused, or "" — shown in place of the preview. */
   badName?: string;
@@ -65,6 +67,7 @@ export function NameField({
   onSubmit,
   busy,
   placeholder,
+  label,
   autoFocus = true,
   badName,
   preview,
@@ -77,6 +80,7 @@ export function NameField({
       <Input
         autoFocus={autoFocus}
         placeholder={placeholder}
+        aria-label={label ?? placeholder}
         value={name}
         disabled={busy}
         onChange={(e) => onName(e.target.value)}

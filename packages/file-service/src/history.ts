@@ -292,6 +292,36 @@ export class ProjectHistory {
     if (engine && names.length) this.keepOnEngine(names);
   }
 
+  /** Fold a change into the step on top, so one gesture stays one step; a fresh push when there is no such step — docs/history.md. */
+  join(e: NewEntry): void {
+    this.load();
+    const top = this.j.entries[this.j.cursor - 1];
+    // Only the newest step can grow, and audio is never folded: its blobs are kept per step.
+    if (
+      !top ||
+      this.j.cursor !== this.j.entries.length ||
+      top.blobs.length ||
+      e.blobs.length
+    ) {
+      this.push(e);
+      return;
+    }
+    if (!e.changes.length) return;
+    const byPath = new Map(top.changes.map((c) => [c.path, c]));
+    for (const c of e.changes) {
+      const was = byPath.get(c.path);
+      byPath.set(c.path, was ? { ...c, before: was.before } : c);
+    }
+    top.changes = [...byPath.values()].filter((c) => c.before !== c.after);
+    top.ts = Date.now();
+    // A gesture that ends where it began leaves no step at all.
+    if (!top.changes.length) {
+      this.j.entries.pop();
+      this.j.cursor = this.j.entries.length;
+    }
+    this.persist();
+  }
+
   /** Every entry oldest first, its paths and never its contents, `undone` past the cursor — the History panel. */
   list(): HistoryListEntry[] {
     this.load();

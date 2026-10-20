@@ -13,14 +13,16 @@ import {
 import { dirname, join } from "node:path";
 
 const exe = (n) => (process.platform === "win32" ? `${n}.exe` : n);
+// The presets that build for a phone, whose binaries a desktop app cannot run.
+const CROSS = /^(android|ios)-/;
 
 /** The newest build of a CMake target under engine/<project>/build/<preset>/[<config>/], Debug last. */
 function newestBuild(repo, project, name) {
   const build = join(repo, "engine", project, "build");
   const found = [];
   if (existsSync(build))
-    // A multi-config generator (Visual Studio) puts the binary one level down, under its configuration.
-    for (const preset of readdirSync(build))
+    // A multi-config generator (Visual Studio) puts the binary one level down; a phone's preset is never staged.
+    for (const preset of readdirSync(build).filter((p) => !CROSS.test(p)))
       for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"]) {
         const path = join(build, preset, cfg, exe(name));
         if (existsSync(path) && statSync(path).isFile())

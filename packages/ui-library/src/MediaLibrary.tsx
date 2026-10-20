@@ -17,7 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
 import { library } from "./api";
+import { FavoritesFilter, StarredMark } from "./FavoritesFilter";
 import { FindSongs } from "./FindSongs";
+import { favoriteEntries, useFavorites, useFavoritesOnly } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
 import {
@@ -101,6 +103,12 @@ export function MediaLibrary({
     () => remoteRows(entries, remote),
     [entries, remote],
   );
+  // The account's starred songs and albums, and whether the songs' tree shows only them (../docs/library.md).
+  const fav = useFavorites(setError);
+  const [favoritesOnly, setFavoritesOnly] = useFavoritesOnly();
+  const onlyFavorites = section === "songs" && favoritesOnly;
+  const starredAt = (n: TreeNode) =>
+    section === "songs" && fav.favorites.has(`${section}/${n.path}`);
   // Derived, never stored, and it synthesises the zone's own root row (../docs/library.md).
   const tree = useMemo<TreeNode[]>(
     () => [
@@ -110,11 +118,28 @@ export function MediaLibrary({
         dir: true,
         // Alphabetical all the way down: a listing arrives in scan order, which nobody can look something up in.
         children: sortNodes(
-          isZone ? dayNodes(recordings) : treeOf(entries, unlisted, remote),
+          isZone
+            ? dayNodes(recordings)
+            : onlyFavorites
+              ? treeOf(
+                  favoriteEntries(entries, fav.favorites),
+                  [],
+                  favoriteEntries(remote, fav.favorites),
+                )
+              : treeOf(entries, unlisted, remote),
         ),
       },
     ],
-    [entries, isZone, recordings, section, unlisted, remote],
+    [
+      entries,
+      isZone,
+      recordings,
+      section,
+      unlisted,
+      remote,
+      onlyFavorites,
+      fav.favorites,
+    ],
   );
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
@@ -221,8 +246,13 @@ export function MediaLibrary({
             setError,
             labels,
             manage,
+            favorites: fav.ready ? fav.favorites : null,
+            toggleFavorite: fav.toggle,
           }),
     [
+      fav.ready,
+      fav.favorites,
+      fav.toggle,
       manage,
       entries,
       file,
@@ -284,7 +314,16 @@ export function MediaLibrary({
               : "hidden"
         }`}
       >
+        {/* Above the tree's scroll, like the foot below it: every song, or only the starred ones. */}
+        {section === "songs" ? (
+          <FavoritesFilter only={favoritesOnly} onChange={setFavoritesOnly} />
+        ) : null}
         <div className="min-h-0 flex-1 overflow-auto">
+          {onlyFavorites && fav.ready && !tree[0]?.children?.length ? (
+            <p className="px-1 py-2 text-muted-foreground text-sm">
+              {labels.tree.noFavorites}
+            </p>
+          ) : null}
           <input
             ref={pickRef}
             type="file"
@@ -356,12 +395,16 @@ export function MediaLibrary({
                 <Cloud className="ml-1 inline size-3 shrink-0 text-muted-foreground" />
               ) : null
             }
-            // …and an entry of the server's alone brings itself down in one click.
+            // …and an entry of the server's alone brings itself down in one click; a starred row unstars in one.
             rowEnd={(n) =>
               remoteAt.entries.has(n.path) ? (
                 <RemoteDownload
                   path={`${section}/${n.path}`}
                   onDownload={serverCopy.download}
+                />
+              ) : starredAt(n) ? (
+                <StarredMark
+                  onUnstar={() => fav.toggle(`${section}/${n.path}`)}
                 />
               ) : null
             }

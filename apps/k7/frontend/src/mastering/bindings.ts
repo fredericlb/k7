@@ -79,15 +79,16 @@ export function shownValue(
   return held !== undefined ? held : live;
 }
 
-/** Has the engine caught up with an optimistic value? The epsilon is RELATIVE to the range, these params not being on one scale. */
+/** Has the engine caught up with an optimistic value? RELATIVE to the range, and under half a step so a stale echo never agrees (docs/mastering.md). */
 export function engineAgrees(
   binding: MasterBinding,
   held: number,
   live: number | undefined,
 ): boolean {
   if (live === undefined) return false;
-  const { min, max } = masterRange(binding);
-  return Math.abs(live - held) <= (max - min) * 0.005;
+  const { min, max, step } = masterRange(binding);
+  const eps = (max - min) * 0.005;
+  return Math.abs(live - held) <= (step > 0 ? Math.min(eps, step / 2) : eps);
 }
 
 /** The command that WRITES a control's value into the module's file — `node param`, both names quoted, as the chains graph commits a knob. */

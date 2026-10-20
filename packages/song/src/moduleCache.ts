@@ -171,3 +171,10 @@ export function cachedForModuleNames<T>(
   if (!slot.values.has(key)) slot.values.set(key, build());
   return slot.values.get(key) as T;
 }
+
+/** THIS process rewrote `dir`: drop what was read of it, so no watcher's "nothing moved" serves it again (docs/moduleCache.md). */
+export function forgetModuleReads(dir: string): void {
+  walked.delete(dir);
+  memo.delete(dir);
+  byNames.delete(dir);
+}

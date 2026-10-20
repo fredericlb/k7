@@ -83,7 +83,9 @@ The order is `held ?? live ?? home`, and it is the same rule the desk follows
 `engineAgrees`' epsilon is **relative to the range**, unlike the desk's fixed 0.05. These params
 are not on one scale — 0.05 is a third of a Release's step and a thousandth of a crossover's — so
 one absolute number would either never agree on the small controls or agree instantly on the
-large.
+large. It is also **capped at half a step**: keys outrun the engine, and on Width (0–200, step 1)
+half a percent of the range is a whole step, so without the cap the echo of 101 agrees with a held
+102, drops it, and the next press steps from 101: five quick presses from 100 end on 102.
 
 ### Two things that are easy to get wrong here
 

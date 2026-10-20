@@ -22,8 +22,11 @@ import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 class MainActivity : BridgeActivity() {
-    /** The microphone, asked when first needed (MicAccess.kt); null only before onCreate. */
-    var mic: MicAccess? = null
+    /** The microphone, asked when first needed (DeviceAccess.kt); null only before onCreate. */
+    var mic: DeviceAccess? = null
+        private set
+    /** The camera, asked when a page first wants it (PageCapture.kt); null only before onCreate. */
+    var camera: DeviceAccess? = null
         private set
     private var notificationsAsked = false
     private val notifications by lazy {
@@ -36,10 +39,11 @@ class MainActivity : BridgeActivity() {
         registerPlugin(AppViewsPlugin::class.java)
         super.onCreate(savedInstanceState)
         current = WeakReference(this)
-        mic = MicAccess(this)
+        mic = DeviceAccess(this, Device.MIC)
+        camera = DeviceAccess(this, Device.CAMERA)
         // The studio the views open, before the engine that lists itself there (BackendHost.kt).
         BackendHost.start(this)
-        // Never held up by the microphone: without it the engine opens its device output only (MicAccess.kt).
+        // Never held up by the microphone: without it the engine opens its device output only (DeviceAccess.kt).
         SupervisorHost.start(this)
         Busy.start(this)
         Updates.start(this)
@@ -55,6 +59,12 @@ class MainActivity : BridgeActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Updates.handle(this, intent)
+    }
+
+    /** The asker for `device`, as a page's getUserMedia needs it (PageCapture.kt). */
+    fun access(device: Device): DeviceAccess? = when (device) {
+        Device.MIC -> mic
+        Device.CAMERA -> camera
     }
 
     /** The screen kept on while the app is busy, and only then (Busy.kt). */
@@ -74,6 +84,7 @@ class MainActivity : BridgeActivity() {
     override fun onDestroy() {
         super.onDestroy()
         mic?.destroy()
+        camera?.destroy()
         if (current?.get() === this) current = null
         // Android recreates this activity on its own; only the user leaving ends the process.
         if (!isFinishing) return

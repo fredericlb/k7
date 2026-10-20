@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace studio {
 
@@ -30,5 +31,23 @@ private:
 
 // Install (or clear, with {}) the sink; called once by the server and not thread-safe by design, being set before any client connects.
 void setWarningSink(std::function<void(const Warning&)> sink);
+
+// Marks what THIS thread warns, under a WarningScope, as the STANDING warnings of that session's build; `fresh` drops the last build's first (docs/sessions.md).
+class BuildScope {
+public:
+    BuildScope(const std::string& session, bool fresh);
+    ~BuildScope();
+    BuildScope(const BuildScope&) = delete;
+    BuildScope& operator=(const BuildScope&) = delete;
+
+private:
+    bool previous_;
+};
+
+// What the project `session` holds was built with, one per subject (or per message when it has none), oldest first.
+std::vector<Warning> standingWarnings(const std::string& session);
+
+// Forget them — the project they were about is gone.
+void clearStandingWarnings(const std::string& session);
 
 }  // namespace studio

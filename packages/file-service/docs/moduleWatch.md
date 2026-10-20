@@ -78,6 +78,14 @@ select` between two sets of numbers — never does. So `runWebCommand` says so t
 command that moved the revision: otherwise the graph that same request returns is built on the
 module file as it was, and the switch the person just made shows as undone.
 
+A project made or copied in is the third: `@studio/song`'s scaffold and `cp` write a whole folder
+outside the workspace's write path, so `Workspace.forgetProjects` — what a create and a copy call
+— says so as well. The folder may have been READ before it existed, by an engine poll on a
+project about to be made or deleted under the same name, and the watch set then holds no handle
+on the folders that appear; without the bump, the first open compiles the empty project it read.
+(The scaffold's own read, inside the same call, is guarded on the song side —
+`packages/song/docs/moduleCache.md`.)
+
 The rule this is an instance of, for the next cache backed by a watcher: **a watcher reports the
 FILESYSTEM's events, and the process doing the writing is ahead of them.** Both sources have to be
 wired, not one or the other.

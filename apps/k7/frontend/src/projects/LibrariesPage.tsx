@@ -4,9 +4,9 @@
 // See ../../docs/projects.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
-import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import { useEffect, useState } from "react";
+import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { HomeShell } from "./HomeSidebar";
@@ -29,7 +29,7 @@ export function LibrariesPage() {
 
   return (
     <HomeShell subtitle={m["home.libraries"]()}>
-      <AskHost />
+      <AskHostK7 />
       <Toaster dismissLabel={m["common.dismiss"]()} />
       <PageFrame title={m["home.libraries"]()} narrow>
         {fileService === undefined ? (

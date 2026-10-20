@@ -122,6 +122,7 @@ export function farCard({
   n,
   cls,
   headName,
+  cardName,
   inLaneRow,
   iconCategory,
   flagCls,
@@ -139,6 +140,8 @@ export function farCard({
 > & {
   cls: string;
   headName: string;
+  /** The accessible name, node first: `pad (surge-xt)`. */
+  cardName: string;
   inLaneRow: boolean;
   iconCategory: WebModuleCategory | undefined;
   flagCls: string;
@@ -180,7 +183,7 @@ export function farCard({
       }}
       role="button"
       tabIndex={0}
-      aria-label={label}
+      aria-label={cardName || label}
       onKeyDown={onEnter((e) => onTapNode(n, e.shiftKey))}
       onClick={(e) => onTapNode(n, e.shiftKey)}
       onContextMenu={(e) => onContext(n, e)}

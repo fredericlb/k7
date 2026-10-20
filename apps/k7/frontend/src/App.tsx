@@ -39,6 +39,7 @@ import {
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
+import type { CommandJournal } from "@studio/project-shell/project";
 import { onToast, showToast } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
@@ -220,6 +221,7 @@ import {
   type UndoConfirm,
 } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
+import { TempoMeter } from "./shell/TempoMeter";
 import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
@@ -458,8 +460,10 @@ export default function App({
   // A screen's `lcd.sound` resolves `@project/…` against the project the tab has open.
   setLcdSoundsProject(ws?.activeProject ?? null);
   const [engineSync, setEngineSync] = useState<EngineSyncState | null>(null);
-  // Copying, applying, warming: the engine does not hold a playable project yet, whatever its socket says.
-  const [engineLoad, setEngineLoad] = useState<EngineLoadPhase | null>(null);
+  // Copying, applying, warming: the engine does not hold a playable project yet, whatever its socket says; undefined until the first answer.
+  const [engineLoad, setEngineLoad] = useState<
+    EngineLoadPhase | null | undefined
+  >(undefined);
 
   // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
   const tabName = snapshot?.manifest.name || project?.name;
@@ -1306,11 +1310,12 @@ export default function App({
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey, and ask for no graph (`want: []`) — docs/shell.md.
   const quietCommandFiles = useCallback(
-    async (line: string) => {
+    async (line: string, journal?: CommandJournal) => {
       pushLog("cmd", `› ${line}`);
       try {
         const { output, changed, rev, revBefore } = await api.command(line, {
           want: [],
+          journal,
         });
         // Adopted quietly when nothing else moved since — then the tick does not turn a knob into a wave of re-reads.
         if (rev) noteQuietRevision(rev, revBefore);
@@ -1330,7 +1335,8 @@ export default function App({
   );
   // The same, for the many callers that only fire it.
   const quietCommand = useCallback(
-    async (line: string) => void (await quietCommandFiles(line)),
+    async (line: string, journal?: CommandJournal) =>
+      void (await quietCommandFiles(line, journal)),
     [quietCommandFiles],
   );
 
@@ -1489,7 +1495,13 @@ export default function App({
     };
   }, [chainsKey, midiArmed]);
   // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
-  const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
+  const runCommandRef = useRef<
+    (
+      line: string,
+      outcome?: { ok: boolean },
+      journal?: CommandJournal,
+    ) => Promise<void>
+  >(async () => {});
   // The takes view's record button: a take INTO the open event rather than onto its lane (song docs/takes.md).
   const takes = useTakeRecording({
     store,
@@ -1603,7 +1615,8 @@ export default function App({
   useActiveProjectFollow({
     lastActiveRef: lastActive,
     awaitingTake,
-    loading: engineLoad !== null,
+    // Fast only with an engine up: with none the file service reports a wait that only a binding ends.
+    loading: engineReady && engineLoad !== null,
     /** A recording landed: `setWs` carries the clip's name and the reload puts it on its lane — neither happened on its own. */
     onTake: (w) => {
       setAwaitingTake(false);
@@ -1847,9 +1860,13 @@ export default function App({
       live = false;
     };
   }, [ws?.activeProject, frozen, warnHeadphones]);
-  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH.
+  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH, and `journal` how it is undone.
   const runCommand = useCallback(
-    async (line: string, outcome?: { ok: boolean }): Promise<void> => {
+    async (
+      line: string,
+      outcome?: { ok: boolean },
+      journal?: CommandJournal,
+    ): Promise<void> => {
       if (!line.trim()) return;
       // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
       if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
@@ -1883,7 +1900,10 @@ export default function App({
       try {
         // The graph only when a view of it is on screen: a hidden ChainsTab asks for it when it is shown again.
         const send = () =>
-          api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
+          api.command(s, {
+            want: graphOnScreenRef.current ? ["graph"] : [],
+            journal,
+          });
         const { output, refused, graph, rev, changed } = await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
         const said = output.length
@@ -1906,12 +1926,12 @@ export default function App({
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         reloadWith(changed);
-        // The picker's second half, as its own journalled command — never after a refusal, which it would bury.
+        // The picker's second half, folded into the first's undo step (docs/chainsGraph.md) — never after a refusal, which it would bury.
         const after =
           !refused && madeRef && wire
             ? wireCommand(madeRef, wire.at, wire.spawn)
             : null;
-        if (after) await runCommandRef.current(after);
+        if (after) await runCommandRef.current(after, undefined, "join");
         // The one reorganizing verb: the graph hosts drop their held positions with the same reload that drops the pins.
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
         if (outcome) outcome.ok = !refused;
@@ -2975,6 +2995,10 @@ export default function App({
                     {!inDesktopTab && projectLink}
                     {engineSwitch}
                     <div className="px-1.5">{engineLink}</div>
+                    {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}
+                    <div className="px-1.5 text-muted-foreground text-xs">
+                      <TempoMeter recInfo={recInfo} runCommand={runCommand} />
+                    </div>
                   </MobileInfo>
                 ) : (
                   <>

@@ -131,7 +131,6 @@ export function useActiveProjectFollow(opts: {
   const inFlight = useRef(false);
   // The sync state last handed on, as text: the same state every tick must not re-render the shell every tick.
   const lastSync = useRef<string | undefined>(undefined);
-  const lastLoad = useRef<EngineLoadPhase | null | undefined>(undefined);
   useEffect(() => {
     const tick = async () => {
       if (inFlight.current) return;
@@ -151,11 +150,8 @@ export function useActiveProjectFollow(opts: {
           lastSync.current = sync;
           optsRef.current.onSync?.(w.engineSync ?? null);
         }
-        const load = w.engineLoad ?? null;
-        if (load !== lastLoad.current) {
-          lastLoad.current = load;
-          optsRef.current.onLoad?.(load);
-        }
+        // Every answer, not each change: another request's older answer may have overwritten the state since.
+        optsRef.current.onLoad?.(w.engineLoad ?? null);
       } catch {
         /* backend momentarily unavailable */
       } finally {

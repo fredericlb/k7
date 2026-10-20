@@ -269,6 +269,8 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Recorder", studio::RecorderPlugin::xmlTypeName, "audioEffect", "utility"),
         // A master bus in one module: three bands compressed, a spreader, a limiter (docs/quickMaster.md).
         e("Quick Master", studio::QuickMasterPlugin::xmlTypeName, "audioEffect", "dynamics"),
+        // A deck's platter, a SOURCE named by `@meta/audio/turntable`, so it counts as a plugin this engine HAS (docs/turntable.md).
+        e("Turntable", studio::TurntablePlugin::xmlTypeName, "instrument", "instrument"),
         // The eurorack modules, from their one list (docs/eurorack.md).
        #define EURORACK(cls, role, category) \
         e(studio::eurorack::cls::getPluginName(), studio::eurorack::cls::xmlTypeName, role, category),
@@ -312,7 +314,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
    #include "eurorack/EurorackList.h"
    #undef EURORACK
     pm.createBuiltInType<studio::TurntablePlugin>();
-    // Registered but not LISTED, like the platter: the song compile puts it on a pattern lane, no module names it.
+    // Registered but not LISTED: the song compile puts it on a pattern lane, no module names it.
     pm.createBuiltInType<studio::PatternPlugin>();
     // …and a module's @mix pair, which the engine puts around the module itself — docs/mix.md.
     pm.createBuiltInType<studio::MixSplitPlugin>();

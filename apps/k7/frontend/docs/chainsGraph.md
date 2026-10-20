@@ -182,6 +182,12 @@ answer overriding the ranker's for one card. The mixer row ignores pins entirely
 dragged out of the line would put a console's channel wherever it last was), and the graph
 panel honours them, so a module sits in one place whichever pane is looking.
 
+**The layout's own pins are no undo step.** Where dagre put a card that had no pin, the canvas
+writes down with one `graph pin` (`packages/commands/docs/verbs.md`) — as a project opens, among
+other times — and sends it with `journal: "skip"`. Nobody made that write, so the first Ctrl+Z on a
+freshly opened project must reach the person's own last edit, not take back a layout they never
+touched.
+
 **Zoomed out, the whole card is the handle.** Past the widget threshold a node draws as its
 name alone and has no header to grab (`Node`'s far branch) — so the card itself takes the
 press, and the pin gesture is the same one. It has to be: the zoom you move a card at is the
@@ -206,6 +212,14 @@ handler pins the node there in the same undo step. On the bare canvas that is th
 x,y token unmistakable for a ref or a node name, and the point is passed through UNCLAMPED — the
 paragraph above is the reason, and a `Math.max(0, …)` on the way out of the shell was quietly
 undoing it for every click above the first lane.
+
+**One pick is one undo step.** On an arrow the pick is two commands — `node new`, then the
+`node insert` that splices it, which needs the name the first one made — and the second goes out
+with `journal: "join"`, folding its writes into the step the first one made
+(`packages/file-service/docs/history.md`). One `project undo` takes the node file and the splice
+back together and leaves `graph.k7x` byte for byte as it was before the pick: the unwired node
+between the two commands is the shell's plumbing, never a state the person made, so no undo may
+stop on it.
 
 **A typed line has no cursor, and the verb answers for it** rather than handing the node to
 dagre: spliced, it is born halfway along the cable it was spliced into; wired to nothing, at
