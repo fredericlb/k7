@@ -121,11 +121,28 @@ Two consequences of writing the DOM rather than rendering:
   draws at once — the same path as a fresh mount. The lane meters read the same flag and select a
   constant while hidden, so the meter-rate frames render nothing behind another pane.
 
+### The timeline's line is an animation, checked per frame
+
+Writing the transform per frame is enough, on its own, to re-layer the whole timeline page on
+every frame (`timeline.md`, "The page keeps few composited layers"). So the timeline's `Playhead`
+does not write it while rolling: it starts ONE linear `element.animate()` translation to the right
+edge of the zoomed range, at the speed the tempo and the zoom give, and the compositor runs it.
+The rAF loop still runs and still asks the clock where the line belongs; it restarts the
+animation from there only when the two disagree by more than `GLIDE_TOLERANCE_PX` — a seek, a loop
+wrap, a zoom, or the offset's slew adding up — and otherwise writes nothing
+(`src/components/timeline/playheadGlide.ts`).
+
+This is sound for the same reason the clock is: the transport's rate is exactly one, so between two
+disagreements the line's position IS linear in time, and an animation that is linear in time draws
+it without being told. Stopped, the animation is dropped and the transform is written once, so a
+scrub lands where the frame says. The other readers below still write per frame: none of them
+sits on a page with the timeline's layer count.
+
 ## Who is on it
 
 | | |
 |---|---|
-| `TimelineTab` | `Playhead` (transform) and `RecordingClip` (**width** — it is a growing block, and only its right edge moves) |
+| `TimelineTab` | `Playhead` (a compositor animation, above) and `RecordingClip` (**width** — it is a growing block, and only its right edge moves) |
 | `Minimap` | `MinimapPlayhead` |
 | `PianoRoll` | `RollPlayhead` |
 | `SequencerPanel` | `StepPlayhead` — a transform and not `left`: `left` is layout, and it would relay out the grid of buttons twenty times a second |

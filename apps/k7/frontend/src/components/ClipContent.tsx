@@ -195,7 +195,8 @@ function ClipWaveform({
 
   // One column per bucket at a fixed 100 px, stretched by CSS — no observer per clip, many clips on screen.
   useEffect(() => {
-    const ctx = canvas.current?.getContext("2d");
+    // A software canvas, so it is not a composited layer of its own: see docs/timeline.md, "The page keeps few composited layers".
+    const ctx = canvas.current?.getContext("2d", { willReadFrequently: true });
     if (!ctx || !wf?.peak.length) return;
     ctx.clearRect(0, 0, wf.peak.length, WAVE_H);
     spectrumColumns(ctx, wf.peak.length, WAVE_H, (i) => ({

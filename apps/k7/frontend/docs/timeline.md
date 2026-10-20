@@ -202,12 +202,13 @@ is re-rendering an arrangement's worth of DOM to move one line.
 
 So the rule, and the three things that follow it:
 
-- **`Playhead`** subscribes to `s.playhead` and holds the one absolutely-positioned div it
-  moves. Its geometry arrives as numbers, so it re-renders on a frame and on nothing else. It
-  is parked at the lane's left edge and **translated** from there rather than re-`left`-ed,
-  with `will-change: transform`: a position is layout, a transform is not, and one node moving
-  for a whole song is what promotion exists for. The `Minimap`'s playhead does the same, and
-  its box spans the full width so a percentage translate means a percentage of the minimap.
+- **`Playhead`** holds the one absolutely-positioned div it moves and never re-renders for the
+  transport (`playhead.md`). It is parked at the lane's left edge and **translated** from there
+  rather than re-`left`-ed, with `will-change: transform`: a position is layout, a transform is
+  not. While the transport rolls the translation is a compositor ANIMATION rather than a value
+  written per frame — see "The page keeps few composited layers" below. The `Minimap`'s
+  playhead translates too, and its box spans the full width so a percentage translate means a
+  percentage of the minimap.
 - **`LaneMeter`** subscribes per lane to `s.levels[i]` / `s.inputLevels[i]`, rounded to whole
   dB — a bar 0.4 dB different is the same bar, and rounding turns "changed" into "changed
   visibly". A silent lane costs nothing while a loud one plays. Its two bars are **scaled**,
@@ -582,6 +583,33 @@ depend on the window.
 - A hidden pane measures 0 and keeps the window it had, which is the one it comes back to.
 - At zoom 1 horizontally nothing is cut — the lane is the pane — so what the window saves there
   is the rows scrolled out of view.
+
+## The page keeps few composited layers
+
+What a playing arrangement costs the browser is not React and not paint: it is Chromium's
+**layerization** (`PaintArtifactCompositor::Update`), which re-runs over the WHOLE page whenever
+anything on it repaints, at a cost that grows with the number of composited layers. Two choices
+hold that number and that rate down.
+
+- **A clip's waveform canvas is a software canvas** (`willReadFrequently` in `ClipContent.tsx`).
+  An accelerated 2D canvas is a composited layer of its own, and everything painted over it is
+  split into more: a 17-lane song with 32 audio clips on screen reached 107 layers, and every
+  frame of playback spent ~8 ms re-layering them. As software canvases the page holds 8. The
+  canvas is drawn once per envelope, so drawing it on the CPU costs nothing that recurs.
+- **The playhead moves without repainting** (`playhead.md`). A transform written per frame was,
+  by itself, a full re-layerization per frame even with nothing else on screen moving.
+
+Measured on that song in the desktop app, playing (% of one core):
+
+| | layers | layerize per frame | renderer | GPU process |
+|---|---|---|---|---|
+| accelerated canvases, transform per frame | 107 | 7.85 ms | 105 % | 27 % |
+| software canvases, transform per frame | 8 | 2.03 ms | 55 % | 45 % |
+| software canvases, animated playhead | 14 | 0.27 ms | 16–20 % | 20–23 % |
+
+What still repaints during playback is the meters (`LaneMeter`, the header's) and the volume
+slider; with them hidden the renderer falls to ~10 %, which is the bound on what more they
+could give back.
 
 ## The same material, placed twice
 
