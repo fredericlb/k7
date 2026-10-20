@@ -15,6 +15,7 @@ import type {
   WorkspaceInfo,
 } from "../types";
 import { pollWhileVisible } from "../visiblePoll";
+import { useLatest } from "./useLatest";
 import { useRevision } from "./useRevision";
 
 /** The project's errors, gated on the change token rather than a timer — `/project-errors` compiles the project, `/revision` is a 2 ms file walk. */
@@ -125,8 +126,7 @@ export function useActiveProjectFollow(opts: {
   /** The project is still on its way to the engine: poll fast, so Play frees as soon as it can play. */
   loading?: boolean;
 }): void {
-  const optsRef = useRef(opts);
-  optsRef.current = opts;
+  const optsRef = useLatest(opts);
   // undefined == no answer read yet; null == read, and there was no take — a ref, as it outlives the interval's re-creation.
   const seen = useRef<string | null | undefined>(undefined);
   const eager = !!opts.awaitingTake || !!opts.loading;

@@ -63,12 +63,11 @@ memory (`packages/rehearsal-server/docs/audit.md`).
 A take, a release and a release's version are each one request carrying a file, and a long take
 on a slow link is minutes of a request that `fetch` reports nothing about: a spinner that never
 moves reads as a hang, and a hang is what makes a musician reload the tab. So every upload goes
-through `src/upload.ts`, XMLHttpRequest's `upload.onprogress` being the one browser API that says
-how many bytes have left. It answers a `Response`, so `api.ts` reads it like any fetch and keeps
+through `@studio/http-client`'s `upload`, XMLHttpRequest's `upload.onprogress` being the one browser
+API that says how many bytes have left (`packages/http-client/docs/httpClient.md`). It answers a `Response`, so `api.ts` reads it like any fetch and keeps
 `ApiError`'s sentence. `uploadLabel.ts` turns the share into what the button or the line says:
 a percentage, then **Analyzing…** once every byte is sent and the server is decoding and measuring
-the file. The media library holds the same thirty lines for its songs (`packages/ui-library/docs/api.md`):
-the two packages share no dependency where such a helper belongs.
+the file. The media library uploads its songs through the same helper (`packages/ui-library/docs/api.md`).
 
 ## The pop-in and the chain panel keep the keyboard inside
 

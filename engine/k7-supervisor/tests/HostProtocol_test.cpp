@@ -1,13 +1,66 @@
 // HostProtocol_test.cpp — the frames an app parses: keys it reads are present, the optional ones
 // are absent rather than empty, and a command line survives only when it is a command.
+// The fixtures are packages/supervisor-host/schema/fixtures, which the TypeScript suite checks against the schema.
 
 #include "HostProtocol.h"
 
 #include "test_harness.h"
 
+#include <cstdio>
+#include <fstream>
+
 using namespace k7::protocol;
 
 namespace {
+
+nlohmann::ordered_json fixture(const std::string& name)
+{
+    std::ifstream in(std::string(K7_HOST_PROTOCOL_FIXTURES) + "/" + name + ".json");
+    return nlohmann::ordered_json::parse(in, nullptr, false);
+}
+
+// Byte for byte, key order included: a frame is resent only when its serialisation changes.
+bool sameAs(const nlohmann::ordered_json& frame, const std::string& name)
+{
+    const auto want = fixture(name);
+    if (frame.dump() == want.dump()) return true;
+    std::printf("  got:  %s\n  want: %s\n", frame.dump().c_str(), want.dump().c_str());
+    return false;
+}
+
+void anEmptySnapshotIsTheEmptyFixture() { CHECK(sameAs(stateFrame(Snapshot{}), "state-empty")); }
+
+void aFullSnapshotIsTheFullFixture()
+{
+    Snapshot s;
+    s.status = "error";
+    s.error = "engine binary not found (build it)";
+    s.safeMode = SafeMode{3, "Diva"};
+    s.ownsEngine = true;
+    s.engineId = "e1";
+    s.enginePort = 8766;
+    s.registryUrl = "https://app.k7.rocks";
+    s.lastHeartbeatOk = true;
+    s.pluginCount = 1;
+    s.plugins = {{"Diva", "VST3", "u-he", "instrument"}};
+    s.pluginsSig = "p1";
+    s.audioDevices = {{"Focusrite USB ASIO", "ASIO", false, false}, {"Speakers (Focusrite USB Audio)", "Windows Audio", true, true, 2, 2}};
+    s.audioPriority = {"Focusrite USB ASIO", "Speakers (Focusrite USB Audio)"};
+    s.audioMenuSig = "a1";
+    s.editPlugins = {{"s1", "n4", "Diva", true}};
+    s.editPluginsSig = "x1";
+    s.sessions = {{"s1", "@local/w/song", true, true, 4, 2}};
+    s.sessionsSig = "s1";
+    s.instances = {{"https://app.k7.rocks", true}};
+    s.instanceCheck = InstanceCheck{"https://play.st0.app", "refused", "certificate not trusted"};
+    s.rootPath = "/home/u/.k7";
+    s.mergedLogPath = "/home/u/.k7/logs/merged.log";
+    s.downloads = {{"nbo-wurt", "Wurlitzer", 1024, 7947927, "failed", "disk full"}};
+    s.instruments = {{"nbo-wurt", "Wurlitzer", 7947927, true, false}};
+    s.pairRequests = {{"r1", "iPhone · Safari", "192.168.1.20", "482913", 1760000000000}};
+    s.pairedDevices = {{"d1", "iPad", 1760000000000, 1760000600000}};
+    CHECK(sameAs(stateFrame(s), "state-full"));
+}
 
 void aStateFrameCarriesWhatAnAppReads()
 {
@@ -99,6 +152,7 @@ void aResultEchoesItsId()
     CHECK(f["ok"] == false);
     CHECK(f["message"] == "no");
     CHECK(!resultFrame(1, true).contains("message"));
+    CHECK(sameAs(f, "result"));
 }
 
 void anEmptyRankingSplitsToNothing() { CHECK(splitUnits("").empty()); }
@@ -107,6 +161,8 @@ void anEmptyRankingSplitsToNothing() { CHECK(splitUnits("").empty()); }
 
 void runHostProtocolTests()
 {
+    RUN(anEmptySnapshotIsTheEmptyFixture);
+    RUN(aFullSnapshotIsTheFullFixture);
     RUN(aStateFrameCarriesWhatAnAppReads);
     RUN(anErrorAndACountAppearWhenSet);
     RUN(anInstrumentRowCarriesWhatTheTabDraws);

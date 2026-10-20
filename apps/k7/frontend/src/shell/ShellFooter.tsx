@@ -19,6 +19,7 @@ import { m } from "../paraglide/messages.js";
 import type { RollMode } from "../rollMode";
 import type { Pane, Panel } from "../routes";
 import { PANEL_META } from "../shellMeta";
+import { useShell, useVerbs } from "../state/shellStore";
 import type { createStatusLine } from "../statusLine";
 import type { TimelineMode } from "../timelineMode";
 import type { Tool } from "../timelineTools";
@@ -47,9 +48,6 @@ export function ShellFooter({
   setOptMetronome,
   metronomeOn,
   metronomeLevel,
-  runCommand,
-  showDocs,
-  docCount,
   panel,
   mixerStrips,
   headerTools,
@@ -76,14 +74,15 @@ export function ShellFooter({
   setOptMetronome: (next: (cur: boolean | null) => boolean) => void;
   metronomeOn: boolean;
   metronomeLevel: number;
-  runCommand: (line: string) => Promise<void>;
-  showDocs: boolean;
-  docCount: number;
   panel: Panel | null;
   mixerStrips: string[];
   /** The side panels' buttons, drawn here on a desktop and in the menu on a phone. */
   headerTools: ReactNode;
 }) {
+  // The graph's notes: whether they are drawn, and how many the pane holding the graph found.
+  const showDocs = useShell((s) => s.showDocs);
+  const docCount = useShell((s) => s.docCount);
+  const { runCommand } = useVerbs();
   return (
     <footer
       className={cn(

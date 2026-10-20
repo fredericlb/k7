@@ -1,0 +1,20 @@
+{
+  "name": "@studio/http-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The browser's side of a call to a studio service: the error a refusal carries (the server's own sentence and its status), the JSON read off an answer, a fetch with a time budget, and an upload that reports how far its bytes are. No node:, no React — the media library's screens, the rehearsal screens and k7's home page share it. Consumed as source.",
+  "exports": {
+    "./call": "./src/call.ts",
+    "./upload": "./src/upload.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

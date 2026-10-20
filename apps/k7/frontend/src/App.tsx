@@ -25,7 +25,6 @@ import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
   arrayEq,
   EngineStore,
-  EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
@@ -52,15 +51,18 @@ import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { projectLabel } from "@studio/web-protocol/projects";
 import type { EngineLatency } from "@studio/web-protocol/quality";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   lazy,
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useStore } from "zustand";
 import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
@@ -108,11 +110,7 @@ import { ReferenceBar } from "./components/ReferenceBar";
 import { ReferencesPanel } from "./components/ReferencesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
-import {
-  SETTINGS_TABS,
-  SettingsPanel,
-  type SettingsTab,
-} from "./components/SettingsPanel";
+import { SETTINGS_TABS, SettingsPanel } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
 import { projectLoading, StartupBar } from "./components/StartupBar";
@@ -133,7 +131,6 @@ import { desktop } from "./desktop";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { firstTimeFor, givesChannel, hasAudibleInput } from "./headphonesHint";
-import type { HistoryMark } from "./historyMarks";
 import { useCameras } from "./hooks/useCameras";
 import { useCommandKeys } from "./hooks/useCommandKeys";
 import { useEngineCompat } from "./hooks/useEngineCompat";
@@ -196,18 +193,20 @@ import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
+import { useLatest } from "./hooks/useLatest";
+import { isTyping } from "./hooks/useWindowKey";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
 import { useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
+import { SHELL_SCOPE } from "./queries/client";
+import { graphQuery, seedGraph, useGraph } from "./queries/graph";
 import { rememberCommand } from "./recentCommands";
 import {
   movedTheAudio,
   movedTheChains,
   movedTheSurfaces,
-  type Reload,
-  UNKNOWN_RELOAD,
   useScopedKey,
 } from "./reloadScope";
 import { type RollMode, rollCondition } from "./rollMode";
@@ -215,21 +214,18 @@ import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
 import { saveLabel } from "./saveLabel";
 import { ShellFooter } from "./shell/ShellFooter";
-import {
-  type MenuState,
-  ShellOverlays,
-  type UndoConfirm,
-} from "./shell/ShellOverlays";
+import { ShellOverlays } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
 import { TempoMeter } from "./shell/TempoMeter";
 import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
+import { ShellContexts } from "./state/ShellContexts";
+import { createShellStore, type ShellVerbs } from "./state/shellStore";
 import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import type { Tool } from "./timelineTools";
 import type {
-  ChangedFile,
   CommandInfo,
   EngineLoadPhase,
   EngineScanState,
@@ -241,12 +237,7 @@ import type {
   WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
-import type {
-  CurveEdit,
-  GraphSlot,
-  LocalCtx,
-  RightPanelId,
-} from "./ui/commands/context";
+import type { GraphSlot, LocalCtx } from "./ui/commands/context";
 import { runLocal } from "./ui/commands/dispatch";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
@@ -337,6 +328,53 @@ export default function App({
 }) {
   // Read once as a boolean: nearly every call site asks 'is this editable', not 'which snapshot is it'.
   const frozen = !!snapshot;
+  // What the panes read for themselves — the reload signal, the verbs, the overlays (state/shellStore.ts, docs/state.md).
+  const shellVerbs = useRef<ShellVerbs | null>(null);
+  const [shell] = useState(() =>
+    createShellStore({
+      scope: SHELL_SCOPE,
+      frozen,
+      impl: shellVerbs,
+      settingsTab: SETTINGS_TABS[0],
+      // The documentation overlay (/docs), read RAW before the router mounts — hence slicing BASE_URL off by hand here.
+      showHelp: ["docs", "help"].includes(
+        window.location.pathname
+          .slice(import.meta.env.BASE_URL.length - 1)
+          .replace(/^\/+|\/+$/g, ""),
+      ),
+    }),
+  );
+  useLayoutEffect(() => {
+    if (shell.getState().frozen !== frozen) shell.setState({ frozen });
+  }, [shell, frozen]);
+  // The overlays' setters; App reads the two that gate its own keys (state/overlaySlice.ts).
+  const {
+    setMenu,
+    setTapChain,
+    setCurveEdit,
+    setCommandsPage,
+    setAssemblyBuilder,
+    setUndoConfirm,
+  } = shell.getState();
+  const commandsPage = useStore(shell, (s) => s.commandsPage);
+  const undoConfirm = useStore(shell, (s) => s.undoConfirm);
+  // The view toggles a command flips; App draws the right column and the rack builder from them (state/toggleSlice.ts).
+  const {
+    setShowHelp,
+    setRightPanel,
+    toggleRight,
+    setSettingsTab,
+    setHistoryMark,
+    setRackBuilder,
+    setTrackCurves,
+    setStackView,
+    setShowDocs,
+  } = shell.getState();
+  const showHelp = useStore(shell, (s) => s.showHelp);
+  const rightPanel = useStore(shell, (s) => s.rightPanel);
+  const settingsTab = useStore(shell, (s) => s.settingsTab);
+  const rackBuilder = useStore(shell, (s) => s.rackBuilder);
+  const trackCurves = useStore(shell, (s) => s.trackCurves);
   // The PAGE asked for; null is the project's home page, resolved into `full` once the layout is known (docs/shell.md).
   const [chosen, setFull] = useState<Pane | null>(null);
   // A phone draws the pages from its hamburger rather than from the header's row. See docs/shell.md.
@@ -346,13 +384,6 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  // The popin on one tap's own chain of effects — `ui tap chain <node> <tap>` (TapChainEditor.tsx).
-  const [tapChain, setTapChain] = useState<{
-    node: string;
-    tap: string;
-  } | null>(null);
-  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
-  const [curveEdit, setCurveEdit] = useState<CurveEdit | null>(null);
   // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   /** The NODE of that chain to land on — its file name, or null for the chain itself. Not in the URL. */
@@ -370,42 +401,11 @@ export default function App({
   }, [builderOpen, aiEnabled]);
   // A sideways swipe nothing scrolls must not go Back out of the project (noSwipeBack.ts).
   useEffect(guardSwipeBack, []);
-  /** The assembly TEMPLATE open in its builder: the file, and its folder's graph once it lands. */
-  const [assemblyBuilder, setAssemblyBuilder] = useState<{
-    file: string;
-    folder: string;
-  } | null>(null);
-  const [assemblyGraph, setAssemblyGraph] = useState<WebGraph | null>(null);
-  /** …and whether it has been unlocked, the same one-click confirmation a shared module opens behind. */
-  const [assemblyUnlocked, setAssemblyUnlocked] = useState(false);
-  // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
-  useEffect(() => {
-    if (!assemblyBuilder) {
-      setAssemblyGraph(null);
-      return;
-    }
-    let live = true;
-    void api
-      .graphAt(assemblyBuilder.folder)
-      .then((g) => live && setAssemblyGraph(g))
-      .catch(() => live && setAssemblyGraph(null));
-    return () => {
-      live = false;
-    };
-  }, [assemblyBuilder]);
   /** The LIVE plugin behind the builder's module, matched on the chain step's NAME — see docs/moduleBuilder.md. */
   const [builderPlugin, setBuilderPlugin] = useState<{
     module: string;
     pluginId: string;
   } | null>(null);
-  // The documentation overlay (/docs), read RAW before the router mounts — hence slicing BASE_URL off by hand here.
-  const [showHelp, setShowHelp] = useState(() =>
-    ["docs", "help"].includes(
-      window.location.pathname
-        .slice(import.meta.env.BASE_URL.length - 1)
-        .replace(/^\/+|\/+$/g, ""),
-    ),
-  );
   // Null until the divider is dragged: the panel opens on half the main column.
   const [panelH, setPanelH] = useState<number | null>(null);
   const panelEl = useRef<HTMLDivElement>(null);
@@ -533,26 +533,15 @@ export default function App({
     [statusStore],
   );
   /** 'Something changed — re-read what you draw', plus WHAT changed: `files`, which reloadScope.ts reads (null = re-ask). */
-  const [reload, setReload] = useState<Reload>(UNKNOWN_RELOAD);
+  const reload = useStore(shell, (s) => s.reload);
   const reloadKey = reload.key;
   // Bumped when `graph organize` runs: the one signal that lets dagre re-lay out every drawn node.
   const [organizeKey, setOrganizeKey] = useState(0);
-  // The unscoped bump: whatever the caller did, it is not saying what moved.
-  const bumpReload = useCallback(
-    () => setReload((r) => ({ key: r.key + 1, files: null })),
-    [],
-  );
-  // The scoped bump: a command's reply says which files it wrote, and `undefined` still means everything.
-  const reloadWith = useCallback(
-    (changed: ChangedFile[] | undefined) =>
-      setReload((r) => ({ key: r.key + 1, files: changed ?? null })),
-    [],
-  );
+  const { bumpReload, reloadWith } = shell.getState();
   // Counters that move only when a reload could concern them (reloadScope.ts); the raw key is for what reads everything.
   const chainsKey = useScopedKey(reload, movedTheChains);
-  // The key a graph handed back by a command answers — ChainsTab's `seedGraph`.
-  const reloadKeyRef = useRef(reloadKey);
-  reloadKeyRef.current = reloadKey;
+  // The key a graph handed back by a command answers — the cache entry it is seeded into (queries/graph.ts).
+  const reloadKeyRef = useLatest(reloadKey);
   const surfacesKey = useScopedKey(reload, movedTheSurfaces);
   const audioKey = useScopedKey(reload, movedTheAudio);
   // A sample rendered or replaced under a screen: drawn again from the new file, not the one decoded first.
@@ -595,27 +584,16 @@ export default function App({
     (next: typeof tlView) => setTlView(keepIfEqual(next)),
     [],
   );
-  /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
-  const [rightPanel, setRightPanel] = useState<RightPanelId | null>(null);
-  /** What the History panel's hovered row touched — lit on the graph and the timeline (historyMarks.ts). */
-  const [historyMark, setHistoryMark] = useState<HistoryMark | null>(null);
   /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
   const [reference, setReference] = useState<ReferenceTrack | null>(null);
   // Whether that track is sounding, and the bar's play/pause — for the panel row that stands for it.
   const [referenceSounding, setReferenceSounding] = useState(false);
   const referenceToggle = useRef<(() => void) | null>(null);
-  /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
-  /** The command catalogue, the one settings screen still drawn as a full PAGE. */
-  const [commandsPage, setCommandsPage] = useState(false);
-  /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
-  const toggleRight = useCallback(
-    (which: RightPanelId) =>
-      setRightPanel((cur) => (cur === which ? null : which)),
-    [],
-  );
   // A conflict banner over the editor opens the conflicts panel (components/ConflictsPanel.tsx).
-  useEffect(() => onOpenConflictsPanel(() => setRightPanel("conflicts")), []);
+  useEffect(
+    () => onOpenConflictsPanel(() => setRightPanel("conflicts")),
+    [setRightPanel],
+  );
   // Vim mode is a global user preference (~/.k7/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
   useEffect(() => {
@@ -656,20 +634,12 @@ export default function App({
   // A popin in the registry's sense too, so Esc closes it; its own vim keeps Escape while you are typing in it.
   usePopin(editorPopin, () => setEditorPopin(false));
   // The rack builder popin — a 4×4 pad grid ending in modules/instruments/<name>; Esc and the backdrop close it.
-  const [rackBuilder, setRackBuilder] = useState(false);
   usePopin(rackBuilder, () => setRackBuilder(false));
   // Whether ANY overlay is up, this shell's or a component's own. Drives the `popin` condition.
   const anyPopin = useAnyPopin();
   /** What the chains slot shows INSTEAD of the graph, or null — three occupants, one state (docs/shell.md). */
-  // Whether the per-track view draws its curve cards — a view toggle, writing nothing (`ui curves`).
-  const [trackCurves, setTrackCurves] = useState(false);
   const [graphSlot, setGraphSlot] = useState<GraphSlot | null>(null);
-  // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
-  const [stackView, setStackView] = useState(false);
 
-  /** Whether the graph draws the project's NOTES — off by default and not remembered; `docCount` is reported up by the pane holding the graph. */
-  const [showDocs, setShowDocs] = useState(false);
-  const [docCount, setDocCount] = useState(0);
   /** What the graph knows about each lane's node — its other attribute sets and its freeze, travelling up like `docCount`. */
   const [laneNodes, setLaneNodes] = useState<{
     alternatives: WebGraph["trackAlternatives"];
@@ -704,8 +674,7 @@ export default function App({
   const recordWithoutArm =
     (recordEnabled || midiRecord) && !armed.length && !midiArmed && !videoArmed;
   // …read by the command path through a ref, so the transport callbacks are not rebuilt on every arm.
-  const recordWithoutArmRef = useRef(recordWithoutArm);
-  recordWithoutArmRef.current = recordWithoutArm;
+  const recordWithoutArmRef = useLatest(recordWithoutArm);
   // A take of the takes view is drawn THERE, so the record panel must not take its slot; set by useTakeRecording below.
   const takeActiveRef = useRef(false);
   // An audio take shows its envelope; a take of a MIDI lane alone shows its notes instead.
@@ -735,9 +704,7 @@ export default function App({
   const [midiLearning, setMidiLearning] = useState(false);
   const editorRef = useRef<EditorHandle>(null);
 
-  // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
-  const [undoConfirm, setUndoConfirm] = useState<UndoConfirm | null>(null);
-  // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
+  // The process-step undo's confirm, registered like the other dialogs: refusing IS an answer, so the closer resolves it.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
     undoConfirm.resolve(false);
@@ -748,7 +715,7 @@ export default function App({
       new Promise<boolean>((resolve) =>
         setUndoConfirm({ files, label, resolve }),
       ),
-    [],
+    [setUndoConfirm],
   );
   // When a Ctrl+Z last met the end of the text pane's history: the next one, soon after, goes to the journal.
   const journalArmedAt = useRef(0);
@@ -902,8 +869,7 @@ export default function App({
   }, [videoTracks]);
 
   // Read by `onLaneToggle`, which must not re-bind every time the picture doc is refetched.
-  const videoTracksRef = useRef(videoTracks);
-  videoTracksRef.current = videoTracks;
+  const videoTracksRef = useLatest(videoTracks);
 
   // Has the engine every plugin the open project uses? The header's warning when not — hooks/useEngineCompat.ts.
   const engineCompat = useEngineCompat(
@@ -988,12 +954,15 @@ export default function App({
       help: showHelp,
       builder: openBuilder,
     },
-    useCallback((next) => {
-      setFull(next.full);
-      setPanel(next.panel);
-      setShowHelp(next.help);
-      setOpenBuilder(next.builder);
-    }, []),
+    useCallback(
+      (next) => {
+        setFull(next.full);
+        setPanel(next.panel);
+        setShowHelp(next.help);
+        setOpenBuilder(next.builder);
+      },
+      [setShowHelp],
+    ),
     {
       timeline: hasTimeline,
       turntables: hasTurntables,
@@ -1001,8 +970,8 @@ export default function App({
       frozen,
     },
   );
-  const openHelp = useCallback(() => setShowHelp(true), []);
-  const closeHelp = useCallback(() => setShowHelp(false), []);
+  const openHelp = useCallback(() => setShowHelp(true), [setShowHelp]);
+  const closeHelp = useCallback(() => setShowHelp(false), [setShowHelp]);
 
   // Any change of layout puts the popin away: it is a detour to one file, not a place to be.
 
@@ -1063,8 +1032,7 @@ export default function App({
     panel === "graph" ||
     panel === "mix" ||
     (panel === "event" && graphSlot?.kind === "trackModules");
-  const graphOnScreenRef = useRef(graphOnScreen);
-  graphOnScreenRef.current = graphOnScreen;
+  const graphOnScreenRef = useLatest(graphOnScreen);
 
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
@@ -1241,7 +1209,7 @@ export default function App({
     doc: projectDoc,
     mixerStrips,
     midiSeqRef,
-  } = useProjectDoc(reloadKey, {
+  } = useProjectDoc(SHELL_SCOPE, reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) =>
@@ -1261,8 +1229,7 @@ export default function App({
     [engineWarnings, instrumentWarnings],
   );
   // What one-shot commands are doing to the lanes, shown at once until the document agrees (pendingEdits.ts).
-  const docRef = useRef(projectDoc);
-  docRef.current = projectDoc;
+  const docRef = useLatest(projectDoc);
   // A MIDI take that made a new clip, and the lane's clips before it: the one not among them opens once the document shows it.
   const landedMidiRef = useRef<{ track: string; before: Set<string> } | null>(
     null,
@@ -1434,10 +1401,6 @@ export default function App({
     [projectDoc?.masterVolume, quietCommandFiles, reloadWith],
   );
 
-  // A ref because `runCommand` reads it and is itself a dependency of half the app.
-  const docTracksRef = useRef(docTracks);
-  docTracksRef.current = docTracks;
-
   // Per-track mixer state + the shared mute/solo/arm toggle handler.
   const { trackControls, onTrackToggle, onTrackSet, onTrackArm } =
     useTrackControls({
@@ -1475,29 +1438,34 @@ export default function App({
     engineRef.current?.trackMix(mix);
   }, [frozen, connected, trackControls, docTracks, engineRef]);
 
-  // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
-  const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
-    {
-      any: false,
-      device: null,
-    },
+  // The shell's own read of the graph moves only when a reload could have moved the CHAINS: the key in force when one last did.
+  const chainsAt = useRef({ chains: chainsKey, key: reloadKey });
+  if (chainsAt.current.chains !== chainsKey)
+    chainsAt.current = { chains: chainsKey, key: reloadKey };
+  const { graph: shellGraph } = useGraph(SHELL_SCOPE, chainsAt.current.key);
+  // The lanes a midi-in node feeds, off that graph: they arm even while they hold no sequence.
+  const midiLanes = useMemo(
+    () => (shellGraph ? midiInLanes(shellGraph) : midiLanesRef.current),
+    [shellGraph],
   );
-  useEffect(() => {
-    let live = true;
-    void api
-      .graph()
-      .then((g) => {
-        if (!live) return;
-        const steps = Object.values(g.chains).flatMap((c) => c.use);
-        midiLanesRef.current = midiInLanes(g);
-        const device = midiArmed ? midiInDeviceFor(g, midiArmed) : null;
-        setMidiIn({ any: steps.some((st) => st.device !== undefined), device });
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [chainsKey, midiArmed]);
+  midiLanesRef.current = midiLanes;
+  // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
+  const midiInAny = useMemo(
+    () =>
+      !!shellGraph &&
+      Object.values(shellGraph.chains)
+        .flatMap((c) => c.use)
+        .some((st) => st.device !== undefined),
+    [shellGraph],
+  );
+  const midiIn = useMemo(
+    () => ({
+      any: midiInAny,
+      device:
+        shellGraph && midiArmed ? midiInDeviceFor(shellGraph, midiArmed) : null,
+    }),
+    [midiInAny, shellGraph, midiArmed],
+  );
   // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
   const runCommandRef = useRef<
     (
@@ -1689,18 +1657,19 @@ export default function App({
 
   /** …and the stack view, which takes the graph's whole pane. */
   const toggleStack = useCallback(() => {
-    if (stackView) return setStackView(false);
+    if (shell.getState().stackView) return setStackView(false);
     // Onto the graph's page, closing the bottom panel as any page change does.
     if (full !== "chains") setPanel(null);
     setFull("chains");
     setStackView(true);
     setStatus(m["status.stackView"]());
-  }, [stackView, full]);
+  }, [shell, setStackView, full]);
 
   const toggleDocs = useCallback(() => {
-    if (docCount === 0) return setStatus(m["status.noNotes"]());
+    if (shell.getState().docCount === 0)
+      return setStatus(m["status.noNotes"]());
     setShowDocs((on) => !on);
-  }, [docCount]);
+  }, [shell, setShowDocs]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
   const armMidiLearn = useCallback(
@@ -1841,13 +1810,8 @@ export default function App({
 
   // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.
   const [insertingAt, setInsertingAt] = useState<PendingNode | null>(null);
-  // The graph a writing command handed back, drawn instead of fetched; it carries an id the consumer takes ONCE (ChainsTab's `seedGraph`).
-  const seedId = useRef(0);
-  const [seedGraph, setSeedGraph] = useState<{
-    id: number;
-    graph: WebGraph;
-    at: number;
-  } | null>(null);
+  // The graph a writing command handed back goes into the cache, drawn instead of fetched (queries/graph.ts).
+  const queryClient = useQueryClient();
   // The open project, for the headphones hint, which says itself once per project (headphonesHint.ts).
   const activeProjectRef = useRef<string | null>(null);
   activeProjectRef.current = ws?.activeProject ?? null;
@@ -1861,14 +1825,14 @@ export default function App({
     const p = ws?.activeProject;
     if (frozen || !p) return;
     let live = true;
-    void api
-      .graph()
+    void queryClient
+      .fetchQuery(graphQuery(SHELL_SCOPE, reloadKeyRef.current))
       .then((g) => live && hasAudibleInput(g) && warnHeadphones())
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [ws?.activeProject, frozen, warnHeadphones]);
+  }, [ws?.activeProject, frozen, warnHeadphones, queryClient]);
   // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH, and `journal` how it is undone.
   const runCommand = useCallback(
     async (
@@ -1923,14 +1887,8 @@ export default function App({
         settle(!refused);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
         // The graph the service built while we waited — the answer for the reload below, so for the NEXT key.
-        if (graph) {
-          seedId.current += 1;
-          setSeedGraph({
-            id: seedId.current,
-            graph,
-            at: reloadKeyRef.current + 1,
-          });
-        }
+        if (graph)
+          seedGraph(queryClient, SHELL_SCOPE, reloadKeyRef.current + 1, graph);
         // The token this command produced, adopted BEFORE the reload it pairs with, so the `/revision` tick does not redo it — see `RevisionPoller.note`.
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
@@ -1955,7 +1913,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [pushLog, runLocalCommand, warnHeadphones],
+    [pushLog, runLocalCommand, warnHeadphones, queryClient],
   );
   runCommandRef.current = runCommand;
   // The bottom panel's ✕ runs the command the footer and Escape do, as every button here does (docs/shell.md).
@@ -1996,10 +1954,8 @@ export default function App({
         else setStatus(said);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
         // No reload follows, so it answers the key in force now.
-        if (graph) {
-          seedId.current += 1;
-          setSeedGraph({ id: seedId.current, graph, at: reloadKeyRef.current });
-        }
+        if (graph)
+          seedGraph(queryClient, SHELL_SCOPE, reloadKeyRef.current, graph);
         // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
         if (rev) noteRevision(rev);
       } catch (e) {
@@ -2009,7 +1965,7 @@ export default function App({
         );
       }
     },
-    [projectDoc, runCommand, pushLog],
+    [projectDoc, runCommand, pushLog, queryClient],
   );
 
   /** The graph's lane buttons: a PICTURE lane's two words are the `picture` verbs, not the `track` ones. */
@@ -2025,8 +1981,7 @@ export default function App({
   );
 
   // The picture's shape for a drop to read: a phone clip turns an untouched landscape picture to 9:16 (hooks/useTimelineDrop.ts).
-  const videoDocRef = useRef(videoDoc);
-  videoDocRef.current = videoDoc;
+  const videoDocRef = useLatest(videoDoc);
   const pictureShape = useCallback(() => {
     const d = videoDocRef.current;
     if (!d) return null;
@@ -2068,8 +2023,7 @@ export default function App({
   // What the status line said about the file, so the canvas's answer is added to it rather than replacing it.
   const focusLine = useRef("");
   // Read through a ref: `openInEditor` follows fullscreen and focus, and the panels this is handed to are memoised.
-  const openInEditorRef = useRef(openInEditor);
-  openInEditorRef.current = openInEditor;
+  const openInEditorRef = useLatest(openInEditor);
   const focusRowInPanes = useCallback(
     (target: RowTarget) => {
       // Named, not fuzzy-matched: a lane lives in `nodes/`, or in a chain project's `tracks/` (packages/song/docs/chainFiles.md).
@@ -2099,13 +2053,10 @@ export default function App({
     );
   }, []);
 
-  // The right-click context menu (timeline + graph).
-  const [menu, setMenu] = useState<MenuState | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
   // Read through a ref: the graph's insert callbacks are built on this one, and the chains pane is memoised.
-  const paletteOpenRef = useRef(paletteOpen);
-  paletteOpenRef.current = paletteOpen;
+  const paletteOpenRef = useLatest(paletteOpen);
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
@@ -2141,22 +2092,35 @@ export default function App({
   // …and the language, for the third time: the entries' descriptions are resolved when the menu opens.
   const cmdLocale = useRef(locale);
   cmdLocale.current = locale;
-  const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
-    const items = contextMenu(
-      withAmbient(ctx),
-      cmdCatalogue.current,
-      cmdPrefs.current,
-      cmdLocale.current,
-    );
-    if (items.length) setMenu({ items, x, y });
-  }, []);
+  const openContextMenu = useCallback(
+    (ctx: MenuCtx, x: number, y: number) => {
+      const items = contextMenu(
+        withAmbient(ctx),
+        cmdCatalogue.current,
+        cmdPrefs.current,
+        cmdLocale.current,
+      );
+      if (items.length) setMenu({ items, x, y });
+    },
+    [setMenu],
+  );
+  // What the store's verbs call, read at call time so a pane's first effect already reaches these.
+  shellVerbs.current = {
+    setStatus,
+    runCommand,
+    quietCommand,
+    openContextMenu,
+    seek,
+    setLoop: (start, end, enabled) =>
+      engineRef.current?.loop(start, end, enabled),
+  };
   /** A lane's gutter badge on the timeline — the same ContextMenu the right-click uses, over `nodeMenu`'s rows (contextMenu.ts). */
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
       const items = nodeMenu(n);
       if (items.length) setMenu({ items, x: at.x, y: at.y });
     },
-    [],
+    [setMenu],
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingNode | null>(null);
@@ -2164,14 +2128,10 @@ export default function App({
   const pendingWire = useRef<PendingWire | null>(null);
   // The graph's insert, asset and tap callbacks, and the two pickers they open (shell/useGraphActions.ts).
   const {
-    modulePicker,
-    setModulePicker,
     baseModules,
     insertIntoChain,
     placeInGraph,
     onModulePick,
-    assetPicker,
-    setAssetPicker,
     browseAssets,
     editTap,
     runAlternative,
@@ -2184,6 +2144,7 @@ export default function App({
     reloadKey,
     pendingInsert,
     pendingWire,
+    shell,
   });
   /** Find the open project's node of the builder's module and watch its plugin — `watchPluginParams` is what makes the values LIVE. */
   useEffect(() => {
@@ -2192,9 +2153,11 @@ export default function App({
     const module =
       libraryModuleRef(builder.path) ?? moduleKeyFromPath(builder.path);
     if (!module) return void setBuilderPlugin(null);
+    // Another module's plugin is let go at once: a graph that keeps failing would otherwise leave it watched.
+    setBuilderPlugin((cur) => (cur?.module === module ? cur : null));
     let cancelled = false;
-    void api
-      .graph()
+    void queryClient
+      .fetchQuery(graphQuery(SHELL_SCOPE, reloadKeyRef.current))
       .then((g) => {
         if (cancelled) return;
         const step = Object.values(g.chains ?? {})
@@ -2210,7 +2173,7 @@ export default function App({
     return () => {
       cancelled = true;
     };
-  }, [builder]);
+  }, [builder, queryClient]);
 
   // …and once one is found, ask for it and keep it coming — its own effect, so the unwatch is paired with the watch.
   useEffect(() => {
@@ -2225,17 +2188,13 @@ export default function App({
   // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
   const cardProps = useMemo(
     () => ({
-      mark: historyMark,
       onPreviewNote: previewNote,
       cameras,
       inputDevices,
       midiDevices,
-      reloadKey,
       trackOrder,
       project: projectDoc,
-      command: quietCommand,
       onBypassModule: (mod: string) => void bypassModule(mod),
-      onModuleField: runCommand,
       onRecorder,
       onProjectField,
       onAlternative: runAlternative,
@@ -2243,24 +2202,19 @@ export default function App({
       onTapEdit: editTap,
       onWatchWaveform: watchWaveform,
       engineWarnings: nodeWarnings,
-      onContextMenu: openContextMenu,
       pluginParamsStore,
       setPluginParam,
       moduleParams: offlineParams,
       trackControls,
     }),
     [
-      historyMark,
       previewNote,
       cameras,
       inputDevices,
       midiDevices,
-      reloadKey,
       trackOrder,
       projectDoc,
-      quietCommand,
       bypassModule,
-      runCommand,
       onRecorder,
       onProjectField,
       runAlternative,
@@ -2268,7 +2222,6 @@ export default function App({
       editTap,
       watchWaveform,
       nodeWarnings,
-      openContextMenu,
       pluginParamsStore,
       setPluginParam,
       offlineParams,
@@ -2446,14 +2399,7 @@ export default function App({
         journalArmedAt.current = 0;
       } else {
         // A plain input (command bar, a rename field) keeps its own native text undo.
-        const t = e.target as HTMLElement | null;
-        if (
-          t &&
-          (t.tagName === "INPUT" ||
-            t.tagName === "TEXTAREA" ||
-            t.isContentEditable)
-        )
-          return;
+        if (isTyping(e)) return;
       }
       e.preventDefault();
       e.stopPropagation();
@@ -2927,10 +2873,8 @@ export default function App({
 
   // Everything the panes are handed that is not already a ref, a setter or a stable callback (hooks/usePaneCallbacks.ts).
   const paneFns = usePaneCallbacks({
-    runCommand,
     openEvent,
     setGraphSlot,
-    engineRef,
     cmdRef,
     openModuleBuilder,
     setAssemblyBuilder,
@@ -2940,7 +2884,7 @@ export default function App({
   });
 
   return (
-    <EngineStoreProvider value={store}>
+    <ShellContexts shell={shell} engine={store}>
       {/* The song's clock for every graph below: a curve card's playhead and its bar lines read it (ui-chains-react docs/nodeCard.md). */}
       <SongClockProvider value={songClock}>
         {/* …and the ONE decoder their screens draw a module's sound files with — every graph, the per-track one included. */}
@@ -3124,8 +3068,6 @@ export default function App({
                         // Only when it owns the screen, and not in the popin: that is one file, opened by a command that already named it.
                         showTree={full === "editor"}
                         popin={editorPopin}
-                        // The whole token, not the counter: this pane holds the two routes that answer about files and about names.
-                        reload={reload}
                         activeProject={ws?.activeProject ?? null}
                         projectName={project?.name ?? null}
                         // A supervisor older than the field reports none: it runs level 1.
@@ -3135,10 +3077,6 @@ export default function App({
                         vimMode={vimMode}
                         onOpenProject={openProject}
                         onImportProject={imp.askImport}
-                        onChanged={bumpReload}
-                        // The clip file's Process menu runs `clip process` through here — journalled, one Ctrl+Z, and its reload brings the file back.
-                        command={runCommand}
-                        setStatus={setStatus}
                         onEditTarget={setEditTargetIfOther}
                         onOpenItem={setOpenItemIfOther}
                         onOpenBuilder={openModuleBuilder}
@@ -3183,13 +3121,11 @@ export default function App({
                             onError={paneError}
                           >
                             <TimelineTab
-                              mark={historyMark}
                               ref={timelineRef}
                               // What one-shot commands are doing, on the lanes before the round trip (pendingEdits.ts).
                               pendingEdits={pendingEdits}
                               active={activePane === "timeline"}
                               lanesLocked={panel !== null}
-                              reloadKey={reloadKey}
                               // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
                               rolling={rolling}
                               takeStartBeat={takeStart}
@@ -3215,21 +3151,13 @@ export default function App({
                                 frozen ? undefined : onDropOnTimeline
                               }
                               dropUpload={timelineUpload}
-                              readOnly={frozen}
-                              setStatus={setStatus}
+                              // A song with a frame has two kinds of lane, which makes the new-lane button a menu.
+                              pictureLanes={hasViewport}
                               onEditTarget={setEditTargetIfOther}
                               onOpenClip={paneFns.openClip}
                               onEmptyClick={paneFns.emptyClick}
                               onCaret={setCaretIfMoved}
                               onView={setTlViewIfOther}
-                              onContextMenu={openContextMenu}
-                              onSeek={seek}
-                              onSetLoop={paneFns.setLoop}
-                              onMoveEvent={paneFns.commands.moveEvent}
-                              // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
-                              onToolLine={paneFns.commands.toolLine}
-                              onResizeEvent={paneFns.commands.resizeEvent}
-                              onFadeEvent={paneFns.commands.fadeEvent}
                               // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
                               feedTimecode={
                                 barPending?.kind === "timecode"
@@ -3248,30 +3176,9 @@ export default function App({
                                   : undefined
                               }
                               onFocusRow={focusRowInPanes}
-                              // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
-                              onNewTrack={
-                                frozen ? undefined : paneFns.commands.newTrack
-                              }
-                              // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
-                              onNewVideoTrack={
-                                frozen || !hasViewport
-                                  ? undefined
-                                  : paneFns.commands.newVideoTrack
-                              }
                               // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
                               videoArmed={videoArmed}
                               videoRecording={videoRecording}
-                              onVideoArm={
-                                frozen ? undefined : paneFns.commands.videoArm
-                              }
-                              onVideoToggle={
-                                frozen
-                                  ? undefined
-                                  : paneFns.commands.videoToggle
-                              }
-                              onReorder={
-                                frozen ? undefined : paneFns.commands.reorder
-                              }
                               trackControls={trackControls}
                               onTrackToggle={onTrackToggle}
                               laneNodes={laneNodes}
@@ -3357,41 +3264,16 @@ export default function App({
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
-                            onOrganize={paneFns.commands.organize}
-                            onSetModuleAsset={paneFns.commands.setModuleAsset}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
-                            // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
-                            onConnect={
-                              frozen ? undefined : paneFns.commands.connect
-                            }
-                            onAutomate={
-                              frozen ? undefined : paneFns.commands.automate
-                            }
-                            onDisconnect={
-                              frozen ? undefined : paneFns.commands.disconnect
-                            }
-                            onReplug={
-                              frozen ? undefined : paneFns.commands.replug
-                            }
-                            // A dropped header likewise: the drag already said everything.
-                            onMoveNode={
-                              frozen ? undefined : paneFns.commands.moveNode
-                            }
                             pendingInsert={insertingAt}
-                            seedGraph={seedGraph}
                             // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
-                            showDocs={showDocs}
-                            onDocCount={setDocCount}
                             onLaneNodes={setLaneNodes}
                             focus={graphFocus}
                             onFocused={reportFramed}
-                            stack={stackView}
-                            onStack={paneFns.commands.stack}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
-                            onMidiStatus={setStatus}
                           />
                         </PaneBoundary>
                       </div>
@@ -3564,69 +3446,15 @@ export default function App({
                             onClose={closeEvent}
                             // The takes mode's record button and files; a snapshot records nothing, so it offers no takes.
                             takesHost={frozen ? undefined : takes.host}
-                            // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
-                            reloadKey={reloadKey}
-                            // A click on the editor's arrangement ruler is the timeline's seek.
-                            onSeek={seek}
-                            // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
-                            onChanged={bumpReload}
-                            setStatus={setStatus}
                             // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
                             caretRef={clipGridRef}
                             onSelection={setClipSel}
-                            onSetLoop={(start, end, enabled) =>
-                              engineRef.current?.loop(start, end, enabled)
-                            }
-                            // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
-                            command={runCommand}
-                            // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
-                            quietCommand={quietCommand}
-                            // …and they get the same right-click every other entity has.
-                            onContextMenu={openContextMenu}
-                            // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
-                            onCreateNote={(seqId, key, t0, t1) =>
-                              runCommand(
-                                `sequence note new ${seqId} ${key} ${t0} ${t1}`,
-                              )
-                            }
-                            // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
-                            onSetVelocity={(seqId, key, start, vel) =>
-                              runCommand(
-                                `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
-                              )
-                            }
-                            // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
-                            onSetNoteRange={(seqId, key, start, ns, ne) =>
-                              runCommand(
-                                `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
-                              )
-                            }
-                            // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
-                            onMoveNote={(seqId, key, start, nk, ns) =>
-                              runCommand(
-                                `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
-                              )
-                            }
-                            // …and a dragged SELECTION, every note in one write and one Ctrl+Z.
-                            onMoveNotes={(seqId, moves) =>
-                              runCommand(
-                                `sequence notes move ${seqId} ${JSON.stringify(moves)}`,
-                              )
-                            }
                             // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
-                            onPreviewNote={(track, key, vel) =>
-                              engineRef.current?.previewNote(track, key, vel)
-                            }
+                            onPreviewNote={previewNote}
                             waveRef={waveRef}
                             onWaveView={setWaveView}
                             rollRef={rollRef}
                             onRollMode={setRollMode}
-                            // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
-                            onRemoveNote={(seqId, key, start) =>
-                              runCommand(
-                                `sequence note remove ${seqId} ${key} ${start}`,
-                              )
-                            }
                           />
                         </PaneBoundary>
                       )}
@@ -3690,13 +3518,8 @@ export default function App({
                             eventAt={rolling ? null : reviewEventAt}
                             // …and its takes, so the takes mode is there the moment the recording ends.
                             takes={rolling ? undefined : reviewTakes}
-                            onSeek={seek}
                             trackOrder={trackOrder}
                             trackNames={recInfo.names}
-                            command={runCommand}
-                            quietCommand={quietCommand}
-                            onContextMenu={openContextMenu}
-                            reloadKey={reloadKey}
                             onStop={() => void runCommand("transport stop")}
                             onClose={() => {
                               setReviewOn(null);
@@ -3770,9 +3593,6 @@ export default function App({
               setOptMetronome={setOptMetronome}
               metronomeOn={metronomeOn}
               metronomeLevel={metronomeLevel}
-              runCommand={runCommand}
-              showDocs={showDocs}
-              docCount={docCount}
               panel={panel}
               mixerStrips={mixerStrips}
               headerTools={headerTools}
@@ -3783,7 +3603,6 @@ export default function App({
               <>
                 {minimapDocked && (
                   <Minimap
-                    reloadKey={reloadKey}
                     // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
                     automation={laneNodes.automation}
                     caret={caret}
@@ -3830,7 +3649,7 @@ export default function App({
                     // An armed lane opens the lens a `monitor: auto` camera wired to it names.
                     armed={videoArmed}
                     // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
-                    onRect={frozen ? undefined : paneFns.commands.rect}
+                    onRect={frozen ? undefined : shell.getState().commands.rect}
                   />
                 </PaneBoundary>
               </FloatingWindow>
@@ -3849,12 +3668,7 @@ export default function App({
                   beatsPerBar={recInfo.beatsPerBar}
                   onToggle={() => transport(playing ? "stop" : "play")}
                 />
-                <Minimap
-                  reloadKey={reloadKey}
-                  caret={caret}
-                  highlight={openItem}
-                  onSeek={seek}
-                />
+                <Minimap caret={caret} highlight={openItem} onSeek={seek} />
               </div>
             )}
 
@@ -3900,51 +3714,26 @@ export default function App({
 
             {/* Every popin, dialog and menu over the shell (shell/ShellOverlays.tsx). */}
             <ShellOverlays
-              menu={menu}
-              setMenu={setMenu}
               commandPrefs={commandPrefs}
               pickMenuItem={pickMenuItem}
               setMenuHint={setMenuHint}
               presetPicker={presetPicker}
-              tapChain={tapChain}
-              setTapChain={setTapChain}
               liveCardProps={liveCardProps}
-              reloadKey={reloadKey}
-              runCommand={runCommand}
-              modulePicker={modulePicker}
-              setModulePicker={setModulePicker}
               baseModules={baseModules}
               onModulePick={onModulePick}
-              curveEdit={curveEdit}
-              setCurveEdit={setCurveEdit}
               projectDoc={projectDoc}
-              assetPicker={assetPicker}
-              setAssetPicker={setAssetPicker}
-              showHelp={showHelp}
-              closeHelp={closeHelp}
-              frozen={frozen}
               engineSync={engineSync}
               imp={imp}
-              commandsPage={commandsPage}
-              setCommandsPage={setCommandsPage}
               allCommands={allCommands}
               saveCommandPrefs={saveCommandPrefs}
-              assemblyBuilder={assemblyBuilder}
-              setAssemblyBuilder={setAssemblyBuilder}
-              assemblyGraph={assemblyGraph}
-              assemblyUnlocked={assemblyUnlocked}
-              setAssemblyUnlocked={setAssemblyUnlocked}
               vimMode={vimMode}
               paneError={paneError}
-              bumpReload={bumpReload}
-              undoConfirm={undoConfirm}
-              setUndoConfirm={setUndoConfirm}
               engineRef={engineRef}
               connected={connected}
             />
           </div>
         </LcdSoundsContext.Provider>
       </SongClockProvider>
-    </EngineStoreProvider>
+    </ShellContexts>
   );
 }

@@ -9,6 +9,7 @@ import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
 import { DOC_PARTS } from "../docs/pages";
+import { useWindowKey } from "../hooks/useWindowKey";
 import { shortcutsByCommand } from "../keys";
 import { usePopin } from "../popins";
 import type { CommandInfo } from "../types";
@@ -168,13 +169,9 @@ export function HelpPage({
   // Mounted only while it is showing, and registered so the shell's Esc stops at this page instead of closing the slot under it.
   usePopin(true, onBack);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onBack();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onBack]);
+  useWindowKey((e) => {
+    if (e.key === "Escape") onBack();
+  });
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">

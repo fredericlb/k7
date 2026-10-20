@@ -10,6 +10,7 @@ import type { EngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TakesHost } from "../components/TakesView";
 import { armLine, type TakesEvent } from "../takes";
+import { useLatest } from "./useLatest";
 
 /** How long after the stop the event stays armed: the engine's take is filed in that window. */
 const DISARM_AFTER_MS = 4000;
@@ -49,8 +50,7 @@ export function useTakeRecording(opts: {
   const midiTarget = useRef<MidiTakeTarget | null>(null);
   // What the button switched on, so the stop switches back exactly that and nothing a person set.
   const undo = useRef<(() => void)[]>([]);
-  const optsRef = useRef(opts);
-  optsRef.current = opts;
+  const optsRef = useLatest(opts);
   // The pending disarm after a stop, cancelled by a take started inside its window.
   const disarm = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 

@@ -23,7 +23,9 @@ build is seconds. `npm run dev` rebuilds it on save and restarts it (`scripts/de
 The unit tests need no device, no network and no engine. The tunnel is tested by
 `packages/engine-tunnel`'s suites, which pick up the built `tunnel_harness` and run every case
 against it: after touching the tunnel code, run `npx vitest run` there. A change to
-`HostProtocol.h` is a change to `packages/supervisor-host/src/hostProtocol.ts` too.
+a frame is a change to `packages/supervisor-host/schema/hostProtocol.schema.json` and its fixtures
+too: `HostProtocol_test.cpp` compares the writer's output with them, and `packages/supervisor-host`'s
+suite holds them to the schema (`docs/hostProtocol.md`).
 
 ## Rules this code keeps
 

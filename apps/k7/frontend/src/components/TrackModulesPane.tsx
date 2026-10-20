@@ -15,11 +15,11 @@ import {
   type NodeEngines,
   type TapAction,
 } from "@studio/ui-chains-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, thawAutoFreeze } from "../api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import type { MenuCtx } from "../contextMenu";
-import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { nodePredicate } from "../historyMarks";
+import { useLatest } from "../hooks/useLatest";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { laneHasInput } from "../laneInput";
@@ -27,8 +27,10 @@ import { midiActivity } from "../midiActivity";
 import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
+import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
-import type { WebGraph, WebProject } from "../types";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
+import type { WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { GraphSlotPane } from "./GraphSlotPane";
 import { usePanelInside } from "./PanelClose";
@@ -51,7 +53,6 @@ const DISABLED =
   "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
 
 export function TrackModulesPane({
-  mark,
   onPreviewNote,
   project,
   trackId,
@@ -60,9 +61,6 @@ export function TrackModulesPane({
   cameras,
   inputDevices,
   midiDevices,
-  reloadKey,
-  command,
-  onModuleField,
   onRecorder,
   onProjectField,
   trackOrder,
@@ -72,7 +70,6 @@ export function TrackModulesPane({
   setPluginParam,
   moduleParams,
   trackControls,
-  onContextMenu,
   onBypassModule,
   onAlternative,
   onEngine,
@@ -90,8 +87,6 @@ export function TrackModulesPane({
   onToggleCurves,
   onTrackInput,
 }: {
-  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
   /** The arrangement, so the pads light as its notes play under the playhead (rackLit.ts). */
@@ -107,10 +102,6 @@ export function TrackModulesPane({
   /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
   inputDevices?: readonly { name: string; channels: number[] }[];
   midiDevices?: readonly string[];
-  reloadKey: number;
-  command: (line: string) => void | Promise<void>;
-  /** …and the RELOADING sender for a module's own field: an intrinsic dropdown draws the file. */
-  onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button, straight through — see DomChains' prop. */
   /** Set a PROJECT setting — the RENDER card's frame dropdown. */
   onProjectField?: (field: string, value: string) => void;
@@ -126,7 +117,6 @@ export function TrackModulesPane({
   /** What the modules with NO plugin are set to — a deck's tempo node hangs off a track, so it can land in this row too. */
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** A card's own bypass button — asks only; `pendingBypass` is what moves the card, nothing reloads. */
   onBypassModule?: (module: string) => void;
   /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
@@ -174,19 +164,18 @@ export function TrackModulesPane({
   /** The "audio in" and "midi in" buttons: the shell's `track input`, run on this lane. */
   onTrackInput?: (kind: "audio" | "midi") => void;
 }) {
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
+  const reloadKey = useReloadKey();
+  // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
+  const {
+    quietCommand: command,
+    runCommand: onModuleField,
+    openContextMenu: onContextMenu,
+  } = useVerbs();
+  // The shared graph at this reload key — the same read the chains page and the bottom panel make (queries/graph.ts).
+  const { graph, error } = usePaneGraph(reloadKey);
   const [selected, setSelected] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .graph()
-      .then((g) => {
-        setGraph(g);
-        setError(null);
-      })
-      .catch((e) => setError((e as Error).message));
-  }, [reloadKey]);
 
   // The graph alone answers both halves here: a chain's `use` list is the order, and it is in the graph doc.
   const modules = useMemo(
@@ -254,8 +243,7 @@ export function TrackModulesPane({
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
   // The pads light here too, as in the graph panes: the notes under the playhead, and a pad just clicked.
   const rackLit = useLiveRackLit(project, graph);
-  const laidRef = useRef(laid);
-  laidRef.current = laid;
+  const laidRef = useLatest(laid);
   const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   // Bypasses clicked but not yet in `graph`, painted on after layout (usePendingBypass.ts).

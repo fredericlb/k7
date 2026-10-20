@@ -11,6 +11,8 @@ import type { Compatibility, PluginNeed } from "@studio/engine-browser/compat";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
+// The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
+import { readJson as json } from "@studio/http-client/call";
 import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
@@ -33,8 +35,7 @@ import {
 } from "@studio/web-protocol";
 import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import type { CommandPrefs } from "./commandPrefs";
-// The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
-import { json, pl8Url } from "./projects/api";
+import { pl8Url } from "./projects/api";
 import type {
   PreviewReq,
   PublicEngine,
@@ -362,34 +363,6 @@ export const mediatek = {
     });
     if (!res.ok) throw new Error(`separation ${res.status}`);
     return (await res.json()) as SeparateJob;
-  },
-
-  /** File one audio file as a song: the THREE TAGS go up and never a path (packages/mediatek/docs/songs.md); a 409 rides through with `.exists`. */
-  addSong: async (
-    file: File,
-    tags: { artist: string; album: string; title: string },
-    opts: { replace?: boolean } = {},
-  ): Promise<{ path: string; master: string; replaced: boolean }> => {
-    const q = new URLSearchParams({ filename: file.name, ...tags });
-    if (opts.replace) q.set("replace", "1");
-    const res = await fetch(`${PL8}/api/mediatek/song?${q}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/octet-stream" },
-      body: file,
-    });
-    if (!res.ok) {
-      const detail = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        exists?: boolean;
-      };
-      const err = new Error(detail.error ?? `song ${res.status}`) as Error & {
-        exists?: boolean;
-      };
-      err.exists = detail.exists;
-      throw err;
-    }
-    return res.json();
   },
 };
 

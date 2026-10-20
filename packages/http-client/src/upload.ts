@@ -1,6 +1,6 @@
 // upload.ts — a request body sent through XMLHttpRequest, for the one thing fetch cannot report:
 // how much of it has left. It answers a Response, so the callers read it exactly as a fetch's.
-// ui-library holds the same few lines: no package both depend on is the place (../docs/recordings.md).
+// The media library and the rehearsal screens both upload through it (../docs/httpClient.md).
 
 export interface UploadInit {
   method?: string;

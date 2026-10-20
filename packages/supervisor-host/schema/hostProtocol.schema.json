@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://k7.rocks/schema/supervisor-host-protocol.json",
+  "title": "HostLine",
+  "description": "One NDJSON line between engine/k7-supervisor and the app that runs it. The single source of that wire: engine/k7-supervisor/docs/hostProtocol.md. Every object is closed, so a field one side adds without this file fails packages/supervisor-host's schema test.",
+  "oneOf": [
+    { "$ref": "#/definitions/StateFrame" },
+    { "$ref": "#/definitions/NotifyFrame" },
+    { "$ref": "#/definitions/ResultFrame" },
+    { "$ref": "#/definitions/EngineFrame" },
+    { "$ref": "#/definitions/CommandLine" }
+  ],
+  "definitions": {
+    "StateFrame": {
+      "description": "Supervisor to app: the whole snapshot, sent only when its bytes changed. A list may be left out when empty; `downloads` is, whenever nothing is being fetched.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "owns",
+        "status",
+        "ownsEngine",
+        "userStopped",
+        "engineId",
+        "enginePort",
+        "registryUrl",
+        "lastHeartbeatOk",
+        "pluginCount",
+        "pluginsSig",
+        "audioMenuSig",
+        "editPluginsSig",
+        "sessionsSig",
+        "instanceCheck",
+        "paths"
+      ],
+      "properties": {
+        "t": { "type": "string", "const": "state" },
+        "owns": { "$ref": "#/definitions/Owns" },
+        "status": { "type": "string", "enum": ["stopped", "running", "error"] },
+        "error": { "type": "string", "description": "Present only when there is one." },
+        "safeMode": { "$ref": "#/definitions/SafeMode" },
+        "ownsEngine": { "type": "boolean" },
+        "userStopped": { "type": "boolean" },
+        "engineId": { "type": "string" },
+        "enginePort": { "type": "integer" },
+        "registryUrl": { "type": "string" },
+        "lastHeartbeatOk": { "type": "boolean" },
+        "pluginCount": {
+          "type": ["integer", "null"],
+          "description": "Null while the engine has not answered: scanning, never none."
+        },
+        "plugins": { "type": "array", "items": { "$ref": "#/definitions/Plugin" } },
+        "pluginsSig": { "type": "string" },
+        "audioDevices": { "type": "array", "items": { "$ref": "#/definitions/AudioDevice" } },
+        "audioPriority": { "type": "array", "items": { "type": "string" } },
+        "audioMenuSig": { "type": "string" },
+        "editPlugins": { "type": "array", "items": { "$ref": "#/definitions/EditPlugin" } },
+        "editPluginsSig": { "type": "string" },
+        "sessions": { "type": "array", "items": { "$ref": "#/definitions/Session" } },
+        "sessionsSig": { "type": "string" },
+        "instances": { "type": "array", "items": { "$ref": "#/definitions/Instance" } },
+        "instanceCheck": {
+          "oneOf": [{ "$ref": "#/definitions/InstanceCheck" }, { "type": "null" }],
+          "description": "Null unless a studio address is being checked or was refused."
+        },
+        "paths": { "$ref": "#/definitions/Paths" },
+        "downloads": { "type": "array", "items": { "$ref": "#/definitions/Download" } },
+        "instruments": { "type": "array", "items": { "$ref": "#/definitions/InstrumentRow" } },
+        "pairRequests": { "type": "array", "items": { "$ref": "#/definitions/PairRequest" } },
+        "pairedDevices": { "type": "array", "items": { "$ref": "#/definitions/PairedDevice" } }
+      }
+    },
+    "Owns": {
+      "description": "Always both true; kept because a host still reads it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "engineQueries"],
+      "properties": {
+        "engine": { "type": "boolean" },
+        "engineQueries": { "type": "boolean" }
+      }
+    },
+    "SafeMode": {
+      "description": "Present only while the engine runs without external plugins after quick crashes; `suspect` is empty until the engine named one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crashes", "suspect"],
+      "properties": {
+        "crashes": { "type": "integer" },
+        "suspect": { "type": "string" }
+      }
+    },
+    "Plugin": {
+      "description": "One INSTALLED plugin: the catalogue, not an instance.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "format", "manufacturer", "role"],
+      "properties": {
+        "name": { "type": "string" },
+        "format": { "type": "string" },
+        "manufacturer": { "type": "string" },
+        "role": { "type": "string" }
+      }
+    },
+    "AudioDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "deviceType", "current", "currentInput"],
+      "properties": {
+        "name": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "current": { "type": "boolean" },
+        "currentInput": {
+          "type": "boolean",
+          "description": "The device the engine takes its inputs from, which need not be `current`."
+        },
+        "inputs": {
+          "type": "integer",
+          "description": "The open device's channel count, on the row it belongs to; 0 elsewhere."
+        },
+        "outputs": { "type": "integer" }
+      }
+    },
+    "EditPlugin": {
+      "description": "One plugin instance in one of the engine's sessions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "id", "name", "hasNativePluginUI"],
+      "properties": {
+        "session": { "type": "string" },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "hasNativePluginUI": { "type": "boolean" }
+      }
+    },
+    "Session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "project", "loaded", "playing", "tracks", "listeners"],
+      "properties": {
+        "id": { "type": "string" },
+        "project": { "type": "string" },
+        "loaded": { "type": "boolean" },
+        "playing": { "type": "boolean" },
+        "tracks": { "type": "integer" },
+        "listeners": { "type": "integer" }
+      }
+    },
+    "Instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "removable"],
+      "properties": {
+        "url": { "type": "string" },
+        "removable": { "type": "boolean", "description": "False for a registry from `$STUDIO_REGISTRY_URL`." }
+      }
+    },
+    "InstanceCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "state"],
+      "properties": {
+        "url": { "type": "string" },
+        "state": { "type": "string", "enum": ["checking", "refused"] },
+        "message": { "type": "string" }
+      }
+    },
+    "Paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "mergedLog"],
+      "properties": {
+        "root": { "type": "string" },
+        "mergedLog": { "type": "string" }
+      }
+    },
+    "Download": {
+      "description": "One instrument being fetched for the engine: engine/k7-supervisor/docs/instruments.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "label", "received", "total", "phase"],
+      "properties": {
+        "name": { "type": "string" },
+        "label": { "type": "string" },
+        "received": { "type": "integer" },
+        "total": { "type": "integer" },
+        "phase": { "type": "string", "enum": ["queued", "downloading", "unpacking", "failed"] },
+        "error": { "type": "string" }
+      }
+    },
+    "InstrumentRow": {
+      "description": "One row of the Downloads tab: an instrument this machine can fetch, and where it stands.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "label", "bytes", "wanted", "installed"],
+      "properties": {
+        "name": { "type": "string" },
+        "label": { "type": "string" },
+        "bytes": { "type": "integer" },
+        "wanted": { "type": "boolean" },
+        "installed": { "type": "boolean" }
+      }
+    },
+    "PairRequest": {
+      "description": "A LAN device asking to pair; times are epoch ms.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "name", "ip", "code", "since"],
+      "properties": {
+        "requestId": { "type": "string" },
+        "name": { "type": "string" },
+        "ip": { "type": "string" },
+        "code": { "type": "string" },
+        "since": { "type": "integer" }
+      }
+    },
+    "PairedDevice": {
+      "description": "A LAN device the engine trusts until it is revoked; times are epoch ms.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deviceId", "name", "created", "lastSeen"],
+      "properties": {
+        "deviceId": { "type": "string" },
+        "name": { "type": "string" },
+        "created": { "type": "integer" },
+        "lastSeen": { "type": "integer" }
+      }
+    },
+    "NotifyFrame": {
+      "description": "Supervisor to app: `modal` wants an answer-less dialog, anything else a passive notification.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "kind", "title", "body"],
+      "properties": {
+        "t": { "type": "string", "const": "notify" },
+        "kind": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" }
+      }
+    },
+    "ResultFrame": {
+      "description": "Supervisor to app: the answer to command `id`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "id", "ok"],
+      "properties": {
+        "t": { "type": "string", "const": "result" },
+        "id": { "type": "integer" },
+        "ok": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "EngineFrame": {
+      "description": "Supervisor to app, on the phones only: start or stop the engine the app holds as a library. `stop` carries `action` alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "action"],
+      "properties": {
+        "t": { "type": "string", "const": "engine" },
+        "action": { "type": "string", "enum": ["start", "stop"] },
+        "id": { "type": "string" },
+        "token": { "type": "string" },
+        "port": { "type": "integer" },
+        "host": { "type": "string" },
+        "origins": { "type": "string" },
+        "safeMode": { "type": "integer", "description": "The quick crashes that put the engine in safe mode; 0 for a normal start." }
+      }
+    },
+    "CommandLine": {
+      "description": "App to supervisor: one command; `arg` is one string, whose parts are joined with U+001F.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "id", "cmd"],
+      "properties": {
+        "t": { "type": "string", "const": "cmd" },
+        "id": { "type": "integer" },
+        "cmd": { "type": "string" },
+        "arg": { "type": "string" }
+      }
+    }
+  }
+}

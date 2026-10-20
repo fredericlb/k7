@@ -32,6 +32,7 @@ import {
 } from "../stepGrid";
 import type { WebNote } from "../types";
 import type { GridCaret } from "./useGridCaret";
+import { useLatest } from "./useLatest";
 
 /** One row of the grid: a rack sound, or a key the notes use that the rack does not name. */
 export interface Row {
@@ -86,8 +87,7 @@ export function useStepPads({
     new Map(),
   );
   /** A pad key back to its step's beat, through a ref and STABLE — else the reconcile below would run on every render. */
-  const cellsRef = useRef(cells);
-  cellsRef.current = cells;
+  const cellsRef = useLatest(cells);
   const cellStartOfKey = useCallback(
     (key: string): number | undefined =>
       cellsRef.current[Number(key.split("@")[1])],

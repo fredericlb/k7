@@ -69,7 +69,7 @@ These are run with `--workspace <name>`:
 |---|---|---|
 | `k7-runtime` | `build:mac`, `build:win`, `build:android` | Engine build in the `macos-clang`, `windows-msvc` or `android-arm64` preset, through `engine/k7-runtime/scripts/build.mjs`. |
 | `k7-runtime` | `test`, `test:all` | Builds and runs the C++ `studio_*` test targets; `test:all` adds the slow Tracktion-linked ones. |
-| `k7-runtime` | `gen:builtin-params` | Regenerates `packages/song-schema/src/builtinParams.generated.ts` from a real engine, then formats it with Biome. |
+| `k7-runtime` | `gen:builtin-params` | Regenerates `packages/song-schema/src/builtinParams.generated.json` from a real engine, one plugin per line. |
 | `k7-runtime` | `gen:strudel-bundle`, `gen:surge-panel` | Regenerate committed generated files (the pattern-lane bundle the engine embeds; the Surge XT module's panel in `k7-core`). |
 | `k7-standalone` | `package` | Builds the main bundle, stages the backend bundle and the engine binaries, runs `electron-builder`. |
 | `k7-backend` | `start` | The backend without file watching. |

@@ -56,7 +56,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "../api";
 import {
   type Clipboard,
   copyEvents,
@@ -70,13 +69,12 @@ import {
   materialOf,
 } from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
-import type { MenuCtx } from "../contextMenu";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
-import type { HistoryMark } from "../historyMarks";
-import { useDocument } from "../hooks/useDocument";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
+import { useLatest } from "../hooks/useLatest";
 import { useVideoDrag } from "../hooks/useVideoDrag";
+import { isTyping } from "../hooks/useWindowKey";
 import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
@@ -85,6 +83,7 @@ import {
   pendingClips,
   pendingSplitAt,
 } from "../pendingEdits";
+import { usePaneProjectDoc } from "../queries/projectDoc";
 import {
   dropLaneOf,
   findRow,
@@ -104,6 +103,7 @@ import {
 } from "../rows";
 import type { EditFocus } from "../shellEquality";
 import { moveOffset, snapMode, snapTo } from "../snap";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
@@ -307,7 +307,6 @@ export const TimelineTab = memo(TimelineTabView);
 
 function TimelineTabView({
   active,
-  reloadKey,
   rolling,
   takeStartBeat,
   takeCountInBeats,
@@ -316,21 +315,12 @@ function TimelineTabView({
   videoTracks,
   fps,
   onVideoEdit,
-  setStatus,
   onEditTarget,
   onOpenClip,
   onEmptyClick,
   onCaret,
   onView,
-  onContextMenu,
-  onNewTrack,
-  onSeek,
-  onSetLoop,
-  onMoveEvent,
-  onToolLine,
   pendingEdits = NO_PENDING,
-  onResizeEvent,
-  onFadeEvent,
   feedMove,
   feedTimecode,
   feedEventsMove,
@@ -338,26 +328,20 @@ function TimelineTabView({
   trackControls,
   onTrackToggle,
   laneNodes,
-  mark,
   onNodeMenu,
-  onNewVideoTrack,
-  onReorder,
   videoArmed,
   videoRecording,
-  onVideoArm,
-  onVideoToggle,
   onDropFiles,
   dropUpload,
-  readOnly = false,
+  pictureLanes = false,
   lanesLocked = false,
   ref,
 }: {
   active: boolean;
   /** A bottom panel is open: the lanes draw folded and Expand is dead, the user's choice kept for when it closes (docs/shell.md). */
   lanesLocked?: boolean;
-  reloadKey: number;
-  /** Nothing here can be written — a shared snapshot; what it takes away is the EDITING GESTURES and only those (docs/shared.md). */
-  readOnly?: boolean;
+  /** The project declares a frame, so the new-lane button offers a PICTURE lane too. */
+  pictureLanes?: boolean;
   /** Is a take rolling, and from which beat — both PROPS and not subscriptions, since they change once per take. */
   rolling: boolean;
   takeStartBeat: number;
@@ -377,7 +361,6 @@ function TimelineTabView({
   onDropFiles?: (d: TimelineDropEvent) => void;
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
-  setStatus: (s: string) => void;
   onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
@@ -406,47 +389,9 @@ function TimelineTabView({
     loop: boolean;
     expanded: boolean;
   }) => void;
-  // Right-click: report what is under the cursor and where, so the shell can open its menu (see contextMenu.ts).
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /** Make a lane — the corner button over the name column; absent ⇒ no button, which is what a frozen song gets. */
-  onNewTrack?: () => void;
-  /** …and a PICTURE lane, which turns that button into a menu; absent ⇒ the project declares no viewport and there is nothing to choose between. */
-  onNewVideoTrack?: () => void;
-  /** A header was dragged onto another's row: `target` is the lane whose place it should have (docs/timeline.md). */
-  onReorder?: (family: LaneFamily, lane: string, target: string) => void;
   /** The PICTURE lane armed to record its camera, and whether one is rolling — the browser's, not the engine's (hooks/useVideoRecording.ts). */
   videoArmed?: string | null;
   videoRecording?: boolean;
-  /** Toggle that arm; absent ⇒ no button, which is what a frozen song gets. */
-  onVideoArm?: (id: string) => void;
-  /** A picture lane's mute or solo — the audio lane's two words, over picture (docs/picture.md). */
-  onVideoToggle?: (id: string, control: "mute" | "solo") => void;
-  // Move the transport, in seconds — the same engine seek the minimap's click uses.
-  onSeek?: (seconds: number) => void;
-  // Set/clear the transport loop region, in seconds (Shift+L → toggleLoop below).
-  onSetLoop?: (start: number, end: number, enabled: boolean) => void;
-  /** An edge handle was dragged: re-time the event at `fromTc` to span newStart..newEnd (a move is `event move`, whose 4th argument changes lane). */
-  onResizeEvent?: (
-    trackId: string,
-    fromTc: string,
-    newStartTc: string,
-    newEndTc: string,
-  ) => void;
-  /** A fade's corner handle was dragged: `lenTc` is a LENGTH, not a position (see `event fadein`). */
-  onFadeEvent?: (
-    trackId: string,
-    fromTc: string,
-    which: "fadeIn" | "fadeOut",
-    lenTc: string,
-  ) => void;
-  onMoveEvent?: (
-    trackId: string,
-    fromTc: string,
-    toTc: string,
-    toTrackId?: string,
-  ) => void;
-  /** A TOOL's press as the command LINE it produced, alone among this pane's writes; absent ⇒ no tools (docs/timeline.md). */
-  onToolLine?: (line: string) => void;
   /** What one-shot commands are doing and the document not yet: drawn as done already (pendingEdits.ts). */
   pendingEdits?: readonly PendingEdit[];
   // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
@@ -469,8 +414,6 @@ function TimelineTabView({
     id: string,
     control: "mute" | "solo" | "arm" | "highlight",
   ) => void;
-  /** What a hovered History row touched — its lanes tinted, its clips ringed (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** What the graph knows about each lane's NODE, by lane id — the same maps the chains pane draws from (packages/song/docs/alternatives.md). */
   laneNodes?: {
     alternatives?: Record<
@@ -497,10 +440,36 @@ function TimelineTabView({
   ) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
   // The ONE live value the body itself needs; the rest is drawn by Playhead and LaneMeter, which subscribe for themselves (docs/timeline.md).
   const armedIds = useEngineState((s) => s.armed, arrayEq);
-  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
-  const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
+  const reloadKey = useReloadKey();
+  // A shared snapshot: what it takes away is the EDITING GESTURES and only those (docs/shared.md).
+  const readOnly = useShell((s) => s.frozen);
+  const {
+    setStatus,
+    openContextMenu: onContextMenu,
+    seek: onSeek,
+    setLoop: onSetLoop,
+  } = useVerbs();
+  // The host's gestures; one it does not offer is a handle this pane does not draw (state/paneCommands.ts).
+  const cmds = useShell((s) => s.commands);
+  const onMoveEvent = cmds.moveEvent;
+  const onResizeEvent = cmds.resizeEvent;
+  const onFadeEvent = cmds.fadeEvent;
+  // No tool on a host that offers none: a second device draws the pointer alone.
+  const onToolLine = cmds.toolLine;
+  // The structural edits are absent on a frozen song, the picture's half too on a song with no frame.
+  const onNewTrack = readOnly ? undefined : cmds.newTrack;
+  const onNewVideoTrack =
+    readOnly || !pictureLanes ? undefined : cmds.newVideoTrack;
+  const onVideoArm = readOnly ? undefined : cmds.videoArm;
+  const onVideoToggle = readOnly ? undefined : cmds.videoToggle;
+  const onReorder = readOnly ? undefined : cmds.reorder;
+  // The shared document at this reload key, re-asked on a backoff while the service is not answering (queries/projectDoc.ts).
+  const { doc: proj, failure } = usePaneProjectDoc(reloadKey);
+  const error = failure ? failure.message : null;
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, on by default, not a saved preference.
@@ -557,20 +526,17 @@ function TimelineTabView({
   }, [engineLoop, proj]);
   // The clip being moved. A ref shadows it so the key handler reads the live value without re-binding on each nudge.
   const [move, setMove] = useState<Move | null>(null);
-  const moveRef = useRef<Move | null>(move);
-  moveRef.current = move;
+  const moveRef = useLatest<Move | null>(move);
   /** Which mode the keyboard is in — DERIVED here beside the two states it reads, so nothing can come to disagree (timelineMode.ts). */
   const mode = timelineMode(move, sel);
-  const modeRef = useRef<TimelineMode>(mode);
-  modeRef.current = mode;
+  const modeRef = useLatest<TimelineMode>(mode);
   /** Where an OS file drag is hovering — the lane it would land on and the beat it would land at, drawn until it leaves. */
   const [dropAt, setDropAt] = useState<{ lane: string; beat: number } | null>(
     null,
   );
   /** …and the TOOL, which is CHOSEN rather than derived: what a press means. Session only, never written (timelineTools.ts). */
   const [tool, setTool] = useState<Tool>("pointer");
-  const toolRef = useRef<Tool>(tool);
-  toolRef.current = tool;
+  const toolRef = useLatest<Tool>(tool);
   // The tool's icon as the pointer — undefined for the arrow, whose picture the system already draws (modeIcons.tsx).
   const toolCursor = tool === "pointer" ? undefined : cursorOf(tool);
   // Read by the pointer-drag callbacks, which are defined above both — a drop uses the same commit enter does.
@@ -649,8 +615,7 @@ function TimelineTabView({
   }, [rows, view]);
 
   // The caret walks every drawn row, but holds a BEAT only on rows that can carry a clip (see docs/timeline.md).
-  const rowsRef = useRef(visRows);
-  rowsRef.current = visRows;
+  const rowsRef = useLatest(visRows);
 
   // The beat range on screen, and the only bounds the caret and selection know: the song, or the zoomed rectangle.
   const beatLo = view ? view.beatStart : 0;
@@ -967,8 +932,7 @@ function TimelineTabView({
   );
 
   // A ref so the key handler can branch on "is a selection live" without rebinding the listener on every head move.
-  const selRef = useRef<Selection | null>(sel);
-  selRef.current = sel;
+  const selRef = useLatest<Selection | null>(sel);
 
   const moveHead = useCallback(
     (dBeat: number, dRow: number) =>
@@ -1183,10 +1147,8 @@ function TimelineTabView({
   });
 
   // A live prop read from pointer callbacks that must not re-bind on every frame — as `commitMoveRef` does.
-  const feedMoveRef = useRef(feedMove);
-  feedMoveRef.current = feedMove;
-  const feedTimecodeRef = useRef(feedTimecode);
-  feedTimecodeRef.current = feedTimecode;
+  const feedMoveRef = useLatest(feedMove);
+  const feedTimecodeRef = useLatest(feedTimecode);
 
   // The move as `event move`'s four values, in ONE place, so a live drag and its release cannot disagree.
   const moveArgs = useCallback((m: Move) => {
@@ -1370,14 +1332,7 @@ function TimelineTabView({
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (
-        el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable)
-      )
-        return;
+      if (isTyping(e)) return;
       // One block per MODE, and the mode is derived from the state this used to read directly (timelineMode.ts).
       if (modeRef.current === "move") {
         // Move swallows keys HARD, the ones it answers and every other: a nudge must not also scroll the pane.

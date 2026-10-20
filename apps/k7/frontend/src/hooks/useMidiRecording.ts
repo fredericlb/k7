@@ -13,6 +13,7 @@ import {
   type MidiInputInfo,
   MidiRecorder,
 } from "../webmidi";
+import { useLatest } from "./useLatest";
 import type { MidiTakeTarget } from "./useTakeRecording";
 
 /** A MIDI pass as `event take midi` files it: song beats throughout. */
@@ -88,19 +89,14 @@ export function useMidiRecording(opts: {
     onLanded,
     onEmptyTake,
   } = opts;
-  const onEmptyTakeRef = useRef(onEmptyTake);
-  onEmptyTakeRef.current = onEmptyTake;
+  const onEmptyTakeRef = useLatest(onEmptyTake);
   // Where the take rolling now starts, in song beats — after its count-in, which rolls before it.
   const fromRef = useRef(0);
   const [liveTake, setLiveTake] = useState<LiveMidiTake | null>(null);
-  const onLandedRef = useRef(onLanded);
-  onLandedRef.current = onLanded;
-  const onLiveMidiRef = useRef(onLiveMidi);
-  onLiveMidiRef.current = onLiveMidi;
-  const armedRef = useRef(midiArmed);
-  armedRef.current = midiArmed;
-  const onTakePassRef = useRef(onTakePass);
-  onTakePassRef.current = onTakePass;
+  const onLandedRef = useLatest(onLanded);
+  const onLiveMidiRef = useLatest(onLiveMidi);
+  const armedRef = useLatest(midiArmed);
+  const onTakePassRef = useLatest(onTakePass);
   // The take this pass belongs to, and where it started — fixed at the start, as the sequence target is.
   const takeRef = useRef<{ target: MidiTakeTarget; start: number } | null>(
     null,
@@ -116,8 +112,7 @@ export function useMidiRecording(opts: {
     playhead: 0,
     perf: 0,
   });
-  const tempoRef = useRef(tempo);
-  tempoRef.current = tempo;
+  const tempoRef = useLatest(tempo);
 
   // What the midi-in nodes' dropdowns offer, kept here because the ACCESS behind it lives in the recorder.
   const [midiInputs, setMidiInputs] = useState<MidiInputInfo[]>([]);
@@ -193,8 +188,7 @@ export function useMidiRecording(opts: {
   useEffect(() => {
     midiRecRef.current?.selectDevice(midiDevice);
   }, [midiDevice]);
-  const onNoMidiInRef = useRef(onNoMidiIn);
-  onNoMidiInRef.current = onNoMidiIn;
+  const onNoMidiInRef = useLatest(onNoMidiIn);
 
   // Start on midi-record+play with a MIDI-armed track; on stop, commit the captured notes.
   const midiRecording = midiRecordEnabled && playing && !!midiArmed;

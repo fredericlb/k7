@@ -46,6 +46,7 @@ import {
   setCommandPref,
   setMenuEntities,
 } from "../commandPrefs";
+import { useWindowKey } from "../hooks/useWindowKey";
 import { useLocale } from "../i18n";
 import {
   effectiveKeys,
@@ -153,9 +154,9 @@ export function CommandsSettings({
   // The row whose shortcut cell is waiting for a key, by canonical. One at a time, obviously.
   const [capturing, setCapturing] = useState<string | null>(null);
   /** The capture itself, on the window and in the capture phase; Escape renounces, and Backspace takes the shortcut away as KEY_NONE. */
-  useEffect(() => {
-    if (!capturing) return;
-    const onKey = (e: KeyboardEvent) => {
+  useWindowKey(
+    (e) => {
+      if (!capturing) return;
       e.preventDefault();
       e.stopPropagation();
       if (e.key === "Escape") {
@@ -177,22 +178,19 @@ export function CommandsSettings({
         key: token === keyForCommand(capturing) ? undefined : token,
       });
       setCapturing(null);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [capturing, patch]);
+    },
+    { enabled: !!capturing, capture: true },
+  );
 
   // Ctrl+S means the button, as in the module builder; not while capturing, since that effect owns the keyboard.
-  useEffect(() => {
-    if (capturing) return;
-    const onKey = (e: KeyboardEvent) => {
+  useWindowKey(
+    (e) => {
       if (!(e.key === "s" && (e.ctrlKey || e.metaKey))) return;
       e.preventDefault();
       if (dirty) onSave(draft);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [capturing, dirty, draft, onSave]);
+    },
+    { enabled: !capturing },
+  );
 
   // Leaving with edits nobody asked to keep is the one thing a Save button makes possible, so it is the one thing this stops.
   const leave = async () => {

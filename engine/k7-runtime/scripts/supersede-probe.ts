@@ -7,133 +7,43 @@
 // the @mix blend puts back — 0 is all of it, 0.5 is 3 dB under, 1 is silence. Count the
 // "superseded" lines in the engine's log to see how many queued jobs were skipped.
 
-import WebSocket from "ws";
+import { pluginDoc } from "@studio/engine-protocol/build";
+import { connect, fmtDb as fmt, heldNoteDoc, meter, TIDES, wait } from "./probe.ts";
 
-const url =
-  process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
 const SESSION = "m9:supersede-probe";
 const BEATS = 1024;
 
-const doc = (mix: number | null, name = "supersede-probe") => ({
-  name,
-  tempo: 120,
-  sampleRate: 48000,
-  timeSigNumerator: 4,
-  timeSigDenominator: 4,
-  masterVolume: 0,
-  masterPlugins: [],
-  recordDir: "",
-  settings: { metronome: false, countIn: 0 },
-  groups: [],
-  markers: [],
-  tracks: [
-    {
-      id: "lane",
-      name: "lane",
-      role: "regular",
-      contentType: "midi",
-      group: "",
-      generated: false,
-      color: "",
-      mute: false,
-      solo: false,
-      disabled: false,
-      inputChannels: [],
-      outputChannels: [],
-      monitor: "auto",
-      inputGain: 0,
-      clips: [
-        {
-          id: "held",
-          type: "midi",
-          name: "held",
-          source: "",
-          start: 0,
-          length: BEATS,
-          offset: 0,
-          fadeIn: 0,
-          fadeOut: 0,
-          loopStart: 0,
-          loopEnd: 0,
-          notes: [{ time: 0, duration: BEATS, key: 57, vel: 0.9, channel: 1, rel: 0 }],
-        },
-      ],
-      plugins: [
-        {
-          id: "lane:tides",
-          type: "studio_tidal_modulator",
-          name: "mu-tides",
-          path: "",
-          presetSave: "",
-          role: "instrument",
-          enabled: true,
-          params: {},
-        },
-        {
-          id: "lane:vol",
-          type: "volume",
-          name: "Volume & Pan",
-          path: "",
-          presetSave: "",
-          role: "audioFX",
-          enabled: true,
-          params: { Volume: 0, ...(mix === null ? {} : { "@mix": mix }) },
-        },
-      ],
-      sends: [],
-      automation: [],
-    },
-  ],
-});
+const doc = (mix: number | null, name = "supersede-probe") =>
+  heldNoteDoc(
+    name,
+    [
+      TIDES,
+      pluginDoc({
+        id: "lane:vol",
+        type: "volume",
+        name: "Volume & Pan",
+        params: { Volume: 0, ...(mix === null ? {} : { "@mix": mix }) },
+      }),
+    ],
+    BEATS,
+  );
 
-const ws = new WebSocket(url);
-ws.binaryType = "arraybuffer";
-const send = (m: Record<string, unknown>) =>
-  ws.send(JSON.stringify({ ...m, session: SESSION }));
+const { ws, send, opened } = connect(SESSION);
+const { measure: measureLevel } = meter(ws);
 
-let sum = 0;
-let count = 0;
 let playing: boolean | null = null;
 const applied: string[] = [];
-const rmsDb = () =>
-  count ? 20 * Math.log10(Math.sqrt(sum / count) || 1e-9) : -Infinity;
 
 ws.on("message", (data: ArrayBuffer | Buffer, isBinary: boolean) => {
-  if (!isBinary) {
-    const m = JSON.parse(String(data));
-    if (m.type === "state" && typeof m.playing === "boolean") playing = m.playing;
-    if (m.type === "applied") applied.push(String(m.changes?.length ?? 0));
-    return;
-  }
-  const buf =
-    data instanceof ArrayBuffer
-      ? data
-      : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-  const dv = new DataView(buf);
-  if (dv.getUint32(0, true) !== 0x4c535452) return;
-  const channels = dv.getUint8(5);
-  const frames = dv.getUint32(12, true);
-  const all = new Float32Array(buf, 32, frames * channels);
-  for (let i = 0; i < all.length; i++) sum += all[i] * all[i];
-  count += all.length;
+  if (isBinary) return;
+  const m = JSON.parse(String(data));
+  if (m.type === "state" && typeof m.playing === "boolean") playing = m.playing;
+  if (m.type === "applied") applied.push(String(m.changes?.length ?? 0));
 });
 
-ws.on("error", (e: Error) => {
-  console.error("socket:", e.message);
-  process.exit(1);
-});
+const measure = (settle = 1500) => measureLevel(settle);
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const measure = async (settle = 1500) => {
-  await wait(settle);
-  sum = 0;
-  count = 0;
-  await wait(1000);
-  return rmsDb();
-};
-const fmt = (db: number) => `${db.toFixed(1)} dBFS`;
-
-ws.on("open", async () => {
+opened.then(async () => {
   send({ type: "project", doc: doc(null) });
   send({ type: "broadcast", on: true });
   await wait(2500);

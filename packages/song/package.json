@@ -66,6 +66,7 @@
     "./videoOutputs": "./src/videoOutputs.ts",
     "./rawDoc": "./src/rawDoc.ts",
     "./libraryFiles": "./src/libraryFiles.ts",
+    "./listFiles": "./src/listFiles.ts",
     "./chainProject": "./src/chainProject.ts",
     "./chainItemEdit": "./src/chainItemEdit.ts",
     "./chainStack": "./src/chainStack.ts",

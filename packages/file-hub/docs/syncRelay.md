@@ -25,11 +25,41 @@ so where an account syncs is the ACCOUNT's, never the process's: `<account folde
 account's service alone. The local user's workspaces would otherwise land in the signed-in
 account's rooms.
 
-The token comes from the origin's `GET /api/sync/devices/pair`, which a desktop opens in the system
-browser: it signs the browser in when it must, mints a device token named after the machine, and
-redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API token's pairing).
-The desktop's side is `apps/k7-standalone/docs/sync.md`. A paired account's service starts with the
-hub and is never stopped for idleness, and pairing restarts it so it dials the new relay.
+The token comes from the origin's `GET /api/sync/devices/pair`, which a desktop or a phone opens in
+the system browser: it signs the browser in when it must, mints a device token named after the
+machine, and redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API
+token's pairing). A paired account's service starts with the hub and is never stopped for idleness,
+and pairing restarts it so it dials the new relay.
+
+## Pairing through the browser is the machine's backend's
+
+The desktop, the Android app and the iPhone app pair the same way, and the way is written once, in
+the backend they all run (`../pairRoutes.ts`, `../pairingStore.ts`). What stays in each app is what
+only it can do: open the system browser (a Custom Tab, an `ASWebAuthenticationSession`, the
+desktop's default browser), ask the person first, and say how it ended (`apps/k7-standalone/docs/sync.md`,
+`engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`).
+
+- **The browser comes back to the backend's own port**, `SYNC_PAIR_RETURN_PATH` on `127.0.0.1`. No
+  app opens a listener of its own: the backend is already a loopback HTTP server, and the phone's port
+  is fixed (`apps/k7/backend/docs/standalone.md`), so a return still lands after the app was killed
+  behind the browser and started again.
+- **The return carries no session, and the state is its gate.** The system browser holds no cookie of
+  this backend. A 128-bit state, minted when the app starts the pairing, names the pairing and through
+  it the account; a return without a waiting pairing of that state is answered 404.
+- **The browser must be signed in to the origin as the same account.** The origin says whose token it
+  minted (`identity`); another email ends the pairing as `otherAccount` and stores nothing, since that
+  account's workspaces would otherwise sync into this one.
+- **The relay is reached where the person named the server** (`wss://<server>/api/sync`), not at the
+  host the origin reported: a proxy in front of it may show the origin another host, and a pairing
+  stored with that host would be redone at every sign-in.
+- **A pairing under way is on disk**, `<data root>/.sync-pairing.json`, one per account, replaced by
+  the next one started. Android may kill an app whose activity is behind the browser; the backend
+  dies with it, and finds the pairing again at its next start. An ending nobody was there to see is
+  kept a day, so the app says it at its next start and, once paired, hands the token to the phone's
+  supervisor. The token itself is in `.sync-remote.json` only.
+- **The app waits by long poll** (`GET /api/sync/remote/pair/<state>?wait=`), on the session it already
+  has, and drops the pairing once it has said the ending (`DELETE`), which is also the desktop's Cancel.
+  Ten minutes without a return is `expired`.
 
 **An account may be paired with several servers**, one of them the MAIN one: `.sync-remote.json` is
 a list (`{ servers: [...] }`; the single pairing written before secondaries reads as the main one).

@@ -14,6 +14,7 @@ import { engineSession } from "../engineSession";
 import { beginActivity, tally } from "../freezeWatchdog";
 import { m } from "../paraglide/messages.js";
 import { throughPanicRule } from "../transportPanic";
+import { useLatest } from "./useLatest";
 
 export interface EngineLink {
   engineRef: React.RefObject<EngineClient | undefined>;
@@ -55,8 +56,7 @@ export function useEngineLink(
   const engineBusyRef = useRef(false);
   // The link's state and the status sink as refs, so `transport` can refuse aloud without being re-created.
   const connectedRef = useRef(false);
-  const onStatusRef = useRef(onStatus);
-  onStatusRef.current = onStatus;
+  const onStatusRef = useLatest(onStatus);
   const [connected, setConnected] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [engineBusy, setEngineBusy] = useState(false);

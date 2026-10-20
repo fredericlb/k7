@@ -11,8 +11,9 @@ import { ArrowDownToLine, ArrowUpFromLine } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineClient, EngineInputDevice } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { useLatest } from "../hooks/useLatest";
 import { pitchName } from "../noteNames";
 import type { IoPort } from "../types";
 import { pollWhileVisible } from "../visiblePoll";
@@ -237,8 +238,7 @@ export function IoPanel({
         : inputs.map((p) => p.channels),
     [devices, inputs],
   );
-  const setsRef = useRef(sets);
-  setsRef.current = sets;
+  const setsRef = useLatest(sets);
 
   useEffect(() => {
     if (!engine || !ports) return;

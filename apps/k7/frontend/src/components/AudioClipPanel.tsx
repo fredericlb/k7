@@ -30,10 +30,12 @@ import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { clamp } from "../clamp";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { warpLine } from "../clipWarp";
-import type { MenuCtx } from "../contextMenu";
+import { useLatest } from "../hooks/useLatest";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
+import { isTyping, useWindowKey } from "../hooks/useWindowKey";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
+import { useReloadKey, useVerbs } from "../state/shellStore";
 import { barBeat, takeCounter } from "../takeCounter";
 import { pieceEdgeLines } from "../takes";
 import type { WebWaveform } from "../types";
@@ -84,17 +86,11 @@ export function AudioClipPanel({
   eventWindow: eventWindowProp = null,
   loops = 1,
   gainDb = 0,
-  onSeek,
-  command,
-  quietCommand,
-  onContextMenu,
-  reloadKey = 0,
   onStop,
   onClose,
   onDiscard,
   viewRef,
   onViewChange,
-  setStatus,
   takes,
 }: {
   /** The clip on screen — null while a take is rolling, since the file does not exist yet. */
@@ -123,16 +119,6 @@ export function AudioClipPanel({
   loops?: number;
   /** The event's own trim in dB, as its placement states it — the header's slider edits it. */
   gainDb?: number;
-  /** Seek the transport, in SONG seconds — what a click on that ruler does. */
-  onSeek?: (seconds: number) => void;
-  /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
-  command: (line: string) => void | Promise<void>;
-  /** …and the same, WITHOUT the shell-wide reload, for an edit that changes nothing outside this clip; absent ⇒ everything goes the loud way. */
-  quietCommand?: (line: string) => void | Promise<void>;
-  /** Bumped by the shell after a command it reloaded on — what re-reads the picture when the edit came from OUTSIDE the panel. */
-  reloadKey?: number;
-  /** Open the shell's right-click menu — absent ⇒ the browser's own; the shell's, so an entry here is the same kind of thing as one on a clip. */
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** Stop the take. Absent when there is no take to stop — a clip opened from the timeline. */
   onStop?: () => void;
   onClose: () => void;
@@ -142,11 +128,19 @@ export function AudioClipPanel({
   viewRef?: RefObject<AudioClipHandle | null>;
   /** …and the same fact going up, for the key conditions and the footer's badge. */
   onViewChange?: (v: WaveMode | null) => void;
-  /** Where this panel says what a press would do — a mode you cannot see is one you edit in by accident. */
-  setStatus?: (s: string) => void;
   /** The takes mode's event and shell half; absent, the mode is not offered (song docs/takes.md). */
   takes?: PanelTakes;
 }) {
+  // Bumped by the shell after a command it reloaded on — what re-reads the picture when the edit came from OUTSIDE the panel.
+  const reloadKey = useReloadKey();
+  // Every edit goes through the shell, journalled; an edit confined to this clip goes the quiet way, with no shell-wide reload.
+  const {
+    seek: onSeek,
+    runCommand: command,
+    quietCommand,
+    openContextMenu: onContextMenu,
+    setStatus,
+  } = useVerbs();
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
   // undefined asks for whatever threshold the file was last built with; a number re-detects AND remembers it in the sidecar.
@@ -221,23 +215,16 @@ export function AudioClipPanel({
     return () => ro.disconnect();
   }, []);
   // Esc stops the take, captured so it reads as 'leave the take' wherever the pointer went, and only while one is ROLLING.
-  useEffect(() => {
-    if (!rolling) return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      const typing =
-        el?.tagName === "INPUT" ||
-        el?.tagName === "TEXTAREA" ||
-        el?.isContentEditable === true;
-      if (e.key === "Escape" && !typing) {
+  useWindowKey(
+    (e) => {
+      if (e.key === "Escape" && !isTyping(e)) {
         e.preventDefault();
         e.stopPropagation();
         onStop?.();
       }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onStop, rolling]);
+    },
+    { enabled: rolling, capture: true },
+  );
   // `arrayEq`: `armed` is a new array every frame, and without it the panel re-rendered at frame rate.
   const armed = useEngineState((s) => s.armed, arrayEq);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
@@ -371,8 +358,7 @@ export function AudioClipPanel({
   );
 
   // What is shown RIGHT NOW, for the pinch to measure from: the gesture outlives any render, so its baseline cannot live in a closure.
-  const shownRef = useRef(win.shown);
-  shownRef.current = win.shown;
+  const shownRef = useLatest(win.shown);
   // …and where the window actually SITS, in bars into the reach — the CLAMPED start, not `asked`, and a ref for the same reason.
   const atRef = useRef({ start: 0, bars: 1 });
   atRef.current = {

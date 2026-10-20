@@ -34,8 +34,8 @@ The repository's `biome.json` adds:
 - `correctness/noUndeclaredVariables` as an error, with `Terminal` and `FitAddon` declared as globals
   (used by the console page).
 
-Run `npm run lint:fix` to apply safe fixes and formatting. Generated files are formatted on
-generation: `gen:builtin-params` runs `biome format --write` on its output.
+Run `npm run lint:fix` to apply safe fixes and formatting. `gen:builtin-params` writes JSON, one
+plugin per line, which Biome does not see.
 
 ## `lint:bytes`: no NUL byte in a tracked source file
 
@@ -85,7 +85,7 @@ the start of its own comment.
 - test and bench files are entry points through the Vitest plugin;
 - per-workspace entries cover scripts and generated files knip cannot reach by imports (root
   `scripts/**/*.mjs`, `engine/k7-runtime/scripts`, `packages/song/scripts`,
-  `packages/song-schema/src/builtinParams.generated.ts`, `packages/dsp/modules/**/jsdsp.ts` and others);
+  `packages/dsp/modules/**/jsdsp.ts` and others);
 - binaries used from scripts (`cmake`, `ctest`, `ffmpeg`, `tilt`, `where.exe`, `osascript`) and a few
   tool dependencies (`tsx`, `concurrently`, Vite plugins, `esbuild`, `yaml`) are ignored.
 

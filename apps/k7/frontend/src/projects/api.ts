@@ -5,6 +5,7 @@
 // Every call to it names its `AccountFiles` (that service and its ticket): this screen opens no project,
 // so `fileApi`'s module-level transport is unconfigured here and would throw. See ../../docs/projects.md.
 
+import { failed, readJson } from "@studio/http-client/call";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
   type AccountLibrariesReply,
@@ -46,21 +47,6 @@ const PL8_URL = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 /** …and on another server, the desktop's configured one; none names this origin. */
 export const pl8Url = (server?: string | null): string =>
   server ? serviceUrl(server, "pl8") : PL8_URL;
-
-/** The error the far side carried, or a status code when it carried none — its `status` rides along, a 202 and a 404 being answers. */
-async function failed(res: Response, what: string): Promise<Error> {
-  const said = (await res.json().catch(() => ({}))) as { error?: string };
-  const e: Error & { status?: number } = new Error(
-    said.error ?? `${what} ${res.status}`,
-  );
-  e.status = res.status;
-  return e;
-}
-
-export async function json<T>(res: Response, what: string): Promise<T> {
-  if (!res.ok) throw await failed(res, what);
-  return (await res.json()) as T;
-}
 
 // ── pl8: what is left of it here ─────────────────────────────────────────────
 
@@ -113,7 +99,7 @@ export function externalHref(row: SurfacedProject, surface: string): string {
 // ── pl8: the shares ─────────────────────────────────────────────────────────────
 
 const sget = async <T>(path: string, what: string): Promise<T> =>
-  json(
+  readJson(
     await fetch(`${PL8_URL}/api/shares${path}`, { credentials: "include" }),
     what,
   );
@@ -167,6 +153,32 @@ export interface AccountFiles {
   admin: boolean;
 }
 
+/** One call to the account's file service: its headers, the workspace a row names, and a body when there is one. */
+async function call<T>(
+  m: AccountFiles,
+  path: string,
+  what: string,
+  opts: {
+    method?: string;
+    workspace?: string;
+    json?: unknown;
+    body?: BodyInit;
+    type?: string;
+  } = {},
+): Promise<T> {
+  const headers = filesHeaders(m);
+  if (opts.workspace) headers[WORKSPACE_HEADER] = opts.workspace;
+  let body = opts.body;
+  if (opts.json !== undefined) {
+    headers["content-type"] = "application/json";
+    body = JSON.stringify(opts.json);
+  } else if (opts.type) headers["content-type"] = opts.type;
+  return readJson<T>(
+    await fetch(`${m.fileBase}${path}`, { method: opts.method, headers, body }),
+    what,
+  );
+}
+
 /** The file-service calls this page makes, each carrying its file service explicitly: a row touches a different workspace every time. */
 export const accountFiles = {
   /**
@@ -176,26 +188,17 @@ export const accountFiles = {
    * transport is unconfigured and `cfg()` would throw "no project opened yet" (../../docs/projects.md).
    */
   libraries: async (m: AccountFiles): Promise<AccountLibrariesReply> =>
-    json<AccountLibrariesReply>(
-      await fetch(`${m.fileBase}/account/libraries`, {
-        headers: filesHeaders(m),
-      }),
-      "libraries",
-    ),
+    call<AccountLibrariesReply>(m, `/account/libraries`, "libraries"),
 
   /** SET the whole list — the far side gives every new library its folder, and keeps the folders of those it lost. */
   setLibraries: async (
     m: AccountFiles,
     libraries: { name: string }[],
   ): Promise<AccountLibrariesReply> =>
-    json<AccountLibrariesReply>(
-      await fetch(`${m.fileBase}/account/libraries`, {
-        method: "PUT",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ libraries }),
-      }),
-      "libraries",
-    ),
+    call<AccountLibrariesReply>(m, `/account/libraries`, "libraries", {
+      method: "PUT",
+      json: { libraries },
+    }),
 
   /** Freeze a library's draft as its next version — the hub refuses anyone but an admin (docs/library-versions-plan.md). */
   publishLibrary: async (
@@ -203,26 +206,16 @@ export const accountFiles = {
     name: string,
     body: PublishLibraryBody,
   ): Promise<AccountLibrariesReply> =>
-    json<AccountLibrariesReply>(
-      await fetch(
-        `${m.fileBase}/account/libraries/${encodeURIComponent(name)}/publish`,
-        {
-          method: "POST",
-          headers: { ...filesHeaders(m), "content-type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      ),
+    call<AccountLibrariesReply>(
+      m,
+      `/account/libraries/${encodeURIComponent(name)}/publish`,
       "libraries",
+      { method: "POST", json: body },
     ),
 
   /** Which COLD chains of the library this machine separates and makes instrumentals with, and the ones it could — machine settings, no project open. */
   coldChains: async (m: AccountFiles): Promise<ColdChainsReply> =>
-    json(
-      await fetch(`${m.fileBase}/account/cold-chains`, {
-        headers: filesHeaders(m),
-      }),
-      "cold-chains",
-    ),
+    call(m, `/account/cold-chains`, "cold-chains"),
 
   /** Choose one — `""` clears it. The far side refuses a chain that is not cold, or writes no instrumental when that is asked. */
   setColdChain: async (
@@ -230,27 +223,21 @@ export const accountFiles = {
     which: "stems" | "instrumental",
     ref: string,
   ): Promise<ColdChainsReply> =>
-    json(
-      await fetch(`${m.fileBase}/account/cold-chains/${which}`, {
-        method: "PUT",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ ref }),
-      }),
-      "cold-chains",
-    ),
+    call(m, `/account/cold-chains/${which}`, "cold-chains", {
+      method: "PUT",
+      json: { ref },
+    }),
 
   /** Download the models a cold chain needs and this machine has not got — one job each; the URLs are the chain's modules', never sent from here. */
   downloadChainModels: async (
     m: AccountFiles,
     ref: string,
   ): Promise<ModelDownloadJob[]> => {
-    const { jobs } = await json<{ jobs: ModelDownloadJob[] }>(
-      await fetch(`${m.fileBase}/account/cold-chains/download`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ ref }),
-      }),
+    const { jobs } = await call<{ jobs: ModelDownloadJob[] }>(
+      m,
+      `/account/cold-chains/download`,
       "cold-chains/download",
+      { method: "POST", json: { ref } },
     );
     return jobs;
   },
@@ -260,19 +247,13 @@ export const accountFiles = {
     m: AccountFiles,
     id: string,
   ): Promise<ModelDownloadJob> =>
-    json(
-      await fetch(`${m.fileBase}/account/models/${encodeURIComponent(id)}`, {
-        headers: filesHeaders(m),
-      }),
-      "models",
-    ),
+    call(m, `/account/models/${encodeURIComponent(id)}`, "models"),
 
   /** Every workspace of the account, with the projects in it — the file service answers, they being folders on the server. */
   workspaces: async (m: AccountFiles): Promise<AccountWorkspace[]> => {
-    const { workspaces } = await json<AccountWorkspaceList>(
-      await fetch(`${m.fileBase}/workspaces/projects`, {
-        headers: filesHeaders(m),
-      }),
+    const { workspaces } = await call<AccountWorkspaceList>(
+      m,
+      `/workspaces/projects`,
       "workspaces",
     );
     return workspaces;
@@ -280,12 +261,7 @@ export const accountFiles = {
 
   /** On a machine paired with a remote server, where each workspace lives — synced, here only, or there only. */
   workspaceSync: async (m: AccountFiles): Promise<WorkspaceSyncStatus> =>
-    json<WorkspaceSyncStatus>(
-      await fetch(`${m.fileBase}/workspaces/sync`, {
-        headers: filesHeaders(m),
-      }),
-      "workspace sync",
-    ),
+    call<WorkspaceSyncStatus>(m, `/workspaces/sync`, "workspace sync"),
 
   /** Bring a workspace that is only on a server (the main one without `server`) down here; it stays synced from then on. */
   downloadWorkspace: async (
@@ -293,14 +269,10 @@ export const accountFiles = {
     name: string,
     server?: string,
   ): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/workspaces/sync/download`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name, ...(server ? { server } : {}) }),
-      }),
-      "download",
-    );
+    await call(m, `/workspaces/sync/download`, "download", {
+      method: "POST",
+      json: { name, ...(server ? { server } : {}) },
+    });
   },
 
   /** Start moving a workspace to another server this account is paired with; `workspaceSync` says how it goes. */
@@ -309,14 +281,10 @@ export const accountFiles = {
     name: string,
     to: string,
   ): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/workspaces/sync/move`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name, to }),
-      }),
-      "move",
-    );
+    await call(m, `/workspaces/sync/move`, "move", {
+      method: "POST",
+      json: { name, to },
+    });
   },
 
   /** Start copying a workspace to another server this account is paired with; it stays synced where it was. */
@@ -325,22 +293,17 @@ export const accountFiles = {
     name: string,
     to: string,
   ): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/workspaces/sync/copy`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name, to }),
-      }),
-      "copy",
-    );
+    await call(m, `/workspaces/sync/copy`, "copy", {
+      method: "POST",
+      json: { name, to },
+    });
   },
 
   /** The same disk, asked what could be put on a SECOND DEVICE — its own route, the home page drawing no surfaces (../../docs/external.md). */
   surfacedProjects: async (m: AccountFiles): Promise<SurfacedProject[]> => {
-    const { projects } = await json<SurfacedProjectList>(
-      await fetch(`${m.fileBase}/workspaces/surfaces`, {
-        headers: filesHeaders(m),
-      }),
+    const { projects } = await call<SurfacedProjectList>(
+      m,
+      `/workspaces/surfaces`,
       "surfaces",
     );
     return projects;
@@ -348,10 +311,9 @@ export const accountFiles = {
 
   /** …and which ONE of those the engine is holding for this person: one answer per account, unlike each row's `.studio-active`. */
   servedProject: async (m: AccountFiles): Promise<ServedProject | null> => {
-    const { project } = await json<ServedProjectReply>(
-      await fetch(`${m.fileBase}/engine/served`, {
-        headers: filesHeaders(m),
-      }),
+    const { project } = await call<ServedProjectReply>(
+      m,
+      `/engine/served`,
       "served",
     );
     return project;
@@ -361,24 +323,14 @@ export const accountFiles = {
   workspaceTree: async (
     m: AccountFiles,
     workspace: string,
-  ): Promise<FileNode[]> =>
-    json(
-      await fetch(`${m.fileBase}/workspace-tree`, {
-        headers: { ...filesHeaders(m), [WORKSPACE_HEADER]: workspace },
-      }),
-      "tree",
-    ),
+  ): Promise<FileNode[]> => call(m, `/workspace-tree`, "tree", { workspace }),
 
   /** A workspace and NOTHING else: an empty folder on the server. */
   createWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/workspaces`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name }),
-      }),
-      "workspace",
-    );
+    await call(m, `/workspaces`, "workspace", {
+      method: "POST",
+      json: { name },
+    });
   },
 
   /** Scaffold a project in one of the account's workspaces: `name` carries its suffix, and `shape` is the ARCHETYPE (`PROJECT_SHAPES` in @studio/song). */
@@ -388,21 +340,14 @@ export const accountFiles = {
     name: string,
     shape: ProjectShape,
   ): Promise<{ project: string; missing: string[] }> => {
-    const { project, missing } = await json<{
+    const { project, missing } = await call<{
       project: string;
       missing?: string[];
-    }>(
-      await fetch(`${m.fileBase}/project/create`, {
-        method: "POST",
-        headers: {
-          ...filesHeaders(m),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ shape, name }),
-      }),
-      "create",
-    );
+    }>(m, `/project/create`, "create", {
+      method: "POST",
+      workspace,
+      json: { shape, name },
+    });
     return { project, missing: missing ?? [] };
   },
 
@@ -417,18 +362,12 @@ export const accountFiles = {
     folder: string,
   ): Promise<{ project: string; log: string[] }> => {
     const q = `file=${encodeURIComponent(file.name)}&name=${encodeURIComponent(folder)}`;
-    return json(
-      await fetch(`${m.fileBase}/import-upload?${q}`, {
-        method: "POST",
-        headers: {
-          ...filesHeaders(m),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/octet-stream",
-        },
-        body: await file.arrayBuffer(),
-      }),
-      "import",
-    );
+    return call(m, `/import-upload?${q}`, "import", {
+      method: "POST",
+      workspace,
+      body: await file.arrayBuffer(),
+      type: "application/octet-stream",
+    });
   },
 
   /** Copy a project into another of the account's workspaces. No workspace HEADER: the body names both. */
@@ -439,13 +378,11 @@ export const accountFiles = {
     to: string,
     name: string,
   ): Promise<string> => {
-    const { project } = await json<{ project: string }>(
-      await fetch(`${m.fileBase}/workspaces/copy-project`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ from, path, to, name }),
-      }),
+    const { project } = await call<{ project: string }>(
+      m,
+      `/workspaces/copy-project`,
       "copy",
+      { method: "POST", json: { from, path, to, name } },
     );
     return project;
   },
@@ -457,17 +394,11 @@ export const accountFiles = {
     path: string,
     name: string,
   ): Promise<string> => {
-    const { path: renamed } = await json<{ path: string }>(
-      await fetch(`${m.fileBase}/project/rename`, {
-        method: "POST",
-        headers: {
-          ...filesHeaders(m),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ path, name }),
-      }),
+    const { path: renamed } = await call<{ path: string }>(
+      m,
+      `/project/rename`,
       "rename",
+      { method: "POST", workspace, json: { path, name } },
     );
     return renamed;
   },
@@ -477,14 +408,10 @@ export const accountFiles = {
     m: AccountFiles,
     workspace: string,
   ): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/workspaces/remove`, {
-        method: "POST",
-        headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name: workspace }),
-      }),
-      "delete",
-    );
+    await call(m, `/workspaces/remove`, "delete", {
+      method: "POST",
+      json: { name: workspace },
+    });
   },
 
   /** Unload the project and move its folder to the workspace's recycle bin. */
@@ -493,18 +420,11 @@ export const accountFiles = {
     workspace: string,
     path: string,
   ): Promise<void> => {
-    await json(
-      await fetch(`${m.fileBase}/project/delete`, {
-        method: "POST",
-        headers: {
-          ...filesHeaders(m),
-          [WORKSPACE_HEADER]: workspace,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ path }),
-      }),
-      "delete",
-    );
+    await call(m, `/project/delete`, "delete", {
+      method: "POST",
+      workspace,
+      json: { path },
+    });
   },
 };
 

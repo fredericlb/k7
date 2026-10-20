@@ -4,7 +4,6 @@
 // vocabulary. Every gather is wrapped so a broken project degrades to whatever loaded
 // rather than throwing — completion on a half-written file is exactly when you need it.
 
-import { type Dirent, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import {
   builtinParamsFor,
@@ -23,6 +22,7 @@ import {
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import { deriveChains } from "./chainsGraph";
+import { listFilesUnder } from "./listFiles";
 import {
   baseModuleRefs,
   exportSub,
@@ -30,7 +30,6 @@ import {
   loadLanes,
   loadModuleRefs,
   loadModules,
-  loadProjectRoot,
   loadVideoTracks,
   readsAsPicture,
   withModuleStamp,
@@ -93,22 +92,12 @@ const AUDIO_EXT = [
 // Every audio file in the project, grouped by its project-relative folder — see docs/hints.md.
 function scanMedia(dir: string): Record<string, string[]> {
   const media: Record<string, string[]> = {};
-  const walk = (abs: string, rel: string): void => {
-    let entries: Dirent[];
-    try {
-      entries = readdirSync(abs, { withFileTypes: true });
-    } catch {
-      return; // unreadable dir — skip rather than fail the whole gather
-    }
-    for (const e of entries) {
-      if (e.name.startsWith(".")) continue; // dotfiles / dot-dirs
-      if (e.isDirectory())
-        walk(join(abs, e.name), rel ? `${rel}/${e.name}` : e.name);
-      else if (AUDIO_EXT.includes(extname(e.name).toLowerCase()))
-        (media[rel] ??= []).push(e.name);
-    }
-  };
-  walk(dir, "");
+  for (const path of listFilesUnder(dir)) {
+    const cut = path.lastIndexOf("/");
+    const name = path.slice(cut + 1);
+    if (AUDIO_EXT.includes(extname(name).toLowerCase()))
+      (media[cut < 0 ? "" : path.slice(0, cut)] ??= []).push(name);
+  }
   for (const files of Object.values(media)) files.sort();
   return media;
 }

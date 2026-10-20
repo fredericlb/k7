@@ -115,7 +115,7 @@ JUCE-free and header-only, like `TurntableLoop.h`, so the clock, the walk and th
 covered with no audio device. The plugin around it is not — it needs a live `te::Edit`, the same gap
 `turntable.md` describes.
 
-The offline parameter table (`packages/song-schema/src/builtinParams.generated.ts`) is read out of a
+The offline parameter table (`packages/song-schema/src/builtinParams.generated.json`) is read out of a
 **running** engine, and carries this plugin's parameters with their named settings — so the
 builder can draw a panel for `@engine/arpeggiator` on a machine where no engine is up. Re-running
 `npm run gen:builtin-params --workspace k7-runtime` is what any change to the parameters costs.

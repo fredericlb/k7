@@ -159,7 +159,7 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          the script PatternPlugin runs. A GENERATOR, output committed: run it after
                          touching events.ts or engineEntry.ts. `npm run gen:strudel-bundle --workspace k7-runtime`.
   gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
-                         packages/song-schema/src/builtinParams.generated.ts. A GENERATOR, like the one
+                         packages/song-schema/src/builtinParams.generated.json. A GENERATOR, like the one
                          above: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace k7-runtime`. docs/builtinParams.md.
   gen-surge-panel.mjs    write the Surge XT module's panel (ui.k7x + widgets.js in k7-core) from
@@ -199,6 +199,9 @@ scripts/               Node harnesses that drive a running engine, not build ste
   platterBench.ts        what those three share — the wav, the one-platter document, the broadcast
                          frames and the FFT. Not a bench: a second copy of an FFT is a second place
                          for a windowing bug to hide
+  probe.ts               what the live-engine probes share — the socket bound to a session, the master
+                         stream's level, the one held-note lane — built from @studio/engine-protocol's
+                         constructors so a field the wire gains reaches every probe at once
   nam-rate.ts            does a NAM model sound as trained on an engine at ANOTHER rate? Offline: one
                          sawtooth through one model at its own rate and at another, and the harmonic
                          profiles compared — the only coverage the plugin's resampling has (docs/namPlugin.md)

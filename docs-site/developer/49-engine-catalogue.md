@@ -65,7 +65,7 @@ the `@mix` split and blend pair, and the master gain.
 
 Panels, the builder and `lint:panels` need parameter names and ranges with no engine running.
 For built-ins, `engine/k7-runtime/scripts/gen-builtin-params.mjs` instantiates each one and
-writes `packages/song-schema/src/builtinParams.generated.ts`; `builtinPluginFor` in
+writes `packages/song-schema/src/builtinParams.generated.json`; `builtinPluginFor` in
 `packages/song-schema/src/builtinParams.ts` reads it. Regenerate it when a built-in's parameters
 change. External plugins are only known by instantiating them, which the engine binary does for
 `lint:panels` (`--dump-params-ext`) and for the builder's "read parameters" button.

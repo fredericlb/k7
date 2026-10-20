@@ -6,81 +6,13 @@
 // share of the audio block, and the process's memory. A frame carries it one time in four
 // (docs/load.md), so a second of frames holds several.
 
-import WebSocket from "ws";
+import { connect, heldNoteDoc, TIDES, wait } from "./probe.ts";
 
-const url =
-  process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
 const SESSION = "m9:load-probe";
-const RATE = 48000;
-const HELD_BEATS = 512;
 
-const doc = () => ({
-  name: "load-probe",
-  tempo: 120,
-  sampleRate: RATE,
-  timeSigNumerator: 4,
-  timeSigDenominator: 4,
-  masterVolume: 0,
-  masterPlugins: [],
-  recordDir: "",
-  settings: { metronome: false, countIn: 0 },
-  groups: [],
-  markers: [],
-  tracks: [
-    {
-      id: "lane",
-      name: "lane",
-      role: "regular",
-      contentType: "midi",
-      group: "",
-      generated: false,
-      color: "",
-      mute: false,
-      solo: false,
-      disabled: false,
-      inputChannels: [],
-      outputChannels: [],
-      monitor: "auto",
-      inputGain: 0,
-      clips: [
-        {
-          id: "held",
-          type: "midi",
-          name: "held",
-          source: "",
-          start: 0,
-          length: HELD_BEATS,
-          offset: 0,
-          fadeIn: 0,
-          fadeOut: 0,
-          loopStart: 0,
-          loopEnd: 0,
-          notes: [
-            { time: 0, duration: HELD_BEATS, key: 57, vel: 0.9, channel: 1, rel: 0 },
-          ],
-        },
-      ],
-      plugins: [
-        {
-          id: "lane:tides",
-          type: "studio_tidal_modulator",
-          name: "mu-tides",
-          path: "",
-          presetSave: "",
-          role: "instrument",
-          enabled: true,
-          params: {},
-        },
-      ],
-      sends: [],
-      automation: [],
-    },
-  ],
-});
+const doc = () => heldNoteDoc("load-probe", [TIDES]);
 
-const ws = new WebSocket(url);
-const send = (m: Record<string, unknown>) =>
-  ws.send(JSON.stringify({ ...m, session: SESSION }));
+const { ws, send, opened } = connect(SESSION);
 
 type Load = { plugins: Record<string, { cpu: number; bytes?: number }>; process?: number };
 const seen: Load[] = [];
@@ -94,14 +26,7 @@ ws.on("message", (data: Buffer, isBinary: boolean) => {
   if (msg.load) seen.push(msg.load);
 });
 
-ws.on("error", (e: Error) => {
-  console.error("socket:", e.message);
-  process.exit(1);
-});
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-ws.on("open", async () => {
+opened.then(async () => {
   send({ type: "project", doc: doc() });
   await wait(2500);
   send({ type: "transport", action: "play" });

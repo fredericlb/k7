@@ -1,9 +1,10 @@
 // http.ts — every rehearsal call's fetch: the session cookie, the host's base, and an error that
 // carries the server's own sentence and status.
 
+import { failed, HttpError } from "@studio/http-client/call";
+import { upload } from "@studio/http-client/upload";
 import { apiBase } from "../config";
 import { m } from "../paraglide/messages.js";
-import { upload } from "../upload";
 
 /** A publish token as its owner sees it: never the token itself. */
 export interface ApiToken {
@@ -36,23 +37,11 @@ export const fu = (
   });
 
 /** A failed call: the server's own sentence when it sent one, and the status a caller tells 404 by. */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
+export { HttpError as ApiError };
 
 export const json = async (res: Response) => {
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(
-      body.error ?? m["common.requestFailed"]({ status: res.status }),
-      res.status,
-    );
-  }
+  if (!res.ok)
+    throw await failed(res, (status) => m["common.requestFailed"]({ status }));
   return res.status === 204 ? null : res.json();
 };
 

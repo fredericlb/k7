@@ -13,7 +13,6 @@ import {
   Undo2,
   X,
 } from "@frediverse/ui/icons";
-import type { WebGraph } from "@studio/graph-model";
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import { cfg } from "@studio/project-shell/fileApi";
 import type { HistoryListEntry } from "@studio/web-protocol";
@@ -28,6 +27,8 @@ import { api } from "../api";
 import { type HistoryMark, historyMarks } from "../historyMarks";
 import { useQuietWrites, useRevision } from "../hooks/useRevision";
 import { m } from "../paraglide/messages.js";
+import { usePaneGraph } from "../queries/graph";
+import { useReloadKey } from "../state/shellStore";
 import { type SyncChange, type SyncHistory, syncHistory } from "../syncHistory";
 
 const time = (ts: number) =>
@@ -51,7 +52,8 @@ export function HistoryPanel({
   onClose: () => void;
 }) {
   const [steps, setSteps] = useState<HistoryListEntry[]>([]);
-  const [graph, setGraph] = useState<WebGraph | null>(null);
+  // Only to tell which node of a touched chain a step's label names; a graph that will not build lights the chain.
+  const { graph } = usePaneGraph(useReloadKey());
   const [error, setError] = useState("");
   const revision = useRevision();
   // …and this tab's own knob writes, which are journalled rows too but move no published token.
@@ -59,13 +61,7 @@ export function HistoryPanel({
 
   const refresh = useCallback(async () => {
     try {
-      const [s, g] = await Promise.all([
-        api.historyEntries(),
-        // Only to tell which node of a touched chain a step's label names; a graph that will not build lights the chain.
-        api.graph().catch(() => null),
-      ]);
-      setSteps(s);
-      setGraph(g);
+      setSteps(await api.historyEntries());
       setError("");
     } catch (e) {
       setError((e as Error).message);
