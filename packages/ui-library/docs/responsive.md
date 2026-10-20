@@ -25,6 +25,11 @@ becomes a drawer with its own floating button at the bottom left — absent wher
 the playlists and search screens drawing their own columns because nothing they show is a family
 walk.
 
+The playlists screen folds its two columns into one page at a time instead, with no drawer: the list
+fills the screen until a playlist is open, then the playlist does, and the section's own entry in the
+sidebar leads back to the list. Side by side below `md`, the open playlist got what the list's
+290 pixels left of a phone, about a hundred and sixty, one word to a line.
+
 It is the **same markup** in both cases with different classes. Extracting it to render twice
 would duplicate the two hundred lines of menu actions it carries — the kind of duplication where
 one copy gets a new action and the other does not.
