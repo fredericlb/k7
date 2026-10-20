@@ -6,6 +6,7 @@ import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
 import { takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { library } from "./api";
+import { isAlbumFolder } from "./favorites";
 import type { LibraryLabels } from "./labels";
 import { entryAt, isSongFolder } from "./libraryTree";
 import { folderOf } from "./routes";
@@ -29,12 +30,26 @@ export function songActions(d: {
   labels: LibraryLabels;
   /** Whether removals are this account's — apps/k7/backend/docs/media/gate.md. */
   manage: boolean;
+  /** This account's starred songs and albums; null until they are read, when no star is offered. */
+  favorites: ReadonlySet<string> | null;
+  toggleFavorite: (path: string) => void;
 }): Actions {
-  const { section, entries, file } = d;
+  const { section, entries, file, favorites } = d;
   const l = d.labels.tree;
   const missing = (t: TreeNode) =>
     missingUnder(d.serverOnly, `${section}/${t.path}`);
+  // A song, or the album holding it — never an artist, nor a row only the server holds.
+  const starrable = (t: TreeNode) =>
+    !!favorites &&
+    (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path));
+  const starred = (t: TreeNode) => !!favorites?.has(`${section}/${t.path}`);
   return [
+    {
+      key: "favorite",
+      label: (t) => (starred(t) ? l.unfavorite : l.favorite),
+      when: starrable,
+      run: (t) => d.toggleFavorite(`${section}/${t.path}`),
+    },
     {
       key: "download-missing",
       // An album or an artist half here: what the server holds under it, and only that (../../mediatek/docs/serverCopy.md).
