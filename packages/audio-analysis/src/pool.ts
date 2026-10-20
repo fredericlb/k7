@@ -1,24 +1,40 @@
-// analysePool.ts — a waveform's file work handed to worker threads (analyseWorker.ts), so the request thread
+// pool.ts — a waveform's file work handed to worker threads (poolWorker.ts), so the request thread
 // only waits: a sidecar checked (one worker), a source analysed (two: each decode holds a mono copy of its file,
-// ~57 MB for five minutes). A machine where a worker will not start does it inline, as before. See docs/waveformCache.md.
+// ~57 MB for five minutes). A machine where a worker will not start does it inline. See docs/analysis.md.
+// The one thing a reader would get wrong: a deadline TERMINATES the worker, since a decode stuck inside
+// the WebAssembly module never comes back to read its abort signal.
 
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
-import { analyseFile } from "@studio/audio-analysis/analyse";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
-import { checkSidecar, type SidecarCheck } from "./sidecarCheck.ts";
+import { analyseFile } from "./analyse.ts";
+import { checkSidecar, type SidecarCheck } from "./check.ts";
 
 /** Workers at most, per kind of job: a sidecar check must never wait behind a decode. */
 const WORKERS = { analyse: 2, check: 1 } as const;
 type Kind = keyof typeof WORKERS;
+
+/** How long one analysis may run before its worker is killed: a two-hour file decodes in a fraction of it. */
+export const ANALYSE_DEADLINE_MS = 10 * 60_000;
+
+/** An analysis that ran past its deadline, its worker terminated. */
+export class DeadlineError extends Error {
+  constructor(source: string, ms: number) {
+    super(`analysing ${source} took longer than ${Math.round(ms / 1000)} s`);
+    this.name = "DeadlineError";
+  }
+}
 
 interface Job {
   resolve: (value: unknown) => void;
   reject: (e: Error) => void;
   /** The same work inline, for when the worker itself is what failed. */
   inline: () => Promise<unknown>;
+  /** The same work on another worker, for when a neighbour's deadline killed this one. */
+  again: () => Promise<unknown>;
+  timer?: ReturnType<typeof setTimeout>;
 }
 
 interface Slot {
@@ -36,7 +52,15 @@ function entry(): URL {
   const bundled = join(dirname(self), "analyse-worker.mjs");
   if (self.endsWith(".mjs") && existsSync(bundled))
     return pathToFileURL(bundled);
-  return new URL("./analyseWorker.ts", import.meta.url);
+  return new URL("./poolWorker.ts", import.meta.url);
+}
+
+/** A job leaving its slot, its deadline with it. */
+function take(slot: Slot, id: number): Job | undefined {
+  const job = slot.jobs.get(id);
+  slot.jobs.delete(id);
+  if (job?.timer) clearTimeout(job.timer);
+  return job;
 }
 
 /** A started worker; its jobs go inline together when it dies, and the pool stays inline from then on. */
@@ -46,9 +70,8 @@ function spawn(kind: Kind): Slot {
   worker.unref();
   const slot: Slot = { worker, jobs: new Map() };
   worker.on("message", (m: { id: number; value?: unknown; error?: string }) => {
-    const job = slot.jobs.get(m.id);
+    const job = take(slot, m.id);
     if (!job) return;
-    slot.jobs.delete(m.id);
     if (m.error === undefined) job.resolve(m.value);
     else job.reject(new Error(m.error));
   });
@@ -57,9 +80,10 @@ function spawn(kind: Kind): Slot {
     slots.splice(slots.indexOf(slot), 1);
     broken = true;
     console.warn(`waveform worker unavailable, working inline: ${e.message}`);
-    for (const job of slot.jobs.values())
-      job.inline().then(job.resolve, job.reject);
-    slot.jobs.clear();
+    for (const id of [...slot.jobs.keys()]) {
+      const job = take(slot, id);
+      job?.inline().then(job.resolve, job.reject);
+    }
   };
   worker.on("error", fail);
   worker.on("exit", (code) => {
@@ -68,6 +92,17 @@ function spawn(kind: Kind): Slot {
   });
   slots.push(slot);
   return slot;
+}
+
+/** A job past its deadline: its worker is terminated, and the other jobs it held start again on another. */
+function expire(kind: Kind, slot: Slot, id: number, why: Error): void {
+  const slots = pools[kind];
+  if (slots.includes(slot)) slots.splice(slots.indexOf(slot), 1);
+  const job = take(slot, id);
+  const rest = [...slot.jobs.keys()].map((other) => take(slot, other));
+  void slot.worker.terminate();
+  job?.reject(why);
+  for (const other of rest) other?.again().then(other.resolve, other.reject);
 }
 
 /** The least busy worker of a kind, a new one while under its bound. */
@@ -84,7 +119,7 @@ function run<T>(
   kind: Kind,
   message: Record<string, unknown>,
   inline: () => Promise<T>,
-  signal?: AbortSignal,
+  limits: { signal?: AbortSignal; deadline?: () => Error; ms?: number } = {},
 ): Promise<T> {
   if (broken) return inline();
   let slot: Slot;
@@ -97,12 +132,17 @@ function run<T>(
   }
   const id = ++nextId;
   return new Promise<T>((resolve, reject) => {
-    slot.jobs.set(id, {
+    const job: Job = {
       resolve: resolve as (v: unknown) => void,
       reject,
       inline,
-    });
-    signal?.addEventListener(
+      again: () => run(kind, message, inline, limits),
+    };
+    const { deadline, ms } = limits;
+    if (deadline && ms)
+      job.timer = setTimeout(() => expire(kind, slot, id, deadline()), ms);
+    slot.jobs.set(id, job);
+    limits.signal?.addEventListener(
       "abort",
       () => slot.worker.postMessage({ type: "cancel", id }),
       { once: true },
@@ -111,17 +151,26 @@ function run<T>(
   });
 }
 
-/** `analyseFile`, off the request thread — same answer, same sidecar written. */
+/** `analyseFile`, off the request thread — same answer, same sidecar written, or a DeadlineError past `deadlineMs`. */
 export function analyseOffThread(
   source: string,
   sensitivity: number,
-  options: { engineBin: string | null; signal?: AbortSignal },
+  options: {
+    engineBin: string | null;
+    signal?: AbortSignal;
+    deadlineMs?: number;
+  },
 ): Promise<FileEnvelope> {
+  const { deadlineMs = ANALYSE_DEADLINE_MS, ...decode } = options;
   return run(
     "analyse",
-    { type: "analyse", source, sensitivity, engineBin: options.engineBin },
-    () => analyseFile(source, sensitivity, options),
-    options.signal,
+    { type: "analyse", source, sensitivity, engineBin: decode.engineBin },
+    () => analyseFile(source, sensitivity, decode),
+    {
+      signal: decode.signal,
+      ms: deadlineMs,
+      deadline: () => new DeadlineError(source, deadlineMs),
+    },
   );
 }
 

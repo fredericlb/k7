@@ -1,4 +1,4 @@
-// decodeWasm.ts — an audio file decoded by the WebAssembly build (rust/src/decode.rs), for a host with no ffmpeg and no engine: the phone.
+// decodeWasm.ts — an audio file decoded by the WebAssembly build (rust/src/decode.rs), the decoder of every host without an engine.
 // A reader would get wrong what crosses into the module: not the file, which it reads through `host.read`, a block at a time.
 // Decoding is synchronous inside the module, so a block is handed over and the event loop let through between blocks.
 
@@ -20,6 +20,14 @@ interface DecodeAbi {
   dec_frames_ptr(): number;
   dec_error_ptr(): number;
   dec_error_len(): number;
+}
+
+/** The module could not open the file: no frame was handed over, so another decoder may still try it. */
+export class WasmOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WasmOpenError";
+  }
 }
 
 /** True when this runtime can run the WebAssembly decoder. */
@@ -71,7 +79,8 @@ export async function decodeWithWasm(
     // The pointer first: allocating may grow the memory, which detaches a buffer taken before.
     const hint = abi.dec_hint(ext.length);
     new Uint8Array(abi.memory.buffer, hint, ext.length).set(ext);
-    if (abi.dec_open(fstatSync(fd).size) < 0) throw failure("cannot open");
+    if (abi.dec_open(fstatSync(fd).size) < 0)
+      throw new WasmOpenError(failure("cannot open").message);
     const sampleRate = abi.dec_rate();
     const channels = abi.dec_channels();
     let frames = 0;

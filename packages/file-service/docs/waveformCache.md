@@ -137,10 +137,8 @@ An analysis is a decode (another process) and then an envelope built in JavaScri
 sample, a sidecar fingerprinted and written. That second half is CPU, and on the file service's one
 thread it held every other request — on a phone, a project's first open after a sync (sidecars are
 not synced, so every clip is analysed once per machine) left the page waiting tens of seconds for a
-tree or a graph. So `analyseFile` runs on a worker thread (`analysePool.ts`, `analyseWorker.ts`;
-bundled, `bin/analyse-worker.mjs` beside the service): two at most, since each decode holds a mono
-copy of its file. A runtime where a worker will not start — a test runner with no loader — analyses
-inline, as before, and says so once.
+tree or a graph. So `analyseFile` runs on a worker thread — `@studio/audio-analysis`'s pool
+(`packages/audio-analysis/docs/analysis.md`), which k7's backend runs its analyses on as well.
 
 A request and the prewarm asking for the same clip join ONE decode (`sharedDecode`), keyed by the
 threshold actually used, and the memo is checked before the sidecar is parsed for its threshold:

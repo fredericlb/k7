@@ -1,11 +1,11 @@
-// sidecarCheck.ts — whether a source's `{file}.cache` sidecar still answers: its threshold read, the file
-// fingerprinted, the sidecar parsed. Shared by the request thread and the worker (analyseWorker.ts), which
+// check.ts — whether a source's `{file}.cache` sidecar still answers: its threshold read, the file
+// fingerprinted, the sidecar parsed. Shared by the request thread and the worker (poolWorker.ts), which
 // is where it runs: a burst of a project's waveforms parsed every sidecar whole on the one thread.
 
-import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
-import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
-import { readSidecar, storedSensitivity } from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
+import { DEFAULT_TRANSIENT_SENSITIVITY } from "./envelope.ts";
+import { fileFingerprint } from "./fingerprint.ts";
+import { readSidecar, storedSensitivity } from "./sidecar.ts";
 
 /** The sidecar's envelope when it still matches the file at the threshold asked; else the threshold to build at. */
 export interface SidecarCheck {

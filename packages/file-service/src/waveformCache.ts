@@ -7,12 +7,15 @@ import { statSync } from "node:fs";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import {
+  analyseOffThread,
+  checkSidecarOffThread,
+} from "@studio/audio-analysis/pool";
+import {
   cachePath,
   readSidecar,
   storedSensitivity,
 } from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
-import { analyseOffThread, checkSidecarOffThread } from "./analysePool.ts";
 
 // Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
 export {

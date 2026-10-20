@@ -1,6 +1,6 @@
 // decode.ts — an audio file to interleaved f32 frames, through the ENGINE's `--decode` where one is
-// at hand, through ffmpeg otherwise, and through the WebAssembly decoder where there is no ffmpeg
-// either; plus JUCE's mono sum and the stream facts the envelope needs. The frame count comes from
+// at hand, through the WebAssembly decoder otherwise, and through ffmpeg for a file the module cannot
+// open; plus JUCE's mono sum and the stream facts the envelope needs. The frame count comes from
 // the DECODE rather than from a header, because a bucket boundary is arithmetic on it. See docs/analysis.md.
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
@@ -12,13 +12,13 @@ import {
   run,
   spawnError,
 } from "@studio/ffmpeg";
-import { decodeWithWasm, wasmDecodes } from "./decodeWasm.ts";
+import { decodeWithWasm, WasmOpenError, wasmDecodes } from "./decodeWasm.ts";
 
 export { NoFfmpegError };
 
-/** ffmpeg is optional everywhere else in this repo; here it is the decoder when no engine is. */
+/** ffmpeg is what reads a format the WebAssembly decoder does not, where no engine is. */
 const WHY =
-  "analysing audio without an engine decodes it with ffmpeg. Install it, or let the engine's machine do the analysis.";
+  "this format needs ffmpeg to be analysed without an engine. Install it, or let the engine's machine do the analysis.";
 
 /** What one decode may hold: two hours at 48 kHz, about 1.4 GB of mono floats (docs/analysis.md). */
 export const MAX_DECODE_FRAMES = 2 * 3600 * 48_000;
@@ -33,10 +33,10 @@ export class TooLongError extends Error {
   }
 }
 
-/** Where a decode comes from: the engine binary when there is one, ffmpeg when `engineBin` is null. */
+/** Where a decode comes from: the engine binary when there is one, WebAssembly then ffmpeg when `engineBin` is null. */
 export interface DecodeOptions {
   engineBin?: string | null;
-  /** Without ffmpeg, decode with the WebAssembly build rather than throw a NoFfmpegError; on unless said. */
+  /** Decode with the WebAssembly build first, ffmpeg only for what it cannot open; false means ffmpeg alone. */
   wasm?: boolean;
   /** Refuse past this many frames, before decoding when the header says so and while decoding otherwise. */
   maxFrames?: number;
@@ -229,27 +229,33 @@ export async function decodeFrames(
       signal,
       maxFrames,
     );
-  const useWasm = wasm && wasmDecodes();
-  if (!(useWasm && missingFfprobe === ffprobeBin())) {
+  if (!(wasm && wasmDecodes()))
+    return decodeWithFfmpeg(source, onFrames, signal, maxFrames);
+  let frames = 0;
+  try {
+    return await decodeWithWasm(
+      source,
+      (samples, channels, n) => {
+        // Counted as they arrive: no header is trusted with the length here either.
+        if (frames + n > maxFrames)
+          throw new TooLongError(source, frames + n, maxFrames);
+        frames += n;
+        onFrames(samples, channels, n);
+      },
+      signal,
+    );
+  } catch (e) {
+    // Only a file the module could not OPEN goes on to ffmpeg: no frame of it was handed over yet.
+    if (!(e instanceof WasmOpenError) || missingFfprobe === ffprobeBin())
+      throw e;
     try {
       return await decodeWithFfmpeg(source, onFrames, signal, maxFrames);
-    } catch (e) {
-      if (!(e instanceof NoFfmpegError && useWasm)) throw e;
+    } catch (f) {
+      if (!(f instanceof NoFfmpegError)) throw f;
       missingFfprobe = ffprobeBin();
+      throw e;
     }
   }
-  let frames = 0;
-  return decodeWithWasm(
-    source,
-    (samples, channels, n) => {
-      // Counted as they arrive: no header is trusted with the length here either.
-      if (frames + n > maxFrames)
-        throw new TooLongError(source, frames + n, maxFrames);
-      frames += n;
-      onFrames(samples, channels, n);
-    },
-    signal,
-  );
 }
 
 /** The ffprobe found missing, so a host without ffmpeg asks for it once rather than once per file. */

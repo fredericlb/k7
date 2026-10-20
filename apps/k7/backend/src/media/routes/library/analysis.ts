@@ -6,7 +6,11 @@ import { wrap } from "@frediverse/http/route";
 import { NoFfmpegError } from "@studio/ffmpeg";
 import { setSongBpm, setSongKey } from "@studio/mediatek/write";
 import express, { Router } from "express";
-import { analyseShared, ensureAnalysedShared } from "../../analysisGate.ts";
+import {
+  AnalysisBusyError,
+  analyseShared,
+  ensureAnalysedShared,
+} from "../../analysisGate.ts";
 import { sweepState } from "../../analysisSweep.ts";
 import {
   envelopeEtag,
@@ -46,7 +50,7 @@ analysisRoutes.post(
       env = await analyseShared(source);
     } catch (e) {
       // A missing decoder is this deployment's to fix, and it is not the caller's request that is wrong.
-      if (e instanceof NoFfmpegError)
+      if (e instanceof NoFfmpegError || e instanceof AnalysisBusyError)
         return res.status(503).json({ error: e.message });
       return res.status(422).json({ error: (e as Error).message });
     }
@@ -101,7 +105,7 @@ analysisRoutes.get(
       res.setHeader("Cache-Control", DEFAULT_CACHE_CONTROL);
       res.type("application/json").send(body);
     } catch (e) {
-      if (e instanceof NoFfmpegError)
+      if (e instanceof NoFfmpegError || e instanceof AnalysisBusyError)
         return res.status(503).json({ error: e.message });
       res.status(422).json({ error: (e as Error).message });
     }

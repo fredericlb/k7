@@ -268,7 +268,7 @@ in flight at once, while the caller blocks on `Atomics.wait`. Measured on Window
   async — the compile, the graph, the hints, the edits in `song-edit`. Blocking on a worker keeps
   every signature as it is.
 - **Why its source is a string** (`eval: true`): it uses node built-ins only, so neither the
-  desktop's nor the phone's bundle has to ship a worker file for it, as `analysePool.ts` must.
+  desktop's nor the phone's bundle has to ship a worker file for it, as `packages/audio-analysis/src/pool.ts` must.
 - **It never changes a stamp.** The worker collects the names per directory and mixes them in the
   order the inline walk visits them, so both answer the same hash. `stampWalk.test.ts` holds it.
 - **It costs ~15 MB and ~40 ms to start**, and the file service runs one process per account. So

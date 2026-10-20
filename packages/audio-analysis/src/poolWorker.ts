@@ -1,10 +1,10 @@
-// analyseWorker.ts — a waveform's file work on a thread of its own: a sidecar CHECKED (fingerprint, parse)
+// poolWorker.ts — a waveform's file work on a thread of its own: a sidecar CHECKED (fingerprint, parse)
 // or a source ANALYSED (decode, envelope, sidecar written), so neither holds every other request of the
-// file service. The pool that feeds it is analysePool.ts; bundled, this is bin/analyse-worker.mjs. See docs/waveformCache.md.
+// process. The pool that feeds it is pool.ts; bundled, this is analyse-worker.mjs. See docs/analysis.md.
 
 import { parentPort } from "node:worker_threads";
-import { analyseFile } from "@studio/audio-analysis/analyse";
-import { checkSidecar } from "./sidecarCheck.ts";
+import { analyseFile } from "./analyse.ts";
+import { checkSidecar } from "./check.ts";
 
 /** A job from the pool, or the cancel of one. */
 type Message =
