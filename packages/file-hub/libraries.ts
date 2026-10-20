@@ -1,7 +1,7 @@
 // libraries.ts — the origin's LIBRARIES, held by the hub: the one list (`<dataRoot>/libraries.json`)
 // and one FOLDER per library under `<dataRoot>/libraries/<name>`: its frozen versions `1/`, `2/`…
 // and the `draft/` only admins write. A listed library missing on disk is copied from the seed
-// (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) as its version 1, or made empty.
+// (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) under its manifest's version, or made empty.
 // Its edits reach other replicas through k7fs (libraryRelay.ts). See docs/fileHub.md and
 // ../../docs/library-versions-plan.md. The copies are asynchronous and run one at a time, so a
 // seed of IR and amp-model binaries never holds the shared process, nor races another copy.
@@ -319,22 +319,40 @@ export class LibraryStore {
     return (from && readManifest(from)?.version) || UNPINNED_VERSION;
   }
 
-  /** An app update brings a newer published seed: added as one more frozen version, no pin moved. */
+  /** An app update brings a newer published seed: added as one more frozen version, no pin moved, nothing overwritten. */
   private async addSeedVersion(name: string): Promise<LibraryNote | null> {
     const from = this.seed.get(name);
     const manifest = from ? readManifest(from) : null;
     if (!from || !manifest) return null;
-    const dest = join(this.home, name, String(manifest.version));
-    if (existsSync(dest)) return null;
+    const at = join(this.home, name);
+    const held = versionNumbers(at);
+    if (
+      held.some((v) => isCopyOfSeed(ownManifest(join(at, String(v))), manifest))
+    )
+      return null;
+    // Its number taken by another version (an admin's publish): the next free one, the seed's number kept as `seed`.
+    const taken = held.includes(manifest.version);
+    const version = taken ? Math.max(...held) + 1 : manifest.version;
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
       await cp(from, partial, { recursive: true, filter: publishable });
       upgradeManifest(partial);
-      renameSync(partial, dest);
+      if (taken)
+        writeFileSync(
+          join(partial, LIBRARY_MANIFEST),
+          stringifyLibraryManifest({
+            ...manifest,
+            version,
+            seed: manifest.version,
+          }),
+        );
+      renameSync(partial, join(at, String(version)));
       return {
         name,
         state: "seeded",
-        note: `version ${manifest.version} added from ${from}`,
+        note: taken
+          ? `version ${version} added from ${from}, whose version ${manifest.version} is another one here`
+          : `version ${version} added from ${from}`,
       };
     } catch (e) {
       rmSync(partial, { recursive: true, force: true });
@@ -444,6 +462,20 @@ function upgradeManifest(dir: string): void {
     join(dir, LEGACY_LIBRARY_MANIFEST),
     join(dir, LIBRARY_MANIFEST),
     MANIFEST,
+  );
+}
+
+/** Is the version whose manifest is `held` this seed, installed under its own number or, renumbered, under another? */
+function isCopyOfSeed(
+  held: LibraryManifest | null,
+  seed: LibraryManifest,
+): boolean {
+  if (!held) return false;
+  if (held.seed !== undefined) return held.seed === seed.version;
+  return (
+    held.version === seed.version &&
+    held.requires === seed.requires &&
+    held.notes === seed.notes
   );
 }
 

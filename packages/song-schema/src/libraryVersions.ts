@@ -40,6 +40,8 @@ export interface LibraryManifest {
   /** The lowest LIBRARY_LEVEL that runs it. */
   requires: number;
   notes?: string;
+  /** The number a SEED declared, when the hub installed it under another because that one was taken here. */
+  seed?: number;
 }
 
 const int = (v: unknown): number | null =>
@@ -63,6 +65,8 @@ export function libraryManifestData(doc: unknown): LibraryManifest | null {
   if (typeof d.name !== "string" || !version) return null;
   const out: LibraryManifest = { name: d.name, version, requires };
   if (typeof d.notes === "string" && d.notes.trim()) out.notes = d.notes.trim();
+  const seed = int(d.seed);
+  if (seed) out.seed = seed;
   return out;
 }
 

@@ -23,7 +23,7 @@ service's entry.
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
 | `STUDIO_MP3_SWEEP=0` | no background MP3 beside every FLAC: the window plays a FLAC as it is, the engine shares the CPU, and the phone has no ffmpeg (`media/derivedMp3.md`) |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both; `K7_DATA_DIR` holds the rehearsal recorder's store, as on the server (`packages/rehearsal-server/docs/store.md`) |
-| `library` | the `k7-core` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one. `bundle.mjs` fills it with the newest version the origin published that this build runs, so a new install starts on a real version number (`../scripts/libraryArchive.mjs`) |
+| `library` | the `k7-core` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one. `bundle.mjs` fills it with the newest version this build runs — the origin's published one, or the repo's `k7-core` when its `library.k7x` declares a higher number — so a new install starts on a real version number (`../scripts/libraryArchive.mjs`) |
 
 The desktop still lets `K7_OIDC_ISSUER` and `K7_OIDC_CLIENT_ID` override the provider, for testing
 against another one.

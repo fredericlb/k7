@@ -168,7 +168,10 @@ inside studio".
 
 `k7-core/` is a plain folder of this repository: the `@k7-core` modules library, the SEED the server
 copies a library folder from once and the desktop and phone bundles carry a copy of. It is here so
-a module and the code it relies on change together, in one commit. Its binaries (IRs, amp models,
+a module and the code it relies on change together, in one commit. It is a PUBLISHED version: its
+`library.k7x` says which, and **a change to its content raises that `version`** in the same commit —
+a version already installed is never rewritten, so an unchanged number reaches no machine
+(`docs/library-versions-plan.md`). Its binaries (IRs, amp models,
 presets) are ordinary tracked files; a path in it stays short, since a Windows checkout refuses one
 past 260 characters.
 

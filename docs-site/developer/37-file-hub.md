@@ -87,8 +87,9 @@ libraries follow the first paired account.
 - A library is a folder of **versions**: `1/`, `2/`… frozen, each with a `library.k7x`
   (`{ name, version, requires, notes? }`), and an admin's `draft/`. A version is never rewritten.
 - A listed library missing on disk is installed from its seed (`$STUDIO_LIBRARY_SEED`: a folder of
-  library folders, or `name=folder,…`), copied to a dot-named sibling then renamed into place; with
-  no seed it starts empty.
+  library folders, or `name=folder,…`), copied to a dot-named sibling then renamed into place, under
+  the version its `library.k7x` declares; with no seed it starts empty. A seed declaring a version
+  the machine lacks is added beside the others, at the next free number when its own is taken.
 - `publish` copies the draft to `max + 1` with a new manifest. `requires` (the lowest
   `LIBRARY_LEVEL` that runs it) defaults to the previous version's.
 - Which version a workspace uses is the workspace's `_library-pins.k7x`, read by `@studio/song`; the

@@ -171,10 +171,15 @@ two copies would compile a song two ways.
   `library.k7x` (`packages/file-service/src/legacyUpgrade.ts`), the `.yaml` removed once the copy reads back
   as the same manifest. A seed is read where it is, in either format: it is not the hub's to write.
 - **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
-  an empty version 1. A seed carrying a `library.k7x` is a PUBLISHED version — what the desktop and
-  the phone bundle — and installs under its own number; a bare folder is version 1. A machine that
-  already has the library and is handed a newer published seed (an app update) gets it as one more
-  frozen version. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
+  an empty version 1. A seed carrying a `library.k7x` is a PUBLISHED version — the repo's `k7-core`,
+  what the desktop and the phone bundle — and installs under its own number; a bare folder is
+  version 1. A machine that already has the library and is handed a seed declaring a version it does
+  not hold (an app update, a dev server after the repo's `k7-core` moved) gets it as one more frozen
+  version. **A seed never overwrites a version.** Its number taken by ANOTHER version — an admin
+  published their own from the draft — it goes in as the next free number, its manifest saying
+  `seed: <its own>`: both series are kept, a pin on the taken number keeps hearing what it heard, and
+  the next start finds the seed under its new number rather than adding it again. Same number, same
+  `requires`, same notes is the seed itself, which is why a seed's notes say what it changed. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
   and the phone name the `k7-core` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **Every copy is asynchronous, and they run one at a time.** A library is IR and amp-model
