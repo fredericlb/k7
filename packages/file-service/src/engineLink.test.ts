@@ -63,6 +63,7 @@ const {
   sessionOf,
   setSelectedEngine,
   startEngineForActive,
+  unloadEngineIfServing,
 } = await import("./engineLink.ts");
 
 const wsFor = (_email: string, name = "songs") => ({
@@ -226,6 +227,41 @@ describe("enginePreview", () => {
     expect(client.session).toBe(sessionOf(wsFor("fred@parapluie.org")));
     expect(client.session).not.toBe(SESSIONS.k7); // the bare id is the silent wrong room
     expect(client.previews).toEqual([["C:/a.wav", 0, 0.5]]);
+  });
+});
+
+// A workspace removed or renamed hands its ROOT, while `served` holds a project inside it — docs/workspaces.md.
+describe("unloadEngineIfServing", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:3000/${Math.random()}`);
+  });
+
+  const serveIn = (name: string) => {
+    const ws = wsFor("owner@x.org", name);
+    const project = join(ws.root, "clip-lane.k7");
+    const serving = { ...wsServing("owner@x.org", project), root: ws.root };
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(serving as any);
+    return { root: ws.root, project };
+  };
+
+  it("unloads a session serving a project UNDER the workspace root", async () => {
+    const { root } = serveIn("removed-ws");
+    expect(await unloadEngineIfServing(root)).toBe(true);
+    // A second call finds nothing: the session no longer names the gone folder.
+    expect(await unloadEngineIfServing(root)).toBe(false);
+  });
+
+  it("still unloads by the project's own path", async () => {
+    const { project } = serveIn("by-project");
+    expect(await unloadEngineIfServing(project)).toBe(true);
+  });
+
+  it("leaves a sibling workspace whose name merely starts the same", async () => {
+    const { project } = serveIn("songs-two");
+    expect(await unloadEngineIfServing(join(rootDir(), "songs"))).toBe(false);
+    expect(await unloadEngineIfServing(project)).toBe(true);
   });
 });
 
