@@ -294,6 +294,17 @@ and none of them pays for a watcher they would immediately close. The
 implementation, the platform quirks and the ceiling that heals a missed event live over there:
 `packages/file-service/docs/moduleWatch.md`.
 
+### What this package writes, it forgets
+
+A watcher only answers for the folders it could watch, and it hears a write a tick late or not
+at all: a project folder that did not exist when it was read — an engine poll on a project about
+to be made, or one just deleted under the same name — has no handle on `nodes/`, and a scaffold
+writes and then reads that folder inside one synchronous call. Trusting the held stamp there
+hands the migration the EMPTY project it read before: no lanes, so every lane is migrated as an
+anonymous node, its chain named `track` and its label a UUID. So code here that rewrites a
+project folder and then reads it — `writeProjectFiles`, `migrateToChainFiles` — calls
+`forgetModuleReads(dir)` after writing: the next read walks, whatever the watcher says.
+
 ## Where the time ends up
 
 Same song, same machine:

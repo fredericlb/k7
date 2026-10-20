@@ -20,6 +20,7 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { writeFileAtomic } from "./atomicWrite";
 import { migrateToChainFiles } from "./chainsMigrateFiles";
+import { forgetModuleReads } from "./moduleCache";
 import { DEFAULT_COUNT_IN } from "./project";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
 import { addVideoRun } from "./videoOutputs";
@@ -273,6 +274,8 @@ export function writeProjectFiles(
     if (isDocFile(rel)) wsWriteText(path, content);
     else writeFileAtomic(path, content);
   }
+  // A watcher may not have heard these writes yet, and the migration reads them next (docs/moduleCache.md).
+  forgetModuleReads(dir);
   return Object.keys(files);
 }
 
