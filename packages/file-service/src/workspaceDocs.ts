@@ -10,6 +10,7 @@ import {
   deadProjectFields,
   libraryModuleIssues,
   notSupportedModules,
+  unknownPluginModules,
 } from "@studio/song/loader";
 import type { ProjectDoc } from "@studio/song/project";
 import { surfaceIssues } from "@studio/song/surfaces";
@@ -64,6 +65,7 @@ export function projectErrorsIn(
       errors: [],
       diagnostics: [
         ...notSupportedModules(dir),
+        ...unknownPluginModules(dir),
         // A curve the engine will refuse, which it otherwise only logs.
         ...deadAutomations(dir, doc),
         ...libraryModuleIssues(dir),

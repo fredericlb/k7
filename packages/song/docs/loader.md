@@ -94,7 +94,11 @@ the engine's `isExternalFormat`. `EXTERNAL_PLUGIN_FORMATS` itself has ONE defini
 `graphDoc.ts` re-exports project.ts's rather than restating it. A `plugin.type` outside this set is either
 `"not_supported"` (a deliberate marker — amber in the editor/graph) or UNKNOWN (a typo /
 an unimported plugin — red); neither is a compile error, both are bypassed by the engine
-and flagged visually instead.
+and flagged visually instead. Both are also project DIAGNOSTICS, on the module's own file:
+`not_supported` a warning, an unknown type an ERROR (`unknownPluginModules`), because a
+module whose format no engine loads compiles to no plugin at all and would otherwise play
+silence with nothing on screen saying why. `compile/plugins.ts`'s `reachesEngine` is the one
+gate both the compile and that diagnostic read.
 
 `jsdsp` and `faust` are in NEITHER set: they name no external binary and no built-in by its
 xmlTypeName, so they are neither validated here nor bypassed. `dspSourceFor` reads them, and
