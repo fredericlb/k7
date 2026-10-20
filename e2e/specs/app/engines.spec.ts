@@ -56,7 +56,6 @@ const ENGINES: Record<string, Engine> = {
   "sampler.k7": {
     lanes: ["melody"],
     plugins: { "melody:sampler": (p) => expect(p.type).toMatch(/^sampler$/i) },
-    bug: "@k7-core/instruments/sampler says plugin type 'builtin', which the compile drops silently: the lane has no plugin",
   },
   "library-rack.k7": {
     lanes: ["beat"],

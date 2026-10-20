@@ -12,10 +12,7 @@ const LIBRARY = join(import.meta.dirname, "../../../k7-core/modules");
 // Built-ins that load nothing until a node names a file of the user's: a .nam model, an impulse response.
 const NEEDS_A_USER_FILE = new Set(["neural-amp-modeler", "impulse-response"]);
 // A module that fails today, by label, with the bug: its check must keep failing until the bug is fixed.
-const KNOWN_BROKEN: Record<string, string> = {
-  "@k7-core/instruments/sampler":
-    'plugin type "builtin" is no format the compiler knows, so the node is dropped from the engine document without a word',
-};
+const KNOWN_BROKEN: Record<string, string> = {};
 
 type Kind = "instrument" | "effect" | "midi";
 
@@ -119,7 +116,7 @@ const NOTES =
   "notes([t(0).d(4).k(48).v(0.8), t(0).d(4).k(55), t(0).d(4).k(60)])\n";
 const SOURCE = `extends("@k7-core/instruments/k7-4osc")\n`;
 // A rack plays only the taps its node declares, so a rack engine gets one.
-const RACK_TAPS = `rack({ Kick: { note: 36, sample: "@k7-core/naked_drums/Kick.wav" } })\n`;
+const RACK_TAPS = `rack({ symbols: { Kick:{ note: 36, sample: "@k7-core/naked_drums/Kick.wav" } } })\n`;
 
 const trackNode = (seq: string) =>
   `extends("@meta/track")\nevents([ref("${seq}").start("1:1:1")])\n`;

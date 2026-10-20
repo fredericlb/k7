@@ -106,10 +106,6 @@ test("/settings/engine says on the web that it is the desktop app's page", async
 });
 
 test("/settings/engine opens when loaded by its address", async ({ k7 }) => {
-  test.fail(
-    true,
-    "isHomePage (web-protocol/projects.ts) reserves `settings` as ONE segment, so a reload or deep link of /settings/engine is parsed as a project and shows the dead-address card",
-  );
   const page = await k7.open("/settings/engine");
   await expect(
     page.getByRole("heading", { level: 1, name: "This machine's engine" }),
