@@ -212,6 +212,12 @@ target that failed stays dirty, so the next save retries it instead of looping o
 `engine/k7-runtime/tests/` is deliberately not watched: it links a binary of its own, and
 rebuilding it would double the wait for something the session never runs.
 
+**The binary run is the newest of THIS machine's presets.** A phone's build (`android-*`, `ios-*`)
+lands in the same `build/` folder, the APK being built on the desk it is tested from
+(`engine/k7-runtime/docs/android.md`), and is newer as soon as it is built; it cannot run here, so every
+lookup that picks a binary to run or to stage skips those presets (`CROSS` in
+`engine/scripts/supervisorBuild.mjs`).
+
 ### Why one process owns both watches
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so

@@ -23,12 +23,16 @@ export function buildSupervisor(repo) {
   run("cmake", ["--build", "--preset", preset], dir);
 }
 
+/** The presets that build for another device, whose binaries this machine cannot run. */
+export const CROSS = /^(android|ios)-/;
+
 /** The freshest built supervisor, Debug last — the rule the engine binary follows too. */
 export function findSupervisor(repo) {
   const build = join(repo, "engine", "k7-supervisor", "build");
   if (!existsSync(build)) return null;
   const found = [];
-  for (const preset of readdirSync(build))
+  // A phone's build (android-*, ios-*) lives beside this machine's and must never be the one run here.
+  for (const preset of readdirSync(build).filter((p) => !CROSS.test(p)))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
       for (const name of ["k7-supervisor.exe", "k7-supervisor"]) {
         const p = join(build, preset, cfg, name);
