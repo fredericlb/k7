@@ -236,7 +236,7 @@ export function Playlists({
   };
 
   // A narrow screen shows one of the two columns: the list until a playlist is open, then that playlist (../docs/responsive.md).
-  const listIsPage = !file && !error;
+  const listIsPage = !file;
   return (
     <div className="flex min-h-0 flex-1">
       {/* The set lists on this volume, as a tree: a playlist is a FILE, and one can nest another. */}
@@ -245,6 +245,12 @@ export function Playlists({
           listIsPage ? "m-3 flex min-w-0 flex-1" : "hidden"
         }`}
       >
+        {/* On a narrow screen the column beside it is not drawn, so its error is said here; a wide one says it there. */}
+        {error ? (
+          <div className="mb-2 rounded bg-destructive/10 px-2 py-1.5 text-destructive text-sm md:hidden">
+            {error}
+          </div>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-auto">
           {list && !list.length ? (
             <p className="p-2 text-sm text-white/70">{l.none}</p>
