@@ -326,11 +326,11 @@ describe("Workspace.recordChange", () => {
     );
     expect(read("proj.k7/a.k7x")).toBe("v2");
 
-    const undone = await ws.undoHistory();
+    const undone = await ws.history.undo();
     expect(undone?.files).toEqual(["proj.k7/a.k7x"]);
     expect(read("proj.k7/a.k7x")).toBe("v1");
 
-    await ws.redoHistory();
+    await ws.history.redo();
     expect(read("proj.k7/a.k7x")).toBe("v2");
   });
 
@@ -343,9 +343,9 @@ describe("Workspace.recordChange", () => {
       snapshot(wav); // the render backs itself up before overwriting
       writeFileSync(wav, Buffer.from("new"));
     });
-    expect(ws.peekUndo()?.kind).toBe("process");
+    expect(ws.history.peekUndo()?.kind).toBe("process");
 
-    await ws.undoHistory();
+    await ws.history.undo();
     expect(read("proj.k7/r.wav")).toBe("old");
   });
 
@@ -372,11 +372,11 @@ describe("Workspace.recordChange", () => {
       () => ws.write("proj.k7/graph.k7x", "in -> fx -> out\n"),
       "join",
     );
-    expect(ws.historyList()).toHaveLength(1);
-    await ws.undoHistory();
+    expect(ws.history.list()).toHaveLength(1);
+    await ws.history.undo();
     expect(read("proj.k7/graph.k7x")).toBe(graph);
     expect(existsSync(join(dir, "proj.k7", "fx.k7x"))).toBe(false);
-    expect(ws.historyState().canUndo).toBe(false);
+    expect(ws.history.state().canUndo).toBe(false);
   });
 
   // The graph pinning its own layout as a project opens: nobody made it, so Ctrl+Z must reach past it.
@@ -390,8 +390,8 @@ describe("Workspace.recordChange", () => {
       "skip",
     );
     expect(pin.files).toEqual([{ path: "graph.k7x", kind: "edited" }]);
-    expect(ws.historyList().map((e) => e.label)).toEqual(["edit"]);
-    await ws.undoHistory();
+    expect(ws.history.list().map((e) => e.label)).toEqual(["edit"]);
+    await ws.history.undo();
     expect(existsSync(join(dir, "proj.k7", "a.k7x"))).toBe(false);
     expect(read("proj.k7/graph.k7x")).toBe("in -> out\npositions: {}\n");
   });
@@ -399,7 +399,7 @@ describe("Workspace.recordChange", () => {
   it("records nothing when the mutation changed no files", async () => {
     const { ws } = openProject();
     await ws.recordChange("noop", () => {});
-    expect(ws.historyState().canUndo).toBe(false);
+    expect(ws.history.state().canUndo).toBe(false);
   });
 
   // The same diff said the other way: the journal's paths are workspace-relative, these the project's.

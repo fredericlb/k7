@@ -131,7 +131,8 @@ const fmtBody = z.object({ path: z.string().min(1) });
 fileRouter.post(
   "/fmt",
   validate(fmtBody),
+  // Reads the file back after a save, formatting NOTHING — both editors call it and use the reply.
   wrap((req, res) => {
-    res.json(req.ws!.fmt((req.body as z.infer<typeof fmtBody>).path));
+    res.json(req.ws!.read((req.body as z.infer<typeof fmtBody>).path));
   }),
 );

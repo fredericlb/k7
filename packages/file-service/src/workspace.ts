@@ -95,7 +95,6 @@ import {
   trackColorsOf,
   trackMixersOf,
 } from "./graphDoc.ts";
-import type { HistoryListEntry, HistoryPeek, HistoryState } from "./history.ts";
 import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
@@ -243,8 +242,8 @@ export class Workspace {
     rev: string;
     doc: VideoProjectDoc;
   } | null = null;
-  // The undo/redo journal — see workspaceHistory.ts.
-  private readonly journal: WorkspaceHistory;
+  // The undo/redo journal, read by the history routes; a change is recorded through `recordChange` — workspaceHistory.ts.
+  readonly history: WorkspaceHistory;
   /** Live sync's capture, when on: a mutation window holds its batch open — docs/liveCapture.md. */
   liveCapture:
     | (ChangeFeed & { hold(): void; release(label: string): void })
@@ -273,7 +272,7 @@ export class Workspace {
       recentProjectDoc: (dir) => this.recentProjectDoc(dir),
       withinRoot: (abs) => this.withinRoot(abs),
     });
-    this.journal = new WorkspaceHistory({
+    this.history = new WorkspaceHistory({
       root: this.root,
       activeProject: () => this.activeProject,
       toRel: (abs) => this.toRel(abs),
@@ -661,32 +660,10 @@ export class Workspace {
   ): Promise<Recorded<T>> {
     this.liveCapture?.hold();
     try {
-      return await this.journal.record(label, mutate, mode);
+      return await this.history.record(label, mutate, mode);
     } finally {
       this.liveCapture?.release(label);
     }
-  }
-
-  /** Undo the most recent journalled change on the active project. */
-  undoHistory(): Promise<HistoryPeek | null> {
-    return this.journal.undo();
-  }
-  /** Redo the change undo just reverted. */
-  redoHistory(): Promise<HistoryPeek | null> {
-    return this.journal.redo();
-  }
-  /** The open project's journal for the History panel, its paths PROJECT-relative like a commit's. */
-  historyList(): HistoryListEntry[] {
-    return this.journal.list();
-  }
-  peekUndo(): HistoryPeek | null {
-    return this.journal.peekUndo();
-  }
-  peekRedo(): HistoryPeek | null {
-    return this.journal.peekRedo();
-  }
-  historyState(): HistoryState {
-    return this.journal.state();
   }
 
   // --- tree / text I/O -------------------------------------------------------
@@ -696,11 +673,6 @@ export class Workspace {
   /** The file tree an editor draws: the WHOLE workspace, every project in it — see docs/activeProject.md. */
   tree(): FileNode[] {
     return this.walk(this.root);
-  }
-
-  /** The same walk under the home page's own route, which asks it of a workspace it has not opened. */
-  workspaceTree(): FileNode[] {
-    return this.tree();
   }
 
   /**
@@ -960,11 +932,6 @@ export class Workspace {
   /** The engines a module file's folder holds, and the one it runs — packages/song/docs/engines.md. */
   moduleEngines(rel: string): { engines: string[]; engine?: string } {
     return enginesBeside(this.safePath(rel));
-  }
-
-  /** Read the file back after a save, formatting NOTHING — both editors call it and use the reply. */
-  fmt(rel: string): FileContent {
-    return this.read(rel);
   }
 
   /** A derived view memoised on the revision token; `build` may only READ — docs/workspace.md. */
