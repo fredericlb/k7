@@ -68,6 +68,20 @@ otherwise lose every `@engine/…` node, a Surge synth sent no patch. A scan tha
 replaces the table rather than adding to it: it is what THIS engine has, and a build without Surge
 must not be sent one. Externals have no table, so they stay unknown until the scan lands.
 
+**An account's copy is written by one function**, `writeScanCopy`: the hub on a binding, and again
+when the scan running at the binding ends (`packages/file-hub/docs/fileHub.md`), and the account's
+file service when a project held for the scan is released (`packages/file-service/docs/engineLoad.md`).
+It writes the engine's `plugins` reply in the scan file's own shape, atomically, and leaves a copy
+that already says the same alone: its mtime is in every project's revision token, and a rewrite
+throws away the compile an open just made.
+
+**Which projects wait for a scan is `namesExternalPlugin`** (`externalPlugins.ts`): a module whose
+plugin is an external format, or an `extends` chain — or a chain step — that ends on an
+`@engine/…` ref which is not a built-in. The unresolved ref is the case that matters: a plugin
+installed since the last scan is exactly a ref the stale catalogue does not resolve. A built-in is
+in the generated table, so a project of built-ins never waits. A project that cannot be read
+answers false and opens as it would have, its own error reported where it always is.
+
 The read is memoised per FILE on the cache's mtime+size — the machine's cache is on the graph's hot
 path, and a test points at a fixture instead, so one shared memo would make the two evict each
 other. The plugins are sorted, so a map built from them is stable across runs: the order the scan

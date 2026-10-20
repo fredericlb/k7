@@ -23,9 +23,9 @@ module preview and a DJ deck would each replace whatever k7 has loaded.
 The field is optional and absent means `""`, the default session — so a client that has
 never heard of sessions still works.
 
-**Every reply about one project carries it back**, and only these five do not, because they are
-the machine's rather than a project's: `plugins`, `audio-devices`, `sessions`, `edit-plugins`
-and `whoami`. That is a closed set — it is `ENGINE_GLOBAL_REPLIES` in
+**Every reply about one project carries it back**, and only these do not, because they are
+the machine's rather than a project's: `plugins`, `plugin-scan`, `audio-devices`, `sessions`,
+`edit-plugins` and `whoami`, and the pairing and plugin-type replies beside them. That is a closed set — it is `ENGINE_GLOBAL_REPLIES` in
 `packages/engine-protocol/sessions.ts`, with `PER_SESSION_REPLIES` beside it, and
 `sessions.test.ts` pins both. It matters that the set is closed: the client's filter passes a
 frame with **no** session at all (so an older engine does not strike it deaf), which is safe
@@ -87,7 +87,8 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "get-plugin-params", id }` / `{ type: "set-plugin-param", id, name, value }` | read / move one plugin's values |
 | `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
-| `{ type: "rescan-plugins" }` | re-scan the installed catalogue |
+| `{ type: "rescan-plugins" }` | re-scan the installed catalogue: incrementally, or from nothing with `force: true` |
+| `{ type: "plugin-scan" }` | where the plugin scan stands → a `plugin-scan` reply, to the asking socket alone ([plugins.md](plugins.md)) |
 | `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
 | `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
@@ -196,6 +197,8 @@ frame is skipped for a socket already behind, a reply never is.
 | `{ type: "native-plugin-ui-opened", format, id, ok }` | whether the orphan window opened. NO reply at all means the load is still running or has hung — the two a caller must not read as success |
 | `{ type: "presets", module, presets: [{name,source,index,path}, …] }` | |
 | `{ type: "edit-plugins", plugins: [{id,name,hasNativePluginUI}, …] }` | what the loaded project holds |
+| `{ type: "plugins", plugins: […], scanning }` | the installed catalogue; `scanning` says a scan is running and will broadcast the list it ends on |
+| `{ type: "plugin-scan", scanning, done, total, current, version }` | where the plugin scan stands: files done of `total` listed (0 while listing), the file being loaded, and the scans this process has finished. Broadcast at a scan's start, when a load begins, at most 4 Hz in between, and at the end — after the `plugins` it ended on |
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |
 | `{ type: "error", message }` | |
 

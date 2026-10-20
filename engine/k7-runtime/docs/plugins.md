@@ -212,14 +212,33 @@ reused only when the file is unchanged **and** it already holds a full `PluginDe
 `findAllTypesForFile`, which would reload the binary just to re-derive it. The map written back
 holds only current files, so uninstalled plugins drop out.
 
-**When the engine scans on its own is `pluginCacheWarm()`'s answer, asked of the FILE.** Not
-`!loadPluginCache().empty()`, which is always true since that list starts with the ~224 built-ins:
-the startup warm would never scan, and on a machine where nobody typed `k7-runtime scan` there would
-be no `exts.json` at all — so the TypeScript, which reads that file for `@engine/…`, would show an
-empty engine library. Warm means: the file holds `builtin:*` entries equal to this binary's built-ins (a built-in
-added or renamed since the last scan otherwise never reaches the TypeScript), and at least one
-external, unless the build can host none (Android). The scan is incremental, so a warm-up forced
-by a new built-in re-reads no plugin binary.
+**The engine scans at EVERY start**, incrementally, on a detached worker after the port is bound,
+so neither the socket nor the audio device waits for it. Every plugin file is stat'ed; only a new
+or changed one is loaded, and a file gone from disk drops out of the cache. A scan run only on a
+cold cache would leave a plugin installed since the last run unknown until someone asked for a
+rescan, and a project naming it would open with the plugin missing. With nothing changed the scan costs the
+directory walk and one `stat` per file. Which entries are reused and which are gone is
+`ScanProgress.h`, JUCE-free, so `studio_scanprogress_tests` has it.
+
+**`pluginCacheWarm()` is asked of the FILE**, and now decides only whether a `list-plugins` must
+wait for a scan before it answers. Not `!loadPluginCache().empty()`, which is always true since that
+list starts with the ~224 built-ins. Warm means: the file holds `builtin:*` entries equal to this
+binary's built-ins (a built-in added or renamed since the last scan otherwise never reaches the
+TypeScript), and at least one external, unless the build can host none (Android).
+
+**A scan says where it stands.** One board (`ScanProgressBoard`) holds files done of files listed,
+the file being loaded, and how many scans the process has finished; every socket may ask it
+(`plugin-scan`) and every socket hears it while a scan runs — at the start, when a load begins, and
+otherwise at most four times a second, since a warm scan stats hundreds of files in a second and a
+frame per file would be noise. The files of every format are listed before the first is stat'ed, so
+the count has a total from the start; `total` is 0 only while the folders are walked. A `plugins`
+reply carries `scanning` too, so whoever asks for the list knows it is about to be replaced.
+
+**The end is said AFTER the catalogue.** A scan ends by broadcasting the new `plugins` list, then
+`plugin-scan` with `scanning: false` — a scan that throws included, since a gate waiting on it
+would otherwise wait for nothing. A client that re-reads the catalogue on the end finds the list
+already sent; the account file services and the hub write their copy of the scan from it
+(`packages/song/docs/enginePlugin.md`).
 
 `cachedPluginInfos()` memoises the parsed cache, because `makeExternalPlugin` runs per plugin and
 re-parsing added up on projects with many. It is handed out as a **shared snapshot**, not a

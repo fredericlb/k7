@@ -279,7 +279,12 @@ so a model downloaded once here reaches that machine once.
 
 The engine's plugin list is fetched over the tunnel at binding time and written as
 `<home>/exts.json`, the scan file's own shape, so everything that reads the engine's catalogue
-works unchanged. A rescan on the engine's machine reaches the server at the next binding.
+works unchanged. When the engine answers that its scan is still running — it scans at every
+start — the hub keeps the channel open, for fifteen minutes at most, and writes the list again
+from the one the scan ends on (`engine/k7-runtime/docs/plugins.md`). A rescan asked later reaches
+the server at the next binding, or through the account's file service when a project waits for it
+(`packages/file-service/docs/engineLoad.md`). Both writers go through one function and leave a
+copy that already says the same untouched, since its mtime is in every project's revision token.
 
 ## An engine serves one account at a time
 
