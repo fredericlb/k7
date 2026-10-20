@@ -186,7 +186,7 @@ frame is skipped for a socket already behind, a reply never is.
 
 | message | meaning |
 |---|---|
-| `{ type: "applied", changes: ["tempo -> 124 bpm", …] }` | the diff that ran |
+| `{ type: "applied", changes: ["tempo -> 124 bpm", …], warnings: [{ subject, message }] }` | the diff that ran, and the STANDING warnings the session's project was built with (`sessions.md`) |
 | `{ type: "flushed" }` | flush completed |
 | `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `server/ServeMachine.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
 | `{ type: "state", playing, playhead, loop, levels, inputLevels, waveform }` | the ~20 Hz state frame; `loop` is `{ on, start, end }` in seconds, the transport's own, so a client that reconnects draws the loop that is playing rather than none |

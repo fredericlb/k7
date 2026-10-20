@@ -86,7 +86,8 @@ void addProjectHandlers(HandlerTable& t) {
                     std::chrono::duration<double, std::milli>(
                         std::chrono::steady_clock::now() - applyT0)
                         .count();
-                json r{{"type", "applied"}, {"changes", json::array()}};
+                // The WHOLE standing set, not this apply's: a no-op apply answers with what the last build left too.
+                json r{{"type", "applied"}, {"changes", json::array()}, {"warnings", standingWarningsJson(session)}};
                 std::vector<std::string> described;
                 described.reserve(changes.size());
                 for (const auto& c : changes) {

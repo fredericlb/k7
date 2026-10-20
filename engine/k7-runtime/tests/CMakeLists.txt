@@ -19,6 +19,14 @@ target_include_directories(studio_engine_tests PRIVATE
 
 add_test(NAME studio_engine_tests COMMAND studio_engine_tests)
 
+# --- Warnings tests -----------------------------------------------------------
+# The standing warnings a late client is told: Warnings.cpp is JUCE-free, so this too builds in seconds.
+add_executable(studio_warnings_tests
+    Warnings_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/Warnings.cpp)
+target_include_directories(studio_warnings_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_warnings_tests COMMAND studio_warnings_tests)
+
 # --- DocJson tests ------------------------------------------------------------
 # The wire's bounds, in their own fast binary: DocJson.cpp is JUCE-free and needs only nlohmann.
 add_executable(studio_docjson_tests

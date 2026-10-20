@@ -273,6 +273,14 @@ void addMachineHandlers(HandlerTable& t) {
                 isNew = drivers.emplace(&ws, session).second;
             }
             if (isNew) host.post([&host, session] { host.addDriver(session); });
+            // …and tell a driver arriving after the build what that build complained of, which was said only once (docs/sessions.md).
+            if (isNew)
+                for (const auto& w : standingWarnings(session))
+                    ws.send(json{{"type", "engine-warning"},
+                                 {"subject", w.subject},
+                                 {"message", w.message},
+                                 {"session", session}}
+                                .dump());
         }
     });
 }
