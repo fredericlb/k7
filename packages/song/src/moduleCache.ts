@@ -3,6 +3,7 @@
 // from: every entry's name, plus the newest mtime among the files that define a module. A 20 ms
 // directory walk in place of a 295 ms read of the whole médiathèque. See docs/moduleCache.md.
 
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import { EXTS_PATH } from "./engineCatalogue";
 import { modelsRoot } from "./modelCache";
@@ -22,8 +23,7 @@ function moduleStamp(dir: string): string {
   ];
   // A rescan rewrites `exts.json` and touches no library — `@engine/…` refs come out of it.
   // A model landing in the machine's cache moves its folder's mtime, in no module folder (docs/moduleAssets.md).
-  const files = [EXTS_PATH, modelsRoot()];
-  const { hash, entries, newest } = walkStamp(roots, files);
+  const { hash, entries, newest } = walkStamp(roots, looseFiles());
   return `${(hash >>> 0).toString(36)}:${entries}:${newest}`;
 }
 
@@ -37,14 +37,32 @@ export function setFoldersStill(f: FoldersStill | null): void {
 }
 
 /** The last stamp walked per project, so a watcher's "nothing moved" can hand it back verbatim. */
-const walked = new Map<string, string>();
+const walked = new Map<string, { stamp: string; loose: string }>();
+
+// The stamp's files outside every watched root; another process writes them (the hub's exts.json), so no watcher hears them.
+const looseFiles = (): string[] => [EXTS_PATH, modelsRoot()];
+
+/** The loose files' mtimes, two stats: what a held stamp must still match, whatever the watcher says. */
+function looseStamp(): string {
+  return looseFiles()
+    .map((f) => {
+      try {
+        return String(statSync(f).mtimeMs);
+      } catch {
+        return "-";
+      }
+    })
+    .join(":");
+}
 
 /** The stamp, walked unless a watcher says nothing moved AND there is one to hand back. */
 function stampFor(dir: string): string {
   const held = walked.get(dir);
-  if (held !== undefined && still?.(dir)) return held;
+  const loose = looseStamp();
+  if (held !== undefined && held.loose === loose && still?.(dir))
+    return held.stamp;
   const fresh = moduleStamp(dir);
-  walked.set(dir, fresh);
+  walked.set(dir, { stamp: fresh, loose });
   if (walked.size > MAX_ENTRIES)
     walked.delete(walked.keys().next().value as string);
   return fresh;
