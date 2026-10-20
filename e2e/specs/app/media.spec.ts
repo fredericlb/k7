@@ -108,19 +108,31 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
 
   await test.step("add it to a playlist", async () => {
     await page.getByRole("link", { name: "Playlists" }).click();
-    await expect(page).toHaveURL(/\/media\/playlists/);
-    const existing = page.getByRole("button", { name: PLAYLIST, exact: true });
-    if (!(await existing.isVisible().catch(() => false))) {
+    await expect(page).toHaveURL(/\/media\/playlists\/?$/);
+    const row = page.getByRole("button", { name: PLAYLIST, exact: true });
+    const opened = new RegExp(`/media/playlists/${PLAYLIST}\\.yaml$`);
+    // The list loads after the page: a short wait tells "not there yet" from "not there".
+    const listed = await row
+      .waitFor({ timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!listed) {
       await page.getByRole("button", { name: "New playlist" }).click();
       await page
         .getByPlaceholder("summer-2026, or live/rehearsal")
         .fill(PLAYLIST);
       await page.keyboard.press("Enter");
     }
-    await existing.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/media/playlists/${PLAYLIST}\\.yaml$`),
-    );
+    // Creating opens it, and a narrow screen then hides the list (packages/ui-library/docs/responsive.md).
+    await expect(async () => {
+      expect(opened.test(page.url()) || (await row.isVisible())).toBe(true);
+    }).toPass({ timeout: 15_000 });
+    if (!opened.test(page.url())) await row.click();
+    await expect(page).toHaveURL(opened);
+    // The open playlist's header names its file, on either layout.
+    await expect(
+      page.getByText(`playlists/${PLAYLIST}.yaml`, { exact: true }),
+    ).toBeVisible();
     // A rerun empties what the last one added, through the rows' own Remove.
     const remove = page.getByRole("button", { name: "Remove", exact: true });
     while ((await remove.count()) > 0) {
