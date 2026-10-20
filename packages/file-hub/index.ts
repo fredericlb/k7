@@ -82,6 +82,8 @@ export interface FileHubOptions
   idleMs?: number;
   /** An account may be paired with a remote origin: the desktop and the phone only, since the libraries follow that pairing. */
   remotePairing?: boolean;
+  /** The machine's local user, who has no account at any origin and never pairs. */
+  isLocal?: (req: Request) => boolean;
   /** DEV: stop every instance when the file service's source changes — sourceWatch.ts. */
   watchSources?: boolean;
   log?: (msg: string) => void;
@@ -166,6 +168,8 @@ export class FileHub {
       subjectOf: (req) => opts.subjectOf?.(req) ?? "",
       relay: () => this.stopSync,
       remotePairing: opts.remotePairing === true,
+      isLocal: opts.isLocal,
+      selfPort: opts.selfPort,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
     for (const r of this.pairedAccounts())
