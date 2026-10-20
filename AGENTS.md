@@ -92,10 +92,13 @@ engine registry, the relay or a gate, `docs/audit-moteur.md`. The repo's own che
 
 **Windows only** — on macOS and Linux, edit and build in the same world and run `npm run dev`.
 
-Development is native Windows, no WSL. **Every build and every dev server belongs to Tilt**
-(`npm run dev` = `tilt up`, UI at http://localhost:10350): never build by hand. Save (or
-`tilt trigger <resource>`), wait for Tilt, then read `tilt get uiresources` / `tilt logs <resource>`.
-The engine runs under the `native` resource (`docs/dev.md`, `docs/remote.md`).
+**Two checkouts, and only one of them runs anything.** Agents edit in the WSL clone `~/Src/k7`
+(ext4, its own Linux `node_modules`) — git, biome, vitest, tsc and the lints are 3–50× faster
+there. **Every build and every dev server belongs to Tilt, in the Windows checkout**
+(`npm run dev` = `tilt up`, UI at http://localhost:10350): never build by hand, and never run Tilt,
+a dev server or the engine build from WSL. Branch from `win/main`, then `git push win <branch>`;
+the branch lands in the Windows checkout, where it is merged and where Tilt runs it. Read the
+session with `tilt.exe get uiresources` / `tilt.exe logs <resource>` (`docs/dev.md`, `docs/remote.md`).
 
 **Never use PowerShell for text in a tracked file**: it silently corrupts UTF-8 and drops accented
 arguments. Write the script with the file tool and run `bash script.sh`; edit files with the edit

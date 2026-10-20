@@ -276,11 +276,37 @@ be ended too abruptly for its own handler to run, and an engine left holding its
 is the one leak worth being sure about. Every step **throws** rather than calling `process.exit`, so
 a watcher meant to outlive a bad build survives one.
 
+## Two checkouts on the Windows machine — what RUNS stays on NTFS
+
+The Windows checkout is where everything that runs lives: Tilt, every dev server, the MSVC build
+and the binaries all run from NTFS, natively. Nothing that runs crosses into WSL, because what
+crosses breaks: MSBuild tracks a dependency lowercased, so over the case-sensitive 9p share no
+build is ever up to date, and a server reading NTFS from the distro pays 9p on every `readdir`
+(a workspace listing goes from about 1 ms to several seconds, and the service starves).
+
+The agent's EDITING clone is `~/Src/k7` in the WSL distro, on ext4, with its own Linux
+`node_modules`. It exists for one measured reason: process creation and small-file I/O. In Git Bash
+on NTFS, 50 process spawns take 2.8 s, `lint:comments` 3.7 s and one package's vitest 8 s; on
+ext4 the same take 47 ms, 0.2 s and 2.5 s. An agent spends its time in exactly those calls.
+
+The two trees meet through git and nothing else, with no mirror:
+
+| | WSL clone `~/Src/k7` | Windows checkout |
+|---|---|---|
+| edit, git, biome, vitest, tsc, the lints | yes | yes |
+| Tilt, dev servers, engine, MSVC | **never** | yes |
+| remote | `win` = `/mnt/c/Users/<you>/Src/k7` | — |
+
+The agent branches from `win/main`, commits, and runs `git push win <branch>`: the branch lands in the
+Windows checkout, which is where it is merged and where Tilt runs it. `tilt.exe` answers from
+the distro through interop, so `tilt.exe get uiresources` reads the session without crossing.
+The `commons` submodule is cloned from the Windows checkout too, which git refuses unless the
+command carries `-c protocol.file.allow=always`.
+
 ## Shelling out on Windows — from a FILE, never through PowerShell
 
-Development here is native Windows, no WSL: the tree lives on NTFS, and every npm command, the
-MSVC build and the binaries run there. Editing (claude, nvim…) happens in the
-`console.priv.frediver.se` tabs, Git Bash by default ([remote.md](remote.md)).
+On the Windows side, editing (claude, nvim…) happens in the `console.priv.frediver.se` tabs,
+Git Bash by default ([remote.md](remote.md)).
 
 PowerShell is the wrong tool for anything touching this repo's text, and it fails silently:
 
