@@ -158,8 +158,32 @@ describe("the catalogue of modules", () => {
     });
   });
 
-  it("engineModules() itself offers only the scan — no io roles", () => {
-    expect(engineModules(join(dir, "nope.json"))).toEqual({});
+  it("engineModules() itself offers no io roles, scanned or not", () => {
+    expect(
+      Object.keys(engineModules(join(dir, "nope.json"))).filter((r) =>
+        r.startsWith("@meta/"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("offers the built-ins while no scan can say, so a fresh machine compiles a Surge node", () => {
+    // A fresh account's file service has no exts.json until an engine is bound; dropping @engine/surge-xt then sent no patch.
+    for (const empty of [join(dir, "nope.json"), file]) {
+      if (empty === file) scan();
+      const m = engineModules(empty);
+      expect(m["@engine/surge-xt"]).toMatchObject({
+        plugin: { type: "internal", name: "Surge XT" },
+        category: "instruments",
+      });
+      expect(m["@engine/adt"]?.category).toBe("audio");
+      expect(m["@engine/arpeggiator"]?.category).toBe("transformers");
+    }
+  });
+
+  it("lets a scan that says something replace the built-in table", () => {
+    // A scan is what THIS engine has: a build without Surge must not be sent one.
+    scan({ name: "4OSC", format: "internal", role: "instrument" });
+    expect(Object.keys(engineModules(file))).toEqual(["@engine/4osc"]);
   });
 
   it("collapses two scans of one plugin into one module", () => {

@@ -4,10 +4,11 @@
 // No wrapper file mirrors that scan, so `_modules` holds only what someone authored — a jsdsp
 // source, a rack's sample map.
 //
-// A leaf: nothing here imports beyond moduleTypes.ts, so loader.ts can use it without a cycle.
+// A leaf: nothing here imports beyond song-schema, so loader.ts can use it without a cycle.
 
 import { statSync } from "node:fs";
 import { join } from "node:path";
+import { BUILTIN_PLUGINS } from "@studio/song-schema/builtinParams";
 import {
   categoryForRole,
   ENGINE_NS,
@@ -141,10 +142,21 @@ export function ioModules(): Record<string, LoadedModule> {
   return out;
 }
 
-/** Every module the engine's SCAN offers, keyed by ref — real plugins only; the io roles are ioModules(). */
+/** The built-ins as the scan would list them, from the generated table: every engine has them, scanned or not. */
+export function builtinScan(): ScannedPlugin[] {
+  return Object.values(BUILTIN_PLUGINS).map(({ name, role }) => ({
+    name,
+    format: "internal",
+    role,
+    instrument: role === "instrument",
+  }));
+}
+
+/** Every module the engine's SCAN offers, keyed by ref; the built-ins stand in for a scan that cannot say — docs/enginePlugin.md. */
 export function engineModules(file = extsPath()): Record<string, LoadedModule> {
   const out: Record<string, LoadedModule> = {};
-  for (const p of scannedPlugins(file)) {
+  const scanned = scannedPlugins(file);
+  for (const p of scanned.length ? scanned : builtinScan()) {
     // The ref and the plugin block come from moduleTypes, the one rule the browser applies too.
     const named = engineModuleOf(p);
     if (!named) continue;
