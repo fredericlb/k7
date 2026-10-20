@@ -224,7 +224,7 @@ export function MixerColumn({
 }: {
   mix: number;
   layout: DeskLayout;
-  /** How tall the record row beside this column is — the disc, or the stem block when there is none. */
+  /** How tall the record row beside this column is — `recordRow` in ../deskLayout.ts. */
   head: number;
   ready: boolean;
   /** Each deck's channel fader, in dB. */

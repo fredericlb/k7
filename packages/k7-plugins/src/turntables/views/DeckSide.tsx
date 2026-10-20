@@ -64,6 +64,30 @@ function DeckPlay({
   );
 }
 
+/** The record's label without the record: the browser's door, named as the label is — ../../docs/deskLayout.md. */
+export function DeckPick({
+  side,
+  title,
+  onPick,
+}: {
+  side: "A" | "B";
+  title: string | null;
+  onPick: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      // `h-8` is `PICK` in ../deskLayout.ts, which reserves the row this button stands in.
+      className="h-8 min-w-0 max-w-40 px-3"
+      variant={title ? "secondary" : "outline"}
+      title={title ? m["vinyl.change"]() : m["vinyl.choose"]()}
+      onClick={onPick}
+    >
+      <span className="truncate">{title ?? m["vinyl.deck"]({ side })}</span>
+    </Button>
+  );
+}
+
 /** What a deck column needs to draw its loop row. Gathered so both decks say it once. */
 interface LoopProps {
   beats: number | null;
@@ -299,7 +323,7 @@ export function DeckSide({
             layout={layout.strip}
             onStem={onStem}
           />
-          {/* The record, only when the deck is tall enough to be worth one — ../../docs/deskLayout.md. */}
+          {/* The record when the deck is tall enough for one, else its label alone — ../../docs/deskLayout.md. */}
           {layout.vinyl > 0 ? (
             <Vinyl
               side={side}
@@ -320,7 +344,9 @@ export function DeckSide({
               size={layout.vinyl}
               onScratch={onScratch}
             />
-          ) : null}
+          ) : (
+            <DeckPick side={side} title={load?.title ?? null} onPick={onPick} />
+          )}
         </div>
         {/* The waveform and everything under it sit at the FOOT of the column: `deskLayout` caps the
             record, so a tall desk has slack, and left to fall after the title it pushed the strip
