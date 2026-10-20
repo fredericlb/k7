@@ -204,6 +204,21 @@ two copies would compile a song two ways.
   is written into `libraries/<name>`, binaries come from the origin's store, a file only here goes,
   and a local edit is put back to the room's text and never sent. A library must be written on the
   origin, by an admin: a write anywhere else would be a fork nobody else sees.
+- **A followed library's folder is the follow's, and the hub writes nothing in it** (`followed`,
+  true while an account is paired and until the relay has let the follow go). No seed version, no
+  draft, no publish, no version fetched from the public listing: the versions a paired machine holds
+  are the origin's, so a workspace synced from the origin pins a number that means the same files on
+  both sides. The hazard this answers: a seed copied into a followed folder is undone file by file
+  by the follow, and a hub that then no longer recognises it adds it again on every `ensure` — which
+  every library list runs — one more version folder each time. A newer bundled seed therefore
+  reaches a paired machine only once the origin publishes it.
+- **A version folder holding no file but dot-files is a HUSK, not a version, and `ensure` removes
+  it** (`../libraryDirs.ts`). It is what a follow leaves of a version only this machine had: its
+  files undone, its folders and the `.gitkeep`s no capture sees kept. Removing one loses nothing,
+  since a published version always holds its manifest; a version holding any file, manifest or
+  not, is never touched, and on a followed machine neither is one the room knows (its
+  `.sync-follow/<name>/confirmed/<n>`), which may be a folder the follow is still filling. Left in
+  place, a husk would be the newest version, and a workspace pinning it would resolve nothing.
 - **The machine follows the names on ITS list**, which the seed provides (`k7`): the origin's relay
   does not list library rooms, so a library the origin adds reaches a machine only once that
   machine lists it. The first paired account found is the one whose token is used: every pairing

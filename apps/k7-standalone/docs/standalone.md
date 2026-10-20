@@ -138,7 +138,8 @@ update of the app carrying a newer version adds it beside the others, and the wo
 with `library upgrade` (`docs/library-versions-plan.md`). Delete that folder to reseed.
 Once an account is paired (`docs/sync.md`), the copy FOLLOWS the origin's library, read-only: it
 is rewritten to the origin's text, binaries included, and an edit made here is put back
-(`packages/file-hub/docs/fileHub.md`). Never paired, the seed's copy is the library.
+(`packages/file-hub/docs/fileHub.md`): the hub then adds no version of the seed's, since the
+origin's numbers are the only ones a paired machine holds. Never paired, the seed's copy is the library.
 
 ## The engine
 

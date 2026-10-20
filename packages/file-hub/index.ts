@@ -33,7 +33,7 @@ import {
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
-import { fetchLibraryVersion, remoteVersions } from "./libraryFetch.ts";
+import { remoteVersions } from "./libraryFetch.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { pipeTo, statusOf } from "./proxy.ts";
 import { PublicLibraries } from "./publicLibraries.ts";
@@ -131,7 +131,14 @@ export class FileHub {
     );
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
-    this.libraries = new LibraryStore(resolve(opts.dataRoot));
+    // Followed while paired, and until the relay has let the follow go: a seed written into a followed folder is undone.
+    this.libraries = new LibraryStore(
+      resolve(opts.dataRoot),
+      undefined,
+      () =>
+        this.pairedAccounts().length > 0 ||
+        this.libraryRelay?.following === true,
+    );
     // A deployment from before k7 lists `st0`: renamed before anything reads the list (docs/fileHub.md).
     if (this.libraries.renameLegacyDefault())
       log("libraries | the default library st0 is now k7-core");
@@ -318,22 +325,8 @@ export class FileHub {
           draft: body.draft === true,
         });
         // A version this machine lacks, brought down from the origin's public listing.
-        if (name && typeof body.version === "number") {
-          const why = await fetchLibraryVersion(
-            this.libraries.home,
-            name,
-            body.version,
-          );
-          notes.push(
-            why
-              ? { name, state: "failed", note: why }
-              : {
-                  name,
-                  state: "current",
-                  note: `version ${body.version} here`,
-                },
-          );
-        }
+        if (name && typeof body.version === "number")
+          notes.push(await this.libraries.fetchVersion(name, body.version));
         res.json({ notes });
       })().catch((e: Error) => {
         if (!res.headersSent)

@@ -73,7 +73,8 @@ export class LibraryRelay {
     this.link = null;
   }
 
-  private get following(): boolean {
+  /** Whether the libraries follow a remote origin's rooms rather than relay to this hub's own. */
+  get following(): boolean {
     return this.source.remote !== null;
   }
 

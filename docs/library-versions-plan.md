@@ -97,7 +97,9 @@ drums(2)
   origin cannot be reached, said loudly. The hazard this leaves: the repo and an origin's admins
   number one series from two places, so a phone holding the repo's 2 never fetches an origin's
   different 2. A seed never overwrites a version an admin published; it takes the next free number
-  (`../packages/file-hub/docs/fileHub.md`).
+  (`../packages/file-hub/docs/fileHub.md`). **A paired machine installs no seed version**: its
+  library follows the origin's, which alone numbers what it holds, so the bundle's newer version
+  reaches it once the origin publishes one.
 - **Upgrade is a per-workspace action**, the verb `library upgrade <library> [version]` and the
   strip above the editor's file tree: it fetches the version if the machine lacks it, then rewrites
   the pin and recompiles the song. It lists the forks whose base changed between the two versions —
