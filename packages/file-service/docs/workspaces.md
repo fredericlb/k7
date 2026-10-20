@@ -187,3 +187,6 @@ loaded holds files open, and Windows answers EPERM half-way through a delete —
 person hits removing the folder by hand, where Explorer reports it as a request for admin rights
 and elevating does not help. `deleteProject` has carried that rule since it was written
 (*"Release every handle inside the folder before renaming"*); this route follows it.
+`unloadEngineIfServing` is handed the WORKSPACE root and unloads every session serving a project
+under it: a session left serving a folder that is gone re-sends it on every re-dial, and each
+re-send fails as `unsupported song '<name>.k7'`.

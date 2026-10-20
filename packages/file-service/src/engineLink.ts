@@ -477,11 +477,12 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   if (leftProject) forgetModuleWatch(leftProject);
 }
 
-/** Unload whichever sessions are serving `projectAbs` — every one of them, not one global. */
-export async function unloadEngineIfServing(
-  projectAbs: string,
-): Promise<boolean> {
-  const holders = [...served.values()].filter((s) => s.project === projectAbs);
+/** Unload whichever sessions serve a project AT or UNDER `abs` — a project, or a whole workspace (docs/workspaces.md). */
+export async function unloadEngineIfServing(abs: string): Promise<boolean> {
+  const holders = [...served.values()].filter((s) => {
+    const rel = relative(abs, s.project);
+    return rel === "" || !climbsOut(rel);
+  });
   for (const s of holders) await unloadEngine(s.ws);
   return holders.length > 0;
 }
