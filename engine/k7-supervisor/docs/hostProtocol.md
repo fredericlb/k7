@@ -1,10 +1,13 @@
 # The supervisor ⇄ app contract
 
-`src/HostProtocol.h` is the written definition of what moves between the supervisor and the app
-that drives it, and `packages/supervisor-host/src/hostProtocol.ts` mirrors it by hand — the arrangement
-`@studio/engine-protocol` has with the C++ engine. Two spellings of one shape, so a field added on
-one side is a field the other side must be told about: `HostProtocol_test.cpp` pins what the app
-reads.
+`packages/supervisor-host/schema/hostProtocol.schema.json` is the one definition of what moves
+between the supervisor and the app that drives it — every frame, every object closed. The
+TypeScript types are generated from it; the C++ writer, `src/HostProtocol.cpp`, is written by hand
+and held to it through fixtures: `HostProtocol_test.cpp` compares `stateFrame()` byte for byte with
+`schema/fixtures/`, and `packages/supervisor-host`'s suite validates the same files against the
+schema. A field added on either side without the schema fails one of the two suites. Why the writer
+is not generated, and why the phones decode no typed frame, is in
+`packages/supervisor-host/docs/supervisorHost.md`.
 
 It is NDJSON on stdio — one JSON object per line, supervisor→app on stdout, app→supervisor on
 stdin — and the rule that heads this page follows from that: *stdout IS the protocol, one stray
@@ -52,6 +55,9 @@ poll costs a loopback round trip and no frame. `pair.approve <requestId>`, `pair
 and `pair.revoke <deviceId>` are the commands that act on them; each is followed by a poll at once,
 so the row leaves the window with the click. The supervisor sees only names, addresses and codes —
 the key an approved device receives goes from the engine to that device and nowhere else.
+
+`pluginCount` and `instanceCheck` are written as `null` for "none" rather than left out; a host
+reads them through `snapshotOf`, which turns that null into an absent field.
 
 `safeMode` is ABSENT unless the engine runs without external plugins after quick crashes; it carries
 the count and the plugin the engine names as the suspect, empty until the engine answered

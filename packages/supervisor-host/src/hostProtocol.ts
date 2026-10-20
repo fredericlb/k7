@@ -1,121 +1,57 @@
-// hostProtocol.ts — the TypeScript mirror of engine/k7-supervisor/src/HostProtocol.h, by hand.
-// PARTIAL on purpose: a field is added here when a host first reads it.
-// A frame may leave an empty list out, so a host reads one through `snapshotOf`, never raw.
+// hostProtocol.ts — the frames engine/k7-supervisor speaks, typed from schema/hostProtocol.schema.json.
+// The wire types are GENERATED (hostProtocol.generated.ts); this file adds what a host does with them.
+// A frame may leave an empty list out and writes null for "none", so a host reads one through `snapshotOf`, never raw.
 
-export interface AudioDevice {
-  name: string;
-  deviceType: string;
-  current: boolean;
-  /** The device the engine takes its inputs from, which need not be `current`. */
-  currentInput: boolean;
-  /** The open device's channel counts, on the row each belongs to; 0 elsewhere, absent from an older supervisor. */
-  inputs?: number;
-  outputs?: number;
-}
+import type {
+  InstanceCheck,
+  NotifyFrame,
+  ResultFrame,
+  StateFrame,
+} from "./hostProtocol.generated.ts";
 
-/** One INSTALLED plugin: the catalogue, not an instance. */
-export interface Plugin {
-  name: string;
-  format: string;
-  manufacturer: string;
-  role: string;
-}
+export type {
+  AudioDevice,
+  CommandLine,
+  Download,
+  EditPlugin,
+  EngineFrame,
+  Instance,
+  InstanceCheck,
+  InstrumentRow,
+  NotifyFrame,
+  PairedDevice,
+  PairRequest,
+  Plugin,
+  ResultFrame,
+  SafeMode,
+  Session,
+  StateFrame,
+} from "./hostProtocol.generated.ts";
 
-/** One plugin instance in one of the engine's sessions. */
-export interface EditPlugin {
-  session: string;
-  id: string;
-  name: string;
-  hasNativePluginUI: boolean;
-}
+type Lists =
+  | "plugins"
+  | "audioDevices"
+  | "audioPriority"
+  | "editPlugins"
+  | "sessions"
+  | "instances"
+  | "downloads"
+  | "instruments"
+  | "pairRequests"
+  | "pairedDevices";
 
-export interface Session {
-  id: string;
-  project: string;
-  loaded: boolean;
-  playing: boolean;
-  tracks: number;
-  listeners: number;
-}
+/** The supervisor's whole picture: every list present, and "none" absent rather than null. */
+export type Snapshot = Omit<
+  StateFrame,
+  "t" | "owns" | Lists | "pluginCount" | "instanceCheck"
+> &
+  Required<Pick<StateFrame, Lists>> & {
+    /** Absent while the engine has not answered: "scanning", never "none". */
+    pluginCount?: number;
+    instanceCheck?: InstanceCheck;
+  };
 
-export interface Instance {
-  url: string;
-  /** False for a registry from `$STUDIO_REGISTRY_URL`. */
-  removable: boolean;
-}
-
-export interface InstanceCheck {
-  url: string;
-  state: "checking" | "refused";
-  message?: string;
-}
-
-export interface Download {
-  name: string;
-  label: string;
-  received: number;
-  total: number;
-  phase: "queued" | "downloading" | "unpacking" | "failed";
-  error?: string;
-}
-
-export interface InstrumentRow {
-  name: string;
-  label: string;
-  bytes: number;
-  wanted: boolean;
-  installed: boolean;
-}
-
-export interface PairRequest {
-  requestId: string;
-  name: string;
-  ip: string;
-  code: string;
-  since: number;
-}
-
-export interface PairedDevice {
-  deviceId: string;
-  name: string;
-  created: number;
-  lastSeen: number;
-}
-
-/** The supervisor's whole picture. A list may be absent from the frame when empty; read it through `snapshotOf`. */
-export interface Snapshot {
-  status: "stopped" | "running" | "error";
-  /** Present only when there is one. */
-  error?: string;
-  /** Present only while the engine runs without external plugins after quick crashes — engine/k7-supervisor/docs/crashLoop.md. */
-  safeMode?: { crashes: number; suspect: string };
-  ownsEngine: boolean;
-  userStopped: boolean;
-  engineId: string;
-  enginePort: number;
-  registryUrl: string;
-  lastHeartbeatOk: boolean;
-  /** Absent while the engine has not answered: "scanning", never "none". */
-  pluginCount?: number;
-  plugins: Plugin[];
-  pluginsSig: string;
-  audioDevices: AudioDevice[];
-  audioPriority: string[];
-  audioMenuSig: string;
-  editPlugins: EditPlugin[];
-  editPluginsSig: string;
-  sessions: Session[];
-  sessionsSig: string;
-  instances: Instance[];
-  instanceCheck?: InstanceCheck;
-  paths: { root: string; mergedLog: string };
-  downloads: Download[];
-  instruments: InstrumentRow[];
-  pairRequests: PairRequest[];
-  pairedDevices: PairedDevice[];
-}
-
-/** Before the first frame, and the defaults a frame's missing fields take — as serde's `default` does in host.rs. */
+/** Before the first frame, and the defaults a frame's missing fields take. */
 export const EMPTY_SNAPSHOT: Snapshot = {
   status: "stopped",
   ownsEngine: false,
@@ -142,34 +78,19 @@ export const EMPTY_SNAPSHOT: Snapshot = {
 };
 
 /** A state frame as a whole snapshot, every missing field defaulted. */
-export function snapshotOf(frame: Partial<Snapshot>): Snapshot {
-  return {
+export function snapshotOf(frame: Partial<StateFrame>): Snapshot {
+  const { t: _t, owns: _owns, pluginCount, instanceCheck, ...rest } = frame;
+  const s: Snapshot = {
     ...EMPTY_SNAPSHOT,
-    ...frame,
+    ...rest,
     paths: { ...EMPTY_SNAPSHOT.paths, ...frame.paths },
   };
+  if (pluginCount != null) s.pluginCount = pluginCount;
+  if (instanceCheck != null) s.instanceCheck = instanceCheck;
+  return s;
 }
 
-/** The snapshot's fields sit at the frame's top level, beside `t`; empty lists may be left out. */
-export interface StateFrame extends Partial<Snapshot> {
-  t: "state";
-}
-
-/** `modal` wants an answer-less dialog, anything else a passive notification. */
-export interface NotifyFrame {
-  t: "notify";
-  kind: string;
-  title: string;
-  body: string;
-}
-
-export interface ResultFrame {
-  t: "result";
-  id: number;
-  ok: boolean;
-  message?: string;
-}
-
+/** What a desktop host reads off stdout; `engine` frames are the phones' alone. */
 export type Frame = StateFrame | NotifyFrame | ResultFrame;
 
 /** One stdout line as a frame; null for anything that is not one, which the host logs as text. */

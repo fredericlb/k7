@@ -1,6 +1,6 @@
 // HostProtocol.h — the wire contract with the app that runs us: NDJSON on stdio, a whole SNAPSHOT per frame
-// and only when its bytes changed, commands back with one string argument. The app mirrors these shapes by
-// hand (packages/supervisor-host/src/hostProtocol.ts, the phone's Kotlin) and computes no policy of its own.
+// and only when its bytes changed, commands back with one string argument. The wire's one definition is
+// packages/supervisor-host/schema/hostProtocol.schema.json; stateFrame() is held to its fixtures by the tests.
 // Stdout carries frames and nothing else: one stray line and the app parses garbage. See docs/hostProtocol.md.
 
 #pragma once
