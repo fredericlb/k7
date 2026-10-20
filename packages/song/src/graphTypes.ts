@@ -13,7 +13,12 @@ import {
   SHAPE_CATEGORY,
   splitPort,
 } from "@studio/song-schema/moduleTypes";
-import type { ControllerFile } from "@studio/song-schema/yaml/moduleSchema";
+import type {
+  ControllerFile,
+  ModuleUI as SchemaModuleUI,
+  Widget,
+  WidgetType,
+} from "@studio/song-schema/yaml/moduleSchema";
 import type { Assembly } from "./assemblies";
 import { NODE_SEP, readsAsPicture } from "./loader";
 import type { RawClip, RawPlugin, RawSequence, RawVideoTrack } from "./rawDoc";
@@ -76,60 +81,12 @@ export interface Chain {
   enabled?: boolean; // whole-chain bypass
   out: Out[];
 }
-// The kinds of widget a module UI can place: `label` draws text, `meter` is read-only, every other kind binds to a param.
-export type WidgetType =
-  | "label"
-  | "knob"
-  | "slider"
-  | "fader"
-  | "number"
-  | "toggle"
-  | "button"
-  | "meter"
-  | "waveform"
-  | "dropdown"
-  | "lcdscreen"
-  | "group";
-
-// One widget on a module's grid — see #Widget in the schema above for the contract.
-export interface Widget {
-  type: WidgetType;
-  col: number;
-  row: number;
-  colSpan?: number;
-  rowSpan?: number;
-  label?: string;
-  hidden?: boolean;
-  text?: string; // label only
-  bind?: string; // everything but label/waveform: the param name
-  min?: number; // knob | slider | number
-  max?: number;
-  step?: number;
-  curve?: "lin" | "log";
-  source?: "input" | "output"; // waveform only: which audio tap to display
-  // dropdown only: a discrete param's named settings…
-  options?: { label: string; value: number }[];
-  // …or the library folder its choices are listed from ("ir"), where `bind` names a MODULE field (see #Widget).
-  library?: string;
-  color?: string; // group only: its background colour
-  pair?: string; // knob only: the dry param of a crossfade knob
-}
+// A widget and its kinds are the module file's own, so a field the schema gains reaches the graph too.
+export type { Widget, WidgetType };
 // One tab of a panel: its name, and the widgets drawn while it is open.
-export interface UiTab {
-  name: string;
-  widgets: Record<string, Widget>;
-}
-// A module's UI: widgets on a grid, keyed by a stable id (the override key); `widgets` show on every tab.
-export interface ModuleUI {
-  cols: number;
-  rows: number;
-  widgets: Record<string, Widget>;
-  tabs?: UiTab[];
-  // The source of the `widgets.js` beside the panel, which draws its lcdscreen widgets.
-  script?: string;
-  // The panel laid out NARROW, at most 4 columns — absent, the panel serves both shapes (song-schema's LayoutSchema).
-  vertical?: Omit<ModuleUI, "script" | "vertical">;
-}
+export type UiTab = NonNullable<SchemaModuleUI["tabs"]>[number];
+// A module's UI as the graph carries it: the schema's panel, plus the source of the `widgets.js` beside it.
+export type ModuleUI = SchemaModuleUI & { script?: string };
 
 // One rack sound triggered by a MIDI note: its own `clip` in a "samples" rack, a [from, to) second window in a "slice" one.
 export interface RackSound {
