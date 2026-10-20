@@ -137,7 +137,8 @@ export function ShellOverlays({
     setShowHelp,
   } = useShellStore().getState();
   // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
-  const assemblyGraph = useGraphAt(assemblyBuilder?.folder ?? null);
+  const assemblyRead = useGraphAt(assemblyBuilder?.folder ?? null, reloadKey);
+  const assemblyGraph = assemblyRead.error ? null : assemblyRead.graph;
   return (
     <>
       {/* right-click context menu — opened by the timeline and the chains graph */}

@@ -21,6 +21,7 @@ import {
   projectLabel,
   shareToken,
 } from "@studio/web-protocol/projects";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Profiler, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -72,6 +73,7 @@ import {
 import { Home } from "./projects/Home";
 import { RehearsalHost } from "./projects/RehearsalHost";
 import { RehearsalPage } from "./projects/RehearsalPage";
+import { queryClient } from "./queries/client";
 
 /** The home's other pages, fetched when visited: the médiathèque carries the editor stack the login and home pages must not wait for (docs/audit.md). */
 const LibrariesPage = lazy(() =>
@@ -213,86 +215,89 @@ ReactDOM.createRoot(document.getElementById("root")!, {
           )
     }
   >
-    <LocaleProvider>
-      {/* The last line: a fault that escaped every pane's own boundary draws a card here, not a white page. */}
-      <PaneBoundary name="k7">
-        {sharedToken ? (
-          <Suspense fallback={<Booting />}>
-            <SharedGate token={sharedToken}>
-              {(share) => (
-                <App
-                  snapshot={share}
-                  // The visitor's own session on the server's engine, through the share's player — docs/shared.md.
-                  engineUrl={share.player}
-                  engineLatency={null}
-                  userEmail=""
-                  onQuitWorkspace={() => {}}
-                  onChangeEngine={() => {}}
-                />
-              )}
-            </SharedGate>
-          </Suspense>
-        ) : rehearsalNametag ? (
-          <Suspense fallback={<Booting />}>
-            <RehearsalPublicPage nametag={rehearsalNametag} />
-          </Suspense>
-        ) : (
-          <AuthGate>
+    {/* One cache for the page: the panes' shared reads, keyed by what they follow (queries/client.ts). */}
+    <QueryClientProvider client={queryClient}>
+      <LocaleProvider>
+        {/* The last line: a fault that escaped every pane's own boundary draws a card here, not a white page. */}
+        <PaneBoundary name="k7">
+          {sharedToken ? (
             <Suspense fallback={<Booting />}>
-              {/* No project in the address: the home page, behind the account and nothing else, since listing workspaces needs no engine. */}
-              {externalIndex ? (
-                // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
-                <ExternalIndex />
-              ) : !at ? (
-                // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
-                <RehearsalHost>
-                  <RehearsalRecording>
-                    {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
-                    <Suspense fallback={<Booting />}>
-                      <Routes>
-                        <Route
-                          path={LIBRARIES_ROUTE}
-                          element={<LibrariesPage />}
-                        />
-                        <Route
-                          path={SETTINGS_ROUTE}
-                          element={<SettingsPage />}
-                        />
-                        <Route
-                          path={ENGINE_SETTINGS_ROUTE}
-                          element={<DesktopEnginePage />}
-                        />
-                        <Route path={ABOUT_ROUTE} element={<AboutPage />} />
-                        <Route path={TASKS_ROUTE} element={<TasksPage />} />
-                        <Route
-                          path={`${MEDIA_ROUTE}/*`}
-                          element={<MediaPage />}
-                        />
-                        {/* The phone's microphone: a page of its own, outside the frame. */}
-                        <Route
-                          path={`${REHEARSAL_ROUTE}/remote`}
-                          element={<RehearsalRemote />}
-                        />
-                        <Route
-                          path={`${REHEARSAL_ROUTE}/*`}
-                          element={<RehearsalPage />}
-                        />
-                        <Route path="*" element={<Home />} />
-                      </Routes>
-                    </Suspense>
-                  </RehearsalRecording>
-                </RehearsalHost>
-              ) : profiling ? (
-                <Profiler id="app" onRender={reportCommit}>
-                  <EngineGate external={external} />
-                </Profiler>
-              ) : (
-                <EngineGate external={external} />
-              )}
+              <SharedGate token={sharedToken}>
+                {(share) => (
+                  <App
+                    snapshot={share}
+                    // The visitor's own session on the server's engine, through the share's player — docs/shared.md.
+                    engineUrl={share.player}
+                    engineLatency={null}
+                    userEmail=""
+                    onQuitWorkspace={() => {}}
+                    onChangeEngine={() => {}}
+                  />
+                )}
+              </SharedGate>
             </Suspense>
-          </AuthGate>
-        )}
-      </PaneBoundary>
-    </LocaleProvider>
+          ) : rehearsalNametag ? (
+            <Suspense fallback={<Booting />}>
+              <RehearsalPublicPage nametag={rehearsalNametag} />
+            </Suspense>
+          ) : (
+            <AuthGate>
+              <Suspense fallback={<Booting />}>
+                {/* No project in the address: the home page, behind the account and nothing else, since listing workspaces needs no engine. */}
+                {externalIndex ? (
+                  // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
+                  <ExternalIndex />
+                ) : !at ? (
+                  // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
+                  <RehearsalHost>
+                    <RehearsalRecording>
+                      {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
+                      <Suspense fallback={<Booting />}>
+                        <Routes>
+                          <Route
+                            path={LIBRARIES_ROUTE}
+                            element={<LibrariesPage />}
+                          />
+                          <Route
+                            path={SETTINGS_ROUTE}
+                            element={<SettingsPage />}
+                          />
+                          <Route
+                            path={ENGINE_SETTINGS_ROUTE}
+                            element={<DesktopEnginePage />}
+                          />
+                          <Route path={ABOUT_ROUTE} element={<AboutPage />} />
+                          <Route path={TASKS_ROUTE} element={<TasksPage />} />
+                          <Route
+                            path={`${MEDIA_ROUTE}/*`}
+                            element={<MediaPage />}
+                          />
+                          {/* The phone's microphone: a page of its own, outside the frame. */}
+                          <Route
+                            path={`${REHEARSAL_ROUTE}/remote`}
+                            element={<RehearsalRemote />}
+                          />
+                          <Route
+                            path={`${REHEARSAL_ROUTE}/*`}
+                            element={<RehearsalPage />}
+                          />
+                          <Route path="*" element={<Home />} />
+                        </Routes>
+                      </Suspense>
+                    </RehearsalRecording>
+                  </RehearsalHost>
+                ) : profiling ? (
+                  <Profiler id="app" onRender={reportCommit}>
+                    <EngineGate external={external} />
+                  </Profiler>
+                ) : (
+                  <EngineGate external={external} />
+                )}
+              </Suspense>
+            </AuthGate>
+          )}
+        </PaneBoundary>
+      </LocaleProvider>
+    </QueryClientProvider>
   </BrowserRouter>,
 );

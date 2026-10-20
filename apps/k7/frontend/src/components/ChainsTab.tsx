@@ -29,17 +29,17 @@ import {
   type TapAction,
 } from "@studio/ui-chains-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, thawAutoFreeze } from "../api";
+import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { withoutNotes } from "../graphNotes";
 import { nodePredicate } from "../historyMarks";
 import { useChainsMidi } from "../hooks/useChainsMidi";
-import { useDocument } from "../hooks/useDocument";
 import type { MidiControlApi } from "../hooks/useMidiControl";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { nodeNameFor } from "../nodeInsert";
 import { type PendingNode, withPendingNode } from "../pendingNode";
+import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
 import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebGraph, WebProject } from "../types";
@@ -75,7 +75,6 @@ function ChainsTabView({
   onTapEdit,
   onWatchWaveform,
   pendingInsert,
-  seedGraph,
   onLaneNodes,
   onEdgeInsert,
   onCanvasInsert,
@@ -151,8 +150,6 @@ function ChainsTabView({
   ) => void;
   /** The node being created on an arrow right now, or null. Drawn as a placeholder until real data lands. */
   pendingInsert?: PendingNode | null;
-  /** The graph a writing command already came back with, its id, and the `reloadKey` it is the answer FOR — taken once, and only at that key. */
-  seedGraph?: { id: number; graph: WebGraph; at: number } | null;
   /** Each lane node's alternatives and freeze, reported up — the timeline's gutter draws them. */
   onLaneNodes?: (f: {
     alternatives: WebGraph["trackAlternatives"];
@@ -251,27 +248,11 @@ function ChainsTabView({
     camApi.current = api;
   }, []);
 
-  // Through a ref, so the seed is not a dependency of this effect; `consumedSeed` is what makes it a one-shot.
-  const seedRef = useRef(seedGraph);
-  seedRef.current = seedGraph;
-  const consumedSeed = useRef(0);
-  // The seed is just another way of ANSWERING, so it lives INSIDE the load: one document from one place, retry included.
-  // Hidden, a reload is REMEMBERED rather than fetched: the graph is asked for when the pane is shown again.
-  // A fresh seed is a trigger of its own: a bypass hands one back with no reload behind it.
-  const trigger = `${reloadKey}:${seedGraph?.at === reloadKey ? seedGraph.id : 0}`;
-  const shownKey = useRef(trigger);
-  if (active) shownKey.current = trigger;
-  const keyRef = useRef(reloadKey);
-  keyRef.current = reloadKey;
-  const { doc: graph, error } = useDocument(async () => {
-    const seed = seedRef.current;
-    // A seed answers the key it was made at; one left over from an earlier key would draw a graph older than the reload.
-    if (seed && seed.id > consumedSeed.current && seed.at === keyRef.current) {
-      consumedSeed.current = seed.id;
-      return seed.graph;
-    }
-    return api.graph();
-  }, shownKey.current);
+  // Hidden, a reload is REMEMBERED rather than fetched: the graph is asked for at the key in force once the pane is shown.
+  const shownKey = useRef(reloadKey);
+  if (active) shownKey.current = reloadKey;
+  // A command's own answer is already cached for its key, so the reload it caused reads nothing (queries/graph.ts).
+  const { graph, error } = usePaneGraph(shownKey.current);
 
   /** What a node dropped here would be CALLED, handed to the shell with the click — only this pane can answer it (nodeInsert.ts). */
   const nameFor = useCallback(

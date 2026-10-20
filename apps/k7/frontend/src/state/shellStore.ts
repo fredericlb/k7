@@ -31,6 +31,8 @@ export interface ShellVerbs {
 }
 
 export interface ShellState extends OverlaySlice, ToggleSlice {
+  /** Which reload counter this host counts — the namespace of its cached reads (queries/). */
+  scope: string;
   /** A shared snapshot: nothing here can be written (docs/shared.md). */
   frozen: boolean;
   /** 'Something changed — re-read what you draw', plus WHAT changed (reloadScope.ts). */
@@ -47,6 +49,7 @@ export interface ShellState extends OverlaySlice, ToggleSlice {
 export type ShellStore = StoreApi<ShellState>;
 
 interface ShellOptions {
+  scope: string;
   frozen: boolean;
   /** The host's live implementations, read at CALL time — so a pane calling one in its first effect reaches the real thing. */
   impl: { current: ShellVerbs | null };
@@ -78,6 +81,7 @@ export function createShellStore(o: ShellOptions): ShellStore {
     ? Object.fromEntries(o.commands.map((k) => [k, all[k]]))
     : all;
   return createStore<ShellState>()((set) => ({
+    scope: o.scope,
     frozen: o.frozen,
     reload: UNKNOWN_RELOAD,
     bumpReload: () =>

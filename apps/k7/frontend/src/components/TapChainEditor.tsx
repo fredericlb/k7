@@ -5,10 +5,10 @@
 import { Button } from "@frediverse/ui/button";
 import { ArrowDown, ArrowUp, Plus, X } from "@frediverse/ui/icons";
 import { moduleDisplayName } from "@studio/ui-chains/graph";
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { useMemo } from "react";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
+import { usePaneGraph } from "../queries/graph";
 import { useReloadKey, useVerbs } from "../state/shellStore";
 import type { WebGraph } from "../types";
 
@@ -48,13 +48,8 @@ export function TapChainEditor({
   // Every edit here is a command, run through the shell.
   const { runCommand: command } = useVerbs();
   usePopin(true, onClose);
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  useEffect(() => {
-    void api
-      .graph()
-      .then(setGraph)
-      .catch(() => setGraph(null));
-  }, [reloadKey]);
+  // The shared graph at this reload key, which holds the tap's chain (queries/graph.ts).
+  const { graph } = usePaneGraph(reloadKey);
   const { modules, labels } = useMemo(
     () => tapChainOf(graph, node, tap),
     [graph, node, tap],

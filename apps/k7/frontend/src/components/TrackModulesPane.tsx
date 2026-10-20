@@ -16,7 +16,7 @@ import {
   type TapAction,
 } from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, thawAutoFreeze } from "../api";
+import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { nodePredicate } from "../historyMarks";
 import { usePendingBypass } from "../hooks/usePendingBypass";
@@ -26,9 +26,10 @@ import { midiActivity } from "../midiActivity";
 import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
+import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
 import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
-import type { WebGraph, WebProject } from "../types";
+import type { WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { GraphSlotPane } from "./GraphSlotPane";
 import { usePanelInside } from "./PanelClose";
@@ -171,19 +172,9 @@ export function TrackModulesPane({
     runCommand: onModuleField,
     openContextMenu: onContextMenu,
   } = useVerbs();
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // The shared graph at this reload key — the same read the chains page and the bottom panel make (queries/graph.ts).
+  const { graph, error } = usePaneGraph(reloadKey);
   const [selected, setSelected] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .graph()
-      .then((g) => {
-        setGraph(g);
-        setError(null);
-      })
-      .catch((e) => setError((e as Error).message));
-  }, [reloadKey]);
 
   // The graph alone answers both halves here: a chain's `use` list is the order, and it is in the graph doc.
   const modules = useMemo(

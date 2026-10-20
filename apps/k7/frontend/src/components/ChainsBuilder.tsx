@@ -16,11 +16,11 @@ import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { useGraphAt } from "../hooks/useGraphAt";
 import { isChainFile } from "../libraryTree";
 import { m } from "../paraglide/messages.js";
 import { needsAttention, saveLabel } from "../saveLabel";
 import { templateGraph } from "../templateGraph";
-import type { WebGraph } from "../types";
 
 interface LibraryChain {
   ref: string;
@@ -48,7 +48,6 @@ export function ChainsBuilder({
   onClose: () => void;
 }) {
   const [chains, setChains] = useState<LibraryChain[] | null>(null);
-  const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bumped by every write, so the drawing re-reads the file the verb just changed.
   const [rev, setRev] = useState(0);
@@ -77,21 +76,15 @@ export function ChainsBuilder({
   const isFile = !!chosen && isChainFile(chosen.path);
 
   // The chain's own graph, asked for by path; null while it loads and when nothing is chosen — the drawing waits, not the list.
+  const graphPath = chosen && !isFile ? chosen.path : null;
+  const { graph, error: graphError } = useGraphAt(graphPath, rev);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new read IS the signal that clears the last failure.
   useEffect(() => {
-    if (!chosen || isFile) {
-      setGraph(null);
-      return;
-    }
-    let live = true;
-    setError(null);
-    projectApi
-      .graphAt(chosen.path)
-      .then((g) => live && setGraph(g))
-      .catch((e: Error) => live && setError(e.message));
-    return () => {
-      live = false;
-    };
-  }, [chosen, isFile, rev]);
+    if (graphPath) setError(null);
+  }, [graphPath, rev]);
+  useEffect(() => {
+    if (graphError) setError(graphError);
+  }, [graphError]);
 
   /** Run a verb ON THE CHAIN — every gesture goes through this, so one place knows the edit is aimed somewhere other than the song. */
   const command = useCallback(

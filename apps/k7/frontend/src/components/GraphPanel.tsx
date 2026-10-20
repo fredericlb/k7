@@ -24,15 +24,15 @@ import {
   type TapAction,
 } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, thawAutoFreeze } from "../api";
+import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { withoutNotes } from "../graphNotes";
 import { nodePredicate } from "../historyMarks";
-import { useDocument } from "../hooks/useDocument";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { m } from "../paraglide/messages.js";
+import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
 import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebProject } from "../types";
@@ -139,8 +139,8 @@ export function GraphPanel({
   // Parked HERE, because App mounts this panel conditionally: a camera held inside it would be a fresh frame on every reopen.
   const camStore = useRef<Cam | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
-  const { doc: graph, error } = useDocument(() => api.graph(), reloadKey);
+  // The shared graph at this reload key, re-asked on a backoff while the service is not answering (queries/graph.ts).
+  const { graph, error } = usePaneGraph(reloadKey);
 
   // The session memory ChainsTab keeps, per TRACK — another track is another picture — and emptied by `graph organize`.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);

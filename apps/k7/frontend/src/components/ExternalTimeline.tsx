@@ -11,7 +11,7 @@ import {
   type EngineStore,
   useStoreState,
 } from "@studio/engine-browser/store";
-import { automationLanes, type WebGraph } from "@studio/graph-model";
+import { automationLanes } from "@studio/graph-model";
 import type { WebVideoProject, WebVideoTrack } from "@studio/web-protocol";
 import {
   useCallback,
@@ -21,7 +21,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
 import {
   contextMenu,
@@ -38,6 +37,7 @@ import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
 import { confirmMenuItem } from "../menuConfirm";
 import { type NodeMenuTarget, nodeMenu } from "../nodeMenu";
+import { REV_SCOPE, useGraph } from "../queries/graph";
 import {
   createShellStore,
   ShellStoreContext,
@@ -130,19 +130,9 @@ export function ExternalTimeline({
 
   /** What the graph knows about each lane's node, fetched HERE on the revision token: there is no chains pane on this device. */
   const rev = useRevision();
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  useEffect(() => {
-    if (rev === null) return;
-    let alive = true;
-    api
-      .graph()
-      // A project that will not compile still has an arrangement worth drawing; the gutter simply has nothing to add to it.
-      .then((g) => alive && setGraph(g))
-      .catch(() => alive && setGraph(null));
-    return () => {
-      alive = false;
-    };
-  }, [rev]);
+  const read = useGraph(REV_SCOPE, rev);
+  // A project that will not compile still has an arrangement worth drawing; the gutter simply has nothing to add to it.
+  const graph = read.error ? null : read.graph;
   const laneNodes = useMemo(
     () =>
       graph
@@ -248,6 +238,7 @@ export function ExternalTimeline({
   };
   const [shell] = useState(() => {
     const s = createShellStore({
+      scope: "device",
       frozen: false,
       impl: verbs,
       commands: DEVICE_GESTURES,

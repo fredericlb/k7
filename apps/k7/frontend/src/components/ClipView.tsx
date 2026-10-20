@@ -6,7 +6,6 @@
 
 import { Grid3x3 } from "@frediverse/ui/icons";
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
-import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { readSequence } from "@studio/ui-editor/tracker/notes";
@@ -22,6 +21,7 @@ import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { m } from "../paraglide/messages.js";
 import { fileStem } from "../projectPaths";
+import { usePaneGraph } from "../queries/graph";
 import { rackFor, rackKeyNames } from "../rackFor";
 import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../rows";
@@ -341,28 +341,16 @@ export function ClipView({
           (project ?? target.project).timeSigDenominator,
         )}`
       : null;
-  const [graph, setGraph] = useState<WebGraph | null | undefined>(undefined);
-  const [graphError, setGraphError] = useState<string | null>(null);
+  // The shared graph, asked only for a MIDI lane: undefined while the first read is in flight, null with none to read.
+  const graphRead = usePaneGraph(reloadKey, !!midiTrack);
+  const graph = !midiTrack
+    ? null
+    : (graphRead.graph ?? (graphRead.loading ? undefined : null));
+  const graphError = midiTrack ? graphRead.error : null;
   /** WHICH view of these notes, reset per clip: every clip opens on the roll, and the header's dropdown moves it from there. */
   const [mode, setMode] = useState<ClipViewMode>("roll");
-  useEffect(() => {
-    setGraphError(null);
-    setMode("roll");
-    if (!midiTrack) return void setGraph(null);
-    let cancelled = false;
-    setGraph(undefined);
-    void api
-      .graph()
-      .then((g) => !cancelled && setGraph(g))
-      .catch((e: Error) => {
-        if (cancelled) return;
-        setGraphError(e.message || "graphe illisible");
-        setGraph(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [midiTrack, clip?.id]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: another clip IS the signal to go back to the roll.
+  useEffect(() => setMode("roll"), [midiTrack, clip?.id]);
   const rack = midiTrack ? rackFor(graph ?? null, midiTrack) : null;
   // The roll names a rack's keys after their samples; a lane with no rack keeps note names alone.
   const keyNames = useMemo(

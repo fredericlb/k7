@@ -51,6 +51,7 @@ import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { projectLabel } from "@studio/web-protocol/projects";
 import type { EngineLatency } from "@studio/web-protocol/quality";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   lazy,
   Suspense,
@@ -197,6 +198,7 @@ import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
 import { useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
+import { graphQuery, seedGraph, useGraph } from "./queries/graph";
 import { rememberCommand } from "./recentCommands";
 import {
   movedTheAudio,
@@ -290,6 +292,9 @@ const inDesktopTab = !!tabBridge();
 /** The shot a new video project is scaffolded with (packages/song/src/scaffold.ts) — a picture holding only it is untouched. */
 const SCAFFOLD_SAMPLE = /(^|\/)clips\/sample\.mp4$/;
 
+/** The namespace of this shell's reload-keyed reads (queries/graph.ts). */
+const SHELL_SCOPE = "shell";
+
 /** How long a second Ctrl+Z has, once the text pane's own history is spent, to reach the project journal. */
 const JOURNAL_ARM_MS = 3000;
 
@@ -327,6 +332,7 @@ export default function App({
   const shellVerbs = useRef<ShellVerbs | null>(null);
   const [shell] = useState(() =>
     createShellStore({
+      scope: SHELL_SCOPE,
       frozen,
       impl: shellVerbs,
       settingsTab: SETTINGS_TABS[0],
@@ -534,7 +540,7 @@ export default function App({
   const { bumpReload, reloadWith } = shell.getState();
   // Counters that move only when a reload could concern them (reloadScope.ts); the raw key is for what reads everything.
   const chainsKey = useScopedKey(reload, movedTheChains);
-  // The key a graph handed back by a command answers — ChainsTab's `seedGraph`.
+  // The key a graph handed back by a command answers — the cache entry it is seeded into (queries/graph.ts).
   const reloadKeyRef = useRef(reloadKey);
   reloadKeyRef.current = reloadKey;
   const surfacesKey = useScopedKey(reload, movedTheSurfaces);
@@ -951,12 +957,15 @@ export default function App({
       help: showHelp,
       builder: openBuilder,
     },
-    useCallback((next) => {
-      setFull(next.full);
-      setPanel(next.panel);
-      setShowHelp(next.help);
-      setOpenBuilder(next.builder);
-    }, [setShowHelp]),
+    useCallback(
+      (next) => {
+        setFull(next.full);
+        setPanel(next.panel);
+        setShowHelp(next.help);
+        setOpenBuilder(next.builder);
+      },
+      [setShowHelp],
+    ),
     {
       timeline: hasTimeline,
       turntables: hasTurntables,
@@ -1438,29 +1447,34 @@ export default function App({
     engineRef.current?.trackMix(mix);
   }, [frozen, connected, trackControls, docTracks, engineRef]);
 
-  // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
-  const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
-    {
-      any: false,
-      device: null,
-    },
+  // The shell's own read of the graph moves only when a reload could have moved the CHAINS: the key in force when one last did.
+  const chainsAt = useRef({ chains: chainsKey, key: reloadKey });
+  if (chainsAt.current.chains !== chainsKey)
+    chainsAt.current = { chains: chainsKey, key: reloadKey };
+  const { graph: shellGraph } = useGraph(SHELL_SCOPE, chainsAt.current.key);
+  // The lanes a midi-in node feeds, off that graph: they arm even while they hold no sequence.
+  const midiLanes = useMemo(
+    () => (shellGraph ? midiInLanes(shellGraph) : midiLanesRef.current),
+    [shellGraph],
   );
-  useEffect(() => {
-    let live = true;
-    void api
-      .graph()
-      .then((g) => {
-        if (!live) return;
-        const steps = Object.values(g.chains).flatMap((c) => c.use);
-        midiLanesRef.current = midiInLanes(g);
-        const device = midiArmed ? midiInDeviceFor(g, midiArmed) : null;
-        setMidiIn({ any: steps.some((st) => st.device !== undefined), device });
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [chainsKey, midiArmed]);
+  midiLanesRef.current = midiLanes;
+  // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
+  const midiInAny = useMemo(
+    () =>
+      !!shellGraph &&
+      Object.values(shellGraph.chains)
+        .flatMap((c) => c.use)
+        .some((st) => st.device !== undefined),
+    [shellGraph],
+  );
+  const midiIn = useMemo(
+    () => ({
+      any: midiInAny,
+      device:
+        shellGraph && midiArmed ? midiInDeviceFor(shellGraph, midiArmed) : null,
+    }),
+    [midiInAny, shellGraph, midiArmed],
+  );
   // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
   const runCommandRef = useRef<
     (
@@ -1805,13 +1819,8 @@ export default function App({
 
   // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.
   const [insertingAt, setInsertingAt] = useState<PendingNode | null>(null);
-  // The graph a writing command handed back, drawn instead of fetched; it carries an id the consumer takes ONCE (ChainsTab's `seedGraph`).
-  const seedId = useRef(0);
-  const [seedGraph, setSeedGraph] = useState<{
-    id: number;
-    graph: WebGraph;
-    at: number;
-  } | null>(null);
+  // The graph a writing command handed back goes into the cache, drawn instead of fetched (queries/graph.ts).
+  const queryClient = useQueryClient();
   // The open project, for the headphones hint, which says itself once per project (headphonesHint.ts).
   const activeProjectRef = useRef<string | null>(null);
   activeProjectRef.current = ws?.activeProject ?? null;
@@ -1825,14 +1834,14 @@ export default function App({
     const p = ws?.activeProject;
     if (frozen || !p) return;
     let live = true;
-    void api
-      .graph()
+    void queryClient
+      .fetchQuery(graphQuery(SHELL_SCOPE, reloadKeyRef.current))
       .then((g) => live && hasAudibleInput(g) && warnHeadphones())
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [ws?.activeProject, frozen, warnHeadphones]);
+  }, [ws?.activeProject, frozen, warnHeadphones, queryClient]);
   // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH, and `journal` how it is undone.
   const runCommand = useCallback(
     async (
@@ -1887,14 +1896,8 @@ export default function App({
         settle(!refused);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
         // The graph the service built while we waited — the answer for the reload below, so for the NEXT key.
-        if (graph) {
-          seedId.current += 1;
-          setSeedGraph({
-            id: seedId.current,
-            graph,
-            at: reloadKeyRef.current + 1,
-          });
-        }
+        if (graph)
+          seedGraph(queryClient, SHELL_SCOPE, reloadKeyRef.current + 1, graph);
         // The token this command produced, adopted BEFORE the reload it pairs with, so the `/revision` tick does not redo it — see `RevisionPoller.note`.
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
@@ -1919,7 +1922,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [pushLog, runLocalCommand, warnHeadphones],
+    [pushLog, runLocalCommand, warnHeadphones, queryClient],
   );
   runCommandRef.current = runCommand;
   // The bottom panel's ✕ runs the command the footer and Escape do, as every button here does (docs/shell.md).
@@ -1960,10 +1963,8 @@ export default function App({
         else setStatus(said);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
         // No reload follows, so it answers the key in force now.
-        if (graph) {
-          seedId.current += 1;
-          setSeedGraph({ id: seedId.current, graph, at: reloadKeyRef.current });
-        }
+        if (graph)
+          seedGraph(queryClient, SHELL_SCOPE, reloadKeyRef.current, graph);
         // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
         if (rev) noteRevision(rev);
       } catch (e) {
@@ -1973,7 +1974,7 @@ export default function App({
         );
       }
     },
-    [projectDoc, runCommand, pushLog],
+    [projectDoc, runCommand, pushLog, queryClient],
   );
 
   /** The graph's lane buttons: a PICTURE lane's two words are the `picture` verbs, not the `track` ones. */
@@ -2163,9 +2164,11 @@ export default function App({
     const module =
       libraryModuleRef(builder.path) ?? moduleKeyFromPath(builder.path);
     if (!module) return void setBuilderPlugin(null);
+    // Another module's plugin is let go at once: a graph that keeps failing would otherwise leave it watched.
+    setBuilderPlugin((cur) => (cur?.module === module ? cur : null));
     let cancelled = false;
-    void api
-      .graph()
+    void queryClient
+      .fetchQuery(graphQuery(SHELL_SCOPE, reloadKeyRef.current))
       .then((g) => {
         if (cancelled) return;
         const step = Object.values(g.chains ?? {})
@@ -2181,7 +2184,7 @@ export default function App({
     return () => {
       cancelled = true;
     };
-  }, [builder]);
+  }, [builder, queryClient]);
 
   // …and once one is found, ask for it and keep it coming — its own effect, so the unwatch is paired with the watch.
   useEffect(() => {
@@ -3282,7 +3285,6 @@ export default function App({
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
                             pendingInsert={insertingAt}
-                            seedGraph={seedGraph}
                             // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
                             onLaneNodes={setLaneNodes}
                             focus={graphFocus}
