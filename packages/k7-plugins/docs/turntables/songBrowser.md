@@ -38,6 +38,11 @@ It filters the **whole list**, never what is on screen. Two things make it usabl
 `Enter` loads the first **playable** result — not simply the first, so a keystroke aimed at the
 row below does not load a track still syncing.
 
+**The box opens focused on the search only where the primary pointer is fine.** On a phone,
+focusing a field raises the keyboard, which takes half the screen and squeezes the box to its
+header: the list the box was opened for is then too short to tap a row in. A set is a dozen
+songs, so a thumb picks from the list and opens the keyboard only by touching the search.
+
 ## What is not loadable stays visible
 
 A track the cache does not have yet is shown, greyed, with its download icon and the reason in a
