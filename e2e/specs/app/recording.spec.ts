@@ -1,7 +1,7 @@
 // recording.spec.ts — arming a lane and recording a take, in the browser (a picture lane) and in the engine (an audio lane, a recorder node).
 // A picture lane records the BROWSER's camera, faked by Chromium's launch flags; audio is the ENGINE's input device, which no flag fakes.
-import type { APIRequestContext, Page } from "@playwright/test";
-import type { FileService } from "../../src/files.ts";
+import type { Page } from "@playwright/test";
+import type { FileService, TreeNode } from "../../src/files.ts";
 import { expect, type K7, test } from "../../src/target.ts";
 import { clockOf } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
@@ -15,35 +15,16 @@ test.setTimeout(120_000);
 const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
 
-/** The private fields of FileService, which lists no tree: files.ts is where `tree` belongs. */
-function wire(files: FileService) {
-  return files as unknown as {
-    request: APIRequestContext;
-    base: string;
-    ticket: string;
-  };
-}
-
-type Node = { path: string; dir: boolean; children?: Node[] };
-
 /** Every file of the workspace, by path, through the file service's `/workspace-tree`. */
 async function filesOf(files: FileService): Promise<string[]> {
-  const w = wire(files);
-  const res = await w.request.get(`${w.base}/workspace-tree`, {
-    headers: {
-      "x-studio-engine-token": w.ticket,
-      "x-studio-workspace": WORKSPACE,
-    },
-  });
-  if (!res.ok()) throw new Error(`tree: ${res.status()} ${await res.text()}`);
   const out: string[] = [];
-  const walk = (nodes: Node[]) => {
+  const walk = (nodes: TreeNode[]) => {
     for (const n of nodes) {
       if (!n.dir) out.push(n.path);
       if (n.children) walk(n.children);
     }
   };
-  walk((await res.json()) as Node[]);
+  walk(await files.tree(WORKSPACE));
   return out;
 }
 

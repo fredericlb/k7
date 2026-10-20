@@ -1,6 +1,7 @@
 // workspace-ui.spec.ts — a workspace and its projects made, renamed, copied and deleted through the home page's own dialogs.
 // Each act is checked twice: on the screen, and in the file service's listing the page itself reads.
 import type { Locator, Page } from "@playwright/test";
+import { FileService } from "../../src/files.ts";
 import { expect, test } from "../../src/target.ts";
 import { watchPage } from "../../src/watch.ts";
 
@@ -11,21 +12,9 @@ const SHOWN = { timeout: 15_000 };
 
 /** The account's workspaces and their project folders, as GET /workspaces/projects answers them. */
 async function listing(page: Page): Promise<Record<string, string[]>> {
-  const hub = await page.request.get("/api/files-hub");
-  expect(hub.ok(), `files-hub: ${hub.status()}`).toBe(true);
-  const { path, ticket } = (await hub.json()) as {
-    path: string;
-    ticket: string;
-  };
-  const res = await page.request.get(`${path}/workspaces/projects`, {
-    headers: { "x-studio-engine-token": ticket },
-  });
-  expect(res.ok(), `workspaces/projects: ${res.status()}`).toBe(true);
-  const body = (await res.json()) as {
-    workspaces: { name: string; projects: { path: string }[] }[];
-  };
+  const workspaces = await (await FileService.ofPage(page)).projects();
   return Object.fromEntries(
-    body.workspaces.map((w) => [w.name, w.projects.map((p) => p.path).sort()]),
+    workspaces.map((w) => [w.name, w.projects.map((p) => p.path).sort()]),
   );
 }
 

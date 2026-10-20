@@ -1,27 +1,44 @@
 // files.ts — the e2e account's file service, reached the way the browser reaches it: through /api/files with a hub ticket.
 // Writes go over HTTP, never to disk: the live-sync relay restores a folder deleted behind its back (docs/e2e.md).
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 const TICKET_HEADER = "x-studio-engine-token";
 const WORKSPACE_HEADER = "x-studio-workspace";
 
+/** One entry of GET /workspace-tree. */
+export type TreeNode = { path: string; dir: boolean; children?: TreeNode[] };
+
+/** One workspace of GET /workspaces/projects, with its project folders. */
+export type WorkspaceListing = { name: string; projects: { path: string }[] };
+
 export class FileService {
   private constructor(
-    private readonly request: APIRequestContext,
+    /** The session the service is reached with, which reaches the rest of k7's backend too. */
+    readonly request: APIRequestContext,
     private readonly base: string,
     private readonly ticket: string,
   ) {}
 
-  /** Asks k7's backend for a ticket; `request` must carry the e2e session cookie. */
-  static async connect(request: APIRequestContext): Promise<FileService> {
-    const res = await request.get("/api/files-hub");
+  /** Asks k7's backend for a ticket; `request` must carry the e2e session cookie, and `origin` prefixes every path. */
+  static async connect(
+    request: APIRequestContext,
+    origin = "",
+  ): Promise<FileService> {
+    const res = await request.get(`${origin}/api/files-hub`);
     if (!res.ok())
       throw new Error(`files-hub: ${res.status()} ${await res.text()}`);
     const { path, ticket } = (await res.json()) as {
       path: string;
       ticket: string;
     };
-    return new FileService(request, path, ticket);
+    return new FileService(request, `${origin}${path}`, ticket);
+  }
+
+  /** The service as the PAGE reaches it, with its cookies at its origin: it sees what the account driving the screen wrote. */
+  static ofPage(page: Page): Promise<FileService> {
+    const url = new URL(page.url());
+    const http = url.protocol === "http:" || url.protocol === "https:";
+    return FileService.connect(page.request, http ? url.origin : "");
   }
 
   private headers(workspace?: string): Record<string, string> {
@@ -77,6 +94,72 @@ export class FileService {
         data: { shape, name },
       })
     ).body;
+  }
+
+  /** The text of `path`, through GET /file. */
+  async readText(workspace: string, path: string): Promise<string> {
+    const q = encodeURIComponent(path);
+    const { body } = await this.call<{ content: string }>(
+      "GET",
+      `/file?path=${q}`,
+      { workspace },
+    );
+    return body.content;
+  }
+
+  /** The workspace's folders and files, nested as GET /workspace-tree answers them. */
+  async tree(workspace: string): Promise<TreeNode[]> {
+    return (
+      await this.call<TreeNode[]>("GET", "/workspace-tree", { workspace })
+    ).body;
+  }
+
+  /** Every workspace of the account with its project folders, through GET /workspaces/projects. */
+  async projects(): Promise<WorkspaceListing[]> {
+    const { body } = await this.call<{ workspaces: WorkspaceListing[] }>(
+      "GET",
+      "/workspaces/projects",
+    );
+    return body.workspaces;
+  }
+
+  /** Runs one command-bar line on the active project, through POST /command. */
+  async command(
+    workspace: string,
+    line: string,
+  ): Promise<{ output: unknown; refused?: boolean }> {
+    const { body } = await this.call<{ output: unknown; refused?: boolean }>(
+      "POST",
+      "/command",
+      { workspace, data: { line, want: [] } },
+    );
+    return body;
+  }
+
+  /** A clip's envelope through GET /waveform; `whole` asks for the whole file rather than the clip's window. */
+  async waveform(
+    workspace: string,
+    clip: string,
+    opts: { whole?: boolean } = {},
+  ): Promise<{ peak: number[] }> {
+    const q = new URLSearchParams({ clip });
+    if (opts.whole) q.set("whole", "1");
+    const { body } = await this.call<{ peak: number[] }>(
+      "GET",
+      `/waveform?${q}`,
+      { workspace },
+    );
+    return body;
+  }
+
+  /** The last `tail` lines of the engine machine's log, the Logs panel's source, through GET /logs. */
+  async logs(workspace: string, tail = 2000): Promise<string[]> {
+    const { body } = await this.call<{ lines: string[] }>(
+      "GET",
+      `/logs?tail=${tail}`,
+      { workspace },
+    );
+    return body.lines;
   }
 
   async writeText(workspace: string, path: string, content: string) {

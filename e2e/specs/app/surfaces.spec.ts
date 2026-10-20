@@ -2,7 +2,7 @@
 // The desk needs a song in the shared media library: the spec files one, generated here, under "E2E Artist".
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { APIRequestContext, Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { FileService } from "../../src/files.ts";
 import { FIXTURES_DIR, FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { navControl } from "../../src/nav.ts";
@@ -67,36 +67,6 @@ const ARCHETYPES: Record<
   },
 };
 
-/** The private fields of FileService, which has no read: files.ts is where `read` belongs. */
-function wire(files: FileService) {
-  return files as unknown as {
-    request: APIRequestContext;
-    base: string;
-    ticket: string;
-  };
-}
-
-/** One workspace file's text, through the file service's own `/file` route. */
-async function readText(
-  files: FileService,
-  workspace: string,
-  path: string,
-): Promise<string> {
-  const w = wire(files);
-  const res = await w.request.get(
-    `${w.base}/file?path=${encodeURIComponent(path)}`,
-    {
-      headers: {
-        "x-studio-engine-token": w.ticket,
-        "x-studio-workspace": workspace,
-      },
-    },
-  );
-  if (!res.ok())
-    throw new Error(`read ${path}: ${res.status()} ${await res.text()}`);
-  return ((await res.json()) as { content: string }).content;
-}
-
 /** Copies one fixture project into `workspace`, binaries uploaded, text written. */
 async function copyFixture(
   files: FileService,
@@ -147,7 +117,7 @@ async function fileSong(files: FileService) {
     ...SONG,
     replace: "1",
   });
-  const res = await wire(files).request.post(`/api/mediatek/song?${query}`, {
+  const res = await files.request.post(`/api/mediatek/song?${query}`, {
     headers: { "content-type": "application/octet-stream" },
     data: sineWav(20),
   });
@@ -277,7 +247,7 @@ async function makeSet(k7: K7): Promise<void> {
   const files = await workspace(k7);
   await fileSong(files);
   await files.createProject(WORKSPACE, "mix", SET);
-  const desk = await readText(files, WORKSPACE, DESK);
+  const desk = await files.readText(WORKSPACE, DESK);
   expect(desk, "the scaffold leaves a playlist line to uncomment").toContain(
     '// playlist("ete-2026")',
   );
@@ -372,7 +342,7 @@ test("a mastering control writes its node file", async ({ k7 }) => {
   const files = await workspace(k7);
   await copyFixture(files, "mastering.k7", WORKSPACE);
   const node = "mastering.k7/nodes/master.k7x";
-  const before = await readText(files, WORKSPACE, node);
+  const before = await files.readText(WORKSPACE, node);
   const page = await openProject(k7, WORKSPACE, "mastering.k7");
   const watch = watchPage(page);
   await (await navControl(page, "Mastering")).click();
@@ -385,7 +355,7 @@ test("a mastering control writes its node file", async ({ k7 }) => {
     await expect(width).toHaveValue(String(v));
   }
   await expect
-    .poll(() => readText(files, WORKSPACE, node), { timeout: 10_000 })
+    .poll(() => files.readText(WORKSPACE, node), { timeout: 10_000 })
     .toMatch(/Width"?\s*:\s*105\b/);
   expect(before).not.toMatch(/Width/);
   watch.assertClean();

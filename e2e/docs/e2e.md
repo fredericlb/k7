@@ -48,6 +48,9 @@ not on disk here: it is a local tool by construction.
 
 It signs in as a dedicated account, `sub: "e2e"`. The file hub gives that account a workspace of
 its own, seeded with the `Examples` projects, so a spec that writes never touches a person's work.
+The account is not an admin, and removing from the shared media library is an admin's
+(`apps/k7/backend/docs/media/gate.md`): the media specs reuse the song and the playlist they file
+rather than delete them, and check that the removal is refused.
 
 ## The desktop target is one app per worker
 
@@ -112,6 +115,11 @@ The service validates nothing on write, so whether a fixture is a valid project 
 own (`specs/app/fixtures.spec.ts`), separate from what the screen does with it
 (`specs/app/features.spec.ts`).
 
+A spec whose subject is not one project builds what it needs at run time, in a workspace of its
+own: the `@k7-core` library module by module (`library.spec.ts`), the app's routes, the home page's
+workspace dialogs (`workspace-ui.spec.ts`), shares, the media library, the rehearsal recorder,
+recording, and the surfaces each archetype opens on.
+
 A spec that has found a bug keeps asserting the right behaviour under `test.fail`, with the bug in
 its reason: the run stays green, and turns red the day the bug is fixed, which is the reminder to
 drop the mark.
@@ -133,6 +141,10 @@ and presses it once: a Play that is lost again is a failure, not something to pr
   "No engines found". `node e2e/scripts/engines.ts` prints what the e2e account sees.
 - **Sound is real**, on either target. The transport spec plays a few seconds of `synth-demo` through
   the engine's output device.
+- **No camera and no microphone.** Chromium runs with fake media devices, granted without a prompt
+  (`--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`, in `playwright.config.ts`),
+  so the recording and webcam specs need no hardware. An audio lane records the ENGINE's input,
+  which no browser flag fakes: that spec takes whatever the engine's input channel 1 hears.
 
 **The machine must stay awake.** A laptop that sleeps mid-run freezes the app and the engine, and
 on waking every timer fires at once: the spec then fails on a closed page or a lost engine that are

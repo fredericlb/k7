@@ -3,30 +3,16 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
-import type { FileService } from "./files.ts";
+import { FileService } from "./files.ts";
 import { FIXTURES_DIR } from "./fixtures.ts";
 
-const TICKET_HEADER = "x-studio-engine-token";
-const WORKSPACE_HEADER = "x-studio-workspace";
-
-/** The text of `path` in `workspace`, through /api/files-hub's ticket and the file service's GET /file. */
+/** The text of `path` in `workspace`, read with the page's own session. */
 export async function readFile(
   page: Page,
   workspace: string,
   path: string,
 ): Promise<string> {
-  const hub = await page.request.get("/api/files-hub");
-  expect(hub.ok(), `files-hub: ${hub.status()}`).toBe(true);
-  const { path: base, ticket } = (await hub.json()) as {
-    path: string;
-    ticket: string;
-  };
-  const res = await page.request.get(
-    `${base}/file?path=${encodeURIComponent(path)}`,
-    { headers: { [TICKET_HEADER]: ticket, [WORKSPACE_HEADER]: workspace } },
-  );
-  expect(res.ok(), `GET ${path}: ${res.status()}`).toBe(true);
-  return ((await res.json()) as { content: string }).content;
+  return (await FileService.ofPage(page)).readText(workspace, path);
 }
 
 /** Waits until `path` reads `want`: a save is debounced, so the disk lags the screen. */

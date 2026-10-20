@@ -1,6 +1,5 @@
 // effects.spec.ts — library effects, note transformers and a cold pass reach the engine as the plugins they compile to, and play.
 // The engine document is the proof a module was sent; a cold module's measuring pass runs only under `clip process` (packages/song/docs/coldModules.md).
-import type { FileService } from "../../src/files.ts";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { expect, type K7, test } from "../../src/target.ts";
 import { play } from "../../src/transport.ts";
@@ -17,16 +16,6 @@ type EngineDoc = {
   masterPlugins: PluginDoc[];
   tracks: { id: string; plugins: PluginDoc[]; clips: { source: string }[] }[];
 };
-
-// FileService has no verb for /command or /waveform yet, so this reaches its private request helper.
-type Raw = {
-  call<T>(
-    method: "GET" | "POST",
-    path: string,
-    opts: { workspace?: string; data?: unknown },
-  ): Promise<{ body: T }>;
-};
-const raw = (files: FileService) => files as unknown as Raw;
 
 async function engineDoc(k7: K7, project: string): Promise<EngineDoc> {
   const files = await k7.files();
@@ -168,22 +157,17 @@ test.describe("cold normalize", () => {
     const files = await k7.files();
     await files.open(FIXTURES_WORKSPACE, PROJECT);
     const peakOf = async () => {
-      const { body } = await raw(files).call<{ peak: number[] }>(
-        "GET",
-        "/waveform?clip=tone&whole=1",
-        { workspace: FIXTURES_WORKSPACE },
-      );
-      return 20 * Math.log10(Math.max(...body.peak));
+      const { peak } = await files.waveform(FIXTURES_WORKSPACE, "tone", {
+        whole: true,
+      });
+      return 20 * Math.log10(Math.max(...peak));
     };
     // The fixture's tone is a sine at −12 dBFS.
     expect(await peakOf()).toBeCloseTo(-12, 0);
-    const { body } = await raw(files).call<{
-      output: unknown;
-      refused?: boolean;
-    }>("POST", "/command", {
-      workspace: FIXTURES_WORKSPACE,
-      data: { line: "clip process tone drums", want: [] },
-    });
+    const body = await files.command(
+      FIXTURES_WORKSPACE,
+      "clip process tone drums",
+    );
     expect(body.refused).toBeFalsy();
     expect(JSON.stringify(body.output)).toMatch(/clip tone now plays it/);
     const doc = (await files.engineDoc(FIXTURES_WORKSPACE)) as EngineDoc;

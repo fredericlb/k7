@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { Page } from "@playwright/test";
 import { builtinPluginForRef } from "@studio/song-schema/builtinParams";
-import type { FileService } from "../../src/files.ts";
+import { FileService } from "../../src/files.ts";
 import { expect, test } from "../../src/target.ts";
 
 const WORKSPACE = "E2E-library";
@@ -251,23 +251,7 @@ function skip(c: Case, why: string) {
 
 /** The engine machine's log, the Logs panel's source, through the file service the page reaches. */
 async function machineLog(page: Page): Promise<string[]> {
-  const hub = await page.request.get(
-    new URL("/api/files-hub", page.url()).href,
-  );
-  const { path, ticket } = (await hub.json()) as {
-    path: string;
-    ticket: string;
-  };
-  const res = await page.request.get(
-    new URL(`${path}/logs?tail=2000`, page.url()).href,
-    {
-      headers: {
-        "x-studio-engine-token": ticket,
-        "x-studio-workspace": WORKSPACE,
-      },
-    },
-  );
-  return ((await res.json()) as { lines: string[] }).lines;
+  return (await FileService.ofPage(page)).logs(WORKSPACE, 2000);
 }
 
 // From the log, not the page: the engine sends a build's warnings once, and a page connecting after the build never gets them.
