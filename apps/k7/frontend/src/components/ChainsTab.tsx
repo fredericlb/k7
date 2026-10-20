@@ -37,6 +37,7 @@ import { withoutNotes } from "../graphNotes";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useChainsMidi } from "../hooks/useChainsMidi";
 import { useDocument } from "../hooks/useDocument";
+import { useLatest } from "../hooks/useLatest";
 import type { MidiControlApi } from "../hooks/useMidiControl";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
@@ -281,8 +282,7 @@ function ChainsTabView({
   }, []);
 
   // Through a ref, so the seed is not a dependency of this effect; `consumedSeed` is what makes it a one-shot.
-  const seedRef = useRef(seedGraph);
-  seedRef.current = seedGraph;
+  const seedRef = useLatest(seedGraph);
   const consumedSeed = useRef(0);
   // The seed is just another way of ANSWERING, so it lives INSIDE the load: one document from one place, retry included.
   // Hidden, a reload is REMEMBERED rather than fetched: the graph is asked for when the pane is shown again.
@@ -290,8 +290,7 @@ function ChainsTabView({
   const trigger = `${reloadKey}:${seedGraph?.at === reloadKey ? seedGraph.id : 0}`;
   const shownKey = useRef(trigger);
   if (active) shownKey.current = trigger;
-  const keyRef = useRef(reloadKey);
-  keyRef.current = reloadKey;
+  const keyRef = useLatest(reloadKey);
   const { doc: graph, error } = useDocument(async () => {
     const seed = seedRef.current;
     // A seed answers the key it was made at; one left over from an earlier key would draw a graph older than the reload.
@@ -522,8 +521,7 @@ function ChainsTabView({
   );
 
   // Read by bypassModule without making it depend on the layout, which would rebind it on every refetch.
-  const laidRef = useRef(laid);
-  laidRef.current = laid;
+  const laidRef = useLatest(laid);
   // A pad clicked auditions its sound, the same way in every pane that draws a kit.
   const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 

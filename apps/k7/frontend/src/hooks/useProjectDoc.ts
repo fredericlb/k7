@@ -10,6 +10,7 @@ import { mixerModules } from "../mixerStrips";
 import { isAnswer } from "../readFailure";
 import { keepIfSame } from "../shellEquality";
 import type { WebProject } from "../types";
+import { useLatest } from "./useLatest";
 
 export interface RecInfo {
   tempo: number;
@@ -74,8 +75,7 @@ export function useProjectDoc(
     {},
   );
   // The callbacks ride a ref so a re-created callback doesn't refetch the doc.
-  const optsRef = useRef(opts);
-  optsRef.current = opts;
+  const optsRef = useLatest(opts);
 
   useEffect(() => {
     let alive = true;

@@ -12,6 +12,7 @@ import {
   type LearnedCc,
   MidiControl,
 } from "../midiControl";
+import { useLatest } from "./useLatest";
 
 /** What a mapped control drives, resolved against the graph so a value can be scaled and sent. */
 interface MappedParam {
@@ -133,10 +134,8 @@ export function useMidiControl({
   const mapped = useMemo(() => mappedParams(graph), [graph]);
   const dropped = useMemo(() => droppedBindings(graph), [graph]);
   // Read by the message handler, which must not be rebound on every graph reload — a rebind between two turns would drop a message.
-  const mappedRef = useRef(mapped);
-  mappedRef.current = mapped;
-  const setParamRef = useRef(setParam);
-  setParamRef.current = setParam;
+  const mappedRef = useLatest(mapped);
+  const setParamRef = useLatest(setParam);
 
   const midi = useRef<MidiControl | null>(null);
   if (!midi.current)

@@ -14,6 +14,7 @@ import { vimUndoSteps } from "@studio/ui-editor/vim-undo";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef } from "react";
+import { useLatest } from "../hooks/useLatest";
 import { m } from "../paraglide/messages.js";
 import { sliceSymbolColors } from "../sliceSymbols";
 import type {
@@ -91,8 +92,7 @@ export function EditorPane({
   onEditorView?: (view: EditorView | null) => void;
 }) {
   // Keep Ctrl/Cmd-S pointed at the latest onSave without rebuilding the extensions on every keystroke.
-  const saveRef = useRef(onSave);
-  saveRef.current = onSave;
+  const saveRef = useLatest(onSave);
 
   // The lint extension reads diagnostics through this ref, so a new vet re-lints without reconfiguring the editor.
   const cmRef = useRef<ReactCodeMirrorRef>(null);

@@ -665,48 +665,62 @@ function EditorTabView({
     [setStatus, onImportProject],
   );
 
-  // Rename in place, refresh, and re-point the open file if it (or its folder) moved; onChanged repaints the rest.
-  const renameEntry = useCallback(
-    async (path: string, newName: string) => {
+  // One tree action: run it, refresh the tree, let `after` re-point the editor, repaint, and say what happened.
+  const fileOp = useCallback(
+    async <T,>(
+      run: () => Promise<T>,
+      after: (result: T) => string,
+      failed: (p: { message: string }) => string,
+    ) => {
       try {
-        const { path: newPath } = await api.renameFile(path, newName);
+        const result = await run();
         await refresh();
-        const cur = file?.path;
-        if (cur === path) void open(newPath);
-        else if (cur && cur.startsWith(`${path}/`))
-          void open(newPath + cur.slice(path.length));
+        const said = after(result);
         onChanged();
-        setStatus(m["status.editor.renamed"]({ path: newPath }));
+        setStatus(said);
       } catch (e) {
-        setStatus(
-          m["status.editor.renameFailed"]({ message: (e as Error).message }),
-          "error",
-        );
+        setStatus(failed({ message: (e as Error).message }), "error");
       }
     },
-    [file?.path, refresh, open, onChanged, setStatus],
+    [refresh, onChanged, setStatus],
   );
 
-  // Drag a row onto a folder — the same follow-the-open-file dance as a rename, since the editor holds a PATH.
-  const moveEntry = useCallback(
-    async (path: string, toDir: string) => {
-      try {
-        const { path: newPath } = await api.moveFile(path, toDir);
-        await refresh();
-        const cur = file?.path;
-        if (cur === path) void open(newPath);
-        else if (cur && cur.startsWith(`${path}/`))
-          void open(newPath + cur.slice(path.length));
-        onChanged();
-        setStatus(m["status.editor.moved"]({ path: newPath }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.moveFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
+  // The editor holds a PATH: when the open file, or a folder above it, moved, open it at its new place.
+  const followMove = useCallback(
+    (path: string, newPath: string) => {
+      const cur = file?.path;
+      if (cur === path) void open(newPath);
+      else if (cur?.startsWith(`${path}/`))
+        void open(newPath + cur.slice(path.length));
     },
-    [file?.path, refresh, open, onChanged, setStatus],
+    [file?.path, open],
+  );
+
+  const renameEntry = useCallback(
+    (path: string, newName: string) =>
+      fileOp(
+        () => api.renameFile(path, newName),
+        ({ path: newPath }) => {
+          followMove(path, newPath);
+          return m["status.editor.renamed"]({ path: newPath });
+        },
+        m["status.editor.renameFailed"],
+      ),
+    [fileOp, followMove],
+  );
+
+  // Drag a row onto a folder — the same follow-the-open-file dance as a rename.
+  const moveEntry = useCallback(
+    (path: string, toDir: string) =>
+      fileOp(
+        () => api.moveFile(path, toDir),
+        ({ path: newPath }) => {
+          followMove(path, newPath);
+          return m["status.editor.moved"]({ path: newPath });
+        },
+        m["status.editor.moveFailed"],
+      ),
+    [fileOp, followMove],
   );
 
   // Delete: recycle the entry (reversible), refresh, and close the open file if it lived under it.
@@ -722,24 +736,20 @@ function EditorTabView({
         danger: true,
       });
       if (!agreed) return;
-      try {
-        await api.deleteFile(path);
-        await refresh();
-        const cur = file?.path;
-        if (cur === path || (cur && cur.startsWith(`${path}/`))) {
-          setFile(null);
-          onEditTarget(null);
-        }
-        onChanged();
-        setStatus(m["status.editor.deleted"]({ path }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.deleteFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
+      await fileOp(
+        () => api.deleteFile(path),
+        () => {
+          const cur = file?.path;
+          if (cur === path || cur?.startsWith(`${path}/`)) {
+            setFile(null);
+            onEditTarget(null);
+          }
+          return m["status.editor.deleted"]({ path });
+        },
+        m["status.editor.deleteFailed"],
+      );
     },
-    [file?.path, refresh, onChanged, onEditTarget, setStatus],
+    [fileOp, file?.path, onEditTarget],
   );
 
   // A library change is live as soon as it is written: this only redraws the tab.
@@ -836,80 +846,58 @@ function EditorTabView({
 
   // Right-click New file: create an empty project file inside the target folder.
   const createProjectFile = useCallback(
-    async (dir: string, name: string) => {
+    (dir: string, name: string) => {
       const rel = `${dir}/${name}`;
       // EMPTY — a k7x file needs nothing, and pre-filling one would only be something to delete.
-      const body = "";
-      try {
-        await api.write(rel, body);
-        await refresh();
-        void open(rel);
-        onChanged();
-        setStatus(m["status.editor.created"]({ path: rel }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.createFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
+      return fileOp(
+        () => api.write(rel, ""),
+        () => {
+          void open(rel);
+          return m["status.editor.created"]({ path: rel });
+        },
+        m["status.editor.createFailed"],
+      );
     },
-    [refresh, open, onChanged, setStatus],
+    [fileOp, open],
   );
 
   // Right-click New folder: an empty folder inside the target, with nothing to open afterwards.
   const createFolder = useCallback(
-    async (dir: string, name: string) => {
-      try {
-        const { path } = await api.createFolder(dir, name);
-        await refresh();
-        onChanged();
-        setStatus(m["status.editor.folderCreated"]({ path }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.folderFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
-    },
-    [refresh, onChanged, setStatus],
+    (dir: string, name: string) =>
+      fileOp(
+        () => api.createFolder(dir, name),
+        ({ path }) => m["status.editor.folderCreated"]({ path }),
+        m["status.editor.folderFailed"],
+      ),
+    [fileOp],
   );
 
   // Right-click Clone module: copy a module folder in the same category.
   const cloneModuleEntry = useCallback(
-    async (path: string, newName: string) => {
-      try {
-        const { path: newPath } = await api.cloneModule(path, newName);
-        await refresh();
-        void open(newPath);
-        onChanged();
-        setStatus(m["status.editor.cloned"]({ path: newPath }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.cloneFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
-    },
-    [refresh, open, onChanged, setStatus],
+    (path: string, newName: string) =>
+      fileOp(
+        () => api.cloneModule(path, newName),
+        ({ path: newPath }) => {
+          void open(newPath);
+          return m["status.editor.cloned"]({ path: newPath });
+        },
+        m["status.editor.cloneFailed"],
+      ),
+    [fileOp, open],
   );
 
   // New node: add an <node>.k7x and open it — the point of a node is to state what it overrides.
   const createNodeEntry = useCallback(
-    async (path: string) => {
-      try {
-        const { path: newPath } = await api.createNode(path);
-        await refresh();
-        void open(newPath);
-        onChanged();
-        setStatus(m["status.editor.created"]({ path: newPath }));
-      } catch (e) {
-        setStatus(
-          m["status.editor.nodeFailed"]({ message: (e as Error).message }),
-          "error",
-        );
-      }
-    },
-    [refresh, open, onChanged, setStatus],
+    (path: string) =>
+      fileOp(
+        () => api.createNode(path),
+        ({ path: newPath }) => {
+          void open(newPath);
+          return m["status.editor.created"]({ path: newPath });
+        },
+        m["status.editor.nodeFailed"],
+      ),
+    [fileOp, open],
   );
 
   // Expose the opener and file list to the shell, scoped to the ACTIVE project rather than the whole workspace.

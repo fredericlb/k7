@@ -11,6 +11,7 @@ import { showToast } from "@studio/project-shell/toast";
 import { FIXED_NAMESPACES } from "@studio/song-schema/moduleTypes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { useLatest } from "../hooks/useLatest";
 import { m } from "../paraglide/messages.js";
 import { projectDir } from "../projectPaths";
 import {
@@ -94,8 +95,7 @@ export function RackBuilder({
 
   // ONE audition element: clicking a pad replaces what is playing, and closing revokes every URL.
   const audio = useRef<HTMLAudioElement | null>(null);
-  const padsRef = useRef(pads);
-  padsRef.current = pads;
+  const padsRef = useLatest(pads);
   useEffect(
     () => () => {
       audio.current?.pause();

@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { type ConditionCtx, keyToken, resolveToken } from "../keys";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
+import { isTyping } from "./useWindowKey";
 
 export function useCommandKeys({
   enabled = true,
@@ -31,12 +32,7 @@ export function useCommandKeys({
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       // Two reasons to stand aside: TYPING owns every key, where a focused CONTROL keeps them all but Space and Escape (docs/shell.md).
-      const typing =
-        !!el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable);
-      if (typing) return;
+      if (isTyping(e)) return;
       const control =
         !!el &&
         (el.tagName === "BUTTON" ||

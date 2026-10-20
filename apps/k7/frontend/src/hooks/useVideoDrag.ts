@@ -3,13 +3,7 @@
 // ../videoDrag.ts; this is the gesture around it. See ../../docs/picture.md.
 
 import { nearestTick } from "@studio/ui-timeline/ticks";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { snapMode, snapTo } from "../snap";
 import { pictureToolLine, type Tool } from "../timelineTools";
@@ -22,6 +16,7 @@ import {
   videoDragIsStill,
   videoDragTo,
 } from "../videoDrag";
+import { useLatest } from "./useLatest";
 
 export function useVideoDrag({
   toolRef,
@@ -49,10 +44,8 @@ export function useVideoDrag({
   setStatus: (s: string) => void;
 }) {
   const [vdrag, setVDrag] = useState<VDrag | null>(null);
-  const vdragRef = useRef<VDrag | null>(vdrag);
-  vdragRef.current = vdrag;
-  const onVideoEditRef = useRef(onVideoEdit);
-  onVideoEditRef.current = onVideoEdit;
+  const vdragRef = useLatest<VDrag | null>(vdrag);
+  const onVideoEditRef = useLatest(onVideoEdit);
 
   const beginVideoDrag = useCallback(
     (

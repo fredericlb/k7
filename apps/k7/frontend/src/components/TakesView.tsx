@@ -11,6 +11,7 @@ import { beatsToPosition } from "@studio/song-schema/timecode";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
+import { useWindowKey } from "../hooks/useWindowKey";
 import { ModeIcon } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import {
@@ -202,16 +203,14 @@ export function TakesView({
   };
 
   // Escape lets the span go — caught first, so the panel behind the view is not closed by the same key.
-  useEffect(() => {
-    if (!sel) return;
-    const onKey = (e: KeyboardEvent) => {
+  useWindowKey(
+    (e) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
       setSel(null);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [sel]);
+    },
+    { enabled: !!sel, capture: true },
+  );
 
   const shown = drag ? snapSpan(drag.a, drag.b, GRID) : sel;
   const bar = (num * 4) / den;

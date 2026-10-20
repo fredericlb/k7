@@ -8,6 +8,7 @@ import {
   type SeqGridController,
 } from "@studio/ui-editor/tracker/plugin";
 import { useEffect, useRef } from "react";
+import { useLatest } from "../hooks/useLatest";
 import type { SeqView } from "../sequenceEdit";
 import type { Hints } from "../types";
 
@@ -28,10 +29,8 @@ export function SeqGrid({
   const host = useRef<HTMLDivElement>(null);
   const ctrl = useRef<SeqGridController | null>(null);
   // Both read through refs so the mount effect below takes neither as a dependency.
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const contentRef = useRef(content);
-  contentRef.current = content;
+  const onChangeRef = useLatest(onChange);
+  const contentRef = useLatest(content);
 
   // NOT keyed on `content`: re-mounting on every edit would drop the tracker's cursor, and `resetKey` IS the remount key.
 

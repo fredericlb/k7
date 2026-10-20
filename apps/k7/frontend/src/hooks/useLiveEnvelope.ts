@@ -9,8 +9,9 @@ import {
   INPUT_VU_MIN_DB,
   useEngineStore,
 } from "@studio/engine-browser/store";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { RingBuffer } from "../ringBuffer";
+import { useLatest } from "./useLatest";
 
 /** How long one engine frame stands for — the nominal, since a growing take is read for its SHAPE and not for its timings. */
 const LIVE_FRAME_MS = 50;
@@ -46,10 +47,8 @@ export function useLiveEnvelope(
 ): LiveTake {
   const store = useEngineStore();
   // Read inside the subscription, which is bound once and must not be rebound on a transport change.
-  const rollingRef = useRef(rolling);
-  rollingRef.current = rolling;
-  const orderRef = useRef(trackOrder);
-  orderRef.current = trackOrder;
+  const rollingRef = useLatest(rolling);
+  const orderRef = useLatest(trackOrder);
 
   const [take] = useState(() => {
     const ring = new RingBuffer(MAX_FRAMES);

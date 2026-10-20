@@ -4,7 +4,7 @@
 // See docs/picture.md.
 
 import { X } from "@frediverse/ui/icons";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Rnd } from "react-rnd";
 import {
   clampRect,
@@ -13,6 +13,7 @@ import {
   MIN_H,
   MIN_W,
 } from "../floatingRect";
+import { useLatest } from "../hooks/useLatest";
 
 export interface FloatingWindowProps {
   title: string;
@@ -40,8 +41,7 @@ export function FloatingWindow({
     return rect ? clampRect(rect, vw, vh) : defaultRect(vw, vh);
   });
   // The latest rect for the resize listener, which would otherwise clamp a stale one.
-  const liveRef = useRef(live);
-  liveRef.current = live;
+  const liveRef = useLatest(live);
 
   // Rnd bounds a gesture, not the window shrinking under it: this pulls the title bar back in reach.
   useEffect(() => {
