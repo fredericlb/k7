@@ -32,7 +32,9 @@ files may still be on their way, and the edit it builds when they land drops a t
 rolling. So Play stays "loading the project" until the file service's `engineLoad` is null, read on
 every `/workspace` poll (faster while it is not), rather than freeing on the engine's first frame.
 Before the first answer the phase is unknown, and unknown holds Play too: started at null, a Play
-pressed in that window reached the engine ahead of the project, and the build dropped it.
+pressed in that window reached the engine ahead of the project, and the build dropped it. Every
+poll answer is applied, not only a changed one: the answer to the request an engine's arrival
+makes can land after a newer one, and a poll that skipped "unchanged" would leave it standing.
 
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in

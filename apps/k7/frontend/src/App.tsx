@@ -1606,7 +1606,8 @@ export default function App({
   useActiveProjectFollow({
     lastActiveRef: lastActive,
     awaitingTake,
-    loading: engineLoad !== null,
+    // Fast only with an engine up: with none the file service reports a wait that only a binding ends.
+    loading: engineReady && engineLoad !== null,
     /** A recording landed: `setWs` carries the clip's name and the reload puts it on its lane — neither happened on its own. */
     onTake: (w) => {
       setAwaitingTake(false);
