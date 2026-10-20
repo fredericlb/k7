@@ -143,17 +143,14 @@ test("a live rig's recorder node takes, times and clears a take", async ({
   const { project } = await files.createProject(WORKSPACE, "live", "live.k7");
   const page = await openProject(k7, project);
   const watch = watchPage(page);
-  const card = page.getByRole("group", { name: "recorder" });
+  // A card is named after its node, then its module: `recorder · step 1 (recorder)`.
+  const card = page.getByRole("group", { name: /^recorder\b/ });
   // Framed, the card is drawn at the zoom that shows its face.
-  await button(page, "recorder").dblclick();
+  await page.getByRole("button", { name: /^recorder\b/ }).dblclick();
   await expect(card.getByText("no record", { exact: true })).toBeVisible();
-  // A rig has no Play to wait for: the footer's loading line is what says the engine holds it.
-  await expect(page.getByText("Loading the project on the engine")).toHaveCount(
-    0,
-    { timeout: 60_000 },
-  );
-  // The card's three controls are not buttons to assistive technology, so they are found by their glyph.
-  const record = card.getByText("●", { exact: true });
+  // The engine holds the node once its load report says the node's ring is held: before that, Record is refused.
+  await expect(card.getByTitle(/ · holds \d/)).toBeVisible({ timeout: 60_000 });
+  const record = card.getByRole("button", { name: "Record", exact: true });
   await record.click();
   await expect(card.getByText("no record", { exact: true })).toBeHidden();
   await page.waitForTimeout(2_000);
@@ -162,7 +159,7 @@ test("a live rig's recorder node takes, times and clears a take", async ({
   await expect(card.getByText(/^0:0[2-9]\.\d$/)).toBeVisible({
     timeout: 5_000,
   });
-  await card.getByText("clear", { exact: true }).click();
+  await card.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(card.getByText("no record", { exact: true })).toBeVisible();
   watch.assertClean();
 });
