@@ -14,7 +14,7 @@ import {
   type PendingInsert,
 } from "../nodeInsert";
 import { type PendingNode, spawnBox } from "../pendingNode";
-import { useShellStore } from "../state/shellStore";
+import type { ShellStore } from "../state/shellStore";
 
 /** Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked. */
 export interface PendingWire {
@@ -30,6 +30,7 @@ export function useGraphActions({
   reloadKey,
   pendingInsert,
   pendingWire,
+  shell,
 }: {
   runCommand: (line: string) => Promise<void>;
   /** The latest dispatcher, for the pick: its callback would otherwise rebuild on every command. */
@@ -41,6 +42,8 @@ export function useGraphActions({
   pendingInsert: RefObject<PendingNode | null>;
   /** …and where the node it creates is wired, consumed the same way. */
   pendingWire: RefObject<PendingWire | null>;
+  /** The host's shell store — passed, since the host is the one component not under its own provider. */
+  shell: ShellStore;
 }) {
   /** A node's alternative badge on the graph: switch to that set, or copy the one on — packages/song/docs/alternatives.md. */
   const runAlternative = useCallback(
@@ -59,7 +62,6 @@ export function useGraphActions({
     [runCommand],
   );
   // The two pickers are overlays, drawn by ShellOverlays: only their setters are needed here (state/overlaySlice.ts).
-  const shell = useShellStore();
   const { setAssetPicker, setModulePicker } = shell.getState();
   const browseAssets = useCallback(
     (module: string, param: string, x: number, y: number, family?: string) => {

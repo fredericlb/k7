@@ -2154,6 +2154,7 @@ export default function App({
     reloadKey,
     pendingInsert,
     pendingWire,
+    shell,
   });
   /** Find the open project's node of the builder's module and watch its plugin — `watchPluginParams` is what makes the values LIVE. */
   useEffect(() => {
