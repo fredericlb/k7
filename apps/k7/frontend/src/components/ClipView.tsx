@@ -25,6 +25,7 @@ import { fileStem } from "../projectPaths";
 import { rackFor, rackKeyNames } from "../rackFor";
 import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../rows";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import { eventIdOf, takesEventOf } from "../takes";
 import type { Hints, WebClip, WebNote, WebProject } from "../types";
 import type { WaveMode } from "../waveMode";
@@ -203,26 +204,45 @@ function SeqRoll({
   );
 }
 
+/** The roll's note edits as command lines over one runner, each returning its promise. */
+function noteVerbs(run: (line: string) => Promise<void>) {
+  return {
+    onCreateNote: (seqId: string, key: number, t0: number, t1: number) =>
+      run(`sequence note new ${seqId} ${key} ${t0} ${t1}`),
+    // The velocity drag, committed like the timeline's clip drag: one command on release.
+    onSetVelocity: (seqId: string, key: number, start: number, vel: number) =>
+      run(`sequence note velocity ${seqId} ${key} ${start} ${vel}`),
+    // Move and stretch are one verb, being one gesture with two grips.
+    onSetNoteRange: (
+      seqId: string,
+      key: number,
+      start: number,
+      ns: number,
+      ne: number,
+    ) => run(`sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`),
+    // A drag that changed the PITCH keeps the duration and refuses an occupied slot.
+    onMoveNote: (
+      seqId: string,
+      key: number,
+      start: number,
+      nk: number,
+      ns: number,
+    ) => run(`sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`),
+    // A dragged SELECTION: every note in one write and one Ctrl+Z.
+    onMoveNotes: (seqId: string, moves: [number, number, number, number][]) =>
+      run(`sequence notes move ${seqId} ${JSON.stringify(moves)}`),
+    // The roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
+    onRemoveNote: (seqId: string, key: number, start: number) =>
+      run(`sequence note remove ${seqId} ${key} ${start}`),
+  };
+}
+
 export function ClipView({
   target,
   onClose,
-  reloadKey = 0,
-  onSeek,
-  command,
-  quietCommand,
-  onContextMenu,
-  onChanged,
-  setStatus,
   caretRef,
   onSelection,
-  onSetLoop,
-  onCreateNote,
-  onSetVelocity,
-  onSetNoteRange,
-  onMoveNote,
-  onMoveNotes,
   onPreviewNote,
-  onRemoveNote,
   waveRef,
   onWaveView,
   rollRef,
@@ -235,65 +255,8 @@ export function ClipView({
   caretRef?: RefObject<ClipGridHandle | null>;
   /** Whether the drawn grid has a rectangle — what makes ⇧L conditional (see OnGridSelection). */
   onSelection?: OnGridSelection;
-  /** Set or clear the transport's loop region, in SONG seconds — Shift+L on a rectangle. */
-  onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
-  /** Bumped by the shell after every command's reload — what keeps the open clip FRESH below. */
-  reloadKey?: number;
-  /** A write landed outside the command journal — the TRACKER writes its file directly, and the timeline draws the same notes. */
-  onChanged?: () => void;
-  /** Where a failed write is reported — only the tracker has one, the other two writing through `command`. */
-  setStatus?: (s: string) => void;
-  /** Seek the transport, in SONG seconds — what a click on a clip editor's arrangement ruler does. */
-  onSeek?: (seconds: number) => void;
-  /** Runs a command line through the shell, which journals it — a note edit takes the callbacks below instead. */
-  command: (line: string) => void | Promise<void>;
-  /** …and the same without the shell-wide reload, for an edit confined to one clip. */
-  quietCommand?: (line: string) => void | Promise<void>;
-  /** The shell's right-click menu — the waveform's stretch points, a sequencer pad, a roll note. Absent ⇒ the browser's own. */
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
-  onCreateNote?: (
-    seqId: string,
-    key: number,
-    t0: number,
-    t1: number,
-  ) => void | Promise<void>;
-  // Set one note's velocity: (seqId, key, startBeat, 0..1). Runs `sequence note velocity`.
-  onSetVelocity?: (
-    seqId: string,
-    key: number,
-    startBeat: number,
-    vel: number,
-  ) => void | Promise<void>;
-  /** Move or stretch a note (`sequence note timerange`): where it starts NOW, then where it should start and end. */
-  onSetNoteRange?: (
-    seqId: string,
-    key: number,
-    startBeat: number,
-    newStart: number,
-    newEnd: number,
-  ) => void | Promise<void>;
-  /** Move a note to another PITCH (`sequence note move`), which keeps its duration — the roll's vertical drag. */
-  onMoveNote?: (
-    seqId: string,
-    key: number,
-    startBeat: number,
-    newKey: number,
-    newStart: number,
-  ) => void | Promise<void>;
-  /** Move SEVERAL notes in one write (`sequence notes move`): each [key, start, newKey, newStart] — the roll's dragged selection. */
-  onMoveNotes?: (
-    seqId: string,
-    moves: [number, number, number, number][],
-  ) => void | Promise<void>;
   /** Hear one note through a TRACK's chain — over the engine's socket, not through a command; the track is found here. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
-  /** Remove one note (`sequence note remove`) — the roll's `remove` mode, and the caret's `x` by another road. */
-  onRemoveNote?: (
-    seqId: string,
-    key: number,
-    startBeat: number,
-  ) => void | Promise<void>;
   /** The AUDIO leaf's mode, the counterpart of `caretRef` for the three grids — `ui wave <mode>` arrives through it. */
   waveRef?: RefObject<AudioClipHandle | null>;
   onWaveView?: (v: WaveMode | null) => void;
@@ -303,6 +266,27 @@ export function ClipView({
   /** The takes mode's shell half — absent, neither panel offers the mode a record button (song docs/takes.md). */
   takesHost?: TakesHost;
 }) {
+  // Bumped by the shell after every command's reload — what keeps the open clip FRESH below.
+  const reloadKey = useReloadKey();
+  const {
+    seek: onSeek,
+    runCommand: command,
+    openContextMenu: onContextMenu,
+    setStatus,
+    setLoop: onSetLoop,
+  } = useVerbs();
+  // The TRACKER writes its file directly rather than through a command, so its reload is asked for here.
+  const onChanged = useShell((s) => s.bumpReload);
+  // The roll's gestures, one `sequence note` line each, ANSWERING the promise: the ghost is held until the reload lands (rollPending.ts).
+  const notes = useMemo(() => noteVerbs(command), [command]);
+  const {
+    onCreateNote,
+    onSetVelocity,
+    onSetNoteRange,
+    onMoveNote,
+    onMoveNotes,
+    onRemoveNote,
+  } = notes;
   /** The open clip, kept FRESH: `target` is a snapshot from the click, and the placement is found again by (id, start). */
   const [freshProject, setFreshProject] = useState<WebProject | null>(null);
   useEffect(() => {
@@ -583,10 +567,6 @@ export function ClipView({
         // An audio event opens the CLIP PANEL — the same one a take lands in, with its onsets, its trim and its normalise.
         clip && (
           <AudioClipPanel
-            onContextMenu={onContextMenu}
-            quietCommand={quietCommand}
-            // So a stretch point dropped from the right-click menu — which runs through the SHELL — is gone from the picture too.
-            reloadKey={reloadKey}
             clip={clip.id}
             track={
               (target.kind === "clip" && target.clip.id === clip.id
@@ -610,13 +590,10 @@ export function ClipView({
             loops={clip.event?.loop ?? 1}
             // …and its own trim, which only an audio event has.
             gainDb={clip.event?.gain ?? 0}
-            onSeek={onSeek}
-            command={command}
             onClose={onClose}
             // The waveform's mode: down from the shell so a key reaches it, up so a condition and the badge can read it.
             viewRef={waveRef}
             onViewChange={onWaveView}
-            setStatus={setStatus}
             takes={takes}
           />
         )

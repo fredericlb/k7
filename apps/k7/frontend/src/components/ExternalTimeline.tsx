@@ -13,7 +13,14 @@ import {
 } from "@studio/engine-browser/store";
 import { automationLanes, type WebGraph } from "@studio/graph-model";
 import type { WebVideoProject, WebVideoTrack } from "@studio/web-protocol";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
 import {
@@ -31,6 +38,11 @@ import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
 import { confirmMenuItem } from "../menuConfirm";
 import { type NodeMenuTarget, nodeMenu } from "../nodeMenu";
+import {
+  createShellStore,
+  ShellStoreContext,
+  type ShellVerbs,
+} from "../state/shellStore";
 import { modeCondition, type TimelineMode } from "../timelineMode";
 import type { CommandInfo } from "../types";
 import { ContextMenu } from "./ContextMenu";
@@ -40,6 +52,13 @@ import { type TimelineHandle, TimelineTab } from "./TimelineTab";
 const NO_LANE_NODES = { alternatives: undefined, frozen: undefined };
 const NOOP = () => {};
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
+// The gestures a second device offers: no tools, no lane order, no picture lane — the shell's pane has those.
+const DEVICE_GESTURES = [
+  "moveEvent",
+  "resizeEvent",
+  "fadeEvent",
+  "newTrack",
+] as const;
 
 export function ExternalTimeline({
   project,
@@ -216,54 +235,57 @@ export function ExternalTimeline({
     [onConditions],
   );
 
+  // The pane reads its verbs and reload key from a shell store of its own, over this surface's runner (state/shellStore.ts).
+  const verbs = useRef<ShellVerbs | null>(null);
+  verbs.current = {
+    setStatus,
+    runCommand: (line) => runCommand(line),
+    quietCommand: (line) => quietCommand(line),
+    openContextMenu,
+    seek,
+    setLoop: (start, end, enabled) =>
+      engineRef.current?.loop(start, end, enabled),
+  };
+  const [shell] = useState(() => {
+    const s = createShellStore({
+      frozen: false,
+      impl: verbs,
+      commands: DEVICE_GESTURES,
+    });
+    s.setState({ reload: { key: reloadKey, files: null } });
+    return s;
+  });
+  // The surface's key is driven by `/revision` (useSurfaceCommands.ts), so the store follows it rather than counting.
+  useLayoutEffect(() => {
+    if (shell.getState().reload.key !== reloadKey)
+      shell.setState({ reload: { key: reloadKey, files: null } });
+  }, [shell, reloadKey]);
+
   // ── the pane ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 min-w-0 flex-1">
-        <TimelineTab
-          ref={ref}
-          // Alone on the screen, so it always has the keys — there is no other pane to give them to.
-          active
-          reloadKey={reloadKey}
-          rolling={rolling}
-          takeStartBeat={takeStart}
-          takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
-          videoTracks={videoTracks}
-          onVideoEdit={applyVideoEdit}
-          setStatus={setStatus}
-          // The shell's other panes asking to be pointed somewhere; not mounted here, so the caret simply moves.
-          onEditTarget={NOOP}
-          onCaret={onCaret}
-          onView={onView}
-          onContextMenu={openContextMenu}
-          onNodeMenu={openNodeMenu}
-          onSeek={seek}
-          onSetLoop={(start, end, enabled) =>
-            engineRef.current?.loop(start, end, enabled)
-          }
-          // The writing gestures, each the same command line the shell sends — what they share is the VERB, which is @studio/commands'.
-          onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
-            void runCommand(
-              `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
-            )
-          }
-          onResizeEvent={(trackId, fromTc, startTc, endTc) =>
-            void runCommand(
-              `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
-            )
-          }
-          // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
-          onFadeEvent={(trackId, fromTc, which, lenTc) =>
-            void runCommand(
-              `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
-            )
-          }
-          onNewTrack={() => void runCommand("track new")}
-          trackControls={trackControls}
-          onTrackToggle={onTrackToggle}
-          laneNodes={laneNodes}
-        />
+        <ShellStoreContext.Provider value={shell}>
+          <TimelineTab
+            ref={ref}
+            // Alone on the screen, so it always has the keys — there is no other pane to give them to.
+            active
+            rolling={rolling}
+            takeStartBeat={takeStart}
+            takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
+            videoTracks={videoTracks}
+            onVideoEdit={applyVideoEdit}
+            // The shell's other panes asking to be pointed somewhere; not mounted here, so the caret simply moves.
+            onEditTarget={NOOP}
+            onCaret={onCaret}
+            onView={onView}
+            onNodeMenu={openNodeMenu}
+            trackControls={trackControls}
+            onTrackToggle={onTrackToggle}
+            laneNodes={laneNodes}
+          />
+        </ShellStoreContext.Provider>
       </div>
       {menu ? (
         <ContextMenu

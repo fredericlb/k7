@@ -18,7 +18,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import type { MenuCtx } from "../contextMenu";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
@@ -28,6 +27,7 @@ import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
+import { useReloadKey, useVerbs } from "../state/shellStore";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { GraphSlotPane } from "./GraphSlotPane";
@@ -60,9 +60,6 @@ export function TrackModulesPane({
   cameras,
   inputDevices,
   midiDevices,
-  reloadKey,
-  command,
-  onModuleField,
   onRecorder,
   onProjectField,
   trackOrder,
@@ -72,7 +69,6 @@ export function TrackModulesPane({
   setPluginParam,
   moduleParams,
   trackControls,
-  onContextMenu,
   onBypassModule,
   onAlternative,
   onEngine,
@@ -107,10 +103,6 @@ export function TrackModulesPane({
   /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
   inputDevices?: readonly { name: string; channels: number[] }[];
   midiDevices?: readonly string[];
-  reloadKey: number;
-  command: (line: string) => void | Promise<void>;
-  /** …and the RELOADING sender for a module's own field: an intrinsic dropdown draws the file. */
-  onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button, straight through — see DomChains' prop. */
   /** Set a PROJECT setting — the RENDER card's frame dropdown. */
   onProjectField?: (field: string, value: string) => void;
@@ -126,7 +118,6 @@ export function TrackModulesPane({
   /** What the modules with NO plugin are set to — a deck's tempo node hangs off a track, so it can land in this row too. */
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** A card's own bypass button — asks only; `pendingBypass` is what moves the card, nothing reloads. */
   onBypassModule?: (module: string) => void;
   /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
@@ -174,6 +165,13 @@ export function TrackModulesPane({
   /** The "audio in" and "midi in" buttons: the shell's `track input`, run on this lane. */
   onTrackInput?: (kind: "audio" | "midi") => void;
 }) {
+  const reloadKey = useReloadKey();
+  // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
+  const {
+    quietCommand: command,
+    runCommand: onModuleField,
+    openContextMenu: onContextMenu,
+  } = useVerbs();
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);

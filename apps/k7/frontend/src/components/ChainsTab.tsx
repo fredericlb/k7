@@ -7,7 +7,6 @@ import { ChevronRight, List } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { automationLanes, type WebAutomationLane } from "@studio/graph-model";
-import type { CommandJournal } from "@studio/project-shell/project";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
@@ -32,7 +31,6 @@ import {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
 import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useChainsMidi } from "../hooks/useChainsMidi";
@@ -43,6 +41,7 @@ import { midiActivity } from "../midiActivity";
 import { nodeNameFor } from "../nodeInsert";
 import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { MidiFeedback } from "./MidiFeedback";
@@ -56,7 +55,6 @@ export const ChainsTab = memo(ChainsTabView);
 function ChainsTabView({
   mark,
   onPreviewNote,
-  reloadKey,
   organizeKey = 0,
   active,
   showList,
@@ -65,10 +63,7 @@ function ChainsTabView({
   videoSpans,
   noteLanes,
   project,
-  command,
   onBypassModule,
-  onModuleField,
-  onOrganize,
   onRecorder,
   onProjectField,
   onAlternative,
@@ -77,7 +72,6 @@ function ChainsTabView({
   onPresetStep,
   presetNames,
   engineWarnings,
-  onSetModuleAsset,
   onAssetBrowse,
   onTapEdit,
   onWatchWaveform,
@@ -86,14 +80,8 @@ function ChainsTabView({
   showDocs,
   onDocCount,
   onLaneNodes,
-  onContextMenu,
   onEdgeInsert,
   onCanvasInsert,
-  onConnect,
-  onAutomate,
-  onDisconnect,
-  onReplug,
-  onMoveNode,
   pluginParamsStore,
   requestPluginParams,
   watchPluginParams,
@@ -105,20 +93,17 @@ function ChainsTabView({
   focus,
   onFocused,
   stack,
-  onStack,
   inputDevices,
   cameras,
   midiDevices,
   masterVolume,
   viewport,
   midiRef,
-  onMidiStatus,
 }: {
   /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
   mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
-  reloadKey: number;
   // Bumped when `graph organize` ran: the one signal that empties the held node positions and lets dagre re-lay out everything.
   organizeKey?: number;
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
@@ -134,14 +119,8 @@ function ChainsTabView({
   noteLanes?: Readonly<Record<string, LaneNotes>>;
   /** The compiled doc, for the one thing the graph cannot derive: which notes a lane plays, which is what lights a rack's pads. */
   project?: WebProject | null;
-  /** `journal`, when given, is how the line is undone — the layout's own pin is never an undo step (docs/chainsGraph.md). */
-  command: (line: string, journal?: CommandJournal) => void | Promise<void>;
   // Toggle a module's bypass: the canvas flips the node itself on click and lets the refetch confirm — see pendingBypass.
   onBypassModule?: (module: string) => void;
-  /** Set a module's own field. Wired to the RELOADING sender: an intrinsic dropdown draws the file. */
-  onModuleField?: (line: string) => void | Promise<void>;
-  /** The minimap's Organize button: `graph organize` through the shell, which is what re-lays the graph out. */
-  onOrganize?: () => void;
   /** A RECORDER's button — record and clear go to the engine, save is a command (recorder.md). */
   /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
   onProjectField?: (field: string, value: string) => void;
@@ -166,8 +145,6 @@ function ChainsTabView({
   presetNames?: Record<string, string>;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
-  // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
-  onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the library browser for a module's asset field, at viewport coords. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   /** A rack tap's edit — the shell runs its `node tap` command (packages/song/docs/racks.md). */
@@ -194,8 +171,6 @@ function ChainsTabView({
     autoFreezeWaiting: WebGraph["autoFreezeWaiting"];
     automation: Record<string, WebAutomationLane[]>;
   }) => void;
-  // Right-click a node → the shell opens its context menu. No 'edit this module' here: a module is a LIBRARY thing.
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** A `+` click opens the module picker at the pointer and the pick runs; `nameFor` answers what a node dropped HERE would be called. */
   onEdgeInsert?: (
     info: { before: string; after: string },
@@ -211,21 +186,6 @@ function ChainsTabView({
     at: { x: number; y: number } | undefined,
     nameFor: (module: string) => string,
   ) => void;
-  // The patch cable landed: a free output then a free input, as graph.k7x addresses, ready for `graph chain connect`.
-  onConnect?: (from: string, to: string) => void;
-  // A curve's cable landed on a knob, or a note-on on an envelope's ear — both write one line of `node automate`.
-  onAutomate?: (
-    module: string,
-    param: string,
-    curve: string,
-    trigger?: string,
-  ) => void;
-  // A lifted cable dropped on the bare canvas — ready for `graph chain disconnect`.
-  onDisconnect?: (from: string, to: string) => void;
-  // A lifted cable's end landed on another jack — ready for `graph chain replug`.
-  onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
-  // A module's header was dragged and dropped: pin it there — ready for `graph move`.
-  onMoveNode?: (module: string, x: number, y: number) => void;
   // Live plugin params as an EXTERNAL store, so param frames re-render the graph and not the whole app.
   pluginParamsStore: PluginParamsStore;
   requestPluginParams: (id: string) => void;
@@ -250,8 +210,6 @@ function ChainsTabView({
   onFocused?: (chains: number) => void;
   /** The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts. */
   stack?: boolean;
-  /** …and its toggle, drawn on the minimap beside zoom fit. */
-  onStack?: () => void;
   // How the machine's interface groups its inputs, for a live input's socket dropdown — empty with no engine, which is the honest picture.
   inputDevices?: readonly { name: string; channels: number[] }[];
   /** The lenses this BROWSER can see, by label — see packages/song/docs/camera.md. */
@@ -265,9 +223,26 @@ function ChainsTabView({
   viewport?: readonly [number, number];
   /** Where the shell reaches MIDI learn from — the runtime lives HERE, this being the one component that always holds the graph. */
   midiRef?: React.RefObject<MidiControlApi | null>;
-  /** Say what a learn is waiting for, or what it captured. */
-  onMidiStatus?: (line: string) => void;
 }) {
+  const reloadKey = useReloadKey();
+  // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
+  const {
+    quietCommand: command,
+    runCommand: onModuleField,
+    openContextMenu: onContextMenu,
+    setStatus: onMidiStatus,
+  } = useVerbs();
+  const frozen = useShell((s) => s.frozen);
+  const cmds = useShell((s) => s.commands);
+  const onOrganize = cmds.organize;
+  const onSetModuleAsset = cmds.setModuleAsset;
+  const onStack = cmds.stack;
+  // The cable and drag gestures write the graph, so a frozen snapshot draws none of their handles.
+  const onConnect = frozen ? undefined : cmds.connect;
+  const onAutomate = frozen ? undefined : cmds.automate;
+  const onDisconnect = frozen ? undefined : cmds.disconnect;
+  const onReplug = frozen ? undefined : cmds.replug;
+  const onMoveNode = frozen ? undefined : cmds.moveNode;
   const [selected, setSelected] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const camApi = useRef<ChainsCamApi | null>(null);

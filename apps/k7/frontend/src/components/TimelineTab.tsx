@@ -70,7 +70,6 @@ import {
   materialOf,
 } from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
-import type { MenuCtx } from "../contextMenu";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
 import type { HistoryMark } from "../historyMarks";
@@ -104,6 +103,7 @@ import {
 } from "../rows";
 import type { EditFocus } from "../shellEquality";
 import { moveOffset, snapMode, snapTo } from "../snap";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { moveNudge, type TimelineMode, timelineMode } from "../timelineMode";
 import {
@@ -307,7 +307,6 @@ export const TimelineTab = memo(TimelineTabView);
 
 function TimelineTabView({
   active,
-  reloadKey,
   rolling,
   takeStartBeat,
   takeCountInBeats,
@@ -316,21 +315,12 @@ function TimelineTabView({
   videoTracks,
   fps,
   onVideoEdit,
-  setStatus,
   onEditTarget,
   onOpenClip,
   onEmptyClick,
   onCaret,
   onView,
-  onContextMenu,
-  onNewTrack,
-  onSeek,
-  onSetLoop,
-  onMoveEvent,
-  onToolLine,
   pendingEdits = NO_PENDING,
-  onResizeEvent,
-  onFadeEvent,
   feedMove,
   feedTimecode,
   feedEventsMove,
@@ -340,24 +330,19 @@ function TimelineTabView({
   laneNodes,
   mark,
   onNodeMenu,
-  onNewVideoTrack,
-  onReorder,
   videoArmed,
   videoRecording,
-  onVideoArm,
-  onVideoToggle,
   onDropFiles,
   dropUpload,
-  readOnly = false,
+  pictureLanes = false,
   lanesLocked = false,
   ref,
 }: {
   active: boolean;
   /** A bottom panel is open: the lanes draw folded and Expand is dead, the user's choice kept for when it closes (docs/shell.md). */
   lanesLocked?: boolean;
-  reloadKey: number;
-  /** Nothing here can be written — a shared snapshot; what it takes away is the EDITING GESTURES and only those (docs/shared.md). */
-  readOnly?: boolean;
+  /** The project declares a frame, so the new-lane button offers a PICTURE lane too. */
+  pictureLanes?: boolean;
   /** Is a take rolling, and from which beat — both PROPS and not subscriptions, since they change once per take. */
   rolling: boolean;
   takeStartBeat: number;
@@ -377,7 +362,6 @@ function TimelineTabView({
   onDropFiles?: (d: TimelineDropEvent) => void;
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
-  setStatus: (s: string) => void;
   onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
   // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
@@ -406,47 +390,9 @@ function TimelineTabView({
     loop: boolean;
     expanded: boolean;
   }) => void;
-  // Right-click: report what is under the cursor and where, so the shell can open its menu (see contextMenu.ts).
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /** Make a lane — the corner button over the name column; absent ⇒ no button, which is what a frozen song gets. */
-  onNewTrack?: () => void;
-  /** …and a PICTURE lane, which turns that button into a menu; absent ⇒ the project declares no viewport and there is nothing to choose between. */
-  onNewVideoTrack?: () => void;
-  /** A header was dragged onto another's row: `target` is the lane whose place it should have (docs/timeline.md). */
-  onReorder?: (family: LaneFamily, lane: string, target: string) => void;
   /** The PICTURE lane armed to record its camera, and whether one is rolling — the browser's, not the engine's (hooks/useVideoRecording.ts). */
   videoArmed?: string | null;
   videoRecording?: boolean;
-  /** Toggle that arm; absent ⇒ no button, which is what a frozen song gets. */
-  onVideoArm?: (id: string) => void;
-  /** A picture lane's mute or solo — the audio lane's two words, over picture (docs/picture.md). */
-  onVideoToggle?: (id: string, control: "mute" | "solo") => void;
-  // Move the transport, in seconds — the same engine seek the minimap's click uses.
-  onSeek?: (seconds: number) => void;
-  // Set/clear the transport loop region, in seconds (Shift+L → toggleLoop below).
-  onSetLoop?: (start: number, end: number, enabled: boolean) => void;
-  /** An edge handle was dragged: re-time the event at `fromTc` to span newStart..newEnd (a move is `event move`, whose 4th argument changes lane). */
-  onResizeEvent?: (
-    trackId: string,
-    fromTc: string,
-    newStartTc: string,
-    newEndTc: string,
-  ) => void;
-  /** A fade's corner handle was dragged: `lenTc` is a LENGTH, not a position (see `event fadein`). */
-  onFadeEvent?: (
-    trackId: string,
-    fromTc: string,
-    which: "fadeIn" | "fadeOut",
-    lenTc: string,
-  ) => void;
-  onMoveEvent?: (
-    trackId: string,
-    fromTc: string,
-    toTc: string,
-    toTrackId?: string,
-  ) => void;
-  /** A TOOL's press as the command LINE it produced, alone among this pane's writes; absent ⇒ no tools (docs/timeline.md). */
-  onToolLine?: (line: string) => void;
   /** What one-shot commands are doing and the document not yet: drawn as done already (pendingEdits.ts). */
   pendingEdits?: readonly PendingEdit[];
   // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
@@ -499,6 +445,29 @@ function TimelineTabView({
 }) {
   // The ONE live value the body itself needs; the rest is drawn by Playhead and LaneMeter, which subscribe for themselves (docs/timeline.md).
   const armedIds = useEngineState((s) => s.armed, arrayEq);
+  const reloadKey = useReloadKey();
+  // A shared snapshot: what it takes away is the EDITING GESTURES and only those (docs/shared.md).
+  const readOnly = useShell((s) => s.frozen);
+  const {
+    setStatus,
+    openContextMenu: onContextMenu,
+    seek: onSeek,
+    setLoop: onSetLoop,
+  } = useVerbs();
+  // The host's gestures; one it does not offer is a handle this pane does not draw (state/paneCommands.ts).
+  const cmds = useShell((s) => s.commands);
+  const onMoveEvent = cmds.moveEvent;
+  const onResizeEvent = cmds.resizeEvent;
+  const onFadeEvent = cmds.fadeEvent;
+  // No tool on a host that offers none: a second device draws the pointer alone.
+  const onToolLine = cmds.toolLine;
+  // The structural edits are absent on a frozen song, the picture's half too on a song with no frame.
+  const onNewTrack = readOnly ? undefined : cmds.newTrack;
+  const onNewVideoTrack =
+    readOnly || !pictureLanes ? undefined : cmds.newVideoTrack;
+  const onVideoArm = readOnly ? undefined : cmds.videoArm;
+  const onVideoToggle = readOnly ? undefined : cmds.videoToggle;
+  const onReorder = readOnly ? undefined : cmds.reorder;
   // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
   const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });

@@ -25,7 +25,6 @@ import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
   arrayEq,
   EngineStore,
-  EngineStoreProvider,
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
@@ -57,10 +56,12 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useStore } from "zustand";
 import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
@@ -206,8 +207,6 @@ import {
   movedTheAudio,
   movedTheChains,
   movedTheSurfaces,
-  type Reload,
-  UNKNOWN_RELOAD,
   useScopedKey,
 } from "./reloadScope";
 import { type RollMode, rollCondition } from "./rollMode";
@@ -225,11 +224,12 @@ import { TempoMeter } from "./shell/TempoMeter";
 import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
+import { ShellContexts } from "./state/ShellContexts";
+import { createShellStore, type ShellVerbs } from "./state/shellStore";
 import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import type { Tool } from "./timelineTools";
 import type {
-  ChangedFile,
   CommandInfo,
   EngineLoadPhase,
   EngineScanState,
@@ -532,22 +532,20 @@ export default function App({
     (text: string) => statusStore.say(text, true),
     [statusStore],
   );
+  // What the panes read for themselves — the reload signal, the verbs, the overlays (state/shellStore.ts, docs/state.md).
+  const shellVerbs = useRef<ShellVerbs | null>(null);
+  const [shell] = useState(() =>
+    createShellStore({ frozen, impl: shellVerbs }),
+  );
+  useLayoutEffect(() => {
+    if (shell.getState().frozen !== frozen) shell.setState({ frozen });
+  }, [shell, frozen]);
   /** 'Something changed — re-read what you draw', plus WHAT changed: `files`, which reloadScope.ts reads (null = re-ask). */
-  const [reload, setReload] = useState<Reload>(UNKNOWN_RELOAD);
+  const reload = useStore(shell, (s) => s.reload);
   const reloadKey = reload.key;
   // Bumped when `graph organize` runs: the one signal that lets dagre re-lay out every drawn node.
   const [organizeKey, setOrganizeKey] = useState(0);
-  // The unscoped bump: whatever the caller did, it is not saying what moved.
-  const bumpReload = useCallback(
-    () => setReload((r) => ({ key: r.key + 1, files: null })),
-    [],
-  );
-  // The scoped bump: a command's reply says which files it wrote, and `undefined` still means everything.
-  const reloadWith = useCallback(
-    (changed: ChangedFile[] | undefined) =>
-      setReload((r) => ({ key: r.key + 1, files: changed ?? null })),
-    [],
-  );
+  const { bumpReload, reloadWith } = shell.getState();
   // Counters that move only when a reload could concern them (reloadScope.ts); the raw key is for what reads everything.
   const chainsKey = useScopedKey(reload, movedTheChains);
   // The key a graph handed back by a command answers — ChainsTab's `seedGraph`.
@@ -2150,6 +2148,16 @@ export default function App({
     );
     if (items.length) setMenu({ items, x, y });
   }, []);
+  // What the store's verbs call, read at call time so a pane's first effect already reaches these.
+  shellVerbs.current = {
+    setStatus,
+    runCommand,
+    quietCommand,
+    openContextMenu,
+    seek,
+    setLoop: (start, end, enabled) =>
+      engineRef.current?.loop(start, end, enabled),
+  };
   /** A lane's gutter badge on the timeline — the same ContextMenu the right-click uses, over `nodeMenu`'s rows (contextMenu.ts). */
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
@@ -2230,12 +2238,9 @@ export default function App({
       cameras,
       inputDevices,
       midiDevices,
-      reloadKey,
       trackOrder,
       project: projectDoc,
-      command: quietCommand,
       onBypassModule: (mod: string) => void bypassModule(mod),
-      onModuleField: runCommand,
       onRecorder,
       onProjectField,
       onAlternative: runAlternative,
@@ -2243,7 +2248,6 @@ export default function App({
       onTapEdit: editTap,
       onWatchWaveform: watchWaveform,
       engineWarnings: nodeWarnings,
-      onContextMenu: openContextMenu,
       pluginParamsStore,
       setPluginParam,
       moduleParams: offlineParams,
@@ -2255,12 +2259,9 @@ export default function App({
       cameras,
       inputDevices,
       midiDevices,
-      reloadKey,
       trackOrder,
       projectDoc,
-      quietCommand,
       bypassModule,
-      runCommand,
       onRecorder,
       onProjectField,
       runAlternative,
@@ -2268,7 +2269,6 @@ export default function App({
       editTap,
       watchWaveform,
       nodeWarnings,
-      openContextMenu,
       pluginParamsStore,
       setPluginParam,
       offlineParams,
@@ -2927,10 +2927,8 @@ export default function App({
 
   // Everything the panes are handed that is not already a ref, a setter or a stable callback (hooks/usePaneCallbacks.ts).
   const paneFns = usePaneCallbacks({
-    runCommand,
     openEvent,
     setGraphSlot,
-    engineRef,
     cmdRef,
     openModuleBuilder,
     setAssemblyBuilder,
@@ -2940,7 +2938,7 @@ export default function App({
   });
 
   return (
-    <EngineStoreProvider value={store}>
+    <ShellContexts shell={shell} engine={store}>
       {/* The song's clock for every graph below: a curve card's playhead and its bar lines read it (ui-chains-react docs/nodeCard.md). */}
       <SongClockProvider value={songClock}>
         {/* …and the ONE decoder their screens draw a module's sound files with — every graph, the per-track one included. */}
@@ -3124,8 +3122,6 @@ export default function App({
                         // Only when it owns the screen, and not in the popin: that is one file, opened by a command that already named it.
                         showTree={full === "editor"}
                         popin={editorPopin}
-                        // The whole token, not the counter: this pane holds the two routes that answer about files and about names.
-                        reload={reload}
                         activeProject={ws?.activeProject ?? null}
                         projectName={project?.name ?? null}
                         // A supervisor older than the field reports none: it runs level 1.
@@ -3135,10 +3131,6 @@ export default function App({
                         vimMode={vimMode}
                         onOpenProject={openProject}
                         onImportProject={imp.askImport}
-                        onChanged={bumpReload}
-                        // The clip file's Process menu runs `clip process` through here — journalled, one Ctrl+Z, and its reload brings the file back.
-                        command={runCommand}
-                        setStatus={setStatus}
                         onEditTarget={setEditTargetIfOther}
                         onOpenItem={setOpenItemIfOther}
                         onOpenBuilder={openModuleBuilder}
@@ -3189,7 +3181,6 @@ export default function App({
                               pendingEdits={pendingEdits}
                               active={activePane === "timeline"}
                               lanesLocked={panel !== null}
-                              reloadKey={reloadKey}
                               // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
                               rolling={rolling}
                               takeStartBeat={takeStart}
@@ -3215,21 +3206,13 @@ export default function App({
                                 frozen ? undefined : onDropOnTimeline
                               }
                               dropUpload={timelineUpload}
-                              readOnly={frozen}
-                              setStatus={setStatus}
+                              // A song with a frame has two kinds of lane, which makes the new-lane button a menu.
+                              pictureLanes={hasViewport}
                               onEditTarget={setEditTargetIfOther}
                               onOpenClip={paneFns.openClip}
                               onEmptyClick={paneFns.emptyClick}
                               onCaret={setCaretIfMoved}
                               onView={setTlViewIfOther}
-                              onContextMenu={openContextMenu}
-                              onSeek={seek}
-                              onSetLoop={paneFns.setLoop}
-                              onMoveEvent={paneFns.commands.moveEvent}
-                              // A tool's press, already spelled by the module that is tested for it — journalled like anything else.
-                              onToolLine={paneFns.commands.toolLine}
-                              onResizeEvent={paneFns.commands.resizeEvent}
-                              onFadeEvent={paneFns.commands.fadeEvent}
                               // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
                               feedTimecode={
                                 barPending?.kind === "timecode"
@@ -3248,30 +3231,9 @@ export default function App({
                                   : undefined
                               }
                               onFocusRow={focusRowInPanes}
-                              // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
-                              onNewTrack={
-                                frozen ? undefined : paneFns.commands.newTrack
-                              }
-                              // …and its PICTURE half, which makes that button a menu — only a song with a frame has two kinds of lane.
-                              onNewVideoTrack={
-                                frozen || !hasViewport
-                                  ? undefined
-                                  : paneFns.commands.newVideoTrack
-                              }
                               // The picture lane armed for its camera, and whether one is rolling (hooks/useVideoRecording.ts).
                               videoArmed={videoArmed}
                               videoRecording={videoRecording}
-                              onVideoArm={
-                                frozen ? undefined : paneFns.commands.videoArm
-                              }
-                              onVideoToggle={
-                                frozen
-                                  ? undefined
-                                  : paneFns.commands.videoToggle
-                              }
-                              onReorder={
-                                frozen ? undefined : paneFns.commands.reorder
-                              }
                               trackControls={trackControls}
                               onTrackToggle={onTrackToggle}
                               laneNodes={laneNodes}
@@ -3357,27 +3319,8 @@ export default function App({
                             icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                             // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
                             showList
-                            onOrganize={paneFns.commands.organize}
-                            onSetModuleAsset={paneFns.commands.setModuleAsset}
                             onEdgeInsert={frozen ? undefined : insertIntoChain}
                             onCanvasInsert={frozen ? undefined : placeInGraph}
-                            // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
-                            onConnect={
-                              frozen ? undefined : paneFns.commands.connect
-                            }
-                            onAutomate={
-                              frozen ? undefined : paneFns.commands.automate
-                            }
-                            onDisconnect={
-                              frozen ? undefined : paneFns.commands.disconnect
-                            }
-                            onReplug={
-                              frozen ? undefined : paneFns.commands.replug
-                            }
-                            // A dropped header likewise: the drag already said everything.
-                            onMoveNode={
-                              frozen ? undefined : paneFns.commands.moveNode
-                            }
                             pendingInsert={insertingAt}
                             seedGraph={seedGraph}
                             // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
@@ -3387,11 +3330,9 @@ export default function App({
                             focus={graphFocus}
                             onFocused={reportFramed}
                             stack={stackView}
-                            onStack={paneFns.commands.stack}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
-                            onMidiStatus={setStatus}
                           />
                         </PaneBoundary>
                       </div>
@@ -3564,69 +3505,15 @@ export default function App({
                             onClose={closeEvent}
                             // The takes mode's record button and files; a snapshot records nothing, so it offers no takes.
                             takesHost={frozen ? undefined : takes.host}
-                            // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
-                            reloadKey={reloadKey}
-                            // A click on the editor's arrangement ruler is the timeline's seek.
-                            onSeek={seek}
-                            // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
-                            onChanged={bumpReload}
-                            setStatus={setStatus}
                             // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
                             caretRef={clipGridRef}
                             onSelection={setClipSel}
-                            onSetLoop={(start, end, enabled) =>
-                              engineRef.current?.loop(start, end, enabled)
-                            }
-                            // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
-                            command={runCommand}
-                            // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
-                            quietCommand={quietCommand}
-                            // …and they get the same right-click every other entity has.
-                            onContextMenu={openContextMenu}
-                            // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
-                            onCreateNote={(seqId, key, t0, t1) =>
-                              runCommand(
-                                `sequence note new ${seqId} ${key} ${t0} ${t1}`,
-                              )
-                            }
-                            // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
-                            onSetVelocity={(seqId, key, start, vel) =>
-                              runCommand(
-                                `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
-                              )
-                            }
-                            // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
-                            onSetNoteRange={(seqId, key, start, ns, ne) =>
-                              runCommand(
-                                `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
-                              )
-                            }
-                            // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
-                            onMoveNote={(seqId, key, start, nk, ns) =>
-                              runCommand(
-                                `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
-                              )
-                            }
-                            // …and a dragged SELECTION, every note in one write and one Ctrl+Z.
-                            onMoveNotes={(seqId, moves) =>
-                              runCommand(
-                                `sequence notes move ${seqId} ${JSON.stringify(moves)}`,
-                              )
-                            }
                             // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
-                            onPreviewNote={(track, key, vel) =>
-                              engineRef.current?.previewNote(track, key, vel)
-                            }
+                            onPreviewNote={previewNote}
                             waveRef={waveRef}
                             onWaveView={setWaveView}
                             rollRef={rollRef}
                             onRollMode={setRollMode}
-                            // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
-                            onRemoveNote={(seqId, key, start) =>
-                              runCommand(
-                                `sequence note remove ${seqId} ${key} ${start}`,
-                              )
-                            }
                           />
                         </PaneBoundary>
                       )}
@@ -3690,13 +3577,8 @@ export default function App({
                             eventAt={rolling ? null : reviewEventAt}
                             // …and its takes, so the takes mode is there the moment the recording ends.
                             takes={rolling ? undefined : reviewTakes}
-                            onSeek={seek}
                             trackOrder={trackOrder}
                             trackNames={recInfo.names}
-                            command={runCommand}
-                            quietCommand={quietCommand}
-                            onContextMenu={openContextMenu}
-                            reloadKey={reloadKey}
                             onStop={() => void runCommand("transport stop")}
                             onClose={() => {
                               setReviewOn(null);
@@ -3830,7 +3712,7 @@ export default function App({
                     // An armed lane opens the lens a `monitor: auto` camera wired to it names.
                     armed={videoArmed}
                     // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
-                    onRect={frozen ? undefined : paneFns.commands.rect}
+                    onRect={frozen ? undefined : shell.getState().commands.rect}
                   />
                 </PaneBoundary>
               </FloatingWindow>
@@ -3945,6 +3827,6 @@ export default function App({
           </div>
         </LcdSoundsContext.Provider>
       </SongClockProvider>
-    </EngineStoreProvider>
+    </ShellContexts>
   );
 }
