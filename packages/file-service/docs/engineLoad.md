@@ -45,8 +45,14 @@ session's latest document goes out at its own level. A document that arrives mea
 since it would un-silence the master mid-run; the restore sends the latest one anyway.
 
 **Record is off for that half second.** Rolling a session whose record is on RECORDS: a count-in,
-the record panel opening on every surface, a take. The dry run turns it off before it plays and back
-on after the stop, which is the one thing it changes of the session besides the master.
+the record panel opening on every surface, a take, a picture lane's camera opened in the browser —
+and the stop of a record roll switches record off, so the press that armed the person's own Play is
+gone. The dry run turns it off before it plays and back on after the stop, which is the one thing
+it changes of the session besides the master. It turns it off WHATEVER the link read: the link
+knows record from the engine's state frames, twenty a second, and a press younger than the last one
+is on at the engine while the link still says off. It puts back only what the link read, so such a
+press is lost rather than rolled; the editor's Record therefore cannot be turned on while the gate
+holds Play, which is when the dry run runs.
 
 **Record does not outlive the project.** It is the engine SESSION's, not the project's, and one
 session plays every project of an account in turn; the arms it rolls with are the old project's

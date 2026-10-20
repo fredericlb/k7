@@ -74,6 +74,7 @@ const {
   setSelectedEngine,
   startEngineForActive,
   unloadEngineIfServing,
+  warmDeps,
 } = await import("./engineLink.ts");
 const { links } = await import("./engineSessions.ts");
 
@@ -300,6 +301,48 @@ describe("a project switch", () => {
     expect(client.wire).toEqual(["flush", "record false"]);
     // What the dry run reads to put record back after its half second: off, not the take's.
     expect(links.get(client.session)?.recordEnabled).toBe(false);
+  });
+});
+
+describe("the dry run's record", () => {
+  beforeEach(() => {
+    built.length = 0;
+    setSelectedEngine(`ws://127.0.0.1:4100/${Math.random()}`);
+  });
+
+  /** A served session's link and the dry run's hands on it, with the wire cleared. */
+  function warmed(name: string) {
+    const root = join(rootDir(), name);
+    const ws = { ...wsServing("owner@x.org", join(root, "song.k7")), root };
+    // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
+    startEngineForActive(ws as any);
+    const client = built.at(-1);
+    if (!client) throw new Error("no engine client was built");
+    client.wire.length = 0;
+    // biome-ignore lint/suspicious/noExplicitAny: the fake stands in for the EngineClient
+    return { client, deps: warmDeps(ws as any, client as any) };
+  }
+
+  it("switches record off before it rolls even when the link's last frame says off", () => {
+    // A Record pressed a few ms before the dry run: on at the engine, no frame has said so yet.
+    const { client, deps } = warmed("fresh-press");
+    deps.play();
+    deps.stopAndRewind();
+    expect(client.wire).toEqual(["record false", "play", "stop", "rewind"]);
+  });
+
+  it("puts record back after the stop when the link said it was on", () => {
+    const { client, deps } = warmed("was-on");
+    client.handlers.get("state")?.({ playing: false, recordEnabled: true });
+    deps.play();
+    deps.stopAndRewind();
+    expect(client.wire).toEqual([
+      "record false",
+      "play",
+      "stop",
+      "rewind",
+      "record true",
+    ]);
   });
 });
 
