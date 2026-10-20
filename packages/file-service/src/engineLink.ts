@@ -36,6 +36,7 @@ import { climbsOut } from "@studio/web-protocol/paths";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { engineQueries, serviceMembers } from "./commandHost.ts";
+import { armOnceOpen } from "./engineArm.ts";
 import {
   beginLoad,
   endLoad,
@@ -573,58 +574,6 @@ function onRecorded(session: string, take: RecordedTake): void {
   }
 }
 
-/** How long the engine gets to answer an arm. A local socket answers in single-digit ms. */
-export const ARM_TIMEOUT_MS = 2000;
-
-type ArmFrame = { track: string; armed: boolean };
-/** The slice of EngineClient an arm needs — so the wait can be tested without a socket. */
-export interface ArmingClient {
-  on(event: "armed", fn: (a: ArmFrame) => void): unknown;
-  on(event: "engineError", fn: (m: string) => void): unknown;
-  off(event: "armed", fn: (a: ArmFrame) => void): unknown;
-  off(event: "engineError", fn: (m: string) => void): unknown;
-  arm(track: string, armed?: boolean): void;
-}
-
-/** Wait for the answer to ONE arm, matched on the TRACK; `undefined` = it did not take. See docs/activeProject.md. */
-export function awaitArm(
-  c: ArmingClient,
-  track: string,
-  out: CommandOutput,
-  linkUp: () => boolean,
-  timeoutMs: number = ARM_TIMEOUT_MS,
-  armed?: boolean,
-): Promise<boolean | undefined> {
-  return new Promise((res) => {
-    const done = (v?: boolean) => {
-      clearTimeout(timer);
-      c.off("armed", onArmed);
-      c.off("engineError", onError);
-      res(v);
-    };
-    const onArmed = (a: ArmFrame) => {
-      if (a.track !== track) return; // another surface's arm, not the answer to this one
-      done(a.armed);
-    };
-    const onError = (m: string) => {
-      out.push(m);
-      done(undefined);
-    };
-    // Both remaining states get named: a dropped link and a silent engine look alike otherwise.
-    const timer = setTimeout(() => {
-      out.push(
-        linkUp()
-          ? `engine did not answer the arm of "${track}" in ${timeoutMs}ms — the link is up, so check the engine log for a [rec] line`
-          : `the engine link dropped while arming "${track}"`,
-      );
-      done(undefined);
-    }, timeoutMs);
-    c.on("armed", onArmed);
-    c.on("engineError", onError);
-    c.arm(track, armed);
-  });
-}
-
 /** A reload a verb asked for, held until the run's last write — see docs/activeProject.md. */
 interface HeldPush {
   dir: string | null;
@@ -696,13 +645,14 @@ function makeHost(
     },
     // Every engine call below names `ws`: defaulting sent transport and arm to the empty room.
     transport: (a: TransportAction) => engine()?.transport(a),
+    // A link still dialling is waited for, not refused: the desktop re-dials it on every tab switch (engineArm.ts).
     arm: (track, armed) => {
       const c = engine();
-      if (!c || !isReady(ws)) {
+      if (!c) {
         out.push(NO_ENGINE);
         return Promise.resolve(undefined);
       }
-      return awaitArm(c, track, out, () => isReady(ws), ARM_TIMEOUT_MS, armed);
+      return armOnceOpen(c, track, out, () => isReady(ws), armed);
     },
     // A whole document replaces a held reload rather than following it, or the older one would land last.
     applyProject: (p) => {
