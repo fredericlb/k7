@@ -153,6 +153,24 @@ down. A folder holding only the server's entries says so with a cloud beside its
 both sides is one row, the local one. What a download takes, and why never a folder whole, is
 `../../mediatek/docs/serverCopy.md`.
 
+## Favorites
+
+A song or an album can be **starred** from its menu, and a starred row wears a star that unstars it
+in one click. An artist cannot: an artist is a tag the scan deduced, and starring one would star
+every album it will ever hold. A song shows under **Favorites** when it or any folder above it is
+starred, so an album starred today still covers the song added to it tomorrow.
+
+Favorites are the ACCOUNT's, in its preferences (`favorites`, library paths), not the volume's: the
+library is one folder every account shares, and one person's favorites are nobody else's. They are
+written read-merge-write against the server's copy, one write at a time, so another preference set
+elsewhere in the page survives — and no star is offered before the list has been read, or the first
+click would replace a list the screen never saw. A star names a path, so a song moved or renamed
+loses it.
+
+Which of the two lists the tree shows is the BROWSER's choice, kept in `localStorage`: it is a view
+of the moment, not something to follow the account to another machine. The middle pane is not
+filtered — the selector belongs to the tree it sits above.
+
 ## Adding songs
 
 **Add a song** takes one audio file or several (`src/AddSong.tsx`). Each file's tags are read in the
