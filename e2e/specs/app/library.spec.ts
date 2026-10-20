@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 import type { Page } from "@playwright/test";
 import { builtinPluginForRef } from "@studio/song-schema/builtinParams";
 import { FileService } from "../../src/files.ts";
-import { expect, test } from "../../src/target.ts";
+import { expect, TARGET, test } from "../../src/target.ts";
 
 const WORKSPACE = "E2E-library";
 const LIBRARY = join(import.meta.dirname, "../../../k7-core/modules");
@@ -314,6 +314,11 @@ for (const family of FAMILIES) {
   test(`every ${family} module of @k7-core loads on the engine`, async ({
     k7,
   }) => {
+    // A phone's engine logs to logcat, not to the machine log this reads (engine/k7-runtime/docs/android.md).
+    test.skip(
+      TARGET === "android",
+      "a phone's engine log is not the machine log",
+    );
     test.setTimeout(180_000);
     for (const c of cases) {
       const why = cannotLoad(c);

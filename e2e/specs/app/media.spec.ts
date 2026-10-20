@@ -15,9 +15,12 @@ const PLAYLIST = "e2e-playlist";
 
 /** A library file's text over the media library's own route, as the editor reads it. */
 async function libraryText(page: Page, path: string): Promise<string> {
-  const res = await page.request.get(
+  // Absolute, off the page: a phone's WebView hands its request context no base URL.
+  const url = new URL(
     `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+    page.url(),
   );
+  const res = await page.request.get(url.href);
   return res.ok() ? res.text() : "";
 }
 
@@ -57,6 +60,13 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
     await addSong(page);
     const tree = page.getByRole("complementary").last();
     await expect(tree.getByRole("button", { name: ARTIST })).toBeVisible();
+    // A narrow screen lists the new folder folded: open the artist, then the album, as a thumb would.
+    for (const folder of [ARTIST, ALBUM]) {
+      const song = page.getByRole("button", { name: TITLE }).first();
+      const row = tree.getByRole("button", { name: folder });
+      if (!(await song.isVisible()) && (await row.isVisible()))
+        await row.click();
+    }
     await expect(
       page.getByRole("button", { name: TITLE }).first(),
     ).toBeVisible();
@@ -130,12 +140,15 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
   });
 
   await test.step("removing either is an admin's: no account here may", async () => {
+    const at = (path: string) => new URL(path, page.url()).href;
     const song = await page.request.delete(
-      `/api/mediatek/folder?path=${encodeURIComponent(FOLDER)}`,
+      at(`/api/mediatek/folder?path=${encodeURIComponent(FOLDER)}`),
     );
     expect(song.status()).toBe(403);
     const list = await page.request.delete(
-      `/api/mediatek/file?path=${encodeURIComponent(`playlists/${PLAYLIST}.yaml`)}`,
+      at(
+        `/api/mediatek/file?path=${encodeURIComponent(`playlists/${PLAYLIST}.yaml`)}`,
+      ),
     );
     expect(list.status()).toBe(403);
   });

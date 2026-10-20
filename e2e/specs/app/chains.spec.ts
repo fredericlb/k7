@@ -4,6 +4,7 @@ import type { Locator, Page } from "@playwright/test";
 import { runCommand } from "../../src/commandBar.ts";
 import { expectFile, readFile, restoreProject } from "../../src/disk.ts";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
+import { navControl } from "../../src/nav.ts";
 import { expect, test } from "../../src/target.ts";
 import { watchPage } from "../../src/watch.ts";
 
@@ -27,7 +28,7 @@ async function openChains(k7: {
   await expect(page.getByRole("img", { name: "engine connected" })).toBeVisible(
     { timeout: 30_000 },
   );
-  await page.getByRole("button", { name: "Chains", exact: true }).click();
+  await (await navControl(page, "Chains")).click();
   return page;
 }
 

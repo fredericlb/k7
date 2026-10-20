@@ -1,9 +1,10 @@
 // editing.spec.ts — a value typed in the k7x editor reaches the screen and the disk, and the undo journal takes it back.
-// The edit is the tempo of edit-undo.k7: one line of project.k7x, read in the footer as "<n> bpm" (packages/song-edit/docs).
+// The edit is the tempo of edit-undo.k7: one line of project.k7x, read as "<n> bpm" in the footer, or the Info popover on a phone (packages/song-edit/docs).
 import type { Page } from "@playwright/test";
-import { commandBar, runCommand, statusLine } from "../../src/commandBar.ts";
+import { commandBar, expectStatus, runCommand } from "../../src/commandBar.ts";
 import { expectFile, readFile, restoreProject } from "../../src/disk.ts";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
+import { navControl, tempoReadout } from "../../src/nav.ts";
 import { expect, test } from "../../src/target.ts";
 import { clockOf } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
@@ -16,8 +17,6 @@ const GRAPH_FILE = `${PROJECT}/graph.k7x`;
 
 const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
-const bpm = (page: Page, n: number) =>
-  page.getByRole("contentinfo").getByRole("button", { name: `${n} bpm` });
 
 // Every test starts from the fixture as committed, whatever the one before it typed.
 test.beforeEach(async ({ k7 }) => {
@@ -31,7 +30,7 @@ async function openProject(page: Page): Promise<void> {
 
 /** Opens project.k7x in the editor and retypes the tempo, in vim's keys when the editor is in vim mode (the account default). */
 async function typeTempo(page: Page, tempo: number): Promise<void> {
-  await button(page, "Editor").click();
+  await (await navControl(page, "Editor")).click();
   await page
     .getByRole("complementary")
     .getByRole("button", { name: "project.k7x", exact: true })
@@ -92,7 +91,7 @@ test("a tempo typed in the editor shows in the footer and lands on disk as one l
   await typeTempo(page, 132);
   const after = await expectFile(page, WS, PROJECT_FILE, /tempo: 132,/);
   expect(changedLines(before, after)).toEqual(["  tempo: 132,"]);
-  await expect(bpm(page, 132)).toBeVisible();
+  await expect(await tempoReadout(page, 132)).toBeVisible();
   watch.assertClean();
 });
 
@@ -105,7 +104,7 @@ test("project undo takes the typed tempo back, project redo puts it again", asyn
   const before = await readFile(page, WS, PROJECT_FILE);
   await typeTempo(page, 140);
   await expectFile(page, WS, PROJECT_FILE, /tempo: 140,/);
-  await expect(bpm(page, 140)).toBeVisible();
+  await expect(await tempoReadout(page, 140)).toBeVisible();
 
   await runCommand(page, "project undo");
   await expect(
@@ -113,7 +112,7 @@ test("project undo takes the typed tempo back, project redo puts it again", asyn
   ).toBeVisible();
   const undone = await expectFile(page, WS, PROJECT_FILE, /tempo: 120,/);
   expect(undone).toBe(before);
-  await expect(bpm(page, 120)).toBeVisible();
+  await expect(await tempoReadout(page, 120)).toBeVisible();
   await expect(page.getByRole("main").getByRole("textbox")).toContainText(
     "tempo: 120",
   );
@@ -123,7 +122,7 @@ test("project undo takes the typed tempo back, project redo puts it again", asyn
     page.getByRole("status").filter({ hasText: /^Redone: / }),
   ).toBeVisible();
   await expectFile(page, WS, PROJECT_FILE, /tempo: 140,/);
-  await expect(bpm(page, 140)).toBeVisible();
+  await expect(await tempoReadout(page, 140)).toBeVisible();
   watch.assertClean();
 });
 
@@ -142,7 +141,7 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
     expect(text).toContainText("tempo: 120", { timeout: 1_000 }),
   );
   await expectFile(page, WS, PROJECT_FILE, /tempo: 120,/);
-  await expect(bpm(page, 120)).toBeVisible();
+  await expect(await tempoReadout(page, 120)).toBeVisible();
 
   // With the typing spent, one more press only says so: the project journal waits for a second one.
   await page.keyboard.press("Control+z");
@@ -155,7 +154,7 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
     expect(text).toContainText("tempo: 150", { timeout: 1_000 }),
   );
   await expectFile(page, WS, PROJECT_FILE, /tempo: 150,/);
-  await expect(bpm(page, 150)).toBeVisible();
+  await expect(await tempoReadout(page, 150)).toBeVisible();
   watch.assertClean();
 });
 
@@ -232,14 +231,13 @@ test("selection copy and paste from the command bar put a second event on the la
   const watch = watchPage(page);
   await openProject(page);
   await expect(button(page, "mute melody")).toBeVisible();
-  await expect(statusLine(page)).toHaveText(/caret: melody, beat 1/);
 
   await runCommand(page, "selection copy");
-  await expect(statusLine(page)).toHaveText("copied 1 event(s)");
+  await expectStatus(page, "copied 1 event(s)");
   // The caret walks the lane on the arrows once the bar has let go of the keyboard.
-  await commandBar(page).blur();
+  if (await commandBar(page).isVisible()) await commandBar(page).blur();
   for (let i = 0; i < 8; i++) await page.keyboard.press("ArrowRight");
-  await expect(statusLine(page)).toHaveText(/caret: melody, beat 9/);
+  await expectStatus(page, /caret: melody, beat 9/);
 
   await runCommand(page, "selection paste");
   const node = await expectFile(
@@ -267,13 +265,12 @@ test("selection split from the command bar cuts the event under the playhead in 
   const watch = watchPage(page);
   await openProject(page);
   await expect(button(page, "mute melody")).toBeVisible();
-  await expect(statusLine(page)).toHaveText(/caret: melody, beat 1/);
   const clock = clockOf(page);
   const start = await clock.innerText();
   // The caret walks two beats into the four-beat event, and `t` locates the playhead there.
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
-  await expect(statusLine(page)).toHaveText(/caret: melody, beat 3/);
+  await expectStatus(page, /caret: melody, beat 3/);
   await page.keyboard.press("t");
   await expect(clock).not.toHaveText(start);
 

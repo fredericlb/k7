@@ -1,6 +1,6 @@
 // rehearsal.spec.ts — the rehearsal pages a microphone is not needed for: a songbook sheet, the exercises, a public page.
 // What the suite makes is named E2E and removed over the recorder's own API at start and end, so a rerun starts clean.
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expect, TARGET, test } from "../../src/target.ts";
 import { watchPage } from "../../src/watch.ts";
 
@@ -10,19 +10,22 @@ const NAMETAG = "e2etestpage";
 const LYRICS = "[Am]Hello [G]rehearsal\n[C]second line";
 
 /** Removes the suite's songbook songs and its public page, whatever a failed run left. */
-async function sweep(api: APIRequestContext): Promise<void> {
-  const songs = (await (await api.get("/api/songs")).json()) as {
+async function sweep(page: Page): Promise<void> {
+  const api = page.request;
+  // Absolute, off the page: a phone's WebView hands its request context no base URL.
+  const at = (path: string) => new URL(path, page.url()).href;
+  const songs = (await (await api.get(at("/api/songs"))).json()) as {
     id: string;
     artist: string;
   }[];
   for (const s of songs.filter((x) => x.artist === ARTIST))
-    expect((await api.delete(`/api/songs/${s.id}`)).ok()).toBe(true);
-  const pages = (await (await api.get("/api/pages")).json()) as {
+    expect((await api.delete(at(`/api/songs/${s.id}`))).ok()).toBe(true);
+  const pages = (await (await api.get(at("/api/pages"))).json()) as {
     id: string;
     nametag: string;
   }[];
   for (const p of pages.filter((x) => x.nametag === NAMETAG))
-    expect((await api.delete(`/api/pages/${p.id}`)).ok()).toBe(true);
+    expect((await api.delete(at(`/api/pages/${p.id}`))).ok()).toBe(true);
 }
 
 /** Makes the suite's songbook song and types its lyrics; answers once Save has written them. */
@@ -52,7 +55,7 @@ test("a songbook song's chord sheet renders its chords and lyrics", async ({
   k7,
 }) => {
   const page = await k7.open("/rehearsal/songs");
-  await sweep(page.request);
+  await sweep(page);
   await page.reload();
   const watch = watchPage(page);
   await songWithLyrics(page);
@@ -68,7 +71,7 @@ test("a songbook song's chord sheet renders its chords and lyrics", async ({
   await page.getByRole("button", { name: "Back to Songbook" }).click();
   await expect(page.getByText(TITLE)).toBeVisible();
   watch.assertClean();
-  await sweep(page.request);
+  await sweep(page);
 });
 
 test("saving a song's first lyrics shows the rendered sheet", async ({
@@ -79,7 +82,7 @@ test("saving a song's first lyrics shows the rendered sheet", async ({
     "SongDetailView never leaves the editor after Save: its effect resets `editing` only on a new song or tab, so the sheet shows only after a reload",
   );
   const page = await k7.open("/rehearsal/songs");
-  await sweep(page.request);
+  await sweep(page);
   await page.reload();
   try {
     await songWithLyrics(page);
@@ -92,7 +95,7 @@ test("saving a song's first lyrics shows the rendered sheet", async ({
       page.getByRole("button", { name: "Am", exact: true }),
     ).toBeVisible();
   } finally {
-    await sweep(page.request);
+    await sweep(page);
   }
 });
 
@@ -136,7 +139,7 @@ test("a public page opens signed out at /rehearsal/@<nametag>", async ({
     "a signed-out visitor is a second browser context, which only the web target has",
   );
   const page = await k7.open("/rehearsal/pages/new");
-  await sweep(page.request);
+  await sweep(page);
   await page.reload();
   const watch = watchPage(page);
   await expect(page.getByRole("heading", { name: "New page" })).toBeVisible();
@@ -162,5 +165,5 @@ test("a public page opens signed out at /rehearsal/@<nametag>", async ({
   } finally {
     await visitor.close();
   }
-  await sweep(page.request);
+  await sweep(page);
 });

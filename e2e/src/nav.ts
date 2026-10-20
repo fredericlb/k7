@@ -6,7 +6,7 @@ import type { Locator, Page } from "@playwright/test";
 const MOBILE_QUERY = "(max-width: 820px), (max-height: 520px)";
 
 /** True when the header has folded into the Menu. */
-async function folded(page: Page): Promise<boolean> {
+export async function folded(page: Page): Promise<boolean> {
   return page.evaluate((q) => {
     const win = globalThis as unknown as {
       matchMedia(query: string): { matches: boolean };
@@ -20,6 +20,18 @@ async function openNav(page: Page): Promise<void> {
   if (!(await folded(page))) return;
   const menu = page.getByRole("button", { name: "Menu", exact: true });
   if ((await menu.getAttribute("aria-expanded")) !== "true") await menu.click();
+}
+
+/** The tempo readout `<n> bpm`: in the footer, or on a phone in the Info popover it moved to (docs/shell.md). */
+export async function tempoReadout(page: Page, n: number): Promise<Locator> {
+  const name = { name: `${n} bpm` };
+  if (!(await folded(page)))
+    return page.getByRole("contentinfo").getByRole("button", name);
+  const info = page.getByRole("button", { name: "Project and engine" });
+  if ((await info.getAttribute("aria-expanded")) !== "true") await info.click();
+  return page
+    .getByRole("dialog", { name: "Project and engine" })
+    .getByRole("button", name);
 }
 
 /** A pane or header tool named `name`: a header button, or the Menu's item or button once it is open. */
