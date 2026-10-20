@@ -22,6 +22,7 @@
 #include <EngineHost.h>
 
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
+#include "../engine/ScanProgress.h"   // PluginScanStatus — JUCE-free
 #include "Pairing.h"
 #include "Supersede.h"
 
@@ -145,9 +146,14 @@ void addProjectHandlers(HandlerTable&);
 void addPluginHandlers(HandlerTable&);
 void addMachineHandlers(HandlerTable&);
 
-// One serialized plugin scan for the whole process; a warm cache short-circuits unless `force`.
-std::vector<PluginInfo> ensurePluginsScanned(bool force);
-
+// When a scan runs: only on a cold cache, always (incremental, as at startup), or forced from scratch.
+enum class ScanWhen { IfCold, Always, Force };
+// Hears the catalogue a scan ended on, BEFORE the end is broadcast, so the list reaches clients first.
+using ScanAnnounce = std::function<void(const std::vector<PluginInfo>&)>;
+// One serialized plugin scan for the whole process, its progress broadcast as `plugin-scan` (docs/plugins.md).
+std::vector<PluginInfo> ensurePluginsScanned(ServeContext&, ScanWhen, const ScanAnnounce& announce = {});
+// The catalogue as a `plugins` reply carries it, narrowed by a format substring when `filter` names one.
+nlohmann::json pluginsJson(const std::vector<PluginInfo>& plugins, const std::string& filter = {});
 // The warnings `session`'s project was built with, as `[{subject, message}]` — what `applied` carries (docs/sessions.md).
 inline nlohmann::json standingWarningsJson(const std::string& session) {
     nlohmann::json out = nlohmann::json::array();

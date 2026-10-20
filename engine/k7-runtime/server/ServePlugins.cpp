@@ -25,16 +25,82 @@ using json = nlohmann::json;
 
 namespace studio {
 
-// One serialized plugin scan for the whole process, so two child-process sweeps cannot race the exts.json write.
-std::vector<PluginInfo> ensurePluginsScanned(bool force) {
+namespace {
+// Where the one scan stands, for every socket that asks or listens (docs/plugins.md).
+ScanProgressBoard g_scanBoard;
+
+json scanStatusJson(const PluginScanStatus& s) {
+    return json{{"type", "plugin-scan"},
+                {"scanning", s.scanning},
+                {"done", s.done},
+                {"total", s.total},
+                {"current", s.current},
+                {"version", s.version}};
+}
+
+}  // namespace
+
+json pluginsJson(const std::vector<PluginInfo>& plugins, const std::string& filter) {
+    const auto lower = [](std::string s) {
+        for (auto& ch : s) ch = (char)std::tolower((unsigned char)ch);
+        return s;
+    };
+    const std::string want = lower(filter);
+    json arr = json::array();
+    for (const auto& p : plugins) {
+        if (!want.empty() && lower(p.format).find(want) == std::string::npos) continue;
+        arr.push_back({
+            {"name", p.name},
+            {"format", p.format},
+            {"manufacturer", p.manufacturer},
+            {"instrument", p.isInstrument},
+            {"role", p.role},
+            {"category", p.category},
+            {"id", p.identifier},
+        });
+    }
+    // Whether a scan is running, so an asker knows this list is about to be replaced (docs/protocol.md).
+    return json{{"type", "plugins"}, {"plugins", arr}, {"scanning", g_scanBoard.snapshot().scanning}};
+}
+
+std::vector<PluginInfo> ensurePluginsScanned(ServeContext& ctx, ScanWhen when, const ScanAnnounce& announce) {
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
-    if (!force && pluginCacheWarm())
-        return loadPluginCache();   // another caller already warmed it
-    return scanInstalledPlugins(force);
+    if (when == ScanWhen::IfCold && pluginCacheWarm()) {
+        auto cached = loadPluginCache();   // another caller already warmed it
+        if (announce) announce(cached);
+        return cached;
+    }
+    auto& broadcast = ctx.broadcast;
+    broadcast(scanStatusJson(g_scanBoard.begin(ScanProgressBoard::Clock::now())));
+    const auto progress = [&broadcast](int done, int total, const std::string& loading) {
+        PluginScanStatus now;
+        if (g_scanBoard.step(done, total, loading, ScanProgressBoard::Clock::now(), now))
+            broadcast(scanStatusJson(now));
+    };
+    std::vector<PluginInfo> result;
+    try {
+        result = scanInstalledPlugins(when == ScanWhen::Force, progress);
+    } catch (...) {
+        // A scan that throws still ENDS, or every gate waiting on it would wait for nothing.
+        const auto ended = g_scanBoard.finish();
+        if (announce) announce(loadPluginCache());
+        broadcast(scanStatusJson(ended));
+        throw;
+    }
+    // The catalogue first, then the end: whoever re-reads on the end finds the new list already sent.
+    const auto ended = g_scanBoard.finish();
+    if (announce) announce(result);
+    broadcast(scanStatusJson(ended));
+    return result;
 }
 
 void addPluginHandlers(HandlerTable& t) {
+    // Where the scan stands, to the asking socket alone; while one runs the same frame is broadcast, rate-limited (docs/protocol.md).
+    t.add({"plugin-scan"}, [](ServeContext&, ix::WebSocket& ws, const json&, const std::string&, const std::string&) {
+        ws.send(scanStatusJson(g_scanBoard.snapshot()).dump());
+    });
+
     t.add({"list-plugins", "rescan-plugins"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string&, const std::string& type) {
         auto& broadcast = ctx.broadcast;
         // list-plugins returns the cache, scanning once if cold; rescan-plugins always refreshes, detached because a scan spawns a child per plugin and blocks. "filter" narrows by format, "force" re-scans all.
@@ -43,33 +109,17 @@ void addPluginHandlers(HandlerTable& t) {
         const bool force = j.value("force", false);
 
         // IXWebSocket send() is thread-safe, so the scan thread can broadcast too.
-        auto reply = [&broadcast, filter](std::vector<studio::PluginInfo> plugins) {
-            const auto lower = [](std::string s) {
-                for (auto& ch : s) ch = (char)std::tolower((unsigned char)ch);
-                return s;
-            };
-            const std::string want = lower(filter);
-            json arr = json::array();
-            for (const auto& p : plugins) {
-                if (!want.empty() && lower(p.format).find(want) == std::string::npos) continue;
-                arr.push_back({
-                    {"name", p.name},
-                    {"format", p.format},
-                    {"manufacturer", p.manufacturer},
-                    {"instrument", p.isInstrument},
-                    {"role", p.role},
-                    {"category", p.category},
-                    {"id", p.identifier},
-                });
-            }
-            broadcast(json{{"type", "plugins"}, {"plugins", arr}});
+        auto reply = [&broadcast, filter](const std::vector<studio::PluginInfo>& plugins) {
+            broadcast(pluginsJson(plugins, filter));
         };
 
         // Say when a scan starts and why: it is by far the slowest thing the engine does, so a cold cache turning a list into a minute of work otherwise looks like a hang.
         if (doScan) {
             std::cerr << "[plugins] rescan requested" << (force ? " (force)" : "")
                       << " — scanning, this can take a while\n";
-            ctx.work.spawn([reply, force] { reply(ensurePluginsScanned(force)); });
+            ctx.work.spawn([&ctx, reply, force] {
+                ensurePluginsScanned(ctx, force ? ScanWhen::Force : ScanWhen::Always, reply);
+            });
         } else {
             auto cached = studio::loadPluginCache();
             // Count the EXTERNALS, not the entries: built-ins are synthesised in code, so a truncated exts.json still yields ~212 and logs a reassuring "212 from cache" while every VST silently fails.
@@ -80,7 +130,7 @@ void addPluginHandlers(HandlerTable& t) {
             if (!studio::pluginCacheWarm()) {
                 std::cerr << "[plugins] exts.json cold (" << cached.size() << " listed, "
                           << externals << " external) — scanning once to fill it, this can take a while\n";
-                ctx.work.spawn([reply] { reply(ensurePluginsScanned(false)); });
+                ctx.work.spawn([&ctx, reply] { ensurePluginsScanned(ctx, ScanWhen::IfCold, reply); });
             } else {
                 std::cerr << "[plugins] " << cached.size() << " from cache (" << externals
                           << " external)"

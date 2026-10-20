@@ -79,6 +79,13 @@ target_include_directories(studio_warp_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_warp_tests COMMAND studio_warp_tests)
 
+# --- Plugin scan tests --------------------------------------------------------
+# What the startup scan reuses and drops, and when its progress is said: ScanProgress.h is header-only and JUCE-free.
+add_executable(studio_scanprogress_tests ScanProgress_test.cpp)
+target_include_directories(studio_scanprogress_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_scanprogress_tests COMMAND studio_scanprogress_tests)
+
 # --- Recorder ring tests ------------------------------------------------------
 # A FIFTH fast binary, for the reason the two above give: RecorderTap.h is header-only and
 # JUCE-free, so the one property no eye can check — that an overrun is COUNTED rather than

@@ -41,6 +41,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by what they name (docs/mix.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
+  ScanProgress.h           what an incremental scan reuses and drops, and where it stands for the sockets — JUCE-free, FAST binary (docs/plugins.md)
   AudioInputs.{h,cpp}      live-input device mapping
   AudioDevices.cpp          device enumerate/select + --list-audio-devices CLI, and the reopen of a
                             device whose callback stopped
@@ -491,7 +492,7 @@ cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
       studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests studio_dither_tests \
-      studio_hflimit_tests studio_warp_tests studio_pathroots_tests
+      studio_hflimit_tests studio_warp_tests studio_pathroots_tests studio_scanprogress_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

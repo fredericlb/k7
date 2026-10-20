@@ -484,14 +484,15 @@ int serve(int port) {
               << "ms (audio device opens on the message loop; its timing is logged "
                  "when it completes)\n";
 
-    // Warm the plugin cache in the background at startup so the first list-plugins never waits on a cold sweep — a no-op when warm, and serialized with the on-demand path.
-    g_work.spawn([] {
-        if (!studio::pluginCacheWarm()) {
-            std::cerr << "[plugins] cache cold at startup — warming in the background, "
-                         "this can take a while\n";
-            ensurePluginsScanned(false);
-            std::cerr << "[plugins] background warm complete\n";
-        }
+    // The incremental scan at EVERY start, in the background: a plugin installed or removed since the last run is found without anyone asking (docs/plugins.md).
+    g_work.spawn([&ctx] {
+        std::cerr << (studio::pluginCacheWarm() ? "[plugins] startup scan — only new or changed files are loaded\n"
+                                                : "[plugins] cache cold at startup — scanning in the background, "
+                                                  "this can take a while\n");
+        // Every socket hears the new list, as after a rescan: the hub rewrites the account's copy from it.
+        ensurePluginsScanned(ctx, ScanWhen::Always,
+                             [&ctx](const std::vector<PluginInfo>& plugins) { ctx.broadcast(pluginsJson(plugins)); });
+        std::cerr << "[plugins] startup scan complete\n";
     });
 
     // A flag and nothing else: quit() posts a message, which allocates and locks, and neither is allowed in a signal handler.
