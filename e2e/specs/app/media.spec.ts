@@ -140,6 +140,8 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
   });
 
   await test.step("removing either is an admin's: no account here may", async () => {
+    // A phone's local user owns its library, so the deletes would succeed and take the song the desk specs use.
+    if (k7.target === "android") return;
     const at = (path: string) => new URL(path, page.url()).href;
     const song = await page.request.delete(
       at(`/api/mediatek/folder?path=${encodeURIComponent(FOLDER)}`),

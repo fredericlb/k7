@@ -89,9 +89,14 @@ async function recordTake(page: Page, lane: string) {
     .click();
   // Record outlives the project: left on, the next project opens with Play refused for want of an armed lane.
   const record = button(page, "Record (arm + play records)");
-  if ((await record.getAttribute("aria-pressed")) === "true")
-    await record.click();
-  await expect(record).toHaveAttribute("aria-pressed", "false");
+  // A press while the stopped take is still being filed can be lost, so it is pressed again until it reads off.
+  await expect(async () => {
+    if ((await record.getAttribute("aria-pressed")) === "true")
+      await record.click();
+    await expect(record).toHaveAttribute("aria-pressed", "false", {
+      timeout: 2_000,
+    });
+  }).toPass({ timeout: 20_000 });
 }
 
 test("a picture lane records the browser's camera onto itself", async ({
