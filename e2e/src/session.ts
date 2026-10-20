@@ -40,7 +40,10 @@ export function sessionCookies(baseURL: string, user: SessionUser = E2E_USER) {
   const domain = env.COOKIE_DOMAIN || hostname;
   const sameSite = env.COOKIE_DOMAIN ? ("None" as const) : ("Lax" as const);
   return header.split("; ").map((pair) => {
-    const [name, value] = pair.split("=", 2) as [string, string];
+    // At the FIRST `=`: split's limit truncates, and a base64 value ends in `=` padding.
+    const at = pair.indexOf("=");
+    const name = pair.slice(0, at);
+    const value = pair.slice(at + 1);
     return {
       name,
       value,
