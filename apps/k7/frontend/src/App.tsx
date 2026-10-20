@@ -220,6 +220,7 @@ import {
   type UndoConfirm,
 } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
+import { TempoMeter } from "./shell/TempoMeter";
 import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
@@ -2975,6 +2976,10 @@ export default function App({
                     {!inDesktopTab && projectLink}
                     {engineSwitch}
                     <div className="px-1.5">{engineLink}</div>
+                    {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}
+                    <div className="px-1.5 text-muted-foreground text-xs">
+                      <TempoMeter recInfo={recInfo} runCommand={runCommand} />
+                    </div>
                   </MobileInfo>
                 ) : (
                   <>

@@ -1,13 +1,13 @@
 // ShellFooter.tsx — the bar under the panes: on the left the mode badges, the status line and
 // what the shell is waiting on; on the right the tempo, the metronome, the notes toggle and the
 // bottom and side panels' buttons. Every button runs a command, never a handler (docs/shell.md).
+// A phone drops the status line and the tempo: the tempo moves to the Info popover.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2, StickyNote } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { askText } from "@studio/project-shell/ask";
 import type { ReactNode } from "react";
 import { EngineSyncProgress } from "../components/EngineSyncProgress";
 import { FooterTab, FooterTabs } from "../components/FooterTab";
@@ -25,6 +25,7 @@ import type { Tool } from "../timelineTools";
 import type { EngineSyncState, FormatTooNew } from "../types";
 import type { GraphSlot } from "../ui/commands/context";
 import type { WaveMode } from "../waveMode";
+import { TempoMeter } from "./TempoMeter";
 
 export function ShellFooter({
   isMobile,
@@ -126,7 +127,10 @@ export function ShellFooter({
             {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
           </Badge>
         ) : null}
-        <StatusText store={statusStore} fallback={statusFallback} />
+        {/* A phone's footer has no room for a sentence; the badges around it are state and stay. */}
+        {!isMobile && (
+          <StatusText store={statusStore} fallback={statusFallback} />
+        )}
         {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
         {copyingToEngine && engineSync ? (
           <EngineSyncProgress sync={engineSync} />
@@ -171,49 +175,8 @@ export function ShellFooter({
 
       {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
-        {/* Each number edits itself on a click, through the commands that write project.k7x (`project tempo`, `project meter`). */}
-        <span className="flex items-center whitespace-nowrap font-mono tabular-nums">
-          <button
-            type="button"
-            className="rounded px-0.5 hover:bg-accent hover:text-foreground"
-            title={m["transport.tempoEdit"]()}
-            onClick={() =>
-              void askText({
-                title: m["transport.tempoAsk"](),
-                initial: String(recInfo.tempo),
-                validate: (v) =>
-                  Number(v) >= 20 && Number(v) <= 400
-                    ? ""
-                    : m["transport.tempoBad"](),
-              }).then((v) => {
-                if (v) void runCommand(`project tempo ${v.trim()}`);
-              })
-            }
-          >
-            {recInfo.tempo} bpm
-          </button>
-          <span className="mx-1 text-border">·</span>
-          <button
-            type="button"
-            className="rounded px-0.5 hover:bg-accent hover:text-foreground"
-            title={m["transport.meterEdit"]()}
-            onClick={() =>
-              void askText({
-                title: m["transport.meterAsk"](),
-                initial: `${recInfo.beatsPerBar}/${recInfo.beatUnit}`,
-                validate: (v) =>
-                  /^\d+\/(1|2|4|8|16|32)$/.test(v.trim())
-                    ? ""
-                    : m["transport.meterBad"](),
-              }).then((v) => {
-                if (v) void runCommand(`project meter ${v.trim()}`);
-              })
-            }
-          >
-            {recInfo.beatsPerBar}/{recInfo.beatUnit}
-          </button>
-        </span>
+        {/* Next to the metronome because it is what the metronome clicks; a phone shows it in the Info popover instead. */}
+        {!isMobile && <TempoMeter recInfo={recInfo} runCommand={runCommand} />}
         {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
         <MetronomeButton
           on={optMetronome ?? metronomeOn}
