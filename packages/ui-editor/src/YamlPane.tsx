@@ -14,6 +14,7 @@ import { useBufferSync } from "./bufferSync";
 import { faustLanguage } from "./faust/language";
 import { k7xCompletions } from "./k7x/completions";
 import { k7xLanguage } from "./k7x/language";
+import { vimUndoSteps } from "./vimUndo";
 import { type YamlVocabulary, yamlCompletions } from "./yaml/completions";
 import { projectLanguage } from "./yaml/language";
 import { schemaVocabulary } from "./yaml/vocabulary";
@@ -89,7 +90,7 @@ export function YamlPane({
         ]),
       ),
     ];
-    return vimMode && !readOnly ? [vim(), ...base] : base;
+    return vimMode && !readOnly ? [vim(), vimUndoSteps(), ...base] : base;
   }, [vimMode, readOnly, onSave, faust, js, k7x]);
 
   // A row edit beside the text lands as its own splices, so the cursor and the undo history stay.
