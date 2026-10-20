@@ -1,0 +1,9 @@
+extends("@k7-core/instruments/k7-rack")
+engine("samples")
+rack({
+  symbols: {
+    Kick: { note: 36, sample: "@k7-core/naked_drums/Kick.wav" },
+    Snare: { note: 38, sample: "@k7-core/naked_drums/Snare.wav" },
+    HatTight: { note: 42, sample: "@k7-core/naked_drums/HatTight.wav" },
+  },
+})

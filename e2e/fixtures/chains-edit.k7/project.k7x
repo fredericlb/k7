@@ -1,0 +1,9 @@
+project({
+  name: "chains-edit",
+  tempo: 120,
+  sampleRate: 48000,
+  timeSignature: "4/4",
+  video: false,
+  layers: [],
+})
+markers({})

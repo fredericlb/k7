@@ -1,0 +1,9 @@
+// Three note transformers between the notes and the synth.
+modules({
+  melody: ["arp"],
+  arp: ["repeat"],
+  repeat: ["transpose"],
+  transpose: ["lead"],
+  lead: ["MIX"],
+  MIX: ["OUT"],
+})

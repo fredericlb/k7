@@ -1,0 +1,2 @@
+extends("@k7-core/cold/normalize")
+params({ Target: -6 })
