@@ -20,7 +20,8 @@
     "./lint": "./src/lint.ts",
     "./autosave": "./src/autosave.ts",
     "./unsaved": "./src/unsaved.ts",
-    "./yaml-pane": "./src/YamlPane.tsx"
+    "./yaml-pane": "./src/YamlPane.tsx",
+    "./a11y": "./src/a11y.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
