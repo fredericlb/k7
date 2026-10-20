@@ -1,8 +1,9 @@
 // android.ts — the suite's `android` target: the app's e2e build on a phone, driven through its own WebView.
 // That build is `se.frediver.k7.e2e` on its own port, installed BESIDE the shipped app, never over it (docs/e2e.md).
 import { execFileSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import {
   _android,
   type AndroidDevice,
@@ -25,10 +26,29 @@ export const PHONE_ORIGIN = `http://127.0.0.1:${PHONE_PORT}`;
 /** A first launch unpacks the backend and seeds the library before anything answers. */
 const BOOT_MS = 180_000;
 
+/** Where Android Studio puts the SDK on each desktop, for a shell that exports no ANDROID_HOME. */
+export function defaultSdk(): string | undefined {
+  const candidates = {
+    darwin: join(homedir(), "Library", "Android", "sdk"),
+    linux: join(homedir(), "Android", "Sdk"),
+    win32: join(process.env.LOCALAPPDATA ?? "", "Android", "Sdk"),
+  } as Record<string, string>;
+  const dir = candidates[process.platform];
+  return dir && existsSync(dir) ? dir : undefined;
+}
+
+/** The SDK's own adb, so a shell without platform-tools on its PATH still reaches the phone. */
+function adbBinary(): string {
+  const sdk = process.env.ANDROID_HOME ?? defaultSdk();
+  const exe = process.platform === "win32" ? "adb.exe" : "adb";
+  const inSdk = sdk ? join(sdk, "platform-tools", exe) : "";
+  return inSdk && existsSync(inSdk) ? inSdk : "adb";
+}
+
 /** Runs adb against `ANDROID_SERIAL` when set, the one attached device otherwise. */
 export function adb(...args: string[]): string {
   const serial = process.env.ANDROID_SERIAL;
-  return execFileSync("adb", serial ? ["-s", serial, ...args] : args, {
+  return execFileSync(adbBinary(), serial ? ["-s", serial, ...args] : args, {
     encoding: "utf8",
   }).trim();
 }
