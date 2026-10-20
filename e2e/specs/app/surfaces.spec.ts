@@ -124,8 +124,15 @@ async function fileSong(files: FileService) {
     headers: { "content-type": "application/octet-stream" },
     data: sineWav(20),
   });
-  if (!res.ok())
-    throw new Error(`song upload: ${res.status()} ${await res.text()}`);
+  expect(res.ok(), `song upload: ${res.status()} ${await res.text()}`).toBe(
+    true,
+  );
+  // …and the library now serves its audio, which is what the desk's row needs to be playable.
+  const audio = `songs/${SONG.artist}/${SONG.album}/${SONG.title}/original.wav`;
+  const filed = await files.request.head(
+    `/api/mediatek/file?path=${encodeURIComponent(audio)}`,
+  );
+  expect(filed.status(), `${audio} after the upload`).toBe(200);
 }
 
 /** How much of an element's picture is lit, read off a screenshot decoded in the page. */
@@ -271,9 +278,12 @@ async function putOnDeckA(page: Page) {
   await button(page, "deck A").click();
   const browser = page.getByRole("dialog", { name: "Deck A" });
   await expect(browser.getByText("1 song in the set")).toBeVisible();
-  await browser
-    .getByRole("button", { name: `${SONG.artist} ${SONG.title}` })
-    .click();
+  const row = browser.getByRole("button", {
+    name: `${SONG.artist} ${SONG.title}`,
+  });
+  // A row is listed for every line of the set, and enabled only once this machine's library holds its audio.
+  await expect(row, "the filed song is not playable here").toBeEnabled();
+  await row.click();
   await expect(browser).toBeHidden();
 }
 
