@@ -54,7 +54,11 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
 }) => {
   test.setTimeout(180_000);
   const page = await k7.open("/media/songs");
-  const watch = watchPage(page);
+  // A phone has no ffmpeg, so its library answers the analysis 503 (engine/k7-runtime/docs/android.md).
+  const watch = watchPage(
+    page,
+    k7.target === "android" ? [/\/api\/mediatek\/analyse$/] : [],
+  );
 
   await test.step("upload it with Add a song", async () => {
     await addSong(page);
