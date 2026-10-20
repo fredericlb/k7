@@ -42,6 +42,8 @@ export const VINYL_MIN = 176;
 const CUES = 28;
 const LOOP = 24;
 const TITLE = 16;
+/** The button that opens the song browser where the record would be — `DeckPick`, `h-8`. */
+export const PICK = 32;
 /** `gap-3` between the stacked pieces. */
 const GAP = 12;
 
@@ -86,6 +88,13 @@ export const stripHeight = (s: StripLayout, echo = false): number =>
 export const stemStripHeight = (s: StripLayout): number =>
   16 + 2 * knobBlock(s.knob, s.readout) + s.gap;
 
+/** How tall a deck's TOP row is: the record, or without one the browser's button beside the stem block. */
+export const recordRow = (
+  l: Pick<DeskLayout, "vinyl" | "strip">,
+  stems: boolean,
+): number =>
+  l.vinyl > 0 ? l.vinyl : Math.max(PICK, stems ? stemStripHeight(l.strip) : 0);
+
 /** The largest strip that fits in `height`, or the smallest when none does. */
 export function stripLayout(height: number, echo = false): StripLayout {
   const h = Math.max(0, height);
@@ -118,8 +127,8 @@ export function deskLayout(
       strip,
     };
 
-  // With no record to sit beside, the block has a row of its own and the waveform pays for it.
-  const block = stems ? stemStripHeight(strip) + GAP : 0;
+  // With no record, its row keeps the browser's button and the stem block, and the waveform pays for it.
+  const block = recordRow({ vinyl: 0, strip }, stems) + GAP;
 
   // Without it, the waveform takes the space the record gave up — the whole point of dropping it.
   const withTitle = h - (CUES + LOOP + TITLE + GAP * 3) - block;

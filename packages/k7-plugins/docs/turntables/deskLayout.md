@@ -17,9 +17,27 @@ Things fall in the reverse order of what they are worth:
 | | what happens | why |
 |---|---|---|
 | 1. the **record** | shrunk, then dropped below 176 px | it is the biggest and the least load-bearing: what it says — where you are, where the cues are, that it is turning — the waveform says too, **and it also says what is coming**. Below 176 px it is a coin: the label is unreadable, the cue rays merge, and the rotation stops showing. |
-| 2. the **title** | dropped on the shortest columns | the record's label carries the same words as long as there is a record; this line only earns its place once there is none. |
+| 2. the **title** | dropped on the shortest columns | the record's label carries the same words; without a record, the label alone still does (below). |
 | 3. the **cue points** | never dropped | eight fixed positions a hand learns are worth nothing if they are sometimes absent — the argument `CueButtons` already makes for drawing them on an empty deck. |
 | 4. the **waveform** | never dropped, and it GROWS | it is what a deck is for. |
+
+### The record's label survives the record
+
+The record's label is the button that opens the song browser ([songBrowser.md](songBrowser.md)),
+named `deck A` while the deck is empty and after the song once one is loaded. Dropping the record
+must not drop that door: the title line is plain text and goes on the shortest columns, and a
+drop from the set list needs a mouse. So without a record, its row keeps the label alone —
+`DeckPick`, a button with the same name, in the record's place beside the stem block.
+
+That is the desk a phone shows in landscape, and every height under the record's threshold: the
+same control under the same name at every size, for a hand, a keyboard and a screen reader
+alike — and for the functional suite, which finds the browser by that name.
+
+The row costs `PICK` (32 px) of height, charged to the waveform — but only on a set that wires no
+stem cut: a stem block is always taller than the button, and the button stands beside it for
+nothing (`deskLayout.test`, "the song browser's door"). `recordRow` answers that row's height for
+both the deck and the middle column, which restates it to keep the crossfader on the waveform's
+line.
 
 ### And drawn even when empty
 
@@ -47,10 +65,12 @@ That is not a coincidence to leave sleeping: `deskLayout.test` checks
 third row, would break the inequality — and break it silently, growing the row until the waveform
 is pushed out of a column whose sum nobody rechecks.
 
-When the record has gone (step 1 above) the block has no neighbour. It then takes a row of its
-own and the waveform pays for it — growing slightly less than the record freed. That is
+When the record has gone (step 1 above) the block's only neighbour is the record's label. It
+then takes a row of its own and the waveform pays for it — growing slightly less than the record
+freed. That is
 `deskLayout`'s second argument, and it exists because the answer depends on the SET: a desk that
-wires no stem cut must not reserve room for a block it never draws.
+wires no stem cut must not reserve room for a block it never draws — only for the label's
+32 px.
 
 A third test adds the whole budget — waveform, cues, title, gaps, block — at every height a pane
 can have, and requires the sum to fit in the column. It is the only check that catches an

@@ -4,6 +4,8 @@
 import { describe, expect, it } from "vitest";
 import {
   deskLayout,
+  PICK,
+  recordRow,
   stemStripHeight,
   stripHeight,
   stripLayout,
@@ -107,7 +109,7 @@ describe("deskLayout", () => {
     // The whole budget, added up, at every height a pane can be: nothing may exceed what it was given.
     for (let h = 120; h <= 900; h += 7) {
       const l = deskLayout(h, true);
-      const block = stemStripHeight(l.strip) + 12;
+      const block = recordRow(l, true) + 12;
       // Waveform, cue row, LOOP row, the title when drawn, and the gaps between them.
       const used =
         l.waveform +
@@ -197,9 +199,8 @@ describe("the slack a tall desk has", () => {
   /** What the column actually draws at a given height: the pieces, and the gaps between them. */
   const drawn = (h: number): number => {
     const l = deskLayout(h);
-    const rows = [l.vinyl, l.waveform, 28, 24, ...(l.title ? [16] : [])].filter(
-      (n) => n > 0,
-    );
+    const rows = [recordRow(l, false), l.waveform, 28, 24];
+    if (l.title) rows.push(16);
     return rows.reduce((a, b) => a + b, 0) + 12 * (rows.length - 1);
   };
 
@@ -214,8 +215,29 @@ describe("the slack a tall desk has", () => {
 
   it("never draws MORE than the height it was given, at any size", () => {
     // The other side of it: an overflowing column pushes the block off the bottom instead.
+    // A floored waveform overflows a hopeless column on purpose — the waveform never goes.
     for (let h = 120; h <= 1400; h += 7)
-      expect(drawn(h)).toBeLessThanOrEqual(h);
+      if (deskLayout(h).waveform > 44)
+        expect(drawn(h), `at ${h}`).toBeLessThanOrEqual(h);
+  });
+});
+
+describe("the song browser's door", () => {
+  it("keeps a row for it whenever the record is gone, stems or not", () => {
+    // Without the record its label goes too, and the button is then the only way to load a deck by hand.
+    for (let h = 0; h <= 900; h += 7)
+      for (const stems of [false, true]) {
+        const l = deskLayout(h, stems);
+        if (l.vinyl === 0)
+          expect(recordRow(l, stems), `at ${h}`).toBeGreaterThanOrEqual(PICK);
+      }
+  });
+
+  it("costs nothing beside a stem block, which is taller than the button", () => {
+    for (let h = 0; h <= 900; h += 7) {
+      const s = stripLayout(h);
+      expect(stemStripHeight(s), `at ${h}`).toBeGreaterThan(PICK);
+    }
   });
 });
 

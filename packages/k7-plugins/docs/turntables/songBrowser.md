@@ -2,7 +2,9 @@
 
 **You click the centre of the vinyl.** The middle of a record is where its name is written, so
 that is where you press to change it. The record itself stays `pointer-events-none`: only the
-label takes the click, which leaves the outer groove free for grabbing it to mean scratching.
+label takes the click, which leaves the outer groove free for grabbing it to mean scratching. A
+desk too short for the record keeps the label alone, as a button of the same name
+([deskLayout.md](deskLayout.md)).
 
 A box opens, holding the tracks **of the set** — not of the whole media library. It is the
 **playlist the surface names** that says what is within reach tonight; searching 279 tracks when

@@ -16,7 +16,7 @@ import { CodeText } from "../../CodeText";
 import { m } from "../../paraglide/messages.js";
 import { beatPhase } from "../beats";
 import type { DeckId, DeckTempo } from "../deckVocabulary";
-import { deskLayout, stemStripHeight } from "../deskLayout";
+import { deskLayout, recordRow } from "../deskLayout";
 import type { Deck } from "../engine";
 import { loopSpan } from "../loop";
 import { MIX_VIEW_FILE } from "../mixView";
@@ -325,12 +325,7 @@ export function MixView({
   const echoLive = decks.echoLive("deckA") || decks.echoLive("deckB");
   const layout = deskLayout(useContentHeight(deckRow), stemLive, echoLive);
   /** How tall a deck's TOP row is, which the crossfader restates to land on the cue row's line. */
-  const crossfadeHead =
-    layout.vinyl > 0
-      ? layout.vinyl
-      : stemLive
-        ? stemStripHeight(layout.strip)
-        : 0;
+  const crossfadeHead = recordRow(layout, stemLive);
 
   return (
     <InSightContext.Provider value={inSight}>
