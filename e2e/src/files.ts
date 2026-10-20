@@ -162,6 +162,11 @@ export class FileService {
     return body.lines;
   }
 
+  /** Recycles one file or folder of the workspace, through POST /entry/delete. */
+  async deleteEntry(workspace: string, path: string) {
+    await this.call("POST", "/entry/delete", { workspace, data: { path } });
+  }
+
   async writeText(workspace: string, path: string, content: string) {
     await this.call("PUT", "/file", { workspace, data: { path, content } });
   }
