@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { launch, stopAll } from "../engine/scripts/devEngine.mjs";
 import {
   buildSupervisor,
+  CROSS,
   findSupervisor,
 } from "../engine/scripts/supervisorBuild.mjs";
 
@@ -99,7 +100,8 @@ function engineBinary() {
   if (!existsSync(build)) return null;
   const names = ["k7-runtime.exe", "k7-runtime"];
   const found = [];
-  for (const preset of readdirSync(build))
+  // A phone's build sits beside this machine's; running it here fails to spawn (engine/scripts/supervisorBuild.mjs).
+  for (const preset of readdirSync(build).filter((p) => !CROSS.test(p)))
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
       for (const name of names) {
         const p = join(build, preset, cfg, name);
