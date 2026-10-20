@@ -555,7 +555,7 @@ export interface ArmingClient {
   on(event: "engineError", fn: (m: string) => void): unknown;
   off(event: "armed", fn: (a: ArmFrame) => void): unknown;
   off(event: "engineError", fn: (m: string) => void): unknown;
-  arm(track: string): void;
+  arm(track: string, armed?: boolean): void;
 }
 
 /** Wait for the answer to ONE arm, matched on the TRACK; `undefined` = it did not take. See docs/activeProject.md. */
@@ -565,6 +565,7 @@ export function awaitArm(
   out: CommandOutput,
   linkUp: () => boolean,
   timeoutMs: number = ARM_TIMEOUT_MS,
+  armed?: boolean,
 ): Promise<boolean | undefined> {
   return new Promise((res) => {
     const done = (v?: boolean) => {
@@ -592,7 +593,7 @@ export function awaitArm(
     }, timeoutMs);
     c.on("armed", onArmed);
     c.on("engineError", onError);
-    c.arm(track);
+    c.arm(track, armed);
   });
 }
 
@@ -667,13 +668,13 @@ function makeHost(
     },
     // Every engine call below names `ws`: defaulting sent transport and arm to the empty room.
     transport: (a: TransportAction) => engine()?.transport(a),
-    arm: (track) => {
+    arm: (track, armed) => {
       const c = engine();
       if (!c || !isReady(ws)) {
         out.push(NO_ENGINE);
         return Promise.resolve(undefined);
       }
-      return awaitArm(c, track, out, () => isReady(ws));
+      return awaitArm(c, track, out, () => isReady(ws), ARM_TIMEOUT_MS, armed);
     },
     // A whole document replaces a held reload rather than following it, or the older one would land last.
     applyProject: (p) => {

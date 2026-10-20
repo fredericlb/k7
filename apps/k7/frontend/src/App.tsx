@@ -1436,19 +1436,20 @@ export default function App({
   docTracksRef.current = docTracks;
 
   // Per-track mixer state + the shared mute/solo/arm toggle handler.
-  const { trackControls, onTrackToggle, onTrackSet } = useTrackControls({
-    docTracks,
-    armed,
-    midiArmed,
-    setMidiArmed,
-    midiSeqRef,
-    midiLanesRef,
-    quietCommand: quietCommandFiles,
-    bumpReload,
-    reloadWith,
-    // On a share these two are the LISTENER's, not the document's: they reach only the visitor's own session.
-    local: frozen,
-  });
+  const { trackControls, onTrackToggle, onTrackSet, onTrackArm } =
+    useTrackControls({
+      docTracks,
+      armed,
+      midiArmed,
+      setMidiArmed,
+      midiSeqRef,
+      midiLanesRef,
+      quietCommand: quietCommandFiles,
+      bumpReload,
+      reloadWith,
+      // On a share these two are the LISTENER's, not the document's: they reach only the visitor's own session.
+      local: frozen,
+    });
 
   /** …and on a share that is what the visitor's session plays: their mute and solo, as the player takes them (docs/shared.md). */
   const sentMixRef = useRef("");
@@ -2464,10 +2465,10 @@ export default function App({
       setStatus(m["transport.noArm"]());
       return false;
     }
-    void onTrackToggle(id, "arm");
+    onTrackArm(id);
     setStatus(m["transport.armed"]({ track: id }));
     return true;
-  }, [armed, midiArmed, videoArmed, caret?.trackId, onTrackToggle, setStatus]);
+  }, [armed, midiArmed, videoArmed, caret?.trackId, onTrackArm, setStatus]);
   const loopState = useStoreState(store, (s) => s.loop);
   // The transport's loop button: off when on; else the selection, or four bars from the playhead.
   const toggleTransportLoop = useCallback(() => {

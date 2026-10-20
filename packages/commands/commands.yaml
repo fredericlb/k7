@@ -2979,8 +2979,8 @@
   readable:
     en: "Arm a track for recording"
     fr: "Armer une piste pour l'enregistrement"
-  help: "toggle a track's record arm (armed tracks record on play)"
+  help: "toggle a track's record arm, or set it with on/off (armed tracks record on play)"
   surfaces: [cli]
   menu: [track]
-  args: [{ name: track, complete: tracks }]
+  args: [{ name: track, complete: tracks }, { name: state, optional: true, values: [on, off] }]
 

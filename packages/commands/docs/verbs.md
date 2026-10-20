@@ -870,6 +870,11 @@ play and stop. The two checks here are the SONG's: does the track exist, does it
 The engine re-checks and adds what only it knows. No input, no arm: a track with nothing feeding it
 would record silence.
 
+Bare, it TOGGLES, and the engine resolves the toggle, so two surfaces never both read "off". With
+`on` or `off` it SETS: a caller acting before the engine has echoed an earlier arm — Record pressed
+right after a lane's A, which arms "the only track" when nothing reads as armed yet — states what it
+wants, since its toggle would undo the arm still on its way.
+
 ## `transport metronome volume`
 
 A PROJECT setting like the flag beside it, so it rewrites `settings.k7x` and re-sends; the engine
