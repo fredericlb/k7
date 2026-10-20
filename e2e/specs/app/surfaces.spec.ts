@@ -281,6 +281,15 @@ async function putOnDeckA(page: Page) {
   await button(page, "deck A").click();
   const browser = page.getByRole("dialog", { name: "Deck A" });
   await expect(browser.getByText("1 song in the set")).toBeVisible();
+  // A page wider than the screen makes a phone lay its dialogs out in a bigger viewport, where a tap misses the row.
+  const width = await page.evaluate(() => [
+    document.documentElement.scrollWidth,
+    document.documentElement.clientWidth,
+  ]);
+  expect(
+    width[0],
+    "the desk widens the page past the screen",
+  ).toBeLessThanOrEqual(width[1]);
   const row = browser.getByRole("button", {
     name: `${SONG.artist} ${SONG.title}`,
   });
