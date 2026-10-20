@@ -422,18 +422,15 @@ class AppViewsPlugin : Plugin() {
     }
 
     private inner class AppChrome : WebChromeClient() {
-        // The microphone, to the studio's own apps only, once the app holds RECORD_AUDIO, asked here on first need (MicAccess.kt).
+        // The microphone and the camera, to the studio's own apps only, each asked on first need (PageCapture.kt).
         override fun onPermissionRequest(request: PermissionRequest) {
-            val wanted = PermissionRequest.RESOURCE_AUDIO_CAPTURE in request.resources && appOf(request.origin) != null
+            val devices = PageCapture.devices(request.resources, appOf(request.origin) != null)
             activity.runOnUiThread {
-                val mic = (activity as? MainActivity)?.mic
-                if (!wanted || mic == null) return@runOnUiThread request.deny()
-                mic.request { answer ->
-                    if (answer == MicAccess.Answer.GRANTED) return@request request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
-                    request.deny()
-                    // Blocked for good: the page hears why its getUserMedia failed, beside the native dialog.
-                    if (answer == MicAccess.Answer.BLOCKED)
-                        views.values.forEach { it.evaluateJavascript("dispatchEvent(new CustomEvent('k7:mic-denied'))", null) }
+                val main = activity as? MainActivity
+                if (devices == null || main == null) return@runOnUiThread request.deny()
+                // Blocked for good: the page hears why its getUserMedia failed, beside the native dialog.
+                PageCapture.answer(request, devices, main::access) { device ->
+                    views.values.forEach { it.evaluateJavascript("dispatchEvent(new CustomEvent('${device.event}'))", null) }
                 }
             }
         }

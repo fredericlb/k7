@@ -124,8 +124,9 @@ What the app views do that a browser would do on its own:
   is same-origin with its `/auth`, so the views need no third-party cookies. Only `http`, `https`,
   `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
   `file:` or `intent:` URI handed out exposes or launches what it should not.
-- **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
-  RECORD_AUDIO, asked for when a page first wants it (below).
+- **The microphone and the camera** go to the studio's apps only (the rehearsal recorder's remote mic, a picture
+  lane's take, the `live-video` webcam), and only once the app holds RECORD_AUDIO or CAMERA, asked for when a page
+  first wants it (below).
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
   alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
@@ -219,15 +220,25 @@ notification, for as long as the app is **busy**, and the screen is kept on for 
 
 A page that goes away reports nothing (`pagehide`), and what it last said is cleared, so nothing here outlives it.
 
-## The microphone is asked when first needed
+## The microphone and the camera are asked when first needed
 
 The engine starts **without waiting for RECORD_AUDIO**, and is not asked for it at start: without it the engine opens
 its device output only — `EngineBridge.kt` says so with `STUDIO_ENGINE_INPUTS=0`, as on iOS. Inputs asked for without the
 permission fail JUCE's whole Oboe device, output with them: the engine runs, the transport stays on its first beat,
-and nothing sounds. `MicAccess.kt` asks when something first needs it — a page's `getUserMedia`
-(`onPermissionRequest`), or a track armed on the engine — with a short explanation when Android says one is due.
+and nothing sounds. `DeviceAccess.kt` asks when something first needs it — a page's `getUserMedia`
+(`onPermissionRequest`, `PageCapture.kt`), or a track armed on the engine — with a short explanation when Android says one is due.
 A permission the user has blocked is not asked again: the request is denied, the page gets a `k7:mic-denied`
-event, and a dialog offers the app's settings.
+or `k7:camera-denied` event, and a dialog offers the app's settings.
+
+The camera follows the same rules, for pages only: nothing native films. One class serves both devices, since
+only their wording differs and the restart below is the microphone's alone.
+
+| choice | why |
+|---|---|
+| CAMERA declared with `android.hardware.camera` (and its autofocus) **not required** | the permission alone implies both features, and a device without a rear camera would be refused the app |
+| a request granted whole or denied, each device asked in turn | the WebView turns a grant of part of the requested resources into a denial, so `{audio, video}` gets both or neither; the first refusal ends it |
+| any resource beyond audio and video capture denies the request | the same whole-or-nothing grant: there is no way to hand a page part of what it asked |
+| no page listens to either event | k7's pages already say why their `getUserMedia` failed (`useVideoRecording` names the error); the events are there for a page that wants to say more |
 
 The engine opens its inputs once, with its device, and a stopped engine cannot be started again in the same
 process (below). So a grant that comes after the engine started reaches it at the **next start**: the app says so,
@@ -523,6 +534,10 @@ also catches the GL driver's chatter, which is noise.
 - **The busy service and the microphone flow have not been driven on a phone yet**: a take with the screen off,
   the microphone type refused from behind on Android 14, the notification permission and the blocked-microphone
   dialog are each still to check.
+- **The camera is compiled, not driven**: a picture lane's take, the `live-video` webcam, a request for both devices
+  with one refused, and the blocked-camera dialog each need a phone. A camera holds nothing in front: a page that
+  captures video only is not busy (`media-session.js` counts audio tracks), so the screen may sleep and Android cuts
+  the camera of an app behind.
 - **The media session has not been driven on a phone yet**: background playback in a hidden view,
   the notification on Android 12 and 13+, and a headset's buttons are each still to check.
 - **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow
