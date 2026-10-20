@@ -30,6 +30,7 @@ export function useTrackControls(opts: {
     control: "mute" | "solo" | "arm" | "highlight",
   ) => void;
   onTrackSet: (id: string, control: "volume" | "pan", value: number) => void;
+  onTrackArm: (id: string) => void;
 } {
   const {
     docTracks,
@@ -121,6 +122,18 @@ export function useTrackControls(opts: {
     ],
   );
 
+  // Arm, never disarm: a toggle sent on a stale `armed` (an arm whose echo is still on its way) would undo it.
+  const onTrackArm = useCallback(
+    (id: string) => {
+      if (midiSeqRef.current[id] || midiLanesRef?.current.has(id)) {
+        setMidiArmed(id);
+        return;
+      }
+      void quietCommand(`transport arm ${id} on`);
+    },
+    [quietCommand, midiSeqRef, midiLanesRef, setMidiArmed],
+  );
+
   // Commit a volume/pan knob by addressing the MIXER NODE, in the units the widget declares — `volume` in dB, needing no conversion at all.
   const mixerOf = useCallback(
     (id: string) => docTracks.find((t) => t.id === id)?.mixer ?? "",
@@ -142,5 +155,5 @@ export function useTrackControls(opts: {
   );
 
   // No reload bump, deliberately: a knob is released dozens of times while mixing, and the next edit reconciles it.
-  return { trackControls, onTrackToggle, onTrackSet };
+  return { trackControls, onTrackToggle, onTrackSet, onTrackArm };
 }

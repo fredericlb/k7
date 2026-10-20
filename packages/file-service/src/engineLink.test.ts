@@ -318,8 +318,10 @@ describe("awaitArm", () => {
     off(event: string, fn: (...a: never[]) => void) {
       this.listeners.get(event)?.delete(fn);
     }
-    arm(track: string) {
+    stated: (boolean | undefined)[] = [];
+    arm(track: string, armed?: boolean) {
       this.sent.push(track);
+      this.stated.push(armed);
     }
     emit(event: string, arg: unknown) {
       for (const fn of [...(this.listeners.get(event) ?? [])])
@@ -344,6 +346,18 @@ describe("awaitArm", () => {
     expect(await p).toBe(true);
     expect(out).toEqual([]);
     expect(c.attached()).toBe(0);
+  });
+
+  it("passes a stated arm on, and leaves a bare one a toggle", async () => {
+    const c = spy();
+    const out: string[] = [];
+    const on = awaitArm(c, "gtr", out, () => true, 1000, true);
+    c.emit("armed", { track: "gtr", armed: true });
+    await on;
+    const toggle = awaitArm(c, "gtr", out, () => true);
+    c.emit("armed", { track: "gtr", armed: false });
+    await toggle;
+    expect(c.stated).toEqual([true, undefined]);
   });
 
   it("IGNORES the answer to another track's arm", async () => {

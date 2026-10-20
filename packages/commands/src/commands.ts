@@ -73,8 +73,8 @@ export interface CommandHost {
   reload(): void | Promise<void>;
   // engine ops (may connect + await):
   transport(a: TransportAction): void | Promise<void>;
-  // Toggle a track's arm — the engine owns this state, nothing is written to disk; undefined when it refused.
-  arm(track: string): Promise<boolean | undefined>;
+  // Toggle a track's arm, or set it to `armed` — the engine owns this state, nothing is written to disk; undefined when it refused.
+  arm(track: string, armed?: boolean): Promise<boolean | undefined>;
   applyProject(p: ProjectDoc): void | Promise<void>; // set + push to engine
   sendProject(p: ProjectDoc): void | Promise<void>;
   listPlugins(filter?: string): void | Promise<void>;

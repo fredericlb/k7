@@ -7,9 +7,9 @@ import { splitWords } from "./shared.ts";
 export const TRANSPORT_VERBS: Record<string, SidHandler> = {
   // --- recording — the one lane edit that writes NO file, so it sits under `transport`, docs/verbs.md
   "transport.arm": async (a, h) => {
-    const id = splitWords(a)[0];
-    if (!id) {
-      h.refuse(["usage: transport arm <track>"]);
+    const [id, state] = splitWords(a);
+    if (!id || (state !== undefined && state !== "on" && state !== "off")) {
+      h.refuse(["usage: transport arm <track> [on|off]"]);
       return;
     }
     const p = h.project();
@@ -36,7 +36,11 @@ export const TRANSPORT_VERBS: Record<string, SidHandler> = {
       return;
     }
     // undefined == the engine refused or never answered; the host has already said which, and knows more than this.
-    const armed = await h.arm(t.id);
+    // A stated on/off is what a caller that cannot wait for the echo sends: a toggle on a stale reading undoes a fresh arm.
+    const armed = await h.arm(
+      t.id,
+      state === undefined ? undefined : state === "on",
+    );
     if (armed !== undefined)
       h.log([`${t.id}: ${armed ? "armed" : "disarmed"}`]);
   },
