@@ -207,6 +207,14 @@ x,y token unmistakable for a ref or a node name, and the point is passed through
 paragraph above is the reason, and a `Math.max(0, …)` on the way out of the shell was quietly
 undoing it for every click above the first lane.
 
+**One pick is one undo step.** On an arrow the pick is two commands — `node new`, then the
+`node insert` that splices it, which needs the name the first one made — and the second goes out
+with `journal: "join"`, folding its writes into the step the first one made
+(`packages/file-service/docs/history.md`). One `project undo` takes the node file and the splice
+back together and leaves `graph.k7x` byte for byte as it was before the pick: the unwired node
+between the two commands is the shell's plumbing, never a state the person made, so no undo may
+stop on it.
+
 **A typed line has no cursor, and the verb answers for it** rather than handing the node to
 dagre: spliced, it is born halfway along the cable it was spliced into; wired to nothing, at
 `0,-30`, just above the origin. Both are in [verbs.md](../../../../packages/commands/docs/verbs.md),

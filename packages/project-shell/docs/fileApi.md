@@ -205,6 +205,11 @@ lets a host reload only what depends on them; absent means the service could not
 `at` points the verbs at a folder OTHER than the open project — the chains builder's template. It
 is always a path the caller was GIVEN, by `libraryChains`, and never one it built.
 
+`journal` says how the command's writes are undone when not as a step of their own. `join` folds
+them into the step on top: a gesture the shell has to spell as two commands — a module picked on a
+cable is `node new`, then the `node insert` that splices it — is still one Ctrl+Z. It is a word
+rather than a boolean for the same reason `want` is a list.
+
 ## Two things this client deliberately has no route for
 
 - **Cutting stems** is the media library's: the library holds the masters, so it owns the cut and keeps the

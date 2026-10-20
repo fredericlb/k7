@@ -57,6 +57,20 @@ PATHS, never its contents, with `undone` past the cursor, and paths relative to 
 reload is the only other thing that tells the engine: without the push, an event restored by
 Ctrl+Z is back on disk and on screen and stays silent until the next unrelated edit.
 
+## One gesture, one step
+
+A step is what the person did, not what the client had to send. A module picked on a cable is
+two commands — `node new`, then the `node insert` that splices it — because the second needs the
+name the first one made; journalled as two steps, the first Ctrl+Z would leave a node wired to
+nothing that nobody ever saw on screen. So `POST /command` takes `journal: "join"`, and
+`ProjectHistory.join` folds that command's diff into the step on top: per file, the step keeps its
+own `before` and takes the new `after`, and a file that ends as it began drops out of it. Undone,
+the gesture goes back whole, byte for byte.
+
+A join folds only into the NEWEST step. Past an undo (a redo tail on the stack), with an empty
+journal, or when either side carries audio, it is an ordinary push: a step's blobs are kept, and
+handed to an engine, as one set, and folding two of them would break that bookkeeping.
+
 ## Not in the project: the account's cache
 
 The journal is the session's, not the song's. Kept in the project, it is a ring of up to a thousand

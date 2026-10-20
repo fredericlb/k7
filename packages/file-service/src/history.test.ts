@@ -174,6 +174,54 @@ describe("ProjectHistory", () => {
     expect(j.entries.at(-1)?.label).toBe("e1004");
   });
 
+  // One gesture written by two commands — a node created, then spliced — is ONE step to undo.
+  it("joins a change into the step on top, keeping each file's first before", async () => {
+    writeFileSync(join(dir, "graph.k7x"), "g3");
+    writeFileSync(join(dir, "fx.k7x"), "node");
+    const h = new ProjectHistory(store(), dir);
+    h.push({
+      label: "node new",
+      changes: [
+        { path: "fx.k7x", before: null, after: "node" },
+        { path: "graph.k7x", before: "g1", after: "g2" },
+      ],
+      blobs: [],
+    });
+    h.join({
+      label: "node insert",
+      changes: [{ path: "graph.k7x", before: "g2", after: "g3" }],
+      blobs: [],
+    });
+    expect(h.list()).toHaveLength(1);
+    await h.undo();
+    expect(read("graph.k7x")).toBe("g1");
+    expect(existsSync(join(dir, "fx.k7x"))).toBe(false);
+    expect(h.state().canUndo).toBe(false);
+    await h.redo();
+    expect(read("graph.k7x")).toBe("g3");
+    expect(read("fx.k7x")).toBe("node");
+  });
+
+  it("joins nothing past an undo, and drops a step that ends where it began", async () => {
+    const h = new ProjectHistory(store(), dir);
+    const change = (
+      p: string,
+      before: string | null,
+      after: string | null,
+    ) => ({
+      label: p,
+      changes: [{ path: p, before, after }],
+      blobs: [],
+    });
+    h.join(change("a.k7x", null, "A"));
+    expect(h.list()).toHaveLength(1);
+    await h.undo();
+    h.join(change("b.k7x", null, "B"));
+    expect(h.list().map((e) => e.label)).toEqual(["b.k7x"]);
+    h.join(change("b.k7x", "B", null));
+    expect(h.list()).toEqual([]);
+  });
+
   it("persists across instances", async () => {
     writeFileSync(join(dir, "a.k7x"), "v2");
     new ProjectHistory(store(), dir).push({
@@ -309,6 +357,26 @@ describe("Workspace.recordChange", () => {
     expect(
       existsSync(join(historyStoreFor(join(dir, "proj.k7")), "journal.json")),
     ).toBe(true);
+  });
+
+  it("folds a joined command into the step before it, byte for byte on undo", async () => {
+    const { ws } = openProject();
+    const graph = "in -> out\n";
+    writeFileSync(join(dir, "proj.k7", "graph.k7x"), graph);
+    await ws.recordChange("node new fx", () => {
+      ws.write("proj.k7/fx.k7x", "module: fx\n");
+      ws.write("proj.k7/graph.k7x", `${graph}fx\n`);
+    });
+    await ws.recordChange(
+      "node insert in out fx",
+      () => ws.write("proj.k7/graph.k7x", "in -> fx -> out\n"),
+      "join",
+    );
+    expect(ws.historyList()).toHaveLength(1);
+    await ws.undoHistory();
+    expect(read("proj.k7/graph.k7x")).toBe(graph);
+    expect(existsSync(join(dir, "proj.k7", "fx.k7x"))).toBe(false);
+    expect(ws.historyState().canUndo).toBe(false);
   });
 
   it("records nothing when the mutation changed no files", async () => {

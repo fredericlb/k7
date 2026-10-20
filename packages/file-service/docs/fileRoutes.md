@@ -163,6 +163,9 @@ list is a caller saying, out loud, that it wants none.
 chains builder's template. Through `safePath` like every other path a browser sends, so it
 cannot address its way out of the workspace, and absent for every ordinary command.
 
+`journal: "join"` folds what the command wrote into the undo step on top rather than making a
+step of its own: the second half of one gesture the client spells as two commands (`history.md`).
+
 `rev` rides beside the graph and does not depend on it — it is the token AFTER the command,
 which a client uses to stop re-asking the questions this reply has already answered (k7's
 `noteRevision`). Pairing it with the graph would leave a caller that wanted no picture with no

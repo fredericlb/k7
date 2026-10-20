@@ -39,6 +39,7 @@ import {
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
+import type { CommandJournal } from "@studio/project-shell/project";
 import { onToast, showToast } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
@@ -1489,7 +1490,13 @@ export default function App({
     };
   }, [chainsKey, midiArmed]);
   // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
-  const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
+  const runCommandRef = useRef<
+    (
+      line: string,
+      outcome?: { ok: boolean },
+      journal?: CommandJournal,
+    ) => Promise<void>
+  >(async () => {});
   // The takes view's record button: a take INTO the open event rather than onto its lane (song docs/takes.md).
   const takes = useTakeRecording({
     store,
@@ -1847,9 +1854,13 @@ export default function App({
       live = false;
     };
   }, [ws?.activeProject, frozen, warnHeadphones]);
-  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH.
+  // Every command comes through here; `outcome`, when given, is told whether the line WENT THROUGH, and `journal` how it is undone.
   const runCommand = useCallback(
-    async (line: string, outcome?: { ok: boolean }): Promise<void> => {
+    async (
+      line: string,
+      outcome?: { ok: boolean },
+      journal?: CommandJournal,
+    ): Promise<void> => {
       if (!line.trim()) return;
       // A pending MIDI learn waits for a control OR the next command, whichever comes first — see docs/midi.md.
       if (chainsMidiRef.current?.learning) chainsMidiRef.current.cancelLearn();
@@ -1883,7 +1894,10 @@ export default function App({
       try {
         // The graph only when a view of it is on screen: a hidden ChainsTab asks for it when it is shown again.
         const send = () =>
-          api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
+          api.command(s, {
+            want: graphOnScreenRef.current ? ["graph"] : [],
+            journal,
+          });
         const { output, refused, graph, rev, changed } = await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
         const said = output.length
@@ -1906,12 +1920,12 @@ export default function App({
         if (rev) noteRevision(rev);
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         reloadWith(changed);
-        // The picker's second half, as its own journalled command — never after a refusal, which it would bury.
+        // The picker's second half, folded into the first's undo step (docs/chainsGraph.md) — never after a refusal, which it would bury.
         const after =
           !refused && madeRef && wire
             ? wireCommand(madeRef, wire.at, wire.spawn)
             : null;
-        if (after) await runCommandRef.current(after);
+        if (after) await runCommandRef.current(after, undefined, "join");
         // The one reorganizing verb: the graph hosts drop their held positions with the same reload that drops the pins.
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
         if (outcome) outcome.ok = !refused;

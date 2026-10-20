@@ -27,6 +27,9 @@ export interface Recorded<T> {
   files: ChangedFile[] | null;
 }
 
+/** How a mutation lands in the journal: its own step (the default), or folded into the step on top — docs/history.md. */
+export type JournalMode = "step" | "join";
+
 /** The few members of the workspace the journal reads. */
 export interface HistoryHost {
   readonly root: string;
@@ -135,6 +138,7 @@ export class WorkspaceHistory {
   async record<T>(
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
+    mode: JournalMode = "step",
   ): Promise<Recorded<T>> {
     const dir = this.host.activeProject();
     if (!dir) {
@@ -166,8 +170,11 @@ export class WorkspaceHistory {
       const changes = diffText(before.text, after.text);
       const blobs = diffBin(this.host.root, before.bin, after.bin, pre);
       files = changedFiles(this.host.toRel(dir), changes, blobs);
-      if (changes.length || blobs.length)
-        this.history(dir).push({ label, changes, blobs });
+      const h = this.history(dir);
+      if (changes.length || blobs.length) {
+        if (mode === "join") h.join({ label, changes, blobs });
+        else h.push({ label, changes, blobs });
+      }
     } catch {
       /* journaling must never break a good write */
     }

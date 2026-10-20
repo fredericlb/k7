@@ -34,13 +34,15 @@ const cmdBody = z.object({
   line: z.string(),
   at: z.string().optional(),
   want: z.array(z.enum(["graph"])).optional(),
+  // `join` folds this command's writes into the undo step on top: the second half of one gesture (docs/history.md).
+  journal: z.enum(["join"]).optional(),
 });
 /** Run a verb, and hand back the new graph, `rev` and `changed` with it — see docs/fileRoutes.md. */
 commandRouter.post(
   "/command",
   validate(cmdBody),
   wrap(async (req, res) => {
-    const { line, at, want } = req.body as z.infer<typeof cmdBody>;
+    const { line, at, want, journal } = req.body as z.infer<typeof cmdBody>;
     // Absent is the default — build it. An empty list is a caller that means no.
     const wantsGraph = !want || want.includes("graph");
     const target = at ? req.ws!.mediaPath(at) : undefined;
@@ -57,6 +59,7 @@ commandRouter.post(
       ranAt,
     } = await runWebCommand(req.ws!, line, req.userEmail, target, {
       graph: wantsGraph,
+      journal,
     });
     // The project MOVED — "something", where `changed` on the reply below is "these files".
     const moved = rev !== before;
