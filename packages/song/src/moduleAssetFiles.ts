@@ -3,7 +3,6 @@
 // every path is resolved absolute in the DECLARING folder, so modules merge without provenance.
 // See docs/moduleAssets.md.
 
-import { readdirSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import {
   assetExtsFor,
@@ -18,6 +17,7 @@ import {
 } from "./assetPath";
 import { confineTo, libraryReadRoots, projectRoots } from "./confine";
 import { libraryFile, resolveFileParamIn } from "./libraryFiles";
+import { listFilesUnder } from "./listFiles";
 import type { LoadedModule, RawRack } from "./rawDoc";
 
 // Rewrite a rack's audio refs to ABSOLUTE paths in the declaring folder, so racks merge without tracking provenance.
@@ -119,29 +119,15 @@ export function resolveAssets(
 
 // The files a module carries, as `assets/`-relative POSIX paths, walked recursively and kept NESTED (docs/moduleAssets.md).
 export function listModuleAssets(folderAbs: string): string[] {
-  const MAX_DEPTH = 6;
-  const out: string[] = [];
-  const walk = (abs: string, rel: string, depth: number): void => {
-    let entries: import("node:fs").Dirent[];
-    try {
-      entries = readdirSync(abs, { withFileTypes: true });
-    } catch {
-      return; // no assets/ folder, or unreadable — an empty list, not an error
-    }
-    for (const e of entries) {
-      if (e.name.startsWith(".")) continue;
-      const child = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isDirectory()) {
-        if (depth < MAX_DEPTH) walk(join(abs, e.name), child, depth + 1);
-        continue;
-      }
-      if (!e.isFile()) continue;
-      const ext = e.name.slice(e.name.lastIndexOf(".")).toLowerCase();
-      if (ASSET_EXT.includes(ext)) out.push(child);
-    }
-  };
-  walk(join(folderAbs, MODULE_ASSETS_DIR), "", 0);
-  return out.sort();
+  // No assets/ folder, or an unreadable one, is an empty list rather than an error.
+  return listFilesUnder(join(folderAbs, MODULE_ASSETS_DIR), {
+    maxDepth: 6,
+    regularOnly: true,
+  })
+    .filter((p) =>
+      ASSET_EXT.includes(p.slice(p.lastIndexOf(".")).toLowerCase()),
+    )
+    .sort();
 }
 
 // Read an external `modules_from` tree — only the GENERIC module.k7x, since nodes aren't `extends` targets.
