@@ -165,6 +165,7 @@ cannot address its way out of the workspace, and absent for every ordinary comma
 
 `journal: "join"` folds what the command wrote into the undo step on top rather than making a
 step of its own: the second half of one gesture the client spells as two commands (`history.md`).
+`journal: "skip"` keeps the writes out of the journal altogether — a write the app made on its own.
 
 `rev` rides beside the graph and does not depend on it — it is the token AFTER the command,
 which a client uses to stop re-asking the questions this reply has already answered (k7's

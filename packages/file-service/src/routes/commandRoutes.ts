@@ -34,8 +34,8 @@ const cmdBody = z.object({
   line: z.string(),
   at: z.string().optional(),
   want: z.array(z.enum(["graph"])).optional(),
-  // `join` folds this command's writes into the undo step on top: the second half of one gesture (docs/history.md).
-  journal: z.enum(["join"]).optional(),
+  // `join` folds the writes into the undo step on top, `skip` keeps them out of the journal (docs/history.md).
+  journal: z.enum(["join", "skip"]).optional(),
 });
 /** Run a verb, and hand back the new graph, `rev` and `changed` with it — see docs/fileRoutes.md. */
 commandRouter.post(

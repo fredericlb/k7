@@ -71,6 +71,15 @@ A join folds only into the NEWEST step. Past an undo (a redo tail on the stack),
 journal, or when either side carries audio, it is an ordinary push: a step's blobs are kept, and
 handed to an engine, as one set, and folding two of them would break that bookkeeping.
 
+## What the app writes on its own is no step
+
+`journal: "skip"` runs the command, diffs it as ever — the reply's `changed` and tokens come from
+that diff — and keeps nothing. It is for a write nobody asked for: the graph pinning where it laid
+itself out (`graph pin`, `packages/commands/docs/verbs.md`) lands as a project opens, and as a step
+it would be what the first Ctrl+Z undoes. The next real step's `before` image already holds the
+skipped write, so undoing past it never takes it back either; only an undo of a step OLDER than it
+rewrites that file whole, and what it drops then is a pin the drawing writes again.
+
 ## Not in the project: the account's cache
 
 The journal is the session's, not the song's. Kept in the project, it is a ring of up to a thousand

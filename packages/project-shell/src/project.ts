@@ -36,7 +36,7 @@ export interface Completion {
 export type CommandWant = "graph";
 
 /** How a command's writes land in the undo journal when not as a step of their own — see docs/fileApi.md. */
-export type CommandJournal = "join";
+export type CommandJournal = "join" | "skip";
 
 export const projectApi = {
   ...fileRoutes,

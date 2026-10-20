@@ -1307,11 +1307,12 @@ export default function App({
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey, and ask for no graph (`want: []`) — docs/shell.md.
   const quietCommandFiles = useCallback(
-    async (line: string) => {
+    async (line: string, journal?: CommandJournal) => {
       pushLog("cmd", `› ${line}`);
       try {
         const { output, changed, rev, revBefore } = await api.command(line, {
           want: [],
+          journal,
         });
         // Adopted quietly when nothing else moved since — then the tick does not turn a knob into a wave of re-reads.
         if (rev) noteQuietRevision(rev, revBefore);
@@ -1331,7 +1332,8 @@ export default function App({
   );
   // The same, for the many callers that only fire it.
   const quietCommand = useCallback(
-    async (line: string) => void (await quietCommandFiles(line)),
+    async (line: string, journal?: CommandJournal) =>
+      void (await quietCommandFiles(line, journal)),
     [quietCommandFiles],
   );
 

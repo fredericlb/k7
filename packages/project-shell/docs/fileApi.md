@@ -207,8 +207,10 @@ is always a path the caller was GIVEN, by `libraryChains`, and never one it buil
 
 `journal` says how the command's writes are undone when not as a step of their own. `join` folds
 them into the step on top: a gesture the shell has to spell as two commands — a module picked on a
-cable is `node new`, then the `node insert` that splices it — is still one Ctrl+Z. It is a word
-rather than a boolean for the same reason `want` is a list.
+cable is `node new`, then the `node insert` that splices it — is still one Ctrl+Z. `skip` keeps
+them out of the journal: a write the app made on its own, like the graph pinning its layout, is no
+step for Ctrl+Z to take back. It is a word rather than a boolean for the same reason `want` is a
+list.
 
 ## Two things this client deliberately has no route for
 

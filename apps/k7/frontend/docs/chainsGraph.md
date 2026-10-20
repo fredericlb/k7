@@ -182,6 +182,12 @@ answer overriding the ranker's for one card. The mixer row ignores pins entirely
 dragged out of the line would put a console's channel wherever it last was), and the graph
 panel honours them, so a module sits in one place whichever pane is looking.
 
+**The layout's own pins are no undo step.** Where dagre put a card that had no pin, the canvas
+writes down with one `graph pin` (`packages/commands/docs/verbs.md`) — as a project opens, among
+other times — and sends it with `journal: "skip"`. Nobody made that write, so the first Ctrl+Z on a
+freshly opened project must reach the person's own last edit, not take back a layout they never
+touched.
+
 **Zoomed out, the whole card is the handle.** Past the widget threshold a node draws as its
 name alone and has no header to grab (`Node`'s far branch) — so the card itself takes the
 press, and the pin gesture is the same one. It has to be: the zoom you move a card at is the

@@ -27,8 +27,8 @@ export interface Recorded<T> {
   files: ChangedFile[] | null;
 }
 
-/** How a mutation lands in the journal: its own step (the default), or folded into the step on top — docs/history.md. */
-export type JournalMode = "step" | "join";
+/** How a mutation lands in the journal: its own step (the default), folded into the step on top, or not at all — docs/history.md. */
+export type JournalMode = "step" | "join" | "skip";
 
 /** The few members of the workspace the journal reads. */
 export interface HistoryHost {
@@ -171,7 +171,8 @@ export class WorkspaceHistory {
       const blobs = diffBin(this.host.root, before.bin, after.bin, pre);
       files = changedFiles(this.host.toRel(dir), changes, blobs);
       const h = this.history(dir);
-      if (changes.length || blobs.length) {
+      // A `skip` write is still diffed, for `files` and the tokens, and simply not kept.
+      if ((changes.length || blobs.length) && mode !== "skip") {
         if (mode === "join") h.join({ label, changes, blobs });
         else h.push({ label, changes, blobs });
       }

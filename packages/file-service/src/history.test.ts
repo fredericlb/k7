@@ -379,6 +379,23 @@ describe("Workspace.recordChange", () => {
     expect(ws.historyState().canUndo).toBe(false);
   });
 
+  // The graph pinning its own layout as a project opens: nobody made it, so Ctrl+Z must reach past it.
+  it("keeps a skipped write out of the journal, and still names what it wrote", async () => {
+    const { ws } = openProject();
+    writeFileSync(join(dir, "proj.k7", "graph.k7x"), "in -> out\n");
+    await ws.recordChange("edit", () => ws.write("proj.k7/a.k7x", "v1"));
+    const pin = await ws.recordChange(
+      "graph pin",
+      () => ws.write("proj.k7/graph.k7x", "in -> out\npositions: {}\n"),
+      "skip",
+    );
+    expect(pin.files).toEqual([{ path: "graph.k7x", kind: "edited" }]);
+    expect(ws.historyList().map((e) => e.label)).toEqual(["edit"]);
+    await ws.undoHistory();
+    expect(existsSync(join(dir, "proj.k7", "a.k7x"))).toBe(false);
+    expect(read("proj.k7/graph.k7x")).toBe("in -> out\npositions: {}\n");
+  });
+
   it("records nothing when the mutation changed no files", async () => {
     const { ws } = openProject();
     await ws.recordChange("noop", () => {});
