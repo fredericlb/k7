@@ -5,10 +5,11 @@
 import { Button } from "@frediverse/ui/button";
 import { ArrowDown, ArrowUp, Plus, X } from "@frediverse/ui/icons";
 import { moduleDisplayName } from "@studio/ui-chains/graph";
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { useMemo } from "react";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
+import { usePaneGraph } from "../queries/graph";
+import { useReloadKey, useVerbs } from "../state/shellStore";
 import type { WebGraph } from "../types";
 
 /** The tap's subchain as the graph has it: its first node's run, or nothing while the tap is not routed. */
@@ -31,31 +32,24 @@ function tapChainOf(
 export function TapChainEditor({
   node,
   tap,
-  reloadKey,
-  command,
   onAddModule,
   renderCards,
   onClose,
 }: {
   node: string;
   tap: string;
-  reloadKey: number;
-  /** Runs one line through the shell: every edit here is a command. */
-  command: (line: string) => void | Promise<void>;
   /** Opens the module picker at the click; its pick comes back as `node tap chain add`. */
   onAddModule: (x: number, y: number) => void;
   /** The cards of these nodes, editable as on the graph — the shell's, since it holds their stores. */
   renderCards: (nodes: string[]) => React.ReactNode;
   onClose: () => void;
 }) {
+  const reloadKey = useReloadKey();
+  // Every edit here is a command, run through the shell.
+  const { runCommand: command } = useVerbs();
   usePopin(true, onClose);
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  useEffect(() => {
-    void api
-      .graph()
-      .then(setGraph)
-      .catch(() => setGraph(null));
-  }, [reloadKey]);
+  // The shared graph at this reload key, which holds the tap's chain (queries/graph.ts).
+  const { graph } = usePaneGraph(reloadKey);
   const { modules, labels } = useMemo(
     () => tapChainOf(graph, node, tap),
     [graph, node, tap],

@@ -3,12 +3,13 @@
 // the timeline caret. Clicking (or dragging across) scrubs the playhead to that
 // position — the whole song is always mapped to the full width, so it never scrolls.
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { memo, useCallback, useMemo, useRef } from "react";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
+import { usePaneProjectDoc } from "../queries/projectDoc";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
-import type { WebAutomationLane, WebProject } from "../types";
+import { useReloadKey } from "../state/shellStore";
+import type { WebAutomationLane } from "../types";
 import { UNCOLOURED } from "./ClipActivity";
 
 const MAX_H = 80; // the minimap never grows past this
@@ -23,13 +24,11 @@ export interface MinimapItem {
 
 // Memoised: it sits under the shell, which re-renders for reasons that move none of its props.
 export const Minimap = memo(function Minimap({
-  reloadKey,
   automation,
   caret,
   highlight,
   onSeek,
 }: {
-  reloadKey: number;
   // Each lane's automation, by track id — taken for the reason the rows are built the same way: they must line up with the timeline's.
   automation?: Record<string, WebAutomationLane[]>;
   // The timeline caret. `beat < 0` means its row's LABEL is selected, so there is no column to mark.
@@ -38,13 +37,8 @@ export const Minimap = memo(function Minimap({
   highlight?: MinimapItem | null;
   onSeek: (seconds: number) => void;
 }) {
-  const [proj, setProj] = useState<WebProject | null>(null);
-  useEffect(() => {
-    api
-      .projectDoc()
-      .then(setProj)
-      .catch(() => setProj(null));
-  }, [reloadKey]);
+  // The shared document at the shell's reload key — the one the timeline draws, so the two line up (queries/projectDoc.ts).
+  const { doc: proj } = usePaneProjectDoc(useReloadKey());
 
   const barBeats = Math.max(1, proj?.timeSigNumerator || 4);
   // The song's extent (min 4 bars), rounded up to whole bars — mapped to full width.

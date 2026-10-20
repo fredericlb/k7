@@ -49,7 +49,6 @@ import {
 } from "../editorPaths";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { useDocPerRevision } from "../hooks/useDocPerRevision";
-import type { SetStatus } from "../hooks/useLogs";
 import { type LibraryAssemblyRow, libraryOfPath } from "../libraryTree";
 import { moduleBehind } from "../moduleBehind";
 import { m } from "../paraglide/messages.js";
@@ -66,10 +65,11 @@ import {
   readScalarField,
   toProjectRelative,
 } from "../projectPaths";
-import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
+import { movedTheTree, movedTheVocabulary } from "../reloadScope";
 import type { SeqView } from "../sequenceEdit";
 import { type EditFocus, keepIfSame } from "../shellEquality";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
+import { useShell, useVerbs } from "../state/shellStore";
 import type {
   Diagnostic,
   FileContent,
@@ -156,16 +156,12 @@ function EditorTabView({
   active,
   showTree,
   popin,
-  reload,
   activeProject,
   projectName,
   vimMode,
   onOpenProject,
   onImportProject,
-  onChanged,
-  command,
   engineLevel,
-  setStatus,
   onEditTarget,
   onOpenItem,
   onOpenBuilder,
@@ -185,8 +181,6 @@ function EditorTabView({
   showTree: boolean;
   // Popped out over the shell on one file — not the same question as `showTree`: this asks 'is this a glance at one thing'.
   popin: boolean;
-  /** The shell's 'something changed', and what — this pane is the reason the list exists (see reloadScope.ts). */
-  reload: Reload;
   activeProject: string | null;
   // The whole project's load findings; the editor draws the open file's inline. Refreshed by App's 2s vet poll.
   diagnostics: Diagnostic[];
@@ -195,12 +189,8 @@ function EditorTabView({
   vimMode: boolean;
   onOpenProject: (path: string) => void;
   onImportProject: (path: string) => void; // a .dawproject or .als was clicked
-  onChanged: () => void;
-  /** Run a command line through the shell — the SAME path the palette takes, and what refreshes the open file afterwards. */
-  command: (line: string) => void | Promise<void>;
   /** The library level the engine's machine runs (1 from an older supervisor); undefined with no engine. */
   engineLevel?: number;
-  setStatus: SetStatus;
   onEditTarget: (t: EditFocus | null) => void; // the open sequence by path, never its text — see shellEquality.ts
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
   // Open the shared module builder on the MODULE file of the trio, plus which of the three was clicked.
@@ -222,6 +212,11 @@ function EditorTabView({
   onRegroupInputs?: (channel: number, stereo: boolean) => void;
   ref?: React.Ref<EditorHandle>;
 }) {
+  // The whole token, not the counter: this pane holds the two routes that answer about files and about names (reloadScope.ts).
+  const reload = useShell((s) => s.reload);
+  const onChanged = useShell((s) => s.bumpReload);
+  // The SAME path the palette takes, and what refreshes the open file afterwards.
+  const { runCommand: command, setStatus } = useVerbs();
   // Everything that only needs 'something happened' still keys off the counter, derived here rather than passed beside the token.
   const reloadKey = reload.key;
   const [tree, setTree] = useState<FileNode[]>([]);

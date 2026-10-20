@@ -11,10 +11,8 @@ import {
   type PluginParamsStore,
   usePluginParamValue,
 } from "@studio/engine-browser/params";
-import type { WebGraph } from "@studio/graph-model";
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";
 import {
   engineAgrees,
@@ -32,6 +30,7 @@ import {
   unmappedControls,
 } from "../mastering/controls";
 import { m } from "../paraglide/messages.js";
+import { REV_SCOPE, useGraph } from "../queries/graph";
 
 // Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
 export const MasteringTab = memo(MasteringTabView);
@@ -52,19 +51,9 @@ function MasteringTabView({
 }) {
   /** The compiled chains, fetched here on the revision token — `App`'s `seedGraph` is a command's answer, not the project's current graph. */
   const rev = useRevision();
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  useEffect(() => {
-    if (rev === null) return;
-    let alive = true;
-    api
-      .graph()
-      // A project that will not compile still has a strip worth drawing: the bindings say so, and it is the screen you fix it from.
-      .then((g) => alive && setGraph(g))
-      .catch(() => alive && setGraph(null));
-    return () => {
-      alive = false;
-    };
-  }, [rev]);
+  const read = useGraph(REV_SCOPE, rev);
+  // A project that will not compile still has a strip worth drawing: the bindings say so, and it is the screen you fix it from.
+  const graph = read.error ? null : read.graph;
 
   const mapping = surface.surface.mapping;
   const { bindings, problems } = useMemo(

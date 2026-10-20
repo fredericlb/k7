@@ -24,24 +24,22 @@ import {
   type TapAction,
 } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, thawAutoFreeze } from "../api";
+import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
-import { type HistoryMark, nodePredicate } from "../historyMarks";
-import { useDocument } from "../hooks/useDocument";
+import { nodePredicate } from "../historyMarks";
 import { useLatest } from "../hooks/useLatest";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { m } from "../paraglide/messages.js";
+import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebProject } from "../types";
 
 export function GraphPanel({
-  mark,
   onPreviewNote,
-  reloadKey,
   cameras,
   inputDevices,
   midiDevices,
@@ -53,9 +51,7 @@ export function GraphPanel({
   noteLanes,
   viewport,
   project,
-  command,
   onBypassModule,
-  onModuleField,
   onRecorder,
   onProjectField,
   onAlternative,
@@ -63,7 +59,6 @@ export function GraphPanel({
   onTapEdit,
   onWatchWaveform,
   engineWarnings,
-  onContextMenu,
   pluginParamsStore,
   setPluginParam,
   moduleParams,
@@ -71,11 +66,8 @@ export function GraphPanel({
   onTrackToggle,
   onTrackSet,
 }: {
-  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
-  reloadKey: number;
   /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
   cameras?: readonly string[];
   /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
@@ -97,11 +89,8 @@ export function GraphPanel({
   viewport?: readonly [number, number];
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
-  command: (line: string) => void | Promise<void>;
   // Asks only: the shell's bypass reloads nothing here, so `pendingBypass` is what moves the card.
   onBypassModule?: (module: string) => void;
-  /** …and so must an intrinsic, which has no optimistic value at all — see DomChains' prop. */
-  onModuleField?: (line: string) => void | Promise<void>;
   /** A RECORDER's button, straight through — see DomChains' prop. */
   /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
   onProjectField?: (field: string, value: string) => void;
@@ -123,8 +112,6 @@ export function GraphPanel({
   ) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
-  // Right-click a node → the shell opens its context menu.
-  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** The live values, and the way back: without them a widget draws the FILE's number and a drag sends nothing (../../docs/chainsGraph.md). */
   pluginParamsStore: PluginParamsStore;
   setPluginParam: (id: string, name: string, value: number) => void;
@@ -141,11 +128,20 @@ export function GraphPanel({
     value: number,
   ) => void;
 }) {
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
+  const reloadKey = useReloadKey();
+  // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
+  const {
+    quietCommand: command,
+    runCommand: onModuleField,
+    openContextMenu: onContextMenu,
+  } = useVerbs();
   // Parked HERE, because App mounts this panel conditionally: a camera held inside it would be a fresh frame on every reopen.
   const camStore = useRef<Cam | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
-  const { doc: graph, error } = useDocument(() => api.graph(), reloadKey);
+  // The shared graph at this reload key, re-asked on a backoff while the service is not answering (queries/graph.ts).
+  const { graph, error } = usePaneGraph(reloadKey);
 
   // The session memory ChainsTab keeps, per TRACK — another track is another picture — and emptied by `graph organize`.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);

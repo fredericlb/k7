@@ -49,6 +49,7 @@ import { parts } from "../i18nParts";
 import { type ConditionCtx, effectiveKeys } from "../keys";
 import { BARE_TRANSPORT, isUiLine } from "../localCommands";
 import { m } from "../paraglide/messages.js";
+import { DEVICE_SCOPE } from "../queries/client";
 import { MiniTransport } from "../shellMeta";
 import { deviceSurfaceDrawer } from "../surfacePanes";
 import type { CommandInfo } from "../types";
@@ -217,7 +218,7 @@ export function ExternalSurface({
   const { doc: videoDoc, error: videoError } = useVideoDoc(commands.reloadKey);
   // …and the tempo the transport clock counts in: the only two fields of the compiled document this level needs.
   const noMidiSeqs = useCallback(() => {}, []);
-  const { recInfo } = useProjectDoc(commands.reloadKey, {
+  const { recInfo } = useProjectDoc(DEVICE_SCOPE, commands.reloadKey, {
     onMidiSeqs: noMidiSeqs,
   });
 
