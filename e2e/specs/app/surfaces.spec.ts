@@ -30,7 +30,10 @@ const ARCHETYPES: Record<
   arrangement: {
     transport: true,
     draws: async (p) => {
-      await expect(lane(p, "melody")).toBeVisible();
+      // Any lane, not one by name: the scaffold names its lane nodes, and that name is not this spec's to fix.
+      await expect(
+        p.getByRole("button", { name: /^mute / }).first(),
+      ).toBeVisible();
       await expect(await navControl(p, "Timeline")).toBeVisible();
     },
   },
