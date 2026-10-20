@@ -23,6 +23,16 @@ describe("startupStep", () => {
     expect(startupStep({ ...base, load: "copying" })?.pct).toBeNull();
   });
 
+  it("measures the plugin scan once it has a total, and says it is listing before", () => {
+    const scan = { done: 30, total: 120, current: "" };
+    expect(startupStep({ ...base, load: "scanning", scan })?.pct).toBe(25);
+    expect(startupStep({ ...base, load: "scanning" })?.pct).toBeNull();
+    expect(
+      startupStep({ ...base, load: "scanning", scan: { ...scan, total: 0 } })
+        ?.pct,
+    ).toBeNull();
+  });
+
   it("names applying and warming, then the dial, then nothing", () => {
     expect(startupStep({ ...base, load: "applying" })).not.toBeNull();
     expect(startupStep({ ...base, load: "warming" })).not.toBeNull();
@@ -33,7 +43,7 @@ describe("startupStep", () => {
 
 describe("projectLoading", () => {
   it("holds Play while the project is copied, applied or warmed, however connected the engine is", () => {
-    for (const load of ["copying", "applying", "warming"] as const)
+    for (const load of ["scanning", "copying", "applying", "warming"] as const)
       expect(projectLoading(load, false)).toBe(true);
   });
 

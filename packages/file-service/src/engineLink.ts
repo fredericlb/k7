@@ -29,6 +29,7 @@ import type {
   ChangedFile,
   CommandInfo,
   EngineLoadPhase,
+  EngineScanState,
   EngineSyncState,
 } from "@studio/web-protocol";
 import { climbsOut } from "@studio/web-protocol/paths";
@@ -44,6 +45,7 @@ import {
   warmUp,
 } from "./engineLoad.ts";
 import { awaitSessions, reconcileEngine } from "./engineReconcile.ts";
+import { engineScanOf, forgetScanWait, scanHolds } from "./engineScanGate.ts";
 import {
   dropLink,
   ensureEngine,
@@ -171,6 +173,23 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     const url = selectedEngine();
     if (url && sentTo.get(session) !== url && loadPhase(session) === null)
       beginLoad(session);
+    // A LOAD naming an external plugin waits for the engine's scan, then goes compiled anew (engineScanGate.ts).
+    const project = served.get(session)?.project;
+    if (
+      project &&
+      (loadPhase(session) === "copying" || loadPhase(session) === "scanning") &&
+      scanHolds(
+        session,
+        project,
+        () => ws.revision().rev,
+        c,
+        () => {
+          ws.invalidateProjectDoc();
+          resendServed(ws);
+        },
+      )
+    )
+      return;
     if (url) sentTo.set(session, url);
     // An armed take hears the lane around its punch, never under it (takeArm.ts).
     c.sendProject(withTakeHole(session, d));
@@ -220,6 +239,13 @@ export function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
     },
     log: (msg) => console.warn(`   ⚠ ${basename(ws.root)}: ${msg}`),
   };
+}
+
+/** The engine's plugin scan `ws`' load waits for, or the one it went on without, for the /workspace poll. */
+export function engineScanStateOf(
+  ws: Workspace | null,
+): EngineScanState | null {
+  return engineScanOf(sessionOf(ws));
 }
 
 /** The copy holding `ws`' document back, or the last one that failed, for the /workspace poll. */
@@ -469,6 +495,7 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   // Read BEFORE `served.delete` below: it is the only record of which folder was being served.
   const leftProject = served.get(leaving)?.project ?? null;
   // Nothing will be served, so nothing is on its way; a dry run's stop goes out ahead of the flush.
+  forgetScanWait(leaving);
   endLoad(leaving);
   const e = ensureEngine(ws);
   if (e) {

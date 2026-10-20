@@ -232,6 +232,7 @@ import type {
   ChangedFile,
   CommandInfo,
   EngineLoadPhase,
+  EngineScanState,
   EngineSyncState,
   ProjectInfo,
   RankedEngine,
@@ -464,6 +465,8 @@ export default function App({
   const [engineLoad, setEngineLoad] = useState<
     EngineLoadPhase | null | undefined
   >(undefined);
+  // The engine's plugin scan this load waits for, or the one it went on without (packages/file-service/docs/engineLoad.md).
+  const [engineScan, setEngineScan] = useState<EngineScanState | null>(null);
 
   // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
   const tabName = snapshot?.manifest.name || project?.name;
@@ -1626,6 +1629,11 @@ export default function App({
     },
     onSync: setEngineSync,
     onLoad: setEngineLoad,
+    onScan: (s) => {
+      // Said once, where errors are: a scan given up on leaves its unscanned plugins drawn missing.
+      if (s?.stalled) setStatus(m["pluginScan.stalled"](), "error");
+      setEngineScan(s);
+    },
     onSwitch: (w) => {
       askWs()(w);
       // Another project's plugin values would show under a same-named module until a watch frame lands.
@@ -3885,6 +3893,7 @@ export default function App({
                 hasEngine={!!engine}
                 load={engineLoad}
                 sync={engineSync}
+                scan={engineScan}
                 connecting={waitingForEngine}
               />
             )}

@@ -7,6 +7,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   engineLoadOf,
+  engineScanStateOf,
   engineSyncOf,
   prewarmEngineForActive,
   retryEngineSync,
@@ -30,6 +31,7 @@ workspaceRouter.get(
       lastTake: takeJustRecorded(req.ws!),
       engineSync: engineSyncOf(req.ws!),
       engineLoad: engineLoadOf(req.ws!),
+      engineScan: engineScanStateOf(req.ws!),
     });
   }),
 );

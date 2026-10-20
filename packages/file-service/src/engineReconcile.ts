@@ -58,6 +58,8 @@ export async function reconcileEngine(
   if (s.reconciling || now - s.lastReconcile < RECONCILE_EVERY_MS) return;
   // A document held back by a copy, running or failed, is not on the engine, and that is no fault of the engine's.
   if (isHeldBack(sessionOf(ws))) return;
+  // …and one held for the engine's plugin scan has not been sent at all (engineScanGate.ts).
+  if (loadPhase(sessionOf(ws)) === "scanning") return;
   const serving = s.project;
   s.lastReconcile = now;
   s.reconciling = true;

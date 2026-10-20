@@ -8,6 +8,7 @@ import { keepIfEqual, keepIfSame } from "../shellEquality";
 import type {
   Diagnostic,
   EngineLoadPhase,
+  EngineScanState,
   EngineSyncState,
   FormatTooNew,
   WaveformStatus,
@@ -117,6 +118,8 @@ export function useActiveProjectFollow(opts: {
   onSync?: (s: EngineSyncState | null) => void;
   /** Where the project stands on its way to playable, null once it is — what Play waits for (docs/shell.md). */
   onLoad?: (l: EngineLoadPhase | null) => void;
+  /** The engine's plugin scan the load waits for, or the one it went on without — handed on when it changes. */
+  onScan?: (s: EngineScanState | null) => void;
   /** A take just stopped and has not landed yet: poll at TAKE_POLL_MS rather than every 2 s. */
   awaitingTake?: boolean;
   /** The project is still on its way to the engine: poll fast, so Play frees as soon as it can play. */
@@ -131,6 +134,7 @@ export function useActiveProjectFollow(opts: {
   const inFlight = useRef(false);
   // The sync state last handed on, as text: the same state every tick must not re-render the shell every tick.
   const lastSync = useRef<string | undefined>(undefined);
+  const lastScan = useRef<string | undefined>(undefined);
   useEffect(() => {
     const tick = async () => {
       if (inFlight.current) return;
@@ -149,6 +153,11 @@ export function useActiveProjectFollow(opts: {
         if (sync !== lastSync.current) {
           lastSync.current = sync;
           optsRef.current.onSync?.(w.engineSync ?? null);
+        }
+        const scan = JSON.stringify(w.engineScan ?? null);
+        if (scan !== lastScan.current) {
+          lastScan.current = scan;
+          optsRef.current.onScan?.(w.engineScan ?? null);
         }
         // Every answer, not each change: another request's older answer may have overwritten the state since.
         optsRef.current.onLoad?.(w.engineLoad ?? null);

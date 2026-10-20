@@ -32,6 +32,7 @@ import {
   homeArgValues,
   runHomeCommand,
 } from "./homeCommands";
+import { PluginScanBar } from "./PluginScanBar";
 import { ProjectsPane } from "./ProjectsPane";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -262,6 +263,8 @@ export function Home() {
 
       {/* The bar, full width at the bottom on the editor's own terms, with what it said held above it in amber (../../docs/commandBar.md). */}
       <div className="shrink-0 border-t border-border bg-popover">
+        {/* The account's engine scanning its plugins, above the bar and gone when it is done (PluginScanBar.tsx). */}
+        <PluginScanBar />
         {said && (
           <p
             className={`truncate px-3 pt-1.5 text-xs ${

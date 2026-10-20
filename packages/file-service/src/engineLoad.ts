@@ -47,6 +47,20 @@ export function loadPhase(session: string): EngineLoadPhase | null {
   return loads.get(session)?.phase ?? null;
 }
 
+/** Hold a load that has not reached the engine yet while the engine scans its plugins — engineScanGate.ts. */
+export function holdForScan(session: string): void {
+  const load = loads.get(session);
+  if (load?.phase === "copying") load.phase = "scanning";
+}
+
+/** The scan ended or was given up on: the held load goes on, true when there was one to release. */
+export function releaseScanHold(session: string): boolean {
+  const load = loads.get(session);
+  if (load?.phase !== "scanning") return false;
+  load.phase = "copying";
+  return true;
+}
+
 /** Stop waiting — a failed copy, no engine at all: the project screen says what is wrong. */
 export function endLoad(session: string): void {
   replaceLoad(session, null);
