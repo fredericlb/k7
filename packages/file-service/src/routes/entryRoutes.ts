@@ -32,9 +32,9 @@ entryRouter.post(
   validate(openBody),
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
-    // The libraries given their folders, and writable in place for an admin — docs/libraries.md.
+    // The libraries given their folders; who edits them follows the hub's stamp, in server.ts — docs/libraries.md.
     const admin = req.get(ADMIN_HEADER) === "1";
-    await refreshLibraries(admin);
+    await refreshLibraries();
     // A workspace from before versions pins what it already hears, once.
     ensureLibraryPins(req.ws!.root, { fresh: false, admin });
     try {

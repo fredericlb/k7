@@ -70,13 +70,32 @@ function onDisk(): string[] {
   }
 }
 
-/** What an OPEN does: the folders made sure of, and for an admin every library's DRAFT writable, read-only otherwise. */
-export async function refreshLibraries(admin = false): Promise<void> {
-  await askHubSync({ draft: admin }).catch((e: Error) =>
+/** Whether the hub's latest stamp makes this account an admin: what the overlays are kept set for. */
+let admin = false;
+/** The refreshes, one after the other, so an older one never lands over a newer flag. */
+let queue: Promise<void> = Promise.resolve();
+
+/** The folders made sure of, and for an admin every library's DRAFT writable, read-only otherwise. */
+export function refreshLibraries(): Promise<void> {
+  const run = queue.then(applyOverlays);
+  queue = run.catch(() => {});
+  return run;
+}
+
+/** Follow the admin flag the hub stamped on a request: the overlays are set again only when it changes — docs/libraries.md. */
+export function followAdmin(stamped: boolean): Promise<void> {
+  if (stamped === admin) return queue;
+  admin = stamped;
+  return refreshLibraries();
+}
+
+async function applyOverlays(): Promise<void> {
+  const editing = admin;
+  await askHubSync({ draft: editing }).catch((e: Error) =>
     console.warn(`[libraries] ${e.message}`),
   );
   setLibraryOverlays(
-    admin ? onDisk().map((name) => ({ name, root: draftRoot(name) })) : [],
+    editing ? onDisk().map((name) => ({ name, root: draftRoot(name) })) : [],
   );
 }
 

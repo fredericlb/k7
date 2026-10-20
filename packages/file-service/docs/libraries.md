@@ -8,7 +8,7 @@ it is in `packages/song/docs/sharedFolders.md`.
 
 ## Asking the hub: `askHubSync`
 
-`POST /open` (`refreshLibraries`) calls `POST $STUDIO_HUB_URL/libraries/sync` with this service's
+`POST /open` (`refreshLibraries`), and the first request after the admin stamp changes (`followAdmin`), call `POST $STUDIO_HUB_URL/libraries/sync` with this service's
 hub secret, which gives every listed library its folder before the song is read. With no
 `$STUDIO_HUB_URL` — which only tests run — the libraries are whatever the folder holds.
 
@@ -26,9 +26,16 @@ in a library is refused (`Workspace.assertLibraryWritable` in `../src/workspace.
 `writeNodePreset` in `packages/song-edit/src/presets.ts` for `node preset save … <library>`; the
 `/command` route for a verb whose `at` is in a library) — unless `isLibraryEditable(name)`.
 
-`refreshLibraries(admin)` decides that at each open, from the hub's admin header: for an admin every
-library on disk is OVERLAID onto its `draft/` (`setLibraryOverlays`), which the hub makes on that
-ask; for anyone else nothing is. A published version is refused to everybody
+The hub's admin header decides that, on EVERY request rather than at an open: `followAdmin` in
+`../src/libraries.ts`, run by `../src/server.ts` ahead of every route, sets the overlays again
+whenever the stamped flag differs from the one they were set for. A first write that comes before
+any open — a script, the Libraries tab of a page whose project is still loading — must not be
+refused to an admin, and an account whose groups changed must not need its process restarted. For
+an admin every library on disk is OVERLAID onto its `draft/` (`setLibraryOverlays`), which the hub
+makes on that ask; for anyone else nothing is. Admin-ness is the ACCOUNT's, since the process is:
+the latest stamp wins, so a ticket minted before a group change still decides for its own requests
+until it expires, as the hub's own page says. `refreshLibraries()` — an open's, the bench's — brings
+the folders up to date and keeps whatever flag is current. A published version is refused to everybody
 (`isLibraryRootEditable`), with a message saying to edit the draft. The refusal says that only the
 origin's admins edit a library. That covers every gesture of the file tree, the builder's Save and
 a chain edited from the Libraries tab alike, from any project.
