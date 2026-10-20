@@ -39,7 +39,11 @@ describe("projectLoading", () => {
 
   it("frees Play once the project is playable, and never waits on a snapshot", () => {
     expect(projectLoading(null, false)).toBe(false);
-    expect(projectLoading(undefined, false)).toBe(false);
     expect(projectLoading("copying", true)).toBe(false);
+  });
+
+  it("holds Play until the file service has said where the project stands", () => {
+    expect(projectLoading(undefined, false)).toBe(true);
+    expect(projectLoading(undefined, true)).toBe(false);
   });
 });

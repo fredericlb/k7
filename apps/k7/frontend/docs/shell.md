@@ -31,6 +31,8 @@ song they can already read and edit does.
 files may still be on their way, and the edit it builds when they land drops a transport already
 rolling. So Play stays "loading the project" until the file service's `engineLoad` is null, read on
 every `/workspace` poll (faster while it is not), rather than freeing on the engine's first frame.
+Before the first answer the phase is unknown, and unknown holds Play too: started at null, a Play
+pressed in that window reached the engine ahead of the project, and the build dropped it.
 
 **ProjectGate picks nothing.** The home page links here with an address —
 `/@local/<workspace>/<project>`, k7 answering the origin root — and arriving without a project in
