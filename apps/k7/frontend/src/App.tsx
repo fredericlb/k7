@@ -109,11 +109,7 @@ import { ReferenceBar } from "./components/ReferenceBar";
 import { ReferencesPanel } from "./components/ReferencesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
-import {
-  SETTINGS_TABS,
-  SettingsPanel,
-  type SettingsTab,
-} from "./components/SettingsPanel";
+import { SETTINGS_TABS, SettingsPanel } from "./components/SettingsPanel";
 import type { OpenShare } from "./components/SharedGate";
 import { SharePanel } from "./components/SharePanel";
 import { projectLoading, StartupBar } from "./components/StartupBar";
@@ -134,7 +130,6 @@ import { desktop } from "./desktop";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { firstTimeFor, givesChannel, hasAudibleInput } from "./headphonesHint";
-import type { HistoryMark } from "./historyMarks";
 import { useCameras } from "./hooks/useCameras";
 import { useCommandKeys } from "./hooks/useCommandKeys";
 import { useEngineCompat } from "./hooks/useEngineCompat";
@@ -237,7 +232,7 @@ import type {
   WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
-import type { GraphSlot, LocalCtx, RightPanelId } from "./ui/commands/context";
+import type { GraphSlot, LocalCtx } from "./ui/commands/context";
 import { runLocal } from "./ui/commands/dispatch";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
@@ -331,7 +326,17 @@ export default function App({
   // What the panes read for themselves — the reload signal, the verbs, the overlays (state/shellStore.ts, docs/state.md).
   const shellVerbs = useRef<ShellVerbs | null>(null);
   const [shell] = useState(() =>
-    createShellStore({ frozen, impl: shellVerbs }),
+    createShellStore({
+      frozen,
+      impl: shellVerbs,
+      settingsTab: SETTINGS_TABS[0],
+      // The documentation overlay (/docs), read RAW before the router mounts — hence slicing BASE_URL off by hand here.
+      showHelp: ["docs", "help"].includes(
+        window.location.pathname
+          .slice(import.meta.env.BASE_URL.length - 1)
+          .replace(/^\/+|\/+$/g, ""),
+      ),
+    }),
   );
   useLayoutEffect(() => {
     if (shell.getState().frozen !== frozen) shell.setState({ frozen });
@@ -347,6 +352,23 @@ export default function App({
   } = shell.getState();
   const commandsPage = useStore(shell, (s) => s.commandsPage);
   const undoConfirm = useStore(shell, (s) => s.undoConfirm);
+  // The view toggles a command flips; App draws the right column and the rack builder from them (state/toggleSlice.ts).
+  const {
+    setShowHelp,
+    setRightPanel,
+    toggleRight,
+    setSettingsTab,
+    setHistoryMark,
+    setRackBuilder,
+    setTrackCurves,
+    setStackView,
+    setShowDocs,
+  } = shell.getState();
+  const showHelp = useStore(shell, (s) => s.showHelp);
+  const rightPanel = useStore(shell, (s) => s.rightPanel);
+  const settingsTab = useStore(shell, (s) => s.settingsTab);
+  const rackBuilder = useStore(shell, (s) => s.rackBuilder);
+  const trackCurves = useStore(shell, (s) => s.trackCurves);
   // The PAGE asked for; null is the project's home page, resolved into `full` once the layout is known (docs/shell.md).
   const [chosen, setFull] = useState<Pane | null>(null);
   // A phone draws the pages from its hamburger rather than from the header's row. See docs/shell.md.
@@ -378,14 +400,6 @@ export default function App({
     module: string;
     pluginId: string;
   } | null>(null);
-  // The documentation overlay (/docs), read RAW before the router mounts — hence slicing BASE_URL off by hand here.
-  const [showHelp, setShowHelp] = useState(() =>
-    ["docs", "help"].includes(
-      window.location.pathname
-        .slice(import.meta.env.BASE_URL.length - 1)
-        .replace(/^\/+|\/+$/g, ""),
-    ),
-  );
   // Null until the divider is dragged: the panel opens on half the main column.
   const [panelH, setPanelH] = useState<number | null>(null);
   const panelEl = useRef<HTMLDivElement>(null);
@@ -565,25 +579,16 @@ export default function App({
     (next: typeof tlView) => setTlView(keepIfEqual(next)),
     [],
   );
-  /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
-  const [rightPanel, setRightPanel] = useState<RightPanelId | null>(null);
-  /** What the History panel's hovered row touched — lit on the graph and the timeline (historyMarks.ts). */
-  const [historyMark, setHistoryMark] = useState<HistoryMark | null>(null);
   /** The reference track the bar has loaded, or null for no bar — it outlives every tab, being nothing this project owns (docs/references.md). */
   const [reference, setReference] = useState<ReferenceTrack | null>(null);
   // Whether that track is sounding, and the bar's play/pause — for the panel row that stands for it.
   const [referenceSounding, setReferenceSounding] = useState(false);
   const referenceToggle = useRef<(() => void) | null>(null);
-  /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
-  /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
-  const toggleRight = useCallback(
-    (which: RightPanelId) =>
-      setRightPanel((cur) => (cur === which ? null : which)),
-    [],
-  );
   // A conflict banner over the editor opens the conflicts panel (components/ConflictsPanel.tsx).
-  useEffect(() => onOpenConflictsPanel(() => setRightPanel("conflicts")), []);
+  useEffect(
+    () => onOpenConflictsPanel(() => setRightPanel("conflicts")),
+    [setRightPanel],
+  );
   // Vim mode is a global user preference (~/.k7/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
   useEffect(() => {
@@ -624,20 +629,12 @@ export default function App({
   // A popin in the registry's sense too, so Esc closes it; its own vim keeps Escape while you are typing in it.
   usePopin(editorPopin, () => setEditorPopin(false));
   // The rack builder popin — a 4×4 pad grid ending in modules/instruments/<name>; Esc and the backdrop close it.
-  const [rackBuilder, setRackBuilder] = useState(false);
   usePopin(rackBuilder, () => setRackBuilder(false));
   // Whether ANY overlay is up, this shell's or a component's own. Drives the `popin` condition.
   const anyPopin = useAnyPopin();
   /** What the chains slot shows INSTEAD of the graph, or null — three occupants, one state (docs/shell.md). */
-  // Whether the per-track view draws its curve cards — a view toggle, writing nothing (`ui curves`).
-  const [trackCurves, setTrackCurves] = useState(false);
   const [graphSlot, setGraphSlot] = useState<GraphSlot | null>(null);
-  // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
-  const [stackView, setStackView] = useState(false);
 
-  /** Whether the graph draws the project's NOTES — off by default and not remembered; `docCount` is reported up by the pane holding the graph. */
-  const [showDocs, setShowDocs] = useState(false);
-  const [docCount, setDocCount] = useState(0);
   /** What the graph knows about each lane's node — its other attribute sets and its freeze, travelling up like `docCount`. */
   const [laneNodes, setLaneNodes] = useState<{
     alternatives: WebGraph["trackAlternatives"];
@@ -703,8 +700,7 @@ export default function App({
   const [midiLearning, setMidiLearning] = useState(false);
   const editorRef = useRef<EditorHandle>(null);
 
-  // Undo/redo: a process step (restoring a bounced file) is gated behind a confirm dialog — the overlay slice's.
-  // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
+  // The process-step undo's confirm, registered like the other dialogs: refusing IS an answer, so the closer resolves it.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
     undoConfirm.resolve(false);
@@ -960,7 +956,7 @@ export default function App({
       setPanel(next.panel);
       setShowHelp(next.help);
       setOpenBuilder(next.builder);
-    }, []),
+    }, [setShowHelp]),
     {
       timeline: hasTimeline,
       turntables: hasTurntables,
@@ -968,8 +964,8 @@ export default function App({
       frozen,
     },
   );
-  const openHelp = useCallback(() => setShowHelp(true), []);
-  const closeHelp = useCallback(() => setShowHelp(false), []);
+  const openHelp = useCallback(() => setShowHelp(true), [setShowHelp]);
+  const closeHelp = useCallback(() => setShowHelp(false), [setShowHelp]);
 
   // Any change of layout puts the popin away: it is a detour to one file, not a place to be.
 
@@ -1656,18 +1652,19 @@ export default function App({
 
   /** …and the stack view, which takes the graph's whole pane. */
   const toggleStack = useCallback(() => {
-    if (stackView) return setStackView(false);
+    if (shell.getState().stackView) return setStackView(false);
     // Onto the graph's page, closing the bottom panel as any page change does.
     if (full !== "chains") setPanel(null);
     setFull("chains");
     setStackView(true);
     setStatus(m["status.stackView"]());
-  }, [stackView, full]);
+  }, [shell, setStackView, full]);
 
   const toggleDocs = useCallback(() => {
-    if (docCount === 0) return setStatus(m["status.noNotes"]());
+    if (shell.getState().docCount === 0)
+      return setStatus(m["status.noNotes"]());
     setShowDocs((on) => !on);
-  }, [docCount]);
+  }, [shell, setShowDocs]);
 
   /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
   const armMidiLearn = useCallback(
@@ -2106,15 +2103,18 @@ export default function App({
   // …and the language, for the third time: the entries' descriptions are resolved when the menu opens.
   const cmdLocale = useRef(locale);
   cmdLocale.current = locale;
-  const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
-    const items = contextMenu(
-      withAmbient(ctx),
-      cmdCatalogue.current,
-      cmdPrefs.current,
-      cmdLocale.current,
-    );
-    if (items.length) setMenu({ items, x, y });
-  }, [setMenu]);
+  const openContextMenu = useCallback(
+    (ctx: MenuCtx, x: number, y: number) => {
+      const items = contextMenu(
+        withAmbient(ctx),
+        cmdCatalogue.current,
+        cmdPrefs.current,
+        cmdLocale.current,
+      );
+      if (items.length) setMenu({ items, x, y });
+    },
+    [setMenu],
+  );
   // What the store's verbs call, read at call time so a pane's first effect already reaches these.
   shellVerbs.current = {
     setStatus,
@@ -2196,7 +2196,6 @@ export default function App({
   // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
   const cardProps = useMemo(
     () => ({
-      mark: historyMark,
       onPreviewNote: previewNote,
       cameras,
       inputDevices,
@@ -2217,7 +2216,6 @@ export default function App({
       trackControls,
     }),
     [
-      historyMark,
       previewNote,
       cameras,
       inputDevices,
@@ -3138,7 +3136,6 @@ export default function App({
                             onError={paneError}
                           >
                             <TimelineTab
-                              mark={historyMark}
                               ref={timelineRef}
                               // What one-shot commands are doing, on the lanes before the round trip (pendingEdits.ts).
                               pendingEdits={pendingEdits}
@@ -3287,12 +3284,9 @@ export default function App({
                             pendingInsert={insertingAt}
                             seedGraph={seedGraph}
                             // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
-                            showDocs={showDocs}
-                            onDocCount={setDocCount}
                             onLaneNodes={setLaneNodes}
                             focus={graphFocus}
                             onFocused={reportFramed}
-                            stack={stackView}
                             // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                             masterVolume={projectDoc?.masterVolume}
                             midiRef={chainsMidiRef}
@@ -3615,9 +3609,6 @@ export default function App({
               setOptMetronome={setOptMetronome}
               metronomeOn={metronomeOn}
               metronomeLevel={metronomeLevel}
-              runCommand={runCommand}
-              showDocs={showDocs}
-              docCount={docCount}
               panel={panel}
               mixerStrips={mixerStrips}
               headerTools={headerTools}
@@ -3753,8 +3744,6 @@ export default function App({
               baseModules={baseModules}
               onModulePick={onModulePick}
               projectDoc={projectDoc}
-              showHelp={showHelp}
-              closeHelp={closeHelp}
               engineSync={engineSync}
               imp={imp}
               allCommands={allCommands}

@@ -72,7 +72,6 @@ import {
 import { clipLoop, placedRepeats } from "../clipLoop";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
-import type { HistoryMark } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
 import { useVideoDrag } from "../hooks/useVideoDrag";
@@ -328,7 +327,6 @@ function TimelineTabView({
   trackControls,
   onTrackToggle,
   laneNodes,
-  mark,
   onNodeMenu,
   videoArmed,
   videoRecording,
@@ -415,8 +413,6 @@ function TimelineTabView({
     id: string,
     control: "mute" | "solo" | "arm" | "highlight",
   ) => void;
-  /** What a hovered History row touched — its lanes tinted, its clips ringed (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** What the graph knows about each lane's NODE, by lane id — the same maps the chains pane draws from (packages/song/docs/alternatives.md). */
   laneNodes?: {
     alternatives?: Record<
@@ -443,6 +439,8 @@ function TimelineTabView({
   ) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
   // The ONE live value the body itself needs; the rest is drawn by Playhead and LaneMeter, which subscribe for themselves (docs/timeline.md).
   const armedIds = useEngineState((s) => s.armed, arrayEq);
   const reloadKey = useReloadKey();

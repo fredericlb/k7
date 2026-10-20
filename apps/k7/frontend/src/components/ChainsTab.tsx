@@ -32,7 +32,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { withoutNotes } from "../graphNotes";
-import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { nodePredicate } from "../historyMarks";
 import { useChainsMidi } from "../hooks/useChainsMidi";
 import { useDocument } from "../hooks/useDocument";
 import type { MidiControlApi } from "../hooks/useMidiControl";
@@ -53,7 +53,6 @@ const GRAPH_FIT: GridFit = { axis: "cols", max: 4 };
 export const ChainsTab = memo(ChainsTabView);
 
 function ChainsTabView({
-  mark,
   onPreviewNote,
   organizeKey = 0,
   active,
@@ -77,8 +76,6 @@ function ChainsTabView({
   onWatchWaveform,
   pendingInsert,
   seedGraph,
-  showDocs,
-  onDocCount,
   onLaneNodes,
   onEdgeInsert,
   onCanvasInsert,
@@ -92,7 +89,6 @@ function ChainsTabView({
   onTrackSet,
   focus,
   onFocused,
-  stack,
   inputDevices,
   cameras,
   midiDevices,
@@ -100,8 +96,6 @@ function ChainsTabView({
   viewport,
   midiRef,
 }: {
-  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
   // Bumped when `graph organize` ran: the one signal that empties the held node positions and lets dagre re-lay out everything.
@@ -159,10 +153,6 @@ function ChainsTabView({
   pendingInsert?: PendingNode | null;
   /** The graph a writing command already came back with, its id, and the `reloadKey` it is the answer FOR — taken once, and only at that key. */
   seedGraph?: { id: number; graph: WebGraph; at: number } | null;
-  /** Whether to DRAW the project's notes: off by default, and filtered here rather than in the renderer, being a question about this graph. */
-  showDocs?: boolean;
-  /** How many notes the project has, reported up — the shell's button is in the footer. */
-  onDocCount?: (n: number) => void;
   /** Each lane node's alternatives and freeze, reported up — the timeline's gutter draws them. */
   onLaneNodes?: (f: {
     alternatives: WebGraph["trackAlternatives"];
@@ -208,8 +198,6 @@ function ChainsTabView({
   focus?: { id: string; nonce: number } | null;
   /** How many chains that framing found — so the shell's status line can say when it was none. */
   onFocused?: (chains: number) => void;
-  /** The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts. */
-  stack?: boolean;
   // How the machine's interface groups its inputs, for a live input's socket dropdown — empty with no engine, which is the honest picture.
   inputDevices?: readonly { name: string; channels: number[] }[];
   /** The lenses this BROWSER can see, by label — see packages/song/docs/camera.md. */
@@ -224,6 +212,14 @@ function ChainsTabView({
   /** Where the shell reaches MIDI learn from — the runtime lives HERE, this being the one component that always holds the graph. */
   midiRef?: React.RefObject<MidiControlApi | null>;
 }) {
+  // Whether to DRAW the project's notes, filtered here rather than in the renderer, being a question about this graph.
+  const showDocs = useShell((s) => s.showDocs);
+  // How many notes there are, reported to the store — the toggle's button is in the footer.
+  const onDocCount = useShell((s) => s.setDocCount);
+  // The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts.
+  const stack = useShell((s) => s.stackView);
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
   const reloadKey = useReloadKey();
   // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
   const {

@@ -18,7 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { nodePredicate } from "../historyMarks";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { laneHasInput } from "../laneInput";
@@ -27,7 +27,7 @@ import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
-import { useReloadKey, useVerbs } from "../state/shellStore";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { GraphSlotPane } from "./GraphSlotPane";
@@ -51,7 +51,6 @@ const DISABLED =
   "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
 
 export function TrackModulesPane({
-  mark,
   onPreviewNote,
   project,
   trackId,
@@ -86,8 +85,6 @@ export function TrackModulesPane({
   onToggleCurves,
   onTrackInput,
 }: {
-  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
   /** The arrangement, so the pads light as its notes play under the playhead (rackLit.ts). */
@@ -165,6 +162,8 @@ export function TrackModulesPane({
   /** The "audio in" and "midi in" buttons: the shell's `track input`, run on this lane. */
   onTrackInput?: (kind: "audio" | "midi") => void;
 }) {
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
   const reloadKey = useReloadKey();
   // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
   const {

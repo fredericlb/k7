@@ -27,18 +27,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { withoutNotes } from "../graphNotes";
-import { type HistoryMark, nodePredicate } from "../historyMarks";
+import { nodePredicate } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import { usePendingBypass } from "../hooks/usePendingBypass";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
-import { useReloadKey, useVerbs } from "../state/shellStore";
+import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import type { WebProject } from "../types";
 
 export function GraphPanel({
-  mark,
   onPreviewNote,
   cameras,
   inputDevices,
@@ -66,8 +65,6 @@ export function GraphPanel({
   onTrackToggle,
   onTrackSet,
 }: {
-  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
-  mark?: HistoryMark | null;
   /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
   /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
@@ -130,6 +127,8 @@ export function GraphPanel({
     value: number,
   ) => void;
 }) {
+  // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
+  const mark = useShell((s) => s.historyMark);
   const reloadKey = useReloadKey();
   // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
   const {

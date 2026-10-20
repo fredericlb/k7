@@ -79,8 +79,6 @@ export function ShellOverlays({
   baseModules,
   onModulePick,
   projectDoc,
-  showHelp,
-  closeHelp,
   engineSync,
   imp,
   allCommands,
@@ -102,8 +100,6 @@ export function ShellOverlays({
   baseModules: GraphActions["baseModules"];
   onModulePick: GraphActions["onModulePick"];
   projectDoc: WebProject | null;
-  showHelp: boolean;
-  closeHelp: () => void;
   engineSync: EngineSyncState | null;
   imp: ReturnType<typeof useProjectImport>;
   allCommands: ComponentProps<typeof CommandsSettings>["commands"];
@@ -124,6 +120,7 @@ export function ShellOverlays({
   const assemblyUnlocked = useShell((s) => s.assemblyUnlocked);
   const undoConfirm = useShell((s) => s.undoConfirm);
   const frozen = useShell((s) => s.frozen);
+  const showHelp = useShell((s) => s.showHelp);
   const reloadKey = useReloadKey();
   const { runCommand } = useVerbs();
   const {
@@ -137,6 +134,7 @@ export function ShellOverlays({
     setAssemblyUnlocked,
     setUndoConfirm,
     bumpReload,
+    setShowHelp,
   } = useShellStore().getState();
   // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
   const assemblyGraph = useGraphAt(assemblyBuilder?.folder ?? null);
@@ -249,7 +247,7 @@ export function ShellOverlays({
       {/* The documentation at #help — a PAGE, not a popin, so the reference reads as one ctrl-F-able document. */}
       {showHelp && (
         <div className="fixed inset-0 z-50 bg-background">
-          <HelpPage onBack={closeHelp} prefs={commandPrefs} />
+          <HelpPage onBack={() => setShowHelp(false)} prefs={commandPrefs} />
         </div>
       )}
 
