@@ -74,7 +74,10 @@ async function openProject(k7: K7, project: string): Promise<Page> {
 
 /** Arms `lane`, turns record on, rolls a few seconds and stops, all from the header. */
 async function recordTake(page: Page, lane: string) {
-  await button(page, `arm ${lane}`).click();
+  const arm = button(page, `arm ${lane}`);
+  await arm.click();
+  // Record pressed before the arm's echo arms "the only track" again, a toggle (fixed on worktree-e2e-regress).
+  await expect(arm).toHaveAttribute("aria-pressed", "true");
   await button(page, "Record (arm + play records)").click();
   const play = button(page, "Play");
   await expect(play).toBeEnabled({ timeout: 90_000 });
