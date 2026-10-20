@@ -9,6 +9,9 @@ import type { VideoFacts } from "./probe";
 /** The codecs every browser this app runs in decodes, 8-bit 4:2:0 only — ffprobe's names. */
 export const PLAYABLE_CODECS = ["h264", "vp8", "vp9", "av1"] as const;
 
+/** On the phone the browser is Android's WebView, which hands HEVC to the hardware decoder: what its camera records plays as is. */
+export const ANDROID_PLAYABLE_CODECS = [...PLAYABLE_CODECS, "hevc"] as const;
+
 /** The pixel formats a browser decoder takes: 8-bit 4:2:0. A 10-bit or 4:2:2 stream of a playable codec still fails. */
 export const PLAYABLE_PIX_FMTS = ["yuv420p", "yuvj420p"] as const;
 
@@ -27,9 +30,12 @@ export interface VideoPlan {
 const playableContainer = (c: string): boolean =>
   /\bmp4\b/.test(c) || /\bwebm\b/.test(c);
 
-/** The plan for one probed video. */
-export function planVideo(f: VideoFacts): VideoPlan {
-  const codecOk = (PLAYABLE_CODECS as readonly string[]).includes(f.codec);
+/** The plan for one probed video; `codecs` is what the browser that will play it decodes. */
+export function planVideo(
+  f: VideoFacts,
+  codecs: readonly string[] = PLAYABLE_CODECS,
+): VideoPlan {
+  const codecOk = codecs.includes(f.codec);
   const pixOk = (PLAYABLE_PIX_FMTS as readonly string[]).includes(f.pixFmt);
   const proxy = f.height > PREVIEW_MAX_HEIGHT;
   const size = `${f.width}×${f.height}`;

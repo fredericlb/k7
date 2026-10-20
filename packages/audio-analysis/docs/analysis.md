@@ -40,8 +40,9 @@ build turns on, so the iOS addon does not carry it). A pure-Rust decoder was cho
 own MediaCodec because it is one path on every host, testable on a dev machine against ffmpeg, with
 no native build per platform.
 
-- **Formats:** wav, aiff, flac, mp3, ogg vorbis, AAC-LC and ALAC in mp4/m4a. **Not** Opus, HE-AAC,
-  webm or video containers: those fail with "unsupported", which marks the file rather than
+- **Formats:** wav, aiff, flac, mp3, ogg vorbis, AAC-LC and ALAC in mp4/m4a — and in a camera's mp4
+  or .mov, whose sound is the AAC beside the picture. **Not** Opus, HE-AAC,
+  webm or mkv: those fail with "unsupported", which marks the file rather than
   stopping a sweep.
 - **It matches ffmpeg's positions.** Gapless is on, so mp3's encoder delay is trimmed as ffmpeg
   trims it. symphonia reads an mp4's edit list without trimming by it, and that edit list is the only

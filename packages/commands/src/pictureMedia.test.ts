@@ -1,6 +1,6 @@
 // `picture prepare` against real files where ffmpeg is installed: a ProRes shot gets an optimized
 // copy named on its clip, a rerun does nothing, and a host that runs work in the background gets
-// the request back before the copy exists.
+// the request back before the copy exists. Then the phone: the same files read with no ffmpeg.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runCommand } from "./commandSpec";
 
 const hasFfmpeg = (() => {
@@ -98,3 +98,63 @@ describe.skipIf(!hasFfmpeg)("picture prepare", () => {
     expect(clipFile()).toContain('optimized("clips/pro.optimized.mp4")');
   });
 });
+
+describe.skipIf(!hasFfmpeg)(
+  "picture prepare without ffmpeg, as on the phone",
+  () => {
+    /** A shot `pro` whose source is `name`, encoded from a test picture by `args` while ffmpeg is still here. */
+    const shot = (name: string, size: string, args: string[]) => {
+      execFileSync("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `testsrc=s=${size}:d=0.5`,
+        ...args,
+        join(song, "clips", name),
+      ]);
+      writeFileSync(
+        join(song, "clips", "pro.k7x"),
+        `source("clips/${name}")\n`,
+      );
+      vi.stubEnv("FFMPEG_BIN", join(song, "no-ffmpeg"));
+      vi.stubEnv("FFPROBE_BIN", join(song, "no-ffprobe"));
+    };
+    const platform = process.platform;
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      Object.defineProperty(process, "platform", { value: platform });
+    });
+
+    it("says which clip needs a copy it cannot make, and what it is", async () => {
+      shot("pro.mov", "160x120", ["-c:v", "prores_ks"]);
+      await runCommand("picture prepare main", host(), "cli");
+      expect(logs[0]).toMatch(/^pro: prores in yuv4\d\dp10le, 160×120$/);
+      expect(logs.at(-1)).toMatch(/^pro: this video may not play/);
+      expect(clipFile()).not.toContain("optimized");
+    });
+
+    it("previews a tall source as it is rather than asking for a proxy", async () => {
+      shot("tall.mp4", "64x1200", ["-c:v", "libx264", "-pix_fmt", "yuv420p"]);
+      await runCommand("picture prepare main", host(), "cli");
+      expect(logs).toEqual([
+        "pro: previewed from its source — no ffmpeg here for a proxy",
+      ]);
+    });
+
+    it("plays a phone's HEVC as it is on Android", async () => {
+      shot("phone.mp4", "160x120", [
+        "-c:v",
+        "libx265",
+        "-tag:v",
+        "hvc1",
+        "-pix_fmt",
+        "yuv420p",
+      ]);
+      Object.defineProperty(process, "platform", { value: "android" });
+      await runCommand("picture prepare main", host(), "cli");
+      expect(logs).toEqual(["pro: ready as it is"]);
+    });
+  },
+);

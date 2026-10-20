@@ -10,7 +10,11 @@ import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
-import { planVideo } from "@studio/video-prep/plan";
+import {
+  ANDROID_PLAYABLE_CODECS,
+  PLAYABLE_CODECS,
+  planVideo,
+} from "@studio/video-prep/plan";
 import { NoFfmpegError, probeVideo } from "@studio/video-prep/probe";
 import { copyPathOf, makeCopy } from "@studio/video-prep/transcode";
 import type { CommandHost, SidHandler } from "../commands.ts";
@@ -25,16 +29,36 @@ async function clipWork(
   ref: string,
   clip: RawClip,
   h: CommandHost,
-): Promise<{ say: string; work: (() => Promise<string>) | null }> {
+): Promise<{
+  say: string;
+  work: (() => Promise<string>) | null;
+  /** It needs a copy this host cannot make. */
+  unconverted?: true;
+}> {
   const source = String(clip.source);
   const abs = resolve(h.songPath, source);
   const facts = await probeVideo(abs);
   if (!facts) return { say: `${ref}: ${source} has no picture`, work: null };
-  const plan = planVideo(facts);
+  const plan = planVideo(
+    facts,
+    process.platform === "android" ? ANDROID_PLAYABLE_CODECS : PLAYABLE_CODECS,
+  );
   const have = (rel: string | undefined) =>
     !!rel && existsSync(resolve(h.songPath, rel));
   const wantOptimized = plan.optimized !== "none" && !have(clip.optimized);
   const wantProxy = plan.proxy && !have(clip.proxy);
+  // Read without ffmpeg, nothing can be made: a proxy is a comfort the source stands in for, a copy is not.
+  if (facts.noFfmpeg && wantOptimized)
+    return {
+      say: `${ref}: ${facts.codec || "an unknown codec"} in ${facts.pixFmt || "an unknown format"}, ${facts.width}×${facts.height}`,
+      work: null,
+      unconverted: true,
+    };
+  if (facts.noFfmpeg && wantProxy)
+    return {
+      say: `${ref}: previewed from its source — no ffmpeg here for a proxy`,
+      work: null,
+    };
   if (!wantOptimized && !wantProxy)
     return {
       say: `${ref}: ${plan.optimized === "none" && !plan.proxy ? "ready as it is" : "already prepared"}`,
@@ -109,6 +133,7 @@ export const PICTURE_MEDIA_VERBS: Record<string, SidHandler> = {
         continue;
       }
       lines.push(job.say);
+      if (job.unconverted) unconverted.push(ref);
       if (!job.work) continue;
       // In the background where the host runs one: the request returns, and the copy shows up when it is written.
       const tag = `picture prepare ${resolve(h.songPath, String(clip.source))}`;

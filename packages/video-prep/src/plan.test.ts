@@ -3,7 +3,7 @@
 // 4K source previewed as it is.
 
 import { describe, expect, it } from "vitest";
-import { planVideo } from "./plan";
+import { ANDROID_PLAYABLE_CODECS, planVideo } from "./plan";
 import type { VideoFacts } from "./probe";
 
 const mp4 = "mov,mp4,m4a,3gp,3g2,mj2";
@@ -55,5 +55,21 @@ describe("planVideo", () => {
       optimized: "transcode",
       proxy: true,
     });
+  });
+});
+
+describe("planVideo on the phone", () => {
+  const hevc = facts({ codec: "hevc" });
+
+  it("plays a phone's HEVC as it is, where elsewhere it is transcoded", () => {
+    expect(planVideo(hevc, ANDROID_PLAYABLE_CODECS).optimized).toBe("none");
+    expect(planVideo(hevc).optimized).toBe("transcode");
+  });
+
+  it("still refuses its 10-bit HDR", () => {
+    expect(
+      planVideo({ ...hevc, pixFmt: "yuv420p10le" }, ANDROID_PLAYABLE_CODECS)
+        .optimized,
+    ).toBe("transcode");
   });
 });
