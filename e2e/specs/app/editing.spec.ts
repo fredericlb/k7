@@ -169,6 +169,8 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
 test("one Ctrl+Z takes a whole vim change back, and the disk never holds half of it", async ({
   k7,
 }) => {
+  // A hardware-keyboard shortcut, like the Ctrl+Z/Ctrl+Y test's: a phone undoes through the command bar.
+  test.skip(k7.target === "android", "no hardware keyboard on a phone");
   const page = await k7.open(`/@local/${WS}/${PROJECT}`);
   const watch = watchPage(page);
   await openProject(page);

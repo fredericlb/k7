@@ -6,7 +6,7 @@ import type { Locator, Page } from "@playwright/test";
 import type { FileService } from "../../src/files.ts";
 import { FIXTURES_DIR, FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { navControl } from "../../src/nav.ts";
-import { expect, type K7, test } from "../../src/target.ts";
+import { expect, type K7, TARGET, test } from "../../src/target.ts";
 import { play } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
 
@@ -186,6 +186,8 @@ async function lit(
 async function expectPicture(page: Page) {
   const canvas = viewport(page).locator("canvas").first();
   await expect(canvas).toBeVisible();
+  // A WebView answers DevTools' capture with a dark frame (src/android.ts), so a phone's pixels are not readable here.
+  if (TARGET === "android") return;
   await expect
     .poll(async () => (await lit(page, canvas)).lit, {
       message: "the viewport's canvas stayed dark",
@@ -282,10 +284,17 @@ async function putOnDeckA(page: Page) {
   const browser = page.getByRole("dialog", { name: "Deck A" });
   await expect(browser.getByText("1 song in the set")).toBeVisible();
   // A page wider than the screen makes a phone lay its dialogs out in a bigger viewport, where a tap misses the row.
-  const width = await page.evaluate(() => [
-    document.documentElement.scrollWidth,
-    document.documentElement.clientWidth,
-  ]);
+  const width = await page.evaluate(() => {
+    // The suite compiles without the DOM lib, so the one element read is typed here.
+    const root = (
+      globalThis as unknown as {
+        document: {
+          documentElement: { scrollWidth: number; clientWidth: number };
+        };
+      }
+    ).document.documentElement;
+    return [root.scrollWidth, root.clientWidth];
+  });
   expect(
     width[0],
     "the desk widens the page past the screen",
