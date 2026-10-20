@@ -48,6 +48,11 @@ measured against.
 The roots the stamp walks: the module panel roots, `nodes/`, and a chain project's `chains/`,
 `tracks/` and `vstpresets/` (`packages/song/docs/chainFiles.md`).
 
+Not the two files the stamp reads outside them, `<state>/exts.json` and the models folder: the hub
+rewrites the scan from ITS process when an engine is bound, so no watch here would hear it. The
+stamp checks their mtimes itself before it hands a held stamp back (`packages/song/src/moduleCache.ts`),
+two `stat`s, so a project compiled before the bind sees the engine's plugins on the next read.
+
 A root inside the workspace live sync captures is HEARD, not watched: the capture's change feed
 (`liveCapture.md`) already reports every path there, so the watch subscribes and filters by root.
 That covers a root created after the watch began, and holds no handle inside the project. A root

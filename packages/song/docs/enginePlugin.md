@@ -59,6 +59,15 @@ every plugin in every project as missing. That is why `isPluginScanned` answers 
 is empty: `format` is the authored `plugin.type` and `name` the plugin's real name, and the pair is
 only judged absent against a cache that has something in it.
 
+**While the scan cannot say, the built-ins stand in for it.** Every engine has them, so
+`engineModules()` offers the generated table (`@studio/song-schema/builtinParams`) as the scan
+would list them — `internal`, by display name and role — whenever the cache is empty. An account's
+file service has no cache until an engine is bound to it (`packages/file-hub/binding.ts` writes it
+then), and a project compiled before that — an open through the API, a fresh desktop app — would
+otherwise lose every `@engine/…` node, a Surge synth sent no patch. A scan that says something
+replaces the table rather than adding to it: it is what THIS engine has, and a build without Surge
+must not be sent one. Externals have no table, so they stay unknown until the scan lands.
+
 The read is memoised per FILE on the cache's mtime+size — the machine's cache is on the graph's hot
 path, and a test points at a fixture instead, so one shared memo would make the two evict each
 other. The plugins are sorted, so a map built from them is stable across runs: the order the scan
@@ -69,7 +78,8 @@ describing it. Asking the engine to load one and list its parameters resolves th
 name, because two plugins can share a display name and only a path names one. Nothing that files or
 draws a module needs it.
 
-`engineModules()` keys every offered module by ref — the scanned plugins plus IN and OUT. Two rules
+`engineModules()` keys every offered module by ref — the scanned plugins, or the built-ins above; the io
+roles are `ioModules()`. Two rules
 are worth stating:
 
 - **`plugin.type` is the scanned FORMAT, lowercased, and nothing else.** Writing `internal`
