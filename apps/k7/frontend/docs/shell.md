@@ -416,7 +416,9 @@ left (`MobileInfo`), beside the back arrow. Their labels and figures would take 
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure
-the engine's name in the bar exists to prevent.
+the engine's name in the bar exists to prevent. The dot is an image named like the desktop's light
+(*Engine connected*, *Engine disconnected*, *No engine*), so the state is readable without opening the
+popover by a screen reader and by the functional suite alike.
 
 **The footer keeps state and drops prose.** On a phone it shows no status line — a sentence
 truncated to a few characters says nothing — while the mode badges, the waiting-for-engine line and the

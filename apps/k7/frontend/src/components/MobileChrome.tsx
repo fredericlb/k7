@@ -139,9 +139,17 @@ export function MobileInfo({
         aria-label={m["engineSwitch.info"]()}
       >
         <Info className="h-4 w-4" />
+        {/* Named like the desktop's light (EngineLink.tsx), so the link's state reads with the popover closed. */}
         {status && (
           <span
-            aria-hidden
+            role="img"
+            aria-label={
+              status === "up"
+                ? m["engine.linkUp"]()
+                : status === "down"
+                  ? m["engine.linkDown"]()
+                  : m["engine.linkNone"]()
+            }
             className={cn(
               "absolute right-1 top-1 h-2 w-2 rounded-full ring-2 ring-background",
               status === "up"
