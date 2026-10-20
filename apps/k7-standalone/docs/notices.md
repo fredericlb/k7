@@ -6,36 +6,16 @@ person will see it.
 
 ## A newer k7
 
-The app **updates itself where it can**, from `https://k7.rocks/app_downloads`, the page every build
-is published on (`docs/app-downloads.md` at the root, which also says what guards it: nothing is
-signed, so the upload token is what keeps a bad build off the machines).
+The app **updates itself where it can**, from `https://k7.rocks/app_downloads`, through
+`@studio/app-updates` — the same updater the tray runs, on the desktop app's own feed. When it
+asks, what it downloads, what it says and how to turn it off are that package's
+(`packages/app-updates/docs/appUpdates.md`); `src/updates.ts` only wires it in. What is the desktop
+app's own:
 
-`src/updates.ts` asks the channel's `<channel>.json` a few seconds after every start, then at most
-every six hours (`src/updateCheck.ts`, tested). The channel is the running stamp's (`docs/menu.md`): a tagged
-build follows `release` and compares tags by number; a snapshot follows `snapshot` and takes any
-other commit as later, since that channel only ever holds `main`'s latest build. A checkout run
-(`dev`) asks nothing.
-
-| install | what happens |
-|---|---|
-| Windows (NSIS), AppImage | electron-updater downloads the build in the background and installs it when k7 quits; a dialog offers Restart now |
-| macOS, `.deb` | a dialog says a newer k7 exists; Download opens the page in the system browser |
-
-macOS refuses to let an ad-hoc signed app replace itself, and a `.deb` belongs to apt, so neither is
-downloaded for the person.
-
-- **Silent when it cannot ask.** Offline or k7.rocks down: nothing is said and the next check
-  retries. Only Check for Updates… in the menu says "could not reach". A failed download is silent
-  too, except from the menu, which then offers the page.
-- **Told once per build.** The automatic check does not repeat a build it already named; the menu's
-  check always answers.
 - **Check for updates is also on k7's home page**, in the account menu beside Settings, since the
   window has no menu bar on Windows and Linux. The page sends `studio:updates:check`, which the main
   process takes from k7's own origin only, and runs the menu's check.
-- **The person can turn it off**, with the menu's checkbox, kept in `updates.json` in the app's
-  state folder. `K7_NO_UPDATE_CHECK` turns it off for a run, `K7_DOWNLOADS_URL` points it at another
-  downloads page.
-- The page Download opens is the app's own address, never one read from the answer.
+- **The menu's checkbox** (`docs/menu.md`) is what turns the automatic check off.
 
 ## The engine and its supervisor
 

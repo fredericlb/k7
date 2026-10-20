@@ -1,0 +1,29 @@
+{
+  "name": "@studio/app-updates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "How k7's Electron apps keep themselves current from k7.rocks/app_downloads: the release stamp, the channel check, and electron-updater where an install can replace itself. See docs/appUpdates.md.",
+  "exports": {
+    "./release": "./src/release.ts",
+    "./updateCheck": "./src/updateCheck.ts",
+    "./updates": "./src/updates.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "electron": ">=40"
+  },
+  "dependencies": {
+    "@frediverse/electron-shell": "*",
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "44.7.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,6 +1,7 @@
 // preload.ts — tells every page where the app's services answer, whether it is the tab in front, and (to the strip) what the tabs are and how to sign in.
 // The ports cannot wait for a fetch: pages derive the services' addresses synchronously at import time (packages/web-protocol/services.ts).
 
+import { RELEASE } from "@studio/app-updates/release";
 import {
   DESKTOP_IPC,
   type TabRow,
@@ -8,7 +9,6 @@ import {
 } from "@studio/web-protocol/desktop";
 import { contextBridge, ipcRenderer } from "electron";
 import type { AccountStatus } from "./accountStatus.ts";
-import { RELEASE } from "./release.ts";
 
 const PREFIX = "--studio-ports=";
 const spec = process.argv

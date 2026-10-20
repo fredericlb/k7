@@ -1,0 +1,163 @@
+# engine-platform.yml — one platform's engine and supervisor, compiled and archived as the command-line engine.
+# Called by desktop-platform.yml and tray-platform.yml, which package their app around this archive and compile
+# nothing themselves; both share its compiler cache, keyed by platform. See docs/desktop-release.md.
+
+name: engine platform
+
+on:
+  workflow_call:
+    inputs:
+      os: { type: string, required: true }
+      label: { type: string, required: true }
+      preset: { type: string, required: true }
+      stamp: { type: string, required: true }
+    # The one secret it reads, named rather than inherited: these jobs run third-party actions.
+    secrets:
+      COMMONS_TOKEN: { required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: engine
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
+      # brings its own GTK at run time and needs none of it to package.
+      - name: linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libssl-dev \
+            libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
+            libcurl4-openssl-dev ladspa-sdk
+
+      # The macos-clang preset generates Ninja; cmake may or may not be on the image already.
+      - name: macos build deps
+        if: runner.os == 'macOS'
+        run: |
+          for f in cmake ninja; do
+            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
+          done
+
+
+      # cl.exe and ninja for the Ninja preset: what a Visual Studio developer prompt puts on PATH.
+      - name: msvc environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+
+      # Defender scans every file cl.exe opens, which a cold Windows build mostly waits on; the runner is discarded after the job.
+      - name: defender off the build
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:LOCALAPPDATA
+          Add-MpPreference -ExclusionProcess cl.exe, link.exe, ninja.exe, sccache.exe, cmake.exe
+          Set-MpPreference -DisableRealtimeMonitoring $true
+
+      # Every core: the build script leaves two free outside Windows, for a developer's machine, which
+      # on a 4-core runner is half of them (engine/k7-runtime/scripts/buildLock.mjs).
+      - name: every core to the compiler
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
+
+      # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
+      # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
+      # The dependencies' SOURCES, on the slow leg only — the budget docs/desktop-release.md counts; exact key, since a
+      # restored tree does not re-run a patch whose script changed. The folder is the same on every leg regardless.
+      - name: dependency sources
+        id: fetch
+        if: runner.os == 'Windows'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/k7-fetch
+          key: fetch-${{ inputs.label }}-${{ hashFiles('engine/k7-runtime/CMakeLists.txt', 'engine/k7-supervisor/CMakeLists.txt', 'engine/k7-runtime/engine/patches/**', 'engine/k7-runtime/engine/eurorack/patches/**', 'engine/k7-supervisor/cmake/**') }}
+
+      # Not fatal: a runner that cannot download sccache builds uncached rather than not at all. Saved from main alone.
+      - name: compiler cache
+        id: cache
+        continue-on-error: true
+        uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+        with:
+          variant: sccache
+          key: engine-${{ inputs.label }}
+          max-size: 1G
+          save: ${{ github.ref == 'refs/heads/main' }}
+
+      # The engine and the supervisor, staged as the command-line engine — the script a developer runs.
+      # See engine/scripts/docs/buildEngine.md.
+      - name: engine + supervisor
+        env:
+          STUDIO_ENGINE_PRESET: ${{ inputs.preset }}
+          STUDIO_SUPERVISOR_PRESET: ${{ inputs.preset }}
+          # Compiled into the engine's and the supervisor's `build` — packages/engine-protocol/docs/version.md.
+          STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
+          STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/k7-fetch
+          # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
+          STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
+        run: node engine/scripts/build-engine.mjs
+
+      # Sources only reach the cache: what CMake built inside the folder depends on the preset, as on OneDev.
+      # The downloaded archives go too: their stamps stay, so a restored tree is not fetched again.
+      - name: sources only in the fetch cache
+        if: always()
+        shell: bash
+        run: |
+          d="$RUNNER_TEMP/k7-fetch"
+          [ -d "$d" ] || exit 0
+          find "$d" -mindepth 2 -maxdepth 2 -type d -name '*-build' -exec rm -rf {} +
+          rm -rf "$d/k7-runtime/faust-src/build/lib"
+          find "$d" -path '*-populate-prefix/src/*' -type f \( -name '*.tar.*' -o -name '*.tgz' -o -name '*.zip' -o -name '*.nupkg' \) -delete
+
+      # After a build that succeeded, from main alone: a branch's copy would only push main's out of the 10 GB.
+      - name: save dependency sources
+        if: success() && runner.os == 'Windows' && steps.fetch.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/k7-fetch
+          key: ${{ steps.fetch.outputs.cache-primary-key }}
+
+      - name: compiler cache stats
+        if: always()
+        shell: bash
+        run: sccache --show-stats 2>/dev/null || echo 'no compiler cache this run'
+
+      # The stamp through the environment, never interpolated into the command.
+      - name: archive
+        shell: bash
+        env:
+          STAMP: ${{ inputs.stamp }}
+        run: node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
+
+      # An archive, not the folder: an artifact keeps no executable bit, and the desktop job unpacks this one.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: k7-runtime-${{ inputs.label }}
+          path: |
+            dist/release/*.zip
+            dist/release/*.tar.gz
+          if-no-files-found: error
+

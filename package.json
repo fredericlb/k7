@@ -11,6 +11,7 @@
     "apps/k7/frontend",
     "apps/k7/backend",
     "apps/k7-standalone",
+    "apps/k7-tray",
     "engine/k7-runtime",
     "engine/k7-android/web",
     "e2e"

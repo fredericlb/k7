@@ -1,0 +1,90 @@
+# tray-platform.yml — one platform's tray, called once per platform by tray.yml: its engine (engine-platform.yml),
+# then apps/k7-tray packaged around that engine's archive. One call per platform, so a platform whose engine fails
+# skips its own tray and nothing else. See docs/desktop-release.md.
+
+name: tray platform
+
+on:
+  workflow_call:
+    inputs:
+      os: { type: string, required: true }
+      label: { type: string, required: true }
+      preset: { type: string, required: true }
+      stamp: { type: string, required: true }
+    # The one secret it reads, named rather than inherited: these jobs run third-party actions.
+    secrets:
+      COMMONS_TOKEN: { required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: engine
+    uses: ./.github/workflows/engine-platform.yml
+    secrets:
+      COMMONS_TOKEN: ${{ secrets.COMMONS_TOKEN }}
+    with:
+      os: ${{ inputs.os }}
+      label: ${{ inputs.label }}
+      preset: ${{ inputs.preset }}
+      stamp: ${{ inputs.stamp }}
+
+  tray:
+    name: tray
+    needs: engine
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+      # The engine job's binaries for this platform, unpacked where stageEngine takes them from.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: k7-runtime-${{ inputs.label }}
+          path: ${{ runner.temp }}/engine-archive
+      - name: unpack the engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/engine"
+          for a in "$RUNNER_TEMP"/engine-archive/*; do
+            case "$a" in
+              *.zip) 7z x -y -o"$RUNNER_TEMP/engine" "$a" > /dev/null ;;
+              *) tar -xzf "$a" -C "$RUNNER_TEMP/engine" ;;
+            esac
+          done
+          echo "STUDIO_PREBUILT_BIN=$RUNNER_TEMP/engine/k7-runtime" >> "$GITHUB_ENV"
+
+      # The tray: the supervisor and engine beside a windowless Electron app (apps/k7-tray/docs/tray.md).
+      - name: tray app
+        env:
+          # Inlined as the tray's release, shown in its System tab and compared with /app_downloads/tray's builds.
+          STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
+        run: npm run package --workspace k7-tray
+
+      - name: installer
+        shell: bash
+        env:
+          STAMP: ${{ inputs.stamp }}
+        run: node engine/scripts/package-release.mjs --kind tray --stamp "$STAMP"
+
+      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a change gets tested.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: k7-tray-${{ inputs.label }}
+          # The installers and their blockmaps, and latest*.yml, which the tray updates from (docs/app-downloads.md).
+          path: |
+            dist/release/k7-tray_*
+            dist/release/latest*.yml
+          if-no-files-found: error

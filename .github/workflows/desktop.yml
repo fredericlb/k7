@@ -90,7 +90,7 @@ jobs:
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
             # apps/ and packages/ in full: the desktop app bundles k7 and most of that tier; commons, for its Electron shell.
-            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/desktop(-platform)?\.yml)' \
+            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/(desktop|desktop-platform|engine-platform)\.yml)' \
               changed.txt || build=no
           fi
 

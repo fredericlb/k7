@@ -24,7 +24,7 @@ import {
   appDownloadsRouter,
   appReleasesRouter,
   maxBytesFromEnv,
-  storeFromEnv,
+  storesFromEnv,
 } from "./appReleases/routes.ts";
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
@@ -97,7 +97,7 @@ app.use("/api/ai", aiOrganizeBody);
 app.use(jsonBodies());
 // The apps' builds, on the hosted origin only: CI uploads with its own bearer, anyone downloads (docs/app-downloads.md).
 if (!LOCAL_USER) {
-  const releases = storeFromEnv();
+  const releases = storesFromEnv();
   app.use(
     "/api/app-releases",
     appReleasesRouter(

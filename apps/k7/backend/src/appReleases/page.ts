@@ -1,7 +1,10 @@
-// page.ts — /app_downloads, the one page where people get k7's apps: the release, then the latest build of main.
-// Server-rendered and self-contained (no SPA, no script), in French or English by Accept-Language.
+// page.ts — /app_downloads, the one page where people get k7's apps: the release, then the latest build of main,
+// then the tray's two. Server-rendered and self-contained (no SPA, no script), in French or English by Accept-Language.
 
 import type { Channel, Release } from "./store.ts";
+
+/** Each app's current build per channel, as the page lists them. */
+export type ProductBuilds = Record<Channel, Release | null>;
 
 // What the page offers, in this order; the rest (latest*.yml, blockmaps, SHA256SUMS) is the updater's or the curious's.
 const KINDS = [
@@ -39,6 +42,9 @@ const LABELS = {
     updates:
       "The Windows app, the AppImage and the Android app update themselves. On macOS and with the .deb, download again from here.",
     sums: "Checksums",
+    tray: "Tray",
+    trayNote:
+      "The engine alone, run from the menu bar, for a machine that plays what k7 sends it. It updates itself like the desktop app.",
   },
   fr: {
     lang: "fr",
@@ -52,6 +58,9 @@ const LABELS = {
     updates:
       "L'app Windows, l'AppImage et l'app Android se mettent à jour seules. Sur macOS et avec le .deb, retéléchargez ici.",
     sums: "Sommes de contrôle",
+    tray: "Tray",
+    trayNote:
+      "Le moteur seul, lancé depuis la barre de menus, pour une machine qui joue ce que k7 lui envoie. Il se met à jour comme l'app de bureau.",
   },
 };
 
@@ -69,17 +78,26 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c]);
 const megabytes = (bytes: number) =>
   `${Math.max(1, Math.round(bytes / 1048576))} MB`;
 
-const href = (channel: Channel, name: string) =>
-  `app_downloads/${channel}/${encodeURIComponent(name)}`;
+type Product = "desktop" | "tray";
 
-function section(channel: Channel, r: Release | null, t: Labels): string {
+// The tray's feed sits under tray/, as routes.ts mounts it.
+const hrefOf = (product: Product, channel: Channel, name: string) =>
+  `app_downloads/${product === "tray" ? "tray/" : ""}${channel}/${encodeURIComponent(name)}`;
+
+function section(
+  product: Product,
+  channel: Channel,
+  r: Release | null,
+  t: Labels,
+): string {
   if (!r) return "";
+  const href = (name: string) => hrefOf(product, channel, name);
   const items = KINDS.flatMap(({ ext, label }) =>
     r.files
       .filter((f) => f.name.endsWith(ext))
       .map(
         (f) =>
-          `<li><a href="${href(channel, f.name)}">${escapeHtml(labelOf(label, f.name))}</a><span>${escapeHtml(f.name)} · ${megabytes(f.bytes)}</span></li>`,
+          `<li><a href="${href(f.name)}">${escapeHtml(labelOf(label, f.name))}</a><span>${escapeHtml(f.name)} · ${megabytes(f.bytes)}</span></li>`,
       ),
   );
   const when = new Date(r.publishedAt).toLocaleString(t.lang, {
@@ -87,23 +105,30 @@ function section(channel: Channel, r: Release | null, t: Labels): string {
     timeStyle: "short",
     timeZone: "Europe/Paris",
   });
-  const name =
+  const which =
     channel === "release" ? `${t.release} ${r.stamp.slice(1)}` : t.snapshot;
-  const note = channel === "snapshot" ? `<p>${t.snapshotNote}</p>` : "";
+  const name = product === "tray" ? `${t.tray} — ${which}` : which;
+  const note =
+    (product === "tray" ? `<p>${t.trayNote}</p>` : "") +
+    (channel === "snapshot" ? `<p>${t.snapshotNote}</p>` : "");
   const sums = r.files.some((f) => f.name === "SHA256SUMS")
-    ? `<p class="small"><a href="${href(channel, "SHA256SUMS")}">${t.sums}</a></p>`
+    ? `<p class="small"><a href="${href("SHA256SUMS")}">${t.sums}</a></p>`
     : "";
   return `<section><h2>${escapeHtml(name)}</h2><p class="small">${escapeHtml(r.stamp)}, ${t.published} ${escapeHtml(when)}</p>${note}<ul>${items.join("")}</ul>${sums}</section>`;
 }
 
 export function downloadsPage(
-  builds: Record<Channel, Release | null>,
+  builds: Record<Product, ProductBuilds>,
   french: boolean,
 ): string {
   const t = french ? LABELS.fr : LABELS.en;
-  const sections =
-    section("release", builds.release, t) +
-    section("snapshot", builds.snapshot, t);
+  const sections = (["desktop", "tray"] as const)
+    .flatMap((p) =>
+      (["release", "snapshot"] as const).map((c) =>
+        section(p, c, builds[p][c], t),
+      ),
+    )
+    .join("");
   const body = sections
     ? `${sections}<p class="small">${t.updates}</p>`
     : `<p>${t.none}</p>`;

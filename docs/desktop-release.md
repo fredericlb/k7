@@ -17,8 +17,24 @@ from the command line and the one inside the app are the same build, byte for by
 failure costs that platform only: a desktop job depends on its own engine job and no other, so a
 platform whose engine fails skips its own desktop build and the others carry on. On OneDev that is a
 job dependency; on GitHub, which cannot make one matrix leg wait for the same leg of another, each
-platform is one call of `.github/workflows/desktop-platform.yml`. Its desktop job also boots the app
-it just packaged under Playwright before making the installer (`apps/k7-standalone/docs/e2e.md`).
+platform is one call of `.github/workflows/desktop-platform.yml`, whose engine job is
+`.github/workflows/engine-platform.yml`. Its desktop job also boots the app it just packaged under
+Playwright before making the installer (`apps/k7-standalone/docs/e2e.md`).
+
+### The tray, in a workflow of its own
+
+`.github/workflows/tray.yml` releases the tray (`apps/k7-tray`), the engine run from the menu bar,
+on the same triggers and stamps as `desktop.yml`. Per platform, `tray-platform.yml` runs the same
+`engine-platform.yml` and then packages the tray around that archive, as the desktop job does. It
+publishes `k7-tray_<stamp>_<platform>-<arch>.*` and its `latest*.yml` to GitHub releases of its own
+and to `k7.rocks/app_downloads/tray`, the feed the tray updates from (`docs/app-downloads.md`).
+
+| choice | why |
+|---|---|
+| a workflow of its own, not a job of `desktop.yml` | the tray is an app of its own: a red tray must not hold back the desktop snapshot, nor a red desktop the tray |
+| its own GitHub releases, `tray-snapshot` and `tray-vX.Y.Z` | the snapshot release is deleted and recreated on each publish; two workflows sharing it would delete each other's files |
+| the engine compiled again, not taken from `desktop.yml`'s run | a workflow cannot wait on another's artifacts without coupling the two runs; both share the compiler cache (`engine-<label>`), so the second build is mostly cache hits |
+| no end-to-end run before the installer | the tray has no page to drive; its unit tests run in `k7.yml` |
 
 ## Two channels, and what names a file
 
@@ -217,9 +233,9 @@ would only bind the files to this repository's CI identity and no client checks 
 
 ## What a workflow may do
 
-`desktop.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
-`contents: write`. The reusable `desktop-platform.yml` receives `COMMONS_TOKEN` by name, never
-`secrets: inherit`, since its jobs run third-party actions. Every action is pinned to a full commit
+`desktop.yml`, `tray.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
+`contents: write`. The reusable `desktop-platform.yml`, `tray-platform.yml` and `engine-platform.yml` receive `COMMONS_TOKEN` by name, never
+`secrets: inherit`, since their jobs run third-party actions. Every action is pinned to a full commit
 SHA with its version in a comment: a tag can be moved under a run, a commit cannot. A bump is a new
 SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { isNewerTag, parseStamp, RELEASE, releaseLabel } from "./release.ts";
-import { buildUrl, checkDue, feedUrl, newerBuild } from "./updateCheck.ts";
+import {
+  buildUrl,
+  checkDue,
+  feedUrl,
+  newerBuild,
+  productBase,
+} from "./updateCheck.ts";
 
 const PAGE = "https://k7.rocks/app_downloads";
 
@@ -81,6 +87,17 @@ describe("the update check", () => {
     expect(newerBuild("v1.4.0", { stamp: "v1.5.0" }, "https://x/d")?.url).toBe(
       "https://x/d",
     );
+  });
+
+  it("keeps the tray's feed apart from the desktop app's", () => {
+    expect(productBase("desktop")).toBe(PAGE);
+    expect(productBase("tray")).toBe(`${PAGE}/tray`);
+    expect(buildUrl("v1.4.0", productBase("tray"))).toBe(
+      `${PAGE}/tray/release.json`,
+    );
+    expect(
+      feedUrl("snapshot-9f2c1ab", productBase("tray", "https://x/d")),
+    ).toBe("https://x/d/tray/snapshot");
   });
 
   it("is due every six hours, and again if the clock went back", () => {

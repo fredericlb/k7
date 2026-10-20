@@ -1,9 +1,20 @@
 # App downloads and desktop updates
 
 Every build `desktop.yml` publishes — the desktop installers, the APK, the command-line engine —
-is also published on k7 itself, at **`https://k7.rocks/app_downloads`**: one page anyone can open,
-no login, and the feed the desktop app updates itself from. The GitHub release stays; the page is
-the address to give people, and the one the installed apps read.
+and every tray `tray.yml` publishes is also published on k7 itself, at
+**`https://k7.rocks/app_downloads`**: one page anyone can open, no login, and the feeds the desktop
+app and the tray update themselves from. The GitHub releases stay; the page is the address to give
+people, and the one the installed apps read.
+
+## Two apps, two feeds
+
+The desktop app's builds sit at the root (`app_downloads/<channel>/…`), the tray's under `tray/`
+(`app_downloads/tray/<channel>/…`, `app_downloads/tray/<channel>.json`). The page lists both.
+
+| choice | why |
+|---|---|
+| a store per app, not the tray's files in the desktop's build | a publish replaces its stamp's whole folder, and the two workflows publish the same stamp apart: sharing one, each would drop the other's files and overwrite its `latest*.yml` |
+| the desktop's feed stays at the root | installed desktop apps already read it there |
 
 ## Two channels
 
@@ -23,6 +34,7 @@ release first. A desktop app follows its own channel and never crosses to the ot
 `desktop.yml`'s `publish` job, after the GitHub release, sends every file of `dist/` to
 `https://app.k7.rocks/api/app-releases/<stamp>/<file>` (one `PUT` each, raw body) and then `POST`s
 `/api/app-releases/<stamp>/publish`, which switches the channel to that build at once.
+`tray.yml`'s does the same under `/api/app-releases/tray/`.
 
 Both need `Authorization: Bearer <APP_RELEASE_TOKEN>`, a value only the repository's
 `APP_RELEASE_TOKEN` secret and the server's `APP_RELEASE_TOKEN` (`docker/.env`) know. Unset on the
@@ -36,16 +48,17 @@ A file is at most `APP_RELEASE_MAX_MB` (2048); its name is letters, digits, `.`,
 is why electron-builder names the installers as `engine/scripts/package-release.mjs` does —
 `latest*.yml` must name the very file the server holds. The builds live under
 `STUDIO_APP_RELEASES_DIR`, `/data/app-releases` in the image (the `data` volume), one folder per
-channel. The routes are `apps/k7/backend/src/appReleases/`; the desktop app's own backend does not
-mount them.
+channel, and the tray's channels in `tray/` beside them. The routes are
+`apps/k7/backend/src/appReleases/`; the desktop app's own backend does not mount them.
 
 ## The desktop side
 
-`apps/k7-standalone/src/updates.ts` asks `<channel>.json` a little after start and then every six
-hours. On Windows (NSIS) and the AppImage it downloads the build with **electron-updater** and
-installs it when k7 quits, or at once from a Restart now dialog. macOS refuses to let an ad-hoc
-signed app replace itself, and a `.deb` belongs to apt: there the app says a newer k7 exists and
-Download opens the page ([apps/k7-standalone/docs/notices.md](../apps/k7-standalone/docs/notices.md)).
+The desktop app and the tray run the same updater, `@studio/app-updates`, each on its own feed: it
+asks `<channel>.json` a little after start and then every six hours. On Windows (NSIS) and the
+AppImage it downloads the build with **electron-updater** and installs it when the app quits, or at
+once from a Restart now dialog. macOS refuses to let an ad-hoc signed app replace itself, and a
+`.deb` belongs to apt: there the app says a newer build exists and Download opens the page
+([packages/app-updates/docs/appUpdates.md](../packages/app-updates/docs/appUpdates.md)).
 
 The Android app (`engine/k7-android/.../Updates.kt`) follows its channel the same way: it downloads
 a newer APK on an unmetered network and offers it, and the person installs it — Android always asks

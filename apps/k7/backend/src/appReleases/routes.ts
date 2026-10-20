@@ -1,6 +1,6 @@
-// routes.ts — the apps' downloads: desktop.yml uploads a build under a bearer only it and this server know
-// (/api/app-releases), and anyone fetches it at /app_downloads — the page, `<channel>.json` the desktop app's
-// check reads, and every file of a build, latest*.yml included, which electron-updater reads. docs/app-downloads.md.
+// routes.ts — the apps' downloads: desktop.yml and tray.yml upload a build under a bearer only CI and this server know
+// (/api/app-releases, the tray's under /tray), and anyone fetches it at /app_downloads — the page, `<channel>.json` each
+// app's check reads, and every file of a build, latest*.yml included, which electron-updater reads. docs/app-downloads.md.
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { homedir } from "node:os";
@@ -17,9 +17,21 @@ import {
   TooLargeError,
 } from "./store.ts";
 
+/** One store per app: the desktop app's builds and the tray's never share a folder, so neither publish drops the other. */
+export interface AppReleaseStores {
+  desktop: AppReleaseStore;
+  tray: AppReleaseStore;
+}
+
+/** The stores under `root`: the desktop app's at the root, as it always was, the tray's in `tray/`. */
+export const appReleaseStores = (root: string): AppReleaseStores => ({
+  desktop: appReleaseStore(root),
+  tray: appReleaseStore(join(root, "tray")),
+});
+
 /** Where builds are kept: the image sets it to its /data volume, a dev run keeps them in the home folder. */
-export function storeFromEnv(env = process.env): AppReleaseStore {
-  return appReleaseStore(
+export function storesFromEnv(env = process.env): AppReleaseStores {
+  return appReleaseStores(
     env.STUDIO_APP_RELEASES_DIR || join(homedir(), ".studio", "app-releases"),
   );
 }
@@ -41,15 +53,9 @@ export function releaseToken(token: string | undefined): RequestHandler {
   };
 }
 
-/** /api/app-releases: one PUT per file, then a POST that makes the build its channel's current one. */
-export function appReleasesRouter(
-  store: AppReleaseStore,
-  token: string | undefined,
-  maxBytes: number,
-): Router {
+/** One PUT per file, then a POST that makes the build its channel's current one, into `store`. */
+function uploads(store: AppReleaseStore, maxBytes: number): Router {
   const router = Router();
-  router.use(releaseToken(token));
-
   router.put(
     "/:stamp/:file",
     wrap(async (req, res) => {
@@ -79,25 +85,24 @@ export function appReleasesRouter(
   return router;
 }
 
-/** /app_downloads: no login, nothing per user, and `no-cache` throughout so a publish shows at once. */
-export function appDownloadsRouter(store: AppReleaseStore): Router {
+/** /api/app-releases: the desktop app's builds at the root, the tray's under /tray. */
+export function appReleasesRouter(
+  stores: AppReleaseStores,
+  token: string | undefined,
+  maxBytes: number,
+): Router {
+  const router = Router();
+  router.use(releaseToken(token));
+  router.use("/tray", uploads(stores.tray, maxBytes));
+  router.use(uploads(stores.desktop, maxBytes));
+  return router;
+}
+
+/** `release.json` / `snapshot.json` and each build's files, from `store`. */
+function feed(store: AppReleaseStore): Router {
   const router = Router();
 
-  router.get("/", (req, res) => {
-    // No trailing slash: the page's relative links resolve against /app_downloads/.
-    if (req.originalUrl.split("?")[0].endsWith("/"))
-      return res.redirect(301, "/app_downloads");
-    res.setHeader("Cache-Control", "no-cache");
-    const builds = {
-      release: store.current("release"),
-      snapshot: store.current("snapshot"),
-    };
-    res
-      .type("html")
-      .send(downloadsPage(builds, req.acceptsLanguages("en", "fr") === "fr"));
-  });
-
-  // `release.json` / `snapshot.json`: the build a channel serves, for the desktop app's check.
+  // `release.json` / `snapshot.json`: the build a channel serves, for an app's check.
   router.get("/:name", (req, res) => {
     const channel = /^(\w+)\.json$/.exec(req.params.name)?.[1] ?? "";
     const build = isChannel(channel) ? store.current(channel) : null;
@@ -121,5 +126,34 @@ export function appDownloadsRouter(store: AppReleaseStore): Router {
       text ? "text/plain" : "application/octet-stream",
     );
   });
+  return router;
+}
+
+/** /app_downloads: no login, nothing per user, and `no-cache` throughout so a publish shows at once. */
+export function appDownloadsRouter(stores: AppReleaseStores): Router {
+  const router = Router();
+
+  router.get("/", (req, res) => {
+    // No trailing slash: the page's relative links resolve against /app_downloads/.
+    if (req.originalUrl.split("?")[0].endsWith("/"))
+      return res.redirect(301, "/app_downloads");
+    res.setHeader("Cache-Control", "no-cache");
+    const builds = (store: AppReleaseStore) => ({
+      release: store.current("release"),
+      snapshot: store.current("snapshot"),
+    });
+    res
+      .type("html")
+      .send(
+        downloadsPage(
+          { desktop: builds(stores.desktop), tray: builds(stores.tray) },
+          req.acceptsLanguages("en", "fr") === "fr",
+        ),
+      );
+  });
+
+  // Before the desktop's: `/tray/release.json` would otherwise read as the file `release.json` of a channel `tray`.
+  router.use("/tray", feed(stores.tray));
+  router.use(feed(stores.desktop));
   return router;
 }

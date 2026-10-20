@@ -1,5 +1,5 @@
 // release.ts — the release stamp this build ships under (`vX.Y.Z` or `snapshot-<commit>`), and how two stamps compare.
-// The stamp is inlined by scripts/build-main.mjs; package.json's version does not move with a build. See docs/menu.md.
+// The stamp is inlined by scripts/build-main.mjs; package.json's version does not move with a build. See docs/appUpdates.md.
 
 declare const __K7_RELEASE__: string | undefined;
 

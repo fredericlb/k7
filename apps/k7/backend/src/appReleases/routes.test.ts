@@ -8,11 +8,14 @@ import { join } from "node:path";
 import express from "express";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { jsonBodies } from "../bodyLimits.ts";
-import { appDownloadsRouter, appReleasesRouter } from "./routes.ts";
-import { appReleaseStore } from "./store.ts";
+import {
+  appDownloadsRouter,
+  appReleaseStores,
+  appReleasesRouter,
+} from "./routes.ts";
 
 const root = mkdtempSync(join(tmpdir(), "k7-app-releases-"));
-const store = appReleaseStore(root);
+const stores = appReleaseStores(root);
 const TOKEN = "ci-secret";
 let base = "";
 let close = () => {};
@@ -21,9 +24,9 @@ beforeAll(async () => {
   const app = express();
   // As server.ts mounts it: behind the shared JSON parser, which must leave the upload alone.
   app.use(jsonBodies());
-  app.use("/api/app-releases", appReleasesRouter(store, TOKEN, 64));
-  app.use("/api/no-token", appReleasesRouter(store, undefined, 64));
-  app.use("/app_downloads", appDownloadsRouter(store));
+  app.use("/api/app-releases", appReleasesRouter(stores, TOKEN, 64));
+  app.use("/api/no-token", appReleasesRouter(stores, undefined, 64));
+  app.use("/app_downloads", appDownloadsRouter(stores));
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -170,6 +173,41 @@ describe("/app_downloads", () => {
     ).toBe(200);
     // The release channel is untouched by snapshots.
     expect(await servedStamp("release")).toBe("v0.1.0");
+  });
+
+  it("keeps the tray's builds in a feed of their own, beside the desktop app's", async () => {
+    const stamp = "v0.1.0";
+    const exe = `k7-tray_${stamp}_windows-x64.exe`;
+    const up = (file: string, body: string) =>
+      fetch(`${base}/api/app-releases/tray/${stamp}/${file}`, {
+        method: "PUT",
+        headers: auth,
+        body,
+      });
+    expect((await up(exe, "tray")).status).toBe(201);
+    expect((await up("latest.yml", `path: ${exe}`)).status).toBe(201);
+    const pub = await fetch(`${base}/api/app-releases/tray/${stamp}/publish`, {
+      method: "POST",
+      headers: auth,
+    });
+    expect(pub.status).toBe(200);
+
+    const served = await fetch(`${base}/app_downloads/tray/release.json`);
+    expect(((await served.json()) as { stamp: string }).stamp).toBe(stamp);
+    const yml = await fetch(`${base}/app_downloads/tray/release/latest.yml`);
+    expect(await yml.text()).toBe(`path: ${exe}`);
+    // The same stamp published for the tray leaves the desktop app's build whole.
+    const desktop = await fetch(`${base}/app_downloads/release/latest.yml`);
+    expect(await desktop.text()).toBe("path: k7_v0.1.0_windows-x64.exe");
+    expect(existsSync(join(root, "tray", "release", stamp, exe))).toBe(true);
+
+    const page = await (
+      await fetch(`${base}/app_downloads`, {
+        headers: { "accept-language": "en" },
+      })
+    ).text();
+    expect(page).toContain("Tray — Release 0.1.0");
+    expect(page).toContain(`href="app_downloads/tray/release/${exe}"`);
   });
 
   it("redirects a trailing slash, so the relative links resolve", async () => {

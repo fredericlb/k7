@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // package-release.mjs — one release file per kind, for the platform that produced it, into dist/release/:
-// `engine` archives dist/k7-runtime/ (build-engine.mjs), `desktop` renames the installer apps/k7-standalone built.
+// `engine` archives dist/k7-runtime/ (build-engine.mjs); `desktop` and `tray` rename the installer apps/k7-standalone
+// or apps/k7-tray built, with the update files that name it.
 // Named for a STAMP, not a package version, which does not move with each build. See docs/desktop-release.md.
 
 import {
@@ -29,8 +30,15 @@ function arg(name) {
 }
 
 const kind = arg("--kind");
-if (kind !== "engine" && kind !== "desktop")
-  fail("usage: package-release.mjs --kind engine|desktop [--stamp <stamp>]");
+// Each installer kind: the workspace that packages it, and the prefix its files carry (its electron-builder.cjs).
+const APPS = {
+  desktop: { workspace: "k7-standalone", prefix: "k7" },
+  tray: { workspace: "k7-tray", prefix: "k7-tray" },
+};
+if (kind !== "engine" && !APPS[kind])
+  fail(
+    "usage: package-release.mjs --kind engine|desktop|tray [--stamp <stamp>]",
+  );
 const stamp = (
   arg("--stamp") ??
   process.env.STUDIO_RELEASE_STAMP ??
@@ -64,17 +72,18 @@ if (kind === "engine") {
     `\n✔ ${join(RELEASE, archive)}  (${(statSync(join(RELEASE, archive)).size / 1e6).toFixed(1)} MB)`,
   );
 } else {
-  const out = join(repo, "apps", "k7-standalone", "out");
+  const { workspace, prefix } = APPS[kind];
+  const out = join(repo, "apps", workspace, "out");
   // electron-builder's top level holds the installers beside blockmaps, update manifests and its own debug file.
   const installers = existsSync(out)
     ? readdirSync(out).filter((f) => /\.(dmg|exe|appimage|deb)$/i.test(f))
     : [];
   if (!installers.length)
     fail(
-      `no installer in ${out} — run \`npm run package --workspace k7-standalone\` first.`,
+      `no installer in ${out} — run \`npm run package --workspace ${workspace}\` first.`,
     );
   for (const f of installers) {
-    const name = `k7_${stamp}_${platform}-${arch}${extname(f)}`;
+    const name = `${prefix}_${stamp}_${platform}-${arch}${extname(f)}`;
     copyFileSync(join(out, f), join(RELEASE, name));
     console.log(`✔ ${join(RELEASE, name)}`);
   }
@@ -82,7 +91,7 @@ if (kind === "engine") {
   const updater = readdirSync(out).filter(
     (f) =>
       /^latest.*\.yml$/.test(f) ||
-      (f.startsWith(`k7_${stamp}_`) && f.endsWith(".blockmap")),
+      (f.startsWith(`${prefix}_${stamp}_`) && f.endsWith(".blockmap")),
   );
   for (const f of updater) {
     copyFileSync(join(out, f), join(RELEASE, f));

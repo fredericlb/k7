@@ -3,9 +3,9 @@
 
 import { dirname } from "node:path";
 import { line } from "@frediverse/electron-shell/log";
+import { RELEASE, releaseLabel } from "@studio/app-updates/release";
 import { app, BaseWindow, Menu, shell, webContents } from "electron";
 import { menuTemplate, type PageCommand } from "./menuTemplate.ts";
-import { RELEASE, releaseLabel } from "./release.ts";
 import { TabSet } from "./tabs.ts";
 import { autoCheckEnabled, checkForUpdates, setAutoCheck } from "./updates.ts";
 

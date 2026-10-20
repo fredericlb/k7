@@ -31,6 +31,8 @@ the zone's `docs/` directory is where the justification belongs:
 | the Android app | `engine/k7-runtime/docs/android.md` |
 | the iOS app | `engine/k7-runtime/docs/ios.md` |
 | the standalone desktop app | `apps/k7-standalone/docs/` |
+| the tray (the engine in the menu bar) | `apps/k7-tray/docs/` |
+| how the Electron apps update themselves | `packages/app-updates/docs/` |
 | the Electron shell under it | `commons/packages/electron-shell/docs/`, and `packages/supervisor-host/docs/` for the supervisor it drives |
 | the rehearsal recorder | `packages/rehearsal-server/docs/` (the routes) and `packages/ui-rehearsal/docs/` (the screens) |
 | the engine's build scripts | `engine/scripts/docs/` |
@@ -65,6 +67,7 @@ the production image, and the repo-wide pages in `docs/`. The short map:
 | `engine/scripts` | builds the engine and supervisor, packages the CLI archive and the desktop installer |
 | `apps/k7` | the text-first DAW — frontend (React/Vite) + backend (Express: auth, prefs, the médiathèque, the rehearsal recorder, shares, engine registry) (its own `AGENTS.md`) |
 | `apps/k7-standalone` | k7 as an Electron desktop app, with the supervisor and engine beside it (`apps/k7-standalone/docs/`) |
+| `apps/k7-tray` | the engine alone, run from the menu bar: an Electron view over the supervisor, released by its own `tray.yml` (`apps/k7-tray/docs/`) |
 | `packages/` | `@studio/*`, consumed as raw TypeScript through `exports` subpaths (a bare deep import fails on purpose); four are published (`docs/publishing.md`) |
 | `k7-core/` | the `@k7-core` modules library, the seed every library folder is copied from |
 | `commons/` | git submodule shared with the `phare` monorepo |

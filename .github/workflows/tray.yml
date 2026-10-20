@@ -1,0 +1,194 @@
+# The tray release — apps/k7-tray, the engine run from the menu bar, on a machine that plays what k7 sends it.
+#
+# Its own workflow beside desktop.yml, on the same triggers and the same release stamps: per platform
+# (tray-platform.yml) it compiles the engine and the supervisor (engine-platform.yml, the cache desktop.yml's legs
+# share) and packages the tray around them. It publishes to GitHub releases of its own, `tray-snapshot` and
+# `tray-vX.Y.Z`, so neither workflow ever recreates the other's, and to /app_downloads/tray, the feed the tray
+# updates from (docs/app-downloads.md).
+#
+# Unsigned, as the desktop app is. Nothing is published before k7.yml has passed on the same commit (`tested`).
+# See docs/desktop-release.md.
+
+name: tray
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+# Three native builds are far too expensive to leave a superseded one running.
+concurrency:
+  group: tray-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read only; the publish job alone may write the release.
+permissions:
+  contents: read
+
+jobs:
+  decide:
+    name: what to build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
+      channel: ${{ steps.plan.outputs.channel }}
+      tag: ${{ steps.plan.outputs.tag }}
+      stamp: ${{ steps.plan.outputs.stamp }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0 # the push's `before` commit, to diff against
+
+      # A diff rather than a `paths:` filter, which tag pushes would never match (desktop.yml says why).
+      - id: plan
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/tags/*)
+              channel=release; stamp="${GITHUB_REF#refs/tags/}"; tag="tray-$stamp" ;;
+            *)
+              channel=snapshot; tag=tray-snapshot
+              stamp="snapshot-$(git rev-parse --short HEAD)" ;;
+          esac
+
+          # The stamp names files and reaches shell commands downstream: only these two shapes pass.
+          if ! [[ "$stamp" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$stamp" =~ ^snapshot-[0-9a-f]{7,40}$ ]]; then
+            echo "::error::refusing release stamp '$stamp': expected vX.Y.Z or snapshot-<commit>"
+            exit 1
+          fi
+          # A release tag names the version the tree holds, never another (docs/versioning.md).
+          if [ "$channel" = release ]; then node scripts/check-version.mjs --tag "$stamp"; fi
+
+          build=yes
+          if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BEFORE" HEAD > changed.txt
+            # What the tray is built from: the native tree, the app, the two packages it bundles, the shell, the workflows.
+            grep -qE '^(engine/|apps/k7-tray/|packages/(supervisor-host|app-updates)/|commons$|package-lock\.json|\.github/workflows/(tray|tray-platform|engine-platform)\.yml)' \
+              changed.txt || build=no
+          fi
+
+          # A dispatch on a side branch still builds, so it can be tested — it just publishes nothing.
+          publish=no
+          if [ "$build" = yes ] && { [ "$channel" = release ] || [ "$GITHUB_REF" = refs/heads/main ]; }; then
+            publish=yes
+          fi
+
+          printf '%s\n' "build=$build" "publish=$publish" "channel=$channel" \
+                        "tag=$tag" "stamp=$stamp" | tee -a "$GITHUB_OUTPUT"
+
+  # Beside the builds rather than before them: the tests take minutes, a native build tens of them.
+  tested:
+    name: k7.yml passed
+    needs: decide
+    if: needs.decide.outputs.publish == 'yes'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # the k7.yml run to wait for
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/k7-passed
+
+  build:
+    name: ${{ matrix.label }}
+    needs: decide
+    if: needs.decide.outputs.build == 'yes'
+    strategy:
+      fail-fast: false
+      matrix:
+        # desktop.yml's three legs, for the same reasons; the presets name the same compilers.
+        include:
+          - os: windows-latest
+            label: windows-x64
+            preset: windows-msvc-ninja
+          - os: macos-latest
+            label: macos-arm64
+            preset: macos-clang
+          - os: ubuntu-latest
+            label: linux-x64
+            preset: release-gcc
+    uses: ./.github/workflows/tray-platform.yml
+    secrets:
+      COMMONS_TOKEN: ${{ secrets.COMMONS_TOKEN }}
+    with:
+      os: ${{ matrix.os }}
+      label: ${{ matrix.label }}
+      preset: ${{ matrix.preset }}
+      stamp: ${{ needs.decide.outputs.stamp }}
+
+  publish:
+    name: publish
+    needs: [decide, tested, build]
+    if: >-
+      !cancelled() && needs.decide.outputs.publish == 'yes' && needs.tested.result == 'success'
+      && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release and its assets
+    steps:
+      # The tray's assets alone: the engine archives are desktop.yml's to release.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: k7-tray-*
+          path: dist
+          merge-multiple: true
+
+      # One SHA256SUMS over every asset, attached beside them: `sha256sum -c SHA256SUMS` in the download folder.
+      - name: checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          cat SHA256SUMS
+
+      - name: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          STAMP: ${{ needs.decide.outputs.stamp }}
+          CHANNEL: ${{ needs.decide.outputs.channel }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          if [ "$CHANNEL" = snapshot ]; then
+            # Deleted and recreated: `tray-snapshot` is a MOVING tag, as desktop.yml's `snapshot` is.
+            gh release delete "$TAG" --yes --cleanup-tag || true
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+              --title "tray snapshot $STAMP" \
+              --notes "The tray, built from main ($GITHUB_SHA); unsigned, files listed in SHA256SUMS. Replaced by the next one." \
+              dist/*
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "tray $STAMP" \
+              --notes "The tray of k7 $STAMP; unsigned, files listed in SHA256SUMS." dist/*
+          fi
+
+      # The same files on k7.rocks/app_downloads/tray, the feed the tray updates from (docs/app-downloads.md).
+      - name: publish on /app_downloads/tray
+        shell: bash
+        env:
+          APP_RELEASE_TOKEN: ${{ secrets.APP_RELEASE_TOKEN }}
+          STAMP: ${{ needs.decide.outputs.stamp }}
+          API: https://app.k7.rocks/api/app-releases/tray
+        run: |
+          set -euo pipefail
+          if [ -z "$APP_RELEASE_TOKEN" ]; then
+            echo "::warning::APP_RELEASE_TOKEN is not set, /app_downloads/tray keeps its last build."
+            exit 0
+          fi
+          for f in dist/*; do
+            echo "uploading $(basename "$f")"
+            curl --fail-with-body -sS --retry 3 -H "Authorization: Bearer $APP_RELEASE_TOKEN" -T "$f" "$API/$STAMP/$(basename "$f")"
+          done
+          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $APP_RELEASE_TOKEN" "$API/$STAMP/publish"

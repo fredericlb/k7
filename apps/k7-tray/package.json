@@ -1,0 +1,29 @@
+{
+  "name": "k7-tray",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The menu-bar view over engine/k7-supervisor, on Electron: spawns it, draws its snapshots in the tray and one settings window, sends clicks back, and keeps itself current from k7.rocks/app_downloads. See docs/tray.md.",
+  "author": "F <fred@parapluie.org>",
+  "homepage": "https://app.k7.rocks",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "node scripts/build-main.mjs",
+    "start": "node scripts/build-main.mjs && node scripts/start-dev.mjs",
+    "stage": "node scripts/stage.mjs",
+    "package": "node scripts/build-main.mjs && node scripts/stage.mjs && electron-builder --config electron-builder.cjs --publish never",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tray:start": "node scripts/build-main.mjs && node scripts/start-detached.mjs",
+    "tray:restart": "node scripts/restart-tray.mjs",
+    "tray:stop": "node scripts/restart-tray.mjs --stop"
+  },
+  "devDependencies": {
+    "@frediverse/electron-shell": "*",
+    "@studio/app-updates": "*",
+    "@studio/supervisor-host": "*",
+    "electron": "44.7.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "*",
+    "vitest": "^4.1.10"
+  }
+}

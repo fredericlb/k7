@@ -48,6 +48,16 @@
       "entry": ["electron-builder.cjs", "src/main.ts", "src/preload.ts"],
       "ignoreBinaries": ["vite"]
     },
+    "apps/k7-tray": {
+      "entry": [
+        "electron-builder.cjs",
+        "src/main.ts",
+        "src/preload.ts",
+        "scripts/*.mjs",
+        "settings/*.js"
+      ],
+      "ignoreBinaries": ["notepad.exe"]
+    },
     "engine/k7-android/web": {
       "ignoreDependencies": ["@capacitor/android"]
     },
