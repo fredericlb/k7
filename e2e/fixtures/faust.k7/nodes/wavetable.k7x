@@ -1,0 +1,1 @@
+extends("@k7-core/instruments/synth/wavetable")

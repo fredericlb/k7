@@ -2,13 +2,16 @@
 // A 4xx and a console.error are noted on the report rather than failed on, since some are the app asking a question.
 import { expect, type Page, test } from "@playwright/test";
 
-export function watchPage(page: Page) {
+/** `expected5xx`: paths a target answers 5xx by design, noted rather than failed on. */
+export function watchPage(page: Page, expected5xx: RegExp[] = []) {
   const problems: string[] = [];
   const notes = new Set<string>();
   const onError = (err: Error) => problems.push(`pageerror: ${err.message}`);
   const onResponse = (res: { status(): number; url(): string }) => {
     const path = new URL(res.url()).pathname;
-    if (res.status() >= 500) problems.push(`${res.status()} ${res.url()}`);
+    const expected = expected5xx.some((re) => re.test(path));
+    if (res.status() >= 500 && !expected)
+      problems.push(`${res.status()} ${res.url()}`);
     else if (res.status() >= 400) notes.add(`${res.status()} ${path}`);
   };
   const onConsole = (msg: { type(): string; text(): string }) => {

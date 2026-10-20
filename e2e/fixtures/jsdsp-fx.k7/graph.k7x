@@ -1,0 +1,10 @@
+// Four jsdsp library effects in series after the synth.
+modules({
+  melody: ["lead"],
+  lead: ["chorus"],
+  chorus: ["phaser"],
+  phaser: ["drive"],
+  drive: ["wah"],
+  wah: ["MIX"],
+  MIX: ["OUT"],
+})

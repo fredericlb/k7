@@ -1,0 +1,1 @@
+extends("@k7-core/console/console-6/channel")

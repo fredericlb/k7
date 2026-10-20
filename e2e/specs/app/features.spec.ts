@@ -2,7 +2,7 @@
 // One entry per fixture in e2e/fixtures; the table is what a reader checks against fixtures/README.md.
 import type { Page } from "@playwright/test";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
-import { navControl } from "../../src/nav.ts";
+import { navControl, tempoReadout } from "../../src/nav.ts";
 import { expect, type K7, test } from "../../src/target.ts";
 import { play as roll } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
@@ -79,7 +79,10 @@ const FEATURES: Record<string, { check: Check; play?: boolean; bug?: string }> =
     },
     "markers-settings.k7": {
       check: async (page) => {
-        await expect(page.getByText("96 bpm·3/4")).toBeVisible();
+        // The tempo button's row also holds the meter, in the footer or in a phone's Info popover.
+        const tempo = await tempoReadout(page, 96);
+        await expect(tempo).toBeVisible();
+        await expect(tempo.locator("xpath=..")).toContainText("3/4");
         await expect(button(page, "Metronome")).toHaveAttribute(
           "aria-pressed",
           "true",

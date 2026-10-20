@@ -1,0 +1,10 @@
+// Airwindows leaves on the lane, a Console 6 channel at its end and its buss between MIX and OUT.
+modules({
+  melody: ["lead"],
+  lead: ["tape"],
+  tape: ["chorus"],
+  chorus: ["channel"],
+  channel: ["MIX"],
+  MIX: ["buss"],
+  buss: ["OUT"],
+})

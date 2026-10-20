@@ -26,7 +26,17 @@ export default defineConfig({
       name: "web",
       testMatch: /app\/.*\.spec\.ts/,
       dependencies: ["seed"],
-      use: { ...devices["Desktop Chrome"], storageState: AUTH_STATE },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: AUTH_STATE,
+        // A fake camera and microphone, granted without a prompt: a picture lane records its webcam in the browser.
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
+      },
     },
   ],
 });

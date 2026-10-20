@@ -1,0 +1,2 @@
+// A cold module on a lane: it plays unmeasured until `clip process` measures the clip and bakes it.
+modules({ drums: ["norm"], norm: ["MIX"], MIX: ["OUT"] })

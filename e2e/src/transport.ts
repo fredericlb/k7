@@ -13,6 +13,7 @@ export async function play(page: Page, timeoutMs = 30_000): Promise<string> {
   await expect(button).toBeEnabled({ timeout: timeoutMs });
   const before = await clock.innerText();
   await button.click();
-  await expect(clock).not.toHaveText(before, { timeout: 5_000 });
+  // A picture project on a phone has taken more than 5 s to move its clock on the first play.
+  await expect(clock).not.toHaveText(before, { timeout: 15_000 });
   return before;
 }
