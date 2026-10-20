@@ -214,11 +214,7 @@ import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
 import { saveLabel } from "./saveLabel";
 import { ShellFooter } from "./shell/ShellFooter";
-import {
-  type MenuState,
-  ShellOverlays,
-  type UndoConfirm,
-} from "./shell/ShellOverlays";
+import { ShellOverlays } from "./shell/ShellOverlays";
 import { ShellTransport } from "./shell/ShellTransport";
 import { TempoMeter } from "./shell/TempoMeter";
 import { useCentredFits } from "./shell/useCentredFits";
@@ -241,12 +237,7 @@ import type {
   WebVideoTrack,
   WorkspaceInfo,
 } from "./types";
-import type {
-  CurveEdit,
-  GraphSlot,
-  LocalCtx,
-  RightPanelId,
-} from "./ui/commands/context";
+import type { GraphSlot, LocalCtx, RightPanelId } from "./ui/commands/context";
 import { runLocal } from "./ui/commands/dispatch";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
@@ -337,6 +328,25 @@ export default function App({
 }) {
   // Read once as a boolean: nearly every call site asks 'is this editable', not 'which snapshot is it'.
   const frozen = !!snapshot;
+  // What the panes read for themselves — the reload signal, the verbs, the overlays (state/shellStore.ts, docs/state.md).
+  const shellVerbs = useRef<ShellVerbs | null>(null);
+  const [shell] = useState(() =>
+    createShellStore({ frozen, impl: shellVerbs }),
+  );
+  useLayoutEffect(() => {
+    if (shell.getState().frozen !== frozen) shell.setState({ frozen });
+  }, [shell, frozen]);
+  // The overlays' setters; App reads the two that gate its own keys (state/overlaySlice.ts).
+  const {
+    setMenu,
+    setTapChain,
+    setCurveEdit,
+    setCommandsPage,
+    setAssemblyBuilder,
+    setUndoConfirm,
+  } = shell.getState();
+  const commandsPage = useStore(shell, (s) => s.commandsPage);
+  const undoConfirm = useStore(shell, (s) => s.undoConfirm);
   // The PAGE asked for; null is the project's home page, resolved into `full` once the layout is known (docs/shell.md).
   const [chosen, setFull] = useState<Pane | null>(null);
   // A phone draws the pages from its hamburger rather than from the header's row. See docs/shell.md.
@@ -346,13 +356,6 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  // The popin on one tap's own chain of effects — `ui tap chain <node> <tap>` (TapChainEditor.tsx).
-  const [tapChain, setTapChain] = useState<{
-    node: string;
-    tap: string;
-  } | null>(null);
-  // The curve editor popin (`ui curve [name]`): the curve it is on, and whether it exists yet — docs/curveEditor.md.
-  const [curveEdit, setCurveEdit] = useState<CurveEdit | null>(null);
   // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   /** The NODE of that chain to land on — its file name, or null for the chain itself. Not in the URL. */
@@ -370,29 +373,6 @@ export default function App({
   }, [builderOpen, aiEnabled]);
   // A sideways swipe nothing scrolls must not go Back out of the project (noSwipeBack.ts).
   useEffect(guardSwipeBack, []);
-  /** The assembly TEMPLATE open in its builder: the file, and its folder's graph once it lands. */
-  const [assemblyBuilder, setAssemblyBuilder] = useState<{
-    file: string;
-    folder: string;
-  } | null>(null);
-  const [assemblyGraph, setAssemblyGraph] = useState<WebGraph | null>(null);
-  /** …and whether it has been unlocked, the same one-click confirmation a shared module opens behind. */
-  const [assemblyUnlocked, setAssemblyUnlocked] = useState(false);
-  // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
-  useEffect(() => {
-    if (!assemblyBuilder) {
-      setAssemblyGraph(null);
-      return;
-    }
-    let live = true;
-    void api
-      .graphAt(assemblyBuilder.folder)
-      .then((g) => live && setAssemblyGraph(g))
-      .catch(() => live && setAssemblyGraph(null));
-    return () => {
-      live = false;
-    };
-  }, [assemblyBuilder]);
   /** The LIVE plugin behind the builder's module, matched on the chain step's NAME — see docs/moduleBuilder.md. */
   const [builderPlugin, setBuilderPlugin] = useState<{
     module: string;
@@ -532,14 +512,6 @@ export default function App({
     (text: string) => statusStore.say(text, true),
     [statusStore],
   );
-  // What the panes read for themselves — the reload signal, the verbs, the overlays (state/shellStore.ts, docs/state.md).
-  const shellVerbs = useRef<ShellVerbs | null>(null);
-  const [shell] = useState(() =>
-    createShellStore({ frozen, impl: shellVerbs }),
-  );
-  useLayoutEffect(() => {
-    if (shell.getState().frozen !== frozen) shell.setState({ frozen });
-  }, [shell, frozen]);
   /** 'Something changed — re-read what you draw', plus WHAT changed: `files`, which reloadScope.ts reads (null = re-ask). */
   const reload = useStore(shell, (s) => s.reload);
   const reloadKey = reload.key;
@@ -604,8 +576,6 @@ export default function App({
   const referenceToggle = useRef<(() => void) | null>(null);
   /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
-  /** The command catalogue, the one settings screen still drawn as a full PAGE. */
-  const [commandsPage, setCommandsPage] = useState(false);
   /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
   const toggleRight = useCallback(
     (which: RightPanelId) =>
@@ -733,8 +703,7 @@ export default function App({
   const [midiLearning, setMidiLearning] = useState(false);
   const editorRef = useRef<EditorHandle>(null);
 
-  // Undo/redo: a process step (restoring a bounced file) is gated behind this confirm dialog.
-  const [undoConfirm, setUndoConfirm] = useState<UndoConfirm | null>(null);
+  // Undo/redo: a process step (restoring a bounced file) is gated behind a confirm dialog — the overlay slice's.
   // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
@@ -746,7 +715,7 @@ export default function App({
       new Promise<boolean>((resolve) =>
         setUndoConfirm({ files, label, resolve }),
       ),
-    [],
+    [setUndoConfirm],
   );
   // When a Ctrl+Z last met the end of the text pane's history: the next one, soon after, goes to the journal.
   const journalArmedAt = useRef(0);
@@ -2097,8 +2066,6 @@ export default function App({
     );
   }, []);
 
-  // The right-click context menu (timeline + graph).
-  const [menu, setMenu] = useState<MenuState | null>(null);
   // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const setMenuHint = statusStore.hint;
   // Read through a ref: the graph's insert callbacks are built on this one, and the chains pane is memoised.
@@ -2147,7 +2114,7 @@ export default function App({
       cmdLocale.current,
     );
     if (items.length) setMenu({ items, x, y });
-  }, []);
+  }, [setMenu]);
   // What the store's verbs call, read at call time so a pane's first effect already reaches these.
   shellVerbs.current = {
     setStatus,
@@ -2164,7 +2131,7 @@ export default function App({
       const items = nodeMenu(n);
       if (items.length) setMenu({ items, x: at.x, y: at.y });
     },
-    [],
+    [setMenu],
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingNode | null>(null);
@@ -2172,14 +2139,10 @@ export default function App({
   const pendingWire = useRef<PendingWire | null>(null);
   // The graph's insert, asset and tap callbacks, and the two pickers they open (shell/useGraphActions.ts).
   const {
-    modulePicker,
-    setModulePicker,
     baseModules,
     insertIntoChain,
     placeInGraph,
     onModulePick,
-    assetPicker,
-    setAssetPicker,
     browseAssets,
     editTap,
     runAlternative,
@@ -3782,45 +3745,22 @@ export default function App({
 
             {/* Every popin, dialog and menu over the shell (shell/ShellOverlays.tsx). */}
             <ShellOverlays
-              menu={menu}
-              setMenu={setMenu}
               commandPrefs={commandPrefs}
               pickMenuItem={pickMenuItem}
               setMenuHint={setMenuHint}
               presetPicker={presetPicker}
-              tapChain={tapChain}
-              setTapChain={setTapChain}
               liveCardProps={liveCardProps}
-              reloadKey={reloadKey}
-              runCommand={runCommand}
-              modulePicker={modulePicker}
-              setModulePicker={setModulePicker}
               baseModules={baseModules}
               onModulePick={onModulePick}
-              curveEdit={curveEdit}
-              setCurveEdit={setCurveEdit}
               projectDoc={projectDoc}
-              assetPicker={assetPicker}
-              setAssetPicker={setAssetPicker}
               showHelp={showHelp}
               closeHelp={closeHelp}
-              frozen={frozen}
               engineSync={engineSync}
               imp={imp}
-              commandsPage={commandsPage}
-              setCommandsPage={setCommandsPage}
               allCommands={allCommands}
               saveCommandPrefs={saveCommandPrefs}
-              assemblyBuilder={assemblyBuilder}
-              setAssemblyBuilder={setAssemblyBuilder}
-              assemblyGraph={assemblyGraph}
-              assemblyUnlocked={assemblyUnlocked}
-              setAssemblyUnlocked={setAssemblyUnlocked}
               vimMode={vimMode}
               paneError={paneError}
-              bumpReload={bumpReload}
-              undoConfirm={undoConfirm}
-              setUndoConfirm={setUndoConfirm}
               engineRef={engineRef}
               connected={connected}
             />

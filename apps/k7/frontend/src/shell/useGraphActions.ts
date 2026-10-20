@@ -14,6 +14,7 @@ import {
   type PendingInsert,
 } from "../nodeInsert";
 import { type PendingNode, spawnBox } from "../pendingNode";
+import { useShellStore } from "../state/shellStore";
 
 /** Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked. */
 export interface PendingWire {
@@ -57,18 +58,9 @@ export function useGraphActions({
       void runCommand(`node engine ${module} ${name}`),
     [runCommand],
   );
-  // 'Which file?' — a filepicker widget's asset browser, rendered by the shell because the popup is viewport-positioned.
-  const [assetPicker, setAssetPicker] = useState<{
-    module: string;
-    param: string;
-    x: number;
-    y: number;
-    files: string[];
-    /** The library family the widget names, which decides the extensions when the param's name cannot. */
-    family?: string;
-    /** The command a pick runs, when it is not `node param` — a rack tap's sample is `node tap sample`. */
-    commit?: (file: string | null) => string;
-  } | null>(null);
+  // The two pickers are overlays, drawn by ShellOverlays: only their setters are needed here (state/overlaySlice.ts).
+  const shell = useShellStore();
+  const { setAssetPicker, setModulePicker } = shell.getState();
   const browseAssets = useCallback(
     (module: string, param: string, x: number, y: number, family?: string) => {
       // The choices are the MODULE's own assets/ and its ancestors', re-read from the graph so a file dropped since the last look is offered.
@@ -89,7 +81,7 @@ export function useGraphActions({
         })
         .catch(() => {});
     },
-    [],
+    [setAssetPicker],
   );
   /** A rack tap's edit, as the `node tap` command it is — a sample opens the same picker a file param does. */
   const editTap = useCallback(
@@ -131,20 +123,8 @@ export function useGraphActions({
           })
           .catch(() => {});
     },
-    [runCommand],
+    [runCommand, setAssetPicker],
   );
-  // `info` is the arrow the pick will splice into — NULL when the picker was opened on empty canvas.
-  const [modulePicker, setModulePicker] = useState<{
-    info: PendingInsert | null;
-    x: number;
-    y: number;
-    // The click's WORLD point — where the picked module will be BORN, so a new node never asks the layout where to appear.
-    at?: { x: number; y: number };
-    /** What a node of the picked module lands CALLED — `<lane>_<module>_<n>`, from the pane that holds the graph (ChainsTab's `nameFor`). */
-    nameFor: (module: string) => string;
-    /** Set when the pick is not a node to place but a ref to hand on — a tap's chain asks for one (TapChainEditor.tsx). */
-    onRef?: (ref: string) => void;
-  } | null>(null);
   // Offer the click into the pre-written line's `at` field, deferred a tick: a same-tick offer reads the bar's old state.
   const offerSpawnAt = useCallback(
     (at?: { x: number; y: number }) => {
@@ -200,7 +180,7 @@ export function useGraphActions({
       }
       setModulePicker({ info, x, y, at, nameFor });
     },
-    [baseModules, prewriteCommand, offerSpawnAt],
+    [baseModules, prewriteCommand, offerSpawnAt, setModulePicker],
   );
   // Right-click on empty canvas: the same picker, but the pick has nowhere to be spliced.
   const placeInGraph = useCallback(
@@ -218,10 +198,12 @@ export function useGraphActions({
       }
       setModulePicker({ info: null, x, y, at, nameFor });
     },
-    [baseModules, prewriteCommand, offerSpawnAt],
+    [baseModules, prewriteCommand, offerSpawnAt, setModulePicker],
   );
   const onModulePick = useCallback(
     (pick: ModulePick) => {
+      // Read at pick time: the open picker is the store's, and this callback keeps one identity.
+      const modulePicker = shell.getState().modulePicker;
       if (!modulePicker) return;
       setModulePicker(null);
       // A ref wanted, not a node: this project's own module is reached through `@workspace`, like any other ref.
@@ -259,7 +241,8 @@ export function useGraphActions({
       );
     },
     [
-      modulePicker,
+      shell,
+      setModulePicker,
       prewriteCommand,
       offerSpawnAt,
       pendingInsert,
@@ -269,14 +252,10 @@ export function useGraphActions({
   );
 
   return {
-    modulePicker,
-    setModulePicker,
     baseModules,
     insertIntoChain,
     placeInGraph,
     onModulePick,
-    assetPicker,
-    setAssetPicker,
     browseAssets,
     editTap,
     runAlternative,

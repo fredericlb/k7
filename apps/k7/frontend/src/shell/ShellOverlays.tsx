@@ -1,6 +1,6 @@
 // ShellOverlays.tsx — every popin, dialog and menu the shell draws OVER its panes: the
 // right-click menu, the pickers, the tap-chain and curve editors, the help page, the commands
-// page, the assembly builder, the dialogs. Their state is App's; this only draws it.
+// page, the assembly builder, the dialogs. What is open is the shell store's overlay slice.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -36,13 +36,19 @@ import { ModulePicker } from "../components/ModulePicker";
 import { TapChainEditor } from "../components/TapChainEditor";
 import { TrackModulesPane } from "../components/TrackModulesPane";
 import type { MenuItem } from "../contextMenu";
+import { useGraphAt } from "../hooks/useGraphAt";
 import type { useProjectImport } from "../hooks/useProjectDialogs";
 import { isLibraryPath } from "../libraryTree";
 import { PaneBoundary } from "../PaneBoundary";
 import { PairRequestsPrompt } from "../pairing/PairRequestsPrompt";
 import { m } from "../paraglide/messages.js";
-import type { EngineSyncState, WebGraph, WebProject } from "../types";
-import type { CurveEdit } from "../ui/commands/context";
+import {
+  useReloadKey,
+  useShell,
+  useShellStore,
+  useVerbs,
+} from "../state/shellStore";
+import type { EngineSyncState, WebProject } from "../types";
 import type { useGraphActions } from "./useGraphActions";
 
 // The assembly builder carries an editor and a language of its own: loaded when opened, not with the shell.
@@ -62,111 +68,78 @@ const TAP_CHAIN_INPUT = {
   },
 };
 
-/** The right-click menu: its rows and where it opened. */
-export interface MenuState {
-  items: MenuItem[];
-  x: number;
-  y: number;
-}
-
-/** A process step's undo, waiting on the person: the files it restores, and the answer. */
-export interface UndoConfirm {
-  files: string[];
-  label: string;
-  resolve: (ok: boolean) => void;
-}
-
 type GraphActions = ReturnType<typeof useGraphActions>;
 
 export function ShellOverlays({
-  menu,
-  setMenu,
   commandPrefs,
   pickMenuItem,
   setMenuHint,
   presetPicker,
-  tapChain,
-  setTapChain,
   liveCardProps,
-  reloadKey,
-  runCommand,
-  modulePicker,
-  setModulePicker,
   baseModules,
   onModulePick,
-  curveEdit,
-  setCurveEdit,
   projectDoc,
-  assetPicker,
-  setAssetPicker,
   showHelp,
   closeHelp,
-  frozen,
   engineSync,
   imp,
-  commandsPage,
-  setCommandsPage,
   allCommands,
   saveCommandPrefs,
-  assemblyBuilder,
-  setAssemblyBuilder,
-  assemblyGraph,
-  assemblyUnlocked,
-  setAssemblyUnlocked,
   vimMode,
   paneError,
-  bumpReload,
-  undoConfirm,
-  setUndoConfirm,
   engineRef,
   connected,
 }: {
-  menu: MenuState | null;
-  setMenu: (v: null) => void;
   commandPrefs: CommandPrefs;
   pickMenuItem: (item: MenuItem) => void;
   setMenuHint: ComponentProps<typeof ContextMenu>["onHint"];
   presetPicker: ReactNode;
-  tapChain: { node: string; tap: string } | null;
-  setTapChain: (v: null) => void;
   /** What a module card is drawn with, live — the tap chain's cards are the graph's own. */
   liveCardProps: Omit<
     ComponentProps<typeof TrackModulesPane>,
     "trackId" | "nodes" | "lead"
   >;
-  reloadKey: number;
-  runCommand: (line: string, outcome?: { ok: boolean }) => Promise<void>;
-  modulePicker: GraphActions["modulePicker"];
-  setModulePicker: GraphActions["setModulePicker"];
   baseModules: GraphActions["baseModules"];
   onModulePick: GraphActions["onModulePick"];
-  curveEdit: CurveEdit | null;
-  setCurveEdit: (v: null) => void;
   projectDoc: WebProject | null;
-  assetPicker: GraphActions["assetPicker"];
-  setAssetPicker: GraphActions["setAssetPicker"];
   showHelp: boolean;
   closeHelp: () => void;
-  frozen: boolean;
   engineSync: EngineSyncState | null;
   imp: ReturnType<typeof useProjectImport>;
-  commandsPage: boolean;
-  setCommandsPage: (on: boolean) => void;
   allCommands: ComponentProps<typeof CommandsSettings>["commands"];
   saveCommandPrefs: (next: CommandPrefs) => void;
-  assemblyBuilder: { file: string; folder: string } | null;
-  setAssemblyBuilder: (v: null) => void;
-  assemblyGraph: WebGraph | null;
-  assemblyUnlocked: boolean;
-  setAssemblyUnlocked: (on: boolean) => void;
   vimMode: boolean;
   paneError: ComponentProps<typeof PaneBoundary>["onError"];
-  bumpReload: () => void;
-  undoConfirm: UndoConfirm | null;
-  setUndoConfirm: (v: null) => void;
   engineRef: RefObject<EngineClient | undefined>;
   connected: boolean;
 }) {
+  // What is open over the panes, read here rather than handed down (state/overlaySlice.ts).
+  const menu = useShell((s) => s.menu);
+  const tapChain = useShell((s) => s.tapChain);
+  const modulePicker = useShell((s) => s.modulePicker);
+  const curveEdit = useShell((s) => s.curveEdit);
+  const assetPicker = useShell((s) => s.assetPicker);
+  const commandsPage = useShell((s) => s.commandsPage);
+  const assemblyBuilder = useShell((s) => s.assemblyBuilder);
+  const assemblyUnlocked = useShell((s) => s.assemblyUnlocked);
+  const undoConfirm = useShell((s) => s.undoConfirm);
+  const frozen = useShell((s) => s.frozen);
+  const reloadKey = useReloadKey();
+  const { runCommand } = useVerbs();
+  const {
+    setMenu,
+    setTapChain,
+    setModulePicker,
+    setCurveEdit,
+    setAssetPicker,
+    setCommandsPage,
+    setAssemblyBuilder,
+    setAssemblyUnlocked,
+    setUndoConfirm,
+    bumpReload,
+  } = useShellStore().getState();
+  // The template's own graph is what the builder lists params from: an assembly folder IS a graph folder.
+  const assemblyGraph = useGraphAt(assemblyBuilder?.folder ?? null);
   return (
     <>
       {/* right-click context menu — opened by the timeline and the chains graph */}
@@ -190,8 +163,6 @@ export function ShellOverlays({
         <TapChainEditor
           node={tapChain.node}
           tap={tapChain.tap}
-          reloadKey={reloadKey}
-          command={runCommand}
           onAddModule={(x, y) =>
             setModulePicker({
               info: null,
