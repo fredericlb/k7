@@ -83,8 +83,7 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
     );
     await expect(page.getByText(`Song · ${TITLE}`)).toBeVisible();
     const mark = `# e2e ${Date.now()}`;
-    // The sidecar is a CodeMirror pane with no accessible name: its content element is the editor.
-    await page.locator(".cm-content").click();
+    await page.getByRole("textbox", { name: / — song info$/ }).click();
     await page.keyboard.press("Control+End");
     await page.keyboard.press("Enter");
     await page.keyboard.type(mark);
@@ -95,11 +94,11 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
   });
 
   await test.step("play it: the mini player bar takes it", async () => {
-    // The song player's Play is an icon with no name: the first button of its header, beside the clock.
+    // The song player's header, beside its clock: the mini player bar has a Play of its own.
     const header = page
       .locator("header")
       .filter({ hasText: /\d:\d\d \/ \d:\d\d/ });
-    await header.getByRole("button").first().click();
+    await header.getByRole("button", { name: "Play", exact: true }).click();
     const bar = page.getByRole("region", { name: "Now playing" });
     await expect(bar).toBeVisible({ timeout: 15_000 });
     await expect(bar.getByText(TITLE)).toBeVisible();

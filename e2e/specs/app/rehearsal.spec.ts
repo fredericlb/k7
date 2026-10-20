@@ -35,7 +35,11 @@ async function listed<T>(page: Page, url: string): Promise<T[]> {
   return Array.isArray(body) ? (body as T[]) : [];
 }
 
-/** Makes the suite's songbook song and types its lyrics; answers once Save has written them. */
+/** The lyrics editor of a song's page, open while there is a draft. */
+const lyricsEditor = (page: Page) =>
+  page.getByRole("textbox", { name: "Lyrics", exact: true });
+
+/** Makes the suite's songbook song and types its lyrics; answers once Save has sent them. */
 async function songWithLyrics(page: Page): Promise<void> {
   await page.getByRole("button", { name: "New song" }).click();
   await expect(page.getByRole("heading", { name: "New song" })).toBeVisible();
@@ -49,13 +53,8 @@ async function songWithLyrics(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/rehearsal\/songs\/[^/]+/);
   await page.getByRole("button", { name: "Song menu" }).click();
   await page.getByRole("menuitem", { name: "Add lyrics" }).click();
-  await page
-    .getByRole("textbox", { name: "Type the lyrics here…" })
-    .fill(LYRICS);
-  const save = page.getByRole("button", { name: "Save", exact: true });
-  await save.click();
-  // Save greys out once the draft equals what the server answered.
-  await expect(save).toBeDisabled({ timeout: 10_000 });
+  await lyricsEditor(page).fill(LYRICS);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
 }
 
 test("a songbook song's chord sheet renders its chords and lyrics", async ({
@@ -66,7 +65,8 @@ test("a songbook song's chord sheet renders its chords and lyrics", async ({
   await page.reload();
   const watch = watchPage(page);
   await songWithLyrics(page);
-  // Read back from the server: the editor itself does not close on Save (the next test).
+  // Read back from the server, once Save has closed the editor (the next test).
+  await expect(lyricsEditor(page)).toBeHidden({ timeout: 10_000 });
   await page.reload();
   // A chord of the sheet is a button that opens its diagram; the words around it stay text.
   for (const chord of ["Am", "G", "C"])
@@ -84,20 +84,12 @@ test("a songbook song's chord sheet renders its chords and lyrics", async ({
 test("saving a song's first lyrics shows the rendered sheet", async ({
   k7,
 }) => {
-  test.fail(
-    true,
-    "SongDetailView never leaves the editor after Save: its effect resets `editing` only on a new song or tab, so the sheet shows only after a reload",
-  );
   const page = await k7.open("/rehearsal/songs");
   await sweep(page);
   await page.reload();
   try {
     await songWithLyrics(page);
-    await expect(
-      page.getByRole("textbox", { name: "Type the lyrics here…" }),
-    ).toBeHidden({
-      timeout: 5_000,
-    });
+    await expect(lyricsEditor(page)).toBeHidden({ timeout: 10_000 });
     await expect(
       page.getByRole("button", { name: "Am", exact: true }),
     ).toBeVisible();

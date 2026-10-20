@@ -32,7 +32,7 @@ async function openChains(k7: {
   return page;
 }
 
-/** A card of the canvas: a named button while zoomed out, a named group once its panel is drawn. */
+/** A card of the canvas, named "node (module)" or just its name: a button while zoomed out, a group once its panel is drawn. */
 const card = (page: Page, name: string): Locator =>
   page
     .getByRole("main")
@@ -45,39 +45,12 @@ async function centre(of: Locator): Promise<Point> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-/** The screen midpoint of the cable running closest from `a` to `b`; a cable is an SVG path with no role or name. */
-async function cableBetween(page: Page, a: Point, b: Point): Promise<Point> {
-  const cables = await page.locator(".dgx-hit").evaluateAll((els) =>
-    els.map((el) => {
-      // The slice of SVGPathElement read here: the suite compiles without the DOM lib.
-      const path = el as unknown as {
-        getTotalLength(): number;
-        getPointAtLength(at: number): Point;
-        getScreenCTM(): Record<
-          "a" | "b" | "c" | "d" | "e" | "f",
-          number
-        > | null;
-      };
-      const len = path.getTotalLength();
-      const m = path.getScreenCTM();
-      const screen = (p: { x: number; y: number }) =>
-        m
-          ? { x: p.x * m.a + p.y * m.c + m.e, y: p.x * m.b + p.y * m.d + m.f }
-          : p;
-      return {
-        from: screen(path.getPointAtLength(0)),
-        to: screen(path.getPointAtLength(len)),
-        mid: screen(path.getPointAtLength(len / 2)),
-      };
-    }),
-  );
-  const dist = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y);
-  const ranked = cables
-    .map((c) => ({ c, d: dist(c.from, a) + dist(c.to, b) }))
-    .sort((x, y) => x.d - y.d);
-  expect(ranked.length, "no cable is drawn").toBeGreaterThan(0);
-  return ranked[0].c.mid;
-}
+/** The `+` on the cable from `from` to `to`, a button hidden until it is hovered or focused. */
+const cablePlus = (page: Page, from: string, to: string): Locator =>
+  page.getByRole("button", {
+    name: `Add a module between ${from} and ${to}`,
+    exact: true,
+  });
 
 /** Picks EFFECT on the MIX → OUT cable and waits for it on disk; returns the new node's id and graph.k7x as it was. */
 async function pickOnCable(
@@ -89,10 +62,10 @@ async function pickOnCable(
   await expect(out).toBeVisible();
   const before = await readFile(page, WS, GRAPH);
 
-  // The `+` shows only while the pointer is on the cable, and the cable itself takes the click too.
-  const mid = await cableBetween(page, await centre(mix), await centre(out));
-  await page.mouse.move(mid.x, mid.y);
-  await page.mouse.click(mid.x, mid.y);
+  // Enter on the focused `+` is what a keyboard does, and needs no pointer on a cable drawn in SVG.
+  const plus = cablePlus(page, "MIX", "OUT");
+  await plus.focus();
+  await plus.press("Enter");
   const picker = page.getByRole("menu");
   await picker.getByRole("textbox", { name: "search modules…" }).fill(EFFECT);
   await picker
@@ -109,7 +82,9 @@ async function pickOnCable(
   await expectFile(page, WS, `${PROJECT}/nodes/${node}.k7x`, (t) =>
     t.includes(`/audio/${EFFECT}`),
   );
-  await expect(card(page, node).or(card(page, EFFECT)).first()).toBeVisible();
+  await expect(
+    card(page, `${node} (${EFFECT})`).or(card(page, EFFECT)).first(),
+  ).toBeVisible();
   return { node, before };
 }
 
@@ -126,10 +101,6 @@ test("a library effect picked on the MIX → OUT cable is created and wired betw
 test("one project undo takes a whole pick back: the node and its splice", async ({
   k7,
 }) => {
-  test.fail(
-    true,
-    "the pick is two journal steps (create, then splice): the first undo leaves an unwired node",
-  );
   const page = await openChains(k7);
   const watch = watchPage(page);
   const { node, before } = await pickOnCable(page);
@@ -157,14 +128,14 @@ test("a factory preset from the node's dropdown switches the Surge node's base, 
 }) => {
   const page = await openChains(k7);
   const watch = watchPage(page);
-  const synth = card(page, "surge-xt");
+  const synth = card(page, "pad (surge-xt)");
   await expect(synth).toBeVisible();
   const before = await readFile(page, WS, SYNTH_NODE);
   expect(before).not.toContain("base");
 
   const dropdown = page
     .getByRole("main")
-    .getByRole("button", { name: "preset", exact: true });
+    .getByRole("button", { name: /^preset(: |$)/ });
   await zoomOnto(page, synth, dropdown);
   await dropdown.click();
   const shelf = page.getByRole("menu");

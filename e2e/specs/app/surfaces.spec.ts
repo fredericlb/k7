@@ -21,6 +21,9 @@ const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
 const lane = (page: Page, name: string) => button(page, `mute ${name}`);
 const viewport = (page: Page) => page.getByRole("dialog", { name: "Viewport" });
+// A card is named "node (module)", so the rig's recorder node reads "recorder (…)".
+const recorderCard = (page: Page) =>
+  page.getByRole("button", { name: /^recorder\b/ }).first();
 
 /** What each archetype draws on opening, and whether its header offers a transport to roll. */
 const ARCHETYPES: Record<
@@ -57,14 +60,14 @@ const ARCHETYPES: Record<
   live: {
     transport: false,
     draws: async (p) => {
-      await expect(button(p, "recorder")).toBeVisible({ timeout: 30_000 });
+      await expect(recorderCard(p)).toBeVisible({ timeout: 30_000 });
       await expect(await navControl(p, "Timeline")).toHaveCount(0);
     },
   },
   "live-video": {
     transport: false,
     draws: async (p) => {
-      await expect(button(p, "recorder")).toBeVisible({ timeout: 30_000 });
+      await expect(recorderCard(p)).toBeVisible({ timeout: 30_000 });
       await expect(viewport(p)).toBeVisible();
     },
   },
@@ -303,10 +306,6 @@ test("a set's song goes on a deck, and the crossfader moves", async ({
 });
 
 test("a record on deck A plays", async ({ k7 }) => {
-  test.fail(
-    true,
-    "the engine refuses the deck's record: a Windows-hosted server sends 'C:\\…\\mediatek\\songs/…\\original.wav', outside the folders it reads",
-  );
   const page = await openProject(k7, WORKSPACE, SET);
   await putOnDeckA(page);
   await page.getByRole("button", { name: /^start deck A/ }).click();
@@ -338,10 +337,6 @@ test("live-video's viewport draws the webcam", async ({ k7 }) => {
 });
 
 test("a mastering control writes its node file", async ({ k7 }) => {
-  test.fail(
-    true,
-    '`node param "master" "Width" …` is refused with "no plugin module \'master\'": collectPluginModules walks the tracks, never masterPlugins',
-  );
   const files = await workspace(k7);
   await copyFixture(files, "mastering.k7", WORKSPACE);
   const node = "mastering.k7/nodes/master.k7x";

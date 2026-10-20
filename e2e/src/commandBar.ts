@@ -1,10 +1,10 @@
 // commandBar.ts — running a line from k7's command bar the way a person does: type it, pick its row.
-// The bar is the combobox at the foot of a project page, named by its placeholder (apps/k7/frontend/docs/commandBar.md).
+// The bar is the combobox at the foot of a project page, named "Command" (apps/k7/frontend/docs/commandBar.md).
 import { expect, type Locator, type Page } from "@playwright/test";
 import { folded, navControl } from "./nav.ts";
 
 export const commandBar = (page: Page): Locator =>
-  page.getByRole("combobox", { name: "what do you want to do?" });
+  page.getByRole("combobox", { name: "Command" });
 
 /** The bar, opened from the Menu's Commands item on a phone, where it is a popin rather than docked. */
 export async function openCommandBar(page: Page): Promise<Locator> {

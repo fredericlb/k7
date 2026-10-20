@@ -3,6 +3,7 @@
 import type { Page } from "@playwright/test";
 import { commandBar, expectStatus, runCommand } from "../../src/commandBar.ts";
 import { expectFile, readFile, restoreProject } from "../../src/disk.ts";
+import { editorText, inVim, vimStatus } from "../../src/editor.ts";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { folded, navControl, tempoReadout } from "../../src/nav.ts";
 import { expect, test } from "../../src/target.ts";
@@ -41,16 +42,15 @@ async function typeTempo(page: Page, tempo: number): Promise<void> {
     .getByRole("complementary")
     .getByRole("button", { name: "project.k7x", exact: true })
     .click();
-  // The CodeMirror surface has no accessible name: the one textbox of the editor's main region.
-  const text = page.getByRole("main").getByRole("textbox");
+  const text = editorText(page, "project.k7x");
   await expect(text).toContainText("tempo: 120");
   await text.click();
-  // Vim draws a block cursor in normal mode; that is the only sign of the mode on screen.
-  const vim = (await page.locator(".cm-fat-cursor").count()) > 0;
-  if (vim) {
+  if (await inVim(page)) {
     await page.keyboard.type("gg2j0f1ciw");
+    await expect(vimStatus(page)).toHaveText("INSERT");
     await page.keyboard.type(String(tempo));
     await page.keyboard.press("Escape");
+    await expect(vimStatus(page)).toHaveText("NORMAL");
     return;
   }
   await page.keyboard.press("Control+Home");
@@ -119,9 +119,7 @@ test("project undo takes the typed tempo back, project redo puts it again", asyn
   const undone = await expectFile(page, WS, PROJECT_FILE, /tempo: 120,/);
   expect(undone).toBe(before);
   await expect(await tempoReadout(page, 120)).toBeVisible();
-  await expect(page.getByRole("main").getByRole("textbox")).toContainText(
-    "tempo: 120",
-  );
+  await expect(editorText(page, "project.k7x")).toContainText("tempo: 120");
 
   await runCommand(page, "project redo");
   await expect(
@@ -143,8 +141,8 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
   await typeTempo(page, 150);
   await expectFile(page, WS, PROJECT_FILE, /tempo: 150,/);
 
-  const text = page.getByRole("main").getByRole("textbox");
-  // A vim change is two buffer steps, the delete and the insert, so a person presses until the old value is back.
+  const text = editorText(page, "project.k7x");
+  // Typed without vim, the tempo is several buffer steps, so a person presses until the old value is back.
   await pressUntil(page, "Control+z", () =>
     expect(text).toContainText("tempo: 120", { timeout: 1_000 }),
   );
@@ -171,21 +169,14 @@ test("Ctrl+Z in the editor spends the typing first, Ctrl+Y brings it back", asyn
 test("one Ctrl+Z takes a whole vim change back, and the disk never holds half of it", async ({
   k7,
 }) => {
-  test.fail(
-    true,
-    "a vim change is two buffer steps (delete, insert): the first Ctrl+Z saves `tempo: ,`",
-  );
   const page = await k7.open(`/@local/${WS}/${PROJECT}`);
   const watch = watchPage(page);
   await openProject(page);
   await typeTempo(page, 150);
   await expectFile(page, WS, PROJECT_FILE, /tempo: 150,/);
-  test.skip(
-    (await page.locator(".cm-fat-cursor").count()) === 0,
-    "the account's editor is not in vim mode",
-  );
+  test.skip(!(await inVim(page)), "the account's editor is not in vim mode");
 
-  const text = page.getByRole("main").getByRole("textbox");
+  const text = editorText(page, "project.k7x");
   await page.keyboard.press("Control+z");
   await expect(text).toContainText("tempo: 120", { timeout: 2_000 });
   const undone = await expectFile(page, WS, PROJECT_FILE, /tempo: 120,/);
@@ -196,10 +187,6 @@ test("one Ctrl+Z takes a whole vim change back, and the disk never holds half of
 test("project undo on a freshly opened project leaves the automatic pin alone", async ({
   k7,
 }) => {
-  test.fail(
-    true,
-    "the pin written on open is a journal step: the first undo takes back a pin nobody made",
-  );
   const page = await k7.open(`/@local/${WS}/${PROJECT}`);
   const watch = watchPage(page);
   await openProject(page);

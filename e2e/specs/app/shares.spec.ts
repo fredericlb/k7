@@ -147,8 +147,7 @@ test("a shared link opens signed out, and stops answering once taken down", asyn
       await row.getByRole("button", { name: "Shares (1)" }).click();
       const dialog = home.getByRole("dialog", { name: /^Shares of/ });
       await expect(dialog.getByRole("link", { name: url })).toBeVisible();
-      // The row's copy and take-down buttons are icons with no name: the destructive one is found by its class.
-      await dialog.locator("li button.text-destructive").click();
+      await dialog.getByRole("button", { name: /^Take “.*” down$/ }).click();
       await home
         .getByRole("alertdialog")
         .or(home.getByRole("dialog", { name: /^Take “/ }))
