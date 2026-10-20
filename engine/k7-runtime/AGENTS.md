@@ -159,7 +159,7 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          the script PatternPlugin runs. A GENERATOR, output committed: run it after
                          touching events.ts or engineEntry.ts. `npm run gen:strudel-bundle --workspace k7-runtime`.
   gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
-                         packages/song-schema/src/builtinParams.generated.ts. A GENERATOR, like the one
+                         packages/song-schema/src/builtinParams.generated.json. A GENERATOR, like the one
                          above: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace k7-runtime`. docs/builtinParams.md.
   gen-surge-panel.mjs    write the Surge XT module's panel (ui.k7x + widgets.js in k7-core) from

@@ -29,14 +29,16 @@ control at its range minimum misreports it: **4OSC's filter opens at 69 of 0..13
 ```
 k7-runtime --dump-builtin-params          # what a TYPE has: name, range, default, named states
 node engine/k7-runtime/scripts/gen-builtin-params.mjs
-  → packages/song-schema/src/builtinParams.generated.ts
+  → packages/song-schema/src/builtinParams.generated.json
 ```
 
 The script instantiates every entry of `builtInPlugins()` — the same list
 `registerBuiltInPlugins` matches, so a plugin the UI offers is one this can ask — reads
 `pluginParams(plugin, true)` off it, and writes the file `@studio/song` ships. **The output is
 committed**, so nothing in the build depends on a C++ binary; re-run it after bumping Tracktion
-or adding a built-in.
+or adding a built-in. It is JSON with one plugin per line, so a regeneration reads as the plugins
+it changed; `builtinParams.ts` casts it to its type, and `builtinParams.test.ts` checks every entry
+against that shape, which is the check the cast skips.
 
 The table holds **26 plugins, 150 parameters** — 88 of them 4OSC's.
 

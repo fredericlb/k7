@@ -35,7 +35,7 @@ as a control that moves and does nothing. That is what `lint:panels` exists for.
 
 Where parameter names come from:
 
-- **Built-in plugins**: `packages/song-schema/src/builtinParams.generated.ts`, generated from real
+- **Built-in plugins**: `packages/song-schema/src/builtinParams.generated.json`, generated from real
   instances by `engine/k7-runtime/scripts/gen-builtin-params.mjs`, and read through
   `packages/song-schema/src/builtinParams.ts` (`builtinPluginFor`). Re-run the script when the
   engine's built-ins change.

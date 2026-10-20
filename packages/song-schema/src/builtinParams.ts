@@ -5,10 +5,10 @@
 // leaves the builder unable to draw a panel at all. This table is the only complete one, and the
 // only one carrying ranges: a knob drawn 0..1 for want of meta writes the wrong number.
 //
-// The table is GENERATED (`builtinParams.generated.ts`); this file is the shape around it.
+// The table is GENERATED JSON (`builtinParams.generated.json`); this file is its type and lookups.
 // See engine/k7-runtime/docs/builtinParams.md.
 
-import { BUILTIN_PLUGINS } from "./builtinParams.generated";
+import table from "./builtinParams.generated.json" with { type: "json" };
 import { ENGINE_NS, slugifyPluginName } from "./moduleTypes";
 
 /** A parameter's span. Structurally the engine protocol's ParamMeta, without the dependency for one type. */
@@ -39,7 +39,8 @@ export interface BuiltinPluginInfo {
   params: BuiltinParam[];
 }
 
-export { BUILTIN_PLUGINS };
+/** Keyed by xmlTypeName, what `createNewPlugin` takes; `builtinPluginFor` accepts the display name too. */
+export const BUILTIN_PLUGINS = table as Record<string, BuiltinPluginInfo>;
 
 /** Every built-in by all THREE spellings a module may reach it with, lower-cased — see docs/moduleTypes.md. */
 const BY_SPELLING: Map<string, BuiltinPluginInfo> = (() => {
