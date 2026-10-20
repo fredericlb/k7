@@ -40,6 +40,14 @@ since it would un-silence the master mid-run; the restore sends the latest one a
 the record panel opening on every surface, a take. The dry run turns it off before it plays and back
 on after the stop, which is the one thing it changes of the session besides the master.
 
+**Record does not outlive the project.** It is the engine SESSION's, not the project's, and one
+session plays every project of an account in turn; the arms it rolls with are the old project's
+tracks and go with the flush. Kept across a switch, the next song opens with record lit and nothing
+armed, and its Play is refused. So every flush of a project (`flushProject` in `engineSessions.ts`)
+switches record off with it, and notes it off on the link at once: the dry run puts back what it
+read there, and a state frame sent before the switch must not be what it reads. A press made in the
+NEW project before its dry run is still put back.
+
 What it does not silence: a track routed to a CUE output leaves the master before its gain
 (`engine/k7-runtime/docs/cueOutput.md`), so half a second of it can be heard.
 

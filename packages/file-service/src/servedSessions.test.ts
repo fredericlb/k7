@@ -44,6 +44,7 @@ class FakeClient {
     this.sent.push(doc);
   }
   flush() {}
+  setRecordEnabled() {}
   dropSession() {}
   setAudioDevice() {}
   transport() {}

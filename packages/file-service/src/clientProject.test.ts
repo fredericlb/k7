@@ -26,6 +26,7 @@ class FakeClient {
   connect() {}
   close() {}
   flush() {}
+  setRecordEnabled() {}
   dropSession() {}
   setAudioDevice() {}
   transport() {}
