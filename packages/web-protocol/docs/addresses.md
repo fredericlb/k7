@@ -269,8 +269,12 @@ Since every project address starts with a sentinel, the plain word collides with
 
 `/libraries`, `/settings` and `/about` are more such pages — k7's list of the origin's libraries,
 its settings, and its version, licence and third-party notices — reserved for the same reason:
-none opens a project. `isHomePage` matches them,
-and it is read BEFORE `parseLaunch`, which would otherwise take the word for a workspace and the
+none opens a project. `isHomePage` matches them, and every address BELOW one too —
+`/settings/engine` is a route of the home like `/settings`, and reloading it or following a link
+to it must land there rather than be read as a workspace. Taking the whole prefix costs nothing:
+a project opens only under a sentinel (`@local`, `@banc`, `@shares`), so no bare word below the
+mount is a workspace, and `isProjectAddress` already reads the head alone. `isHomePage` is read
+BEFORE `parseLaunch`, which would otherwise take the word for a workspace and the
 router would mount under it. Once loaded they are ROUTES of k7's home, the router's basename
 being the mount, so going between the home and any of them reloads nothing. `/external` stays a
 branch because it swaps the page's manifest before anything mounts.

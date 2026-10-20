@@ -118,6 +118,24 @@ A warning raised outside any scope — the audio thread's prepare, startup, a de
 out unstamped, which is correct: it belongs to no project, and is exactly the case
 pass-on-absence covers.
 
+### Standing warnings — a build's complaints outlive the moment they were said
+
+A warning is broadcast once, while the build runs, and the build usually runs before the page's
+socket is up: the file service sends the project as it is opened. Said only then, a plugin that
+could not be created is in the machine log and nowhere a person looks. So what `applyFull` and
+`apply` warn, inside a `BuildScope`, is also KEPT per session (`Warnings.cpp`): a full build replaces
+the set, an incremental apply adds to it, one per subject, and a flush drops it. It reaches a client
+twice over:
+
+- a socket that says `hello` as a driver is sent the set as `engine-warning` frames, once;
+- every `applied` carries the whole set as `warnings`, a no-op apply included — a page clears its
+  badges on `busy`, and its own apply of a document the engine already holds would otherwise wipe
+  them with nothing to put back.
+
+An incremental apply that FIXES a plugin leaves its old line in the set until the next full build:
+the engine does not know which earlier complaint a change answers. Setting a preset or opening an
+editor warns under a `WarningScope` but no `BuildScope`, so those stay one-off messages.
+
 ## The two harnesses that check all this
 
 `scripts/two-sessions.ts` and `scripts/list-sessions.ts` are the only coverage these rules have,

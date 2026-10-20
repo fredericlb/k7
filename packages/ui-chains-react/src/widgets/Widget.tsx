@@ -25,11 +25,13 @@ import {
   useRackLit,
   useRecorderState,
 } from "../chainsStores";
+import { onEnter } from "../keyActivate";
 import { LcdScreenWidget } from "../LcdScreenWidget";
 import { type TapAction, TapWidget } from "../TapWidget";
 import { ValueEditor } from "../ValueEditor";
 import {
   draggable,
+  tapName,
   targetKey,
   widgetTarget,
   widgetValue,
@@ -284,6 +286,11 @@ function WidgetInner({
         : actuable && (w.type === "toggle" || w.type === "button")
           ? {
               className: "dgx-w tap",
+              // A button to assistive technology and the keyboard too, named by what it does.
+              role: "button",
+              tabIndex: 0,
+              "aria-label": tapName(w, tgt, padSymbol),
+              onKeyDown: onEnter(() => onTap(n, w)),
               onClick: (e) => {
                 e.stopPropagation();
                 onTap(n, w);

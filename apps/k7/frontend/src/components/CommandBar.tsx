@@ -493,6 +493,7 @@ export const CommandBar = forwardRef<
           spellCheck={false}
           autoComplete="off"
           role="combobox"
+          aria-label={m["commandBar.label"]()}
           aria-expanded={focused && shown.length > 0}
           aria-controls={listId}
           aria-activedescendant={

@@ -148,4 +148,12 @@ void addMachineHandlers(HandlerTable&);
 // One serialized plugin scan for the whole process; a warm cache short-circuits unless `force`.
 std::vector<PluginInfo> ensurePluginsScanned(bool force);
 
+// The warnings `session`'s project was built with, as `[{subject, message}]` — what `applied` carries (docs/sessions.md).
+inline nlohmann::json standingWarningsJson(const std::string& session) {
+    nlohmann::json out = nlohmann::json::array();
+    for (const auto& w : standingWarnings(session))
+        out.push_back({{"subject", w.subject}, {"message", w.message}});
+    return out;
+}
+
 }  // namespace studio

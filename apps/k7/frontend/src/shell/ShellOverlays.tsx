@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import type { EngineClient } from "@studio/engine-browser";
-import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import {
   type ComponentProps,
@@ -21,6 +20,7 @@ import {
   type RefObject,
   Suspense,
 } from "react";
+import { AskHostK7 } from "../AskHostK7";
 import { api, moduleStore } from "../api";
 import type { CommandPrefs } from "../commandPrefs";
 import { AssetPicker } from "../components/AssetPicker";
@@ -402,7 +402,7 @@ export function ShellOverlays({
       {/* A sample, clip, patch or plugin the engine is playing the project without (engineMissing.ts). */}
       <EngineMissingDialog engine={engineRef.current} />
       {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
-      <AskHost />
+      <AskHostK7 />
     </>
   );
 }

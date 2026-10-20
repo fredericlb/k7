@@ -10,10 +10,12 @@ import { vim } from "@replit/codemirror-vim";
 import type { Hints } from "@studio/web-protocol";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useMemo, useRef } from "react";
+import { editorLabel, vimModeStatus } from "./a11y";
 import { useBufferSync } from "./bufferSync";
 import { faustLanguage } from "./faust/language";
 import { k7xCompletions } from "./k7x/completions";
 import { k7xLanguage } from "./k7x/language";
+import { vimUndoSteps } from "./vimUndo";
 import { type YamlVocabulary, yamlCompletions } from "./yaml/completions";
 import { projectLanguage } from "./yaml/language";
 import { schemaVocabulary } from "./yaml/vocabulary";
@@ -30,6 +32,7 @@ export function YamlPane({
   vocabulary,
   vimMode,
   readOnly,
+  label,
   onChange,
   onSave,
 }: {
@@ -41,6 +44,8 @@ export function YamlPane({
   vimMode: boolean;
   /** Show the file without letting anyone type into it; VIM goes with it, since insert would drop keystrokes. */
   readOnly?: boolean;
+  /** The textbox's accessible name, in the host's language; the path when absent. */
+  label?: string;
   onChange: (next: string) => void;
   onSave: () => void;
 }) {
@@ -88,9 +93,12 @@ export function YamlPane({
           },
         ]),
       ),
+      editorLabel(label ?? path),
     ];
-    return vimMode && !readOnly ? [vim(), ...base] : base;
-  }, [vimMode, readOnly, onSave, faust, js, k7x]);
+    return vimMode && !readOnly
+      ? [vim(), vimUndoSteps(), ...base, vimModeStatus()]
+      : base;
+  }, [vimMode, readOnly, onSave, faust, js, k7x, label, path]);
 
   // A row edit beside the text lands as its own splices, so the cursor and the undo history stay.
   const cm = useRef<ReactCodeMirrorRef>(null);

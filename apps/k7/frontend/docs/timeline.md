@@ -181,6 +181,11 @@ it is the same step on an audio lane as on a picture lane. The step is not a sec
 setting of its own: a step that landed between the lines you can see would be a position no drag
 can reach.
 
+The playhead a step reads is the ENGINE's, so it moves only when the seek is echoed, and a key
+repeats faster than that. A step therefore starts from the last one's target while the playhead
+still reads what it read when that one was sent (`stepOrigin`, for `STEP_ECHO_MS`): read straight,
+three quick presses are three seeks to the same tick.
+
 `Ctrl+B` (`selection split`) is the blade at the playhead, on the caret's lane. It makes the
 same line the cut tool would make there, through the same `toolLine`/`pictureToolLine`, so the
 two ways of cutting cannot disagree about what a cut is. The lane comes from the CARET and the

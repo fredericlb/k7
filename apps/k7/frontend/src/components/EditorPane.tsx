@@ -3,12 +3,14 @@ import { javascript } from "@codemirror/lang-javascript";
 import { type Extension, Prec } from "@codemirror/state";
 import { type EditorView, keymap } from "@codemirror/view";
 import { Vim, vim } from "@replit/codemirror-vim";
+import { editorLabel, vimModeStatus } from "@studio/ui-editor/a11y";
 import { useBufferSync } from "@studio/ui-editor/buffer-sync";
 import { k7xCompletions } from "@studio/ui-editor/k7x/completions";
 import { projectEntityLinks } from "@studio/ui-editor/k7x/entityLinks";
 import { k7xLanguage } from "@studio/ui-editor/k7x/language";
 import { projectPreviewGutter } from "@studio/ui-editor/k7x/previewGutter";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
+import { vimUndoSteps } from "@studio/ui-editor/vim-undo";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef } from "react";
@@ -105,10 +107,14 @@ export function EditorPane({
   // A workspace file — the ones that get the k7x mode, completion, links, the ▶ gutter and lint (packages/k7x/docs/language.md).
   const isK7xFile = !!file && /\.k7x$/i.test(file.path);
   const isStrudel = !!file && file.path.endsWith(".strudel");
+  // The textbox's accessible name: the open file, `project.k7x — editor`.
+  const label = file ? m["editorPane.label"]({ file: file.path }) : "";
   const extensions = useMemo<Extension[]>(() => {
     const ext: Extension[] = [];
     // Prec.highest: our extensions are concatenated AFTER basicSetup's, whose keymap would otherwise outrank vim's.
-    if (vimMode) ext.push(Prec.highest(vim()));
+    // …and one vim change is one Ctrl+Z, as it is one `u` (packages/ui-editor/docs/vimUndo.md).
+    if (vimMode) ext.push(Prec.highest(vim()), vimUndoSteps(), vimModeStatus());
+    if (label) ext.push(editorLabel(label));
     ext.push(
       keymap.of([
         {
@@ -139,6 +145,7 @@ export function EditorPane({
     isK7xFile,
     isStrudel,
     vimMode,
+    label,
     hints,
     onOpenEntity,
     onPreview,

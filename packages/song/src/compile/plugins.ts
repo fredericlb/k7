@@ -1,7 +1,7 @@
 // compile/plugins.ts — a chain's steps compiled to the engine's plugins: a rack to a sampler,
 // a known plugin format to its PluginDoc with the blend and levels the engine holds, and the
 // curves bound to them baked into automation. What a reader gets wrong: an unknown plugin type
-// is dropped SILENTLY, where a module stating a held param is refused. docs/nodeProject.md.
+// is skipped here, not refused: diagnostics.ts is what reports it. docs/nodeProject.md.
 
 import { statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
@@ -91,6 +91,17 @@ function readFaustSource(source: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Whether a module's `plugin.type` becomes an engine plugin; `offline` does not, its pass writes to disk first. */
+export function reachesEngine(rawType: string): boolean {
+  const t = rawType.toLowerCase();
+  return (
+    t === "internal" ||
+    t === JSDSP_TYPE ||
+    t === FAUST_TYPE ||
+    EXTERNAL_PLUGIN_FORMATS.has(t)
+  );
 }
 
 /** Every chain's steps compiled to the plugins and sends of the track that owns them. */
@@ -207,17 +218,11 @@ export function compilePlugins(
           `module '${step.module}': params set ${held.map((n) => `'${n}'`).join(", ")} — the engine's own stage holds these: state the blend as \`mix:\` (0 all dry .. 1 all wet) and the levels as \`input_volume:\` / \`output_volume:\` (dB) instead, here or in the module it extends`,
         );
       const plugin = module.plugin;
-      // Only a KNOWN format reaches the engine; a word this gate does not know is dropped SILENTLY (docs/graphModel.md).
+      // Only a KNOWN format reaches the engine; any other word is skipped here and reported by unknownPluginModules.
       const rawType = String(plugin?.type ?? "").toLowerCase();
       // `offline` is skipped on PURPOSE: such a module has no engine plugin, its pass writes to disk first (docs/coldModules.md).
       if (rawType === OFFLINE_TYPE) continue;
-      if (
-        rawType !== "internal" &&
-        rawType !== JSDSP_TYPE &&
-        rawType !== FAUST_TYPE &&
-        !EXTERNAL_PLUGIN_FORMATS.has(rawType)
-      )
-        continue;
+      if (!reachesEngine(rawType)) continue;
       // The type FOLDER is what picks a jsdsp graph's host — a transformer's runs over the notes.
       const { type, name: pluginName } = enginePlugin(
         plugin,

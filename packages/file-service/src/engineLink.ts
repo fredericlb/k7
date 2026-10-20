@@ -72,6 +72,7 @@ import { saveTake } from "./recorderSave.ts";
 import { serviceRenderer } from "./renderers.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
+import type { JournalMode } from "./workspaceHistory.ts";
 
 export {
   awaitPluginParams,
@@ -737,8 +738,8 @@ export async function runWebCommand(
   userEmail?: string,
   // The folder the verbs act on when it is not the open project. Absolute; the route checks it.
   at?: string,
-  // Build the graph a writing command's reply carries, in the same module stamp as its reload.
-  opts: { graph?: boolean } = {},
+  // Build the graph a writing command's reply carries, and say how its writes are journalled.
+  opts: { graph?: boolean; journal?: JournalMode } = {},
 ): Promise<WebCommandRun> {
   const out: CommandOutput = [];
   const held: HeldPush = { dir: null };
@@ -770,6 +771,7 @@ export async function runWebCommand(
         out.push(`error: ${(e as Error).message}`);
       }
     },
+    opts.journal,
   );
   // A verb writes beside the service, so the stamp must hear of it BEFORE the graph is built — docs/moduleWatch.md.
   if (after !== before) moduleFoldersMoved();

@@ -141,7 +141,6 @@ export function playablePath(
 ): string | null {
   const master = file ?? entry.meta?.master;
   if (typeof master !== "string" || !master) return null;
-  // The root is NATIVE and entry paths are POSIX, and the engine takes either — so join by the root's.
-  const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
-  return [root, entry.path, master].join(sep);
+  // The root as the server names it, then `/`: the tunnel's spelling, which a `\` below the root breaks (engine-tunnel docs/tunnel.md).
+  return [root, entry.path, master].join("/");
 }

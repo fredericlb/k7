@@ -102,11 +102,15 @@ describe("turning a catalogue entry into something the engine can open", () => {
     );
   });
 
-  it("keeps a Windows root's separator instead of normalising it", () => {
-    // The service reports a NATIVE root while entry paths are POSIX, and the engine takes either.
-    expect(playablePath("C:\\Users\\flb\\.studio\\mediatek", entry())).toBe(
-      "C:\\Users\\flb\\.studio\\mediatek\\songs/K7/rel/song\\master.wav",
+  it("spells a Windows root's path the tunnel's way: the root as named, then `/`", () => {
+    // The path maps only know `<root>/…`; a `\` after the root crossed unmapped and the engine refused the record.
+    const root = "C:\\Users\\flb\\.studio\\mediatek";
+    const path = playablePath(root, entry());
+    expect(path).toBe(
+      "C:\\Users\\flb\\.studio\\mediatek/songs/K7/rel/song/master.wav",
     );
+    expect(path?.startsWith(`${root}/`)).toBe(true);
+    expect(path?.slice(root.length)).not.toContain("\\");
   });
 
   it("answers null for a folder catalogued with no audio", () => {
