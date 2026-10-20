@@ -3,7 +3,6 @@
 // resolveWorkspace, since none of these is about one open workspace. See docs/workspaces.md.
 
 import { validate, wrap } from "@frediverse/http/route";
-import { accountLibraries } from "@studio/song/sharedFolders";
 import {
   type AccountWorkspaceList,
   ADMIN_HEADER,
@@ -17,6 +16,7 @@ import { z } from "zod";
 import { ensureBench } from "../bench.ts";
 import { copyProjectBetween } from "../copyProject.ts";
 import { servedProject, unloadEngineIfServing } from "../engineLink.ts";
+import { libraryRefusal } from "../libraries.ts";
 import { ensureLibraryPins } from "../libraryPins.ts";
 import { startCopy, startMove } from "../liveMove.ts";
 import {
@@ -47,11 +47,10 @@ workspacesRouter.get(
   }),
 );
 /** No workspace before a library: its `@<library>/…` refs would resolve to nothing — docs/libraries.md. */
-const NO_LIBRARIES = "no libraries — an admin adds them in k7's Libraries page";
-const hasLibraries = (res: Response): boolean => {
-  if (accountLibraries().length) return true;
-  res.status(400).json({ error: NO_LIBRARIES });
-  return false;
+const hasLibraries = async (res: Response): Promise<boolean> => {
+  const refused = await libraryRefusal();
+  if (refused) res.status(refused.status).json({ error: refused.error });
+  return !refused;
 };
 
 const newWsBody = z.object({ name: z.string().min(1) });
@@ -60,7 +59,7 @@ workspacesRouter.post(
   validate(newWsBody),
   wrap(async (req, res) => {
     const { name } = req.body as z.infer<typeof newWsBody>;
-    if (!hasLibraries(res)) return;
+    if (!(await hasLibraries(res))) return;
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
       const created = await createWorkspace(req.userEmail!, name);
@@ -230,7 +229,7 @@ workspacesRouter.post(
         error:
           "@banc opens one live rig, and nothing else. A shared MODULE or a CHAIN is edited from a project you already have open — its Libraries tab.",
       });
-    if (!hasLibraries(res)) return;
+    if (!(await hasLibraries(res))) return;
     const project = String(req.body.project);
     try {
       // A chain's bench is what k7 records through, ../../ui-rehearsal/docs/chainSource.md.

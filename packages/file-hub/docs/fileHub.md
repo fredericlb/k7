@@ -188,6 +188,12 @@ two copies would compile a song two ways.
   decide on the same name at once — two seeds of one library, two publishes numbering the same
   version — so `set`, `ensure` and `publish` queue behind each other inside the store. At start
   the relay follows the libraries only once their folders are there.
+- **The first `ensure` is one shared promise, `firstEnsure`.** The relay waits on it, and so does a
+  standalone backend before it listens (`apps/k7/backend/docs/standalone.md`, "Ready means the
+  library is there"). A file service asked for a workspace with no library on disk asks the hub
+  for an `ensure` before it refuses: queued behind a copy still running, it answers once the copy
+  has ended, so it is refused only when there is truly no library, or when the copy failed — and
+  then it names the failure.
 - **The hub's own routes read their body themselves**, since k7's backend parses nothing under the
   hub's paths (`apps/k7/backend/docs/hardening.md`): `jsonBody` reads it, refusing past 8 MB — the
   file service's own limit — with a 413.

@@ -434,9 +434,9 @@ export class FileHub {
       else relay.followLocal();
     };
     this.libraryRelay = relay;
-    // The folders first, copied off the event loop, then the relay that follows them.
+    // The folders first, copied off the event loop, then the relay that follows them; a standalone started this ensure before it listened.
     void this.libraries
-      .ensure()
+      .firstEnsure()
       .catch((e: Error) => this.deps.log(`libraries | ${e.message}`))
       .then(() => {
         if (this.stopped) return;

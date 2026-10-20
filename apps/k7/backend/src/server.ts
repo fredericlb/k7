@@ -6,6 +6,7 @@
 // The registry installs no signal handler here: the stop below says its goodbye, then closes gracefully.
 // Runs under tsx to import the brain's TS.
 
+import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
@@ -34,6 +35,7 @@ import {
   securityHeaders,
   shellFrameHeaders,
 } from "./hardening.ts";
+import { awaitLibraries } from "./listenGate.ts";
 import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
@@ -238,11 +240,17 @@ const onListening = () => {
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
   rehearsal.serve(server);
 };
-const server = behindProxy(
-  LISTEN_HOST
-    ? app.listen(PORT, LISTEN_HOST, onListening)
-    : app.listen(PORT, onListening),
-);
+const server = behindProxy(createServer(app));
+const listen = (): void => {
+  if (LISTEN_HOST) server.listen(PORT, LISTEN_HOST, onListening);
+  else server.listen(PORT, onListening);
+};
+// A standalone answers nothing before the bundled library is installed: its hosts call the first answer ready (./listenGate.ts).
+if (LOCAL_USER)
+  void awaitLibraries(media.librariesSettled(), (m) => console.log(m)).then(
+    listen,
+  );
+else listen();
 // Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
 server.requestTimeout = 30 * 60_000;
 

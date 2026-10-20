@@ -119,6 +119,7 @@ export class LibraryStore {
   private readonly seed: Map<string, string>;
   // Every change to the folders queues here: two copies deciding on the same name would collide.
   private queue: Promise<unknown> = Promise.resolve();
+  private first: Promise<LibraryNote[]> | null = null;
 
   constructor(
     private readonly dataRoot: string,
@@ -235,6 +236,12 @@ export class LibraryStore {
       }
       return notes;
     });
+  }
+
+  /** The first `ensure`, run once and shared: a standalone listens only once it has settled — docs/fileHub.md. */
+  firstEnsure(): Promise<LibraryNote[]> {
+    this.first ??= this.ensure();
+    return this.first;
   }
 
   /** The published versions of library `name`, oldest first, each as its `library.k7x` says. */
