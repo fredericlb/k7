@@ -199,6 +199,9 @@ scripts/               Node harnesses that drive a running engine, not build ste
   platterBench.ts        what those three share — the wav, the one-platter document, the broadcast
                          frames and the FFT. Not a bench: a second copy of an FFT is a second place
                          for a windowing bug to hide
+  probe.ts               what the live-engine probes share — the socket bound to a session, the master
+                         stream's level, the one held-note lane — built from @studio/engine-protocol's
+                         constructors so a field the wire gains reaches every probe at once
   nam-rate.ts            does a NAM model sound as trained on an engine at ANOTHER rate? Offline: one
                          sawtooth through one model at its own rate and at another, and the harmonic
                          profiles compared — the only coverage the plugin's resampling has (docs/namPlugin.md)

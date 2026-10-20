@@ -7,11 +7,9 @@
 // after. A tail case is also stopped instead, which KEEPS the tail: that is what proves the case has
 // one to clear (docs/panic.md). It measures a level, never a sound.
 
-import WebSocket from "ws";
+import { pluginDoc } from "@studio/engine-protocol/build";
+import { connect, heldNoteDoc, meter, wait } from "./probe.ts";
 
-const url =
-  process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
-const RATE = 48000;
 /** Longer than the run, so no note-off ever arrives on its own. */
 const HELD_BEATS = 64;
 /** Far past the note, where the timeline is empty. */
@@ -44,96 +42,20 @@ const CASES: { name: string; plugins: Plugin[]; tail?: boolean; early?: boolean 
   { name: "4osc → mu-clouds", plugins: [synth, { type: "studio_texture_synthesizer", name: "mu-clouds", role: "effect", params: { dryWet: 1, reverb: 1, feedback: 0.8 } }], tail: true },
 ];
 
-const doc = (plugins: Plugin[]) => ({
-  name: "seek-release",
-  tempo: 120,
-  sampleRate: RATE,
-  timeSigNumerator: 4,
-  timeSigDenominator: 4,
-  masterVolume: 0,
-  masterPlugins: [],
-  recordDir: "",
-  settings: { metronome: false, countIn: 0 },
-  groups: [],
-  markers: [],
-  tracks: [
-    {
-      id: "lane",
-      name: "lane",
-      role: "regular",
-      contentType: "midi",
-      group: "",
-      generated: false,
-      color: "",
-      mute: false,
-      solo: false,
-      disabled: false,
-      inputChannels: [],
-      outputChannels: [],
-      monitor: "auto",
-      inputGain: 0,
-      clips: [
-        {
-          id: "held",
-          type: "midi",
-          name: "held",
-          source: "",
-          start: 0,
-          length: HELD_BEATS,
-          offset: 0,
-          fadeIn: 0,
-          fadeOut: 0,
-          loopStart: 0,
-          loopEnd: 0,
-          notes: [{ time: 0, duration: HELD_BEATS, key: 57, vel: 0.9, channel: 1, rel: 0 }],
-        },
-      ],
-      plugins: plugins.map((p, i) => ({
-        id: `lane:${i}`,
-        path: "",
-        presetSave: "",
-        enabled: true,
-        params: {},
-        ...p,
-      })),
-      sends: [],
-      automation: [],
-    },
-  ],
-});
+const doc = (plugins: Plugin[]) =>
+  heldNoteDoc(
+    "seek-release",
+    plugins.map((p, i) => pluginDoc({ id: `lane:${i}`, ...p })),
+    HELD_BEATS,
+  );
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const fmt = (db: number) => `${db.toFixed(1).padStart(7)} dBFS`;
 
 /** One case on its own session: the level while playing, after a seek, and after a stop. */
 async function run(name: string, plugins: Plugin[], tail: boolean, early: boolean) {
-  const ws = new WebSocket(url);
-  ws.binaryType = "arraybuffer";
-  const session = `m9:seek-release:${name}`;
-  const send = (m: Record<string, unknown>) => ws.send(JSON.stringify({ ...m, session }));
-  let sum = 0;
-  let count = 0;
-  const reset = () => {
-    sum = 0;
-    count = 0;
-  };
-  const rmsDb = () => (count ? 20 * Math.log10(Math.sqrt(sum / count) || 1e-9) : -Infinity);
-  ws.on("message", (data: ArrayBuffer | Buffer, isBinary: boolean) => {
-    if (!isBinary) return;
-    const buf =
-      data instanceof ArrayBuffer ? data : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    const dv = new DataView(buf);
-    if (dv.getUint32(0, true) !== 0x4c535452) return;
-    const channels = dv.getUint8(5);
-    const frames = dv.getUint32(12, true);
-    const all = new Float32Array(buf, 32, frames * channels);
-    for (let i = 0; i < all.length; i++) sum += all[i] * all[i];
-    count += all.length;
-  });
-  await new Promise<void>((ok, ko) => {
-    ws.on("open", () => ok());
-    ws.on("error", ko);
-  });
+  const { ws, send, opened } = connect(`m9:seek-release:${name}`);
+  const { reset, rmsDb } = meter(ws);
+  await opened;
 
   send({ type: "project", doc: doc(plugins) });
   send({ type: "broadcast", on: true });

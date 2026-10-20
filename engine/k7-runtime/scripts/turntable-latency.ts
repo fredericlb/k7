@@ -10,14 +10,13 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
-import { onBroadcast } from "./platterBench";
+import { onBroadcast, PLUGIN, platterDoc } from "./platterBench";
 import { wavFile } from "./wav.ts";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
 const RUNS = Number(/--n=(\d+)/.exec(process.argv.join(" "))?.[1] ?? "12");
 const SESSION = "m9:latency";
-const PLUGIN = "deckA:platter";
 
 const RATE = 48000;
 const SECONDS = 120;
@@ -61,53 +60,7 @@ function hzOf(x: Float32Array, from: number, n: number): number {
 
 const source = tone();
 
-const doc = () => ({
-  name: "latency",
-  tempo: 120,
-  sampleRate: RATE,
-  timeSigNumerator: 4,
-  timeSigDenominator: 4,
-  masterVolume: 0,
-  masterPlugins: [],
-  recordDir: "",
-  settings: { metronome: false, countIn: 0 },
-  groups: [],
-  markers: [],
-  tracks: [
-    {
-      id: "deckA",
-      name: "deckA",
-      role: "regular",
-      contentType: "audio",
-      group: "",
-      generated: false,
-      color: "",
-      mute: false,
-      solo: false,
-      disabled: false,
-      inputChannels: [],
-      outputChannels: [],
-      monitor: "auto",
-      inputGain: 0,
-      clips: [],
-      plugins: [
-        {
-          id: PLUGIN,
-          type: "studio_turntable",
-          name: "platter",
-          path: "",
-          deckFile: source,
-          presetSave: "",
-          role: "instrument",
-          enabled: true,
-          params: { Rate: FROM, Seek: 0, Gain: 1 },
-        },
-      ],
-      sends: [],
-      automation: [],
-    },
-  ],
-});
+const doc = () => platterDoc(source, RATE, { Rate: FROM }, "latency");
 
 const ws = new WebSocket(url);
 ws.binaryType = "arraybuffer";
