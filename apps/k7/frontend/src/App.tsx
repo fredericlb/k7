@@ -3076,7 +3076,8 @@ export default function App({
                 <div
                   {...paneProps("editor")}
                   className={cn(
-                    "flex min-h-0 min-w-0 flex-col",
+                    // `isolate` — load-bearing: CodeMirror's panels and gutters (z 200–300) would cover the phone's command bar (docs/commandBar.md).
+                    "isolate flex min-h-0 min-w-0 flex-col",
                     // The SAME element in the same place in the tree, restyled — so the open file, its undo history and the CodeMirror node survive.
                     editorPopin
                       ? "fixed inset-4 z-50 overflow-hidden rounded-lg border border-border bg-background shadow-2xl sm:inset-x-[12%] sm:inset-y-[8%]"

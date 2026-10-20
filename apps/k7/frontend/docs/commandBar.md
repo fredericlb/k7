@@ -196,6 +196,16 @@ command field and hands it to the parameter form one render later, so closing in
 dismiss the bar at the exact moment it was about to ask you something. The timer re-reads
 `barPending` when it fires, for the same reason.
 
+### The editor pane is `isolate`
+
+The popin is `z-50`, and CodeMirror ships z-indices of its own — 200 for the gutters, 300 for the
+panels — on elements that make no stacking context. Left to compete with the shell's, the vim mode
+line and the line numbers paint OVER the popin wherever they overlap it, and on a phone they do:
+with the soft keyboard up, the editor's last row and the popin both sit on top of the keyboard. A
+tap on the field lands on `NORMAL`, and the bar cannot be typed into. `isolate` on the editor pane
+keeps CodeMirror's numbers private to it, as the timeline's scroller does for its own
+(`timeline.md`).
+
 ## A gesture can answer a field
 
 A param can be filled by pointing at the thing rather than naming it. Trigger `event move`,
