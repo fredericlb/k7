@@ -12,12 +12,15 @@
 #include "CallbackWatchdog.h"
 #include "RecorderNode.h"
 #include "RecorderWriter.h"
+#include "RenderPool.h"
 #include "InputTuner.h"
 #include "SessionRegistry.h"
 #include "WaveformTap.h"
 
 #include <atomic>
+#include <cstdlib>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <set>
@@ -35,9 +38,25 @@ bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm);
 // Open the default output of the first backend that has one, ASIO last, when a restored setup left none; true when it did (docs/audioDevice.md).
 bool openDefaultOutputIfNone(juce::AudioDeviceManager& jdm);
 
+// A phone keeps every core for its render pool: the desktop cap was never measured there (docs/renderPool.md).
+#if JUCE_ANDROID || JUCE_IOS
+inline constexpr bool kCapRenderPool = false;
+#else
+inline constexpr bool kCapRenderPool = true;
+#endif
+
 // The server's engine opens NO device at construction: Tracktion would replay its own Settings.xml, a second source of truth that wedges the single-client ASIO driver (docs/audioDevice.md).
 struct ServerBehaviour : te::EngineBehaviour {
+    // The render pool, decided before any Edit plays: the strategy is process-wide in Tracktion (docs/renderPool.md).
+    ServerBehaviour()
+        : pool(RenderPool::fromEnv(juce::SystemStats::getNumCpus(), kCapRenderPool,
+                                   std::getenv("STUDIO_ENGINE_AUDIO_THREADS"), std::getenv("STUDIO_ENGINE_AUDIO_POOL"))) {
+        te::EditPlaybackContext::setThreadPoolStrategy(pool.strategy);
+        std::cerr << "[audio] render pool: " << pool.threads << " threads, strategy " << pool.strategy << "\n";
+    }
     bool autoInitialiseDeviceManager() override { return false; }
+    int getNumberOfCPUsToUseForAudio() override { return pool.threads; }
+    const RenderPool pool;
 };
 
 // Everything belonging to ONE project, so it can exist N times where Impl holds what the MACHINE has one of; the ring is declared FIRST to die LAST, after the audio-thread plugin writing into it (docs/multiEdit.md).

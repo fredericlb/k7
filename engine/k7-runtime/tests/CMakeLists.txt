@@ -121,6 +121,13 @@ target_include_directories(studio_watchdog_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_watchdog_tests COMMAND studio_watchdog_tests)
 
+# --- Render pool tests --------------------------------------------------------
+# Fast for the same reason: RenderPool.h is header-only and JUCE-free, the settings read from the environment (../docs/renderPool.md).
+add_executable(studio_renderpool_tests RenderPool_test.cpp)
+target_include_directories(studio_renderpool_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_renderpool_tests COMMAND studio_renderpool_tests)
+
 # --- MIDI graph tests ---------------------------------------------------------
 # A SECOND binary, because these need Tracktion's MidiMessageArray and so must link the engine — which is exactly
 # what the target above avoids. Keeping them apart preserves the fast tests' "builds in seconds, no audio device"
