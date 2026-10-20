@@ -3,7 +3,7 @@
 import { execFileSync, execSync } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { adb, defaultSdk } from "./android.ts";
+import { ANDROID_PACKAGE, adb, defaultSdk } from "./android.ts";
 
 const ANDROID_DIR = join(
   import.meta.dirname,
@@ -20,7 +20,23 @@ export default function buildAndInstall(): void {
   } catch {
     throw new Error("no Android device: attach one or set ANDROID_SERIAL");
   }
-  if (process.env.E2E_ANDROID_BUILD === "0") return;
+  if (process.env.E2E_ANDROID_BUILD !== "0") install();
+  grantCapture();
+}
+
+// The microphone and camera, granted as a person would on the first prompt, which no WebView test can answer.
+function grantCapture(): void {
+  for (const permission of ["RECORD_AUDIO", "CAMERA"])
+    adb(
+      "shell",
+      "pm",
+      "grant",
+      ANDROID_PACKAGE,
+      `android.permission.${permission}`,
+    );
+}
+
+function install(): void {
   const env = { ...process.env };
   env.ANDROID_HOME ??= defaultSdk();
   // Half the cores: a full engine build beside a dev session's own watcher has frozen a Mac before.

@@ -95,8 +95,6 @@ async function recordTake(page: Page, lane: string) {
 test("a picture lane records the browser's camera onto itself", async ({
   k7,
 }) => {
-  // The phone app grants its pages the microphone and no camera (AppViewsPlugin.kt's onPermissionRequest).
-  test.skip(k7.target === "android", "the phone app gives pages no camera");
   const files = await workspace(k7);
   const { project } = await files.createProject(WORKSPACE, "video", "video.k7");
   const before = await filesOf(files);
