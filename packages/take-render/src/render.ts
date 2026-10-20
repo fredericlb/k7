@@ -1,14 +1,14 @@
 // render.ts — offline mixdown through a Renderer (renderer.ts), plus the k7 publish flow, shared
 // so the web and the CLI drive the SAME render the engine does live. The engine writes
-// WAV; mp3/flac are an optional ffmpeg transcode, so a missing ffmpeg only costs the
-// compressed formats. shareToK7 renders a mixdown + stems and uploads a release.
+// WAV; FLAC is encoded in WebAssembly on every host, mp3 by ffmpeg where there is one, so a
+// missing ffmpeg only costs the mp3. shareToK7 renders a mixdown + stems and uploads a release.
 
-import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { ffmpegBin, input } from "@studio/ffmpeg";
+import { transcodeOffThread } from "@studio/audio-analysis/pool";
+import { ffmpegBin, input, NoFfmpegError, run } from "@studio/ffmpeg";
 import { freezeCut } from "@studio/song/freeze";
 import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
@@ -26,34 +26,38 @@ export function freezeUpstreamRender(
   return renderToWav(render, freezeCut(doc, plan), outWav);
 }
 
-// mp3 for the mixdown, flac for stems. Best-effort: a caller falls back to the raw wav.
-export const MP3_CODEC = ["-c:a", "libmp3lame", "-q:a", "2"];
-export const FLAC_CODEC = ["-c:a", "flac"];
+/** A mixdown's encode is seconds of work; past this, the encoder is stuck and is killed. */
+const ENCODE_TIMEOUT_MS = 10 * 60_000;
 
-// Transcode via ffmpeg, returning whether the file appeared — false when ffmpeg is missing, so the wav is kept.
-export function transcode(
+/** The wav as a ~190 kbit/s mp3, through ffmpeg: false when the host has none, so the caller keeps another format. */
+export async function toMp3(
   inputWav: string,
   outPath: string,
-  codec: string[],
-): boolean {
+): Promise<boolean> {
+  const args = ["-y", "-hide_banner", "-loglevel", "error"];
+  args.push(...input(inputWav), "-c:a", "libmp3lame", "-q:a", "2", outPath);
   try {
-    const r = spawnSync(
-      ffmpegBin(),
-      [
-        "-y",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        ...input(inputWav),
-        ...codec,
-        outPath,
-      ],
-      { stdio: ["ignore", "ignore", "inherit"] },
-    );
-    return r.status === 0 && existsSync(outPath);
-  } catch {
-    return false; // ffmpeg not on PATH
+    await run(ffmpegBin(), args, {
+      timeoutMs: ENCODE_TIMEOUT_MS,
+      what: "mp3 encode",
+    });
+    return existsSync(outPath);
+  } catch (e) {
+    if (e instanceof NoFfmpegError) return false;
+    throw e;
   }
+}
+
+/** The wav as 24-bit FLAC, encoded off the request thread on any host. */
+export async function toFlac(inputWav: string, outPath: string): Promise<void> {
+  await transcodeOffThread(
+    [{ source: inputWav }],
+    outPath,
+    { kind: "flac" },
+    {
+      deadlineMs: ENCODE_TIMEOUT_MS,
+    },
+  );
 }
 
 // --- k7 publish ---------------------------------------------------------
@@ -164,24 +168,24 @@ export async function shareToK7(
   try {
     const manifest = await render(doc, tmp, { stems: !opts.noStems });
 
-    // Mixdown → mp3 when ffmpeg is present, else the raw wav.
-    let mixPath = join(tmp, manifest.mix);
-    let mixMime = "audio/wav";
-    let mixName = "mix.wav";
-    const mixMp3 = join(tmp, "mix.mp3");
-    if (transcode(mixPath, mixMp3, MP3_CODEC)) {
-      mixPath = mixMp3;
-      mixMime = "audio/mpeg";
-      mixName = "mix.mp3";
+    // Mixdown → mp3 when ffmpeg is present, else FLAC, which every host encodes.
+    const mixWav = join(tmp, manifest.mix);
+    let mixPath = join(tmp, "mix.mp3");
+    let mixMime = "audio/mpeg";
+    let mixName = "mix.mp3";
+    if (!(await toMp3(mixWav, mixPath))) {
+      mixPath = join(tmp, "mix.flac");
+      mixMime = "audio/flac";
+      mixName = "mix.flac";
+      await toFlac(mixWav, mixPath);
     }
-    // Stems → flac, else wav.
-    const stems = (opts.noStems ? [] : manifest.stems).map((s) => {
-      const wav = join(tmp, s.file);
+    // Stems → flac, one at a time: each is a whole song's length.
+    const stems: { name: string; path: string; mime: string }[] = [];
+    for (const s of opts.noStems ? [] : manifest.stems) {
       const flac = join(tmp, `${basename(s.file, ".wav")}.flac`);
-      return transcode(wav, flac, FLAC_CODEC)
-        ? { name: s.name, path: flac, mime: "audio/flac" }
-        : { name: s.name, path: wav, mime: "audio/wav" };
-    });
+      await toFlac(join(tmp, s.file), flac);
+      stems.push({ name: s.name, path: flac, mime: "audio/flac" });
+    }
 
     const form = new FormData();
     form.set("songUuid", uuid);

@@ -11,11 +11,10 @@ import { basename, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
 import {
   type K7Result,
-  MP3_CODEC,
   type Renderer,
   readK7Config,
   shareToK7,
-  transcode,
+  toMp3,
 } from "@studio/take-render/render";
 import { serviceRenderer } from "./renderers.ts";
 
@@ -68,7 +67,7 @@ export async function exportMix(
     if (format === "wav")
       return { path: wav, filename: `${name}.wav`, mime: "audio/wav", cleanup };
     const mp3 = join(tmp, "mix.mp3");
-    if (!transcode(wav, mp3, MP3_CODEC))
+    if (!(await toMp3(wav, mp3)))
       throw new Error(
         "mp3 needs ffmpeg on the engine host — install ffmpeg, or use Export WAV",
       );
