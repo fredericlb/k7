@@ -78,9 +78,12 @@ async function recordTake(page: Page, lane: string) {
   await arm.click();
   // Record pressed before the arm's echo arms "the only track" again, a toggle (fixed on worktree-e2e-regress).
   await expect(arm).toHaveAttribute("aria-pressed", "true");
-  await button(page, "Record (arm + play records)").click();
+  // Record once the project is playable: the load's dry run rolls in between, and its stop switches a younger record off.
   const play = button(page, "Play");
   await expect(play).toBeEnabled({ timeout: 90_000 });
+  const record = button(page, "Record (arm + play records)");
+  await record.click();
+  await expect(record).toHaveAttribute("aria-pressed", "true");
   const before = await clockOf(page).innerText();
   await play.click();
   // The count-in comes first; a clock past it is a take being written.
