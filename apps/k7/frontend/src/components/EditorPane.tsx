@@ -9,6 +9,7 @@ import { projectEntityLinks } from "@studio/ui-editor/k7x/entityLinks";
 import { k7xLanguage } from "@studio/ui-editor/k7x/language";
 import { projectPreviewGutter } from "@studio/ui-editor/k7x/previewGutter";
 import { type LintItem, lint, refreshLint } from "@studio/ui-editor/lint";
+import { vimUndoSteps } from "@studio/ui-editor/vim-undo";
 import { schemaVocabulary } from "@studio/ui-editor/yaml/vocabulary";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useEffect, useMemo, useRef } from "react";
@@ -108,7 +109,8 @@ export function EditorPane({
   const extensions = useMemo<Extension[]>(() => {
     const ext: Extension[] = [];
     // Prec.highest: our extensions are concatenated AFTER basicSetup's, whose keymap would otherwise outrank vim's.
-    if (vimMode) ext.push(Prec.highest(vim()));
+    // …and one vim change is one Ctrl+Z, as it is one `u` (packages/ui-editor/docs/vimUndo.md).
+    if (vimMode) ext.push(Prec.highest(vim()), vimUndoSteps());
     ext.push(
       keymap.of([
         {

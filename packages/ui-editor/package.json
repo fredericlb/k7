@@ -20,6 +20,7 @@
     "./lint": "./src/lint.ts",
     "./autosave": "./src/autosave.ts",
     "./unsaved": "./src/unsaved.ts",
+    "./vim-undo": "./src/vimUndo.ts",
     "./yaml-pane": "./src/YamlPane.tsx"
   },
   "scripts": {
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/lang-yaml": "^6.1.3",
     "@codemirror/language": "^6.10.0",

@@ -138,7 +138,11 @@ import {
   uploadFileIn,
 } from "./workspaceEntries.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
-import { type Recorded, WorkspaceHistory } from "./workspaceHistory.ts";
+import {
+  type JournalMode,
+  type Recorded,
+  WorkspaceHistory,
+} from "./workspaceHistory.ts";
 import {
   fileTree,
   isProjectDir,
@@ -651,10 +655,11 @@ export class Workspace {
   async recordChange<T>(
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
+    mode?: JournalMode,
   ): Promise<Recorded<T>> {
     this.liveCapture?.hold();
     try {
-      return await this.journal.record(label, mutate);
+      return await this.journal.record(label, mutate, mode);
     } finally {
       this.liveCapture?.release(label);
     }

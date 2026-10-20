@@ -7,6 +7,7 @@ import { ChevronRight, List } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { automationLanes, type WebAutomationLane } from "@studio/graph-model";
+import type { CommandJournal } from "@studio/project-shell/project";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
@@ -133,7 +134,8 @@ function ChainsTabView({
   noteLanes?: Readonly<Record<string, LaneNotes>>;
   /** The compiled doc, for the one thing the graph cannot derive: which notes a lane plays, which is what lights a rack's pads. */
   project?: WebProject | null;
-  command: (line: string) => void | Promise<void>;
+  /** `journal`, when given, is how the line is undone — the layout's own pin is never an undo step (docs/chainsGraph.md). */
+  command: (line: string, journal?: CommandJournal) => void | Promise<void>;
   // Toggle a module's bypass: the canvas flips the node itself on click and lets the refetch confirm — see pendingBypass.
   onBypassModule?: (module: string) => void;
   /** Set a module's own field. Wired to the RELOADING sender: an intrinsic dropdown draws the file. */
@@ -482,7 +484,8 @@ function ChainsTabView({
     const names = Object.keys(at);
     if (!names.length) return;
     for (const name of names) pinned.current.add(name);
-    void command(`graph pin ${JSON.stringify(at)}`);
+    // The app wrote this, not the person, so no Ctrl+Z may take it back.
+    void command(`graph pin ${JSON.stringify(at)}`, "skip");
   }, [laid, drawn?.positions, onMoveNode, stack]);
 
   // The tab each card has open, held here because it sizes the card: a narrow card is as tall as its page (ui-chains' `tabH`).

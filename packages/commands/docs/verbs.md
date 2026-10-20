@@ -612,8 +612,10 @@ random — the change surfaces at a reload, long after the edit that caused it.
 So the drawing writes its own answer down, once, and after that the FILE is the layout. dagre
 speaks again only when `graph organize` empties `positions:`.
 
-A batch and a single write: sixty nodes recorded as sixty commands would be sixty entries in the
-undo journal for one picture nobody moved by hand. It never overwrites an existing pin (see
+A batch and a single write, and NOT an undo step: k7 sends it with `journal: "skip"`
+(`packages/file-service/docs/history.md`), because nobody did it. Journalled, it is the first thing
+Ctrl+Z on a freshly opened project takes back — a pin the person never made, undone in place of the
+edit they meant. It never overwrites an existing pin (see
 `setNodePositions`), so it cannot walk over a card somebody dragged, whatever the browser thinks it
 drew.
 

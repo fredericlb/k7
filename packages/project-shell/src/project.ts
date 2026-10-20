@@ -35,6 +35,9 @@ export interface Completion {
 /** A derived view a writing command may be asked to build — a list, see docs/fileApi.md. */
 export type CommandWant = "graph";
 
+/** How a command's writes land in the undo journal when not as a step of their own — see docs/fileApi.md. */
+export type CommandJournal = "join" | "skip";
+
 export const projectApi = {
   ...fileRoutes,
 
@@ -133,7 +136,7 @@ export const projectApi = {
   command: (
     line: string,
     // `at` points the verbs at another folder — a path this caller was GIVEN, never one it built.
-    opts?: { at?: string; want?: CommandWant[] },
+    opts?: { at?: string; want?: CommandWant[]; journal?: CommandJournal },
   ) =>
     fsend<{
       output: string[];
@@ -146,6 +149,7 @@ export const projectApi = {
       line,
       ...(opts?.at ? { at: opts.at } : {}),
       ...(opts?.want ? { want: opts.want } : {}),
+      ...(opts?.journal ? { journal: opts.journal } : {}),
     }),
 
   // --- The project-wide undo/redo journal, driven by Ctrl+Z / Ctrl+Y ------------
