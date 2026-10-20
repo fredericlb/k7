@@ -50,6 +50,15 @@ over), a document that does not compile ends it (the editor shows the error), no
 it, and an engine that does not report the project within two minutes ends it with a line in the
 log. Another project opened meanwhile takes the load over; the old dry run sees that and stops.
 
+**A dry run that is replaced stops AT ONCE, before the next project goes out.** `beginLoad` and
+`endLoad` cut the load they replace short synchronously, and its stop is sent there and then — ahead
+of the flush and the document of the switch that called them. Waited out instead, the half second
+and the tail land in the middle of the next load: the engine is flushed while the silenced copy
+plays, the old stop halts the new dry run, and a burst of opens (an e2e run opens ~180 projects in
+two minutes) leaves the engine flushed under a playing transport over and over — the state after
+which it stopped answering. A replaced dry run restores nothing either: the newer load's own
+document carries the master at its level. An ENDED one still restores, since nothing else will.
+
 **A load belongs to the ENGINE it is waiting on, not just to the session.** The account's engine can
 change while the gate waits — a page on another device claims another machine, and the claim moves
 back and forth — and a dry run still asking the engine it started on would ask a closed link until

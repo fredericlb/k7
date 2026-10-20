@@ -5,6 +5,7 @@ import type { ProjectDoc } from "@studio/song/project";
 import { describe, expect, it, vi } from "vitest";
 import {
   beginLoad,
+  endLoad,
   isWarming,
   loadPhase,
   type WarmDeps,
@@ -91,6 +92,29 @@ describe("the dry run", () => {
     expect(next.calls).toContain("play");
   });
 
+  it("stops a dry run the moment the next project replaces it, and restores nothing over it", async () => {
+    beginLoad("s7");
+    const { deps, calls } = fakeDeps(0);
+    const run = warmUp("s7", doc, deps);
+    await vi.waitFor(() => expect(isWarming("s7")).toBe(true));
+    beginLoad("s7");
+    // Synchronous: the caller flushes and sends the next project right after, and the stop must precede both.
+    expect(calls).toEqual(["send -100", "play", "stop"]);
+    await run;
+    expect(calls).toEqual(["send -100", "play", "stop"]);
+    expect(loadPhase("s7")).toBe("copying");
+  });
+
+  it("still un-silences the master when the load is ENDED rather than replaced", async () => {
+    beginLoad("s8");
+    const { deps, calls } = fakeDeps(0);
+    const run = warmUp("s8", doc, deps);
+    await vi.waitFor(() => expect(isWarming("s8")).toBe(true));
+    endLoad("s8");
+    await run;
+    expect(calls).toEqual(["send -100", "play", "stop", "restore"]);
+  });
+
   it("lets the gate go when the account is left with no engine at all", async () => {
     beginLoad("s6");
     const old = fakeDeps(1_000_000, "engine A");
@@ -99,5 +123,63 @@ describe("the dry run", () => {
     old.link.selected = false;
     await run;
     expect(loadPhase("s6")).toBeNull();
+  });
+});
+
+// ~180 opens in two minutes once left a session's engine flushed while it played and then deaf (docs/engineLoad.md).
+describe("a burst of opens", () => {
+  /** An engine that reports the session loaded at once, as it does while the previous project is still built. */
+  function fakeEngine() {
+    const wire: string[] = [];
+    let playing = false;
+    const faults: string[] = [];
+    const deps = (name: string): WarmDeps => ({
+      engine: "the engine",
+      current: () => true,
+      hasEngine: () => true,
+      sendProject: (d) => wire.push(`send ${name} ${d.masterVolume}`),
+      play: () => {
+        playing = true;
+        wire.push(`play ${name}`);
+      },
+      stopAndRewind: () => {
+        playing = false;
+        wire.push(`stop ${name}`);
+      },
+      loaded: async () => true,
+      restore: () => wire.push(`restore ${name}`),
+      log: (m) => faults.push(m),
+    });
+    // What `startEngineForActive` does on a switch: begin the load, flush, send — then the dry run.
+    const open = (session: string, name: string): Promise<void> => {
+      beginLoad(session);
+      if (playing) faults.push(`flushed ${name} while a dry run played`);
+      wire.push(`flush+send ${name}`);
+      return warmUp(session, doc, deps(name));
+    };
+    return { wire, faults, open, isPlaying: () => playing };
+  }
+
+  it("never flushes under a playing dry run, and settles on the last project", async () => {
+    vi.useFakeTimers();
+    try {
+      const engine = fakeEngine();
+      const runs: Promise<void>[] = [];
+      // Spacings that land in every phase: mid-apply, mid-dry-run, mid-tail, and after it all.
+      const gaps = [0, 5, 200, 600, 1000, 1800, 2500];
+      for (let i = 0; i < 180; i++) {
+        runs.push(engine.open("burst", `p${i}`));
+        await vi.advanceTimersByTimeAsync(gaps[i % gaps.length] as number);
+      }
+      await vi.advanceTimersByTimeAsync(10_000);
+      await Promise.all(runs);
+      expect(engine.faults).toEqual([]);
+      expect(engine.isPlaying()).toBe(false);
+      expect(loadPhase("burst")).toBeNull();
+      // The last thing the engine hears is the last project, at its own level.
+      expect(engine.wire.at(-1)).toBe("restore p179");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
