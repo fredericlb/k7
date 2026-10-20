@@ -67,7 +67,8 @@ library with no folder is copied from `$STUDIO_LIBRARY_SEED` (`name=dir,...` or 
 under the version its `library.k7x` declares (version 1 when it has none), or created empty. A
 machine that already has the library gets a seed declaring a version it lacks as one more version;
 when that number is taken by another version (an admin's publish), the seed goes in as the next free
-number, its own kept as the manifest's `seed`, and is never written over anything. The desktop app
+number, its own kept as the manifest's `seed`, and is never written over anything. A paired machine
+adds none: its library follows the origin's read-only, and a file written there would be undone. The desktop app
 sets the seed to its bundled `k7-core` (`apps/k7-standalone/src/main.ts`); the bundle script
 `apps/k7/backend/scripts/bundle.mjs` packs the newest published `k7-core` from the origin, or the
 repository's `k7-core/` when that declares a higher version or the origin cannot be reached.

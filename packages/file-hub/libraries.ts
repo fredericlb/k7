@@ -2,7 +2,8 @@
 // and one FOLDER per library under `<dataRoot>/libraries/<name>`: its frozen versions `1/`, `2/`…
 // and the `draft/` only admins write. A listed library missing on disk is copied from the seed
 // (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) under its manifest's version, or made empty.
-// Its edits reach other replicas through k7fs (libraryRelay.ts). See docs/fileHub.md and
+// Its edits reach other replicas through k7fs (libraryRelay.ts); FOLLOWED on a paired machine, its
+// folder is the origin's and the hub writes nothing there. See docs/fileHub.md and
 // ../../docs/library-versions-plan.md. The copies are asynchronous and run one at a time, so a
 // seed of IR and amp-model binaries never holds the shared process, nor races another copy.
 
@@ -17,29 +18,33 @@ import {
 } from "node:fs";
 import { cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { upgradeLegacy } from "@studio/file-service/src/legacyUpgrade.ts";
-import { RECYCLE_DIR } from "@studio/file-service/src/workspaceFilter.ts";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
   DRAFT_VERSION,
   LIBRARY_LEVEL,
   LIBRARY_MANIFEST,
   type LibraryManifest,
-  parseLibraryManifest,
   stringifyLibraryManifest,
   UNPINNED_VERSION,
-  versionOfDir,
 } from "@studio/song-schema/libraryVersions";
-import {
-  LEGACY_LIBRARY_MANIFEST,
-  parseLegacyLibraryManifest,
-} from "@studio/song-schema/libraryVersionsLegacy";
+import { LEGACY_LIBRARY_MANIFEST } from "@studio/song-schema/libraryVersionsLegacy";
 import {
   DEFAULT_LIBRARY,
   isLibraryName,
   LEGACY_DEFAULT_LIBRARY,
 } from "@studio/song-schema/moduleTypes";
 import type { AccountLibrariesReply, LibraryNote } from "@studio/web-protocol";
+import {
+  isCopyOfSeed,
+  isHusk,
+  ownManifest,
+  publishable,
+  readManifest,
+  upgradeManifest,
+  versionNumbers,
+  writeFirstManifest,
+} from "./libraryDirs.ts";
+import { fetchLibraryVersion } from "./libraryFetch.ts";
 
 /** One library of the origin: the name its refs use (`@<name>/…`), which is also its folder's. */
 export interface LibrarySetting {
@@ -118,6 +123,8 @@ export class LibraryStore {
   constructor(
     private readonly dataRoot: string,
     seed: string | undefined = process.env.STUDIO_LIBRARY_SEED,
+    /** Whether the libraries follow a remote origin read-only (a paired machine): their folders are then the follow's. */
+    readonly followed: () => boolean = () => false,
   ) {
     this.home = join(dataRoot, "libraries");
     this.listFile = join(dataRoot, "libraries.json");
@@ -222,7 +229,8 @@ export class LibraryStore {
       for (const l of this.settings()) {
         if (opts.name && l.name !== opts.name) continue;
         const note = await this.ensureOne(l.name);
-        if (!opts.draft || note.state === "failed") notes.push(note);
+        if (!opts.draft || note.state === "failed" || this.followed())
+          notes.push(note);
         else notes.push((await this.ensureDraft(l.name)) ?? note);
       }
       return notes;
@@ -249,11 +257,27 @@ export class LibraryStore {
     return this.serial(() => this.publishNow(name, opts));
   }
 
+  /** Bring version `version` of `name` down from the origin's listing (libraryFetch.ts); a followed library's come with the follow. */
+  async fetchVersion(name: string, version: number): Promise<LibraryNote> {
+    const here = existsSync(join(this.home, name, String(version)));
+    const why =
+      this.followed() && !here
+        ? `follows its origin read-only: version ${version} comes with the follow`
+        : await fetchLibraryVersion(this.home, name, version);
+    return why
+      ? { name, state: "failed", note: why }
+      : { name, state: "current", note: `version ${version} here` };
+  }
+
   private async publishNow(
     name: string,
     opts: { requires?: number; notes?: string },
   ): Promise<{ ok: true; manifest: LibraryManifest } | { error: string }> {
     if (!isLibraryName(name)) return { error: `'${name}' names no library` };
+    if (this.followed())
+      return {
+        error: `'${name}' follows its origin read-only: publish it there`,
+      };
     const at = join(this.home, name);
     const draft = join(at, DRAFT_VERSION);
     if (!existsSync(draft))
@@ -285,11 +309,21 @@ export class LibraryStore {
   /** Copy into a SIBLING and rename it into place: a dot-name is never a library, so no reader sees half of one. */
   private async ensureOne(name: string): Promise<LibraryNote> {
     const at = join(this.home, name);
+    const swept = this.dropHusks(name);
+    // Followed, the folder is the origin's: what the hub wrote there would be undone, and written again on the next ensure.
+    if (this.followed())
+      return {
+        name,
+        state: "current",
+        note: `followed from its origin${swept}`,
+      };
     if (existsSync(at)) {
-      const note = this.migrate(name);
-      return note.state === "failed"
-        ? note
-        : ((await this.addSeedVersion(name)) ?? note);
+      const migrated = this.migrate(name);
+      const note =
+        migrated.state === "failed"
+          ? migrated
+          : ((await this.addSeedVersion(name)) ?? migrated);
+      return swept ? { ...note, note: `${note.note}${swept}` } : note;
     }
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
@@ -360,6 +394,23 @@ export class LibraryStore {
     }
   }
 
+  /** Remove library `name`'s husks (libraryDirs.ts); answers what to say of them, empty when there were none. */
+  // Followed, a version the room knows is the follow's: it may be a folder still being filled.
+  private dropHusks(name: string): string {
+    const at = join(this.home, name);
+    const known = join(this.home, ".sync-follow", name, "confirmed");
+    const gone = versionNumbers(at).filter(
+      (v) =>
+        isHusk(join(at, String(v))) &&
+        !(this.followed() && existsSync(join(known, String(v)))),
+    );
+    for (const v of gone)
+      rmSync(join(at, String(v)), { recursive: true, force: true });
+    return gone.length
+      ? `, ${gone.length} empty version folder(s) removed (${gone.join(", ")})`
+      : "";
+  }
+
   /** A library still in one folder becomes its own version 1, moved whole — the songs that read it hear the same files. */
   private migrate(name: string): LibraryNote {
     const at = join(this.home, name);
@@ -368,10 +419,10 @@ export class LibraryStore {
     const moving = join(this.home, `.migrating-${Date.now()}-${process.pid}`);
     try {
       renameSync(at, moving);
+      // The manifest before the rename: a version folder is never seen without one.
+      writeFirstManifest(name, moving);
       mkdirSync(at);
-      const first = join(at, String(UNPINNED_VERSION));
-      renameSync(moving, first);
-      writeFirstManifest(name, first);
+      renameSync(moving, join(at, String(UNPINNED_VERSION)));
       return { name, state: "current", note: "moved into version 1" };
     } catch (e) {
       // Put the folder back where it was, whatever step failed.
@@ -413,84 +464,4 @@ export class LibraryStore {
       return { name, state: "failed", note: (e as Error).message.trim() };
     }
   }
-}
-
-/** What a published version carries: never a `.git`, never a recycle bin. */
-const publishable = (src: string): boolean =>
-  !src.split(/[\\/]/).some((s) => s === ".git" || s === RECYCLE_DIR);
-
-/** The published version numbers under a library's folder, ascending. */
-function versionNumbers(at: string): number[] {
-  try {
-    return readdirSync(at, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => versionOfDir(d.name))
-      .filter((v): v is number => typeof v === "number")
-      .sort((a, b) => a - b);
-  } catch {
-    return [];
-  }
-}
-
-/** A version's manifest, `library.k7x` or else a legacy `library.yaml`, read where it is: a seed is not the hub's to write. */
-function readManifest(dir: string): LibraryManifest | null {
-  try {
-    return parseLibraryManifest(
-      readFileSync(join(dir, LIBRARY_MANIFEST), "utf8"),
-    );
-  } catch {
-    try {
-      return parseLegacyLibraryManifest(
-        readFileSync(join(dir, LEGACY_LIBRARY_MANIFEST), "utf8"),
-      );
-    } catch {
-      return null;
-    }
-  }
-}
-
-/** The manifest in either format, for upgradeLegacy. */
-const MANIFEST = {
-  parseLegacy: parseLegacyLibraryManifest,
-  parse: parseLibraryManifest,
-  stringify: stringifyLibraryManifest,
-};
-
-/** A legacy `library.yaml` in a folder the hub owns, upgraded once to `library.k7x`. */
-function upgradeManifest(dir: string): void {
-  upgradeLegacy(
-    join(dir, LEGACY_LIBRARY_MANIFEST),
-    join(dir, LIBRARY_MANIFEST),
-    MANIFEST,
-  );
-}
-
-/** Is the version whose manifest is `held` this seed, installed under its own number or, renumbered, under another? */
-function isCopyOfSeed(
-  held: LibraryManifest | null,
-  seed: LibraryManifest,
-): boolean {
-  if (!held) return false;
-  if (held.seed !== undefined) return held.seed === seed.version;
-  return (
-    held.version === seed.version &&
-    held.requires === seed.requires &&
-    held.notes === seed.notes
-  );
-}
-
-/** A manifest of the hub's own folders: upgraded first, then read. */
-function ownManifest(dir: string): LibraryManifest | null {
-  upgradeManifest(dir);
-  return readManifest(dir);
-}
-
-/** Version 1 of a library written before versions: it asks for nothing past the first level. */
-function writeFirstManifest(name: string, dir: string): void {
-  upgradeManifest(dir);
-  if (existsSync(join(dir, LIBRARY_MANIFEST))) return;
-  writeFileSync(
-    join(dir, LIBRARY_MANIFEST),
-    stringifyLibraryManifest({ name, version: UNPINNED_VERSION, requires: 1 }),
-  );
 }
