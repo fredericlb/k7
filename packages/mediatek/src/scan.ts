@@ -27,7 +27,7 @@ export { SONG_FILE };
 
 async function dirents(abs: string): Promise<Dirent[]> {
   try {
-    // A FLAC's derived MP3 is no entry, no master and no loose file — docs/derivedMp3.md.
+    // A FLAC's derived copy is no entry, no master and no loose file — docs/derived.md.
     return withoutDerived(
       (await readdir(abs, { withFileTypes: true })).filter(
         (e) => !e.name.startsWith("."),

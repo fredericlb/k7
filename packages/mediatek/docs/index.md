@@ -179,7 +179,7 @@ sidecars nobody has asked for yet (`apps/k7/backend/docs/media/analysis.md`), on
 sidecar to move the token, each of those writes would invalidate the listing the sweep is walking:
 a full rescan per file, for hours, over a library nobody touched.
 
-A FLAC's derived MP3 is dropped for the same reason, by its own rule ([derivedMp3.md](derivedMp3.md)).
+A FLAC's derived copy is dropped for the same reason, by its own rule ([derived.md](derived.md)).
 
 ## The index is versioned, because the token cannot see a code change
 

@@ -85,7 +85,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 function alreadyFiled(tags: SongTags): string | null {
   const folder = songFolder(tags);
   try {
-    // Never the master's derived MP3 — ../../../docs/media/derivedMp3.md.
+    // Never the master's derived copy — ../../../docs/media/derivedStream.md.
     const names = readdirSync(writablePath(folder)).map((name) => ({ name }));
     const hit = withoutDerived(names).find((f) =>
       f.name.startsWith(`${MASTER_STEM}.`),

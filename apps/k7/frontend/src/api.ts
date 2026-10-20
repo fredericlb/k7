@@ -336,7 +336,7 @@ export const mediatek = {
     return ((await res.json()) as FamilyListing).entries;
   },
 
-  /** One file, as an address rather than a fetch — a FLAC as the MP3 beside it, since a browser plays this (backend/docs/media/derivedMp3.md). */
+  /** One file, as an address rather than a fetch — a FLAC as the Opus copy beside it, since a browser plays this (backend/docs/media/derivedStream.md). */
   songUrl: (path: string) =>
     `${PL8}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
 

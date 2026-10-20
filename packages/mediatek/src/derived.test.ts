@@ -1,4 +1,4 @@
-// A FLAC's derived MP3 is invisible to every walk and follows its FLAC on every write — docs/derivedMp3.md.
+// A FLAC's derived copy is invisible to every walk and follows its FLAC on every write — docs/derived.md.
 
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,33 +6,34 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout } from "./layout.ts";
 import { manifest } from "./manifest.ts";
-import { derivedMp3Of, isDerivedMp3, withoutDerived } from "./media.ts";
+import { derivedOf, isDerived, withoutDerived } from "./media.ts";
 import { addRecording, listRecordings } from "./recordings.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
 import { addSong, moveEntry, putFile, removeFile } from "./write.ts";
 
 describe("the name rule", () => {
-  it("derives an MP3 name from a FLAC, and from nothing else", () => {
-    expect(derivedMp3Of("a/b/original.flac")).toBe("a/b/original.mp3");
-    expect(derivedMp3Of("Take.FLAC")).toBe("Take.mp3");
-    expect(derivedMp3Of("song.wav")).toBeNull();
+  it("derives a WebM name from a FLAC, and from nothing else", () => {
+    expect(derivedOf("a/b/original.flac")).toBe("a/b/original.webm");
+    expect(derivedOf("Take.FLAC")).toBe("Take.webm");
+    expect(derivedOf("song.wav")).toBeNull();
   });
 
-  it("holds an MP3 derived only when its FLAC sits beside it", () => {
-    expect(isDerivedMp3("x.mp3", ["x.flac", "x.mp3"])).toBe(true);
-    expect(isDerivedMp3("x.mp3", ["X.FLAC", "x.mp3"])).toBe(true);
-    expect(isDerivedMp3("x.mp3", ["x.wav", "x.mp3"])).toBe(false);
-    expect(isDerivedMp3("x.flac", ["x.flac", "x.mp3"])).toBe(false);
+  it("holds a WebM, or a legacy MP3, derived only when its FLAC sits beside it", () => {
+    expect(isDerived("x.webm", ["x.flac", "x.webm"])).toBe(true);
+    expect(isDerived("x.webm", ["X.FLAC", "x.webm"])).toBe(true);
+    expect(isDerived("x.mp3", ["x.flac", "x.mp3"])).toBe(true);
+    expect(isDerived("x.webm", ["x.wav", "x.webm"])).toBe(false);
+    expect(isDerived("x.flac", ["x.flac", "x.webm"])).toBe(false);
   });
 
   it("takes the derived ones out of a listing and keeps the rest", () => {
-    const names = ["a.flac", "a.mp3", "b.mp3", "song.yaml"].map((name) => ({
-      name,
-    }));
+    const names = ["a.flac", "a.webm", "a.mp3", "b.webm", "song.yaml"].map(
+      (name) => ({ name }),
+    );
     expect(withoutDerived(names).map((e) => e.name)).toEqual([
       "a.flac",
-      "b.mp3",
+      "b.webm",
       "song.yaml",
     ]);
   });
@@ -41,7 +42,7 @@ describe("the name rule", () => {
 describe("in the library", () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "mediatek-mp3-"));
+    root = mkdtempSync(join(tmpdir(), "mediatek-derived-"));
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
@@ -54,9 +55,9 @@ describe("in the library", () => {
 
   // Written straight to disk, as the sweep does — no write helper, so no bump.
   const derive = (rel: string): void =>
-    writeFileSync(join(root, rel.replace(/\.flac$/, ".mp3")), "mp3");
+    writeFileSync(join(root, rel.replace(/\.flac$/, ".webm")), "webm");
 
-  it("never takes the MP3 for a song's master", async () => {
+  it("never takes the copy for a song's master", async () => {
     putFile("songs/A/B/So What/original.flac", "flac");
     derive("songs/A/B/So What/original.flac");
     const [song] = await scanFamily("songs");
@@ -72,7 +73,7 @@ describe("in the library", () => {
     expect(entries.map((e) => e.name)).toEqual(["kick.flac", "loose.flac"]);
     expect(
       (await scanUnlisted("samples", entries)).filter((p) =>
-        p.endsWith(".mp3"),
+        p.endsWith(".webm"),
       ),
     ).toEqual([]);
   });
@@ -103,14 +104,16 @@ describe("in the library", () => {
     expect(listRecordings()[0]?.files.map((f) => f.name)).toEqual([
       "03-04-05.flac",
     ]);
-    const next = addRecording({ filename: "y.mp3", bytes: bytes("m"), at });
-    expect(next.name).toBe("03-04-05-2.mp3");
+    const next = addRecording({ filename: "y.webm", bytes: bytes("w"), at });
+    expect(next.name).toBe("03-04-05-2.webm");
   });
 
   it("goes with its FLAC", () => {
     putFile("samples/audio/pack/kick.flac", "flac");
     derive("samples/audio/pack/kick.flac");
+    writeFileSync(join(root, "samples/audio/pack/kick.mp3"), "legacy");
     removeFile("samples/audio/pack/kick.flac");
+    expect(existsSync(join(root, "samples/audio/pack/kick.webm"))).toBe(false);
     expect(existsSync(join(root, "samples/audio/pack/kick.mp3"))).toBe(false);
   });
 
@@ -118,29 +121,29 @@ describe("in the library", () => {
     putFile("samples/audio/pack/kick.flac", "flac");
     derive("samples/audio/pack/kick.flac");
     moveEntry("samples/audio/pack/kick.flac", "samples/audio/other/k2.flac");
-    expect(existsSync(join(root, "samples/audio/other/k2.mp3"))).toBe(true);
-    expect(existsSync(join(root, "samples/audio/pack/kick.mp3"))).toBe(false);
+    expect(existsSync(join(root, "samples/audio/other/k2.webm"))).toBe(true);
+    expect(existsSync(join(root, "samples/audio/pack/kick.webm"))).toBe(false);
 
     moveEntry("samples/audio/other/k2.flac", "samples/audio/other/k2.wav");
-    expect(existsSync(join(root, "samples/audio/other/k2.mp3"))).toBe(false);
+    expect(existsSync(join(root, "samples/audio/other/k2.webm"))).toBe(false);
   });
 
-  it("keeps an uploaded MP3 master that replaces its FLAC", async () => {
+  it("keeps an uploaded WebM master that replaces its FLAC", async () => {
     const tags = { artist: "A", album: "B", title: "C" };
     const first = addSong({ filename: "c.flac", bytes: bytes("flac"), tags });
     derive(first.master);
     const second = addSong({
-      filename: "c.mp3",
-      bytes: bytes("real mp3"),
+      filename: "c.webm",
+      bytes: bytes("real webm"),
       tags,
       replace: true,
     });
-    expect(second.master.endsWith("original.mp3")).toBe(true);
+    expect(second.master.endsWith("original.webm")).toBe(true);
     expect(existsSync(join(root, second.master))).toBe(true);
-    expect((await scanFamily("songs"))[0]?.meta?.master).toBe("original.mp3");
+    expect((await scanFamily("songs"))[0]?.meta?.master).toBe("original.webm");
   });
 
-  it("leaves a real MP3 with no FLAC beside it alone", async () => {
+  it("leaves a real WebM or MP3 with no FLAC beside it alone", async () => {
     putFile("samples/audio/pack/snare.mp3", "mp3");
     expect((await scanFamily("samples")).map((e) => e.name)).toEqual([
       "snare.mp3",

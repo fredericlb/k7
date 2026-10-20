@@ -4,7 +4,6 @@
 import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { NoFfmpegError } from "@studio/ffmpeg";
 import {
   listFamily,
   parseQuery,
@@ -23,10 +22,10 @@ import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { type Response, Router } from "express";
 import { mayManageLibrary } from "../../libraryGate.ts";
 import {
-  ensureMp3,
+  ensureStreamCopy,
   SourceChangedError,
-  TranscodeBusyError,
-} from "../../transcode.ts";
+  StreamCopyBusyError,
+} from "../../streamCopy.ts";
 
 export const readRoutes: Router = Router();
 
@@ -123,7 +122,7 @@ readRoutes.get(
   }),
 );
 
-/** Like `/file`, except a FLAC is served as the MP3 beside it, made now if need be — ../../../../docs/media/streaming.md. */
+/** Like `/file`, except a FLAC is served as the Opus copy beside it, made now if need be — ../../../../docs/media/streaming.md. */
 readRoutes.get(
   "/stream",
   wrap(async (req, res) => {
@@ -131,17 +130,19 @@ readRoutes.get(
     if (!abs) return;
     if (extOf(abs) !== ".flac") return streamFile(req, res, abs, mimeFor(abs));
 
-    let mp3: string;
+    let copy: string;
     try {
-      // Replaced while it was being transcoded: once more, from the new bytes.
-      mp3 = await ensureMp3(abs).catch((e) =>
-        e instanceof SourceChangedError ? ensureMp3(abs) : Promise.reject(e),
+      // Replaced while it was being encoded: once more, from the new bytes.
+      copy = await ensureStreamCopy(abs).catch((e) =>
+        e instanceof SourceChangedError
+          ? ensureStreamCopy(abs)
+          : Promise.reject(e),
       );
     } catch (e) {
-      if (e instanceof NoFfmpegError || e instanceof TranscodeBusyError)
+      if (e instanceof StreamCopyBusyError)
         return res.status(503).json({ error: e.message });
       throw e;
     }
-    streamFile(req, res, mp3, "audio/mpeg");
+    streamFile(req, res, copy, "audio/webm");
   }),
 );

@@ -17,7 +17,7 @@ import {
   envelopeOf,
   envelopeVersion,
 } from "../../envelopeMemo.ts";
-import { mp3SweepState } from "../../mp3Sweep.ts";
+import { streamSweepState } from "../../streamSweep.ts";
 import { resolveReadable } from "./read.ts";
 import { writeError } from "./write.ts";
 
@@ -31,9 +31,9 @@ analysisRoutes.get(
   }),
 );
 
-/** What the MP3 sweep is doing — ../../../../docs/media/derivedMp3.md. */
-analysisRoutes.get("/mp3", (_req, res) => {
-  res.json(mp3SweepState());
+/** What the stream sweep is doing — ../../../../docs/media/derivedStream.md. */
+analysisRoutes.get("/stream-copies", (_req, res) => {
+  res.json(streamSweepState());
 });
 
 /** Measure one file HERE, where the bytes and ffmpeg are, and write its `.cache` sidecar — packages/audio-analysis/docs/analysis.md. */

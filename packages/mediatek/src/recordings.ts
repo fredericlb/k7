@@ -105,7 +105,7 @@ export function listRecordings(): RecordingDay[] {
       continue;
     }
     const files: RecordingFile[] = [];
-    // A FLAC's derived MP3 is no capture (docs/derivedMp3.md); `taken` above still sees it, so no capture lands on it.
+    // A FLAC's derived copy is no capture (docs/derived.md); `taken` above still sees it, so no capture lands on it.
     const listed = withoutDerived(names(abs).map((name) => ({ name })));
     for (const { name } of listed) {
       if (!isAudio(name)) continue;

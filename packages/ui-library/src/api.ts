@@ -275,7 +275,7 @@ export const library = {
   fileUrl: (path: string) =>
     `${apiBase()}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
-  /** The same, but a FLAC comes as the MP3 beside it — what a browser plays (apps/k7/backend/docs/media/derivedMp3.md). */
+  /** The same, but a FLAC comes as the Opus copy beside it — what a browser plays (apps/k7/backend/docs/media/derivedStream.md). */
   streamUrl: (path: string) =>
     `${apiBase()}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
 
