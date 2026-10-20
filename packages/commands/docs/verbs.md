@@ -689,6 +689,11 @@ One module in two chains is TWO `PluginDoc`s, so a write patches every one: the 
 the other stale. The file is written first, being the source of truth, then the engine is patched
 in place with one `PluginParamChanged`.
 
+A node is found on the master run as well as on the lanes: `collectPluginModules` walks
+`masterPlugins` too, and `mapPlugins` patches both. A mastering node (`MIX → master → OUT`, a
+quick-master) plays on no lane, so a lookup over `tracks` alone refuses every knob of the
+mastering surface while the file and the engine would both have taken the value.
+
 ## `module cc`
 
 Binds a MIDI control to a param, or `none` to unbind. The param is read as everything BETWEEN the

@@ -3,7 +3,6 @@
 
 import { bindModuleCc } from "@studio/song/controllerBind";
 import { isFileParam } from "@studio/song/loader";
-import type { ProjectDoc } from "@studio/song/project";
 import {
   setModuleAutomationBinding,
   setModuleParam,
@@ -21,7 +20,7 @@ import {
   setFileParam,
   setIntrinsic,
 } from "./intrinsics.ts";
-import { collectPluginModules } from "./node.ts";
+import { collectPluginModules, mapPlugins } from "./node.ts";
 import { splitWords } from "./shared.ts";
 
 export const NODE_PARAM_VERBS: Record<string, SidHandler> = {
@@ -84,18 +83,12 @@ export const NODE_PARAM_VERBS: Record<string, SidHandler> = {
     try {
       // Write the file first — it is the source of truth — then patch the engine in place with one PluginParamChanged.
       setModuleParam(h.songPath, module, param, value);
-      const np: ProjectDoc = {
-        ...p,
-        tracks: p.tracks.map((t) => ({
-          ...t,
-          // One module in two chains is TWO PluginDocs, so patch every one: the first alone leaves the other stale.
-          plugins: t.plugins.map((pl) =>
-            matches.some((x) => x.id === pl.id)
-              ? { ...pl, params: { ...pl.params, [param]: value } }
-              : pl,
-          ),
-        })),
-      };
+      // One module in two chains is TWO PluginDocs, so patch every one: the first alone leaves the other stale.
+      const np = mapPlugins(p, (pl) =>
+        matches.some((x) => x.id === pl.id)
+          ? { ...pl, params: { ...pl.params, [param]: value } }
+          : pl,
+      );
       await h.applyProject(np);
       h.log([`${module}: ${param} = ${value}`]);
     } catch (e) {
