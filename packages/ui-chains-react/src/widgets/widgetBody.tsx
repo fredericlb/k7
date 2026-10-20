@@ -116,12 +116,13 @@ export function widgetBody({
     // `clear` needs a take, rolling or not, and `save` a FINISHED one; faint when not — docs/widgets.md.
     const none =
       (recState?.takes.length ?? 0) === 0 && !(recState?.recording ?? false);
+    // All three draw faint until the engine's frame lists the node: a press before that is refused.
     const idle =
       tgt?.kind === "recorder" &&
-      tgt.verb !== "record" &&
-      (tgt.verb === "save"
-        ? (recState?.takes.length ?? 0) === 0 || (recState?.recording ?? false)
-        : none);
+      (recState === undefined ||
+        (tgt.verb === "save"
+          ? recState.takes.length === 0 || recState.recording
+          : tgt.verb === "clear" && none));
     body = (
       <b
         className={`dgx-btn${on ? " on" : ""}${idle ? " unknown" : ""}`}

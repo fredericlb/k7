@@ -100,6 +100,10 @@ subscribed in the widget through `useRecorderState`, never passed as a prop, for
 `clear` and `save` draw faint with no take to act on, and `save` while a take is still rolling.
 Faint rather than hidden: a card that changes shape as you use it is a card you have to re-read.
 
+All three are faint and inert — not buttons at all — until the engine's state frame lists the
+node. A project is drawn before the engine holds it, and a press in that window is answered
+"no recorder node in this project": a control that takes the click and then does nothing.
+
 Neither places an optimistic override either, and here the reason is sharper than for a dropdown:
 the light must say what the ENGINE is doing. Lighting on the click would light on a refusal too —
 `"has not carried audio yet"` comes back as an `error` and the button would already be red.

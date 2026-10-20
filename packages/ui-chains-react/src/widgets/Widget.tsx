@@ -222,9 +222,9 @@ function WidgetInner({
       : // …and a PROJECT setting a host that runs a verb, which a preview card has not got.
         tgt.kind === "project"
         ? ch.projectWritable
-        : // …and a recorder's button a host wired to the ENGINE: a preview must not start a take.
+        : // …and a recorder's button a host wired to an ENGINE that holds the node, or the press is refused.
           tgt.kind === "recorder"
-          ? ch.recorderWired
+          ? ch.recorderWired && recState !== undefined
           : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
             ch.rehearsal ||
             (tgt.kind === "offline"
