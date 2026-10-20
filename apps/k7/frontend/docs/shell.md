@@ -1346,10 +1346,11 @@ predicate says so — an effect's dependency rather than a test inside it, so a 
 A mute or solo goes through the quiet path and then reloads with the files it wrote, not with `null`: it
 rewrites `graph.k7x` and nothing the surfaces or the prewarm read.
 
-**A graph a command hands back is tagged with the reload key it answers.** The chains pane takes it only
-at that key, and a new one is a trigger of its own, since a bypass returns one with no reload behind it.
-Without the tag, a graph handed back while the pane was hidden would be drawn when it was next shown, over
-a reload that came after it. A tag that turns out wrong costs a fetch, never a stale picture.
+**A graph a command hands back is cached as the answer for the reload key it is FOR** — the next key
+for a reloading command, the current one for a bypass, which reloads nothing ([`state.md`](state.md)).
+Every view of the graph reads that cache entry, so the reload the command causes is not a fetch.
+Without the key, a graph handed back while the pane was hidden would be drawn when it was next shown,
+over a reload that came after it. A key that turns out wrong costs a fetch, never a stale picture.
 
 **The limit, stated because it is real:** a clip's `source` also decides whether it is listed as an audio
 or a video clip. A command that repointed an *existing* clip from a wav to an mp4 would leave that one
@@ -1408,13 +1409,16 @@ the editor reports an open sequence by PATH, never its text, so a keystroke is n
 ### The panes are memoised, and App hands them only stable props
 
 `App` holds the shell's own state — the caret, the timeline's view, the bar being filled, the
-palette, the fullscreen pane — and every change of it renders `App`. The six panes (`TimelineTab`,
+palette, the fullscreen pane — and every change of it renders `App`. What the panes share (the
+reload key, the verbs, the overlays, the view toggles) they read from the shell store instead
+([`state.md`](state.md)). The six panes (`TimelineTab`,
 `ChainsTab`, `EditorTab`, `SurfaceTab`, `MasteringTab`, `ViewportTab`) stay mounted while hidden, so
 each is exported `memo`ised, and a hidden pane renders only when something it is HANDED changes.
 
 That holds only while every prop keeps its identity, so:
 
-- **No closure, literal or element is written inline in a pane's props.** The callbacks are built in
+- **No closure, literal or element is written inline in a pane's props.** The command a gesture
+  runs comes from the store (`state/paneCommands.ts`), the rest is built in
   `hooks/usePaneCallbacks.ts` from refs, setters and stable callbacks; EditorTab's two builders are
   built above `App`'s return and are `null` while closed. `src/paneProps.test.ts` reads `App.tsx` as
   text and fails on an arrow, a literal or an element in a pane's props — nothing here mounts `App`.

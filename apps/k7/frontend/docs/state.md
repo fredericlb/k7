@@ -1,11 +1,12 @@
 # Shell state: what lives in a store, what stays local
 
-The shell holds three kinds of state, and each has one home.
+The shell holds four kinds of state, and each has one home.
 
 | kind | home | read by |
 |---|---|---|
 | the engine's live state (transport, meters, plugin params) | `EngineStore`, `PluginParamsStore` (`@studio/engine-browser`) | the leaf that draws it |
 | the shell's own state that panes need | the **shell store**, `src/state/shellStore.ts` (zustand) | each pane, through a selector |
+| a document read from the file service (the graph, the compiled project) | the **query cache**, `src/queries/` (TanStack Query) | each pane, at a key |
 | everything one component owns | `useState` in that component | that component |
 
 ## The shell store
@@ -54,6 +55,42 @@ gestures, and drawn by `shell/ShellOverlays.tsx`, which reads them directly. The
 command flips and a pane reads — the right column, the help page, the graph's notes and stack
 view, the lane curves, the rack builder, the History hover — are `state/toggleSlice.ts`. Their
 setters take a value or an updater, like React's, so `ui/commands/` handlers keep their shape.
+
+## The query cache
+
+**A document is read once per key, however many panes draw it.** The chains page, the bottom
+panel, a lane's modules, the tap chain, the History panel, the clip view and App's own lookups
+all asked `/graph` for themselves on every reload; the timeline, the minimap, the clip view and
+the shell's projection each asked `/project-doc`. Each is now one query keyed by
+`(scope, key)` (`queries/graph.ts`, `queries/projectDoc.ts`), and every reader of a key shares
+its answer and its request.
+
+**The key is what refetches, and nothing else does.** A reload key moving is a new key, so the
+cache answers each key for good (`staleTime: Infinity`) and never refetches on focus, on
+reconnect or on a timer: the shell already says when something changed, and a second trigger
+would be a second request for the same thing. A key no one reads any more is dropped a minute
+later. `networkMode` is `always`: the desktop app with no internet still reaches its own
+loopback server, and the default holds every read while `navigator.onLine` is false.
+
+**The scope is the counter the key counts.** The shell's reload key, a second device's own one
+(`useSurfaceCommands`), and the `/revision` token the mastering strip and the device's timeline
+follow are different counters, so their numbers are kept apart. A pane reads its host's scope
+from the shell store.
+
+**What a pane's key MEANS stays the pane's.** The chains pane freezes its key while hidden, so a
+reload is remembered and asked for only when it is shown; App's own read of the graph moves only
+when a reload could have moved the chains (`movedTheChains`), and otherwise stays on the key it
+already has. Sharing the cache changes how often a key is asked, never which key a pane reads.
+
+**A writing command's answer is put in the cache.** `runCommand` stores the graph the service
+built for the key its reload is about to move to, and a bypass for the key in force, so the reads
+that reload would cause are already answered (`shell.md`, "A graph only when one is on screen").
+
+**A failing read keeps the last answer and retries.** Reload-keyed reads retry on the same
+backoff the document reads always had (`hooks/useDocument.ts`), with the last good answer still
+drawn and the failure shown beside it; the `/revision`-keyed ones read null on failure, as they
+did. A read that wants to be FRESH at the moment of a gesture — the asset picker's file list, a
+`ui` command looking a node up — still asks the service directly.
 
 ## What stays in App
 
