@@ -380,9 +380,11 @@ the second is already a cover or a live.
 
 ### Nothing is re-encoded
 
-`--audio-format best` does not convert, it **keeps**: YouTube serves Opus around 130 kbps, and putting
-that through mp3 would be a lossy-to-lossy transcode — distinctly worse than either, for nothing. So
-what comes out is `.opus` or `.m4a`, which `AUDIO_EXT` already accepts. If yt-dlp returns anything
+`--format bestaudio` takes YouTube's audio-only stream and **keeps** it as served: Opus around
+130 kbps in WebM, or AAC in m4a. Putting that through mp3 would be a lossy-to-lossy transcode —
+distinctly worse than either, for nothing — and not extracting is also what spares yt-dlp an ffmpeg.
+So what comes out is `.webm` or `.m4a`, which `AUDIO_EXT` already accepts and the analysis decodes
+without ffmpeg (`packages/audio-analysis/docs/analysis.md`). If yt-dlp returns anything
 else, it is refused out loud rather than filing a file `masterName` would reject anyway.
 
 ### What is hostile here is the query
@@ -397,8 +399,8 @@ names.
 
 ### What it asks of the image
 
-`yt-dlp` **and** `ffmpeg`, both in the Dockerfile. ffmpeg is not an extra: yt-dlp does not embed one
-and cannot separate a stream from its container without it, so the two are one feature.
+`yt-dlp`, in the Dockerfile. It needs no ffmpeg, since it never separates a stream from its
+container: an `--extract-audio` would, and is the one flag this feature must not grow back.
 
 And it has to be known: **yt-dlp is a moving target**. YouTube breaks it every few months, so the
 version frozen into an image ages and eventually fails; rebuilding is the fix. That is the cost of
