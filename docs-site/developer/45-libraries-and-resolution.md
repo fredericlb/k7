@@ -75,9 +75,12 @@ one commit.
 
 - Admin is decided in `apps/k7/backend/src/media/fileHub.ts`: the OIDC `groups` claim intersects
   `$AUTH_ADMIN_GROUPS`. The hub forwards it to the account's file service.
-- On `POST /open`, the file service calls `refreshLibraries(admin)`
-  (`packages/file-service/src/libraries.ts`), which syncs with the hub and, for an admin, sets
-  overlays pointing every library at its `draft/` (`setLibraryOverlays`).
+- On every request, ahead of every route, the file service passes the hub's admin stamp to
+  `followAdmin` (`packages/file-service/src/libraries.ts`): when the flag changes it syncs with the
+  hub and, for an admin, sets overlays pointing every library at its `draft/`
+  (`setLibraryOverlays`). `POST /open` calls `refreshLibraries()`, which keeps the current flag.
+- For an admin, `GET /account/libraries` also makes every library's draft, so the Libraries page
+  can publish before any project was opened.
 - Library files are addressed at the virtual path `_libraries/<name>/...` in every workspace
   (`packages/file-service/src/workspace.ts`). `assertLibraryWritable` refuses a non-admin, and
   refuses everyone on a published version.

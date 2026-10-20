@@ -9,7 +9,7 @@ import { wrap } from "@frediverse/http/route";
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/k7-plugins/server";
 import { ensureLayout } from "@studio/mediatek/layout";
-import { HUB_SECRET_HEADER } from "@studio/web-protocol";
+import { ADMIN_HEADER, HUB_SECRET_HEADER } from "@studio/web-protocol";
 import express from "express";
 import { installProcessNet } from "./background.ts";
 import { boundJobsUrl } from "./boundMachine.ts";
@@ -17,6 +17,7 @@ import { resolveUser, resolveWorkspace } from "./context.ts";
 import { syncExamples } from "./demos.ts";
 import { pruneIdleLinks } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
+import { followAdmin } from "./libraries.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { adoptRecordedOwner, requireRootOwner } from "./owner.ts";
@@ -90,6 +91,10 @@ app.get("/health", (_req, res) => {
 app.use(requireHubSecret);
 app.use(hubRouter());
 app.use(resolveUser);
+// The admin flag the hub stamped, applied to the library overlays before any route reads or writes one — docs/libraries.md.
+app.use((req, _res, next) => {
+  followAdmin(req.get(ADMIN_HEADER) === "1").then(() => next(), next);
+});
 // Workspaces are ONE account's, recorded on first use — docs/owner.md.
 app.use(["/workspaces", "/engine/served", "/account"], requireRootOwner);
 

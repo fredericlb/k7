@@ -228,9 +228,11 @@ yet, or a listed one the server holds no folder for. In that case it shows one a
 top, with a link to the Libraries page. A healthy list costs the page nothing.
 
 **An admin edits a library from any project; nobody else edits it.** An admin's save writes
-straight into the server's folder, and that write IS the publication: every account has it at once
-([sharedModules.md](sharedModules.md)). This page has no button for it: the place to change a
-module is the project you hear it in.
+into the library's `draft/` on the server, never a published version
+([sharedModules.md](sharedModules.md)): the place to change a module is the project you hear it in.
+Publishing is this page's: under an admin's row, the draft is frozen as the next version
+(`LibraryVersions.tsx`). An admin's visit is enough to make that draft, so the publish is offered
+before any project was opened.
 
 ### The debt is said at creation, not discovered at opening
 

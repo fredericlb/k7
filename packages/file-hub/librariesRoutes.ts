@@ -47,7 +47,8 @@ export async function librariesRoute(
 ): Promise<void> {
   const sub = req.path.slice("/account/libraries".length) || "/";
   if (req.method === "GET" && sub === "/") {
-    res.json(store.view(await store.ensure()));
+    // An admin's list has every draft made, so the Libraries page offers the publish before any project opened.
+    res.json(store.view(await store.ensure({ draft: admin })));
     return;
   }
   if (req.method === "PUT" && sub === "/") {

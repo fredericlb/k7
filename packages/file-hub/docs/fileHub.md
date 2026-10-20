@@ -146,7 +146,8 @@ answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on 
 having dropped any copy the client sent. The file service trusts that header for the same reason
 it trusts `x-studio-user`: only the hub's secret reaches it. It guards what reaches every account
 at once: the libraries list (answered by the hub itself — below), and in the file service every
-write into a library (`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
+write into a library (`packages/file-service/docs/libraries.md`), which follows the stamp request by
+request, so a new session's ticket makes an account an admin with no restart. A ticket outlives a group change by up to twelve
 hours, the same as it outlives the session.
 
 ## The libraries are the hub's
@@ -159,8 +160,8 @@ two copies would compile a song two ways.
 
 - **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.k7x`
   saying what level of k7 it `requires`, and the `draft/` an admin's file service writes. The draft
-  is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
-  `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
+  is made, from the newest version, only when an admin asks — their service (`/libraries/sync` with
+  `draft: true`) or their Libraries page — so a machine with no admin carries no second copy. `publish` freezes the draft as
   the next version. A folder from before versions is moved whole into `1/` on the next `ensure`.
   A list from before k7 names its default library `st0`: at start the hub renames it `k7-core`
   (`renameLegacyDefault`) — the list's entry, the folder, and the relay's and replicas' state under
@@ -215,8 +216,9 @@ two copies would compile a song two ways.
   `.sync-follow/` for the origin's), since the two relays' seqs are different numbers.
 
 `/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
-list, for anyone, giving every listed library its folder first, each with its published versions
-and whether it has a draft; `PUT` the list (`{ libraries: [{ name }] }`), for admins, 403
+list, for anyone, giving every listed library its folder first — and for an admin its draft too, so
+the Libraries page offers a publish before that admin's file service ever ran — each with its
+published versions and whether it has a draft; `PUT` the list (`{ libraries: [{ name }] }`), for admins, 403
 otherwise; `POST /account/libraries/<name>/publish` (`{ requires?, notes? }`), for admins, freezes
 the draft as the next version.
 

@@ -1,6 +1,8 @@
 // libraries.test.ts — an admin writes the hub's folder of each library in place; anyone else reads it only.
 
 import { mkdirSync, mkdtempSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -10,7 +12,7 @@ import {
   setLibraryOverlays,
 } from "@studio/song/sharedFolders";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { refreshLibraries } from "./libraries.ts";
+import { followAdmin, refreshLibraries } from "./libraries.ts";
 import { Workspace } from "./workspace.ts";
 
 const env = {
@@ -27,15 +29,87 @@ beforeEach(() => {
   delete process.env.STUDIO_HUB_URL;
 });
 
-afterEach(() => {
+afterEach(async () => {
+  delete process.env.STUDIO_HUB_URL;
+  await followAdmin(false);
   setLibraryOverlays([]);
   process.env.STUDIO_LIBRARIES_HOME = env.home;
   if (env.hub) process.env.STUDIO_HUB_URL = env.hub;
 });
 
+describe("followAdmin", () => {
+  const versioned = () => {
+    mkdirSync(join(home, "k7-core", "1"));
+    mkdirSync(join(home, "k7-core", "draft"));
+  };
+  const draftWrite = () =>
+    new Workspace(mkdtempSync(join(tmpdir(), "ws-"))).assertLibraryWritable(
+      join(home, "k7-core", "draft", "modules", "x"),
+    );
+
+  it("opens the draft on the first request the hub stamps admin, with no open before it", async () => {
+    versioned();
+    expect(draftWrite).toThrow(/only the origin's admins/);
+    await followAdmin(true);
+    expect(draftWrite).not.toThrow();
+  });
+
+  it("keeps an admin's draft writable through a refresh that names nobody, the bench's", async () => {
+    versioned();
+    await followAdmin(true);
+    await refreshLibraries();
+    expect(isLibraryEditable("k7-core")).toBe(true);
+    expect(draftWrite).not.toThrow();
+  });
+
+  it("follows an account that becomes an admin, and one that stops being one, without a restart", async () => {
+    versioned();
+    await followAdmin(false);
+    expect(isLibraryEditable("k7-core")).toBe(false);
+    await followAdmin(true);
+    expect(isLibraryEditable("k7-core")).toBe(true);
+    await followAdmin(false);
+    expect(draftWrite).toThrow(/only the origin's admins/);
+  });
+
+  it("asks the hub for the drafts when the stamp makes it an admin, and only then", async () => {
+    mkdirSync(join(home, "k7-core", "1"));
+    const asked: unknown[] = [];
+    const hub = createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => {
+        body += c;
+      });
+      req.on("end", () => {
+        const opts = JSON.parse(body) as { draft?: boolean };
+        asked.push(opts);
+        // What the hub's ensureDraft does: the newest version copied to draft/.
+        if (opts.draft)
+          mkdirSync(join(home, "k7-core", "draft"), { recursive: true });
+        res.setHeader("content-type", "application/json");
+        res.end('{"notes":[]}');
+      });
+    });
+    await new Promise<void>((ok) => hub.listen(0, "127.0.0.1", ok));
+    const { port } = hub.address() as AddressInfo;
+    process.env.STUDIO_HUB_URL = `http://127.0.0.1:${port}`;
+    try {
+      await followAdmin(false);
+      expect(asked).toEqual([]);
+      await followAdmin(true);
+      await followAdmin(true);
+      expect(asked).toEqual([{ draft: true }]);
+      expect(libraryRoot("k7-core")).toBe(join(home, "k7-core", "draft"));
+      expect(draftWrite).not.toThrow();
+    } finally {
+      hub.close();
+    }
+  });
+});
+
 describe("refreshLibraries", () => {
   it("opens every library on disk for writing, in place, to an admin", async () => {
-    await refreshLibraries(true);
+    await followAdmin(true);
     expect(isLibraryEditable("k7-core")).toBe(true);
     expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
@@ -43,7 +117,7 @@ describe("refreshLibraries", () => {
   it("opens a versioned library's DRAFT to an admin, and never one of its versions", async () => {
     mkdirSync(join(home, "k7-core", "1"));
     mkdirSync(join(home, "k7-core", "draft"));
-    await refreshLibraries(true);
+    await followAdmin(true);
     expect(libraryRoot("k7-core")).toBe(join(home, "k7-core", "draft"));
     const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
     expect(() =>
@@ -88,8 +162,8 @@ describe("refreshLibraries", () => {
   });
 
   it("leaves them read-only to anyone else", async () => {
-    await refreshLibraries(true);
-    await refreshLibraries(false);
+    await followAdmin(true);
+    await followAdmin(false);
     expect(isLibraryEditable("k7-core")).toBe(false);
     expect(libraryRoot("k7-core")).toBe(join(home, "k7-core"));
   });
