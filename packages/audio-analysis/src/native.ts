@@ -73,15 +73,18 @@ function loadAddon(path: string): Addon | null {
   }
 }
 
-/** What the module imports: the decoder's file reads (decodeWasm.ts), which a measure never makes. */
+/** What the module imports: the decoder's file reads (decodeWasm.ts) and the encoders' writes (transcode.ts), which a measure never makes. */
 export interface Host {
   read(ptr: number, len: number, pos: number): number;
+  write?(ptr: number, len: number, pos: number): number;
 }
 const NO_FILE: Host = { read: () => -1 };
+const NO_OUTPUT = (): number => -1;
 
 /** A fresh instance of the module, with its own memory: one per file, so closing it lets that memory go. */
 export function instantiate(module: object, host: Host = NO_FILE): unknown {
-  return new (wasm as WasmApi).Instance(module, { host }).exports;
+  const imports = { read: host.read, write: host.write ?? NO_OUTPUT };
+  return new (wasm as WasmApi).Instance(module, { host: imports }).exports;
 }
 
 /** The compiled module, or null in a runtime with no WebAssembly. */

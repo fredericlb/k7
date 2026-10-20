@@ -12,6 +12,12 @@ vi.mock("@studio/audio-analysis/analyse", () => ({
   },
 }));
 
+// The pool would run the REAL analysis on a worker thread, out of the mock's reach: here it is the mocked call.
+vi.mock("@studio/audio-analysis/pool", async () => ({
+  analyseOffThread: (await import("@studio/audio-analysis/analyse"))
+    .analyseFile,
+}));
+
 const { analyseShared, ensureAnalysedShared, gateLoad, MAX_DECODES } =
   await import("./analysisGate.ts");
 

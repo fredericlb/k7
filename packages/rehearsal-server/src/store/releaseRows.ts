@@ -115,8 +115,9 @@ export async function versionOf(
   return versions.find((v) => v.fields.Uid === versionUid);
 }
 
-export function versionCachePath(uid: string): string {
-  return path.join(CACHE_DIR, `version-${uid}`);
+/** A version's mixdown in the cache, named by what it holds: a cache of another format is never served as this one. */
+export function versionCachePath(uid: string, mime: string): string {
+  return path.join(CACHE_DIR, `version-${uid}.${versionExt(mime)}`);
 }
 
 /** The extension a version's mixdown is FILED under; a type that names none is not audio to the zone, so mp3. */

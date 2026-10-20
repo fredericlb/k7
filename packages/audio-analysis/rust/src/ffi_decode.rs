@@ -60,9 +60,15 @@ thread_local! {
     static ERROR: RefCell<String> = const { RefCell::new(String::new()) };
 }
 
-fn fail(e: String) -> i32 {
+pub(crate) fn fail(e: String) -> i32 {
     ERROR.with(|m| *m.borrow_mut() = e);
     -1
+}
+
+/// The last block `dec_next` decoded, interleaved, with the open file's channel count.
+pub(crate) fn with_decoded<R>(f: impl FnOnce(&[f32], usize) -> R) -> R {
+    let channels = DECODER.with(|s| s.borrow().as_ref().map_or(1, |d| d.channels.max(1)));
+    FRAMES.with(|frames| f(&frames.borrow(), channels))
 }
 
 /// A buffer of `len` bytes for the file's extension, read by the next `dec_open`.
@@ -112,6 +118,16 @@ pub extern "C" fn dec_next(frames: usize) -> i32 {
                 Err(e) => fail(e),
             }
         })
+    })
+}
+
+/// Moves the open file to at most `seconds` in: the position the next block starts at, in seconds, or -1.
+#[unsafe(no_mangle)]
+pub extern "C" fn dec_seek(seconds: f64) -> f64 {
+    DECODER.with(|s| {
+        let mut s = s.borrow_mut();
+        let Some(d) = s.as_mut() else { return f64::from(fail("no file open".into())) };
+        d.seek(seconds).unwrap_or_else(|e| f64::from(fail(e)))
     })
 }
 

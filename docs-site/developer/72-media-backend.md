@@ -75,8 +75,8 @@ Started in `serve()` once the server listens:
   `analysisMarks.ts` keeps, on the volume, the files a decode failed on or was running on when the
   process died, keyed by the file's fingerprint, so neither a sweep after a restart nor a listener
   decodes them again; replaced bytes are tried again.
-- `startMp3Sweep()` (`mp3Sweep.ts`, `transcode.ts`) writes an MP3 beside every FLAC (missing or
-  older than its FLAC). Off with `STUDIO_MP3_SWEEP=0`, which the user's own machine sets.
+- `startStreamSweep()` (`streamSweep.ts`, `streamCopy.ts`) writes an Opus WebM beside every FLAC
+  (missing or older than its FLAC). Off with `STUDIO_STREAM_SWEEP=0`, which the user's own machine sets.
   Transcodes are queued: `MAX_TRANSCODES` (2) run at once and `MAX_WAITING` (8) wait; past that,
   `/stream` answers 503 rather than starting one more ffmpeg.
 - Leftover uploads are cleared, and the volume layout is ensured, so an empty volume is a working
@@ -154,7 +154,7 @@ content but not in path reads as synced.
 
 `npm test -w k7-backend` (vitest) covers `routes/library.test.ts`,
 `routes/shares.test.ts`, `routes/serverCopy.test.ts`, `routes/engineLocal.test.ts`,
-`routes/settings.test.ts`, `hunt/*.test.ts`, `stems/cut.test.ts`, `mp3Sweep.test.ts`,
+`routes/settings.test.ts`, `hunt/*.test.ts`, `stems/cut.test.ts`, `streamSweep.test.ts`,
 `transcodeQueue.test.ts`, `analysisGate.test.ts`, `analysisMarks.test.ts`,
 `settings/store.test.ts`, `upload.test.ts`, `cors.test.ts`. They point `STUDIO_MEDIATEK` and the
 other `STUDIO_*_DIR` variables at temporary folders.

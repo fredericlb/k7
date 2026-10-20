@@ -106,8 +106,8 @@ if (inTree) {
     entryPoints: {
       backend: "apps/k7/backend/src/server.ts",
       "file-service": "packages/file-service/src/server.ts",
-      // Beside it, found there by analysePool.ts: the waveform analyses' worker thread.
-      "analyse-worker": "packages/file-service/src/analyseWorker.ts",
+      // Beside it, found there by @studio/audio-analysis's pool.ts: the waveform analyses' worker thread.
+      "analyse-worker": "packages/audio-analysis/src/poolWorker.ts",
     },
     outdir: out,
     outExtension: { ".js": ".mjs" },
@@ -127,8 +127,8 @@ await build({
   entryPoints: {
     backend: "apps/k7/backend/src/server.ts",
     "file-service": "packages/file-service/src/server.ts",
-    // Beside it, found there by analysePool.ts: the waveform analyses' worker thread.
-    "analyse-worker": "packages/file-service/src/analyseWorker.ts",
+    // Beside it, found there by @studio/audio-analysis's pool.ts: the waveform analyses' worker thread.
+    "analyse-worker": "packages/audio-analysis/src/poolWorker.ts",
   },
   outdir: join(out, BIN),
   outExtension: { ".js": ".mjs" },

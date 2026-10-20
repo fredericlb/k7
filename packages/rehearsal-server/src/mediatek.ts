@@ -148,10 +148,10 @@ export async function downloadStreamable(
   await remoteLibrary(cfg()).stream(path, dest);
 }
 
-/** What a médiathèque path will actually stream as, read off the path the server filed — pl8 transcodes only a FLAC source. */
+/** What a médiathèque path will actually stream as, read off the path the server filed — pl8 streams a FLAC as Opus in WebM. */
 export function streamedMime(remotePath: string): string {
   return remotePath.toLowerCase().endsWith(".flac")
-    ? "audio/mpeg"
+    ? "audio/webm"
     : audioMimeOf(remotePath);
 }
 

@@ -10,7 +10,7 @@
     "K7_INSTANCE": "local",
     "STUDIO_LIBRARY_ORIGIN": "https://app.k7.rocks",
     "COOKIE_DOMAIN": "",
-    "STUDIO_MP3_SWEEP": "0",
+    "STUDIO_STREAM_SWEEP": "0",
     "STUDIO_PARSE_CACHE": "1"
   },
   "dirs": {

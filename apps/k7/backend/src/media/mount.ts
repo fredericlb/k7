@@ -24,7 +24,6 @@ import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
-import { startMp3Sweep } from "./mp3Sweep.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
@@ -35,6 +34,7 @@ import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
 import { SharePlayer } from "./shares/player.ts";
 import { dropLegacyShares, sharesDir } from "./shares/store.ts";
+import { startStreamSweep } from "./streamSweep.ts";
 import { mountTokenRoutes } from "./tokenRoutes.ts";
 import { clearUploads, libraryUploads } from "./upload.ts";
 
@@ -200,8 +200,8 @@ export function mountMedia(
         startRevisionRefresh();
         // …and the waveforms nobody has asked for yet, one at a time — ../../docs/media/analysis.md.
         startAnalysisSweep();
-        // …and every FLAC's MP3 beside it, for a browser to stream — ../../docs/media/derivedMp3.md.
-        startMp3Sweep();
+        // …and every FLAC's Opus copy beside it, for a browser to stream — ../../docs/media/derivedStream.md.
+        startStreamSweep();
       } catch (e) {
         if (e instanceof MediatekTooNewError) tooNew = e;
         console.error(

@@ -18,12 +18,16 @@ import {
   publicRelease,
   tracksOf,
   type UploadedAudio,
-  versionCachePath,
   versionExt,
   versionOf,
   versionTrackCachePath,
 } from "./releaseRows.ts";
-import { addVersion, forgetVersionFolder } from "./versions.ts";
+import {
+  addVersion,
+  dropVersionCache,
+  forgetVersionFolder,
+  seedVersionCache,
+} from "./versions.ts";
 
 export async function getReleaseOwner(uid: string): Promise<string | null> {
   const rec = await getReleaseRecord(uid);
@@ -158,7 +162,7 @@ export async function deleteRelease(uid: string): Promise<boolean> {
     db.deleteRecords("Releases", [rec.id]);
   });
   for (const v of versions) {
-    safeUnlink(versionCachePath(v.fields.Uid));
+    dropVersionCache(v.fields.Uid, String(v.fields.AudioPath ?? ""));
     for (const t of tracksOf(v))
       safeUnlink(versionTrackCachePath(v.fields.Uid, t));
   }
@@ -198,7 +202,7 @@ export async function replaceVersionAudio(
   // Another container leaves the old master beside the new one, and the scan takes the FIRST.
   if (previous && previous !== master) await safeRemote(previous);
 
-  fs.renameSync(mixdown.file, versionCachePath(versionUid));
+  seedVersionCache(mixdown, master, versionUid);
   invalidateVersions(releaseUid);
   return getRelease(releaseUid);
 }

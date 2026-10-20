@@ -1,4 +1,4 @@
-// decodeWasm.test.ts — the WebAssembly decoder: what it hands over, the fallback to it when ffmpeg is missing, and,
+// decodeWasm.test.ts — the WebAssembly decoder: what it hands over, ffmpeg taking only what it cannot open, and,
 // where ffmpeg is installed, that it decodes compressed files to the same frames at the same positions.
 
 import { execFileSync } from "node:child_process";
@@ -123,6 +123,13 @@ describe("decodeFrames without ffmpeg", () => {
     ).rejects.toBeInstanceOf(NoFfmpegError);
   });
 
+  it("keeps the module's reason when ffmpeg cannot take over", async () => {
+    noFfmpeg();
+    const junk = join(dir, "junk.avi");
+    writeFileSync(junk, Buffer.alloc(4096, 0x41));
+    await expect(decodeFrames(junk, () => {})).rejects.toThrow(/cannot open/);
+  });
+
   it("holds the frame cap", async () => {
     noFfmpeg();
     await expect(
@@ -151,6 +158,23 @@ describe.runIf(ffmpeg)("against ffmpeg", () => {
     ["opus", ["-c:a", "libopus"]],
     ["webm", ["-c:a", "libopus"]],
   ];
+
+  it("hands ffmpeg a container the module cannot open", async () => {
+    const file = join(dir, "pcm.avi");
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      src,
+      "-c:a",
+      "pcm_s16le",
+      file,
+    ]);
+    await expect(decodeWithWasm(file, () => {})).rejects.toThrow(/cannot open/);
+    const got = await frames((cb) => decodeFrames(file, cb));
+    expect(got.length).toBe(10 * RATE * 2);
+  });
 
   it.each(encodings)(
     "%s decodes to the same frames, at the same positions",

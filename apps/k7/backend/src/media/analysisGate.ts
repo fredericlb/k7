@@ -2,9 +2,12 @@
 // most MAX_DECODES at once. A decode holds the file's whole mono signal (~1.4 GB for two hours at 48
 // kHz), and a listener flipping through songs asks for one per song (../../docs/media/audit.md).
 // The one thing a reader would get wrong: a FRESH sidecar never queues — only real decodes wait.
-// A file a decode failed on is marked on the volume (analysisMarks.ts) and refused until it changes.
+// A file a decode failed on, or hung on past the pool's deadline, is marked on the volume (analysisMarks.ts).
+// Decodes run on @studio/audio-analysis's worker pool, so a stuck one is terminated rather than held.
 
-import { analyseFile, freshSidecar } from "@studio/audio-analysis/analyse";
+import { freshSidecar } from "@studio/audio-analysis/analyse";
+import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
+import { analyseOffThread } from "@studio/audio-analysis/pool";
 import { NoFfmpegError } from "@studio/ffmpeg";
 import {
   clearMark,
@@ -14,7 +17,7 @@ import {
 } from "./analysisMarks.ts";
 import { boundedQueue } from "./boundedQueue.ts";
 
-type FileEnvelope = Awaited<ReturnType<typeof analyseFile>>;
+type FileEnvelope = Awaited<ReturnType<typeof analyseOffThread>>;
 
 /** A file marked as one no decode should be spent on again — its bytes have to change first. */
 export class MarkedFailedError extends Error {
@@ -27,7 +30,22 @@ export class MarkedFailedError extends Error {
 /** Decodes in flight at once, across the routes and the background sweep. */
 export const MAX_DECODES = 2;
 
-const queue = boundedQueue({ max: MAX_DECODES });
+/** Decodes waiting for a slot: past it a request is answered 503 rather than held open. */
+export const MAX_WAITING = 16;
+
+/** Every slot taken and the queue full. */
+export class AnalysisBusyError extends Error {
+  constructor() {
+    super("too many files are being analysed right now — try again shortly");
+    this.name = "AnalysisBusyError";
+  }
+}
+
+const queue = boundedQueue({
+  max: MAX_DECODES,
+  maxWaiting: MAX_WAITING,
+  full: () => new AnalysisBusyError(),
+});
 const inflight = new Map<string, Promise<FileEnvelope>>();
 
 /** Measure `source` now, sharing a decode of the same file already running or queued. */
@@ -47,7 +65,9 @@ export function analyseShared(source: string): Promise<FileEnvelope> {
 async function markedDecode(source: string): Promise<FileEnvelope> {
   markRunning(source);
   try {
-    const env = await analyseFile(source);
+    const env = await analyseOffThread(source, DEFAULT_TRANSIENT_SENSITIVITY, {
+      engineBin: null,
+    });
     clearMark(source);
     return env;
   } catch (e) {

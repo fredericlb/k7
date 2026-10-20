@@ -26,32 +26,42 @@ export function extOf(name: string): string {
 export const isAudio = (name: string): boolean => AUDIO_EXT.has(extOf(name));
 export const isVideo = (name: string): boolean => VIDEO_EXT.has(extOf(name));
 
-/** The MP3 the library derives beside a FLAC, same stem, or null for anything else — docs/derivedMp3.md. */
-export function derivedMp3Of(name: string): string | null {
+/** The copy the library derives beside a FLAC for browsers — Opus in WebM — and the MP3 a volume may still hold from before. */
+const DERIVED = ".webm";
+const LEGACY = ".mp3";
+
+/** The stream copy the library derives beside a FLAC, same stem, or null for anything else — docs/derived.md. */
+export function derivedOf(name: string): string | null {
   return extOf(name) === ".flac"
-    ? `${name.slice(0, -".flac".length)}.mp3`
+    ? `${name.slice(0, -".flac".length)}${DERIVED}`
     : null;
 }
 
-/** Is `name` a FLAC's derived MP3, given every name in its folder? Such a file is never content. */
-export function isDerivedMp3(
-  name: string,
-  siblings: readonly string[],
-): boolean {
+/** Every name a FLAC's derived copy may have on a volume: today's, then the legacy MP3 the sweep removes. */
+export function derivedNamesOf(name: string): string[] {
+  if (extOf(name) !== ".flac") return [];
+  const stem = name.slice(0, -".flac".length);
+  return [`${stem}${DERIVED}`, `${stem}${LEGACY}`];
+}
+
+/** Is `name` a FLAC's derived copy, given every name in its folder? Such a file is never content. */
+export function isDerived(name: string, siblings: readonly string[]): boolean {
   return derivedIn(new Set(siblings.map((s) => s.toLowerCase())), name);
 }
 
 /** The same test against an already-lowercased set of the folder's names. */
 function derivedIn(lower: ReadonlySet<string>, name: string): boolean {
+  const ext = extOf(name);
   return (
-    extOf(name) === ".mp3" &&
-    lower.has(`${name.slice(0, -".mp3".length)}.flac`.toLowerCase())
+    (ext === DERIVED || ext === LEGACY) &&
+    lower.has(`${name.slice(0, -ext.length)}.flac`.toLowerCase())
   );
 }
 
-/** A folder's listing with every derived MP3 taken out — the one filter every walk applies. */
+/** A folder's listing with every derived copy taken out — the one filter every walk applies. */
 export function withoutDerived<T extends { name: string }>(entries: T[]): T[] {
-  if (!entries.some((e) => extOf(e.name) === ".mp3")) return entries;
+  if (!entries.some((e) => [DERIVED, LEGACY].includes(extOf(e.name))))
+    return entries;
   const lower = new Set(entries.map((e) => e.name.toLowerCase()));
   return entries.filter((e) => !derivedIn(lower, e.name));
 }

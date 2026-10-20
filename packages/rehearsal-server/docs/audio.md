@@ -62,9 +62,9 @@ upload leaves a playable file.
 ## Splicing a take onto a session
 
 Extending a session does not concatenate bytes: WebM/Opus does not join end to end, so the two
-takes are re-muxed into one file by ffmpeg's `concat` filter, which re-encodes. That filter
-demands identical parameters from segment to segment, hence each input passing through a common
-format — two takes from two devices join anyway.
+takes are decoded and re-encoded into one file (`joinTakes`, `src/transcode.ts`). Each take is
+resampled on its way in to the one stereo 48 kHz stream Opus is written at, so two takes from two
+devices join whatever their rates and channel counts.
 
 Three consequences in cascade:
 
@@ -79,26 +79,28 @@ Three consequences in cascade:
 A session with no path has nothing to splice onto: the take becomes the first one rather than
 failing.
 
-## ffmpeg runs a few at a time, and never forever
+## Re-encodes run a few at a time, and never forever
 
-Every ffmpeg this package runs — a splice, a moment's cut — goes through one limiter
-(`src/ffmpeg.ts`), two at a time by default, `K7_FFMPEG_CONCURRENCY` to change it. The backend is one
-process shared by every account, and each re-encode takes a whole core: without a cap, ten people
-appending a take at once are ten encoders starving the requests around them. A call past the cap
-waits for a slot rather than failing, because an append or a cut is work the user asked for and
-will get, only later.
+Every re-encode this package runs — a splice, a moment's cut — goes through one limiter
+(`src/transcode.ts`), two at a time by default, `K7_FFMPEG_CONCURRENCY` to change it (the name
+deployments already set). The backend is one process shared by every account, and each re-encode
+takes a whole core: without a cap, ten people appending a take at once are ten encoders starving
+the requests around them. A call past the cap waits for a slot rather than failing, because an
+append or a cut is work the user asked for and will get, only later.
 
-Each run has a deadline — 30 minutes for a splice, 10 for a cut, counted from the spawn, not from
-the queue — past which the child is killed with `SIGKILL` and the call fails with a message that
-says so. A re-encode of hours of audio takes minutes; one still running at the deadline is stuck,
-and a stuck encoder holding a slot would hold every later one behind it.
+The work itself is `@studio/audio-analysis`'s transcode — decoded and encoded in WebAssembly, on a
+worker thread of its pool (`packages/audio-analysis/docs/transcode.md`) — so it never runs on the
+thread that answers requests, and no host needs ffmpeg for it. Each run has a deadline — 30 minutes
+for a splice, 10 for a cut, counted from when the pool takes it, not from the queue — past which the
+worker is terminated and the call fails with a message that says so. A re-encode of hours of audio
+takes minutes; one still running at the deadline is stuck, and a stuck encoder holding a slot would
+hold every later one behind it.
 
-Every file a splice or a cut reads is an upload, so each input is opened under
-`-protocol_whitelist file,pipe` (`packages/ffmpeg/docs/ffmpeg.md`) — once per `-i`, since a splice
-has two: a crafted recording must not make the server fetch a URL.
+Every file a splice or a cut reads is an upload. The decoder reads only the file it is handed,
+through the host's reads: no container can make it open another resource.
 
-The splice keeps re-encoding through the `concat` filter. A stream copy would be cheaper, but two
-takes from two devices do not share codec parameters, and the copy is only safe when they do.
+The splice always re-encodes. A stream copy would be cheaper, but two takes from two devices do
+not share codec parameters, and the copy is only safe when they do.
 
 ## Deleting: the bytes first
 
@@ -163,11 +165,17 @@ was annotated, which may be three days later. The name is the moment's text when
 Re-extracting replaces: the bound or the name may have moved, so the file name already written is
 wrong. `Comments.ClipPath` carries the path.
 
-A moment's cut is never whole in memory: ffmpeg writes it to a temporary file of the cache, which
+A clip stands alone, so it is brought to EBU R128's -14 LUFS (`CLIP_LOUDNESS`): its loudness and
+true peak are measured over the span first, then ONE gain is applied, lowered as far as it takes to
+keep the true peak under -1 dBTP. A dynamic normaliser would reach -14 on every clip, at the price
+of pumping a quiet passage up; a single gain leaves a peaky clip quieter than -14 and its dynamics
+untouched, which is what a rehearsal recording is listened to for.
+
+A moment's cut is never whole in memory: the encoder writes it to a temporary file of the cache, which
 is pushed to the médiathèque as a file-backed Blob and then renamed into the cache — so a reader
 never sees a half-written clip, and a three-hour moment costs disk, not 170 MB of the backend's
 heap. Cuts of one moment run one at a time (`lock.ts`), each reading the row when its turn comes:
-two quick drags of a span would otherwise run two ffmpeg on one cache file, and the one that
+two quick drags of a span would otherwise run two encodes on one cache file, and the one that
 finished last — not the one dragged last — would win.
 
 ## Published versions are songs
@@ -247,7 +255,7 @@ not seek.
 
 **The shape is measured once, by the médiathèque, and kept in the store** (`Songs.Envelope`,
 written by `src/songEnvelope.ts`): the médiathèque already holds the reference track's bytes and
-already has ffmpeg, via `@studio/audio-analysis` — the same measurement its own catalogue sweep
+already decodes it, via `@studio/audio-analysis` — the same measurement its own catalogue sweep
 computes for every song, reached over `GET /api/mediatek/envelope` instead of decoding anything
 here. Measured lazily, the first time a page asks for it, rather than in a migration that would
 decode every song in the songbook at once.
@@ -286,7 +294,7 @@ Read from k7's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — t
 ([store.md](store.md)), the local audio cache and the uploads in flight,
 `~/.studio/k7` by default so a dev run needs no volume, `/rehearsal-data` on the `k7-data` volume
 in the image — `CACHE_MAX_GB`, past which that cache is trimmed ([audit.md](audit.md)), and
-`K7_FFMPEG_CONCURRENCY`, how many ffmpeg run at once (2 by default).
+`K7_FFMPEG_CONCURRENCY`, how many cuts and splices re-encode at once (2 by default).
 
 `K7_API_TOKEN_SECRET` signs the personal tokens a user mints from k7's settings and saves in a
 workspace's `.settings.json` to publish to these pages. It is NOT k7's `API_TOKEN_SECRET`: it

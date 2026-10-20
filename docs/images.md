@@ -60,8 +60,8 @@ library does not offer the host's speakers (`packages/mpv-player/docs/mpvPlayer.
 
 ## tini is PID 1, in the image
 
-The backend starts a file service per account, and each of those starts ffmpeg, the engine for a
-render and chromium for a picture. A service that dies before its children — killed past its stop
+The backend starts a file service per account, and each of those starts ffmpeg for a video or an
+mp3, the engine for a render and chromium for a picture. A service that dies before its children — killed past its stop
 grace, or by its heap ceiling — leaves them re-parented to PID 1. Node never reaps a child it did
 not spawn, so with node as PID 1 each one becomes a zombie, and one still running burns CPU for
 nobody. So the image's `ENTRYPOINT` is `tini`, which reaps every orphan and forwards the stop

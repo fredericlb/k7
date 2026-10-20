@@ -34,10 +34,10 @@ describe("ytdlpArgs", () => {
   });
 
   it("garde le codec de la source plutôt que de le convertir", () => {
-    // `best` keeps rather than converts: ~130 kbps Opus into mp3 is lossy-to-lossy.
+    // The served stream is kept: ~130 kbps Opus into mp3 is lossy-to-lossy, and extracting needs ffmpeg.
     const args = ytdlpArgs("x", "/tmp/out");
-    expect(args[args.indexOf("--audio-format") + 1]).toBe("best");
-    expect(args).toContain("--extract-audio");
+    expect(args[args.indexOf("--format") + 1]).toBe("bestaudio");
+    expect(args).not.toContain("--extract-audio");
     expect(args).not.toContain("mp3");
   });
 

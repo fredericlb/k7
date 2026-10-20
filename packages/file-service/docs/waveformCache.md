@@ -4,7 +4,7 @@ The on-disk waveform cache is a `{source}.cache` sidecar beside each audio file:
 placement-independent peak+RMS envelope, its **transient onsets**, three colour bands and a tempo,
 stamped with a cheap content fingerprint. `@studio/audio-analysis` builds it — the arithmetic, the
 fingerprint, the format — decoding through the engine's `--decode` on a machine that has one and
-through ffmpeg on the hosted service, which has none
+through its WebAssembly decoder on the hosted service, which has none
 (`packages/audio-analysis/docs/analysis.md`).
 
 What stays here is the part that is genuinely this service's: WHEN a sidecar is (re)built, and the
@@ -124,7 +124,7 @@ file are one decode, and both callers get its answer. A failed one is dropped ra
 the next ask should start a decode again, not inherit the first one's error.
 
 Where there is no engine binary — the hosted file service, whose engine is on the musician's machine
-— the decode goes through ffmpeg, as the media library's does, and the sidecar is the same file. Without that,
+— the decode goes through the WebAssembly decoder, as the media library's does, and the sidecar is the same file. Without that,
 every clip whose sidecar is missing or stale on the server — a freeze render just uploaded, a new
 take — would draw no waveform at all.
 
@@ -137,10 +137,8 @@ An analysis is a decode (another process) and then an envelope built in JavaScri
 sample, a sidecar fingerprinted and written. That second half is CPU, and on the file service's one
 thread it held every other request — on a phone, a project's first open after a sync (sidecars are
 not synced, so every clip is analysed once per machine) left the page waiting tens of seconds for a
-tree or a graph. So `analyseFile` runs on a worker thread (`analysePool.ts`, `analyseWorker.ts`;
-bundled, `bin/analyse-worker.mjs` beside the service): two at most, since each decode holds a mono
-copy of its file. A runtime where a worker will not start — a test runner with no loader — analyses
-inline, as before, and says so once.
+tree or a graph. So `analyseFile` runs on a worker thread — `@studio/audio-analysis`'s pool
+(`packages/audio-analysis/docs/analysis.md`), which k7's backend runs its analyses on as well.
 
 A request and the prewarm asking for the same clip join ONE decode (`sharedDecode`), keyed by the
 threshold actually used, and the memo is checked before the sidecar is parsed for its threshold:

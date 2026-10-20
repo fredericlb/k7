@@ -1,22 +1,22 @@
 # Streaming a FLAC
 
 `GET /api/mediatek/stream` answers exactly like `/file` — same query param, same Range support
-— except a `.flac` path is served as its MP3 transcode instead of the source bytes. Any other
-extension passes straight through to `/file`'s own code, unchanged.
+— except a `.flac` path is served as its Opus copy, `audio/webm`, instead of the source bytes. Any
+other extension passes straight through to `/file`'s own code, unchanged.
 
-## The MP3 is the one beside the FLAC
+## The copy is the one beside the FLAC
 
-`/stream` serves the same-named MP3 the sweep writes beside every FLAC
-([derivedMp3.md](derivedMp3.md)). A FLAC the sweep has not reached yet — uploaded a second ago —
-gets its MP3 made on the spot by the same `ensureMp3`, so ffmpeg runs once per FLAC either way —
-and not once per CONCURRENT request either: an `<audio>` element opens several Range requests on a
-file it has not got yet, and they all wait on the one transcode running. A run that fails leaves no
-`.part` behind, and one that runs past ten minutes is killed as stuck.
+`/stream` serves the same-named WebM the sweep writes beside every FLAC
+([derivedStream.md](derivedStream.md)). A FLAC the sweep has not reached yet — uploaded a second
+ago — gets its copy made on the spot by the same `ensureStreamCopy`, so it is encoded once per FLAC
+either way — and not once per CONCURRENT request either: an `<audio>` element opens several Range
+requests on a file it has not got yet, and they all wait on the one encode running. A run that
+fails leaves no `.part` behind, and one that runs past ten minutes is killed as stuck.
 
 ## Why the source stays FLAC
 
 Nothing re-encodes a song in place. The library's own copy — what the engine plays, what a variant
-is declared against — is untouched, and the MP3 beside it is hidden from every listing, change
+is declared against — is untouched, and the copy beside it is hidden from every listing, change
 token and manifest, so it is never a master and never reaches a machine's mirror.
 
 ## Who calls this instead of `/file`

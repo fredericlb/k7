@@ -13,5 +13,17 @@ pub mod measure;
 pub mod opus;
 #[cfg(feature = "decode")]
 pub mod webm;
+#[cfg(feature = "encode")]
+pub mod coders;
+#[cfg(feature = "encode")]
+pub mod encode;
+#[cfg(all(feature = "encode", target_arch = "wasm32"))]
+pub mod ffi_encode;
+#[cfg(feature = "encode")]
+pub mod resample;
+#[cfg(feature = "encode")]
+pub mod sink;
+#[cfg(feature = "encode")]
+pub mod webm_write;
 
 pub use measure::{Measure, Measured, autocorr, push_mono};

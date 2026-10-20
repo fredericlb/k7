@@ -15,7 +15,7 @@
     "@frediverse/env": "*",
     "@frediverse/http": "*",
     "@frediverse/oidc": "*",
-    "@studio/ffmpeg": "*",
+    "@studio/audio-analysis": "*",
     "@studio/mediatek": "*",
     "@studio/rehearsal-shared": "*",
     "express": "^4.19.2",

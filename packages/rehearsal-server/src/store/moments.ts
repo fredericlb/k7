@@ -1,19 +1,18 @@
 // moments.ts — a moment (a `Comments` row): annotated in its session, then standing alone with its
-// own clip, envelope and markers once the session is gone. The clip is cut by ffmpeg (../../docs/audio.md).
+// own clip, envelope and markers once the session is gone. The clip is cut and re-encoded off the request thread (../../docs/audio.md).
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ffmpegBin } from "@studio/ffmpeg";
 import type { Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
-import { clipArgs, runTool } from "../ffmpeg.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import type { FieldsOf } from "../schema.ts";
 import { SAFE_ID } from "../sqlite.ts";
+import { cutClip } from "../transcode.ts";
 import {
   CACHE_DIR,
   fetching,
@@ -435,7 +434,7 @@ function clipCachePath(momentId: string): string {
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
-// A re-encode of minutes of audio is seconds of CPU at most: past this, the child is stuck and is killed.
+// A re-encode of minutes of audio is seconds of CPU at most: past this, the worker is stuck and is killed.
 const CLIP_TIMEOUT_MS = 10 * 60_000;
 
 // Cut [start, end] out of a source file into a temporary webm/opus FILE; the caller owns the path it resolves.
@@ -447,9 +446,8 @@ async function extractClip(
   const duration = Math.max(0.05, end - start);
   const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
   try {
-    await runTool(ffmpegBin(), clipArgs(srcPath, start, duration, outPath), {
+    await cutClip(srcPath, start, duration, outPath, {
       timeoutMs: CLIP_TIMEOUT_MS,
-      what: "ffmpeg clip",
     });
   } catch (e) {
     safeUnlink(outPath);
