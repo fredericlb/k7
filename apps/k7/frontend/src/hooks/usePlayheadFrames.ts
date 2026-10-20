@@ -14,7 +14,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { usePaneVisible } from "../paneVisible";
 
 /** Call `onFrame(seconds)` per animation frame while the transport rolls — it never re-renders the caller, which is the point (docs/playhead.md). */
-export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
+export function usePlayheadFrames(
+  onFrame: (seconds: number, playing: boolean) => void,
+): void {
   const store = useEngineStore();
   // A hidden pane subscribes to nothing and schedules no frame; showing it again re-reads the store and draws at once.
   const visible = usePaneVisible();
@@ -29,7 +31,7 @@ export function usePlayheadFrames(onFrame: (seconds: number) => void): void {
     const now = performance.now();
     const next = advancePlayhead(c, now);
     clock.current = next;
-    cb.current(playheadAt(next, now));
+    cb.current(playheadAt(next, now), next.playing);
   }, []);
 
   useEffect(() => {
