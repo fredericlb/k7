@@ -15,6 +15,11 @@ import { isOne } from "../../i18n";
 import { m } from "../../paraglide/messages.js";
 import { browseSongs, type SetEntry } from "../setList";
 
+// A touch-first screen raises its keyboard on focus, over the list the box opened to be tapped in.
+const touchFirst = (): boolean =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 export function SongBrowser({
   side,
   songs,
@@ -44,7 +49,13 @@ export function SongBrowser({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-lg flex-col">
+      <DialogContent
+        className="flex max-h-[80vh] max-w-lg flex-col"
+        // The search is focused only where typing is how one picks — ../../../docs/turntables/songBrowser.md.
+        onOpenAutoFocus={(e) => {
+          if (touchFirst()) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{m["browser.title"]({ side })}</DialogTitle>
           <DialogDescription>
@@ -57,7 +68,7 @@ export function SongBrowser({
         </DialogHeader>
 
         <Input
-          autoFocus
+          autoFocus={!touchFirst()}
           value={query}
           placeholder={m["browser.search"]()}
           onChange={(e) => setQuery(e.target.value)}
