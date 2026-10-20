@@ -459,8 +459,10 @@ export default function App({
   // A screen's `lcd.sound` resolves `@project/…` against the project the tab has open.
   setLcdSoundsProject(ws?.activeProject ?? null);
   const [engineSync, setEngineSync] = useState<EngineSyncState | null>(null);
-  // Copying, applying, warming: the engine does not hold a playable project yet, whatever its socket says.
-  const [engineLoad, setEngineLoad] = useState<EngineLoadPhase | null>(null);
+  // Copying, applying, warming: the engine does not hold a playable project yet, whatever its socket says; undefined until the first answer.
+  const [engineLoad, setEngineLoad] = useState<
+    EngineLoadPhase | null | undefined
+  >(undefined);
 
   // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
   const tabName = snapshot?.manifest.name || project?.name;
