@@ -4,6 +4,7 @@
 
 import type { K7Scope } from "@studio/k7x/document";
 import { beatsToPosition, parsePosition } from "../timecode";
+import { spliceList } from "./timeSplice";
 
 type Data = Record<string, unknown>;
 
@@ -38,28 +39,20 @@ export function spliceCurveTime(
   den: number,
 ): { moved: number; removed: number } {
   const raw = doc.toJS();
-  let moved = 0;
-  let removed = 0;
-  if (!(lenBeats > 0) || !isMap(raw) || !isDrawn(raw.type))
-    return { moved, removed };
+  if (!isMap(raw) || !isDrawn(raw.type)) return { moved: 0, removed: 0 };
   const points = listOf(raw);
-  const end = atBeats + lenBeats;
-  // Descending, so removing one does not shift the address of the next.
-  for (let i = points.length - 1; i >= 0; i--) {
-    const at = beatOf(points[i], num, den);
-    if (at === null) continue;
-    if (mode === "delete" && at >= atBeats - 1e-6 && at < end - 1e-6) {
-      doc.deleteIn(["points", i]);
-      removed++;
-      continue;
-    }
-    const from = mode === "delete" ? end : atBeats;
-    if (at < from - 1e-6) continue;
-    const to = at + (mode === "delete" ? -lenBeats : lenBeats);
-    doc.setIn(["points", i, "time"], beatsToPosition(to, num, den));
-    moved++;
-  }
-  return { moved, removed };
+  return spliceList(
+    {
+      count: points.length,
+      positionOf: (i) => beatOf(points[i], num, den),
+      remove: (i) => doc.deleteIn(["points", i]),
+      move: (i, to) =>
+        doc.setIn(["points", i, "time"], beatsToPosition(to, num, den)),
+    },
+    atBeats,
+    lenBeats,
+    mode,
+  );
 }
 
 /** One point as the file holds it — for a caller counting them, or checking one is there. */

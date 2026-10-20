@@ -7,6 +7,7 @@ import type { K7Scope } from "@studio/k7x/document";
 import { currentAlternative } from "../alternatives";
 import { beatsToPosition, parsePosition } from "../timecode";
 import type { Placement } from "./placementSchema";
+import { spliceList, type TimeSplice } from "./timeSplice";
 
 type Data = Record<string, unknown>;
 
@@ -224,12 +225,6 @@ export function halveSequenceLoops(
   return { halved, kept };
 }
 
-/** What `spliceTime` did to one lane — for a caller reporting it, and for refusing a no-op. */
-export interface TimeSplice {
-  moved: number;
-  removed: number;
-}
-
 /** Insert or delete time across every placement list, an event straddling the cut going by its `start` — docs/laneEdits.md. */
 export function spliceTime(
   doc: K7Scope,
@@ -241,30 +236,30 @@ export function spliceTime(
 ): TimeSplice {
   const splice: TimeSplice = { moved: 0, removed: 0 };
   if (!(lenBeats > 0)) return splice;
-  const end = atBeats + lenBeats;
   for (const path of everyEventList(doc)) {
     const items = listAt(doc, path) ?? [];
-    // Descending, so removing one does not shift the address of the next.
-    for (let i = items.length - 1; i >= 0; i--) {
+    const startOf = (i: number): number | null => {
       const item = items[i];
-      if (!isRecord(item)) continue;
-      let start: number;
+      if (!isRecord(item)) return null;
       try {
-        start = parsePosition(String(item.start ?? "1:1:1"), num, den);
+        return parsePosition(String(item.start ?? "1:1:1"), num, den);
       } catch {
-        continue; // an unreadable start is one placement left alone, not a failed splice
+        return null; // an unreadable start is one placement left alone, not a failed splice
       }
-      if (mode === "delete" && start >= atBeats - 1e-6 && start < end - 1e-6) {
-        doc.deleteIn([...path, i]);
-        splice.removed++;
-        continue;
-      }
-      const from = mode === "delete" ? end : atBeats;
-      if (start < from - 1e-6) continue;
-      const moved = start + (mode === "delete" ? -lenBeats : lenBeats);
-      doc.setIn([...path, i, "start"], beatsToPosition(moved, num, den));
-      splice.moved++;
-    }
+    };
+    spliceList(
+      {
+        count: items.length,
+        positionOf: startOf,
+        remove: (i) => doc.deleteIn([...path, i]),
+        move: (i, to) =>
+          doc.setIn([...path, i, "start"], beatsToPosition(to, num, den)),
+      },
+      atBeats,
+      lenBeats,
+      mode,
+      splice,
+    );
   }
   return splice;
 }
