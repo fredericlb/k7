@@ -93,6 +93,7 @@
   "engine.notPlayed": "Non joué : le moteur est déconnecté",
   "engine.linkUp": "Moteur connecté",
   "engine.linkDown": "Moteur déconnecté",
+  "engine.linkNone": "Aucun moteur",
   "common.dismiss": "Masquer",
   "pane.failed": "{name} a échoué",
   "pane.details": "Détails",

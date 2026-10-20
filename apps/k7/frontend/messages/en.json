@@ -93,6 +93,7 @@
   "engine.notPlayed": "Not played: the engine is disconnected",
   "engine.linkUp": "Engine connected",
   "engine.linkDown": "Engine disconnected",
+  "engine.linkNone": "No engine",
   "common.dismiss": "Dismiss",
   "pane.failed": "{name} failed",
   "pane.details": "Details",
