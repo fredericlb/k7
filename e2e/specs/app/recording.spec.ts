@@ -87,6 +87,11 @@ async function recordTake(page: Page, lane: string) {
     .getByRole("banner")
     .getByRole("button", { name: "Stop", exact: true })
     .click();
+  // Record outlives the project: left on, the next project opens with Play refused for want of an armed lane.
+  const record = button(page, "Record (arm + play records)");
+  if ((await record.getAttribute("aria-pressed")) === "true")
+    await record.click();
+  await expect(record).toHaveAttribute("aria-pressed", "false");
 }
 
 test("a picture lane records the browser's camera onto itself", async ({
