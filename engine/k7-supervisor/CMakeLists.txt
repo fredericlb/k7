@@ -285,6 +285,9 @@ add_executable(k7_supervisor_tests
     tests/EnginePorts_test.cpp)
 target_include_directories(k7_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../k7-runtime/tests)
 target_link_libraries(k7_supervisor_tests PRIVATE k7_supervisor_core)
+# The frames HostProtocol_test.cpp compares with, which packages/supervisor-host's suite holds to the schema.
+target_compile_definitions(k7_supervisor_tests PRIVATE
+    K7_HOST_PROTOCOL_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/../../packages/supervisor-host/schema/fixtures")
 k7_beside_runtime(k7_supervisor_tests)
 add_test(NAME k7_supervisor_tests COMMAND k7_supervisor_tests)
 

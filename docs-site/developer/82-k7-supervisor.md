@@ -45,7 +45,7 @@ On Windows, `main()` initialises Winsock before any socket, puts stdio in binary
 
 ## The host protocol
 
-Stdout carries frames and nothing else, one JSON object per line. The C++ definitions are in `engine/k7-supervisor/src/HostProtocol.h`; the TypeScript mirror is `packages/supervisor-host/src/hostProtocol.ts`, and the Android app reads the same frames in `SupervisorHost.kt`.
+Stdout carries frames and nothing else, one JSON object per line. Its single definition is the JSON Schema `packages/supervisor-host/schema/hostProtocol.schema.json`: the TypeScript types are generated from it, the C++ writer in `engine/k7-supervisor/src/HostProtocol.cpp` is held to its fixtures, and the Android and iPhone apps read the same frames in `SupervisorHost.kt` and `SupervisorHost.swift`.
 
 **Supervisor → app:**
 
