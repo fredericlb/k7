@@ -21,6 +21,7 @@ import {
   watchedProjects,
   watchModuleFolders,
 } from "./moduleWatch.ts";
+import { Workspace } from "./workspace.ts";
 
 let root = "";
 let dir = "";
@@ -188,6 +189,26 @@ describe("the vocabulary the oracle governs", () => {
     module_("delay");
     moduleFoldersMoved();
     expect(workspaceAudioRefs(dir)).toEqual(["delay", "reverb"]);
+  });
+
+  // Watched through the feed of a workspace removed under the same name, which hears nothing any more.
+  it("sees a project copied in where one was read before it existed", async () => {
+    node_(dir, "comp");
+    const target = join(root, "copied.k7");
+    const ws = new Workspace(root);
+    // Old enough for the empty read to be memoised, as on a server that has run a while.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 5_000);
+    try {
+      watchModuleFolders(target, fakeFeed(root));
+      setFoldersStill(moduleFoldersStill);
+      expect(loadModules(target)).toEqual({});
+      moduleFoldersStill(target); // settle: from here it would claim nothing moved
+      await ws.copyProject(dir, "copied.k7");
+      expect(Object.keys(loadModules(target))).toContain("comp");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // …and the scope still wins inside itself: a derivation is a still frame either way.

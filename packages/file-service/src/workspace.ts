@@ -562,6 +562,8 @@ export class Workspace {
   /** A project folder appeared or went, so the list must be re-scanned NOW — docs/workspace.md. */
   private forgetProjects(): void {
     this.projectsCache = null;
+    // …written by this process, so no module watch may vouch for what it read there before (docs/moduleWatch.md).
+    moduleFoldersMoved();
   }
 
   // --- compiled-project cache ------------------------------------------------
