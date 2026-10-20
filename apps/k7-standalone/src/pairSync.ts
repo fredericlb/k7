@@ -1,52 +1,59 @@
-// pairSync.ts — pair this machine's signed-in account with a server's relay, through the system browser: the
-// server mints a device token and sends it to a loopback port, and the local backend keeps it for that account.
-// The server chosen at sign-in is the MAIN one; others are added beside it. The token never passes through a
-// window: a page could be anything. See docs/sync.md.
+// pairSync.ts — pair this machine's signed-in account with a server's relay, through the system browser. The
+// pairing itself is the local backend's (packages/file-hub/pairRoutes.ts, shared with the phones): this file asks
+// it whether to offer one, opens the URL it answers, and tells the account bar how it ended. The browser brings
+// the token back to the backend's own port, never through a window: a page could be anything. See docs/sync.md.
 
-import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { openExternalSafely } from "@frediverse/electron-shell/external";
 import { line } from "@frediverse/electron-shell/log";
-import {
-  normalizeServer,
-  SYNC_PAIR_RETURN_PATH,
-  SYNC_RELAY_PATH,
-  syncPairUrl,
-} from "@studio/web-protocol/pairing";
+import { normalizeServer } from "@studio/web-protocol/pairing";
 import { dialog, session } from "electron";
 import { onCancel, setAccountStatus } from "./accountStatus.ts";
-import { type LoopbackAnswer, loopbackReturn } from "./loopbackReturn.ts";
 import { chosenServer } from "./server.ts";
+
+/** The local backend's pairing routes. */
+const PAIR_API = "/api/sync/remote/pair";
+/** One long poll of the backend while the browser is in front. */
+const POLL_MS = 25_000;
+
+interface Pairing {
+  state: string;
+  email: string;
+  host: string;
+  phase: "waiting" | "paired" | "otherAccount" | "notStored" | "expired";
+}
+
+interface Offer {
+  email: string;
+  local: boolean;
+  paired: boolean;
+  servers: number;
+}
 
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
 const syncOrigin = (): string => chosenServer();
 
-/** The relay's socket at a server's origin: `https://app.k7.rocks` → `wss://app.k7.rocks/api/sync`. */
-const relayOf = (origin: string): string =>
-  `${origin.replace(/^http/, "ws")}${SYNC_RELAY_PATH}`;
-
-/** The host a relay or server URL names, for comparing a pairing with the server chosen. */
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).host;
-  } catch {
-    return "";
-  }
-};
-
-let pending: { close(): void } | null = null;
+/** The state of the pairing this process waits on; null when none. */
+let current: string | null = null;
 let forget: () => void = () => undefined;
 
-/** Let go of the pairing in progress once it has ended, so Cancel no longer reaches it. */
-function release(): void {
-  pending = null;
-  forget();
+/** Through the app's own session, so the local backend knows which account is asking. */
+async function local<T>(
+  k7: string,
+  path: string,
+  init?: RequestInit,
+): Promise<T | null> {
+  const r = await session.defaultSession
+    .fetch(`${k7}${path}`, init)
+    .catch(() => null);
+  return r?.ok ? ((await r.json()) as T) : null;
 }
 
-/** Stop listening for the browser's token: it then lands on a closed port. */
-function abandon(): void {
-  pending?.close();
-  release();
+/** Stop waiting, and have the backend drop the pairing: the browser's return then finds nothing. */
+function abandon(k7: string): void {
+  if (current) void local(k7, `${PAIR_API}/${current}`, { method: "DELETE" });
+  current = null;
+  forget();
 }
 
 /** The second browser trip, right after the sign-in's, said before it happens; false when the person declines it. */
@@ -67,132 +74,90 @@ async function confirmPairing(origin: string): Promise<boolean> {
 /** Account and server pairs asked this run: a pairing the person closed is not reopened at every cookie change. */
 const asked = new Set<string>();
 
-/** Through the app's own session, so the local backend knows which account is asking. */
-async function local<T>(
-  k7: string,
-  path: string,
-  init?: RequestInit,
-): Promise<T | null> {
-  const r = await session.defaultSession
-    .fetch(`${k7}${path}`, init)
-    .catch(() => null);
-  return r?.ok ? ((await r.json()) as T) : null;
-}
-
-/** The account signed in here, or null for the local user and for nobody. */
-async function account(k7: string): Promise<string | null> {
-  const me = await local<{ user?: { email?: string; local?: boolean } }>(
+/** What the backend says of the signed-in account and `origin`; null for the local user, nobody, or no answer. */
+async function offer(k7: string, origin: string): Promise<Offer | null> {
+  const o = await local<Offer>(
     k7,
-    "/auth/me",
+    `${PAIR_API}?origin=${encodeURIComponent(origin)}`,
   );
-  return me?.user?.email && !me.user.local ? me.user.email : null;
-}
-
-/** The servers the account is paired with, by host; null when the local backend cannot say. */
-async function pairedHosts(k7: string): Promise<Set<string> | null> {
-  const remote = await local<{ servers?: { url: string }[] }>(
-    k7,
-    "/api/sync/remote",
-  );
-  return remote
-    ? new Set((remote.servers ?? []).map((r) => hostOf(r.url)))
-    : null;
+  return o?.email && !o.local ? o : null;
 }
 
 /** Pair the account with the server chosen at sign-in, as its MAIN one, unless it already syncs with that server. */
 export async function pairIfNeeded(k7: string): Promise<void> {
-  const email = await account(k7);
-  if (!email || asked.has(`${email} ${syncOrigin()}`)) return;
-  const hosts = await pairedHosts(k7);
+  const origin = syncOrigin();
+  const o = await offer(k7, origin);
   // Already a server of this account, main or not: which one is main is the person's choice, kept by the hub.
-  if (!hosts || hosts.has(hostOf(syncOrigin()))) return;
-  asked.add(`${email} ${syncOrigin()}`);
-  if (await confirmPairing(syncOrigin())) pair(k7, email, syncOrigin(), true);
+  if (!o || o.paired || asked.has(`${o.email} ${origin}`)) return;
+  asked.add(`${o.email} ${origin}`);
+  if (await confirmPairing(origin)) void pair(k7, origin, true);
 }
 
 /** Pair the account with ANOTHER server beside its main one — the home page's Add server; false when it cannot. */
 export async function addServer(k7: string, input: string): Promise<boolean> {
   const origin = normalizeServer(input);
-  const email = await account(k7);
-  if (!origin || !email) return false;
-  const hosts = await pairedHosts(k7);
-  if (!hosts || hosts.has(hostOf(origin))) return false;
+  const o = origin ? await offer(k7, origin) : null;
+  if (!origin || !o || o.paired) return false;
   // The first one paired is the main one whatever it was asked as.
-  pair(k7, email, origin, hosts.size === 0);
+  void pair(k7, origin, o.servers === 0);
   return true;
 }
 
-/** The pairing itself: the browser on `origin`'s pairing page, the token back on loopback, kept by the local backend. */
-function pair(k7: string, email: string, origin: string, main: boolean): void {
-  abandon();
-  const state = randomBytes(16).toString("base64url");
-  pending = loopbackReturn({
-    path: SYNC_PAIR_RETURN_PATH,
-    state,
-    onHit: (p) => {
-      release();
-      return kept(k7, email, origin, main, p);
-    },
-    open: (back) =>
-      openExternalSafely(syncPairUrl(origin, back, state, hostname())),
-    onFail: (why, detail) => {
-      if (detail) line("app", `sync pairing could not listen: ${detail}`);
-      release();
-      setAccountStatus({
-        state: "error",
-        code: why === "timeout" ? "pairTimeout" : "pairFailed",
-      });
-    },
-  });
-  forget = onCancel(abandon);
-  setAccountStatus({ state: "waiting", what: "pair" });
+/** The pairing once it is no longer waiting; null when it went or the backend stopped answering. */
+async function settled(k7: string, state: string): Promise<Pairing | null> {
+  while (current === state) {
+    const r = await local<{ pairing: Pairing }>(
+      k7,
+      `${PAIR_API}/${state}?wait=${POLL_MS}`,
+    );
+    if (!r) return null;
+    if (r.pairing.phase !== "waiting") return r.pairing;
+  }
+  return null;
 }
 
-/** A token the browser brought back: kept for `email` when the browser was signed in as them. */
-function kept(
-  k7: string,
-  email: string,
-  origin: string,
-  main: boolean,
-  p: URLSearchParams,
-): LoopbackAnswer {
-  // The browser may be signed in to the server as someone else: their token must not sync this account.
-  if (p.get("identity") !== email) {
-    line(
-      "app",
-      `sync pairing refused: the browser is signed in as ${p.get("identity")}, not ${email}`,
-    );
-    setAccountStatus({ state: "error", code: "pairRefused", detail: email });
-    return {
-      status: 409,
-      said: `The browser is signed in to k7 as another account. Sign in there as ${email} and try again.`,
-    };
-  }
-  void local(k7, "/api/sync/remote", {
-    method: "PUT",
+/** The pairing itself: started by the backend, the browser on the server's pairing page, its ending told. */
+async function pair(k7: string, origin: string, main: boolean): Promise<void> {
+  abandon(k7);
+  const started = await local<{ url: string; pairing: Pairing }>(k7, PAIR_API, {
+    method: "POST",
     headers: { "content-type": "application/json" },
-    // The relay is reached where the person named the server, whatever host a proxy showed it.
-    body: JSON.stringify({
-      url: relayOf(origin),
-      token: p.get("token"),
-      main,
-    }),
-  }).then((done) => {
-    line(
-      "app",
-      done
-        ? `sync paired with ${origin}${main ? " (main)" : ""}`
-        : "sync pairing could not be stored",
-    );
-    const host = new URL(origin).host;
-    setAccountStatus(
-      done
-        ? { state: "done", code: "paired", detail: host }
-        : { state: "error", code: "pairNotStored", detail: host },
-    );
+    body: JSON.stringify({ origin, name: hostname(), main }),
   });
-  return {
-    status: 200,
-    said: "This machine now syncs your workspaces. You can close this tab.",
-  };
+  if (!started) {
+    line("app", "sync pairing could not start");
+    return setAccountStatus({ state: "error", code: "pairFailed" });
+  }
+  const { state } = started.pairing;
+  current = state;
+  forget = onCancel(() => abandon(k7));
+  if (!openExternalSafely(started.url)) {
+    abandon(k7);
+    return setAccountStatus({ state: "error", code: "pairFailed" });
+  }
+  setAccountStatus({ state: "waiting", what: "pair" });
+  const ended = await settled(k7, state);
+  // Cancelled, or replaced by another pairing: whoever took over says how it ends.
+  if (current !== state) return;
+  current = null;
+  forget();
+  if (!ended) return setAccountStatus({ state: "error", code: "pairFailed" });
+  void local(k7, `${PAIR_API}/${state}`, { method: "DELETE" });
+  line("app", `sync pairing with ${ended.host}: ${ended.phase}`);
+  if (ended.phase === "paired")
+    setAccountStatus({ state: "done", code: "paired", detail: ended.host });
+  else if (ended.phase === "otherAccount")
+    setAccountStatus({
+      state: "error",
+      code: "pairRefused",
+      detail: ended.email,
+    });
+  else if (ended.phase === "expired")
+    setAccountStatus({ state: "error", code: "pairTimeout" });
+  else
+    setAccountStatus({
+      state: "error",
+      code: "pairNotStored",
+      detail: ended.host,
+    });
 }

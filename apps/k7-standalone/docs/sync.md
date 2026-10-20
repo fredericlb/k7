@@ -9,14 +9,15 @@ a PAIRING stored for that account.
 
 Sign-in leaves the desktop holding a session with its LOCAL backend only: nothing it has proves the
 account to the origin. So after a sign-in, `src/pairSync.ts` asks the local backend whether that
-account is paired (`GET /api/sync/remote`) and, when it is not, opens the system browser on the
-origin's `/api/sync/devices/pair`. The origin signs the browser in if it must, mints a device token
-for the account (named after the machine), and redirects it to a loopback port this process
-listens on, the way sign-in does (`docs/signIn.md`).
+account is paired (`GET /api/sync/remote/pair?origin=`) and, when it is not, has it start a pairing
+and opens the system browser on the origin's `/api/sync/devices/pair` it answers. The origin signs the
+browser in if it must, mints a device token for the account (named after the machine), and
+redirects it to the local backend's own port. The pairing is the backend's, the same for the phones
+(`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"); this process only waits on it
+and says how it ended.
 
-- **The token never passes through a window.** A page could be anything; the main process receives
-  it on loopback and hands it to the local backend (`PUT /api/sync/remote`) through the app's own
-  session, which is how the backend knows which account it is for.
+- **The token never passes through a window.** A page could be anything; the browser hands it to the
+  local backend, and the main process never holds it.
 - **The browser must be signed in as the same account.** The origin says whose token it minted
   (`identity`), and a different email is refused: that account's workspaces would otherwise sync
   into this one.
@@ -47,8 +48,7 @@ main process): a device token sent in clear across a network would be given away
 Choosing another server re-pairs at the next sign-in, and the new pairing REPLACES the old one only
 once it has come back: a pairing closed half-way leaves the account syncing where it did, never
 unpaired. The relay's address is the chosen server's (`wss://<server>/api/sync`), not the one the
-origin reports: a proxy in front of it may show the origin another host, and a pairing stored with
-that host would be redone at every sign-in. `K7_SYNC_ORIGIN` overrides the choice, for testing.
+origin reports (`packages/file-hub/docs/syncRelay.md`). `K7_SYNC_ORIGIN` overrides the choice, for testing.
 
 ## Several servers, one of them main
 

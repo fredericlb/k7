@@ -11,6 +11,8 @@ import type { DeviceTokens } from "./deviceTokens.ts";
 import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
+import { PairingStore } from "./pairingStore.ts";
+import { pairReturnHandler, pairRouter } from "./pairRoutes.ts";
 import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
@@ -46,6 +48,10 @@ export interface SyncContext {
   relay: () => ReturnType<typeof attachSyncRelay> | null;
   /** Whether an account here may be paired with a remote origin: the desktop and the phone, never the origin itself. */
   remotePairing: boolean;
+  /** The machine's local user, who never pairs; absent, nobody is. */
+  isLocal?: (req: Request) => boolean;
+  /** This backend's port on 127.0.0.1, where a pairing's browser comes back. */
+  selfPort?: () => number;
 }
 
 /** The host a browser reached this origin at: a proxy in front rewrites Host, and says the original in x-forwarded-host. */
@@ -55,7 +61,42 @@ const publicHost = (req: Request): string =>
     .trim();
 
 export class SyncRoutes {
-  constructor(private readonly c: SyncContext) {}
+  /** The pairings under way through the browser, kept under the data root — pairingStore.ts. */
+  private readonly pairings: PairingStore;
+
+  constructor(private readonly c: SyncContext) {
+    this.pairings = new PairingStore(c.dataRoot);
+  }
+
+  private pairContext() {
+    return {
+      store: this.pairings,
+      userOf: this.c.userOf,
+      isLocal: this.c.isLocal ?? (() => false),
+      accountDir: (slug: string) => this.accountDir(slug),
+      restart: (user: string) => this.c.instances.restart(user),
+      selfPort: this.c.selfPort ?? (() => 0),
+    };
+  }
+
+  /** A local account's pairing with a remote origin, started and awaited by the app — behind the session. */
+  pairRouter(): Router {
+    const r = Router();
+    // Where pairing is off, there is nothing to start nor to wait for (docs/fileHub.md).
+    r.use((_req, res, next) => {
+      if (this.c.remotePairing) return next();
+      res.status(403).json({ error: "this server is not paired with another" });
+    });
+    r.use(pairRouter(this.pairContext()));
+    return r;
+  }
+
+  /** The browser's way back with the origin's device token, on this backend's own port — NO session guard. */
+  pairReturnHandler(): RequestHandler {
+    const answer = pairReturnHandler(this.pairContext());
+    return (req, res, next) =>
+      this.c.remotePairing ? answer(req, res, next) : next();
+  }
 
   /** The account's sync devices: list, add (answering the token once), remove — mounted behind the session guard. */
   devicesRouter(): Router {

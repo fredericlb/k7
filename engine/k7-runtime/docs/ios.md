@@ -74,7 +74,7 @@ Where iOS does a thing itself, the app lets it:
 | Android | iOS |
 |---|---|
 | a Custom Tab for the sign-in, the verifier kept on disk | `ASWebAuthenticationSession`, a sheet over the app: the app stays in front, so the verifier stays in memory |
-| pairing state on disk, for a process killed behind the browser | none: the browser is the same sheet, the loopback listener answers while it is up, and the app closes it once the answer is in |
+| a pairing killed behind the browser, told at the next start | the same backend routes, but a pairing still waiting at the next start is dropped: the sheet died with the app, so nothing will come back to it |
 | `download.js` fetching blobs in 512 KiB chunks | `WKDownload`, which takes a `blob:`, `data:` or same-origin URL with the session's cookies; the file lands in Documents/Downloads, which the Files app shows under k7 |
 | `back.js` and the Back button | the edge swipe, over the view's own history |
 | `CertTrust.kt` checking the leaf's name and dates | iOS's own trust evaluation with the imported CAs as anchors (`TrustedCas.swift`): a wrong name, an expired date or a certificate iOS's TLS rules refuse is refused here too. Android's rule stands: an imported non-CA is trusted as that exact leaf and never as an issuer, read from its DER since iOS has no public API for extensions (`CertTrust.swift`) |
@@ -128,8 +128,9 @@ shell page and lays it out as `cap copy` would, and bundles the backend with `ap
   (23 minutes cold); the audio session JUCE sets up, background playback and the device's close and reopen are
   all still to drive. JUCE's iOS device asks for `MixWithOthers`, which keeps an app out of Now Playing: the lock
   screen's controls may need the category changed.
-- **Not run on a phone**, only on the simulator (below). Sign-in through the browser, pairing, the private CA,
-  downloads, the microphone flow and the local-network prompt are compiled, not driven.
+- **Not run on a phone**, only on the simulator (below). Sign-in through the browser, the private CA,
+  downloads, the microphone flow and the local-network prompt are compiled, not driven; pairing over the
+  backend's routes (`SyncPairing.swift`) is neither compiled nor driven.
 - **No release signing.** `.github/workflows/ios.yml` builds an UNSIGNED `.ipa` for a device as an artifact,
   attached to a version's release but never to the snapshot (`docs/desktop-release.md`); signing it is the
   developer's own team, as for a local build.

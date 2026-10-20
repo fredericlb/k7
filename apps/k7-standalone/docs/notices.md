@@ -56,11 +56,11 @@ is said once the app is quitting, which stops the engine on purpose.
 
 ## A sign-in or a pairing in the browser
 
-Both happen in the system browser (`docs/signIn.md`, `docs/sync.md`), and the app waits on a
-loopback port meanwhile. `src/accountStatus.ts` tells k7's pages where that stands, over
+Both happen in the system browser (`docs/signIn.md`, `docs/sync.md`), and the app waits meanwhile:
+on a loopback port of its own for a sign-in, on the local backend for a pairing. `src/accountStatus.ts` tells k7's pages where that stands, over
 `studio:auth:status`, and the home page's account bar draws it beside its button
 (`apps/k7/frontend/src/tabs/AccountStatusNote.tsx`): waiting, with **Cancel**, which closes the
-port; then how it ended — signed in, paired, or why not (a typed address that is no server, a
+port or drops the pairing; then how it ended — signed in, paired, or why not (a typed address that is no server, a
 browser trip left unfinished for ten minutes, a browser signed in as another account, a token the
 local backend could not keep). The main process sends a code and the page words it, so the text is
 in the person's language.

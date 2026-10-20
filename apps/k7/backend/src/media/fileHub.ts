@@ -13,7 +13,10 @@ import {
   PUBLIC_LIBRARIES_PATH,
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
-import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
+import {
+  SYNC_PAIR_RETURN_PATH,
+  SYNC_PAIR_ROUTE,
+} from "@studio/web-protocol/pairing";
 import type { Express, RequestHandler } from "express";
 import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
@@ -56,6 +59,7 @@ export function mountFileHub(
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
     // The desktop and the phone pair with an origin; the origin itself never follows another (docs/fileHub.md).
     remotePairing: process.env.STUDIO_LOCAL_USER === "1",
+    isLocal: (req) => (req.user as SessionUser | undefined)?.local === true,
     // Stable across restarts, so an open page keeps its ticket through a deploy.
     ticketKey: process.env.SESSION_SECRET
       ? `${process.env.SESSION_SECRET}:files`
@@ -79,6 +83,10 @@ export function mountFileHub(
     hub.sync.syncPairHandler(),
   );
   app.use("/api/sync/devices", requireAuth, hub.sync.devicesRouter());
+  // A pairing through the browser, for the desktop and the phones: started and awaited here, ended at the return.
+  app.use("/api/sync/remote/pair", requireAuth, hub.sync.pairRouter());
+  // The browser comes back here with the origin's token, signed in to nothing on this machine: the state is the gate.
+  app.get(SYNC_PAIR_RETURN_PATH, hub.sync.pairReturnHandler());
   // The LOCAL backend's own account, paired with a remote origin: the desktop stores what pairing brought back.
   app.use("/api/sync/remote", requireAuth, hub.sync.remoteRouter());
   // A binary file's bytes, by hash: a device token or a hub secret is the gate, not a session.
