@@ -70,6 +70,11 @@ abandoned one, and `useShare` gets that wrong in a way that matters: cancelling 
 question after answering the *artist* one has to abandon the publish rather than fall through to a
 default.
 
+**The buttons speak the host's language.** This package holds no catalogue, so `<AskHost labels>`
+takes the Cancel and Confirm words once, in the app's language, and a question's own
+`cancelLabel`/`confirmLabel` still wins. Without them the words are English, the language of the
+code, never a guess at the person's.
+
 **With no host mounted, every question answers no.** A promise that never settled would hang the
 caller for ever, and "no" is the safe half of every question asked here — the destructive ones
 don't run, and the text ones return null.

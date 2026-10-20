@@ -60,9 +60,16 @@ export function PageFormView({ releases, onSave, onCancel }: Props) {
         />
       </Field>
 
-      <Field label={m["page.visibility.label"]()}>
+      {/* Not a Field: its <label> would lend its caption to the first radio, the group being named already. */}
+      <div className="flex flex-col gap-1.5">
+        <span
+          className="text-[13px] leading-none text-muted-foreground"
+          aria-hidden
+        >
+          {m["page.visibility.label"]()}
+        </span>
         <VisibilityPicker value={visibility} onChange={setVisibility} />
-      </Field>
+      </div>
 
       <div className="mb-3.5">
         <span className="mb-1.5 block text-[13px] text-muted-foreground">

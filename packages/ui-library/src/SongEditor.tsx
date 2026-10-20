@@ -135,6 +135,7 @@ export function SongEditor({
               path={path}
               content={content}
               vimMode={vimMode}
+              label={l.editor(folder)}
               onChange={setContent}
               onSave={autosave.flush}
             />

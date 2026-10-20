@@ -129,6 +129,8 @@ function NodeInner({
   const ownName = n.place ?? n.label;
   // The node's own name goes under the header only when the header says something else.
   const ownNameUnder = !trackFace && headName !== ownName;
+  // The card's accessible name: the NODE first, then the module it uses — `pad (surge-xt)`.
+  const cardName = ownNameUnder ? `${ownName} (${headName})` : headName;
   // The engines the node can run as, when there is a choice and a host to ask — the dropdown's left bar.
   const engines =
     onEngine && n.module && n.engines && n.engines.length > 1
@@ -243,6 +245,7 @@ function NodeInner({
       n,
       cls,
       headName,
+      cardName,
       inLaneRow,
       iconCategory,
       flagCls,
@@ -285,7 +288,7 @@ function NodeInner({
       role="group"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: Enter selects the card, so it takes the focus
       tabIndex={0}
-      aria-label={headName || n.label}
+      aria-label={cardName || n.label}
       onKeyDown={onEnter((e) => onTapNode(n, e.shiftKey))}
       onClick={(e) => onTapNode(n, e.shiftKey)}
       onContextMenu={(e) => onContext(n, e)}

@@ -11,6 +11,7 @@ import {
 } from "@studio/ui-chains/cables";
 import type { EdgeInsert } from "@studio/ui-chains/graph";
 import { memo } from "react";
+import { onEnter } from "./keyActivate";
 
 export interface EdgeGeom extends CableGeom {
   id: string;
@@ -95,13 +96,15 @@ function CablesInner({
           );
         })}
 
-      {/* insert affordance — a transparent hit path per eligible arrow, recoloured with a `+` on hover. */}
+      {/* insert affordance — a transparent hit path per eligible arrow, and a `+` shown on hover or keyboard focus. */}
       {signal.map((g) => {
         // No host to answer it, no `+`: an affordance that does nothing reads as a click that was missed.
         if (!g.insert || !onInsert) return null;
+        const ins = g.insert;
         const d = smoothPath(g.base);
         const on = hovered === g.id;
         const mid = midByArc(g);
+        const label = `Add a module between ${ins.before} and ${ins.after}`;
         return (
           <g key={`ins:${g.id}`}>
             <path
@@ -111,27 +114,32 @@ function CablesInner({
               onMouseLeave={() => setHovered(null)}
               onClick={(e) => {
                 e.stopPropagation();
-                onInsert?.(g.insert!, e.clientX, e.clientY, mid);
+                onInsert(ins, e.clientX, e.clientY, mid);
               }}
             />
-            {on && (
-              <>
-                <path className="dgx-ins-line" d={d} />
-                <g
-                  className="dgx-ins-btn"
-                  onMouseEnter={() => setHovered(g.id)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onInsert?.(g.insert!, e.clientX, e.clientY, mid);
-                  }}
-                >
-                  <circle cx={mid.x} cy={mid.y} r={9} />
-                  <path
-                    d={`M ${mid.x - 4} ${mid.y} H ${mid.x + 4} M ${mid.x} ${mid.y - 4} V ${mid.y + 4}`}
-                  />
-                </g>
-              </>
-            )}
+            {on && <path className="dgx-ins-line" d={d} />}
+            {/* biome-ignore lint/a11y/useSemanticElements: an SVG group cannot be an HTML <button>; the role is what it can carry */}
+            <g
+              className={`dgx-ins-btn dgx-cable-ins${on ? " on" : ""}`}
+              role="button"
+              tabIndex={0}
+              aria-label={label}
+              onMouseEnter={() => setHovered(g.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onInsert(ins, e.clientX, e.clientY, mid);
+              }}
+              onKeyDown={onEnter((e) => {
+                const r = (e.currentTarget as Element).getBoundingClientRect();
+                onInsert(ins, r.left + r.width / 2, r.top + r.height / 2, mid);
+              })}
+            >
+              <title>{label}</title>
+              <circle cx={mid.x} cy={mid.y} r={9} />
+              <path
+                d={`M ${mid.x - 4} ${mid.y} H ${mid.x + 4} M ${mid.x} ${mid.y - 4} V ${mid.y + 4}`}
+              />
+            </g>
           </g>
         );
       })}

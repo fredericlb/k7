@@ -194,6 +194,24 @@ export function widgetValue(
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
+/** A recorder's buttons by what they do, since their faces are glyphs (`●`). */
+const REC_NAMES: Record<RecVerb, string> = {
+  record: "Record",
+  clear: "Clear",
+  save: "Save",
+};
+
+/** A tapped widget's accessible name: a recorder's verb, a pad's symbol, else its face or its bind. */
+export function tapName(
+  w: WebWidget,
+  tgt: WidgetTarget | null,
+  padSymbol: string | null,
+): string {
+  if (tgt?.kind === "recorder") return REC_NAMES[tgt.verb];
+  if (padSymbol) return padSymbol;
+  return w.label ?? (typeof w.bind === "string" ? w.bind : w.type);
+}
+
 export const draggable = (w: WebWidget) =>
   w.type === "knob" ||
   w.type === "slider" ||

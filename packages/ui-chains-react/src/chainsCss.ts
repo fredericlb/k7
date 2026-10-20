@@ -99,6 +99,10 @@ const CSS = `
 .dgx-ins-btn { cursor:pointer; pointer-events:auto; }
 .dgx-ins-btn circle { fill:var(--ground); stroke:var(--sh-ring,#8b5cf6); stroke-width:2; }
 .dgx-ins-btn path { stroke:var(--sh-ring,#8b5cf6); stroke-width:2; }
+/* A cable's plus is always in the tree, so a keyboard reaches it; it shows on hover or on focus. */
+.dgx-cable-ins:not(.on):not(:focus-visible) { opacity:0; }
+.dgx-cable-ins:focus-visible { outline:none; }
+.dgx-cable-ins:focus-visible circle { stroke-width:3; }
 /* A glued row's seams, OVER the cards: a seam's line and its plus show on hover, the row's tail always (Seams.tsx). */
 .dgx-seams { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; z-index:3; }
 .dgx-seam { cursor:pointer; pointer-events:auto; }

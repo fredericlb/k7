@@ -3,7 +3,6 @@
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 
 import type { EngineUrl } from "@studio/engine-browser";
-import { AskHost } from "@studio/project-shell/ask";
 import {
   type GateEngine,
   ProjectGate as Shared,
@@ -11,6 +10,7 @@ import {
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
 import type { AccountLibrary } from "@studio/web-protocol";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
 import { FirstProject } from "../projects/FirstProject";
 import { LibrariesCard } from "../projects/LibrariesCard";
@@ -139,7 +139,7 @@ export function ProjectGate({
               userEmail={userEmail}
             />
             {/* The editor mounts its own; a second device's menu asks the same questions (menuConfirm.ts). */}
-            <AskHost />
+            <AskHostK7 />
           </>
         ) : (
           // key by workspace+project so moving between them remounts the editor cleanly.

@@ -202,6 +202,7 @@ export function SongPlayer({
           variant="secondary"
           onClick={toggle}
           disabled={!path}
+          aria-label={playing ? labels.common.pause : labels.common.play}
           title={nothingToPlay}
         >
           {playing ? (
