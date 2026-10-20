@@ -298,6 +298,11 @@ export function SongDetailView({
             value={draft}
             spellCheck={false}
             autoFocus
+            aria-label={
+              tab === "lyrics"
+                ? m["song.tab.lyrics"]()
+                : m["song.tab.tablatureFull"]()
+            }
             placeholder={
               tab === "lyrics"
                 ? m["song.placeholder.lyrics"]()
