@@ -89,13 +89,23 @@ async function engineUp(home: Page): Promise<void> {
 }
 
 /** The project tabs a test opened, so the next test starts with the home tab alone. */
-async function closeTab(page: Page): Promise<void> {
+async function closeTab(app: Launched["app"], page: Page): Promise<void> {
   if (page.isClosed()) return;
-  // The tab takes the shortcut itself, before the menu: one press closes this one tab (apps/k7-standalone/docs/tabs.md).
-  await page.keyboard.press(
-    process.platform === "darwin" ? "Meta+W" : "Control+W",
+  // Sent from the main process, as the OS sends it: `page.keyboard` goes through DevTools, which skips the tab's `before-input-event`.
+  await app.evaluate(
+    ({ webContents }, { url, mac }) => {
+      const tab = webContents
+        .getAllWebContents()
+        .find((w) => w.getURL() === url);
+      const modifiers: ("meta" | "control")[] = [mac ? "meta" : "control"];
+      tab?.sendInputEvent({ type: "keyDown", keyCode: "W", modifiers });
+      tab?.sendInputEvent({ type: "keyUp", keyCode: "W", modifiers });
+    },
+    { url: page.url(), mac: process.platform === "darwin" },
   );
   await page.waitForEvent("close", { timeout: 10_000 }).catch(() => undefined);
+  // A tab left open is selected again by the next test that opens its project, with this test's state in it.
+  expect(page.isClosed(), `the tab on ${page.url()} did not close`).toBe(true);
 }
 
 const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
@@ -176,7 +186,7 @@ const desktop = base.extend<{ k7: K7 }, { desktop: Desktop }>({
       landed: (_from, at) => tabAt((u) => at.test(u.href)),
       files: () => FileService.connect(d.request),
     });
-    for (const page of opened) await closeTab(page);
+    for (const page of opened) await closeTab(d.launched.app, page);
   },
 });
 

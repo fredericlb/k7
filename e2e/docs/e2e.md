@@ -34,6 +34,13 @@ page Playwright sees appear. The desktop `open` therefore navigates the way a li
 the home tab, so the app's own routing turns it into a tab (`apps/k7-standalone/docs/tabs.md`), and
 it closes the tabs a test opened when the test ends.
 
+That close is Cmd/Ctrl+W, sent by the main process (`webContents.sendInputEvent`) rather than by
+`page.keyboard`. A key Playwright presses travels over DevTools and never reaches the tab's
+`before-input-event`, where the app takes the shortcut, so the tab stays open — and the next test
+opening the same project is handed that tab back, with the previous test's state in it (a desk whose
+deck A already holds a record has no "deck A" button). A tab that is still open after the key is a
+failure of the test that opened it, not a silent leak into the next one.
+
 The target is chosen by `E2E_TARGET`, which `playwright.desktop.config.ts` sets, rather than by a
 Playwright option: a fixture's dependencies are fixed when it is declared, so one `test` serving both
 would make the desktop run start Chromium too.
