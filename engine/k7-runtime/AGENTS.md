@@ -46,6 +46,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             device whose callback stopped
   CallbackWatchdog.h        WHEN that reopen happens, and when it gives up: JUCE-free and header-only,
                             so tests/ has it in a FAST binary (docs/audioDevice.md)
+  RenderPool.h              how many threads render a playing Edit — four on a desktop, every core on a phone —
+                            and how its idle workers wait; JUCE-free, FAST binary (docs/renderPool.md)
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()
   ParamDump.cpp             --dump-params / --dump-params-ext / --dump-builtin-params
   PluginEditor.cpp          native plugin editor windows + PluginEditorController
@@ -247,6 +249,7 @@ force a full rebuild — every rule there exists because leaving it out produced
 the Edit and input ones do not, and why `inputClients` is keyed by device name),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
+`renderPool.md` (why a desktop renders on four threads and not on every core, measured on two songs),
 `tapOutputs.md` (an instrument whose taps leave by outputs of their own — why a RackType, and
 what the sampler and sfizz had to learn), `cueOutput.md` (a track routed OFF the mixer's sum onto a second pair — why an absent pair must be
 silent rather than folded back, and why a mixdown had to learn to exclude it),
