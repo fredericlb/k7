@@ -418,6 +418,12 @@ dot that keeps the link's state visible with the popover closed — green when u
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure
 the engine's name in the bar exists to prevent.
 
+**The footer keeps state and drops prose.** On a phone it shows no status line — a sentence
+truncated to a few characters says nothing — while the mode badges, the waiting-for-engine line and the
+error count stay, since each is a state you would otherwise leave by surprise. The tempo and meter
+move into the same info popover (`shell/TempoMeter.tsx`, drawn by both): read rarely, still editable
+on a tap.
+
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
 and nothing here reads it: it could say `live` while the folder declared a timeline, a contradiction
