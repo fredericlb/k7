@@ -112,6 +112,8 @@ export interface LibraryLabels {
     noMasterShort: string;
     analysing: string;
     analyse: string;
+    /** The song-info text editor's accessible name, `name` being the song's folder. */
+    editor: (name: string) => string;
   };
   playlists: {
     unreadable: string;

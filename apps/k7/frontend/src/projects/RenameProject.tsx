@@ -48,6 +48,8 @@ export function RenameProject({
         <p className="rounded bg-muted px-3 py-2 font-mono text-xs">{path}</p>
       }
       name={name}
+      label={m["project.renameField"]()}
+      placeholder={m["project.namePlaceholder"]()}
       onName={setName}
       onSubmit={submit}
       busy={busy}

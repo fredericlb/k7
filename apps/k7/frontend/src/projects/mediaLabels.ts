@@ -128,6 +128,7 @@ export function mediaLabels(): LibraryLabels {
       noMasterShort: m["media.song.noMasterShort"](),
       analysing: m["media.song.analysing"](),
       analyse: m["media.song.analyse"](),
+      editor: (name) => m["media.song.editor"]({ name }),
     },
     playlists: {
       unreadable: m["media.playlists.unreadable"](),

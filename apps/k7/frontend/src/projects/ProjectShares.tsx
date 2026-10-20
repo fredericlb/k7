@@ -211,6 +211,10 @@ export function ProjectShares({
                       <Button
                         variant="secondary"
                         size="sm"
+                        aria-label={m["shares.copyLink"]({
+                          name: s.name || label,
+                        })}
+                        title={m["shares.copyLink"]({ name: s.name || label })}
                         onClick={() => copy(s)}
                       >
                         {copied === s.key ? (
@@ -225,6 +229,10 @@ export function ProjectShares({
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
+                        aria-label={m["shares.revoke"]({
+                          name: s.name || label,
+                        })}
+                        title={m["shares.revoke"]({ name: s.name || label })}
                         onClick={() => void revoke(s)}
                         disabled={busy === s.key}
                       >
