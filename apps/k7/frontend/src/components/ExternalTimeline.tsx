@@ -37,6 +37,7 @@ import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
 import { confirmMenuItem } from "../menuConfirm";
 import { type NodeMenuTarget, nodeMenu } from "../nodeMenu";
+import { DEVICE_SCOPE } from "../queries/client";
 import { REV_SCOPE, useGraph } from "../queries/graph";
 import {
   createShellStore,
@@ -105,9 +106,13 @@ export function ExternalTimeline({
 
   /** The compiled document's shell-side slice — the tempo and the lanes the mixer acts on. */
   const noMidiSeqs = useCallback(() => {}, []);
-  const { recInfo, docTracks, midiSeqRef } = useProjectDoc(reloadKey, {
-    onMidiSeqs: noMidiSeqs,
-  });
+  const { recInfo, docTracks, midiSeqRef } = useProjectDoc(
+    DEVICE_SCOPE,
+    reloadKey,
+    {
+      onMidiSeqs: noMidiSeqs,
+    },
+  );
   useEffect(() => {
     if (!rolling) return;
     setTakeStart((store.getSnapshot().playhead * recInfo.tempo) / 60);
@@ -238,7 +243,7 @@ export function ExternalTimeline({
   };
   const [shell] = useState(() => {
     const s = createShellStore({
-      scope: "device",
+      scope: DEVICE_SCOPE,
       frozen: false,
       impl: verbs,
       commands: DEVICE_GESTURES,

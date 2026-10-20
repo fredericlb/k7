@@ -5,6 +5,10 @@
 
 import { QueryClient } from "@tanstack/react-query";
 
+/** The reload counters a cached read can be keyed by: the shell's, and a second device's surface. */
+export const SHELL_SCOPE = "shell";
+export const DEVICE_SCOPE = "device";
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

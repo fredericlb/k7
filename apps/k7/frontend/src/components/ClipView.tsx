@@ -22,6 +22,7 @@ import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { m } from "../paraglide/messages.js";
 import { fileStem } from "../projectPaths";
 import { usePaneGraph } from "../queries/graph";
+import { usePaneProjectDoc } from "../queries/projectDoc";
 import { rackFor, rackKeyNames } from "../rackFor";
 import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../rows";
@@ -125,14 +126,8 @@ function SeqRoll({
     | "onModeChange"
   >;
 }) {
-  const [project, setProject] = useState<WebProject | null>(null);
-
-  useEffect(() => {
-    void api
-      .projectDoc()
-      .then(setProject)
-      .catch(() => {});
-  }, []);
+  // The shared document, for the tempo and the signature the roll is drawn in (queries/projectDoc.ts).
+  const { doc: project } = usePaneProjectDoc(useReloadKey());
 
   const notes = useMemo<WebNote[]>(() => {
     return (readSequence(content)?.notes ?? []).map((n) => ({
@@ -288,18 +283,8 @@ export function ClipView({
     onRemoveNote,
   } = notes;
   /** The open clip, kept FRESH: `target` is a snapshot from the click, and the placement is found again by (id, start). */
-  const [freshProject, setFreshProject] = useState<WebProject | null>(null);
-  useEffect(() => {
-    if (target.kind === "seq") return void setFreshProject(null);
-    let cancelled = false;
-    void api
-      .projectDoc()
-      .then((p) => !cancelled && setFreshProject(p))
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey, target]);
+  const { doc: sharedProject } = usePaneProjectDoc(reloadKey);
+  const freshProject = target.kind === "seq" ? null : sharedProject;
   const clip = useMemo(() => {
     if (target.kind === "seq") return null;
     const base = target.clip;

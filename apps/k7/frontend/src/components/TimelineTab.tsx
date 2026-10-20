@@ -56,7 +56,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "../api";
 import {
   type Clipboard,
   copyEvents,
@@ -72,7 +71,6 @@ import {
 import { clipLoop, placedRepeats } from "../clipLoop";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
-import { useDocument } from "../hooks/useDocument";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
 import { useVideoDrag } from "../hooks/useVideoDrag";
 import { blurOnClick } from "../keys";
@@ -83,6 +81,7 @@ import {
   pendingClips,
   pendingSplitAt,
 } from "../pendingEdits";
+import { usePaneProjectDoc } from "../queries/projectDoc";
 import {
   dropLaneOf,
   findRow,
@@ -466,8 +465,9 @@ function TimelineTabView({
   const onVideoArm = readOnly ? undefined : cmds.videoArm;
   const onVideoToggle = readOnly ? undefined : cmds.videoToggle;
   const onReorder = readOnly ? undefined : cmds.reorder;
-  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
-  const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
+  // The shared document at this reload key, re-asked on a backoff while the service is not answering (queries/projectDoc.ts).
+  const { doc: proj, failure } = usePaneProjectDoc(reloadKey);
+  const error = failure ? failure.message : null;
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, on by default, not a saved preference.

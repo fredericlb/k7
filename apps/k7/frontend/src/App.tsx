@@ -198,6 +198,7 @@ import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
 import { useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
+import { SHELL_SCOPE } from "./queries/client";
 import { graphQuery, seedGraph, useGraph } from "./queries/graph";
 import { rememberCommand } from "./recentCommands";
 import {
@@ -291,9 +292,6 @@ const inDesktopTab = !!tabBridge();
 
 /** The shot a new video project is scaffolded with (packages/song/src/scaffold.ts) — a picture holding only it is untouched. */
 const SCAFFOLD_SAMPLE = /(^|\/)clips\/sample\.mp4$/;
-
-/** The namespace of this shell's reload-keyed reads (queries/graph.ts). */
-const SHELL_SCOPE = "shell";
 
 /** How long a second Ctrl+Z has, once the text pane's own history is spent, to reach the project journal. */
 const JOURNAL_ARM_MS = 3000;
@@ -1213,7 +1211,7 @@ export default function App({
     doc: projectDoc,
     mixerStrips,
     midiSeqRef,
-  } = useProjectDoc(reloadKey, {
+  } = useProjectDoc(SHELL_SCOPE, reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) =>
@@ -3621,7 +3619,6 @@ export default function App({
               <>
                 {minimapDocked && (
                   <Minimap
-                    reloadKey={reloadKey}
                     // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
                     automation={laneNodes.automation}
                     caret={caret}
@@ -3687,12 +3684,7 @@ export default function App({
                   beatsPerBar={recInfo.beatsPerBar}
                   onToggle={() => transport(playing ? "stop" : "play")}
                 />
-                <Minimap
-                  reloadKey={reloadKey}
-                  caret={caret}
-                  highlight={openItem}
-                  onSeek={seek}
-                />
+                <Minimap caret={caret} highlight={openItem} onSeek={seek} />
               </div>
             )}
 
