@@ -493,6 +493,7 @@
   "master.noMeter": "pas de vumètre sur cet écran — donnez un niveau en dB",
   "share.button": "Partager / exporter",
   "share.mixdown": "Mixage",
+  "share.timeline": "Timeline",
   "share.exportAudio": "Exporter en {format}",
   "share.exportVideo": "Exporter la vidéo — {format}, {size}",
   "share.noMp4": "Ce navigateur ne sait pas produire de MP4 : la vidéo sera en WebM — Chrome ou Edge savent produire du MP4.",

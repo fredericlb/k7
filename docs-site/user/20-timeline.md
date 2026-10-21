@@ -217,6 +217,30 @@ resets, which also kills a stuck tail (`transport panic`).
 
 None of these touches the song; they are views of it.
 
+## Other timelines
+
+The song's own timeline is **Main**. Once the project has another one, a bar of tabs above the
+lanes names them, Main first; until then there is no bar. Clicking a tab — or double-clicking a
+timeline's event on a lane — shows that timeline's lanes in Main's place, edited exactly like
+Main's.
+
+**Opening a timeline is listening to it**: play runs it alone from its start, through the lane it
+is first placed on, and the playhead follows it. Back on Main, play is the whole song again.
+
+| Command | What it does |
+|---|---|
+| `timeline new [name] [length]` | Make a timeline, four bars long unless you say. |
+| `selection timeline [name]` | Turn the selected range of ONE lane into a timeline, placed back where it was. |
+| `timeline rename <timeline> <name>` | Rename it, and every event placing it — also on a tab's right-click. |
+| `timeline length <timeline> <duration>` | Change what every placement of it plays. |
+| `timeline lane new` / `timeline lane remove` | Add or remove one of its lanes. |
+| `timeline lane copy <lane> <timeline\|main>` | Copy a lane's events onto another timeline, or into Main. |
+| `timeline play [timeline]` | Hear one alone; bare, the song again. |
+
+The `event` commands reach a timeline's lane as `<timeline>><lane>`: `event add verse>drums kick 3:1`.
+How a timeline is written is in [Clips, sequences and curves](./33-material.md#timelines); exporting
+one alone, in [Exporting the mix](./27-export-import.md).
+
 ## When the song cannot be edited
 
 A song opened from a share link is read-only: the timeline still plays, scrolls and zooms, and you

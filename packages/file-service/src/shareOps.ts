@@ -9,6 +9,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { auditionTimeline } from "@studio/song/timelineAudition";
 import {
   type K7Result,
   type Renderer,
@@ -36,10 +37,12 @@ export interface ShareHost {
   cachedProjectDoc(dir: string): ProjectDoc;
 }
 
-/** Render the mixdown; the caller streams `path` then calls `cleanup`, whether or not it worked. */
+/** Render the mixdown — of Main, or of one timeline alone — then the caller streams `path` and calls `cleanup`. */
 export async function exportMix(
   host: ShareHost,
   format: "wav" | "mp3",
+  // A timeline of timelines/, rendered as it is auditioned (@studio/song docs/timelines.md); absent, Main.
+  timeline?: string,
 ): Promise<{
   path: string;
   filename: string;
@@ -48,7 +51,10 @@ export async function exportMix(
 }> {
   const dir = host.requireActive();
   const render = requireRenderer("mixdown");
-  const doc = host.cachedProjectDoc(dir);
+  const song = host.cachedProjectDoc(dir);
+  if (timeline && !song.timelines?.some((t) => t.id === timeline))
+    throw new Error(`no timeline "${timeline}" to export`);
+  const doc = timeline ? auditionTimeline(song, timeline) : song;
   const tmp = mkdtempSync(join(tmpdir(), "tbmix-"));
   const cleanup = () => {
     try {
@@ -60,7 +66,8 @@ export async function exportMix(
   try {
     const manifest = await render(doc, tmp);
     const wav = join(tmp, manifest.mix);
-    const name = (doc.name || basename(dir) || "mixdown").replace(
+    const base = doc.name || basename(dir) || "mixdown";
+    const name = (timeline ? `${base}-${timeline}` : base).replace(
       /[\\/:*?"<>|]+/g,
       "_",
     );

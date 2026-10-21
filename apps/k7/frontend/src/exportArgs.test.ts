@@ -26,6 +26,20 @@ describe("project export audio", () => {
     expect(parseExportAsk("audio")).toBeNull();
     expect(parseExportAsk("audio wav mp3")).toBeNull();
   });
+
+  it("takes one timeline after the format, `main` being the song itself", () => {
+    expect(parseExportAsk("audio wav verse")).toEqual({
+      kind: "audio",
+      format: "wav",
+      timeline: "verse",
+    });
+    expect(parseExportAsk("audio mp3 main")).toEqual({
+      kind: "audio",
+      format: "mp3",
+    });
+    expect(parseExportAsk("audio wav verse chorus")).toBeNull();
+    expect(parseExportAsk("audio wav ver/se")).toBeNull();
+  });
 });
 
 describe("project export video", () => {

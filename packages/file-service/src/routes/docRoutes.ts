@@ -21,6 +21,15 @@ docRouter.get(
   "/export",
   wrap(async (req, res) => {
     const format = String(req.query.format ?? "wav") === "mp3" ? "mp3" : "wav";
+    // One timeline alone, by its id; anything else is refused rather than read as Main.
+    const timeline =
+      typeof req.query.timeline === "string" && req.query.timeline
+        ? req.query.timeline
+        : undefined;
+    if (timeline !== undefined && !/^[A-Za-z0-9_.-]+$/.test(timeline)) {
+      res.status(400).json({ error: `'${timeline}' names no timeline` });
+      return;
+    }
     let out: {
       path: string;
       filename: string;
@@ -28,7 +37,7 @@ docRouter.get(
       cleanup: () => void;
     };
     try {
-      out = await req.ws!.exportMix(format);
+      out = await req.ws!.exportMix(format, timeline);
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
       return;

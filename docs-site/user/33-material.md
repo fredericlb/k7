@@ -130,6 +130,30 @@ notes(seq("[c4,e4,g4]@2 a3!2").v(0.7))      // velocity for every note
 `seq(…)` accepts only `step` and `v`. When k7 later changes a note of a sequence written this way,
 the string is replaced by the full note list.
 
+## Timelines
+
+A **timeline** is an arrangement of its own — lanes of events — placed **whole** as one event on a
+lane of the song, which is the timeline called **Main**. A verse written once and played three
+times, a fill reused across a set.
+
+```js
+// timelines/verse.k7x
+length("8:0") // eight bars, whatever it holds
+lanes([
+  lane("drums").events([ref("kick").start("1:1")]),
+  lane("bass").events([ref("bassline").start("1:1")]),
+])
+```
+
+A lane places it by `ref`, like a clip: `events([ref("verse").start("9:1")])`.
+
+- **It sounds through the lane it is placed on.** Its own lanes have no instrument, effects or
+  fader; everything they hold plays through the song lane the event sits on.
+- **Its length is fixed.** `length` is a duration; left out, it is what the lanes hold, rounded up
+  to the bar. What runs past it is cut, and the event cannot be resized, looped, windowed or faded —
+  it takes `gain` and `disabled` only.
+- A timeline may hold another one, but never itself. No timeline may be named `main`.
+
 ## Curves
 
 A curve is a shape over time that a module's automation binds to one of its parameters (see

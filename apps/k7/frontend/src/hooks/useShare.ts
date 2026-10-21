@@ -23,7 +23,7 @@ import { shareProgressLine } from "../shareProgress";
 export interface Share {
   /** A render is running: the menu greys itself out rather than starting a second one. */
   busy: boolean;
-  exportMix: (format: MixFormat) => Promise<void>;
+  exportMix: (format: MixFormat, timeline?: string) => Promise<void>;
   /** …and the PICTURE, rendered here rather than by the engine — with the mixdown married in
    *  unless `audio` is null. The scene is the caller's: only the viewport's host has one. */
   exportVideo: (
@@ -55,11 +55,13 @@ export function useShare(onStatus: (s: string) => void): Share {
   const [progress, setProgress] = useState<ShareProgress | null>(null);
 
   const exportMix = useCallback(
-    async (format: MixFormat) => {
+    async (format: MixFormat, timeline?: string) => {
       setBusy(true);
-      onStatus(`rendering ${format.toUpperCase()} mixdown…`);
+      onStatus(
+        `rendering ${format.toUpperCase()} mixdown${timeline ? ` of ${timeline}` : ""}…`,
+      );
       try {
-        const { blob, filename } = await api.exportMix(format);
+        const { blob, filename } = await api.exportMix(format, timeline);
         download(blob, filename);
         onStatus(`exported ${filename}`);
       } catch (e) {

@@ -2518,7 +2518,7 @@ export default function App({
     [paletteCommands, commandPrefs, locale],
   );
   paletteRef.current = allCommands;
-  // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds — files, paths, surfaces, languages.
+  // Five getters, not one: the shell's own commands ask for vocabularies only the shell holds — files, paths, surfaces, languages, timelines.
   const listArg = useMemo(
     () =>
       makeListArg({
@@ -2526,6 +2526,7 @@ export default function App({
         entries: () => editorRef.current?.entries() ?? [],
         surfaces: () => surfaces.map((s) => s.id),
         locales: () => [...locales],
+        timelines: () => (docRef.current?.timelines ?? []).map((t) => t.id),
       }),
     [surfaces, locales],
   );
@@ -3382,6 +3383,7 @@ export default function App({
                       externals={externals}
                       lanUrls={lanUrls}
                       hasPicture={!!videoDoc}
+                      timelines={(projectDoc?.timelines ?? []).map((t) => t.id)}
                       onRun={(c) => void runCommand(c)}
                       onClose={() => setRightPanel(null)}
                     />

@@ -86,7 +86,7 @@ export const PROJECT_COMMANDS: LocalCommand[] = [
       {
         name: "sound",
         kind: "choice",
-        hint: "the video's audio — wav · mp3 · none",
+        hint: "the video's audio — wav · mp3 · none; for audio, the timeline — main by default",
       },
     ],
     match: "names",
@@ -94,7 +94,8 @@ export const PROJECT_COMMANDS: LocalCommand[] = [
       const ask = parseExportAsk(rest);
       const name = ctx.projectDoc?.name;
       if (!ask) ctx.setStatus(m["status.usage"]({ syntax: EXPORT_USAGE }));
-      else if (ask.kind === "audio") void ctx.share.exportMix(ask.format);
+      else if (ask.kind === "audio")
+        void ctx.share.exportMix(ask.format, ask.timeline);
       else if (ask.kind === "timeline")
         void ctx.share.exportTimeline(
           ctx.ws?.activeProject ?? ".",

@@ -287,3 +287,7 @@ start, through the lane it is first placed on — that lane's instrument and eff
 silent — and the playhead follows it. Back on Main, play is the whole song again. `timeline play verse`
 and a bare `timeline play` do the same from the command bar. A timeline placed on no lane still plays
 its audio; its sequences have no instrument until it is placed.
+
+**Exporting one alone.** With other timelines than Main, the Share panel's mixdown asks which one; the
+file is that timeline rendered as it is auditioned, named after it. `project export audio wav verse` does
+the same, `main` being the song itself. The video export and publishing are always Main's.
