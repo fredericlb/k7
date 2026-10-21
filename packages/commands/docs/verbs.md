@@ -547,6 +547,8 @@ event is found by its own start (`eventAt`), and only `event gain`, `event statu
 remove and paste take it: every other `event` verb would give it an extent of its own, and its
 length is fixed (`packages/song/docs/timelines.md`). A write that would put a timeline inside
 itself is refused before it lands, since the project would no longer load.
+`timeline play` sets the session's audition through the optional `CommandHost.timelinePlay`: a host
+with no engine refuses it, and nothing is written (`packages/song/docs/timelines.md`).
 
 ## `events move` is one command, not a loop
 

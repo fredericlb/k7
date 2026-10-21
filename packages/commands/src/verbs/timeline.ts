@@ -5,6 +5,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { stringify } from "@studio/k7x/print";
+import { auditionHosts } from "@studio/song/timelineAudition";
 import { wsData, wsEdit, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { parseDuration } from "@studio/song-schema/timecode";
@@ -39,6 +40,22 @@ const lanesOf = (file: string): { lane?: unknown }[] => {
 };
 
 export const TIMELINE_VERBS: Record<string, SidHandler> = {
+  // `timeline play [timeline]` — hear one alone, through the lane it is placed on; bare, the song again.
+  "timeline.play": async (a, h) => {
+    const [id] = splitArgs(a);
+    const p = h.project();
+    if (id && !(p.timelines ?? []).some((t) => t.id === id))
+      return h.refuse([`no timeline "${id}"`]);
+    if (!h.timelinePlay?.(id ?? null))
+      return h.refuse(["timeline play: this host drives no engine"]);
+    if (!id) return h.log(["playing the song"]);
+    const hosts = auditionHosts(p, id);
+    h.log([
+      hosts.length
+        ? `playing timeline ${id} alone, through ${hosts.join(", ")}`
+        : `playing timeline ${id} alone — placed on no lane, so its notes have no instrument`,
+    ]);
+  },
   // `timeline new [name] [length]` — four bars and one lane, to fill and then place with `event add`.
   "timeline.new": async (a, h) => {
     const [name, len] = splitArgs(a);

@@ -86,6 +86,8 @@ export interface CommandHost {
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
   // `system channel type`: group two interface inputs into one stereo device, or take them apart; optional.
   setInputStereo?(channel: number, stereo: boolean): boolean;
+  /** Play timeline `id` alone in place of the song, or (null) the song again — the timeline pane's; song docs/timelines.md. */
+  timelinePlay?(id: string | null): boolean;
   /** Record the session's next takes INTO one event, or (null) back onto the lane — the takes view's; song docs/takes.md. */
   takeArm?(
     arm: {

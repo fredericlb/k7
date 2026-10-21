@@ -61,3 +61,16 @@ edits it; the engine ignores it as it ignores `groups`. A timeline's lane is add
 `<timeline>><lane>` wherever a verb takes a lane, and `laneEventsAt` (`chainItemEdit.ts`) resolves
 that address to the timeline file and the lane's map inside it. Every event writer goes through it,
 so add, move, paste, resize, split and loop work inside a timeline with no verb of their own.
+
+## Auditioned alone, through its host
+
+A timeline has to be heard while it is written, and its lanes have no instrument of their own. So
+auditioning it (`timeline play <id>`, sent by the timeline pane when it opens one) sends the engine
+that timeline alone from beat 0, on the lane it is FIRST placed on — both halves of it — with every
+other song lane emptied and muted and the busses and master untouched, since the host's sends are
+part of how it sounds (`src/timelineAudition.ts`). A timeline placed nowhere gets a bare track:
+its audio is heard, its notes have no instrument.
+
+The choice is per session and in memory, applied as the document is sent, like an armed take — the
+file service's `timelinePlay.ts`. It is never written: what a pane has open is not part of the song,
+and the browser's own document stays the song's.

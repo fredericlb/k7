@@ -1065,9 +1065,11 @@ project's `timelines/` (`packages/song/docs/timelines.md`). Opening one puts its
 the song's tracks (`timelineView.ts`), so every gesture — move, resize, drop, paste — addresses
 `<timeline>><lane>` with no code of its own. Which one is open is session state and writes nothing.
 
-The transport plays the SONG whatever is open, so a timeline's view draws nothing on that clock: no
-playhead, no meters, no arm/mute/solo, no markers, no picture or automation rows. A timeline is
-heard where it is placed, and that is where to listen to it.
+Opening a timeline also AUDITIONS it: the pane sends `timeline play <id>` and seeks to 0, so the
+engine plays that timeline alone from its start and the playhead reads its own time; back on the
+song, a bare `timeline play`. What it plays through is the song lane it is placed on, so a
+timeline's lanes draw no meter, arm, mute or solo of their own, and no markers, picture or
+automation rows.
 
 A timeline EVENT on a song lane is one dashed block of its fixed length, its clips' activity drawn
 where each plays. It has no edge or fade handles — its length is its timeline's — and a

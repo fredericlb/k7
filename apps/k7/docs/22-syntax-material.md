@@ -267,5 +267,10 @@ A timeline may hold another one; a timeline that ends up inside itself is refuse
 The timeline pane draws the song, and the bar above its lanes opens any timeline in its place — or a
 double-click on a timeline event does. Its lanes are edited like the song's, and the `event` commands reach
 them by the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline new`,
-`timeline lane new` and `timeline lane remove` make the rest. The playhead belongs to the song, so a
-timeline's own view draws none.
+`timeline lane new` and `timeline lane remove` make the rest.
+
+**Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
+start, through the lane it is first placed on — that lane's instrument and effects, every other lane
+silent — and the playhead follows it. Back on the song, play is the song again. `timeline play verse`
+and a bare `timeline play` do the same from the command bar. A timeline placed on no lane still plays
+its audio; its sequences have no instrument until it is placed.

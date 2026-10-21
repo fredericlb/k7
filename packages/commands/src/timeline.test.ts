@@ -80,7 +80,11 @@ describe("timeline verbs", () => {
       gain: -2,
       disabled: true,
     });
-    expect(clips()?.[0]).toMatchObject({ start: 17, gainDb: -2, disabled: true });
+    expect(clips()?.[0]).toMatchObject({
+      start: 17,
+      gainDb: -2,
+      disabled: true,
+    });
   });
 
   it("refuses a resize, a loop or a fade: the length is the timeline's", async () => {
@@ -112,11 +116,34 @@ describe("timeline verbs", () => {
   it("adds and removes a timeline's lanes, keeping the last one", async () => {
     await run("timeline new verse");
     await run("timeline lane new verse drums");
-    expect((timeline("verse").lanes as { lane: string }[]).map((l) => l.lane))
-      .toEqual(["lane-1", "drums"]);
+    expect(
+      (timeline("verse").lanes as { lane: string }[]).map((l) => l.lane),
+    ).toEqual(["lane-1", "drums"]);
     await run("timeline lane remove verse lane-1");
     const last = await run("timeline lane remove verse drums");
     expect(last.lines.refuse.join(" ")).toMatch(/keeps one/);
     expect(timeline("verse").lanes).toEqual([{ lane: "drums", events: [] }]);
+  });
+
+  it("auditions a timeline through its host, and the song again bare", async () => {
+    await placed();
+    const asked: (string | null)[] = [];
+    const host = (line: string) => {
+      const h = testHost({
+        songPath: dir,
+        project: () => loadProject(dir),
+        timelinePlay: (id) => {
+          asked.push(id);
+          return true;
+        },
+      });
+      return runCommand(line, h, "cli").then(() => h);
+    };
+    const on = await host("timeline play verse");
+    expect(on.lines.log.join(" ")).toMatch(/through gtr/);
+    await host("timeline play");
+    expect(asked).toEqual(["verse", null]);
+    const none = await host("timeline play chorus");
+    expect(none.lines.refuse.join(" ")).toMatch(/no timeline "chorus"/);
   });
 });

@@ -213,6 +213,22 @@
         hint: "a duration, 4:0 is four bars — optional",
       },
     ]
+- command: "timeline play"
+  sid: timeline.play
+  readable:
+    en: "Hear a timeline alone, or the song again"
+    fr: "Écouter une timeline seule, ou le morceau"
+  help: "play one timeline alone from its start, through the lane it is placed on (e.g. timeline play verse) — bare, the song again"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: timeline,
+        optional: true,
+        complete: timelines,
+        hint: "the timeline to hear — absent, the song",
+      },
+    ]
 - command: "timeline length"
   sid: timeline.length
   readable:

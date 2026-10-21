@@ -479,6 +479,13 @@ function TimelineTabView({
     () => timelineView(songDoc, openTimeline),
     [songDoc, openTimeline],
   );
+  // The engine plays what the pane shows: the open timeline alone from its start, else the song (timeline play).
+  const onTimelinePlay = cmds.timelinePlay;
+  useEffect(() => {
+    if (readOnly || !onTimelinePlay) return;
+    onTimelinePlay(openTimeline);
+    if (openTimeline) onSeek?.(0);
+  }, [openTimeline, onTimelinePlay, readOnly, onSeek]);
   // A timeline has no picture: its lanes play through a song lane, wherever it is placed.
   const videoTracks = shownTimeline ? NO_VIDEO : songVideoTracks;
   // In a timeline's view a new lane is that timeline's.
@@ -3620,17 +3627,15 @@ function TimelineTabView({
               />
             ))}
             {/* playhead — its own subscriber, so the transport moves one div and re-renders nothing else here (see Playhead). */}
-            {/* …on the song only: a timeline's own view has no clock, the transport playing the song. */}
-            {!shownTimeline && (
-              <Playhead
-                tempo={proj.tempo}
-                beatLo={beatLo}
-                beatHi={lastBeat}
-                ppb={ppb}
-                left0={GUTTER}
-                height={contentH}
-              />
-            )}
+            {/* …the song's, or the open timeline's while it is auditioned from its start (timelineView.ts). */}
+            <Playhead
+              tempo={proj.tempo}
+              beatLo={beatLo}
+              beatHi={lastBeat}
+              ppb={ppb}
+              left0={GUTTER}
+              height={contentH}
+            />
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 // timelineView.ts — the document the timeline pane draws: the song's, or one of the project's other
 // timelines, its lanes standing in for the song's tracks so every gesture addresses them unchanged.
-// What a reader gets wrong: the transport still plays the SONG, so nothing on its clock — playhead,
-// meters, arming, markers — belongs on a timeline's view (docs/timeline.md).
+// What a reader gets wrong: the engine plays the open timeline through a SONG lane, so a timeline's
+// lanes have no meter, arm or marker of their own (docs/timeline.md).
 
 import type { WebProject, WebTimeline } from "@studio/web-protocol";
 
