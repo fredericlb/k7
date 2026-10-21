@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Menu-bar-only agent: no Dock icon, no app-switcher entry, even before the
+       Rust sets ActivationPolicy::Accessory. Tauri merges this into the bundle. -->
+  <key>LSUIElement</key>
+  <true/>
+  <!-- Without it macOS never asks, and the engine this app launches records silence (docs/tray.md). -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>k7 records the audio inputs of this machine onto the tracks you arm.</string>
+</dict>
+</plist>

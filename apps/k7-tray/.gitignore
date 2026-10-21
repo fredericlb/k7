@@ -1,13 +1,5 @@
-# The main process and preload as esbuild writes them (scripts/build-main.mjs).
-dist/
-# What scripts/stage.mjs lays out for electron-builder, and what electron-builder writes.
-staging/
-out/
-# The dev tray's stdout and pid (scripts/start-engine.mjs).
-.cache/
-
-# Collected release artifacts go to the monorepo's own dist/, which the root .gitignore covers.
-
-# Engine-computed waveform sidecars ({audio}.cache) — a derived cache the engine
-# rebuilds on demand from the audio + a content fingerprint. Never committed.
-*.cache
+# What scripts/stage.mjs lays out for tauri build: the backend bundle, the engine, node.
+src-tauri/resources/
+# Cargo's build output, and the schemas tauri-build generates.
+src-tauri/target/
+src-tauri/gen/
