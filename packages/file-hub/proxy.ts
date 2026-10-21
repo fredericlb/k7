@@ -8,11 +8,13 @@ import {
   ADMIN_HEADER,
   ENGINE_TOKEN_HEADER,
   HUB_SECRET_HEADER,
+  ORIGIN_HEADER,
   USER_HEADER,
 } from "@studio/web-protocol";
 import type { Request, Response } from "express";
 import type { Instance } from "./instances.ts";
 import { BodyTooLargeError } from "./librariesRoutes.ts";
+import { publicOrigin } from "./publicOrigin.ts";
 
 /** Headers a client may not choose: identity and the hub's own secret are the hub's to set. */
 const DROPPED = new Set([
@@ -23,6 +25,7 @@ const DROPPED = new Set([
   HUB_SECRET_HEADER,
   ENGINE_TOKEN_HEADER,
   ADMIN_HEADER,
+  ORIGIN_HEADER,
 ]);
 
 /** A body past the hub's own limit is the caller's 413; anything else is this side's 500. */
@@ -44,6 +47,7 @@ export function pipeTo(
   headers[USER_HEADER] = user;
   if (admin) headers[ADMIN_HEADER] = "1";
   headers[HUB_SECRET_HEADER] = inst.secret;
+  headers[ORIGIN_HEADER] = publicOrigin(req);
   const body = replayBody(req);
   if (body) {
     headers["content-length"] = String(body.length);

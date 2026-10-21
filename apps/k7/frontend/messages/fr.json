@@ -314,7 +314,7 @@
   "account.status.offerPair": "Synchroniser les espaces de travail de cet ordinateur avec {server} ?",
   "account.status.pair": "Synchroniser",
   "account.status.signedIn": "Connecté.",
-  "account.status.paired": "Cet ordinateur se synchronise désormais avec {server}.",
+  "account.status.paired": "Vos espaces de travail d'ici se synchronisent désormais avec {server}.",
   "account.status.badServer": "{server} n'est pas une adresse de serveur k7.",
   "account.status.signInTimeout": "La connexion n'a pas été terminée dans le navigateur. Reconnectez-vous pour réessayer.",
   "account.status.pairTimeout": "La liaison n'a pas été terminée dans le navigateur. Ajoutez de nouveau le serveur pour réessayer.",

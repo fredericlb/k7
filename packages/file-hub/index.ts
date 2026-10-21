@@ -50,7 +50,12 @@ import {
 } from "./staleCaches.ts";
 import { publishSyncEvent } from "./syncEvents.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
-import { pairedAccounts, readRemotes, type SyncRemote } from "./syncRemote.ts";
+import {
+  pairedAccounts,
+  readRemotes,
+  type SyncRemote,
+  syncTarget,
+} from "./syncRemote.ts";
 import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -80,7 +85,7 @@ export interface FileHubOptions
   ticketKey?: string;
   /** An instance nobody used for this long is stopped; default IDLE_MS. */
   idleMs?: number;
-  /** An account may be paired with a remote origin: the desktop and the phone only, since the libraries follow that pairing. */
+  /** An account pairs with a MAIN remote server, which the libraries follow: the tray and the phones. A server pairs secondaries only. */
   remotePairing?: boolean;
   /** The machine's local user, who has no account at any origin and never pairs. */
   isLocal?: (req: Request) => boolean;
@@ -153,7 +158,11 @@ export class FileHub {
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
         // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
-        ...syncTarget(opts.selfPort(), this.remotesOf(slug)),
+        ...syncTarget(
+          `ws://127.0.0.1:${opts.selfPort()}${SYNC_PATH}`,
+          this.remotesOf(slug),
+          opts.remotePairing !== true,
+        ),
         ...this.renderTarget(slug),
       }),
       keep: (slug) => this.remotesOf(slug).length > 0,
@@ -172,7 +181,7 @@ export class FileHub {
       selfPort: opts.selfPort,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
-    for (const r of this.pairedAccounts())
+    for (const r of pairedAccounts(resolve(opts.dataRoot)))
       void this.instances
         .get(r.user)
         .catch((e: Error) => log(`paired ${r.user}: ${e.message}`));
@@ -400,14 +409,12 @@ export class FileHub {
     };
   }
 
-  /** The servers account `slug` is paired with: none where pairing is off, whatever its folder holds. */
+  /** The servers account `slug` is paired with; on a server, secondaries beside its own relay. */
   private remotesOf(slug: string): SyncRemote[] {
-    return this.opts.remotePairing
-      ? readRemotes(this.sync.accountDir(slug))
-      : [];
+    return readRemotes(this.sync.accountDir(slug));
   }
 
-  /** The accounts paired with a remote origin: none where pairing is off. */
+  /** The accounts paired with a MAIN remote server, which the libraries follow: none on a server. */
   private pairedAccounts(): ReturnType<typeof pairedAccounts> {
     return this.opts.remotePairing
       ? pairedAccounts(resolve(this.opts.dataRoot))
@@ -476,21 +483,4 @@ export class FileHub {
     this.stopSync?.();
     await this.instances.stopAll();
   }
-}
-
-/** Where an account's service syncs: its MAIN server by its device token, the others beside it, else this hub's own relay. */
-function syncTarget(
-  port: number,
-  remotes: SyncRemote[] = [],
-): Record<string, string> {
-  const [main] = remotes;
-  if (!main) return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
-  return {
-    STUDIO_SYNC_URL: main.url,
-    STUDIO_SYNC_TOKEN: main.token,
-    // Every pairing, main included, for the workspaces each server holds (file-service docs/liveCapture.md).
-    STUDIO_SYNC_SERVERS: JSON.stringify(
-      remotes.map((r) => ({ url: r.url, token: r.token, main: r.main })),
-    ),
-  };
 }

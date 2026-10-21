@@ -14,6 +14,7 @@ flag (`src/localApp.ts`).
 | the engine page over HTTP (`src/settings/desktopEngine.ts`) | the backend runs the supervisor (`apps/k7/backend/docs/localEngine.md`); the page reads its snapshot as events and sends allowed commands |
 | the server this machine syncs with read from `/api/sync/remote` (`src/desktop.ts`) | the user menu's apps and the catalogue's link are that server's, not this backend's |
 | a phone app answers these itself | its shell already signs in, pairs and drives its engine natively; the page asks it, not the backend |
+| a server's page pairs too, with no sign-in control (`src/projects/AccountBar.tsx`) | an account there may sync with other servers beside the one it is signed in to, which stays the main one (`packages/file-hub/docs/syncRelay.md`, "A server's accounts"); its sign-in is the user menu's |
 
 The service worker the hosted build registers serves here too: it makes the page installable, and the backend
 being on the same machine is what makes it work offline.

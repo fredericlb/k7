@@ -55,19 +55,33 @@ async function start(opts: {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
   port = (server.address() as AddressInfo).port;
   const base = `http://127.0.0.1:${port}`;
+  // A server behind its proxy: the host and scheme the browser reached it at.
+  const proxied =
+    opts.remotePairing === false
+      ? { "x-forwarded-host": "home.test", "x-forwarded-proto": "https" }
+      : {};
   const api = (path: string, init: RequestInit = {}, who = EVE) =>
     fetch(`${base}/api/sync/remote/pair${path}`, {
       ...init,
-      headers: { "x-test-session": who, "content-type": "application/json" },
+      headers: {
+        "x-test-session": who,
+        "content-type": "application/json",
+        ...proxied,
+      },
     });
+  const post = (body: object) =>
+    api("", { method: "POST", body: JSON.stringify(body) });
   const begin = async (body: object = { origin: "o.test", name: "Pixel" }) =>
-    (await (
-      await api("", { method: "POST", body: JSON.stringify(body) })
-    ).json()) as { url: string; pairing: { state: string } };
+    (await (await post(body)).json()) as {
+      url: string;
+      pairing: { state: string };
+    };
   // What the origin does with the pairing URL: redirect to its `return`, with a token and whose it is.
   const browser = (url: string, identity = EVE, token = "tok") => {
     const u = new URL(url);
     const back = new URL(u.searchParams.get("return") ?? "");
+    // A server's return is its public origin; the test reaches it where it listens.
+    if (back.protocol === "https:") back.href = `${base}${back.pathname}`;
     back.searchParams.set("token", token);
     back.searchParams.set("url", "wss://proxy-host.test/api/sync");
     back.searchParams.set("identity", identity);
@@ -76,7 +90,7 @@ async function start(opts: {
   };
   const home = join(dataRoot, accountKey(EVE));
   mkdirSync(home, { recursive: true });
-  return { dataRoot, base, api, begin, browser, home, restarted };
+  return { dataRoot, base, api, post, begin, browser, home, restarted };
 }
 
 afterEach(async () => {
@@ -227,10 +241,26 @@ describe("pairing through the browser", () => {
     ]);
   });
 
-  it("is refused where pairing is off, return included", async () => {
+  it("on a server, pairs a secondary that returns to the server's own https origin", async () => {
     const t = await start({ remotePairing: false });
-    expect((await t.api("?origin=o.test")).status).toBe(403);
-    const stray = await fetch(`${t.base}/desktop/sync-pair?state=x`);
-    expect(stray.status).toBe(404);
+    const { url, pairing } = await t.begin({ origin: "band.test", main: true });
+    const u = new URL(url);
+    expect(u.searchParams.get("return")).toBe(
+      "https://home.test/desktop/sync-pair",
+    );
+    // Named after the server on the other one's list of devices.
+    expect(u.searchParams.get("name")).toBe("home.test");
+    expect((await t.browser(url)).status).toBe(200);
+    const { pairing: ended } = await read(t.api(`/${pairing.state}`));
+    // A server's page is never handed the token.
+    expect(ended).toMatchObject({ phase: "paired", main: false, token: null });
+    expect(readRemotes(t.home).map((r) => r.url)).toEqual([
+      "wss://band.test/api/sync",
+    ]);
+  });
+
+  it("on a server, refuses to pair with itself", async () => {
+    const t = await start({ remotePairing: false });
+    expect((await t.post({ origin: "home.test" })).status).toBe(400);
   });
 });

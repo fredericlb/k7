@@ -1,5 +1,5 @@
 // bridge.ts — where the account controls get their sign-in and pairing: a phone app's shell does both natively, and a
-// page served by the tray's backend does them itself (./browserAccount.ts). A server's page has no account bar.
+// page served by the tray's backend or a server does them itself (./browserAccount.ts). A server's page signs in elsewhere.
 // See ../../docs/localApp.md.
 
 import { useLocalApp } from "../localApp";
@@ -24,8 +24,8 @@ export const inAndroidApp = (): boolean => {
 export const accountBridge = (): typeof browserAccount | undefined =>
   inAndroidApp() ? undefined : browserAccount;
 
-/** Where an account control belongs on the home page: wherever this machine runs its own backend, never on a server. */
-export function useHasAccountBar(): boolean {
+/** Where the account's sign-in control belongs on the home page: wherever this machine runs its own backend, never on a server. */
+export function useHasAccountControl(): boolean {
   const local = useLocalApp();
   return inAndroidApp() || !!local;
 }

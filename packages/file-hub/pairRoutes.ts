@@ -1,7 +1,7 @@
-// pairRoutes.ts — pairing a LOCAL account with a remote origin, for the desktop and the phones alike: the app asks
-// here whether to offer it, starts it, opens the URL it gets in the system browser, and waits here for the ending.
-// The browser comes back to THIS backend's loopback port (`pairReturnHandler`), with no session: the state is the
-// gate. See docs/syncRelay.md, "Pairing through the browser".
+// pairRoutes.ts — pairing an account with a remote server, for the tray, the phones and a server alike: the page asks
+// here whether to offer it, starts it, opens the URL it gets in the browser, and waits here for the ending.
+// The browser comes back to THIS backend (`pairReturnHandler`) — its loopback port on a machine, its https origin on a
+// server — with no session: the state is the gate. See docs/syncRelay.md, "Pairing through the browser".
 
 import { mkdirSync } from "node:fs";
 import {
@@ -24,8 +24,12 @@ export interface PairContext {
   accountDir: (slug: string) => string;
   /** Restart the account's file service, so it dials the relay just paired. */
   restart: (user: string) => Promise<unknown>;
-  /** This backend's own port on 127.0.0.1: where the browser comes back. */
-  selfPort: () => number;
+  /** Where the browser comes back: this machine's loopback port, or a server's own https origin. */
+  returnTo: (req: Request) => string;
+  /** On a server its own relay is the account's main one, so every pairing made here is a secondary. */
+  ownMain: boolean;
+  /** The host this backend is reached at, which it cannot pair with. */
+  selfHost: (req: Request) => string;
 }
 
 /** The longest one GET /:state holds before answering a pairing still waiting. */
@@ -60,7 +64,8 @@ function viewOf(c: PairContext, r: PairRecord) {
     phase: r.phase,
     until: r.until,
     browserAs: r.browserAs ?? null,
-    token: remote?.token ?? null,
+    // For the phone's supervisor; a server's page has no use for it.
+    token: c.ownMain ? null : (remote?.token ?? null),
   };
 }
 
@@ -94,13 +99,19 @@ export function pairRouter(c: PairContext): Router {
     const origin = normalizeServer(String(req.body?.origin ?? ""));
     if (!origin)
       return void res.status(400).json({ error: "origin is no k7 server" });
+    if (hostOf(origin) === c.selfHost(req))
+      return void res.status(400).json({ error: "that is this server" });
     if (hostsOf(email).has(hostOf(origin)))
       return void res.status(409).json({ error: "already paired there" });
-    const name = String(req.body?.name ?? "").trim() || "a machine";
-    // The first server paired is the main one whatever it was asked as.
-    const main = req.body?.main !== false || hostsOf(email).size === 0;
+    // A server is named after itself on the other one's list of devices.
+    const name =
+      (c.ownMain ? c.selfHost(req) : String(req.body?.name ?? "").trim()) ||
+      "a machine";
+    // The first server paired is the main one whatever it was asked as — except where this one is.
+    const main =
+      !c.ownMain && (req.body?.main !== false || hostsOf(email).size === 0);
     const p = c.store.begin(email, origin, main);
-    const back = `http://127.0.0.1:${c.selfPort()}${SYNC_PAIR_RETURN_PATH}`;
+    const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
     res.json({
       pairing: viewOf(c, p),
       url: syncPairUrl(origin, back, p.state, name),
@@ -144,7 +155,7 @@ function ending(r: PairRecord): { status: number; said: string } {
     case "paired":
       return {
         status: 200,
-        said: `This device now syncs your workspaces with ${host}. You can go back to k7.`,
+        said: `k7 here now syncs your workspaces with ${host}. You can go back to k7.`,
       };
     case "otherAccount":
       return {

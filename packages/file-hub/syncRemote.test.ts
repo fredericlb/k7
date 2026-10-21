@@ -10,6 +10,7 @@ import {
   readRemote,
   readRemotes,
   setMainRemote,
+  syncTarget,
   writeRemote,
 } from "./syncRemote.ts";
 
@@ -70,5 +71,35 @@ describe("an account's pairings", () => {
     expect(readRemotes(h).map((r) => [r.url, r.main])).toEqual([[B, true]]);
     expect(forgetRemote(h)).toBe(true);
     expect(readRemotes(h)).toEqual([]);
+  });
+});
+
+describe("where an account's service syncs", () => {
+  const own = "ws://127.0.0.1:8789/api/sync";
+  const remotes = [
+    { url: A, token: "a", user: "u", main: true },
+    { url: B, token: "b", user: "u", main: false },
+  ];
+
+  it("is this hub's own relay when nothing is paired", () => {
+    expect(syncTarget(own, [], false)).toEqual({ STUDIO_SYNC_URL: own });
+    expect(syncTarget(own, [], true)).toEqual({ STUDIO_SYNC_URL: own });
+  });
+
+  it("on a machine, is the main pairing, by its token", () => {
+    const env = syncTarget(own, remotes, false);
+    expect(env.STUDIO_SYNC_URL).toBe(A);
+    expect(env.STUDIO_SYNC_TOKEN).toBe("a");
+  });
+
+  it("on a server, stays its own relay, every pairing a secondary beside it", () => {
+    const env = syncTarget(own, remotes, true);
+    expect(env.STUDIO_SYNC_URL).toBe(own);
+    expect(env.STUDIO_SYNC_TOKEN).toBeUndefined();
+    expect(JSON.parse(env.STUDIO_SYNC_SERVERS)).toEqual([
+      { url: own, own: true, main: true },
+      { url: A, token: "a", main: false },
+      { url: B, token: "b", main: false },
+    ]);
   });
 });

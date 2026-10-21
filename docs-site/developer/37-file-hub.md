@@ -69,16 +69,17 @@ stamped. A ticket may carry `~<engineId>` to bind that engine to the account fir
 | `/api/files-hub/internal/*` | `x-studio-hub-secret` of a running instance | Called by a file service: `share/checkpoint`, `share/files`, `libraries/remote`, `libraries/sync`. |
 | `GET /api/public/libraries[/<name>/<v>[/file?path=]]` | none | Published library versions, for machines that fetch them. Never the draft. |
 | `WS /api/sync` | device token or hub secret | The live-sync relay ([live-sync](./38-live-sync.md)). |
-| `/api/sync/devices` (`GET`, `POST`, `DELETE /:id`), `GET /api/sync/devices/pair` | session | Device tokens, and the browser pairing flow that hands one to a machine's own backend. |
-| `/api/sync/remote` (`GET`, `PUT`, `POST /main`, `DELETE`) | session | Pair this machine's account with remote servers; writes refused (403) unless pairing is enabled. |
+| `/api/sync/devices` (`GET`, `POST`, `DELETE /:id`), `GET`/`POST /api/sync/devices/pair` | session | Device tokens, and the browser pairing flow that hands one to a machine's own backend, or to another server once the person allowed it. |
+| `/api/sync/remote` (`GET`, `PUT`, `POST /main`, `DELETE`) | session | The account's pairings with remote servers; on a server `POST /main` is refused (403), the server staying the main one. |
 | `/api/sync/blobs/:hash` | device token or hub secret | Binary blobs: GET with ranges, resumable PUT verified against the hash, 2 GiB max. |
 | `GET /api/sync/rooms` | token or secret | Workspaces that have a room. |
 | `/api/sync/history/:workspace` (`GET`, `POST /checkpoints`, `GET /diff`, `POST /restore`) | session | The server log as history; a restore is submitted to the room as a batch. |
 | `GET /api/sync/events` | session | Server-sent change notices, 20 s heartbeat. |
 
-**Remote pairing** is enabled only where `STUDIO_LOCAL_USER=1` (the tray's and the phone's backends,
-option `remotePairing`). On the origin server no account may be paired, because the origin's
-libraries follow the first paired account.
+**A main remote** is followed only where `STUDIO_LOCAL_USER=1` (the tray's and the phone's backends,
+option `remotePairing`), since the libraries follow the first paired account. On a server an account
+pairs secondaries only: the server stays its main one, and the other server mints the token only
+after the person allowed it on its own page.
 
 ## Libraries
 

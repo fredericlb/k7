@@ -27,8 +27,8 @@ account's rooms.
 
 The token comes from the origin's `GET /api/sync/devices/pair`, which a computer or a phone opens in
 the browser: it signs the browser in when it must, mints a device token named after the
-machine, and redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API
-token's pairing). A paired account's service starts with the hub and is never stopped for idleness,
+machine, and redirects to a loopback `return` (`isLoopbackReturn`, the same rule as the API
+token's pairing) — or to another server's, once the person allowed it (below). A paired account's service starts with the hub and is never stopped for idleness,
 and pairing restarts it so it dials the new relay.
 
 ## Pairing through the browser is the machine's backend's
@@ -69,7 +69,30 @@ every pairing rides in `STUDIO_SYNC_SERVERS`, for the workspaces each server hol
 (`packages/file-service/docs/liveCapture.md`, "Several servers"). A pairing names its server by the
 relay's host, so pairing the same server again replaces it rather than listing it twice.
 `POST /api/sync/remote/main` makes another one main and `DELETE /api/sync/remote?url=` forgets one.
-Every one of these is refused on the origin: only a hub given `remotePairing` pairs (`fileHub.md`).
+
+## A server's accounts
+
+An account on a server may be paired with other servers too, and the server it is signed in to stays
+its MAIN one: its libraries, the surfaces that compare themselves with "the" remote, and new
+workspaces stay this server's, and only a hub given `remotePairing` follows another (`fileHub.md`).
+So `syncTarget` (`../syncRemote.ts`) keeps the hub's own relay first in `STUDIO_SYNC_SERVERS`,
+reached by the hub secret and marked `own`, and every pairing rides beside it as a secondary;
+`POST /api/sync/remote/main` answers 403, and `GET /api/sync/remote` lists the server itself first.
+The server keeps joining every room of its own relay and only those: a secondary's workspaces come
+down when the person downloads them, as on a paired machine
+(`packages/file-service/docs/liveCapture.md`, "Several servers").
+
+- **The browser comes back to the server's own https origin**, at the same `SYNC_PAIR_RETURN_PATH`,
+  and the state is its gate as on a machine. The other server is named after this one on its list of
+  devices, and the pairing's token never reaches the page.
+- **The other server mints a token for an https return only after a click on its own page**
+  (`../pairConsent.ts`, `isServerReturn`). A loopback return reaches the machine that asked, but an
+  https one reaches whoever wrote the link: without the click, a link sent to someone signed in there
+  would hand their account to the sender. The page names the asking server and the account, cannot be
+  framed, and its Allow is a same-origin POST, which another site cannot forge.
+- **A file service names its own server by the origin the page reached it at**, which the hub stamps
+  on every request it forwards (`ORIGIN_HEADER`, dropped when a client sends it): its own relay is a
+  loopback address that means nothing to a browser.
 
 ## The relay trusts the socket, not the payload
 

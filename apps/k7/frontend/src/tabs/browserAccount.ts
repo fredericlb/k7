@@ -1,4 +1,4 @@
-// browserAccount.ts — signing in and pairing from the page itself, when it is served by the tray's backend in a browser.
+// browserAccount.ts — signing in and pairing from the page itself, served in a browser by the tray's backend or a server.
 // Sign-in is the backend's own /auth/login, the address bar being right there; pairing is the backend's
 // /api/sync/remote/pair, its trip to the server opened in a tab of its own from a click, which a browser allows.
 // See ../../docs/localApp.md and packages/file-hub/docs/syncRelay.md, "Pairing through the browser".

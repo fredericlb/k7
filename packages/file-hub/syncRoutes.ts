@@ -1,18 +1,20 @@
-// syncRoutes.ts — the hub's live-sync routes beside the relay: devices and their pairing, a local account's
-// pairing with a remote origin, the rooms an account has, the blob store and the history.
+// syncRoutes.ts — the hub's live-sync routes beside the relay: devices and their pairing, an account's pairing with
+// remote servers (the main one on a machine, secondaries beside its own relay on a server), the rooms, blobs, history.
 // Split from index.ts, which keeps the file services and the relay itself. See docs/syncRelay.md.
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { isLoopbackReturn } from "@studio/web-protocol/pairing";
+import { isLoopbackReturn, isServerReturn } from "@studio/web-protocol/pairing";
 import express, { type Request, type RequestHandler, Router } from "express";
 import { blobsRouter } from "./blobStore.ts";
 import type { DeviceTokens } from "./deviceTokens.ts";
 import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
+import { consentPage, sameOriginPost } from "./pairConsent.ts";
 import { PairingStore } from "./pairingStore.ts";
 import { pairReturnHandler, pairRouter } from "./pairRoutes.ts";
+import { publicHost, publicOrigin } from "./publicOrigin.ts";
 import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
@@ -46,19 +48,13 @@ export interface SyncContext {
   subjectOf: (req: Request) => string;
   /** The running relay, once `serveSync` has attached it. */
   relay: () => ReturnType<typeof attachSyncRelay> | null;
-  /** Whether an account here may be paired with a remote origin: the desktop and the phone, never the origin itself. */
+  /** Whether an account here pairs with a MAIN remote server (the tray, the phones); a server pairs secondaries only. */
   remotePairing: boolean;
   /** The machine's local user, who never pairs; absent, nobody is. */
   isLocal?: (req: Request) => boolean;
   /** This backend's port on 127.0.0.1, where a pairing's browser comes back. */
   selfPort?: () => number;
 }
-
-/** The host a browser reached this origin at: a proxy in front rewrites Host, and says the original in x-forwarded-host. */
-const publicHost = (req: Request): string =>
-  String(req.get("x-forwarded-host") ?? req.get("host") ?? "")
-    .split(",")[0]
-    .trim();
 
 export class SyncRoutes {
   /** The pairings under way through the browser, kept under the data root — pairingStore.ts. */
@@ -75,27 +71,24 @@ export class SyncRoutes {
       isLocal: this.c.isLocal ?? (() => false),
       accountDir: (slug: string) => this.accountDir(slug),
       restart: (user: string) => this.c.instances.restart(user),
-      selfPort: this.c.selfPort ?? (() => 0),
+      // A machine's browser comes back to its loopback port; a server's, to the origin it is reached at.
+      returnTo: (req: Request) =>
+        this.c.remotePairing
+          ? `http://127.0.0.1:${this.c.selfPort?.() ?? 0}`
+          : publicOrigin(req),
+      ownMain: !this.c.remotePairing,
+      selfHost: publicHost,
     };
   }
 
-  /** A local account's pairing with a remote origin, started and awaited by the app — behind the session. */
+  /** An account's pairing with a remote server, started and awaited by its page — behind the session. */
   pairRouter(): Router {
-    const r = Router();
-    // Where pairing is off, there is nothing to start nor to wait for (docs/fileHub.md).
-    r.use((_req, res, next) => {
-      if (this.c.remotePairing) return next();
-      res.status(403).json({ error: "this server is not paired with another" });
-    });
-    r.use(pairRouter(this.pairContext()));
-    return r;
+    return pairRouter(this.pairContext());
   }
 
-  /** The browser's way back with the origin's device token, on this backend's own port — NO session guard. */
+  /** The browser's way back with the other server's device token — NO session guard: the state is the gate. */
   pairReturnHandler(): RequestHandler {
-    const answer = pairReturnHandler(this.pairContext());
-    return (req, res, next) =>
-      this.c.remotePairing ? answer(req, res, next) : next();
+    return pairReturnHandler(this.pairContext());
   }
 
   /** The account's sync devices: list, add (answering the token once), remove — mounted behind the session guard. */
@@ -163,22 +156,36 @@ export class SyncRoutes {
     });
   }
 
-  /** Mint a device token for the session's account and send it to the desktop's loopback `return`: how a machine pairs. */
+  /** Mint a device token for the session's account and send it to `return`: a machine's loopback, or a server's https after a confirm. */
   syncPairHandler(): RequestHandler {
     return (req, res) => {
-      const back = String(req.query.return ?? "");
-      // The predicate is shared with the app that builds this address: one rule, two sides.
-      if (!isLoopbackReturn(back))
-        return void res
-          .status(400)
-          .json({ error: "return must be an http loopback address" });
+      // A GET carries the query; the confirm's POST carries the same fields as a form.
+      const q = (k: string): string =>
+        String((req.method === "POST" ? req.body?.[k] : req.query[k]) ?? "");
+      const back = q("return");
+      // The predicates are shared with the backend that builds this address: one rule, two sides.
+      const server = isServerReturn(back);
+      if (!isLoopbackReturn(back) && !server)
+        return void res.status(400).json({
+          error: "return must be an http loopback or a server's sync return",
+        });
       const user = this.c.userOf(req);
       if (!user)
         return void res.status(401).json({ error: "no user on the session" });
-      const name =
-        String(req.query.name ?? "")
-          .trim()
-          .slice(0, 80) || "a machine";
+      if (server && !(req.method === "POST" && sameOriginPost(req))) {
+        res.setHeader("Cache-Control", "no-store");
+        // Framed, the Allow button could be clicked through an overlay.
+        res.setHeader("X-Frame-Options", "DENY");
+        res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+        return void res.type("html").send(
+          consentPage(new URL(back).host, user, {
+            return: back,
+            state: q("state"),
+            name: q("name"),
+          }),
+        );
+      }
+      const name = q("name").trim().slice(0, 80) || "a machine";
       const { device, token } = this.c.devices.mint(
         accountKey(user),
         name,
@@ -193,13 +200,12 @@ export class SyncRoutes {
         `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`,
       );
       target.searchParams.set("identity", user);
-      if (typeof req.query.state === "string")
-        target.searchParams.set("state", req.query.state);
-      res.redirect(target.toString());
+      if (q("state")) target.searchParams.set("state", q("state"));
+      res.redirect(303, target.toString());
     };
   }
 
-  /** This account's pairings with remote servers, behind the LOCAL session: PUT pairs one, POST /main picks the main one, DELETE unpairs. */
+  /** This account's pairings with remote servers, behind the session: PUT pairs one, POST /main picks the main one, DELETE unpairs. */
   remoteRouter(): Router {
     const r = Router();
     r.use(express.json());
@@ -207,20 +213,34 @@ export class SyncRoutes {
       const user = this.c.userOf(req);
       return user ? { user, home: this.accountDir(accountKey(user)) } : null;
     };
-    // Where pairing is off, nothing here may change: the origin's libraries follow the first paired account (docs/fileHub.md).
-    r.use((req, res, next) => {
-      if (this.c.remotePairing || req.method === "GET") return next();
-      res.status(403).json({ error: "this server is not paired with another" });
+    // On a server its own relay is the main one, which no pairing replaces (docs/fileHub.md).
+    r.use("/main", (_req, res, next) => {
+      if (this.c.remotePairing) return next();
+      res.status(403).json({ error: "this server is always the main one" });
     });
     r.get("/", (req, res) => {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const servers = this.c.remotePairing ? readRemotes(w.home) : [];
+      const remotes = readRemotes(w.home).map((r) => ({
+        url: r.url,
+        main: this.c.remotePairing && r.main,
+      }));
+      // A server lists itself first: the main one, never let go.
+      const own = this.c.remotePairing
+        ? []
+        : [
+            {
+              url: `${publicOrigin(req).replace(/^http/, "ws")}${SYNC_PATH}`,
+              main: true,
+              own: true,
+            },
+          ];
+      const servers = [...own, ...remotes];
       res.json({
-        paired: servers.length > 0,
+        paired: remotes.length > 0,
         url: servers[0]?.url ?? null,
-        servers: servers.map((r) => ({ url: r.url, main: r.main })),
+        servers,
       });
     });
     r.put("/", (req, res) => {
@@ -240,7 +260,7 @@ export class SyncRoutes {
         url,
         token,
         user: w.user,
-        main: req.body?.main !== false,
+        main: this.c.remotePairing && req.body?.main !== false,
       });
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: true, url }),

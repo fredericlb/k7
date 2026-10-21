@@ -17,7 +17,7 @@ import {
   SYNC_PAIR_RETURN_PATH,
   SYNC_PAIR_ROUTE,
 } from "@studio/web-protocol/pairing";
-import type { Express, RequestHandler } from "express";
+import express, { type Express, type RequestHandler } from "express";
 import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 
@@ -57,7 +57,7 @@ export function mountFileHub(
     isAdmin: isAdminRequest,
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
-    // The desktop and the phone pair with an origin; the origin itself never follows another (docs/fileHub.md).
+    // The tray and the phones follow a main server; a server stays its accounts' main one, others beside it (docs/fileHub.md).
     remotePairing: process.env.STUDIO_LOCAL_USER === "1",
     isLocal: (req) => (req.user as SessionUser | undefined)?.local === true,
     // Stable across restarts, so an open page keeps its ticket through a deploy.
@@ -68,26 +68,30 @@ export function mountFileHub(
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
   // The published versions of the seed's library, for a desktop never paired: no session, read-only.
   app.use(PUBLIC_LIBRARIES_PATH, hub.publicLibrariesHandler());
-  // A desktop pairing with this origin: its browser lands here, signs in if it must, and leaves with a device token.
-  app.get(
+  // A machine or another server pairing with this one: its browser lands here, signs in if it must, and leaves with a device token.
+  const pairGate: RequestHandler = (req, res, next) => {
+    const user = req.session?.user as SessionUser | undefined;
+    if (!user || user.local)
+      return res.redirect(
+        `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}`,
+      );
+    (req as { user?: SessionUser }).user = user;
+    next();
+  };
+  app.get(SYNC_PAIR_ROUTE, pairGate, hub.sync.syncPairHandler());
+  // The confirm another server's pairing asks for, posted by the page the GET served.
+  app.post(
     SYNC_PAIR_ROUTE,
-    (req, res, next) => {
-      const user = req.session?.user as SessionUser | undefined;
-      if (!user || user.local)
-        return res.redirect(
-          `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}`,
-        );
-      (req as { user?: SessionUser }).user = user;
-      next();
-    },
+    express.urlencoded({ extended: false, limit: "8kb" }),
+    pairGate,
     hub.sync.syncPairHandler(),
   );
   app.use("/api/sync/devices", requireAuth, hub.sync.devicesRouter());
-  // A pairing through the browser, for the desktop and the phones: started and awaited here, ended at the return.
+  // A pairing through the browser, for the tray, the phones and a server's accounts: started and awaited here, ended at the return.
   app.use("/api/sync/remote/pair", requireAuth, hub.sync.pairRouter());
   // The browser comes back here with the origin's token, signed in to nothing on this machine: the state is the gate.
   app.get(SYNC_PAIR_RETURN_PATH, hub.sync.pairReturnHandler());
-  // The LOCAL backend's own account, paired with a remote origin: the desktop stores what pairing brought back.
+  // The account's pairings with other servers: what pairing brought back, listed, made main or let go.
   app.use("/api/sync/remote", requireAuth, hub.sync.remoteRouter());
   // A binary file's bytes, by hash: a device token or a hub secret is the gate, not a session.
   app.use("/api/sync/blobs", hub.sync.blobsRouter());

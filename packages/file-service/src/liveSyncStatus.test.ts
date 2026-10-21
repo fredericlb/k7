@@ -8,10 +8,7 @@ import { workspaceSyncStatus } from "./liveSync.ts";
 let server: Server;
 let port = 0;
 let auth = "";
-const saved = {
-  url: process.env.STUDIO_SYNC_URL,
-  token: process.env.STUDIO_SYNC_TOKEN,
-};
+const saved = { ...process.env };
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -25,9 +22,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   server.close();
-  process.env.STUDIO_SYNC_URL = saved.url;
-  if (saved.token === undefined) delete process.env.STUDIO_SYNC_TOKEN;
-  else process.env.STUDIO_SYNC_TOKEN = saved.token;
+  process.env = { ...saved };
 });
 
 describe("workspaceSyncStatus", () => {
@@ -56,5 +51,39 @@ describe("workspaceSyncStatus", () => {
       { name: "solo", state: "local", server },
       { name: "gig", state: "server", server },
     ]);
+  });
+
+  it("on a server, says nothing until another server is added beside its own relay, then names itself as the page does", async () => {
+    const own = `ws://127.0.0.1:${port}/api/sync`;
+    delete process.env.STUDIO_SYNC_TOKEN;
+    process.env.STUDIO_SYNC_URL = own;
+    process.env.STUDIO_HUB_SECRET = "hs";
+    delete process.env.STUDIO_SYNC_SERVERS;
+    expect(
+      (await workspaceSyncStatus(["band"], "https://home.test")).paired,
+    ).toBe(false);
+    // The same fake answers the secondary, under another host.
+    const band = `ws://localhost:${port}/api/sync`;
+    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
+      { url: own, own: true, main: true },
+      { url: band, token: "tb", main: false },
+    ]);
+    const s = await workspaceSyncStatus(["band"], "https://home.test");
+    expect(s.paired).toBe(true);
+    expect(s.server).toBe("https://home.test");
+    expect(s.servers).toEqual([
+      { origin: "https://home.test", main: true },
+      { origin: `http://localhost:${port}`, main: false },
+    ]);
+    expect(s.workspaces).toContainEqual({
+      name: "band",
+      state: "local",
+      server: "https://home.test",
+    });
+    expect(s.workspaces).toContainEqual({
+      name: "gig",
+      state: "server",
+      server: `http://localhost:${port}`,
+    });
   });
 });

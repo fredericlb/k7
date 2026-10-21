@@ -6,12 +6,13 @@ import { validate, wrap } from "@frediverse/http/route";
 import {
   type AccountWorkspaceList,
   ADMIN_HEADER,
+  ORIGIN_HEADER,
   type ServedProjectReply,
   type SurfacedProjectList,
   type WorkspaceList,
 } from "@studio/web-protocol";
 import { isBenchProject } from "@studio/web-protocol/projects";
-import { type Response, Router } from "express";
+import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { ensureBench } from "../bench.ts";
 import { copyProjectBetween } from "../copyProject.ts";
@@ -19,6 +20,7 @@ import { servedProject, unloadEngineIfServing } from "../engineLink.ts";
 import { libraryRefusal } from "../libraries.ts";
 import { ensureLibraryPins } from "../libraryPins.ts";
 import { startCopy, startMove } from "../liveMove.ts";
+import { fromPage } from "../liveServers.ts";
 import {
   downloadWorkspace,
   joinServerRooms,
@@ -35,6 +37,10 @@ import {
   workspaceNames,
 } from "../workspaces.ts";
 export const workspacesRouter: Router = Router();
+
+/** The origin the page reached the hub at, which the hub stamps: how this server is named to it. */
+const selfOrigin = (req: Request): string | undefined =>
+  req.get(ORIGIN_HEADER) || undefined;
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 workspacesRouter.get(
@@ -135,8 +141,10 @@ workspacesRouter.get(
 /** Where each workspace lives on a machine paired with a remote server: both, here only, or there only. See docs/workspaces.md. */
 workspacesRouter.get(
   "/workspaces/sync",
-  wrap(async (_req, res) => {
-    res.json(await workspaceSyncStatus(workspaceNames(rootDir())));
+  wrap(async (req, res) => {
+    res.json(
+      await workspaceSyncStatus(workspaceNames(rootDir()), selfOrigin(req)),
+    );
   }),
 );
 
@@ -152,7 +160,11 @@ workspacesRouter.post(
     const { name, server } = req.body as z.infer<typeof downloadBody>;
     const here = new Set(workspaceNames(rootDir()));
     // A name another server's workspace already has here lands as `name.host` (docs/liveCapture.md, "Several servers").
-    const local = await downloadWorkspace(name, server, (n) => here.has(n));
+    const local = await downloadWorkspace(
+      name,
+      server && fromPage(server, selfOrigin(req)),
+      (n) => here.has(n),
+    );
     if (local) res.json({ ok: true, name: local });
     else
       res.status(404).json({
@@ -173,7 +185,7 @@ workspacesRouter.post(
     const { name, to } = req.body as z.infer<typeof moveBody>;
     try {
       // The refusals answered now; the move itself runs on, and `/workspaces/sync` says how it went.
-      await startMove(workspaceRoot(name), to);
+      await startMove(workspaceRoot(name), fromPage(to, selfOrigin(req)));
       res.status(202).json({ ok: true });
     } catch (e) {
       res.status(409).json({ error: (e as Error).message });
@@ -189,7 +201,7 @@ workspacesRouter.post(
     const { name, to } = req.body as z.infer<typeof moveBody>;
     try {
       // Answered like a move: the refusals now, the copy running on, and `/workspaces/sync` says how it went.
-      await startCopy(workspaceRoot(name), to);
+      await startCopy(workspaceRoot(name), fromPage(to, selfOrigin(req)));
       res.status(202).json({ ok: true });
     } catch (e) {
       res.status(409).json({ error: (e as Error).message });

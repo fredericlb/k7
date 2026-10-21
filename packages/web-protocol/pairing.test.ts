@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isLoopbackReturn,
+  isServerReturn,
   normalizeServer,
   PAIR_RETURN_PATH,
   pairUrl,
@@ -111,5 +112,28 @@ describe("the server a person types", () => {
       "https://",
     ])
       expect(normalizeServer(bad)).toBeNull();
+  });
+});
+
+describe("what a token may be returned to on a server", () => {
+  it("accepts https on the sync return path, on any host and port", () => {
+    for (const u of [
+      "https://k7.example.org/desktop/sync-pair",
+      "https://band.test:8443/desktop/sync-pair?state=x",
+    ])
+      expect(isServerReturn(u), u).toBe(true);
+  });
+
+  it("refuses another path, plain http, credentials and what is no URL", () => {
+    for (const u of [
+      "https://k7.example.org/desktop/pair",
+      "https://k7.example.org/desktop/sync-pair/x",
+      "https://evil.test/",
+      "http://k7.example.org/desktop/sync-pair",
+      "https://u:p@k7.example.org/desktop/sync-pair",
+      "javascript:alert(1)",
+      "",
+    ])
+      expect(isServerReturn(u), u).toBe(false);
   });
 });

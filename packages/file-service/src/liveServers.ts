@@ -1,5 +1,5 @@
 // liveServers.ts — the servers this account syncs with, and which one each workspace belongs to. One link per
-// server; the MAIN one is `STUDIO_SYNC_URL`, the others ride in `STUDIO_SYNC_SERVERS` (file-hub syncRemote.ts).
+// server; the MAIN one is `STUDIO_SYNC_URL` (on a server, its own relay), all ride in `STUDIO_SYNC_SERVERS` (file-hub syncRemote.ts).
 // A workspace's server and room are kept in its log folder: with none recorded it is the main one's, under its
 // own name — which is what every workspace synced before secondaries is. See docs/liveCapture.md, "Several servers".
 
@@ -14,6 +14,8 @@ export interface SyncServer {
   url: string;
   auth: RelayAuth;
   main: boolean;
+  /** This hub's own relay, reached by its secret: a server's, which holds every room it has. */
+  own: boolean;
 }
 
 /** Where a workspace syncs: its server's origin and the room it is called by there. */
@@ -49,15 +51,24 @@ export const isPaired = (): boolean => !!process.env.STUDIO_SYNC_TOKEN;
 /** Every server, the main one first; empty when this service syncs with no relay at all. */
 export function syncServers(): SyncServer[] {
   const raw = process.env.STUDIO_SYNC_SERVERS;
+  const secret = process.env.STUDIO_HUB_SECRET;
   if (raw)
     try {
       const list = (
-        JSON.parse(raw) as { url?: string; token?: string; main?: boolean }[]
-      ).flatMap((s) =>
-        s.url && s.token
-          ? [{ url: s.url, auth: { token: s.token }, main: s.main === true }]
-          : [],
-      );
+        JSON.parse(raw) as {
+          url?: string;
+          token?: string;
+          main?: boolean;
+          own?: boolean;
+        }[]
+      ).flatMap((s): SyncServer[] => {
+        const main = s.main === true;
+        if (s.url && s.own && secret)
+          return [{ url: s.url, auth: { secret }, main, own: true }];
+        return s.url && s.token
+          ? [{ url: s.url, auth: { token: s.token }, main, own: false }]
+          : [];
+      });
       if (list.length)
         return list.sort((a, b) => Number(b.main) - Number(a.main));
     } catch {
@@ -65,10 +76,14 @@ export function syncServers(): SyncServer[] {
     }
   const url = process.env.STUDIO_SYNC_URL;
   const token = process.env.STUDIO_SYNC_TOKEN;
-  const secret = process.env.STUDIO_HUB_SECRET;
   if (!url || !(token || secret)) return [];
   return [
-    { url, auth: token ? { token } : { secret: secret ?? "" }, main: true },
+    {
+      url,
+      auth: token ? { token } : { secret: secret ?? "" },
+      main: true,
+      own: !token,
+    },
   ];
 }
 
@@ -77,6 +92,17 @@ export const mainServer = (): SyncServer | undefined => syncServers()[0];
 /** The server an origin or relay URL names, among those this account is paired with. */
 export const serverOf = (url: string): SyncServer | undefined =>
   syncServers().find((s) => hostOf(s.url) === hostOf(url));
+
+/** A page names this server by the origin it reached it at (`self`), which is this hub's own relay. */
+export function fromPage(url: string, self: string | undefined): string {
+  if (!self || hostOf(url) !== hostOf(self)) return url;
+  return syncServers().find((s) => s.own)?.url ?? url;
+}
+
+/** …and is shown it by that origin: the own relay's loopback address means nothing to a browser. */
+export function toPage(url: string, self: string | undefined): string {
+  return self && serverOf(url)?.own ? self : originOf(url);
+}
 
 const links = new Map<string, RelayLink>();
 
