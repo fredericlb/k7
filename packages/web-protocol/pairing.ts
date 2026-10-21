@@ -55,6 +55,22 @@ export function pairUrl(
 /** Where a machine's backend listens for its SYNC device token, beside the API token's path. */
 export const SYNC_PAIR_RETURN_PATH = "/desktop/sync-pair";
 
+/** A SERVER's sync return: https, no credentials, exactly SYNC_PAIR_RETURN_PATH; only ever sent after the person confirmed it. */
+export function isServerReturn(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    !url.username &&
+    !url.password &&
+    url.pathname === SYNC_PAIR_RETURN_PATH
+  );
+}
+
 /** Where live sync's relay answers at an origin, as a WebSocket: the file hub's `SYNC_PATH`. */
 export const SYNC_RELAY_PATH = "/api/sync";
 

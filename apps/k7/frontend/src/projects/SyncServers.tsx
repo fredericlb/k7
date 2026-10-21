@@ -1,7 +1,7 @@
-// SyncServers.tsx — the servers a signed-in account on this machine syncs with, in the home page's account bar: the
-// MAIN one (libraries, new workspaces), the others beside it, each one made main or let go, and another added.
-// Adding pairs through the browser like the main one does (../tabs/browserAccount.ts); the rest is the local
-// backend's `/api/sync/remote` (packages/file-hub/docs/syncRelay.md).
+// SyncServers.tsx — the servers a signed-in account syncs with, in the home page's account bar: the MAIN one
+// (libraries, new workspaces), the others beside it, each one made main or let go, and another added. On a server the
+// main one is the server itself, listed first and fixed. Adding pairs through the browser (../tabs/browserAccount.ts);
+// the rest is the backend's `/api/sync/remote` (packages/file-hub/docs/syncRelay.md).
 
 import { Check, Plus, Star, X } from "@frediverse/ui/icons";
 import { askConfirm } from "@studio/project-shell/ask";
@@ -14,6 +14,8 @@ import { hostLabel } from "./WorkspaceSyncIcon";
 interface Server {
   url: string;
   main: boolean;
+  /** The server this page is served by, which stays the main one. */
+  own?: boolean;
 }
 
 /** A pairing adds a server only once the browser comes back: the list is asked again until it shows. */
@@ -79,6 +81,8 @@ export function SyncServers() {
   };
 
   if (!servers.length) return null;
+  // Where the server itself is listed, it is the main one for good.
+  const fixedMain = servers.some((s) => s.own);
   const button =
     "rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground";
   return (
@@ -94,15 +98,17 @@ export function SyncServers() {
             <span className="text-primary-text">{m["account.main"]()}</span>
           ) : (
             <>
-              <button
-                type="button"
-                className={button}
-                title={m["account.makeMain"]()}
-                aria-label={m["account.makeMain"]()}
-                onClick={() => makeMain(s)}
-              >
-                <Star className="size-3" />
-              </button>
+              {!fixedMain && (
+                <button
+                  type="button"
+                  className={button}
+                  title={m["account.makeMain"]()}
+                  aria-label={m["account.makeMain"]()}
+                  onClick={() => makeMain(s)}
+                >
+                  <Star className="size-3" />
+                </button>
+              )}
               <button
                 type="button"
                 className={button}

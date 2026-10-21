@@ -130,3 +130,30 @@ export function pairedAccounts(dataRoot: string): SyncRemote[] {
     return r ? [r] : [];
   });
 }
+
+/** Where an account's service syncs: its MAIN server by its device token, the others beside it, else this hub's own relay `own`. */
+export function syncTarget(
+  own: string,
+  remotes: SyncRemote[],
+  ownMain: boolean,
+): Record<string, string> {
+  const [main] = remotes;
+  if (!main) return { STUDIO_SYNC_URL: own };
+  // A server stays its accounts' main one, by its hub secret; what is paired rides beside it (file-service liveServers.ts).
+  if (ownMain)
+    return {
+      STUDIO_SYNC_URL: own,
+      STUDIO_SYNC_SERVERS: JSON.stringify([
+        { url: own, own: true, main: true },
+        ...remotes.map((r) => ({ url: r.url, token: r.token, main: false })),
+      ]),
+    };
+  return {
+    STUDIO_SYNC_URL: main.url,
+    STUDIO_SYNC_TOKEN: main.token,
+    // Every pairing, main included, for the workspaces each server holds (file-service docs/liveCapture.md).
+    STUDIO_SYNC_SERVERS: JSON.stringify(
+      remotes.map((r) => ({ url: r.url, token: r.token, main: r.main })),
+    ),
+  };
+}

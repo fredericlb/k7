@@ -111,6 +111,11 @@ describe("the file hub", () => {
     app.use("/api/files-hub/internal", hub.internalHandler());
     app.use("/api/files", hub.handler());
     app.get("/api/sync/devices/pair", hub.sync.syncPairHandler());
+    app.post(
+      "/api/sync/devices/pair",
+      express.urlencoded({ extended: false }),
+      hub.sync.syncPairHandler(),
+    );
     app.use("/api/sync/remote", hub.sync.remoteRouter());
     app.use("/api/sync/rooms", hub.sync.roomsRouter());
     server = createServer(app);
@@ -393,7 +398,7 @@ describe("the file hub", () => {
         );
       expect((await pair("https://evil.example/x")).status).toBe(400);
       const r = await pair("http://127.0.0.1:9/desktop/sync-pair");
-      expect(r.status).toBe(302);
+      expect(r.status).toBe(303);
       const to = new URL(r.headers.get("location") ?? "");
       expect(to.searchParams.get("state")).toBe("s1");
       expect(to.searchParams.get("identity")).toBe("fred@example.com");
@@ -409,6 +414,41 @@ describe("the file hub", () => {
         headers: { authorization: "Bearer nope" },
       });
       expect(forged.status).toBe(401);
+    });
+
+    it("sends a token to another server's https return only once the person allowed it on this origin's page", async () => {
+      const back = "https://band.test/desktop/sync-pair";
+      const fields = new URLSearchParams({
+        return: back,
+        state: "s2",
+        name: "band.test",
+      });
+      const asked = await fetch(`${origin()}/api/sync/devices/pair?${fields}`, {
+        headers: { "x-test-session": "fred@example.com" },
+        redirect: "manual",
+      });
+      expect(asked.status).toBe(200);
+      expect(asked.headers.get("x-frame-options")).toBe("DENY");
+      expect(await asked.text()).toContain("Sync with band.test?");
+      const allow = (site: string) =>
+        fetch(`${origin()}/api/sync/devices/pair`, {
+          method: "POST",
+          headers: {
+            "x-test-session": "fred@example.com",
+            "content-type": "application/x-www-form-urlencoded",
+            "sec-fetch-site": site,
+          },
+          body: fields.toString(),
+          redirect: "manual",
+        });
+      // A form another site posts is shown the question again, never answered with a token.
+      expect((await allow("cross-site")).status).toBe(200);
+      const r = await allow("same-origin");
+      expect(r.status).toBe(303);
+      const to = new URL(r.headers.get("location") ?? "");
+      expect(to.origin + to.pathname).toBe(back);
+      expect(to.searchParams.get("state")).toBe("s2");
+      expect(to.searchParams.get("token")).toBeTruthy();
     });
 
     it("syncs ONE paired account with the remote, its service restarted; every other with this hub's relay", async () => {

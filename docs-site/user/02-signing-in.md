@@ -69,6 +69,11 @@ When you are signed in on your computer, the account bar lists the servers under
 | **Stop syncing with …** | Asks for confirmation, then stops syncing with that server. Its workspaces stay on this machine but no longer sync. Nothing is deleted on the server. |
 | **Add a server** | Opens a field for another k7 server to sync with, beside the main one. Linking finishes in the server's page, in a new browser tab, and the list grows once it has. |
 
+On a k7 server in the browser (`app.k7.rocks`, or your own instance), the same bar sits at the top
+of the home page. The server you are signed in to comes first and is always the main one, so the
+other servers have no **Make main**. **Add a server** works as on a computer. The other server's
+page then asks *Sync with …?*: click **Allow** only if you just added that server yourself.
+
 When the account syncs with more than one server, each workspace row on the home page shows which
 server it lives on (see [Workspaces](./04-workspaces.md#where-a-workspace-lives)).
 

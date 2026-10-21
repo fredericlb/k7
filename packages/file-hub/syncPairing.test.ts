@@ -35,13 +35,13 @@ async function start(remotePairing: boolean) {
   server = createServer(app);
   await new Promise<void>((r) => server?.listen(0, "127.0.0.1", () => r()));
   const port = (server.address() as AddressInfo).port;
-  const call = (method: string, body?: unknown) =>
-    fetch(`http://127.0.0.1:${port}/api/sync/remote`, {
+  const call = (method: string, body?: unknown, path = "") =>
+    fetch(`http://127.0.0.1:${port}/api/sync/remote${path}`, {
       method,
       headers: { "x-test-session": USER, "content-type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
-  return { dataRoot, routes, call, restarted };
+  return { dataRoot, routes, call, restarted, port };
 }
 
 afterEach(async () => {
@@ -50,24 +50,29 @@ afterEach(async () => {
 });
 
 describe("remote pairing", () => {
-  it("is refused where it is off: PUT, POST /main and DELETE answer 403, nothing restarts", async () => {
+  it("on a server, stores a pairing as a secondary and never makes one main", async () => {
     const { call, restarted } = await start(false);
-    const pair = { url: "wss://attacker.test/api/sync", token: "t" };
-    expect((await call("PUT", pair)).status).toBe(403);
-    expect((await call("DELETE")).status).toBe(403);
-    expect(restarted).toEqual([]);
+    const pair = { url: "wss://band.test/api/sync", token: "t", main: true };
+    expect((await call("PUT", pair)).status).toBe(200);
+    expect((await call("POST", { url: pair.url }, "/main")).status).toBe(403);
+    expect((await call("DELETE")).status).toBe(200);
+    expect(restarted).toEqual([USER, USER]);
   });
 
-  it("reads no pairing where it is off, even one already on disk", async () => {
-    const { call, dataRoot, routes } = await start(false);
+  it("on a server, lists itself first as the main one, and no surface follows a pairing", async () => {
+    const { call, dataRoot, routes, port } = await start(false);
     const home = join(dataRoot, accountKey(USER));
     mkdirSync(home, { recursive: true });
     const url = "wss://x.test/api/sync";
     writeRemote(home, { url, token: "t", user: USER, main: true });
+    const own = `ws://127.0.0.1:${port}/api/sync`;
     expect(await (await call("GET")).json()).toEqual({
-      paired: false,
-      url: null,
-      servers: [],
+      paired: true,
+      url: own,
+      servers: [
+        { url: own, main: true, own: true },
+        { url, main: false },
+      ],
     });
     const req = { headers: { "x-test-session": USER } } as never;
     expect(routes.remoteOf(req)).toBeNull();

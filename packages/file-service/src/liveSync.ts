@@ -36,6 +36,7 @@ import {
   type SyncServer,
   serverOf,
   syncServers,
+  toPage,
   writeLinkRecord,
 } from "./liveServers.ts";
 import { workspaceRoot } from "./slug.ts";
@@ -72,18 +73,19 @@ export const attachedAt = (root: string): Attached | undefined =>
 const ROOMS_EVERY_MS = 60_000;
 let roomsTimer: ReturnType<typeof setInterval> | null = null;
 
-/** On a SERVER: join every room holding files — one a device seeded or a move landed included, which no reconnect announces. */
+/** On a SERVER: join every room of its own relay holding files — one a device seeded or a move landed included, which no reconnect announces. */
 export async function joinServerRooms(): Promise<void> {
   if (isPaired() || !liveSyncOn()) return;
   // Imported late: workspaces.ts loads this module to attach what it opens.
   const { joinWorkspace } = await import("./workspaces.ts");
-  for (const server of syncServers())
+  // A server it is paired with beside its own is like a paired machine's: its rooms come down when asked.
+  for (const server of syncServers().filter((s) => s.own))
     for (const name of await listRooms(server, 0)) joinWorkspace(name);
 }
 
-/** A link (re)connected: on a SERVER every room it lists is joined, since the server holds them all — and again every minute. */
-function onOpen(_server: SyncServer): void {
-  if (isPaired()) return;
+/** A link (re)connected: on a SERVER every room its own relay lists is joined, since it holds them all — and again every minute. */
+function onOpen(server: SyncServer): void {
+  if (isPaired() || !server.own) return;
   void joinServerRooms();
   roomsTimer ??= setInterval(() => void joinServerRooms(), ROOMS_EVERY_MS);
   roomsTimer.unref?.();
@@ -98,13 +100,17 @@ export const reportMoves = (f: typeof moving): void => {
   moving = f;
 };
 
-/** Where each workspace lives, for a machine paired with remote servers: synced, here only, or on a server only. */
+/** Where each workspace lives, for an account paired with remote servers: synced, here only, or on a server only; `self` names this one. */
 export async function workspaceSyncStatus(
   local: string[],
+  self?: string,
 ): Promise<WorkspaceSyncStatus> {
   const servers = syncServers();
-  if (!isPaired() || !servers.length || !liveSyncOn())
+  // A server alone with its own relay is not paired: it shows nothing until another server is added beside it.
+  const paired = isPaired() ? servers.length > 0 : servers.length > 1;
+  if (!paired || !liveSyncOn())
     return { paired: false, server: null, workspaces: [] };
+  const shown = (url: string) => toPage(url, self);
   // Every server asked at once, each bounded: the page must not hang on one that is away.
   const lists = await Promise.all(servers.map((s) => listRooms(s)));
   const mine = local.filter((n) => n !== EXAMPLES_WORKSPACE);
@@ -116,7 +122,7 @@ export async function workspaceSyncStatus(
     return {
       name,
       room: a?.room ?? rec?.room ?? name,
-      server: originOf(server),
+      server: shown(server),
       host: hostOf(server),
       synced: (a?.replica?.head ?? 0) > 0,
     };
@@ -124,8 +130,8 @@ export async function workspaceSyncStatus(
   const held = new Set(here.map((h) => `${h.host}\n${h.room}`));
   return {
     paired: true,
-    server: originOf(servers[0].url),
-    servers: servers.map((s) => ({ origin: originOf(s.url), main: s.main })),
+    server: shown(servers[0].url),
+    servers: servers.map((s) => ({ origin: shown(s.url), main: s.main })),
     workspaces: [
       ...here.map((h) => {
         const move = moving(workspaceRoot(h.name));
@@ -134,7 +140,7 @@ export async function workspaceSyncStatus(
           state: h.synced ? ("synced" as const) : ("local" as const),
           server: h.server,
           ...(h.room !== h.name ? { room: h.room } : {}),
-          ...(move ? { moving: move } : {}),
+          ...(move ? { moving: { ...move, to: shown(move.to) } } : {}),
         };
       }),
       ...servers.flatMap((s, i) =>
@@ -143,7 +149,7 @@ export async function workspaceSyncStatus(
           .map((room) => ({
             name: room,
             state: "server" as const,
-            server: originOf(s.url),
+            server: shown(s.url),
           })),
       ),
     ],

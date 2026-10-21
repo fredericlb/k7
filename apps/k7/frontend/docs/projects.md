@@ -435,8 +435,9 @@ exists on every replica the relay reaches, so there is nothing to bring in or se
 **On a machine paired with a server, each row says where its workspace lives** (`WorkspaceSyncIcon.tsx`,
 `useWorkspaceSync.ts`): synced with the server, on this machine only, or on the server only — the
 last listed below the others with a Download, since bringing gigabytes of takes down is the
-person's choice. The server itself and an unpaired machine draw no icon: there, every workspace is
-simply here.
+person's choice. An unpaired machine, and a server with no other server beside it, draw no icon:
+there, every workspace is simply here. A server paired with others draws them as a machine does, with
+itself as the main one.
 
 **A computer paired with several servers** lists the workspaces of all of them: each row names its
 server's host beside the icon, a workspace only on a server downloads from that one, and the row's ⋮
@@ -445,7 +446,9 @@ it does. Both send it whole to the target; a move then empties it from the one i
 keeps it, while a copy leaves it synced where it was and the target holding a workspace of its own
 (`packages/file-service/docs/liveCapture.md`, "Several servers"). Either runs on its own and the row
 says so until it ends, or says why it failed. Which servers, and which is the main one, are the home
-page's account bar (`SyncServers.tsx`, `packages/file-hub/docs/syncRelay.md`).
+page's account bar (`SyncServers.tsx`, `packages/file-hub/docs/syncRelay.md`). On a server that bar
+holds the servers alone — the account's control is the user menu's — the server first and main for
+good, so the others have no Make main; Add a server pairs as a machine does.
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,

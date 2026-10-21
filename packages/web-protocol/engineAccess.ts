@@ -19,6 +19,8 @@ export const ENGINE_ID_HEADER = "x-studio-engine-id";
 export const HUB_SECRET_HEADER = "x-studio-hub-secret";
 /** "1" when the file hub found the caller in the origin's admin groups; a client's own is dropped. */
 export const ADMIN_HEADER = "x-studio-admin";
+/** The origin the browser reached the file hub at, stamped by the hub: how a file service names its own server. */
+export const ORIGIN_HEADER = "x-studio-origin";
 /** Where a server that HOSTS workspaces says so; a 404 means it does not. */
 export const FILE_HUB_HELLO = "/api/files-hub";
 

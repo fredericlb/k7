@@ -314,7 +314,7 @@
   "account.status.offerPair": "Sync this computer's workspaces with {server}?",
   "account.status.pair": "Sync",
   "account.status.signedIn": "Signed in.",
-  "account.status.paired": "This computer now syncs with {server}.",
+  "account.status.paired": "Your workspaces here now sync with {server}.",
   "account.status.badServer": "{server} is not a k7 server address.",
   "account.status.signInTimeout": "The sign-in was not finished in the browser. Sign in again to retry.",
   "account.status.pairTimeout": "Linking was not finished in the browser. Add the server again to retry.",

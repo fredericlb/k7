@@ -164,6 +164,11 @@ it is the main server's under its own name, which is what every workspace synced
 is, and a new workspace goes there too. A workspace whose server is no longer paired stays captured
 here and syncs nowhere until it is paired again.
 
+On a server the main one is its OWN relay, by the hub secret (`own` in `liveServers.ts`), and the
+servers it is paired with sit beside it as on a machine: it still joins every room its own relay
+holds, and no other's. The page knows the server by the origin it reached it at, not by its loopback
+relay, so the routes translate one into the other (`toPage`, `fromPage`).
+
 Two servers may each hold a workspace of the same name, and a machine has one folder per name: the
 second brought down lands as `<room>.<host>` (`localNameFor`) — `@` would read better, and the
 workspace-name rule refuses it — and syncs with its room under its real name. It takes that name
