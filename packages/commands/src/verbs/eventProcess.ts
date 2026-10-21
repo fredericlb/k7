@@ -6,7 +6,7 @@
 import { dirname, join } from "node:path";
 import { processWithChain } from "@studio/audio-passes/processChain";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-import { laneFileFor } from "@studio/song/chainItemEdit";
+import { laneEventsAt } from "@studio/song/chainItemEdit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsCopy, wsExists, wsRemove } from "@studio/song/yaml/workspaceFile";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
@@ -126,7 +126,7 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
   const ref = materialRefOf(hit.id);
   const shared = otherUsesOf(p, ref, { track: track.id, id: hit.id }) > 0;
   let own = ref;
-  const lane = laneFileFor(h.songPath, track.id)?.path;
+  const lane = laneEventsAt(h.songPath, track.id)?.path;
   if (shared) {
     try {
       if (lane) h.snapshot?.(lane);

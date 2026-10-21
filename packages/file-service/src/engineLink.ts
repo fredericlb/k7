@@ -74,6 +74,7 @@ import {
 import { saveTake } from "./recorderSave.ts";
 import { serviceRenderer } from "./renderers.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
+import { setTimelinePlay, withTimelinePlay } from "./timelinePlay.ts";
 import { skip, type Workspace } from "./workspace.ts";
 import type { JournalMode } from "./workspaceHistory.ts";
 
@@ -192,8 +193,8 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     )
       return;
     if (url) sentTo.set(session, url);
-    // An armed take hears the lane around its punch, never under it (takeArm.ts).
-    c.sendProject(withTakeHole(session, d));
+    // An armed take hears the lane around its punch, never under it (takeArm.ts); an auditioned timeline plays alone (timelinePlay.ts).
+    c.sendProject(withTimelinePlay(session, withTakeHole(session, d)));
     void warmUp(session, d, warmDeps(ws, c));
   });
 }
@@ -451,8 +452,9 @@ export function startEngineForActive(ws: Workspace): void {
   watchModuleFolders(p, ws.liveCapture);
   if (switching) {
     flushProject(ws);
-    // A document built for the project we are LEAVING must not survive into this one.
+    // A document built for the project we are LEAVING must not survive into this one, nor its audition.
     dropClientProject(ws);
+    setTimelinePlay(sessionOf(ws), null);
     // …nor its module watch, or every project ever opened would keep four directory handles.
     forgetModuleWatch(before);
   }
@@ -693,6 +695,11 @@ function makeHost(
     // The takes view: where this session's next take goes, the document re-sent with its hole (takeArm.ts).
     takeArm: (arm) => {
       setTakeArm(sessionOf(ws), arm);
+      resendServed(ws);
+      return true;
+    },
+    timelinePlay: (id) => {
+      setTimelinePlay(sessionOf(ws), id);
       resendServed(ws);
       return true;
     },

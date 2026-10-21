@@ -154,6 +154,8 @@ export function buildGraph(
   videoTracksMap: Record<string, RawVideoTrack> = {},
   // Resolved by the fs side (assemblies.ts), so this function stays pure like everything else here.
   assembliesMap: Record<string, Assembly> = {},
+  // The timelines/ a lane may place whole (docs/timelines.md).
+  timelinesMap: Record<string, unknown> = {},
 ): GraphDoc {
   const ts = String(root?.project?.timeSignature ?? "4/4");
   const [num, den] = ts.split("/").map((n) => parseInt(n, 10));
@@ -306,7 +308,9 @@ export function buildGraph(
             ? "audio"
             : seqMap[String(p.ref)]
               ? "midi"
-              : "missing",
+              : timelinesMap[String(p.ref)]
+                ? "timeline"
+                : "missing",
         }),
       ),
       tracks: lane.tracks,
@@ -417,6 +421,7 @@ function loadGraphIn(dir: string): GraphDoc {
     moduleRefsMap,
     videoTracksMap,
     resolveAssemblies(dir),
+    exportSub(dir, "timelines"),
   );
   // The taps routed to subchains, which a cable on the graph draws from the tap's own output (docs/racks.md).
   const feeds = tapFeedsOf(rootChains);

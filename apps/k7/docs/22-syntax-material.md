@@ -229,3 +229,52 @@ warp({ algorithm: "elastique", markers: [[0, 0], [4, 1.9382], [8, 3.8764]] })
 source("clips/break.wav")
 warp({ algorithm: "elastique", disable: true, markers: [[0, 0], [8, 3.8764]] })
 ```
+
+## timelines/<id>.k7x
+
+Another arrangement, with lanes of its own, placed **whole** as one event on a song lane: a verse written once
+and played three times, a fill reused across a set. A placement names it by `ref` exactly as it names a clip.
+
+```k7x schema=Timeline
+// timelines/verse.k7x — the FILENAME is the id.
+length("8:0") // eight bars, whatever it holds
+lanes([
+  lane("drums").events([ref("kick").start("1:1"), ref("fill").start("8:1")]),
+  lane("bass").events([ref("bassline").start("1:1")]).color("#4a90d9"),
+  lane("keys").events([ref("chords").start("1:1")]).disabled(),
+])
+```
+
+```k7x schema=Module
+// nodes/song.k7x — the verse at bar 1 and again at bar 9.
+extends("@meta/track")
+events([ref("verse").start("1:1"), ref("verse").start("9:1").gain(-2)])
+```
+
+**Its sound goes through the lane it is placed on.** A timeline's lanes are not tracks: they have no plugins,
+no fader and no routing, and everything they hold — clips and sequences alike — plays through the song lane
+the event sits on, its instrument and its effects. Lanes inside a timeline are there to keep its material
+apart while you write it. A `disabled` lane is silent wherever the timeline is placed.
+
+**Its length is fixed.** `length` is a duration (`"8:0"` is eight bars); left out, it is what the lanes hold,
+rounded up to the bar. Every placement plays exactly that much: what runs past the end is cut, and the event
+cannot be resized, looped, windowed or faded — those words are refused on a timeline event when the project is
+read. `gain` and `disabled` are what such an event takes, and they apply to everything it plays.
+`timeline length verse 16:0` changes the length of every placement at once.
+
+A timeline may hold another one; a timeline that ends up inside itself is refused by name.
+
+The timeline pane draws the song, and the bar above its lanes opens any timeline in its place — or a
+double-click on a timeline event does. Its lanes are edited like the song's, and the `event` commands reach
+them by the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline new`,
+`timeline lane new` and `timeline lane remove` make the rest.
+
+A timeline can also be made from what is already on a lane: select a range on ONE lane (`v`) and run
+`selection timeline`, optionally with a name. The events starting in the range move into a new timeline as
+long as the range, and one event of it takes their place — the lane sounds exactly as before.
+
+**Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
+start, through the lane it is first placed on — that lane's instrument and effects, every other lane
+silent — and the playhead follows it. Back on the song, play is the song again. `timeline play verse`
+and a bare `timeline play` do the same from the command bar. A timeline placed on no lane still plays
+its audio; its sequences have no instrument until it is placed.

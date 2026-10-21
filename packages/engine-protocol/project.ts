@@ -84,6 +84,33 @@ export interface ClipDoc {
   comp?: { of: string; take: string };
   /** Which of the two fades is half of a CROSSFADE with a neighbour: the engine gives those the equal-power curve. */
   crossfade?: { in?: boolean; out?: boolean };
+  /** A clip played by a TIMELINE placed as one event: that event, which the surfaces draw instead (@studio/song docs/timelines.md). */
+  nest?: NestDoc;
+}
+
+/** The timeline event a clip belongs to, the OUTERMOST one when timelines nest; the engine ignores it. */
+export interface NestDoc {
+  of: string; // the event's placement id, `<timeline>@<start>`
+  ref: string; // the timeline it places
+  start: number; // beats, the event's start
+  length: number; // beats, the timeline's fixed length
+  event?: EventDoc; // what the placement itself said: only `gain` and `disabled` mean anything here
+}
+
+/** One lane of a timeline, as its own view draws it: its clips at the timeline's own positions. */
+export interface TimelineLaneDoc {
+  id: string; // `<timeline>><lane>`, the address every event verb takes
+  name: string;
+  color: string;
+  disabled: boolean;
+  clips: ClipDoc[];
+}
+
+/** A project's timeline file, compiled for the view that edits it; the engine plays only what `tracks` holds. */
+export interface TimelineDoc {
+  id: string;
+  length: number; // beats
+  lanes: TimelineLaneDoc[];
 }
 
 // One rack sound: a note playing a whole clip ("samples") or a window of the shared source ("slice").
@@ -209,4 +236,6 @@ export interface ProjectDoc {
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
   markers: Marker[]; // sorted by beat
   settings: SettingsDoc; // always present, defaulted when settings.k7x is absent
+  /** The project's timelines/, for the view that edits them; the engine ignores it, as it does `groups`. */
+  timelines?: TimelineDoc[];
 }

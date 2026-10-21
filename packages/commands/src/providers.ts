@@ -61,7 +61,17 @@ export const PROVIDERS = {
     ),
   /** This project's NODES — its uses of modules, and no `@ref`. See docs/completions.md. */
   nodes: (h) => collectPluginModules(h.project()).map((b) => b.module),
-  tracks: (h) => h.project().tracks.map((t) => t.id),
+  // A timeline's lanes too, addressed `<timeline>><lane>` (@studio/song docs/timelines.md).
+  tracks: (h) => {
+    const p = h.project();
+    return [
+      ...p.tracks.map((t) => t.id),
+      ...(p.timelines ?? []).flatMap((t) => t.lanes.map((l) => l.id)),
+    ];
+  },
+  timelines: (h) => (h.project().timelines ?? []).map((t) => t.id),
+  timelineLanes: (h) =>
+    (h.project().timelines ?? []).flatMap((t) => t.lanes.map((l) => l.name)),
   /** Every alternative name in the project, deduped, off the module FILES — docs/completions.md. */
   moduleAlternatives: (h) => {
     if (!h.songPath) return [];
@@ -134,6 +144,8 @@ export const PROVIDERS = {
         .filter((c) => c.type === "audio" && c.source)
         .map((c) => c.id),
     ),
+    // A timeline is placed whole, like a clip (@studio/song docs/timelines.md).
+    ...PROVIDERS.timelines(h),
     ...PROVIDERS.audioFiles(h),
   ],
   // The chains a bounce can run: this project's, then the médiathèque's `@k7-core/` ones, in one list.
@@ -225,6 +237,8 @@ export type ArgClass = (typeof ARG_CLASSES)[number];
 // Which class each provider serves. Exhaustive over PROVIDERS, so a new one must say what it names to compile.
 export const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   tracks: "track",
+  timelines: "file",
+  timelineLanes: "track",
   moduleAlternatives: "choice",
   moduleEngines: "choice",
   // A clip id and an audio path are both material, which the palette colours as a file.
@@ -264,6 +278,8 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
   moduleEngines:
     "one of this module's engines — the folders under its engines/",
   tracks: "a track of this project",
+  timelines: "a timeline of this project (timelines/)",
+  timelineLanes: "a lane of that timeline",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
   chains:

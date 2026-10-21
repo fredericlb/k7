@@ -4,7 +4,7 @@
 
 import { join } from "node:path";
 import { K7Document, type K7Scope } from "@studio/k7x/document";
-import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
+import { laneEventsAt, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
@@ -65,12 +65,12 @@ export function editTrackStruct(
   what: string,
 ): string {
   // `nodes/` (or a chain project's `tracks/`), because a lane IS a node of a `@meta/…-track` module.
-  const found = laneFileFor(dir, id);
+  const found = laneEventsAt(dir, id);
   if (!found)
     throw new Error(
       `track "${id}" has no file in ${laneFolder(dir)}/ — cannot ${what}`,
     );
-  wsEdit(found.path, (doc) => edit(doc.at([])));
+  wsEdit(found.path, (doc) => edit(doc.at(found.base)));
   return found.path;
 }
 
@@ -327,9 +327,9 @@ export function resizeTrackPlacement(
   endBeats: number,
   tempo: number,
 ): ResizeReport | null {
-  const own = laneFileFor(dir, id);
+  const own = laneEventsAt(dir, id);
   if (!own) throw new Error(`track "${id}" has no file in ${laneFolder(dir)}/`);
-  const lane = new K7Document(wsText(own.path)).at([]);
+  const lane = new K7Document(wsText(own.path)).at(own.base);
   const at = findPlacementAt(lane, fromBeats, num, den);
   if (at < 0) return null;
   const placement = placementValues(lane)[at] ?? {};

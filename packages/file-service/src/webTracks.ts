@@ -11,6 +11,7 @@ import type { VideoTrackDoc } from "@studio/song-video/videoDoc";
 import { wavSeconds } from "@studio/take-render/wavLength";
 import type { WebMixer, WebTrack, WebVideoTrack } from "@studio/web-protocol";
 import { foldComps } from "./webComp.ts";
+import { foldNests } from "./webNest.ts";
 
 // The strip a track's surfaces read — level and pan only, spread in. See docs/workspace.md.
 function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
@@ -111,8 +112,8 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     mute: t.mute,
     solo: t.solo,
     ...(t.highlight ? { highlight: true } : {}),
-    // A comped event is ONE clip to every surface, its pieces carried inside it (webComp.ts).
-    clips: foldComps(t.clips.map((c) => toWebClip(c, natural))),
+    // A comped event is ONE clip to every surface, its pieces carried inside it (webComp.ts), and so is a timeline event (webNest.ts).
+    clips: foldNests(t.clips, (c) => toWebClip(c, natural), foldComps),
     ...(t.frozenMaterial?.length
       ? { frozenMaterial: t.frozenMaterial.map((c) => toWebClip(c, natural)) }
       : {}),

@@ -32,11 +32,12 @@ import {
   type Preferences,
   resolveInput,
 } from "../preferences";
-import type { RawClip, RawSequence } from "../rawDoc";
+import type { RawClip, RawPlacement, RawSequence } from "../rawDoc";
 import { tapFeedsOf, tapPairs } from "../tapOuts";
 import { lanesOf } from "../trackModule";
 import { wsExists } from "../yaml/workspaceFile";
 import type { ChainOwnership } from "./ownership";
+import { fixedFieldsOf, type RawTimeline } from "./timelines";
 
 /** Everything the compile reads off disk, read once — the rest of it is pure over this. */
 export type CompileInputs = ReturnType<typeof loadCompileInputs>;
@@ -79,6 +80,9 @@ export function loadCompileInputs(dir: string) {
   const clipsMap = clipsRead.values as Record<string, RawClip>;
   const seqsRead = readYamlEntities(dir, "sequences");
   const seqMap = seqsRead.values as Record<string, RawSequence>;
+  // Timelines placed whole as one event — docs/timelines.md.
+  const timelinesRead = readYamlEntities(dir, "timelines");
+  const timelinesMap = timelinesRead.values as Record<string, RawTimeline>;
   // Plus the shared modules the chains name by ref, resolved ONCE so the compile loop below reads plain fields.
   const modulesMap = resolveModuleMap(
     withChainModuleRefs(localModules, moduleRefs, chains),
@@ -102,6 +106,8 @@ export function loadCompileInputs(dir: string) {
     clipsMap,
     seqsRead,
     seqMap,
+    timelinesRead,
+    timelinesMap,
     modulesMap,
   };
 }
@@ -120,6 +126,8 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
     clipsMap,
     seqsRead,
     seqMap,
+    timelinesRead,
+    timelinesMap,
     modulesMap,
   } = inp;
   const refErrs: string[] = [];
@@ -140,10 +148,32 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
         );
       }
     }
-  for (const [trackId, t] of Object.entries(lanesMap))
-    for (const p of t.events) {
-      const ref = String(p?.ref ?? "");
-      if (!ref) continue;
+  // One event's checks, `where` naming its lane — a project lane, or a timeline's.
+  const checkEvent = (where: string, p: RawPlacement, inside: string[]) => {
+    const ref = String(p?.ref ?? "");
+    if (!ref) return;
+    const timeline = timelinesMap[ref];
+    if (timeline) {
+      if (inside.includes(ref)) {
+        refErrs.push(
+          `${where}: timeline '${ref}' is placed inside itself (${[...inside, ref].join(" > ")})`,
+        );
+        return;
+      }
+      const fixed = fixedFieldsOf(p);
+      if (fixed.length)
+        refErrs.push(
+          `${where}: timeline '${ref}' is placed with ${fixed.join(", ")} — a timeline event's extent is its timeline's length, fixed`,
+        );
+      for (const lane of timeline.lanes)
+        for (const e of lane.events ?? [])
+          checkEvent(`timeline '${ref}' lane '${lane.lane}'`, e, [
+            ...inside,
+            ref,
+          ]);
+      return;
+    }
+    {
       const clip = clipsMap[ref];
       const seq = seqMap[ref];
       if (!clip && !seq) {
@@ -156,39 +186,49 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
         );
         refErrs.push(
           brokeClip
-            ? `track '${trackId}': clip '${ref}' failed to load — ${brokeClip}`
+            ? `${where}: clip '${ref}' failed to load — ${brokeClip}`
             : brokeSeq
-              ? `track '${trackId}': sequence '${ref}' failed to load — ${brokeSeq}`
-              : `track '${trackId}': clip/sequence '${ref}' not found`,
+              ? `${where}: sequence '${ref}' failed to load — ${brokeSeq}`
+              : `${where}: clip/sequence '${ref}' not found`,
         );
       } else if (
         clip?.source &&
         !confineTo(roots, resolve(dir, String(clip.source)))
       )
         refErrs.push(
-          `track '${trackId}': audio clip '${ref}' names a file outside the project (${clip.source})`,
+          `${where}: audio clip '${ref}' names a file outside the project (${clip.source})`,
         );
       else if (
         clip &&
         !(clip.source && wsExists(resolve(dir, String(clip.source))))
       )
         refErrs.push(
-          `track '${trackId}': audio clip '${ref}' file missing (${clip.source ?? "?"})`,
+          `${where}: audio clip '${ref}' file missing (${clip.source ?? "?"})`,
         );
       // A sequence's notes are inline — its presence in seqMap is the whole check.
 
       // A trim is a CLIP gain, which only audio has: a MIDI event shares its lane's instrument (song-edit docs/eventGain.md).
       if (!clip && seq && Number(p?.gain ?? 0) !== 0)
         refErrs.push(
-          `track '${trackId}': sequence '${ref}' is placed with a gain, which only an audio event has — its notes' velocities are the way to change it`,
+          `${where}: sequence '${ref}' is placed with a gain, which only an audio event has — its notes' velocities are the way to change it`,
         );
       // Repeating needs a known end — the clip's `to` or the event's own, the window being the two intersected (docs/graphModel.md).
       const loops = Number(p?.loop ?? 1);
       if (clip && loops > 1 && clip.to == null && p?.to == null)
         refErrs.push(
-          `track '${trackId}': clip '${ref}' is placed with loop: ${loops}, but neither it nor the event says 'to' — a repeat needs the window's end`,
+          `${where}: clip '${ref}' is placed with loop: ${loops}, but neither it nor the event says 'to' — a repeat needs the window's end`,
         );
     }
+  };
+  for (const [trackId, t] of Object.entries(lanesMap))
+    for (const p of t.events) checkEvent(`track '${trackId}'`, p, []);
+  // A timeline placed nowhere is still checked: its own view plays what it holds.
+  for (const [id, t] of Object.entries(timelinesMap))
+    for (const lane of t.lanes)
+      for (const e of lane.events ?? [])
+        checkEvent(`timeline '${id}' lane '${lane.lane}'`, e, [id]);
+  for (const issue of timelinesRead.issues)
+    refErrs.push(`timeline failed to load — ${issue}`);
   // The pattern file must exist; whether it HAS the named lane needs it evaluated, so the engine reports that.
   for (const [trackId, t] of Object.entries(lanesMap))
     if (t.strudel && !wsExists(resolve(dir, t.strudel)))
@@ -199,7 +239,9 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
   // `video_tracks/` is deliberately unchecked here — the picture compiles separately (packages/song-video/docs/picture.md).
 
   if (refErrs.length)
-    throw new Error(`unresolved reference(s):\n  - ${refErrs.join("\n  - ")}`);
+    throw new Error(
+      `unresolved reference(s):\n  - ${[...new Set(refErrs)].join("\n  - ")}`,
+    );
 
   // Reject a project whose chains don't feed their modules' declared input ports.
   const inputErrs = checkChainInputs(

@@ -47,6 +47,7 @@ import { SEQUENCE_NOTE_VERBS } from "./verbs/sequenceNotes.ts";
 import { SEQUENCE_RECORD_VERBS } from "./verbs/sequenceRecord.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
 import { TASK_VERBS } from "./verbs/tasks.ts";
+import { TIMELINE_VERBS } from "./verbs/timeline.ts";
 import { TRACK_VERBS } from "./verbs/track.ts";
 import { TRACK_DELETE_VERBS } from "./verbs/trackDelete.ts";
 import { TRACK_GROUP_VERBS } from "./verbs/trackGroup.ts";
@@ -85,6 +86,8 @@ export interface CommandHost {
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
   // `system channel type`: group two interface inputs into one stereo device, or take them apart; optional.
   setInputStereo?(channel: number, stereo: boolean): boolean;
+  /** Play timeline `id` alone in place of the song, or (null) the song again — the timeline pane's; song docs/timelines.md. */
+  timelinePlay?(id: string | null): boolean;
   /** Record the session's next takes INTO one event, or (null) back onto the lane — the takes view's; song docs/takes.md. */
   takeArm?(
     arm: {
@@ -141,6 +144,7 @@ export type SidHandler = (
 export const VERB_TABLES: readonly Record<string, SidHandler>[] = [
   TRACK_LANE_VERBS,
   SEQUENCE_VERBS,
+  TIMELINE_VERBS,
   CLIP_VERBS,
   EVENT_EDIT_VERBS,
   EVENT_VERBS,

@@ -1058,6 +1058,23 @@ layers icon, draws each piece's activity and waveform where it plays, and opens 
 with the comp drawn piece by piece (`docs/clipEditors.md`). Move, copy, mute and fade address the EVENT; resize, window, trim and split refuse it,
 since they would rewrite one take's window (`packages/song/docs/takes.md`).
 
+## Another timeline in the pane
+
+The bar above the lanes (`TimelineSwitch.tsx`) names what the pane draws: the song, or one of the
+project's `timelines/` (`packages/song/docs/timelines.md`). Opening one puts its lanes in place of
+the song's tracks (`timelineView.ts`), so every gesture — move, resize, drop, paste — addresses
+`<timeline>><lane>` with no code of its own. Which one is open is session state and writes nothing.
+
+Opening a timeline also AUDITIONS it: the pane sends `timeline play <id>` and seeks to 0, so the
+engine plays that timeline alone from its start and the playhead reads its own time; back on the
+song, a bare `timeline play`. What it plays through is the song lane it is placed on, so a
+timeline's lanes draw no meter, arm, mute or solo of their own, and no markers, picture or
+automation rows.
+
+A timeline EVENT on a song lane is one dashed block of its fixed length, its clips' activity drawn
+where each plays. It has no edge or fade handles — its length is its timeline's — and a
+double-click opens its timeline here rather than a clip panel.
+
 ## Zooming with two fingers
 
 Three gestures reach the same anchored zoom (`useHZoom` in `@studio/ui-timeline`), and they do

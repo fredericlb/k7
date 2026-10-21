@@ -41,6 +41,8 @@ export type ArgProvider =
   // A sample a rack tap may play — a library's or this project's `samples/`, packages/song/docs/libraryFiles.md.
   | "samples"
   | "sequenceFiles"
+  | "timelines"
+  | "timelineLanes"
   // The kinds of SURFACE the editor can draw — a closed set of words, since the file is about to be created.
   | "surfaceTypes"
   | "tracks";

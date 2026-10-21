@@ -538,6 +538,23 @@ its midi output is wired and a clip when its audio one is, and the wire says whi
 (`packages/song/docs/trackModules.md`). Comparing the two lanes' kinds instead would refuse every
 move between an audio lane and a sequences one.
 
+## `timeline …` — the project's other timelines
+
+`timeline new`, `timeline length`, `timeline lane new|remove` write `timelines/<id>.k7x`; its EVENTS
+are the `event` verbs', on the lane address `<timeline>><lane>`, which `trackOf` resolves as it
+resolves a song lane. Placing a timeline is `event add`, since it is placed like a clip. A timeline
+event is found by its own start (`eventAt`), and only `event gain`, `event status mute`, move,
+remove and paste take it: every other `event` verb would give it an extent of its own, and its
+length is fixed (`packages/song/docs/timelines.md`). A write that would put a timeline inside
+itself is refused before it lands, since the project would no longer load.
+`timeline play` sets the session's audition through the optional `CommandHost.timelinePlay`: a host
+with no engine refuses it, and nothing is written (`packages/song/docs/timelines.md`).
+`selection timeline` makes one from a rectangle: the events of ONE lane STARTING in `[from, to]`
+move into a new timeline as long as the range, and one event of it takes their place at `from`.
+One lane, because a timeline plays through the lane it sits on, so events of several lanes would
+come out of one instrument. The timeline file is written before the lane and removed if the lane's
+write fails, so the events are never in both places nor in neither.
+
 ## `events move` is one command, not a loop
 
 The bulk form of `event move`: every placement STARTING in `[from, to]` (both inclusive), on each

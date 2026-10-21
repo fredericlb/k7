@@ -6,7 +6,7 @@
 
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
-import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
+import { laneEventsAt, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
@@ -163,10 +163,10 @@ export function splitSequenceMaterial(
   num: number,
   den: number,
 ): PhysicalSplitReport | null {
-  const own = laneFileFor(dir, trackId);
+  const own = laneEventsAt(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const lane = new K7Document(wsText(own.path)).at([]);
+  const lane = new K7Document(wsText(own.path)).at(own.base);
   const index = findPlacementAt(lane, fromBeats, num, den);
   if (index < 0) return null;
   const placement = placementValues(lane)[index] ?? {};
@@ -241,10 +241,10 @@ export function consolidateSequenceMaterial(
   num: number,
   den: number,
 ): ConsolidateReport | null {
-  const own = laneFileFor(dir, trackId);
+  const own = laneEventsAt(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const lane = new K7Document(wsText(own.path)).at([]);
+  const lane = new K7Document(wsText(own.path)).at(own.base);
 
   const startOf = (p: Record<string, unknown>): number | null => {
     try {

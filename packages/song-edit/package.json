@@ -19,6 +19,7 @@
     "./eventLoop": "./src/eventLoop.ts",
     "./takeEdit": "./src/takeEdit.ts",
     "./trackMix": "./src/trackMix.ts",
+    "./timelineFromRange": "./src/timelineFromRange.ts",
     "./onsets": "./src/onsets.ts",
     "./presets": "./src/presets.ts"
   },
