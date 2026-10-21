@@ -19,6 +19,7 @@ import { REHEARSAL_SECTIONS, rehearsalSectionAt } from "@studio/ui-rehearsal";
 import { UserMenu } from "@studio/ui-user-menu";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { desktop } from "../desktop";
@@ -185,11 +186,13 @@ function HomeSidebar({
   return (
     <aside className="z-20 flex w-14 shrink-0 flex-col bg-card sm:w-52">
       <div className="flex flex-col gap-1 px-3 pt-4 pb-3 sm:px-5">
+        {/* The logo alone on the rail: it is too narrow for the logo and the name together. */}
         <span
-          className="truncate font-brand text-xl leading-none text-white"
+          className="flex min-w-0 items-center gap-2 font-brand text-xl leading-none text-white"
           title={VERSION}
         >
-          k7
+          <img src={k7Logo} alt="k7" className="h-6 w-auto shrink-0" />
+          <span className="hidden truncate sm:inline">k7</span>
         </span>
         <span className="hidden truncate text-xs text-muted-foreground sm:inline">
           {subtitle}
