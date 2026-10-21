@@ -76,6 +76,11 @@ one builds: `macos-clang` and `release-gcc`, the host defaults, and on Windows `
 the dev machine's compiler, Visual Studio 2026, which `windows-latest` carries
 (`windows-2025-vs2026`), under Ninja rather than the Visual Studio generator the dev machine uses.
 
+The Linux leg runs on `ubuntu-24.04`, not `ubuntu-latest`: `ubuntu-26.04` carries GCC 15, which makes
+`-Wtemplate-body` an error, and Tracktion's bundled nanorange (`iota_view::iterator`) has a template body
+GCC 15 rejects. The pin goes once that header is patched or Tracktion's upstream fixes it; both `release.yml`
+and `tray.yml` name the image, since the tray's leg builds the same engine.
+
 ## Every leg keeps its compiled objects between runs
 
 The engine is about 1,070 translation units — JUCE, Tracktion, Surge, Faust, sfizz — and a runner

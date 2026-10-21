@@ -113,7 +113,8 @@ jobs:
           - os: macos-latest
             label: macos-arm64
             preset: macos-clang
-          - os: ubuntu-latest
+          # Pinned with release.yml's leg: ubuntu-26.04's GCC 15 refuses Tracktion's bundled nanorange (docs/release.md).
+          - os: ubuntu-24.04
             label: linux-x64
             preset: release-gcc
     uses: ./.github/workflows/tray-platform.yml
