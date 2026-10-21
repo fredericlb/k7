@@ -27,6 +27,8 @@ export interface PaneCommands {
   ) => void;
   newTrack: () => void;
   newVideoTrack: () => void;
+  newTimeline: () => void;
+  newTimelineLane: (timeline: string) => void;
   videoArm: (id: string) => void;
   videoToggle: (id: string, control: "mute" | "solo") => void;
   reorder: (family: LaneFamily, lane: string, target: string) => void;
@@ -66,6 +68,8 @@ export function paneCommandsFor(go: (line: string) => void): PaneCommands {
       ),
     newTrack: () => go("track new"),
     newVideoTrack: () => go("picture lane new"),
+    newTimeline: () => go("timeline new"),
+    newTimelineLane: (timeline) => go(`timeline lane new ${timeline}`),
     videoArm: (id) => go(`ui picture arm ${id}`),
     videoToggle: (id, control) => go(`picture ${control} ${id}`),
     // A header dragged to another slot: two lists, one gesture (packages/song/docs/trackKind.md).

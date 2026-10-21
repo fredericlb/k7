@@ -50,6 +50,8 @@ export interface WebClip {
   pieces?: WebClip[];
   /** Which of its fades is half of a crossfade with a neighbour — drawn as one, heard as equal power. */
   crossfade?: { in?: boolean; out?: boolean };
+  /** A TIMELINE placed as one event: which, and the clips it plays, drawn inside it. Its length is fixed (song docs/timelines.md). */
+  timeline?: { ref: string; clips: WebClip[] };
   notes: WebNote[]; // midi only
 }
 
@@ -320,6 +322,15 @@ export interface WebProject {
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.
   markers: WebMarker[];
+  /** The project's other timelines, each drawn by the timeline view in place of `tracks` when it is the one open. */
+  timelines?: WebTimeline[];
+}
+
+/** A timeline of timelines/: its fixed length and its lanes, addressed `<timeline>><lane>` by every event verb. */
+export interface WebTimeline {
+  id: string;
+  length: number; // beats
+  lanes: WebTrack[];
 }
 
 // --- PICTURE: the same folder, read again ----------------------------------------

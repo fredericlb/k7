@@ -172,7 +172,7 @@ export interface GraphNode extends Carried, Flags {
     at: number;
     /** How WIDE it is on that timeline, 0..1 — floored, so it is never 0. */
     w: number;
-    kind: "audio" | "midi" | "missing";
+    kind: "audio" | "midi" | "timeline" | "missing";
   }[];
   /** How many clips did not fit in the LIST. Absent when it shows them all. */
   clipsMore?: number;

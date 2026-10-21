@@ -295,7 +295,7 @@ export interface WebTrackClip {
   tc: string;
   /** How long it runs in beats, from the COMPILED project; absent when the project does not compile. */
   len?: number;
-  kind: "audio" | "midi" | "missing";
+  kind: "audio" | "midi" | "timeline" | "missing";
 }
 
 /** One PLUG on an assembly's box: a port, plus the member node whose own port it stands for. */

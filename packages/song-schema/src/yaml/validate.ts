@@ -32,6 +32,7 @@ import { type ModuleIssue, parseModule } from "./moduleFile";
 import { ControllerFileSchema, ModuleConfigSchema } from "./moduleSchema";
 import { ProjectFileSchema } from "./projectSchema";
 import { sugarFor } from "./sugar";
+import { TimelineSchema } from "./timelineSchema";
 import { parseUiFile } from "./uiFile";
 
 /** How far the check could go — what a caller may conclude from `ok`. */
@@ -103,6 +104,7 @@ export function parserFor(path: string): Parse | null {
   if (inFolder("sequences")) return against(SequenceSchema, path);
   if (inFolder("curves")) return against(CurveSchema);
   if (inFolder("video_tracks")) return against(VideoTrackSchema);
+  if (inFolder("timelines")) return against(TimelineSchema);
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
   // A root `chains.k7x` is the segments file under its older name; a chain FILE was routed above.
   if (base === "chains") return parseGraph;

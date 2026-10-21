@@ -9,6 +9,7 @@ import type { K7Path } from "@studio/k7x/ast";
 import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { stringify } from "@studio/k7x/print";
 import { isDocFile } from "@studio/song-schema/docExt";
+import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { chainItemPaths, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
@@ -24,7 +25,7 @@ import {
   readChainProject,
 } from "./chainProject";
 import { entityFileFor, type ModuleFile } from "./yaml/moduleIO";
-import { wsText, wsWriteText } from "./yaml/workspaceDoc";
+import { wsData, wsText, wsWriteText } from "./yaml/workspaceDoc";
 
 /** The folder a project keeps its LANES' files in: `tracks/` in a chain project, `nodes/` otherwise. */
 export const laneFolder = (dir: string): string =>
@@ -34,6 +35,25 @@ export const laneFolder = (dir: string): string =>
 export function laneFileFor(dir: string, lane: string): ModuleFile | null {
   const sub = laneFolder(dir);
   return entityFileFor(join(dir, sub), sub, lane);
+}
+
+/** Where lane `id`'s `events` live: its own file at the root, or a timeline's lane inside the timeline's file (docs/timelines.md). */
+export function laneEventsAt(
+  dir: string,
+  id: string,
+): { path: string; base: K7Path } | null {
+  const tl = timelineLaneOf(id);
+  if (!tl) {
+    const own = laneFileFor(dir, id);
+    return own ? { path: own.path, base: [] } : null;
+  }
+  const file = entityFileFor(join(dir, "timelines"), "timelines", tl.timeline);
+  if (!file) return null;
+  const lanes = (wsData(file.path) as { lanes?: unknown } | null)?.lanes;
+  const at = Array.isArray(lanes)
+    ? lanes.findIndex((l) => (l as { lane?: unknown })?.lane === tl.lane)
+    : -1;
+  return at < 0 ? null : { path: file.path, base: ["lanes", at] };
 }
 
 /** Where a chain node's item sits: its chain file, and the path of its map inside that file. */

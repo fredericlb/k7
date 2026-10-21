@@ -8,7 +8,9 @@ export function placementId(ref: string, startBeats: number): string {
 }
 
 /** The MATERIAL a placement id names — split on the LAST `@`, and only before a number (docs/laneEdits.md). */
-export function materialRefOf(clipId: string): string {
+export function materialRefOf(nestedId: string): string {
+  // A clip a timeline plays is prefixed by the timeline events it sits in, each ending in `>` (song docs/timelines.md).
+  const clipId = nestedId.slice(nestedId.lastIndexOf(">") + 1);
   const at = clipId.lastIndexOf("@");
   if (at <= 0) return clipId;
   const tail = clipId.slice(at + 1);

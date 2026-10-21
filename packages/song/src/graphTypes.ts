@@ -32,7 +32,7 @@ export interface Placement {
   start: number;
   // How many passes of the material's window, not how long it sounds (see PlacementSchema).
   loop: number;
-  kind: "audio" | "midi" | "missing";
+  kind: "audio" | "midi" | "timeline" | "missing";
 }
 // A LANE as every surface downstream reads one — a projection of a track module, not an entity; see docs/graphModel.md.
 export interface Track {

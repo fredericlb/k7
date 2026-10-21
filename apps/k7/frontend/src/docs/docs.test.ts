@@ -22,6 +22,7 @@ import {
   SettingsSchema,
 } from "@studio/song-schema/yaml/projectSchema";
 import { SurfaceSchema } from "@studio/song-schema/yaml/surfaceSchema";
+import { TimelineSchema } from "@studio/song-schema/yaml/timelineSchema";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { DOC_EXAMPLES } from "./examples";
@@ -36,6 +37,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   Sequence: SequenceSchema,
   Curve: CurveSchema,
   VideoTrack: VideoTrackSchema,
+  Timeline: TimelineSchema,
   GraphFile: GraphFileSchema,
   Module: ModuleSchema,
   UiFile: UiFileSchema,

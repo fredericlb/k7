@@ -5,6 +5,7 @@
 
 import { MASTER_OWNER } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
+import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { autoColors } from "@studio/song-schema/trackColor";
 import { orderTracks, trackCategory } from "@studio/song-schema/trackKind";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
@@ -19,6 +20,13 @@ import {
 } from "./compile/inputs";
 import { chainOwnership } from "./compile/ownership";
 import { bakeAutomations, compilePlugins } from "./compile/plugins";
+import {
+  expandEvents,
+  type Leaf,
+  placeWithin,
+  type TimelineCtx,
+  timelineDocs,
+} from "./compile/timelines";
 import { withConsole } from "./console";
 import {
   isPatternLane,
@@ -43,6 +51,7 @@ import type { Material } from "./trackModule";
 import { videoSoundLanes } from "./videoSound";
 
 export { FROZEN_CLIP_SUFFIX, isFrozenClipId } from "./compile/freeze";
+export { timelineLaneTrack } from "./compile/timelines";
 // Re-exported from @studio/song-schema, and imported too because `export … from` binds no local name (docs/graphModel.md).
 export { materialRefOf, placementId };
 
@@ -113,6 +122,7 @@ function compileNodeProjectIn(
     busOnly,
     clipsMap,
     seqMap,
+    timelinesMap,
   } = inp;
   const { isCued, cuePair, busChains, inputChains, tapChains } = own;
 
@@ -148,6 +158,31 @@ function compileNodeProjectIn(
   // The half an event lands on: the port matching its material, else the one naming none (see laneErrs).
   const halfFor = (halves: Half[], material: Material): Half | undefined =>
     halves.find((h) => h.port === material) ?? halves.find((h) => !h.port);
+
+  // One ordinary event compiled, and one EXPANDED event: its clip or its comp's pieces, moved where its timelines play it.
+  const plain = (p: RawPlacement): ClipDoc =>
+    placementToClip(dir, p, clipsMap, seqMap, num, den, tempo, roots);
+  const placed = (l: Leaf): ClipDoc[] => {
+    const own = compClips(
+      l.p,
+      plain(l.p),
+      (ref, start) => plain({ ref, start }),
+      num,
+      den,
+      tempo,
+    );
+    return l.within ? placeWithin(own, l.within) : own;
+  };
+  // A timeline event stands for the events it holds, expanded before any of them is routed to a half (docs/timelines.md).
+  const timelineCtx: TimelineCtx = {
+    timelines: timelinesMap,
+    pos: (tc) =>
+      tc != null && tc !== "" ? parsePosition(String(tc), num, den) : 0,
+    dur: (tc) =>
+      tc != null && tc !== "" ? parseDuration(String(tc), num, den) : 0,
+    bar: (num * 4) / den,
+    clipOf: plain,
+  };
 
   // A group holds no material, so it's a parent pointer on its members plus an entry in `groups` — never a lane.
   const groupOf: Record<string, string> = {};
@@ -200,8 +235,8 @@ function compileNodeProjectIn(
         ? patternPlugins(dir, lane, t, halves, share, banks)
         : new Map<string, PluginDoc>();
     // Which half each of this lane's events plays on; one whose material has no half is NAMED rather than dropped.
-    const eventsFor = (evts: typeof t.events, half: Half) =>
-      evts.filter((p) => {
+    const eventsFor = (evts: Leaf[], half: Half) =>
+      evts.filter(({ p }) => {
         const ref = String(p?.ref ?? "");
         const at = halfFor(halves, materialOf(ref));
         if (!at) {
@@ -221,27 +256,7 @@ function compileNodeProjectIn(
       const inp =
         inputOf[id] ??
         (halfFor(halves, "audio") === half ? inputOf[lane] : undefined);
-      const events = eventsFor(t.events, half);
-      // One placement is one clip, or the pieces of its comp when it has one (docs/takes.md).
-      const placed = (p: RawPlacement): ClipDoc[] =>
-        compClips(
-          p,
-          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo, roots),
-          (ref, start) =>
-            placementToClip(
-              dir,
-              { ref, start },
-              clipsMap,
-              seqMap,
-              num,
-              den,
-              tempo,
-              roots,
-            ),
-          num,
-          den,
-          tempo,
-        );
+      const events = eventsFor(expandEvents(t.events, timelineCtx), half);
       return {
         id,
         name: id,
@@ -255,7 +270,7 @@ function compileNodeProjectIn(
             ? // A generated lane holds nothing when stopped, so it takes whatever the pattern turns out to play.
               "audio notes"
             : contentTypeOf(
-                events.map((p) => materialOf(String(p?.ref ?? ""))),
+                events.map(({ p }) => materialOf(String(p?.ref ?? ""))),
               ),
         group: groupOf[lane] ?? "",
         generated: t.type === "strudel",
@@ -415,6 +430,9 @@ function compileNodeProjectIn(
       markers: parseMarkers(root.markers, num || 4, den || 4),
       // settings.k7x is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
       settings: parseSettings(loadSettings(dir, true)),
+      ...(Object.keys(timelinesMap).length
+        ? { timelines: timelineDocs(timelineCtx, placed) }
+        : {}),
     },
     typeof proj.console === "string" ? proj.console : undefined,
     moduleRefs,

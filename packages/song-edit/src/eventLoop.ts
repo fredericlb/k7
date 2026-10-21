@@ -4,7 +4,7 @@
 
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
-import { laneFileFor } from "@studio/song/chainItemEdit";
+import { laneEventsAt } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
@@ -61,9 +61,9 @@ function placed(
   den: number,
   tempo: number,
 ): Placed | null {
-  const own = laneFileFor(dir, id);
+  const own = laneEventsAt(dir, id);
   if (!own) throw new Error(`track "${id}" has no lane file`);
-  const lane = new K7Document(wsText(own.path)).at([]);
+  const lane = new K7Document(wsText(own.path)).at(own.base);
   const at = findPlacementAt(lane, fromBeats, num, den);
   if (at < 0) return null;
   const p = placementValues(lane)[at] ?? {};

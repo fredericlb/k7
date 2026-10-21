@@ -146,7 +146,7 @@ async function gainCommand(a: string, h: CommandHost): Promise<void> {
     ]);
     return;
   }
-  const found = resolveEvent(h, trackArg, atTc);
+  const found = resolveEvent(h, trackArg, atTc, false, true);
   if (!found) return;
   const { track, atBeats, hit, num, den } = found;
   if (hit.type !== "audio") {
@@ -279,7 +279,7 @@ async function statusCommand(
     return;
   }
   const [, trackArg, atTc, stateArg] = m;
-  const found = resolveEvent(h, trackArg, atTc);
+  const found = resolveEvent(h, trackArg, atTc, false, aspect === "mute");
   if (!found) return;
   const { track, atBeats, hit, num, den } = found;
   const state = (stateArg ?? "toggle").toLowerCase();

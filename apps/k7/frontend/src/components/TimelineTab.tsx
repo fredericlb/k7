@@ -115,6 +115,7 @@ import {
   type Tool,
   toolLine,
 } from "../timelineTools";
+import { timelineView } from "../timelineView";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type {
   WebAutomationLane,
@@ -141,11 +142,14 @@ import { LaneMeter } from "./timeline/LaneMeter";
 import { LaneVstFreeze } from "./timeline/LaneVstFreeze";
 import { Playhead } from "./timeline/Playhead";
 import { RecordingClip } from "./timeline/RecordingClip";
+import { TimelineSwitch } from "./timeline/TimelineSwitch";
 import { UploadProgress } from "./UploadProgress";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
 // One empty list for "no tasks", so a timeline handed none does not get a new array every render.
+// A timeline's view draws no picture lane — one array, so the memo over it holds.
+const NO_VIDEO: WebVideoTrack[] = [];
 const NO_TASKS: readonly Task[] = [];
 /** The name column, 30% wider than the shared `GUTTER_DESKTOP`, since this one carries an arrow, two meters, an icon, a name and three toggles — ONE variable, or a click lands a column off (@studio/ui-timeline's lanes.ts). */
 const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
@@ -312,7 +316,7 @@ function TimelineTabView({
   takeCountInBeats,
   midiTake = null,
   tasks = NO_TASKS,
-  videoTracks,
+  videoTracks: songVideoTracks,
   fps,
   onVideoEdit,
   onEditTarget,
@@ -468,7 +472,20 @@ function TimelineTabView({
   const onVideoToggle = readOnly ? undefined : cmds.videoToggle;
   const onReorder = readOnly ? undefined : cmds.reorder;
   // The shared document at this reload key, re-asked on a backoff while the service is not answering (queries/projectDoc.ts).
-  const { doc: proj, failure } = usePaneProjectDoc(reloadKey);
+  const { doc: songDoc, failure } = usePaneProjectDoc(reloadKey);
+  // Which of the project's timelines the pane draws, null for the song: session state, never written (timelineView.ts).
+  const [openTimeline, setOpenTimeline] = useState<string | null>(null);
+  const { doc: proj, timeline: shownTimeline } = useMemo(
+    () => timelineView(songDoc, openTimeline),
+    [songDoc, openTimeline],
+  );
+  // A timeline has no picture: its lanes play through a song lane, wherever it is placed.
+  const videoTracks = shownTimeline ? NO_VIDEO : songVideoTracks;
+  // In a timeline's view a new lane is that timeline's.
+  const onNewLane =
+    shownTimeline && !readOnly && cmds.newTimelineLane
+      ? () => cmds.newTimelineLane?.(shownTimeline.id)
+      : onNewTrack;
   const error = failure ? failure.message : null;
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
@@ -561,10 +578,19 @@ function TimelineTabView({
             proj,
             allTracks,
             videoTracks,
-            showAutomation ? laneNodes?.automation : undefined,
+            showAutomation && !shownTimeline
+              ? laneNodes?.automation
+              : undefined,
           )
         : [],
-    [proj, allTracks, videoTracks, laneNodes?.automation, showAutomation],
+    [
+      proj,
+      allTracks,
+      videoTracks,
+      laneNodes?.automation,
+      showAutomation,
+      shownTimeline,
+    ],
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
@@ -578,11 +604,12 @@ function TimelineTabView({
   );
   // The song's extent in whole bars (min 4) — what the caret moves within. Pattern lanes deliberately don't extend it.
   const contentBeats = useMemo(() => {
-    let end = 16;
+    // A timeline's view reaches at least its fixed end, where every placement of it is cut.
+    let end = Math.max(16, shownTimeline?.length ?? 0);
     for (const t of proj?.tracks ?? [])
       for (const c of t.clips) end = Math.max(end, clipEnd(c));
     return Math.ceil((end + 1) / barBeats) * barBeats;
-  }, [proj, barBeats]);
+  }, [proj, barBeats, shownTimeline]);
 
   // --- the zoom: which rows and which beats the view is narrowed to ----------------
 
@@ -2041,6 +2068,16 @@ function TimelineTabView({
   return (
     // min-w-0: without it the fixed-width lane sets this flex child's min width and the fit-to-pane scale ratchets.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* What the pane draws: the song, or one of its timelines (TimelineSwitch.tsx). */}
+      {(!!songDoc?.timelines?.length || (!readOnly && !!cmds.newTimeline)) && (
+        <TimelineSwitch
+          timelines={songDoc?.timelines ?? []}
+          open={shownTimeline?.id ?? null}
+          onOpen={setOpenTimeline}
+          onNew={readOnly ? undefined : cmds.newTimeline}
+          lengthOf={(t) => beatsToDuration(t.length, tsNum, tsDen)}
+        />
+      )}
       <div className="flex min-h-0 flex-1">
         {/* The tools as a 32px column — the third way to one, beside the keys and the bar, and the only one a finger has. */}
         <ModeStrip
@@ -2175,8 +2212,8 @@ function TimelineTabView({
               >
                 {/* NEW TRACK, in the corner: the one place above the lanes that scrolls with neither axis, and `track new` like everything else. */}
                 {/* One button, two shapes: a song with no frame has one kind of lane, so a menu of one would be a click for nothing. */}
-                {onNewTrack &&
-                  (onNewVideoTrack ? (
+                {onNewLane &&
+                  (onNewVideoTrack && !shownTimeline ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -2191,7 +2228,7 @@ function TimelineTabView({
                       <DropdownMenuContent align="start">
                         <DropdownMenuItem
                           className="gap-2 text-xs"
-                          onSelect={onNewTrack}
+                          onSelect={onNewLane}
                         >
                           <Music className="h-3.5 w-3.5 opacity-70" />
                           {m["tl.audioLane"]()}
@@ -2213,8 +2250,12 @@ function TimelineTabView({
                   ) : (
                     <button
                       type="button"
-                      onClick={onNewTrack}
-                      title={m["tl.newLaneOnly"]()}
+                      onClick={onNewLane}
+                      title={
+                        shownTimeline
+                          ? m["tl.newTimelineLane"]()
+                          : m["tl.newLaneOnly"]()
+                      }
                       className={NEW_TRACK_BTN}
                     >
                       <Plus className="h-3 w-3" />
@@ -2888,7 +2929,8 @@ function TimelineTabView({
                     )}
                   >
                     {/* Both live meters, subscribing for themselves — see LaneMeter. */}
-                    <LaneMeter index={ti} armed={armed} />
+                    {/* None on a timeline's lane: the engine plays none, only the song lane it is placed on. */}
+                    {!shownTimeline && <LaneMeter index={ti} armed={armed} />}
                     {/* The instrument the name's prefix asks for ("ge.lead" → a strat), in the track's colour; undeclared gets a question mark. */}
                     <span
                       // The row shows the label alone, so the full name — the track's id and filename — has to be reachable here.
@@ -2913,7 +2955,7 @@ function TimelineTabView({
                         className={cn("shrink-0", !t.color && "opacity-70")}
                       />
                       {/* Which attribute set this lane plays, before the name; `shrink-0` means a narrow gutter eats the name, not this. */}
-                      {alt && onNodeMenu && (
+                      {alt && onNodeMenu && !shownTimeline && (
                         <LaneAlternative
                           track={t.name}
                           names={alt.alternatives}
@@ -2940,7 +2982,7 @@ function TimelineTabView({
                       />
                     </span>
                     {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
-                    {onTrackToggle && (
+                    {onTrackToggle && !shownTimeline && (
                       <div className="relative flex shrink-0 items-center gap-0.5">
                         {msa.map(([label, control, on, onCls]) => (
                           <button
@@ -3206,11 +3248,15 @@ function TimelineTabView({
                                 onPointerUp={endClipDrag}
                                 onPointerCancel={cancelClipDrag}
                                 // A double-click opens the clip; a RENDER opens the notes it was made from, the authored MIDI clip under the pointer (docs/timeline.md).
-                                onDoubleClick={(e) =>
-                                  c.frozen && t.frozenMaterial
-                                    ? openFrozenNotes(e, t, c)
-                                    : openClip(e, c, t.id)
-                                }
+                                onDoubleClick={(e) => {
+                                  // A timeline event opens its timeline, in this pane (timelineView.ts).
+                                  if (c.timeline) {
+                                    e.stopPropagation();
+                                    setOpenTimeline(c.timeline.ref);
+                                  } else if (c.frozen && t.frozenMaterial)
+                                    openFrozenNotes(e, t, c);
+                                  else openClip(e, c, t.id);
+                                }}
                                 // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
                                 onContextMenu={(e) => {
                                   e.preventDefault();
@@ -3247,6 +3293,9 @@ function TimelineTabView({
                                   // Touched by the hovered History row, matched on the MATERIAL its file names.
                                   mark?.clips.has(c.name) &&
                                     "outline outline-2 outline-amber-500",
+                                  // A TIMELINE placed whole: dashed, its length fixed and its content drawn inside.
+                                  c.timeline &&
+                                    "outline-dashed outline-1 -outline-offset-1 outline-foreground/50",
                                   // The clip in hand: ring it and lift it over its ghost.
                                   (moving || resizing) &&
                                     "z-10 outline outline-2 outline-primary",
@@ -3262,27 +3311,35 @@ function TimelineTabView({
                               >
                                 {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
                                 {/* A COMPED event is one block, its pieces' activity laid where each plays (song docs/takes.md). */}
-                                {c.pieces ? (
-                                  c.pieces.map((p) => (
-                                    <div
-                                      key={p.id}
-                                      className="absolute inset-y-0 -z-10"
-                                      style={{
-                                        left: (p.start - c.start) * ppb,
-                                        width: Math.max(1, p.length * ppb),
-                                      }}
-                                    >
-                                      <ClipActivity
-                                        clip={p}
-                                        spanBeats={
-                                          p.length > 0 ? p.length : NATURAL
-                                        }
-                                        color={t.color || undefined}
-                                        project={envProject}
-                                        pending={resizing}
-                                      />
-                                    </div>
-                                  ))
+                                {/* …and so is a TIMELINE event, its clips laid where each plays (song docs/timelines.md). */}
+                                {c.pieces || c.timeline ? (
+                                  (c.pieces ?? c.timeline?.clips ?? []).map(
+                                    (p) => (
+                                      <div
+                                        key={p.id}
+                                        className="absolute inset-y-0 -z-10"
+                                        style={{
+                                          left: (p.start - c.start) * ppb,
+                                          width: Math.max(
+                                            1,
+                                            (p.length > 0
+                                              ? p.length
+                                              : NATURAL) * ppb,
+                                          ),
+                                        }}
+                                      >
+                                        <ClipActivity
+                                          clip={p}
+                                          spanBeats={
+                                            p.length > 0 ? p.length : NATURAL
+                                          }
+                                          color={t.color || undefined}
+                                          project={envProject}
+                                          pending={resizing}
+                                        />
+                                      </div>
+                                    ),
+                                  )
                                 ) : (
                                   <ClipActivity
                                     clip={c}
@@ -3349,6 +3406,7 @@ function TimelineTabView({
                                 )}
                                 {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
                                 {!readOnly &&
+                                  !c.timeline &&
                                   (["fadeIn", "fadeOut"] as const).map(
                                     (which) => {
                                       const len =
@@ -3401,7 +3459,9 @@ function TimelineTabView({
                                     },
                                   )}
                                 {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
+                                {/* None on a timeline event: its length is its timeline's, fixed. */}
                                 {!readOnly &&
+                                  !c.timeline &&
                                   (["start", "end"] as const).map((edge) => (
                                     <div
                                       key={edge}
@@ -3487,25 +3547,34 @@ function TimelineTabView({
                                 {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
                                 {expanded && (
                                   <div className="relative mt-0.5 min-h-0 flex-1">
-                                    {c.pieces ? (
-                                      c.pieces.map((p) => (
-                                        <div
-                                          key={p.id}
-                                          className="absolute inset-y-0"
-                                          style={{
-                                            left: (p.start - c.start) * ppb,
-                                            width: Math.max(1, p.length * ppb),
-                                          }}
-                                        >
-                                          <ClipContent
-                                            clip={p}
-                                            spanBeats={
-                                              p.length > 0 ? p.length : NATURAL
-                                            }
-                                            project={envProject}
-                                          />
-                                        </div>
-                                      ))
+                                    {c.pieces || c.timeline ? (
+                                      (c.pieces ?? c.timeline?.clips ?? []).map(
+                                        (p) => (
+                                          <div
+                                            key={p.id}
+                                            className="absolute inset-y-0"
+                                            style={{
+                                              left: (p.start - c.start) * ppb,
+                                              width: Math.max(
+                                                1,
+                                                (p.length > 0
+                                                  ? p.length
+                                                  : NATURAL) * ppb,
+                                              ),
+                                            }}
+                                          >
+                                            <ClipContent
+                                              clip={p}
+                                              spanBeats={
+                                                p.length > 0
+                                                  ? p.length
+                                                  : NATURAL
+                                              }
+                                              project={envProject}
+                                            />
+                                          </div>
+                                        ),
+                                      )
                                     ) : (
                                       <ClipContent
                                         clip={c}
@@ -3551,14 +3620,17 @@ function TimelineTabView({
               />
             ))}
             {/* playhead — its own subscriber, so the transport moves one div and re-renders nothing else here (see Playhead). */}
-            <Playhead
-              tempo={proj.tempo}
-              beatLo={beatLo}
-              beatHi={lastBeat}
-              ppb={ppb}
-              left0={GUTTER}
-              height={contentH}
-            />
+            {/* …on the song only: a timeline's own view has no clock, the transport playing the song. */}
+            {!shownTimeline && (
+              <Playhead
+                tempo={proj.tempo}
+                beatLo={beatLo}
+                beatHi={lastBeat}
+                ppb={ppb}
+                left0={GUTTER}
+                height={contentH}
+              />
+            )}
           </div>
         </div>
       </div>

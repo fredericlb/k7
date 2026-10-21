@@ -189,6 +189,66 @@
         hint: "the sequence's id, which is its filename — optional",
       },
     ]
+# TIMELINES — another arrangement, placed WHOLE as one event on a lane, whose sound goes through
+# that lane. Its length is fixed: `timeline length` is the one way to change what every placement
+# of it plays. Its events are edited with the `event` verbs on `<timeline>><lane>`
+# (packages/song/docs/timelines.md).
+- command: "timeline new"
+  sid: timeline.new
+  readable:
+    en: "Add an empty timeline"
+    fr: "Ajouter une timeline vide"
+  help: "add a timeline of one lane, four bars long unless you say (e.g. timeline new verse 8:0) — place it with event add"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: name,
+        optional: true,
+        hint: "the timeline's id, which is its filename — optional",
+      },
+      {
+        name: length,
+        optional: true,
+        hint: "a duration, 4:0 is four bars — optional",
+      },
+    ]
+- command: "timeline length"
+  sid: timeline.length
+  readable:
+    en: "Set how long a timeline plays"
+    fr: "Régler la durée d'une timeline"
+  help: "set a timeline's fixed length, what every placement of it plays (e.g. timeline length verse 8:0)"
+  surfaces: [cli]
+  args:
+    [
+      { name: timeline, complete: timelines },
+      { name: length, hint: "a duration, 8:0 is eight bars" },
+    ]
+- command: "timeline lane new"
+  sid: timeline.laneNew
+  readable:
+    en: "Add a lane to a timeline"
+    fr: "Ajouter une piste à une timeline"
+  help: "add a lane to a timeline (e.g. timeline lane new verse drums) — named lane-N if you don't say"
+  surfaces: [cli]
+  args:
+    [
+      { name: timeline, complete: timelines },
+      { name: name, optional: true, hint: "the lane's name — optional" },
+    ]
+- command: "timeline lane remove"
+  sid: timeline.laneRemove
+  readable:
+    en: "Remove a lane from a timeline"
+    fr: "Retirer une piste d'une timeline"
+  help: "remove a timeline's lane and its events (e.g. timeline lane remove verse drums)"
+  surfaces: [cli]
+  args:
+    [
+      { name: timeline, complete: timelines },
+      { name: lane, complete: timelineLanes },
+    ]
 # INSERT or DELETE a span of song time: everything after the point moves.
 #
 # `at` is a POSITION and `length` is a DURATION — the pair this vocabulary keeps having to say out
@@ -2287,7 +2347,7 @@
   readable:
     en: "Put a clip on a track at a position"
     fr: "Poser un clip sur une piste à une position"
-  help: "put an existing clip/sequence on a track (e.g. event add gtr gtr_3.1_260814T143012 3:1)"
+  help: "put an existing clip/sequence, or a whole timeline, on a track (e.g. event add gtr gtr_3.1_260814T143012 3:1)"
   surfaces: [cli]
   menu: [track]
   args:

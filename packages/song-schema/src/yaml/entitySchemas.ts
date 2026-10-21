@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { AnimateSchema } from "../keyframes";
 import { TIMECODE } from "./placementSchema";
+import { TimelineSchema } from "./timelineSchema";
 
 /** A stretch map from the DAW a clip was imported from. */
 export const WarpSchema = z
@@ -351,4 +352,5 @@ export const ENTITY_SCHEMAS = {
   sequences: SequenceSchema,
   curves: CurveSchema,
   video_tracks: VideoTrackSchema,
+  timelines: TimelineSchema,
 } as const;

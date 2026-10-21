@@ -12,11 +12,13 @@ import {
   removeTrackPlacement,
 } from "@studio/song-edit/trackMix";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { FIXED_FIELDS } from "@studio/song-schema/timelineLane";
 import {
   type Placement,
   PlacementSchema,
 } from "@studio/song-schema/yaml/placementSchema";
 import type { SidHandler } from "../commands.ts";
+import { eventAt, makesCycle, trackOf } from "./shared.ts";
 
 /** Everything a placement may say beyond WHERE it goes, listed rather than spread — docs/verbs.md. */
 const EVENT_FIELDS = [
@@ -43,9 +45,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
     }
     const [, trackArg, fromTc, toTc, toTrackArg] = m;
     const p = h.project();
-    const track = p.tracks.find(
-      (t) => t.id === trackArg || t.name === trackArg,
-    );
+    const track = trackOf(p, trackArg);
     if (!track) {
       h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
@@ -63,7 +63,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       return;
     }
     // Identify the event in the compiled project first, for a clear message and no no-op write.
-    const hit = track.clips.find((c) => Math.abs(c.start - fromBeats) < 1e-6);
+    const hit = eventAt(track, fromBeats);
     if (!hit) {
       h.refuse([`no event on '${track.id}' at ${fromTc}`]);
       return;
@@ -71,15 +71,20 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
     // A move BETWEEN lanes is refused only when the destination has nowhere to put THIS event — docs/verbs.md.
     let dest = track;
     if (toTrackArg) {
-      const d = p.tracks.find(
-        (t) => t.id === toTrackArg || t.name === toTrackArg,
-      );
+      const d = trackOf(p, toTrackArg);
       if (!d) {
         h.refuse([`no track "${toTrackArg}"`]);
         return;
       }
+      if (hit.nest && makesCycle(p, d.id, hit.nest.ref)) {
+        h.refuse([
+          `can't move timeline '${hit.nest.ref}' onto '${d.id}': it would play inside itself`,
+        ]);
+        return;
+      }
       const takes = hit.type === "midi" ? "notes" : "audio";
-      if (!d.contentType.includes(takes)) {
+      // A timeline holds either kind, so only the lane's wiring can say, at the next compile.
+      if (!hit.nest && !d.contentType.includes(takes)) {
         h.refuse([
           `can't move onto '${d.id}': this event is ${takes} and '${d.id}' takes ${d.contentType}`,
         ]);
@@ -138,7 +143,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       tracks.push(...p.tracks.filter((t) => !t.generated));
     else
       for (const name of new Set(tracksArg.split(",").filter(Boolean))) {
-        const t = p.tracks.find((x) => x.id === name || x.name === name);
+        const t = trackOf(p, name);
         if (!t) {
           h.refuse([
             `no track "${name}"${p.tracks.length ? ` — try: ${p.tracks.map((x) => x.id).join(", ")}` : ""}`,
@@ -227,9 +232,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
     }
     const [, trackArg, clipArg, atTc] = m;
     const p = h.project();
-    const track = p.tracks.find(
-      (t) => t.id === trackArg || t.name === trackArg,
-    );
+    const track = trackOf(p, trackArg);
     if (!track) {
       h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
@@ -243,10 +246,19 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
-    if (!wsExists(join(h.songPath, "clips", `${clipArg}.k7x`))) {
+    const isTimeline = wsExists(
+      join(h.songPath, "timelines", `${clipArg}.k7x`),
+    );
+    if (!isTimeline && !wsExists(join(h.songPath, "clips", `${clipArg}.k7x`))) {
       h.refuse([
-        `no clip "${clipArg}" — clips/${clipArg}.k7x does not exist`,
+        `no clip "${clipArg}" — clips/${clipArg}.k7x does not exist, nor timelines/${clipArg}.k7x`,
         "a placement naming no clip stops the project loading, so this refuses rather than writes it",
+      ]);
+      return;
+    }
+    if (isTimeline && makesCycle(p, track.id, clipArg)) {
+      h.refuse([
+        `timeline '${clipArg}' can't go on '${track.id}': it would play inside itself`,
       ]);
       return;
     }
@@ -299,7 +311,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
         h.refuse([`${where}: needs a string track, ref and start`]);
         return;
       }
-      const track = p.tracks.find((t) => t.id === lane || t.name === lane);
+      const track = trackOf(p, lane);
       if (!track) {
         h.refuse([`${where}: no track "${lane}"`]);
         return;
@@ -318,14 +330,30 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
         return;
       }
       // The same refusal `event add` makes: a placement the compiler cannot resolve fails the WHOLE song.
+      const isTimeline = wsExists(join(h.songPath, "timelines", `${ref}.k7x`));
       if (
+        !isTimeline &&
         !wsExists(join(h.songPath, "clips", `${ref}.k7x`)) &&
         !wsExists(join(h.songPath, "sequences", `${ref}.k7x`))
       ) {
         h.refuse([
-          `${where}: no clip or sequence "${ref}" — a placement naming neither stops the project loading`,
+          `${where}: no clip, sequence or timeline "${ref}" — a placement naming none stops the project loading`,
         ]);
         return;
+      }
+      // A timeline event's extent is its timeline's: a pasted window, loop or fade would stop the project loading.
+      if (isTimeline) {
+        const fixed = FIXED_FIELDS.filter((k) => k in it);
+        if (fixed.length) {
+          h.refuse([
+            `${where}: timeline '${ref}' can't take ${fixed.join(", ")} — its length is fixed`,
+          ]);
+          return;
+        }
+        if (makesCycle(p, track.id, ref)) {
+          h.refuse([`${where}: timeline '${ref}' would play inside itself`]);
+          return;
+        }
       }
       // The rest of the placement's vocabulary, checked against the `.strict()` schema — docs/verbs.md.
       const parsed = PlacementSchema.safeParse({
@@ -382,9 +410,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
     }
     const [, trackArg, atTc] = m;
     const p = h.project();
-    const track = p.tracks.find(
-      (t) => t.id === trackArg || t.name === trackArg,
-    );
+    const track = trackOf(p, trackArg);
     if (!track) {
       h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
@@ -401,7 +427,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       return;
     }
     // Named from the compiled project before the edit — afterwards the placement is gone and there is nothing to name.
-    const hit = track.clips.find((c) => Math.abs(c.start - atBeats) < 1e-6);
+    const hit = eventAt(track, atBeats);
     if (!hit) {
       h.refuse([`no event on '${track.id}' at ${atTc}`]);
       return;

@@ -10,9 +10,11 @@ import {
   isMidiInModule,
   type loadGraph,
 } from "@studio/song/graph";
-import type { ProjectDoc } from "@studio/song/project";
+import { timelineLaneTrack } from "@studio/song/nodeProject";
+import type { NestDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import { parsePosition } from "@studio/song-schema/timecode";
+import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { localRenderer, type Renderer } from "@studio/take-render/renderer";
 import { isWithin } from "@studio/web-protocol/paths";
 import type { CommandHost } from "../commands.ts";
@@ -137,6 +139,8 @@ export function resolveEvent(
   atTc: string,
   // Set by the verbs that rewrite ONE material's window: a comped event is several (song docs/takes.md).
   refuseComp = false,
+  // Set by the verbs a TIMELINE event takes, its extent being fixed: gain and mute (song docs/timelines.md).
+  timeline = false,
 ): {
   track: ProjectDoc["tracks"][number];
   atBeats: number;
@@ -146,7 +150,7 @@ export function resolveEvent(
   tempo: number; // a resize converts beats into the seconds a clip's window is written in
 } | null {
   const p = h.project();
-  const track = p.tracks.find((t) => t.id === trackArg || t.name === trackArg);
+  const track = trackOf(p, trackArg);
   if (!track) {
     h.refuse([
       `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
@@ -162,7 +166,14 @@ export function resolveEvent(
     h.refuse([`bad timecode: ${(e as Error).message}`]);
     return null;
   }
-  const hit = track.clips.find((c) => Math.abs(c.start - atBeats) < 1e-6);
+  const hit = eventAt(track, atBeats);
+  const nest = hit?.nest;
+  if (nest && !timeline) {
+    h.refuse([
+      `the event at ${atTc} is timeline '${nest.ref}', whose length is fixed — edit the timeline itself`,
+    ]);
+    return null;
+  }
   if (!hit) {
     h.refuse([`no event on '${track.id}' at ${atTc}`]);
     return null;
@@ -174,6 +185,66 @@ export function resolveEvent(
     return null;
   }
   return { track, atBeats, hit, num, den, tempo: p.tempo };
+}
+
+/** A lane by id or name: a project lane, or a timeline's, addressed `<timeline>><lane>` (song docs/timelines.md). */
+export function trackOf(p: ProjectDoc, arg: string): TrackDoc | undefined {
+  const own = p.tracks.find((t) => t.id === arg || t.name === arg);
+  if (own || !timelineLaneOf(arg)) return own;
+  for (const t of p.timelines ?? [])
+    for (const l of t.lanes) if (l.id === arg) return timelineLaneTrack(l);
+  return undefined;
+}
+
+/** The event starting at `beats`: a timeline event by its own start, never one of the clips it expands into. */
+export function eventAt(
+  track: TrackDoc,
+  beats: number,
+): TrackDoc["clips"][number] | undefined {
+  const nest = track.clips.find(
+    (c) => c.nest && Math.abs(c.nest.start - beats) < 1e-6,
+  )?.nest;
+  return nest
+    ? nestHit(nest)
+    : track.clips.find((c) => !c.nest && Math.abs(c.start - beats) < 1e-6);
+}
+
+/** Would `ref` on lane `laneId` put a timeline inside itself? Such a project no longer loads. */
+export function makesCycle(
+  p: ProjectDoc,
+  laneId: string,
+  ref: string,
+): boolean {
+  const owner = timelineLaneOf(laneId)?.timeline;
+  if (!owner) return false;
+  const reaches = (id: string, seen: readonly string[]): boolean =>
+    id === owner ||
+    (!seen.includes(id) &&
+      (p.timelines?.find((t) => t.id === id)?.lanes ?? []).some((l) =>
+        l.clips.some((c) => c.nest && reaches(c.nest.ref, [...seen, id])),
+      ));
+  return reaches(ref, []);
+}
+
+/** A timeline event as the one clip a verb reads: its id, its timeline, its extent and its own two words. */
+function nestHit(n: NestDoc): ProjectDoc["tracks"][number]["clips"][number] {
+  return {
+    id: n.of,
+    type: "audio",
+    name: n.ref,
+    source: "",
+    start: n.start,
+    length: n.length,
+    offset: 0,
+    fadeIn: 0,
+    fadeOut: 0,
+    loopStart: 0,
+    loopEnd: 0,
+    notes: [],
+    ...(n.event?.disabled ? { disabled: true } : {}),
+    ...(n.event ? { event: n.event } : {}),
+    nest: n,
+  };
 }
 
 /** A tap's arguments: whitespace-separated, a "quoted" one kept whole — a sample's path holds spaces. */
