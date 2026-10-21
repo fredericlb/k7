@@ -1778,6 +1778,20 @@
         hint: "the audio lane to make — <lane>-sound if you don't say",
       },
     ]
+# One shot's sound off, or on again; the picture is untouched. Removing a clip from the lane that
+# plays the sound runs the same edit — packages/song/docs/videoSound.md.
+- command: "picture silence"
+  sid: picture.silence
+  readable:
+    en: "Silence a shot, or hear it again"
+    fr: "Couper le son d'un plan, ou le rétablir"
+  help: "toggle a shot's sound (e.g. picture silence main 4) — the picture stays, the sound lane drops or gets back its clip"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+    ]
 
 # --- modules / graph ---
 # The module's <category>/<name> is chosen, not derived: a module's folder is its own
