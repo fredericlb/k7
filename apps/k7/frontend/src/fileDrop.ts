@@ -21,6 +21,23 @@ export function isTimelineDrag(p: DragPayload): boolean {
   return p.types.includes(TIMELINE_MIME);
 }
 
+/** A resource from the resources panel, one type per kind: `types` is all a `dragover` may read, and the lane depends on the kind. */
+const RESOURCE_MIME = {
+  audio: "application/x-k7-resource-audio",
+  video: "application/x-k7-resource-video",
+} as const;
+
+/** The type a resource of `kind` is dragged under. */
+export const resourceMime = (kind: "audio" | "video"): string =>
+  RESOURCE_MIME[kind];
+
+/** Which kind of resource the drag carries, or null when it carries none. */
+export function resourceDragKind(p: DragPayload): "audio" | "video" | null {
+  if (p.types.includes(RESOURCE_MIME.audio)) return "audio";
+  if (p.types.includes(RESOURCE_MIME.video)) return "video";
+  return null;
+}
+
 /** True when the drag carries files from outside the page — two ways to say yes, browsers disagreeing, and an INTERNAL drag is refused. */
 export function acceptsFileDrop(p: DragPayload): boolean {
   if (p.types.includes(PARAM_MIME)) return false;

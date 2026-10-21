@@ -259,3 +259,17 @@ The song file reference covers timecodes in full.
 
 - [Clip editors](./23-clip-editors.md)
 - [Undo and history](./28-undo-history.md)
+
+## Reusing what you imported
+
+Every audio or video file you drop on a lane lands in the project's `clips/` folder. The
+**External resources** panel (the folder icon in the footer, or `ui resources`) lists them all, by
+clip name:
+
+- **▶** opens a player under the row — audio, or the video itself — and **■** stops it. One plays at
+  a time, in the browser, so it never interrupts the song.
+- **Drag a row onto a lane** to place it again where you drop it: audio on a track, a video on a
+  picture lane. A video is placed with its own length and its sound, as when you first dropped it.
+
+Recorded takes are not listed: they are performances, not imports. A clip whose file has gone is
+listed as **missing**, so you can find what still uses it.

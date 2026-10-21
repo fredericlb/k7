@@ -84,6 +84,7 @@ import {
   type ProjectApp,
   projectApp,
 } from "@studio/web-protocol/projects";
+import type { ProjectResource } from "@studio/web-protocol/resources";
 import { readActiveMarker, writeActiveMarker } from "./activeMarker.ts";
 import { guard } from "./background.ts";
 import { isManagedDemo } from "./demos.ts";
@@ -109,6 +110,7 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
+import { resourcesIn } from "./projectResources.ts";
 import { revisionOf, type WalkedFile, walkProject } from "./projectWalk.ts";
 import { shareProgress, startShareLink } from "./shareLink.ts";
 // The export acts, behind a host of a few members — see shareOps.ts.
@@ -777,6 +779,12 @@ export class Workspace {
   /** The reference tracks this workspace holds — `_references/` at any depth, see docs/workspace.md. */
   references(): ReferenceTrack[] {
     return referencesIn(this.root, (a) => this.toRel(a));
+  }
+
+  /** The active project's imported audio and video clips, for the resources panel — projectResources.ts. */
+  resources(): ProjectResource[] {
+    const dir = this.activeProjectPath();
+    return dir ? resourcesIn(dir, (a) => this.toRel(a)) : [];
   }
 
   /** Make an empty module in one of those libraries, creating the folder on the way. */

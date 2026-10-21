@@ -8,7 +8,12 @@ import { IMAGE_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import { MAX_UPLOAD_BYTES } from "@studio/web-protocol";
 import { useCallback, useState } from "react";
 import { fileClip } from "../clipFiles";
-import { isPortrait, type MediaInfo, mediaInfo } from "../mediaSeconds";
+import {
+  isPortrait,
+  type MediaInfo,
+  mediaInfo,
+  mediaInfoAt,
+} from "../mediaSeconds";
 import { m } from "../paraglide/messages.js";
 import {
   type DropUpload,
@@ -31,6 +36,7 @@ export function useTimelineDrop(
   pictureShape?: () => { landscape: boolean; untouched: boolean } | null,
 ): {
   onDrop: (d: TimelineDropEvent) => Promise<void>;
+  onDropResource: (d: ResourceDropEvent) => Promise<void>;
   upload: DropUpload | null;
 } {
   const [upload, setUpload] = useState<DropUpload | null>(null);
@@ -170,5 +176,33 @@ export function useTimelineDrop(
     [project, runCommand, setStatus, bumpReload, pictureShape],
   );
 
-  return { onDrop, upload };
+  // A resource from the resources panel: its clip is already declared, so only the PLACING half runs.
+  const onDropResource = useCallback(
+    async ({ lane, kind, id, url, tc, seconds }: ResourceDropEvent) => {
+      if (kind === "audio") {
+        await runCommand(`event add ${lane} ${id} ${tc}`);
+        return;
+      }
+      // Its measured length, as a dropped file's: a shot with none counts for nothing in an export's duration.
+      const length = (await mediaInfoAt(url))?.seconds ?? null;
+      await runCommand(
+        `picture add ${lane} ${id} ${Math.round(seconds * 1000) / 1000}${length ? ` ${length}` : ""}`,
+      );
+      await runCommand(`picture sound ${lane}`);
+      await runCommand(`picture prepare ${lane}`);
+    },
+    [runCommand],
+  );
+
+  return { onDrop, onDropResource, upload };
+}
+
+/** A resource dropped on a lane of its kind: the clip, where to probe it, and where the pointer was. */
+export interface ResourceDropEvent {
+  lane: string;
+  kind: "audio" | "video";
+  id: string;
+  url: string;
+  tc: string;
+  seconds: number;
 }
