@@ -112,8 +112,9 @@ k7's backend bundle and the tray, runs the tray on those builds, then rebuilds a
   tray if a binary is missing or older than its newest watched source. A failed bundle ends the task.
 - The tray runs from `apps/k7-tray/src-tauri/target/debug`, pointed at the bundle
   (`K7_BACKEND_BUNDLE`) and the supervisor build (`STUDIO_ENGINE_HOST_CMD`). k7 answers at
-  `http://127.0.0.1:18789`; the tray's backend runs the supervisor on `~/.k7`, so the dev web app
-  reaches the same engine as long as `~/.k7/engine-host.json` lists `http://localhost:8789`.
+  `http://127.0.0.1:18789`; the tray's backend runs the supervisor on `~/.k7`. For the dev web app to
+  reach the same engine, list `https://app.priv.k7.rocks` on the engine page: a loopback address such
+  as `http://localhost:8789` would be the tray's own backend to the supervisor, and is dropped.
 - It watches `engine/k7-runtime/engine`, `engine/k7-runtime/server` (C++ sources), the
   `CMakeLists.txt`/`CMakePresets.json` of both projects, `engine/k7-supervisor/src`, and the tray's
   `src-tauri/src`, `Cargo.toml` and `tauri.conf.json`. Tests are not watched, nor is the bundle's

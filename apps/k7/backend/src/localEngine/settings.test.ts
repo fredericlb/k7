@@ -26,6 +26,22 @@ describe("pinRegistry", () => {
     ).toEqual({ registryUrls: [LOCAL, "https://app.k7.rocks"] });
   });
 
+  it("drops every other loopback registry, which the supervisor would reach at this backend's port", () => {
+    expect(
+      pinRegistry(
+        {
+          registryUrls: [
+            LOCAL,
+            "http://localhost:18789",
+            "http://localhost:8789",
+            "https://app.priv.k7.rocks",
+          ],
+        },
+        LOCAL,
+      ),
+    ).toEqual({ registryUrls: [LOCAL, "https://app.priv.k7.rocks"] });
+  });
+
   it("says nothing changed when it already leads", () => {
     expect(
       pinRegistry({ registryUrls: [LOCAL, "https://app.k7.rocks"] }, LOCAL),

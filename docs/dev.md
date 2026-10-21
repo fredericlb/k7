@@ -195,9 +195,11 @@ therefore the tray's, as it is on a musician's machine (`apps/k7-tray/docs/tray.
 
 The tray is pointed at the repo's builds through the overrides its `paths.rs` reads first —
 `K7_BACKEND_BUNDLE` for the bundle in the tray workspace's gitignored `.dev` folder, `STUDIO_ENGINE_HOST_CMD` for the
-supervisor build — so nothing is staged. The dev web app keeps reaching the same engine as long as
-`~/.k7/engine-host.json` lists the dev backend (`http://localhost:8789`) beside the tray's own
-registry, which the tray's backend pins first and never removes.
+supervisor build — so nothing is staged. For the dev web app to reach the same engine, list the dev
+site by its public name, `https://app.priv.k7.rocks`, on the engine page (`/settings/engine`). Not by
+`http://localhost:8789`: under the tray, the machine's loopback k7 is the tray's backend, which the
+supervisor reaches every loopback registry at, so the tray's backend drops any other loopback entry
+when it pins its own (`apps/k7/backend/docs/localEngine.md`).
 
 The engine is C++, so it has no watch mode that means anything: there is nothing to hot-reload, only
 a binary to relink and a process to restart — and the tray has to be stopped for that relink, since

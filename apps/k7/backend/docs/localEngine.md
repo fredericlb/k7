@@ -12,6 +12,7 @@ the supervisor (`K7_SUPERVISOR_BIN`), and a server's backend or the phone's neve
 | `weburi.add` confirmed in the page first | listing the engine at a server hands that server the engine's token and its tunnel |
 | the snapshot pushed as Server-Sent Events | a whole picture every time, as the supervisor emits it; the browser reconnects by itself across a backend restart |
 | this backend pinned first in the supervisor's `engine-host.json` before each start | `$STUDIO_REGISTRY_URL` counts only while the file lists no registry, and the page finds the engine in this backend's registry |
+| every other loopback registry dropped when pinning | the supervisor reaches any loopback registry at k7's one port, which `STUDIO_PORTS` makes this backend's (`engine/k7-supervisor/src/Url.cpp`): another loopback entry is this backend spelt otherwise, and two hold two tunnels that displace each other. A second k7 on the machine (the dev session's) is listed by its public name |
 | the engine opens the backend's own folders by path (`STUDIO_ENGINE_ROOTS`) | a project here is a folder on this disk; nothing is copied through the tunnel |
 | the supervisor stopped before the rest | it deregisters from this backend, which must still be up to hear it |
 | `/api/local/tray` under a bearer the tray hands over at spawn | the tray has no session; the status line it draws is worded here (`trayStatus.ts`), so it is tested |
