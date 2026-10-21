@@ -115,7 +115,7 @@ import {
   type Tool,
   toolLine,
 } from "../timelineTools";
-import { timelineView } from "../timelineView";
+import { followRename, timelineView } from "../timelineView";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type {
   WebAutomationLane,
@@ -486,6 +486,17 @@ function TimelineTabView({
     onTimelinePlay(openTimeline);
     if (openTimeline) onSeek?.(0);
   }, [openTimeline, onTimelinePlay, readOnly, onSeek]);
+  // A renamed timeline stays open under its new name; a removed one gives the pane back to Main.
+  const timelineIds = useMemo(
+    () => (songDoc?.timelines ?? []).map((t) => t.id),
+    [songDoc],
+  );
+  const lastIds = useRef<string[]>([]);
+  useEffect(() => {
+    const before = lastIds.current;
+    lastIds.current = timelineIds;
+    setOpenTimeline((open) => followRename(open, before, timelineIds));
+  }, [timelineIds]);
   // A timeline has no picture: its lanes play through a song lane, wherever it is placed.
   const videoTracks = shownTimeline ? NO_VIDEO : songVideoTracks;
   // In a timeline's view a new lane is that timeline's.
@@ -2076,13 +2087,17 @@ function TimelineTabView({
     // min-w-0: without it the fixed-width lane sets this flex child's min width and the fit-to-pane scale ratchets.
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* What the pane draws: the song, or one of its timelines (TimelineSwitch.tsx). */}
-      {(!!songDoc?.timelines?.length || (!readOnly && !!cmds.newTimeline)) && (
+      {/* Only once there IS another timeline: until then the pane is Main's alone, and `timeline new` makes one. */}
+      {!!songDoc?.timelines?.length && (
         <TimelineSwitch
           timelines={songDoc?.timelines ?? []}
           open={shownTimeline?.id ?? null}
           onOpen={setOpenTimeline}
           onNew={readOnly ? undefined : cmds.newTimeline}
           lengthOf={(t) => beatsToDuration(t.length, tsNum, tsDen)}
+          onContext={(id, x, y) =>
+            onContextMenu?.({ kind: "timeline", id }, x, y)
+          }
         />
       )}
       <div className="flex min-h-0 flex-1">

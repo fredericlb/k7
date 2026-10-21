@@ -1060,10 +1060,17 @@ since they would rewrite one take's window (`packages/song/docs/takes.md`).
 
 ## Another timeline in the pane
 
-The bar above the lanes (`TimelineSwitch.tsx`) names what the pane draws: the song, or one of the
-project's `timelines/` (`packages/song/docs/timelines.md`). Opening one puts its lanes in place of
-the song's tracks (`timelineView.ts`), so every gesture — move, resize, drop, paste — addresses
+The bar above the lanes (`TimelineSwitch.tsx`) names what the pane draws: **Main**, the song's own
+timeline, or one of the project's `timelines/` (`packages/song/docs/timelines.md`). It is drawn only
+once there is another timeline: a song with one has nothing to switch between, and a bar of one tab
+is height taken from every song for nothing. Opening one puts its lanes in place of the song's
+tracks (`timelineView.ts`), so every gesture — move, resize, drop, paste — addresses
 `<timeline>><lane>` with no code of its own. Which one is open is session state and writes nothing.
+
+A tab is a right-click entity, `timeline`, so its menu is the timeline's commands with the timeline
+filled in — `rename`, `play`, `length`, `lane new` — derived like every other (`contextMenu.md`).
+A rename keeps the pane on the renamed timeline (`followRename`): the timeline that vanished as one
+alone appeared is the same one.
 
 Opening a timeline also AUDITIONS it: the pane sends `timeline play <id>` and seeks to 0, so the
 engine plays that timeline alone from its start and the playhead reads its own time; back on the

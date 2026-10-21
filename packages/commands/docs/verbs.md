@@ -554,10 +554,12 @@ move into a new timeline as long as the range, and one event of it takes their p
 One lane, because a timeline plays through the lane it sits on, so events of several lanes would
 come out of one instrument. The timeline file is written before the lane and removed if the lane's
 write fails, so the events are never in both places nor in neither.
-`timeline lane copy <lane> <timeline|song> [name]` copies a lane's EVENTS onto a new lane there,
-named after the copied one (`-2`, `-3`… when taken). `song` is a reserved destination, which is why
-`timeline new song` is refused; a copy into the song gets `track new`'s file and strip and no chain.
-Song to song is refused for `track duplicate`, which copies the chain too.
+`timeline lane copy <lane> <timeline|main> [name]` copies a lane's EVENTS onto a new lane there,
+named after the copied one (`-2`, `-3`… when taken). `main` — the song's own timeline, `Main` on
+screen — is a reserved destination, which is why no timeline may be named `main`; a copy into it
+gets `track new`'s file and strip and no chain. Main to Main is refused for `track duplicate`, which
+copies the chain too. `timeline rename` repoints every placement of the timeline, in every lane
+file and every other timeline, before it renames the file, so no event is left naming nothing.
 
 ## `events move` is one command, not a loop
 

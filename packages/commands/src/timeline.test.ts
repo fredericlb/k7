@@ -199,4 +199,24 @@ describe("timeline verbs", () => {
       expect(laneEvents()).toHaveLength(4);
     });
   });
+
+  it("renames a timeline, its file and every event placing it", async () => {
+    await placed();
+    await run("timeline new chorus");
+    await run("event add chorus>lane-1 verse 1:1");
+    const h = await run("timeline rename verse verse-a");
+    expect(h.lines.refuse).toEqual([]);
+    expect(laneEvents()).toEqual([{ ref: "verse-a", start: "3:1" }]);
+    expect(
+      (timeline("chorus").lanes as { events: { ref: string }[] }[])[0].events[0]
+        .ref,
+    ).toBe("verse-a");
+    expect(
+      loadProject(dir)
+        .timelines?.map((t) => t.id)
+        .sort(),
+    ).toEqual(["chorus", "verse-a"]);
+    const taken = await run("timeline rename chorus verse-a");
+    expect(taken.lines.refuse.join(" ")).toMatch(/already exists/);
+  });
 });

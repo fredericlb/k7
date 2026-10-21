@@ -70,6 +70,8 @@ export const MENU_ENTITIES = [
   // The timeline RULER, where nothing is yet — what a click there could put one.
   "ruler",
   "marker",
+  // A timeline's TAB above the lanes (song docs/timelines.md).
+  "timeline",
   "assembly",
   // A stretch point in a clip's warp view.
   "warp",

@@ -26,6 +26,7 @@ const ENTITY_LABEL: Record<MenuEntity, () => string> = {
   curve: () => m["menuEntity.curve"](),
   ruler: () => m["menuEntity.ruler"](),
   marker: () => m["menuEntity.marker"](),
+  timeline: () => m["menuEntity.timeline"](),
   assembly: () => m["menuEntity.assembly"](),
   warp: () => m["menuEntity.warp"](),
   shot: () => m["menuEntity.shot"](),

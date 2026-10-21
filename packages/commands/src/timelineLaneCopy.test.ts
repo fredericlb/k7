@@ -76,8 +76,8 @@ describe("timeline lane copy", () => {
     });
   });
 
-  it("copies a timeline's lane into the song as a new lane", async () => {
-    const h = await run("timeline lane copy verse>drums song");
+  it("copies a timeline's lane into the main one as a new lane", async () => {
+    const h = await run("timeline lane copy verse>drums main");
     expect(h.lines.refuse).toEqual([]);
     const t = loadProject(dir).tracks.find((x) => x.id === "drums");
     expect(t?.clips.map((c) => [c.start, !!c.disabled])).toEqual([
@@ -86,8 +86,8 @@ describe("timeline lane copy", () => {
     ]);
   });
 
-  it("refuses song to song, and a copy that would put a timeline inside itself", async () => {
-    const same = await run("timeline lane copy gtr song");
+  it("refuses main to main, and a copy that would put a timeline inside itself", async () => {
+    const same = await run("timeline lane copy gtr main");
     expect(same.lines.refuse.join(" ")).toMatch(/track duplicate/);
     doc("timelines/verse.k7x", {
       length: "2:0",
@@ -98,8 +98,8 @@ describe("timeline lane copy", () => {
     expect(lanes("chorus")).toHaveLength(1);
   });
 
-  it("refuses to name a timeline `song`", async () => {
-    const h = await run("timeline new song");
-    expect(h.lines.refuse.join(" ")).toMatch(/names the song/);
+  it("refuses to name a timeline `main`", async () => {
+    const h = await run("timeline new main");
+    expect(h.lines.refuse.join(" ")).toMatch(/names the main timeline/);
   });
 });

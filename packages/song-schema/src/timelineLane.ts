@@ -5,8 +5,8 @@
 /** What separates a timeline from its lane, and the timelines a nested clip's id walks through. */
 export const NEST_SEP = ">";
 
-/** The word `timeline lane copy` takes for the SONG as its destination, which no timeline may be named. */
-export const SONG_TARGET = "song";
+/** The word for the project's own timeline, `Main` on screen — `timeline lane copy`'s destination, and no timeline's name. */
+export const SONG_TARGET = "main";
 
 /** The placement fields a timeline event may not carry: its extent is its timeline's, fixed. */
 export const FIXED_FIELDS = [

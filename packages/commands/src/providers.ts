@@ -71,7 +71,7 @@ export const PROVIDERS = {
     ];
   },
   timelines: (h) => (h.project().timelines ?? []).map((t) => t.id),
-  // Where a lane can be copied: a timeline, or the song (`timeline lane copy`).
+  // Where a lane can be copied: a timeline, or the main one (`timeline lane copy`).
   laneTargets: (h): string[] => [SONG_TARGET, ...PROVIDERS.timelines(h)],
   timelineLanes: (h) =>
     (h.project().timelines ?? []).flatMap((t) => t.lanes.map((l) => l.name)),
@@ -283,7 +283,7 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
     "one of this module's engines — the folders under its engines/",
   tracks: "a track of this project",
   timelines: "a timeline of this project (timelines/)",
-  laneTargets: "a timeline of this project, or song",
+  laneTargets: "a timeline of this project, or main",
   timelineLanes: "a lane of that timeline",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",

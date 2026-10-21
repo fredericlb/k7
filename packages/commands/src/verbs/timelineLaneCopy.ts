@@ -30,12 +30,12 @@ function freeName(base: string, taken: Set<string>): string {
 }
 
 export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
-  /** timeline lane copy <lane> <timeline|song> [name] — the lane's events onto a new lane there; docs/verbs.md. */
+  /** timeline lane copy <lane> <timeline|main> [name] — the lane's events onto a new lane there; docs/verbs.md. */
   "timeline.laneCopy": async (a, h) => {
     const [laneArg, to, name] = splitArgs(a);
     if (!laneArg || !to)
       return h.refuse([
-        "usage: timeline lane copy <lane> <timeline|song> [name]  (e.g. timeline lane copy verse>drums chorus)",
+        "usage: timeline lane copy <lane> <timeline|main> [name]  (e.g. timeline lane copy verse>drums chorus)",
       ]);
     const p = h.project();
     const track = trackOf(p, laneArg);
@@ -57,13 +57,13 @@ export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
     if (to === SONG_TARGET) {
       if (!inTimeline)
         return h.refuse([
-          `'${lane}' is already the song's — track duplicate copies a song lane, chain and all`,
+          `'${lane}' is already on the main timeline — track duplicate copies its lanes, chain and all`,
         ]);
       const taken = new Set(p.tracks.map((t) => splitPort(t.id).node));
       const id = name ?? freeName(label, taken);
       if (!NAME.test(id) || taken.has(id))
         return h.refuse([
-          `'${id}' cannot name a new song lane — taken, or not a name`,
+          `'${id}' cannot name a new lane of the main timeline — taken, or not a name`,
         ]);
       try {
         const written = createTrackFile(h.songPath, id);
@@ -85,7 +85,7 @@ export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
     const file = join(h.songPath, "timelines", `${to}.k7x`);
     if (!wsExists(file))
       return h.refuse([
-        `no timeline "${to}" — name a timeline of timelines/, or ${SONG_TARGET}`,
+        `no timeline "${to}" — name a timeline of timelines/, or ${SONG_TARGET} for the main one`,
       ]);
     const lanes = wsData(file).lanes;
     const taken = new Set(

@@ -264,22 +264,26 @@ read. `gain` and `disabled` are what such an event takes, and they apply to ever
 
 A timeline may hold another one; a timeline that ends up inside itself is refused by name.
 
-The timeline pane draws the song, and the bar above its lanes opens any timeline in its place — or a
-double-click on a timeline event does. Its lanes are edited like the song's, and the `event` commands reach
-them by the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline new`,
-`timeline lane new` and `timeline lane remove` make the rest.
+The song's own timeline is **Main**. Once the project has another one, a bar of tabs above the lanes
+names them — Main first — and opens any timeline in Main's place; so does a double-click on a timeline
+event. Until then there is no bar: `timeline new` (or `selection timeline`, below) makes the first. A
+right-click on a tab offers that timeline's commands — `timeline rename verse verse-a` renames its file
+and every event placing it. Its lanes are edited like Main's, and the `event` commands reach them by
+the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline lane new` and
+`timeline lane remove` make the rest.
 
 A timeline can also be made from what is already on a lane: select a range on ONE lane (`v`) and run
 `selection timeline`, optionally with a name. The events starting in the range move into a new timeline as
 long as the range, and one event of it takes their place — the lane sounds exactly as before.
 
 A lane can be copied to another timeline with `timeline lane copy verse>drums chorus` — or right-click the
-lane. `song` as the destination makes it a new lane of the song, with its own fader and an empty chain to put
-an instrument on. What is copied is the events: they name the same clips, sequences and timelines, so editing a
-clip is heard in both. A song lane is copied within the song by `track duplicate`, chain and all.
+lane. `main` as the destination makes it a new lane of Main, with its own fader and an empty chain to put
+an instrument on — which is why no timeline may be named `main`. What is copied is the events: they name the
+same clips, sequences and timelines, so editing a clip is heard in both. A lane of Main is copied within Main
+by `track duplicate`, chain and all.
 
 **Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
 start, through the lane it is first placed on — that lane's instrument and effects, every other lane
-silent — and the playhead follows it. Back on the song, play is the song again. `timeline play verse`
+silent — and the playhead follows it. Back on Main, play is the whole song again. `timeline play verse`
 and a bare `timeline play` do the same from the command bar. A timeline placed on no lane still plays
 its audio; its sequences have no instrument until it is placed.

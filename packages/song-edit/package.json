@@ -20,6 +20,7 @@
     "./takeEdit": "./src/takeEdit.ts",
     "./trackMix": "./src/trackMix.ts",
     "./timelineFromRange": "./src/timelineFromRange.ts",
+    "./timelineRename": "./src/timelineRename.ts",
     "./onsets": "./src/onsets.ts",
     "./presets": "./src/presets.ts"
   },
