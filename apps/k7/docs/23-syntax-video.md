@@ -212,6 +212,11 @@ which extracts each shot's sound and makes the lane the first time. Run it yours
 placed some other way. A shot whose file has no sound stays silent, and a lane with no sound at
 all gets no audio lane.
 
+To take one shot's sound away and keep its picture, delete its clip on the sound lane, or run
+`picture silence main 4` on the shot starting at 4 s. Either writes `silent: true` on the shot;
+the same command again brings the sound back. A silent shot still cuts the sound of the shots
+under it, as it hides their picture.
+
 ## Shapes and texts are MODULES
 
 A rectangle, a circle or a line of text is a module in `modules/shapes/`, wired in `graph.k7x`

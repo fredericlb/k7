@@ -299,7 +299,13 @@ describe("a picture shot", () => {
 
   it("drops the head, so the rows read as what they do", () => {
     // Written out rather than derived, as `warp-point` and `pad` are: the four are a gesture set, not everything a lane answers.
-    expect(labels(menu)).toEqual(["move", "head", "length", "delete"]);
+    expect(labels(menu)).toEqual([
+      "move",
+      "head",
+      "length",
+      "silence",
+      "delete",
+    ]);
   });
 });
 

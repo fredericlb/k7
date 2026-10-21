@@ -1,10 +1,16 @@
 // eventsRemove.ts — `events remove <json>`: several placements off their tracks in ONE command, so a
 // rectangle cleared with Backspace is one Ctrl+Z. The events are NAMED, `{ track, start }`, rather than
 // found by a range: the timeline already knows which ones its rectangle holds. See docs/verbs.md.
+// One on a lane sounding a picture is not removed but its shot SILENCED (packages/song/docs/videoSound.md).
 
 import { removeTrackPlacement } from "@studio/song-edit/trackMix";
 import { parsePosition } from "@studio/song-schema/timecode";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import {
+  shotSoundingAt,
+  silenceShots,
+  soundingPicture,
+} from "./pictureSound.ts";
 
 export const EVENTS_REMOVE_VERBS: Record<string, SidHandler> = {
   "events.remove": (a, h) => removeEvents(a, h),
@@ -31,6 +37,7 @@ async function removeEvents(arg: string, h: CommandHost): Promise<void> {
   const den = p.timeSigDenominator;
   // Every event checked against the compiled project FIRST: a clear refusal beats a partial write.
   const hits: { track: string; at: number; tc: string }[] = [];
+  const silenced: Exclude<ReturnType<typeof shotSoundingAt>, string>[] = [];
   for (const w of wanted) {
     const t = p.tracks.find((x) => x.id === w.track || x.name === w.track);
     if (!t) {
@@ -48,15 +55,30 @@ async function removeEvents(arg: string, h: CommandHost): Promise<void> {
       h.refuse([`no event on '${t.id}' at ${w.start}`]);
       return;
     }
-    hits.push({ track: t.id, at, tc: w.start });
+    const picture = soundingPicture(h.songPath, t.id);
+    if (picture) {
+      const shot = shotSoundingAt(h, picture, at);
+      if (typeof shot === "string") return h.refuse([shot]);
+      silenced.push(shot);
+    } else hits.push({ track: t.id, at, tc: w.start });
   }
   try {
     let removed = 0;
     for (const x of hits)
       if (removeTrackPlacement(h.songPath, x.track, x.at, num, den)) removed++;
+    if (silenced.length && !silenceShots(h, silenced)) return;
     const lanes = [...new Set(hits.map((x) => x.track))];
     h.log([
-      `removed ${removed} event${removed === 1 ? "" : "s"} from ${lanes.join(", ")}`,
+      ...(hits.length
+        ? [
+            `removed ${removed} event${removed === 1 ? "" : "s"} from ${lanes.join(", ")}`,
+          ]
+        : []),
+      ...(silenced.length
+        ? [
+            `silenced ${silenced.map((s) => s.ref).join(", ")} — the shots stay in the picture`,
+          ]
+        : []),
     ]);
     await h.reload();
   } catch (e) {

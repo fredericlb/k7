@@ -17,6 +17,7 @@ import {
   PlacementSchema,
 } from "@studio/song-schema/yaml/placementSchema";
 import type { SidHandler } from "../commands.ts";
+import { silenceSoundAt, soundingPicture } from "./pictureSound.ts";
 
 /** Everything a placement may say beyond WHERE it goes, listed rather than spread — docs/verbs.md. */
 const EVENT_FIELDS = [
@@ -406,6 +407,9 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       h.refuse([`no event on '${track.id}' at ${atTc}`]);
       return;
     }
+    // A sounding lane's clip IS a shot's sound: removing it silences that shot (packages/song/docs/videoSound.md).
+    const picture = soundingPicture(h.songPath, track.id);
+    if (picture) return silenceSoundAt(h, track.id, picture, atBeats);
     try {
       if (!removeTrackPlacement(h.songPath, track.id, atBeats, num, den)) {
         h.refuse([`no event on '${track.id}' at ${atTc}`]);
