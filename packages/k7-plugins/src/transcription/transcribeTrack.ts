@@ -104,7 +104,7 @@ export async function transcribeTrack(
   h.log([`whisper is listening to ${source} — this can take a few minutes`]);
   const tmp = mkdtempSync(join(tmpdir(), "k7-transcribe-"));
   try {
-    extractAudio(videoPath, join(tmp, "audio.wav"));
+    await extractAudio(videoPath, join(tmp, "audio.wav"));
     const segments = await transcribeAudio(join(tmp, "audio.wav"), tmp);
     if (segments.length === 0) {
       h.refuse(["whisper heard no speech in this video"]);

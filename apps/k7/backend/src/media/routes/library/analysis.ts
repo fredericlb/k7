@@ -6,14 +6,18 @@ import { wrap } from "@frediverse/http/route";
 import { NoFfmpegError } from "@studio/ffmpeg";
 import { setSongBpm, setSongKey } from "@studio/mediatek/write";
 import express, { Router } from "express";
-import { analyseShared, ensureAnalysedShared } from "../../analysisGate.ts";
+import {
+  AnalysisBusyError,
+  analyseShared,
+  ensureAnalysedShared,
+} from "../../analysisGate.ts";
 import { sweepState } from "../../analysisSweep.ts";
 import {
   envelopeEtag,
   envelopeOf,
   envelopeVersion,
 } from "../../envelopeMemo.ts";
-import { mp3SweepState } from "../../mp3Sweep.ts";
+import { streamSweepState } from "../../streamSweep.ts";
 import { resolveReadable } from "./read.ts";
 import { writeError } from "./write.ts";
 
@@ -27,9 +31,9 @@ analysisRoutes.get(
   }),
 );
 
-/** What the MP3 sweep is doing — ../../../../docs/media/derivedMp3.md. */
-analysisRoutes.get("/mp3", (_req, res) => {
-  res.json(mp3SweepState());
+/** What the stream sweep is doing — ../../../../docs/media/derivedStream.md. */
+analysisRoutes.get("/stream-copies", (_req, res) => {
+  res.json(streamSweepState());
 });
 
 /** Measure one file HERE, where the bytes and ffmpeg are, and write its `.cache` sidecar — packages/audio-analysis/docs/analysis.md. */
@@ -46,7 +50,7 @@ analysisRoutes.post(
       env = await analyseShared(source);
     } catch (e) {
       // A missing decoder is this deployment's to fix, and it is not the caller's request that is wrong.
-      if (e instanceof NoFfmpegError)
+      if (e instanceof NoFfmpegError || e instanceof AnalysisBusyError)
         return res.status(503).json({ error: e.message });
       return res.status(422).json({ error: (e as Error).message });
     }
@@ -101,7 +105,7 @@ analysisRoutes.get(
       res.setHeader("Cache-Control", DEFAULT_CACHE_CONTROL);
       res.type("application/json").send(body);
     } catch (e) {
-      if (e instanceof NoFfmpegError)
+      if (e instanceof NoFfmpegError || e instanceof AnalysisBusyError)
         return res.status(503).json({ error: e.message });
       res.status(422).json({ error: (e as Error).message });
     }

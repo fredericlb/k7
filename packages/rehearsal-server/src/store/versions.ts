@@ -76,7 +76,7 @@ export async function addVersion(
       CreatedAt: createdAt,
     },
   ]);
-  fs.renameSync(mixdown.file, versionCachePath(uid));
+  seedVersionCache(mixdown, master, uid);
   invalidateVersions(releaseUid);
 
   const versions = await getVersionRecords(releaseUid);
@@ -202,7 +202,7 @@ export async function deleteVersion(
   if (!v) return false;
   await forgetVersionFolder(v);
   await db.deleteRecords("Versions", [v.id]);
-  safeUnlink(versionCachePath(versionUid));
+  dropVersionCache(versionUid, String(v.fields.AudioPath ?? ""));
   for (const t of tracksOf(v)) safeUnlink(versionTrackCachePath(versionUid, t));
   invalidateVersions(releaseUid);
   // If we removed the default, promote the most recent remaining version.
@@ -261,12 +261,30 @@ export async function ensureVersionAudioCached(
   if (!rec?.fields.AudioPath) return null;
   const remote = String(rec.fields.AudioPath);
   const mime = mediatek.streamedMime(remote);
-  const filePath = versionCachePath(versionUid);
+  const filePath = versionCachePath(versionUid, mime);
   if (!cachedFile(filePath))
     await once(fetching, filePath, () =>
       mediatek.downloadStreamable(remote, filePath),
     );
   return { filePath, mime };
+}
+
+/** The uploaded mixdown as the version's cache, when it is what `/stream` would serve; a FLAC is streamed as Opus, so it is dropped. */
+export function seedVersionCache(
+  mixdown: { file: string; mime: string },
+  remote: string,
+  versionUid: string,
+): void {
+  const mime = mediatek.streamedMime(remote);
+  if (mime === mixdown.mime)
+    fs.renameSync(mixdown.file, versionCachePath(versionUid, mime));
+  else safeUnlink(mixdown.file);
+}
+
+/** The cached mixdown of a version whose médiathèque file is `remote`. */
+export function dropVersionCache(versionUid: string, remote: string): void {
+  if (remote)
+    safeUnlink(versionCachePath(versionUid, mediatek.streamedMime(remote)));
 }
 
 /** "Artist - Title (Version).ext": what a downloaded version is saved as. */

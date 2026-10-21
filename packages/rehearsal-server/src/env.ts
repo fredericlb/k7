@@ -19,7 +19,7 @@ const raw = defineEnv(
     POCKETBASE_EMAIL: z.string().optional(),
     POCKETBASE_PASSWORD: z.string().optional(),
     CACHE_MAX_GB: z.string().optional(),
-    // How many ffmpeg run at once across every account; the others queue — ../docs/audio.md.
+    // How many cuts and splices re-encode at once across every account; the others queue — ../docs/audio.md.
     K7_FFMPEG_CONCURRENCY: z.string().optional(),
     // The local audio cache and the uploads in flight; under the home directory so a dev run needs no volume.
     K7_DATA_DIR: z.string().optional(),

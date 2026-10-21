@@ -87,9 +87,9 @@ streamed to disk by the backend, moved rather than copied). Every write ends wit
 a temporary renamed onto the real name, retried on Windows while another process holds the name,
 and accepted when the file already there has the same bytes.
 
-## Derived MP3s
+## Derived copies
 
-`derivedMp3Of`, `isDerivedMp3` and `withoutDerived` (in `media.ts`) define an MP3 beside a FLAC of
+`derivedOf`, `isDerived` and `withoutDerived` (in `media.ts`) define a WebM (or a legacy MP3) beside a FLAC of
 the same stem as derived: every walk hides it, so it is never an entry, a master, or a loose file.
 The backend makes them (see [Media backend routes](./72-media-backend.md)).
 

@@ -30,7 +30,7 @@ async function walk(root: string): Promise<Manifest> {
       readdir(d, { withFileTypes: true }).catch((): Dirent[] => []),
     );
     level = [];
-    // A FLAC's derived MP3 never syncs: a machine's mirror plays the FLAC (docs/derivedMp3.md).
+    // A FLAC's derived copy never syncs: a machine's mirror plays the FLAC (docs/derived.md).
     for (const entries of listed)
       for (const e of withoutDerived(entries)) {
         if (e.name.startsWith(".")) continue; // .cache and friends are derived

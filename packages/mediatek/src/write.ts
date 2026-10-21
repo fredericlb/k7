@@ -13,7 +13,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { MEDIA_YAML_READ } from "@studio/song-schema/mediaYaml";
 import { parse as parseYaml } from "yaml";
 import {
@@ -22,7 +22,7 @@ import {
   RECORDINGS_DIR,
   writablePath,
 } from "./layout.ts";
-import { derivedMp3Of, isAudio, withoutDerived } from "./media.ts";
+import { derivedNamesOf, isAudio, withoutDerived } from "./media.ts";
 import { placeFileSync } from "./place.ts";
 import { bumped } from "./revision.ts";
 import { SONG_FILE } from "./scan.ts";
@@ -88,13 +88,13 @@ export function putFile(rel: string, body: FileBody): string {
   return abs;
 }
 
-/** Remove one file, and a FLAC's derived MP3 with it unless `withDerived` is false. Absent is success. */
-export function removeFile(rel: string, withDerived = true): void {
+/** Remove one file, and a FLAC's derived copies with it, but `keep` — the new master written over one. Absent is success. */
+export function removeFile(rel: string, keep?: string): void {
   const abs = writablePath(rel);
   rmSync(abs, { force: true });
-  // Left behind, the MP3 would surface as an ordinary file — docs/derivedMp3.md.
-  const mp3 = withDerived ? derivedMp3Of(abs) : null;
-  if (mp3) rmSync(mp3, { force: true });
+  // Left behind, a derived copy would surface as an ordinary file — docs/derived.md.
+  for (const derived of derivedNamesOf(abs))
+    if (basename(derived) !== keep) rmSync(derived, { force: true });
   bump(abs);
 }
 
@@ -110,13 +110,14 @@ export function moveEntry(from: string, to: string): void {
   bump(dst);
 }
 
-/** A moved FLAC takes its derived MP3 along; renamed to anything else, the MP3 is dropped. */
+/** A moved FLAC takes its derived copies along; renamed to anything else, they are dropped. */
 function followDerived(src: string, dst: string): void {
-  const from = derivedMp3Of(src);
-  if (!from || !existsSync(from)) return;
-  const to = derivedMp3Of(dst);
-  if (to) renameSync(from, to);
-  else rmSync(from, { force: true });
+  const to = derivedNamesOf(dst);
+  derivedNamesOf(src).forEach((from, i) => {
+    if (!existsSync(from)) return;
+    if (to[i]) renameSync(from, to[i]);
+    else rmSync(from, { force: true });
+  });
 }
 
 /** An empty folder — somewhere to drop into that exists before the first file does. */
@@ -166,9 +167,8 @@ export function addSong(opts: {
     throw new SongExistsError(`${folder} already holds ${already}`);
   putFile(`${folder}/${name}`, opts.bytes);
   // A replacement in another format would otherwise leave two masters for the scan to pick from.
-  // A FLAC replaced by an MP3 keeps that MP3: it is the new master, written over the derived one.
-  if (already && already !== name)
-    removeFile(`${folder}/${already}`, derivedMp3Of(already) !== name);
+  // A FLAC replaced by a WebM or an MP3 keeps it: it is the new master, written over a derived one.
+  if (already && already !== name) removeFile(`${folder}/${already}`, name);
   putFile(`${folder}/${SONG_FILE}`, sidecarFor(opts.tags));
   return {
     path: folder,

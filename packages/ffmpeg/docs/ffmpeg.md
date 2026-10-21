@@ -1,8 +1,8 @@
 # @studio/ffmpeg
 
-Every Node process of this repo that runs ffmpeg or ffprobe — the media library's MP3s and
-analysis, a video's probe and copies, a rehearsal clip or concatenation, a transcription's audio,
-a render's mp3 — takes the binary, the input arguments and the missing-binary error from here
+Every Node process of this repo that runs ffmpeg or ffprobe — a video's probe and copies, a
+render's mp3, and the audio formats the WebAssembly decoder cannot open (an analysis, a
+transcription's sound) — takes the binary, the input arguments and the missing-binary error from here
 (`src/ffmpeg.ts`). The engine and the supervisor are C++ and keep their own; the supervisor applies
 the same rule to its stem cut (`engine/k7-supervisor/docs/supervisor.md`).
 

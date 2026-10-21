@@ -27,17 +27,15 @@ export function youtubeQuery(tags: {
   return named || tags.query.trim();
 }
 
-/** An ARRAY and never a command line, and `best` keeps the codec — see ../../../docs/media/hunt.md. */
+/** An ARRAY and never a command line, and the audio stream is kept as served — see ../../../docs/media/hunt.md. */
 export function ytdlpArgs(query: string, outDir: string): string[] {
   return [
     // `ytsearch1:` turns a phrase into one video; the second is already a cover or a live take.
     `ytsearch1:${query}`,
     "--no-playlist",
-    "--extract-audio",
-    "--audio-format",
-    "best",
-    "--audio-quality",
-    "0",
+    // The audio-only stream as YouTube serves it: no conversion, so yt-dlp needs no ffmpeg.
+    "--format",
+    "bestaudio",
     "--max-filesize",
     `${MAX_MB}M`,
     "--socket-timeout",

@@ -21,6 +21,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/audio-analysis": "*",
     "@studio/engine-protocol": "*",
     "@studio/ffmpeg": "*",
     "@studio/k7x": "*",

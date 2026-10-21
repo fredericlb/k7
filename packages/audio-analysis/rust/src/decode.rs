@@ -9,7 +9,8 @@ use symphonia::core::codecs::CodecParameters;
 use symphonia::core::codecs::audio::well_known::CODEC_ID_OPUS;
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions, CODEC_ID_NULL_AUDIO};
 use symphonia::core::errors::Error;
-use symphonia::core::formats::FormatReader;
+use symphonia::core::formats::{FormatReader, SeekMode, SeekTo};
+use symphonia::core::units::Time;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::io::{MediaSource, MediaSourceStream};
 
@@ -42,6 +43,8 @@ pub struct Decoder {
     hold: u64,
     held: Vec<f32>,
     ended: bool,
+    // The last packet that gave samples: its time and the frames trimmed from its head, which a seek reads its position from.
+    last: Option<(f64, u64)>,
 }
 
 impl Decoder {
@@ -94,6 +97,7 @@ impl Decoder {
             hold,
             held: Vec::new(),
             ended: false,
+            last: None,
         };
         let mut first = Vec::new();
         while d.channels == 0 && !d.ended {
@@ -104,6 +108,32 @@ impl Decoder {
         }
         d.pending = first;
         Ok(d)
+    }
+
+    /// Moves to at most `seconds` in; the position, in seconds, of the first frame `next` then hands over.
+    pub fn seek(&mut self, seconds: f64) -> Result<f64, String> {
+        let time = Time::try_from_secs_f64(seconds.max(0.0)).ok_or("cannot seek: bad time")?;
+        let to = SeekTo::Time { time, track_id: Some(self.track) };
+        self.format.seek(SeekMode::Accurate, to).map_err(|e| format!("cannot seek: {e}"))?;
+        match &mut self.codec {
+            Codec::Symphonia(codec) => codec.reset(),
+            Codec::Opus(o) => **o = Opus::new(o.channels)?,
+        }
+        // Frames held back for a webm's end padding belong to where the stream was: none of them follows the seek.
+        self.pending.clear();
+        self.held.clear();
+        self.skip = 0;
+        self.left = None;
+        self.ended = false;
+        self.last = None;
+        // The seek's own answer is not the packet it resumes on: the first packet decoded says where it is.
+        let mut first = Vec::new();
+        while first.is_empty() && !self.ended {
+            self.decode_packet(&mut first)?;
+        }
+        self.pending = first;
+        let (at, trimmed) = self.last.ok_or("cannot seek: nothing decodes past it")?;
+        Ok(at + trimmed as f64 / f64::from(self.sample_rate.max(1)))
     }
 
     /// Appends at least `frames` whole frames to `out` unless the stream ends first; returns how many it appended.
@@ -141,6 +171,8 @@ impl Decoder {
             }
             let mut samples = std::mem::take(&mut self.scratch);
             samples.clear();
+            let pts = self.time_of(packet.pts);
+            let trimmed = packet.trim_start.get();
             let (rate, channels) = match &mut self.codec {
                 Codec::Symphonia(codec) => match codec.decode(&packet) {
                     Ok(b) => {
@@ -167,6 +199,7 @@ impl Decoder {
                 self.scratch = samples;
                 continue;
             }
+            self.last = pts.map(|t| (t, trimmed));
             if self.channels == 0 {
                 if channels > MAX_CHANNELS || rate == 0 || rate > MAX_SAMPLE_RATE {
                     return Err(format!("implausible stream ({channels} channel(s) at {rate} Hz)"));
@@ -182,6 +215,12 @@ impl Decoder {
             self.scratch = samples;
             return Ok(());
         }
+    }
+
+    /// A timestamp of the track in seconds, when the track states its time base.
+    fn time_of(&self, ts: symphonia::core::units::Timestamp) -> Option<f64> {
+        let base = self.format.tracks().iter().find(|t| t.id == self.track)?.time_base?;
+        Some(base.calc_time(ts)?.as_secs_f64())
     }
 
     /// Appends `samples` to `out` past the frames the edit list drops and short of those it cuts.
@@ -235,6 +274,18 @@ mod tests {
             }
         }
         w
+    }
+
+    #[test]
+    fn seeks_to_a_frame_it_can_name() {
+        let mut d = Decoder::open(Box::new(Cursor::new(wav(8000, 2, 8000))), "wav").unwrap();
+        let at = d.seek(0.5).unwrap();
+        assert!(at <= 0.5 && at > 0.4, "{at}");
+        let mut out = Vec::new();
+        d.next(&mut out, 16).unwrap();
+        let frame = (at * 8000.0).round() as u32;
+        assert_eq!(out[0], ((frame % 100) as f32) / 32768.0);
+        assert_eq!(out[1], (((frame + 1) % 100) as f32) / 32768.0);
     }
 
     #[test]

@@ -9,7 +9,7 @@ import { sidecarPresent } from "@studio/audio-analysis/sidecar";
 import { NoFfmpegError } from "@studio/ffmpeg";
 import { listFamily } from "@studio/mediatek/catalogue";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
-import { analyseShared, gateLoad } from "./analysisGate.ts";
+import { AnalysisBusyError, analyseShared, gateLoad } from "./analysisGate.ts";
 import { markedFailed } from "./analysisMarks.ts";
 
 /** Between two files. The decode is a subprocess, but the envelope is ~200 ms of SYNCHRONOUS arithmetic. */
@@ -97,7 +97,8 @@ async function pass(): Promise<void> {
           console.error(`   waveform sweep stopped: ${(e as Error).message}`);
           return;
         }
-        failed.add(rel);
+        // Listeners filled the queue: the file is fine, and the next pass takes it.
+        if (!(e instanceof AnalysisBusyError)) failed.add(rel);
       }
       state.pending--;
       state.current = null;

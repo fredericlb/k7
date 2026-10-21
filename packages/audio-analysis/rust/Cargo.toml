@@ -19,8 +19,13 @@ strip = true
 [features]
 # The decoder, for a host with no ffmpeg and no engine: only the WebAssembly build turns it on (docs/analysis.md).
 decode = ["dep:symphonia", "dep:opus-rs"]
+# The encoders — Opus in WebM, FLAC, WAV — with the resampler and the loudness meter they need (docs/transcode.md).
+encode = ["decode", "dep:rubato", "dep:ebur128", "dep:flacenc"]
 
 [dependencies]
 symphonia = { version = "0.6.1", optional = true, default-features = false, features = ["mp3", "aac", "isomp4", "mkv", "flac", "ogg", "vorbis", "wav", "pcm", "aiff", "alac"] }
 # symphonia reads Opus containers but does not decode Opus (src/opus.rs).
 opus-rs = { version = "0.1.39", optional = true }
+rubato = { version = "5.0.1", optional = true, default-features = false, features = ["fft_resampler"] }
+ebur128 = { version = "0.1.10", optional = true }
+flacenc = { version = "0.5.1", optional = true, default-features = false }

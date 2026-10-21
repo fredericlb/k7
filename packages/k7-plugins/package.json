@@ -30,6 +30,7 @@
     "@studio/commands": "*",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
+    "@studio/audio-analysis": "*",
     "@studio/ffmpeg": "*",
     "@studio/graph-model": "*",
     "@studio/k7-sdk": "*",

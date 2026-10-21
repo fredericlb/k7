@@ -72,7 +72,7 @@ device:
   forwards their routes to the paired server (`packages/rehearsal-server/src/publications.ts`).
 - Moments can be pushed to the server (`packages/rehearsal-server/src/momentShare.ts`); sessions
   never leave the device.
-- The FLAC to MP3 sweep is turned off with `STUDIO_MP3_SWEEP=0`.
+- The FLAC to Opus sweep is turned off with `STUDIO_STREAM_SWEEP=0`.
 
 ## The pages in this range
 

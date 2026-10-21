@@ -150,3 +150,12 @@ positionals mirror `graph.ts`'s.
 
 The output clusters like the web timeline so both surfaces describe one project alike, and a
 dangling `group` shows as ungrouped — print what the song has.
+
+## What a publish uploads
+
+The engine writes WAV, and a release is uploaded smaller. Stems go as 24-bit FLAC, encoded by
+`@studio/audio-analysis`'s WebAssembly build on a worker (`toFlac`), so every host makes them the
+same way and none needs ffmpeg. The mixdown goes as an mp3 where ffmpeg is installed — no pure-Rust
+mp3 encoder is good enough to replace it — and as FLAC where it is not (`toMp3`, then `toFlac`).
+Both run asynchronously with a deadline: an encode inside the file service's request must never
+freeze the account's whole process.

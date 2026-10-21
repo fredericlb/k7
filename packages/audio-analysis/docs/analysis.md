@@ -11,16 +11,22 @@ The arithmetic lives here once. What varies is where the samples come from:
 - **The engine's `--decode`** on a machine that has an engine — the musician's, under the tray.
   It decodes any format JUCE reads, it is already installed, and the musician's machine has no
   ffmpeg to rely on.
-- **ffmpeg** where there is no engine — k7's backend, which is hosted. The engine is never in that image and
-  never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
-  analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
-  image for the rehearsal recorder's takes.
-- **WebAssembly** where there is neither — the Android app, whose engine is a library inside the
-  app rather than a binary to spawn, and which carries no ffmpeg (`engine/k7-runtime/docs/android.md`).
+- **WebAssembly** where there is no engine — k7's backend, which is hosted, and the Android app,
+  whose engine is a library inside the app rather than a binary to spawn. The engine is never in the
+  hosted image: it is an instrument on a musician's machine. But that image holds the médiathèque's
+  bytes, so the analysis of a freshly uploaded song happens where the bytes are.
   See [the WebAssembly decoder](#the-webassembly-decoder) below.
+- **ffmpeg** for a file the WebAssembly decoder cannot OPEN — a format it does not read (HE-AAC, an
+  AVI, a camera's MPEG-TS), where ffmpeg is installed.
 
-`DecodeOptions.engineBin` picks the engine, and a missing ffmpeg falls through to WebAssembly unless
-`wasm: false` says not to. Nothing downstream knows which ran: all three hand
+WebAssembly comes before ffmpeg because the upload is untrusted and the decoder of the shared
+backend must be one that can be stopped: the module reads through `host.read` and runs in a worker
+the pool terminates past its deadline ([the pool](#the-pool)), where an ffmpeg is a child that has
+hung on a crafted file. Only an OPEN failure goes on to ffmpeg — once frames were handed over, a
+retry would hand them twice — and when ffmpeg is missing too, the module's reason is the one
+reported.
+
+`DecodeOptions.engineBin` picks the engine, and `wasm: false` asks for ffmpeg alone. Nothing downstream knows which ran: all three hand
 over interleaved float32 frames at the file's own rate, every channel. On wav and flac the three
 produce identical sidecars, measured. On mp3 they do not: ffmpeg trims the encoder delay and JUCE
 does not, so the engine's decode is longer by it — 1105 samples, 25 ms, on the file measured in
@@ -65,6 +71,25 @@ other pure-Rust Opus decoders because it is the one that is both close to libopu
   lets the event loop through between them.
 - **It costs 1.7 MB.** The module grows from 24 KB to ~1.7 MB, checked in as base64 in
   `src/waveformWasm.generated.ts`, which biome is told to skip.
+
+## The pool
+
+A service runs `analyseFile` through `pool.ts` rather than on its own thread: the file service, and
+k7's backend, whose one process serves every account. Two decoding workers at most, since each decode
+holds a mono copy of its file, one more for sidecar checks, which must never wait behind a decode,
+and two for re-encodes ([transcode.md](transcode.md)), so a waveform never waits behind a splice.
+`analyse-worker.mjs` is bundled beside each bundle that uses it (`apps/k7/backend/scripts/bundle.mjs`).
+From source the worker is TypeScript whose imports name no extension, so it is started under tsx's
+loader whatever started the process — a test runner included, where it would otherwise fail to load
+and leave every job inline.
+
+A worker is **terminated** past `ANALYSE_DEADLINE_MS`, ten minutes. The abort signal is not enough:
+it is read between blocks, and a decode stuck inside the WebAssembly module never reaches the next
+block. The deadline is generous on purpose — a two-hour file decodes in a fraction of it — so the
+one it catches is a file the decoder hangs on, which k7's backend then marks failed on the volume.
+The other jobs that worker held start again on a fresh one.
+
+A runtime where a worker will not start analyses inline, with no deadline, and says so once.
 
 ## The mono sum is the first two channels averaged
 
@@ -177,7 +202,7 @@ that belongs to the module.
 `extractSound` (`src/extract.ts`) writes a file's first audio stream to a 32-bit float WAV at its
 own rate and channel count, for the engine to play a shot's sound from
 (`packages/song/docs/videoSound.md`). It is the one reader here that asks **ffmpeg first** and
-the engine second, because what it reads is video: the engine opens a container only through the
+the engine second where there is an engine (with none, it decodes like every other reader), because what it reads is video: the engine opens a container only through the
 platform's decoder, which reads no WebM on any platform and nothing at all on Linux. The engine is
 the fallback for a desktop with no ffmpeg, and there it reads an `.mp4` or a `.mov`.
 
