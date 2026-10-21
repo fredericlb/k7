@@ -25,6 +25,7 @@
     "@studio/mpv-player": "*",
     "@studio/panel-rules": "*",
     "@studio/rehearsal-server": "*",
+    "@studio/supervisor-host": "*",
     "@studio/song-schema": "*",
     "@studio/user-prefs": "*",
     "@studio/web-protocol": "*",

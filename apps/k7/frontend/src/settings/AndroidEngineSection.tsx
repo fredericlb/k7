@@ -15,11 +15,11 @@ import {
 } from "./androidEngine";
 import { InstrumentsSection } from "./InstrumentsSection";
 import { Action, Row, Section } from "./Section";
+import { StudiosSection } from "./StudiosSection";
 
 export function AndroidEngineSection() {
   const snapshot = useEngineSnapshot();
   const [lan, setLan] = useState<string | null>(null);
-  const [address, setAddress] = useState("");
 
   useEffect(() => {
     if (!onAndroid) return;
@@ -32,11 +32,6 @@ export function AndroidEngineSection() {
   const state = snapshot?.state;
   const rows = state?.instances ?? [];
   const check = state?.instanceCheck;
-
-  const connect = () => {
-    const url = address.trim();
-    if (url) void engineCall("command", { cmd: "weburi.add", arg: url });
-  };
 
   return (
     <>
@@ -57,72 +52,35 @@ export function AndroidEngineSection() {
         </Row>
       </Section>
 
-      <Section title={m["android.studios"]()} hint={m["android.studiosHint"]()}>
-        {rows.map((row) => {
-          const family = studioFamily(row.url);
-          const open = family === snapshot?.studio;
-          return (
-            <Row
-              key={row.url}
-              label={row.url}
-              detail={open ? m["android.openHere"]() : undefined}
+      <StudiosSection
+        rows={rows}
+        check={check}
+        add={(url) =>
+          void engineCall("command", { cmd: "weburi.add", arg: url })
+        }
+        remove={(url) =>
+          void engineCall("command", { cmd: "weburi.remove", arg: url })
+        }
+        detail={(row) =>
+          studioFamily(row.url) === snapshot?.studio
+            ? m["android.openHere"]()
+            : undefined
+        }
+        extra={(row) =>
+          studioFamily(row.url) !== snapshot?.studio && (
+            <Action
+              onClick={() =>
+                void engineCall("chooseStudio", {
+                  origin: studioFamily(row.url),
+                })
+              }
+              title={m["android.openStudio"]()}
             >
-              {!open && (
-                <Action
-                  onClick={() =>
-                    void engineCall("chooseStudio", { origin: family })
-                  }
-                  title={m["android.openStudio"]()}
-                >
-                  {m["android.open"]()}
-                </Action>
-              )}
-              {row.removable && (
-                <Action
-                  danger
-                  onClick={() =>
-                    void engineCall("command", {
-                      cmd: "weburi.remove",
-                      arg: row.url,
-                    })
-                  }
-                >
-                  {m["ai.remove"]()}
-                </Action>
-              )}
-            </Row>
-          );
-        })}
-        <form
-          className="flex items-center gap-2 px-4 py-2.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            connect();
-          }}
-        >
-          <input
-            type="url"
-            inputMode="url"
-            autoCapitalize="off"
-            autoCorrect="off"
-            placeholder="https://studio.example"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-neutral-200 text-sm"
-          />
-          <Action onClick={connect} disabled={!address.trim()}>
-            {m["android.connect"]()}
-          </Action>
-        </form>
-        {check?.state === "checking" && (
-          <p className="px-4 py-2 text-faint text-xs">
-            {m["android.checking"]({ url: check.url ?? "" })}
-          </p>
-        )}
-        {check?.state === "refused" && (
-          <p className="px-4 py-2 text-red-300 text-xs">{check.message}</p>
-        )}
-      </Section>
+              {m["android.open"]()}
+            </Action>
+          )
+        }
+      />
 
       <InstrumentsSection
         snapshot={state ?? null}

@@ -131,10 +131,13 @@ export function PlaylistPane({
 
   // Where the catalogue's songs open, for the link at the foot: a full page on the desktop's paired server, or on this origin when hosted.
   const [catalogue, setCatalogue] = useState<string | null>(pl8Url());
+  // On the tray's backend the catalogue is another origin's, so it opens beside k7 rather than over it.
+  const [elsewhere, setElsewhere] = useState(false);
   useEffect(() => {
     void desktop.state().then((d) => {
-      // Hosted, pl8 is this same origin; on the desktop it is the server's, or nowhere.
+      // Hosted, pl8 is this same origin; on the tray's backend it is the server's, or nowhere.
       setCatalogue(d ? (d.server ? pl8Url(d.server) : null) : pl8Url());
+      setElsewhere(d !== null);
     });
   }, []);
   // A full-page load and not the router's: this pane's basename is the project, the media pages are the home's.
@@ -554,13 +557,11 @@ export function PlaylistPane({
             })}
           </ol>
         )}
-        {/* Where a song ARRIVES, at the foot of the list: on the desktop it is the SERVER's media pages, in the system browser. */}
+        {/* Where a song ARRIVES, at the foot of the list: on the tray's backend it is the SERVER's media pages, in a tab of their own. */}
         {songsPage ? (
           <a
             href={songsPage}
-            {...(desktop.isDesktop
-              ? { target: "_blank", rel: "noreferrer" }
-              : {})}
+            {...(elsewhere ? { target: "_blank", rel: "noreferrer" } : {})}
             className="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground"
             title={m["pl.catalogueHint"]()}
           >

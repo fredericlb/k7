@@ -6,12 +6,13 @@ import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { AccountButton, type Me } from "../tabs/AccountButton";
 import { AccountStatusNote } from "../tabs/AccountStatusNote";
-import { hasAccountBar } from "../tabs/bridge";
+import { useHasAccountBar } from "../tabs/bridge";
 import { SyncServers } from "./SyncServers";
 
 export function AccountBar() {
   const [me, setMe] = useState<Me | null>(null);
-  if (!hasAccountBar()) return null;
+  const shown = useHasAccountBar();
+  if (!shown) return null;
   return (
     <div className="flex shrink-0 items-center gap-2 border-b px-6 py-2 text-muted-foreground text-xs">
       <span className="min-w-0 flex-1">

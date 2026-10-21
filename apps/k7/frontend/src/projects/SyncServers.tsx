@@ -8,7 +8,7 @@ import { askConfirm } from "@studio/project-shell/ask";
 import { normalizeServer } from "@studio/web-protocol/pairing";
 import { useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { tabsBridge } from "../tabs/bridge";
+import { accountBridge } from "../tabs/bridge";
 import { hostLabel } from "./WorkspaceSyncIcon";
 
 interface Server {
@@ -55,7 +55,7 @@ export function SyncServers() {
   const valid = adding !== null && normalizeServer(adding) !== null;
   const add = async () => {
     if (adding === null || !valid) return;
-    const asked = await tabsBridge()?.addServer?.(adding);
+    const asked = await accountBridge()?.addServer?.(adding);
     setAdding(null);
     // The pairing finishes in the browser: the list grows when it has.
     if (asked) setTimeout(reload, AFTER_ADD_MS);
@@ -119,7 +119,7 @@ export function SyncServers() {
         </span>
       ))}
       {adding === null ? (
-        tabsBridge()?.addServer && (
+        accountBridge()?.addServer && (
           <button
             type="button"
             className={`${button} flex items-center gap-1 px-1.5`}

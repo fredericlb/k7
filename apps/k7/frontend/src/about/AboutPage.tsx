@@ -4,6 +4,7 @@
 
 import { ExternalLink } from "@frediverse/ui/icons";
 import { lazy, Suspense, useState } from "react";
+import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
 import { PageFrame } from "../projects/PageFrame";
@@ -28,6 +29,7 @@ const OwnLicense = lazy(() =>
 
 export function AboutPage() {
   const [showLicense, setShowLicense] = useState(false);
+  const local = useLocalApp();
   return (
     <HomeShell subtitle={m["about.title"]()}>
       <PageFrame title={m["about.title"]()} narrow>
@@ -36,10 +38,8 @@ export function AboutPage() {
             // version.ts is the frontend's one version source, whatever feeds it (../../docs/about.md).
             label={m["about.version"]({ version: VERSION })}
             detail={
-              window.studioApp
-                ? m["settings.desktopVersion"]({
-                    version: window.studioApp.version,
-                  })
+              local?.engine
+                ? m["settings.desktopVersion"]({ version: local.version })
                 : undefined
             }
           />

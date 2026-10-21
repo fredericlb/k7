@@ -1,6 +1,6 @@
-// DesktopEnginePage.tsx — `/settings/engine`, the desktop app's built-in engine: whether it runs, which
-// audio interface it takes first, its plugins, and the instruments it downloads. What the command-line engine reads from its config file;
-// the desktop app hands its user no such file, so its own menu leads here. See ../../docs/settings.md.
+// DesktopEnginePage.tsx — `/settings/engine`, this machine's engine as the tray runs it: whether it runs, which audio
+// interface it takes first, its plugins, the servers it is listed at, and the instruments it downloads. What the
+// command-line engine reads from its config file; the tray hands its user no such file. See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { m } from "../paraglide/messages.js";
@@ -11,12 +11,13 @@ import {
   engineCommand,
   idleAsioDriver,
   moveDevice,
-  onDesktopEngine,
   rankedDevices,
   useDesktopEngine,
+  useOnDesktopEngine,
 } from "./desktopEngine";
 import { InstrumentsSection } from "./InstrumentsSection";
 import { Action, Row, Section } from "./Section";
+import { StudiosSection } from "./StudiosSection";
 
 /** U+001F joins the names `audio.priority` takes (engine/k7-supervisor/docs/hostProtocol.md). */
 const SEP = "\u001f";
@@ -57,6 +58,7 @@ function statusLine(
 }
 
 export function DesktopEnginePage() {
+  const here = useOnDesktopEngine();
   const state = useDesktopEngine();
   const s = state?.snapshot ?? null;
   const running = s?.status === "running";
@@ -69,7 +71,7 @@ export function DesktopEnginePage() {
   return (
     <HomeShell subtitle={m["engine.title"]()}>
       <PageFrame title={m["engine.title"]()} narrow>
-        {!onDesktopEngine() ? (
+        {here === undefined ? null : !here ? (
           <p className="text-muted-foreground text-xs">
             {m["engine.notHere"]()}
           </p>
@@ -171,6 +173,20 @@ export function DesktopEnginePage() {
               )}
             </Section>
 
+            <StudiosSection
+              rows={(s?.instances ?? []).map((row) => ({
+                ...row,
+                // This backend's own row comes back at every start (backend/src/localEngine/settings.ts).
+                removable:
+                  row.removable && new URL(row.url).origin !== location.origin,
+              }))}
+              check={s?.instanceCheck ?? undefined}
+              add={(url) => {
+                if (window.confirm(m["engine.connectConfirm"]({ url })))
+                  engineCommand("weburi.add", url);
+              }}
+              remove={(url) => engineCommand("weburi.remove", url)}
+            />
             <InstrumentsSection snapshot={s} send={engineCommand} />
 
             <Section

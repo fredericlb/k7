@@ -3,6 +3,8 @@
 // ours. See apps/k7-standalone/docs/tabs.md.
 
 import type { TabRow, TabState } from "@studio/web-protocol/desktop";
+import { useLocalApp } from "../localApp";
+import { browserAccount } from "./browserAccount";
 
 export type { TabRow };
 
@@ -14,6 +16,8 @@ interface TabBridge {
 /** Where a sign-in or a pairing stands; mirrored from apps/k7-standalone/src/accountStatus.ts. */
 export type AccountStatus =
   | { state: "idle" }
+  /** Back from a sign-in in a browser: pairing with `server` waits on a click (./browserAccount.ts). */
+  | { state: "offer"; server: string }
   | { state: "waiting"; what: "signIn" | "pair" }
   | { state: "error"; code: string; detail?: string }
   | { state: "done"; code: string; detail?: string };
@@ -54,5 +58,13 @@ export const inAndroidApp = (): boolean => {
   const phone = window as { k7Android?: unknown; k7Ios?: unknown };
   return !!(phone.k7Android ?? phone.k7Ios);
 };
-/** Where an account control belongs on the home page: the desktop app and the Android one, never a browser tab. */
-export const hasAccountBar = (): boolean => !!tabsBridge() || inAndroidApp();
+/** The account controls' sign-in and pairing: the desktop's preload, else the page's own, except in a phone app, whose shell does both. */
+export const accountBridge = ():
+  | (Partial<typeof browserAccount> & Pick<TabsBridge, "signIn">)
+  | undefined => tabsBridge() ?? (inAndroidApp() ? undefined : browserAccount);
+
+/** Where an account control belongs on the home page: wherever this machine runs its own backend, never on a server. */
+export function useHasAccountBar(): boolean {
+  const local = useLocalApp();
+  return !!tabsBridge() || inAndroidApp() || !!local;
+}

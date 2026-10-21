@@ -1,44 +1,39 @@
-// desktop.ts — is k7 running inside the desktop app, and if so, which server does it sync with?
-//
-// The detection is the PRELOAD's bridge, not a build flag: `window.studioDesktop` exists only
-// in the app's windows (apps/k7-standalone/src/desktopBridge.ts), so the same bundle ships to
-// both and a browser tab simply has none. An IPC call rather than a route, so no other device
-// on the network can ask. See apps/k7-standalone/docs/standalone.md.
+// desktop.ts — is this page served by the tray's backend on a computer, and if so, which server does it sync with?
+// Asked of the backend itself (../localApp.ts, then /api/sync/remote): the same bundle ships to every host. A phone
+// app's backend is local too, but its shell answers these questions natively. See ../docs/localApp.md.
 
-/** Mirrors `DesktopState` in apps/k7-standalone/src/desktopBridge.ts. */
+import { localApp } from "./localApp";
+import { inAndroidApp } from "./tabs/bridge";
+
 export interface DesktopState {
+  /** The k7 server this machine syncs with, as an https origin; null until one is paired. */
   server: string | null;
+  /** Addresses another device on the LAN could open; a loopback-only backend offers none. */
   lanUrls: string[];
 }
 
-interface DesktopBridge {
-  state: () => Promise<DesktopState | null>;
-}
-
-declare global {
-  interface Window {
-    studioDesktop?: DesktopBridge;
+/** `wss://app.k7.rocks/api/sync` → `https://app.k7.rocks`: the relay's server, as a page links to it. */
+export function serverOf(relay: string | null): string | null {
+  if (!relay) return null;
+  try {
+    const u = new URL(relay);
+    u.protocol = u.protocol === "ws:" ? "http:" : "https:";
+    return u.origin;
+  } catch {
+    return null;
   }
 }
 
-const bridge = (): DesktopBridge | undefined =>
-  typeof window === "undefined" ? undefined : window.studioDesktop;
-
 export const desktop = {
-  /** The app's state, or null when this is not the desktop app. */
+  /** The machine's state, or null when this page is served by a server or a phone app. */
   state: async (): Promise<DesktopState | null> => {
-    const b = bridge();
-    if (!b) return null;
+    if (inAndroidApp() || !(await localApp())) return null;
     try {
-      return await b.state();
+      const r = await fetch("/api/sync/remote", { cache: "no-store" });
+      const remote = r.ok ? ((await r.json()) as { url?: string | null }) : {};
+      return { server: serverOf(remote.url ?? null), lanUrls: [] };
     } catch {
-      // The main process gone mid-quit: nothing left to point at.
-      return null;
+      return { server: null, lanUrls: [] };
     }
-  },
-
-  /** Whether this page is in the desktop app, known without asking. */
-  get isDesktop(): boolean {
-    return !!bridge();
   },
 };

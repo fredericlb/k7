@@ -1,8 +1,9 @@
-// desktopEngine.ts — the desktop app's built-in engine, as its preload hands it over (`window.studioEngine`):
-// the supervisor's latest picture, pushed, and the few commands a page may send. Absent in a browser,
-// and that absence is the probe. See apps/k7-standalone/docs/engine.md.
+// desktopEngine.ts — this machine's engine, when the page is served by the tray's backend, which runs its supervisor:
+// the supervisor's latest picture, pushed over /api/local/engine/events, and the few commands a page may send.
+// A server or a phone's backend runs none, and the probe says so. See ../../docs/localApp.md.
 
 import { useEffect, useState } from "react";
+import { useLocalApp } from "../localApp";
 
 /** What this page draws of the supervisor's snapshot (packages/supervisor-host/src/hostProtocol.ts). */
 export interface DesktopEngineSnapshot {
@@ -24,6 +25,9 @@ export interface DesktopEngineSnapshot {
     outputs?: number;
   }[];
   audioPriority?: string[];
+  /** The k7 servers this engine is listed at; one from the environment is not removable. */
+  instances?: { url: string; removable?: boolean }[];
+  instanceCheck?: { state?: string; url?: string; message?: string } | null;
   instruments?: {
     name: string;
     label: string;
@@ -95,40 +99,33 @@ export interface DesktopEngineState {
   down: string | null;
 }
 
-interface EngineBridge {
-  state: () => Promise<DesktopEngineState | null>;
-  subscribe: (cb: (s: DesktopEngineState) => void) => () => void;
-  send: (cmd: string, arg?: string) => void;
+/** Whether this page's backend runs the machine's engine; `undefined` while it is being asked. */
+export function useOnDesktopEngine(): boolean | undefined {
+  const app = useLocalApp();
+  return app === undefined ? undefined : !!app?.engine;
 }
 
-declare global {
-  interface Window {
-    studioEngine?: EngineBridge;
-  }
+/** Ask the supervisor; the backend takes only the commands its allow-list names (backend/src/localEngine/routes.ts). */
+export function engineCommand(cmd: string, arg?: string): void {
+  void fetch("/api/local/engine/cmd", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(arg === undefined ? { cmd } : { cmd, arg }),
+  }).catch(() => {});
 }
 
-/** True inside the desktop app, which runs an engine of its own. */
-export const onDesktopEngine = (): boolean =>
-  typeof window !== "undefined" && !!window.studioEngine;
-
-/** Ask the supervisor: only `engine.start|stop|restart`, `audio.priority`, `plugins.rescan` and `instruments.download|remove` are taken. */
-export const engineCommand = (cmd: string, arg?: string): void =>
-  window.studioEngine?.send(cmd, arg);
-
-/** The engine's state, asked once and then pushed. */
+/** The engine's state, pushed from the first frame on; null until one arrives, or when there is no engine here. */
 export function useDesktopEngine(): DesktopEngineState | null {
   const [state, setState] = useState<DesktopEngineState | null>(null);
+  const here = useOnDesktopEngine();
   useEffect(() => {
-    const bridge = window.studioEngine;
-    if (!bridge) return;
-    let live = true;
-    void bridge.state().then((s) => live && s && setState(s));
-    const off = bridge.subscribe((s) => live && setState(s));
-    return () => {
-      live = false;
-      off();
-    };
-  }, []);
+    if (!here) return;
+    // EventSource reconnects on its own when the backend restarts.
+    const events = new EventSource("/api/local/engine/events");
+    events.onmessage = (e) =>
+      setState(JSON.parse(e.data) as DesktopEngineState);
+    return () => events.close();
+  }, [here]);
   return state;
 }
 

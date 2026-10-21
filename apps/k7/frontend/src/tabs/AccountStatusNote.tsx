@@ -4,13 +4,15 @@
 import { X } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { type AccountStatus, tabsBridge } from "./bridge";
+import { type AccountStatus, accountBridge } from "./bridge";
 
 /** How long an ending stays on screen before the bar is quiet again. */
 const SHOWN_MS = 8_000;
 
 function words(s: AccountStatus): string | null {
   const detail = "detail" in s ? (s.detail ?? "") : "";
+  if (s.state === "offer")
+    return m["account.status.offerPair"]({ server: new URL(s.server).host });
   if (s.state === "waiting")
     return s.what === "pair"
       ? m["account.status.waitingPair"]()
@@ -39,7 +41,7 @@ function words(s: AccountStatus): string | null {
 export function AccountStatusNote() {
   const [status, setStatus] = useState<AccountStatus | null>(null);
   useEffect(() => {
-    const bridge = tabsBridge();
+    const bridge = accountBridge();
     void bridge
       ?.authStatus?.()
       .then((s) => s && setStatus((now) => now ?? s))
@@ -63,11 +65,20 @@ export function AccountStatusNote() {
       <span className="truncate" title={text}>
         {text}
       </span>
+      {status.state === "offer" && (
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-foreground hover:bg-secondary/50"
+          onClick={() => void accountBridge()?.pair?.(status.server)}
+        >
+          {m["account.status.pair"]()}
+        </button>
+      )}
       {status.state === "waiting" && (
         <button
           type="button"
           className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-secondary/50 hover:text-foreground"
-          onClick={() => tabsBridge()?.cancelSignIn?.()}
+          onClick={() => accountBridge()?.cancelSignIn?.()}
         >
           <X className="size-3" />
           {m["account.status.cancel"]()}

@@ -1,32 +1,46 @@
-// desktop.test.ts — the desktop app is told apart by its preload's bridge, and a browser tab has none.
+// desktop.test.ts — a page served by the tray's backend is told apart by that backend's own answer, and a server's is not.
 
-import { afterEach, describe, expect, it } from "vitest";
-import { desktop } from "./desktop";
-
-const g = globalThis as { window?: unknown };
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
-  delete g.window;
+  vi.unstubAllGlobals();
+  vi.resetModules();
 });
 
+/** Each case loads the module fresh: the local-app probe is asked once per page. */
+async function load(routes: Record<string, unknown>) {
+  vi.stubGlobal("window", {});
+  vi.stubGlobal("fetch", async (url: string) => {
+    const body = routes[url];
+    return body === undefined
+      ? { ok: false, json: async () => ({}) }
+      : { ok: true, json: async () => body };
+  });
+  return (await import("./desktop")).desktop;
+}
+
 describe("desktop", () => {
-  it("is not the app when no window carries the bridge", async () => {
-    g.window = {};
-    expect(desktop.isDesktop).toBe(false);
+  it("is not the machine's app on a server, which answers no /api/local", async () => {
+    const desktop = await load({});
     expect(await desktop.state()).toBeNull();
   });
 
-  it("reads the app's state through the bridge", async () => {
-    const state = { server: "https://st0.app", lanUrls: [] };
-    g.window = { studioDesktop: { state: async () => state } };
-    expect(desktop.isDesktop).toBe(true);
-    expect(await desktop.state()).toEqual(state);
+  it("names the server the tray's backend syncs with", async () => {
+    const desktop = await load({
+      "/api/local": { engine: true, version: "dev" },
+      "/api/sync/remote": { paired: true, url: "wss://app.k7.rocks/api/sync" },
+    });
+    expect(await desktop.state()).toEqual({
+      server: "https://app.k7.rocks",
+      lanUrls: [],
+    });
   });
 
-  it("answers null when the main process cannot", async () => {
-    g.window = {
-      studioDesktop: { state: () => Promise.reject(new Error("gone")) },
-    };
-    expect(await desktop.state()).toBeNull();
+  it("has no server before a pairing", async () => {
+    const desktop = await load({
+      "/api/local": { engine: true, version: "dev" },
+      "/api/sync/remote": { paired: false, url: null },
+    });
+    expect(await desktop.state()).toEqual({ server: null, lanUrls: [] });
   });
 });

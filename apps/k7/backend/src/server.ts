@@ -36,6 +36,12 @@ import {
   shellFrameHeaders,
 } from "./hardening.ts";
 import { awaitLibraries } from "./listenGate.ts";
+import { localEngineFromEnv } from "./localEngine/host.ts";
+import {
+  localEngineRouter,
+  localInfoRouter,
+  trayRouter,
+} from "./localEngine/routes.ts";
 import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
@@ -127,6 +133,23 @@ const auth = await setupAuth(app, {
   ...(scopes.length > 0 ? { scopes } : {}),
 });
 const { requireAuth } = auth;
+// Under the tray: the machine's supervisor, run by this backend, for k7's pages and the tray (./localEngine/).
+const localEngine = LOCAL_USER
+  ? localEngineFromEnv(`http://127.0.0.1:${PORT}`)
+  : null;
+if (localEngine)
+  app.use("/api/local/engine", localEngineRouter(localEngine, requireAuth));
+if (LOCAL_USER) {
+  app.use(
+    "/api/local/tray",
+    trayRouter(localEngine, process.env.K7_TRAY_TOKEN),
+  );
+  // The tray's release, which names what this machine runs; a phone's backend has only its package version.
+  app.use(
+    "/api/local",
+    localInfoRouter(localEngine, process.env.K7_RELEASE || VERSION),
+  );
+}
 // An app's system-browser sign-in, and the desktop's signed-out local user (../docs/handoff.md).
 mountHandoff(app, {
   secret: process.env.SESSION_SECRET || DEFAULT_SESSION_SECRET,
@@ -239,6 +262,7 @@ const onListening = () => {
   media.serve(server, url);
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
   rehearsal.serve(server);
+  localEngine?.start();
 };
 const server = behindProxy(createServer(app));
 const listen = (): void => {
@@ -261,15 +285,22 @@ const stop = (): void => {
   stopping = true;
   console.log("stopping: the file services, then the requests in flight");
   setTimeout(() => process.exit(0), 8_000).unref();
-  void Promise.all([
-    media.stop().catch((e) => console.error("media stop:", e)),
-    rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
-  ]).finally(() => server.close(() => process.exit(0)));
+  // The supervisor first: it deregisters from this backend, which must still be up to hear it.
+  void (localEngine?.stop() ?? Promise.resolve())
+    .catch((e) => console.error("supervisor stop:", e))
+    .then(() =>
+      Promise.all([
+        media.stop().catch((e) => console.error("media stop:", e)),
+        rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
+      ]),
+    )
+    .finally(() => server.close(() => process.exit(0)));
 };
 for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, stop);
-// Under the desktop app, stdin closing is the stop Windows has no signal for (commons/packages/electron-shell/docs/shell.md).
-if (process.env.ELECTRON_SHELL_STDIN_STOP === "1") {
-  delete process.env.ELECTRON_SHELL_STDIN_STOP;
+// Under the tray, stdin closing is the stop Windows has no signal for, and how a dead tray takes us down elsewhere.
+const STDIN_STOP = ["K7_STDIN_STOP", "ELECTRON_SHELL_STDIN_STOP"];
+if (STDIN_STOP.some((name) => process.env[name] === "1")) {
+  for (const name of STDIN_STOP) delete process.env[name];
   process.stdin.on("end", stop);
   process.stdin.resume();
 }

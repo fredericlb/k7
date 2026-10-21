@@ -3,9 +3,9 @@
 // devices, each removable. Both are session routes of the hub this page is served by. See ../../docs/settings.md.
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { tabBridge } from "../tabs/bridge";
 import { onAndroid } from "./androidEngine";
 import { Action, Row, Section } from "./Section";
 
@@ -28,8 +28,8 @@ interface Me {
   local?: boolean;
 }
 
-/** The desktop app's views and the Android app's both run their own backend: a hub that pairs with an origin. */
-const localApp = (): boolean => tabBridge() !== undefined || onAndroid;
+/** The tray's backend and the phone app's both run on the machine: a hub that pairs with an origin. */
+const useLocal = (): boolean => !!useLocalApp() || onAndroid;
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init });
@@ -55,7 +55,7 @@ const when = (ms?: number): string =>
     : "—";
 
 export function SyncDevicesSection() {
-  const local = localApp();
+  const local = useLocal();
   const [me, setMe] = useState<Me | null>(null);
   const [remote, setRemote] = useState<Remote | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);

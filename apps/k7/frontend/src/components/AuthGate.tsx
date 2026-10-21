@@ -7,8 +7,10 @@ import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { GateWait } from "@studio/project-shell/progress";
+import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { type ReactNode, useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
+import { localApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
@@ -27,8 +29,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
     api
       .getMe()
-      .then((user) => {
+      .then(async (user) => {
         if (cancelled) return;
+        // On a machine's own backend, nobody signed in is its local user, never a sign-in screen.
+        if (!user && (await localApp())) {
+          const back = encodeURIComponent(location.pathname + location.search);
+          return location.replace(`${LOCAL_SIGN_IN}?return_to=${back}`);
+        }
         setPhase(user ? { k: "authed", user } : { k: "anon" });
       })
       .catch(

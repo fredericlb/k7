@@ -5,7 +5,10 @@
 
 import { EnginesSettings, SlskdSettings } from "@studio/ui-library/settings";
 import { lazy, Suspense } from "react";
+import { Link } from "react-router-dom";
+import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
+import { ENGINE_SETTINGS_ROUTE } from "../projects/api";
 import { HomeShell } from "../projects/HomeSidebar";
 import { MediaHost } from "../projects/MediaHost";
 import { PageFrame } from "../projects/PageFrame";
@@ -25,23 +28,25 @@ const RehearsalSettings = lazy(() =>
 );
 
 export function SettingsPage() {
+  const local = useLocalApp();
   return (
     <HomeShell subtitle={m["settings.title"]()}>
       <PageFrame title={m["settings.title"]()} narrow>
         {/* On the phone the app is the engine's machine: this page is where its engine is set. */}
+        {/* Served by the tray's backend: this machine's engine has a page of its own. */}
         {onAndroid ? (
           <AndroidEngineSection />
+        ) : local?.engine ? (
+          <p className="text-muted-foreground text-xs">
+            <Link className="underline" to={ENGINE_SETTINGS_ROUTE}>
+              {m["settings.engineHere"]()}
+            </Link>
+            {" · "}
+            {m["settings.desktopVersion"]({ version: local.version })}
+          </p>
         ) : (
           <p className="text-muted-foreground text-xs">
             {m["settings.trayHint"]()}
-          </p>
-        )}
-        {/* The desktop app's release, the one its About panel shows (apps/k7-standalone/docs/menu.md). */}
-        {window.studioApp && (
-          <p className="text-muted-foreground text-xs">
-            {m["settings.desktopVersion"]({
-              version: window.studioApp.version,
-            })}
           </p>
         )}
         <LanguageSection />

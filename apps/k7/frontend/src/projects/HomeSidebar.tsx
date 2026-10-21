@@ -23,7 +23,7 @@ import { api } from "../api";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
-import { onDesktopEngine } from "../settings/desktopEngine";
+import { useOnDesktopEngine } from "../settings/desktopEngine";
 import { VERSION } from "../version";
 import {
   ABOUT_ROUTE,
@@ -135,7 +135,8 @@ function HomeSidebar({
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // Null off the desktop app; on it, the SERVER is whose apps the menu lists (../desktop.ts).
+  // Null off the tray's backend; on it, the SERVER is whose apps the menu lists (../desktop.ts).
+  const engineHere = useOnDesktopEngine();
   const [isDesktop, setIsDesktop] = useState(false);
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
@@ -232,7 +233,7 @@ function HomeSidebar({
                   },
                 ]
               : []),
-            ...(onDesktopEngine()
+            ...(engineHere
               ? [
                   {
                     id: "engine",

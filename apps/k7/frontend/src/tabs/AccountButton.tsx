@@ -7,7 +7,7 @@ import { LogIn, LogOut } from "@frediverse/ui/icons";
 import { STUDIO_ORIGIN } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { inAndroidApp, tabsBridge } from "./bridge";
+import { accountBridge, inAndroidApp, tabsBridge } from "./bridge";
 import { ServerDialog } from "./ServerDialog";
 
 export interface Me {
@@ -78,18 +78,18 @@ export function AccountButton({
   const [current, setCurrent] = useState<string>("");
   useEffect(() => {
     if (inAndroidApp()) return setCurrent(phoneServer());
-    void tabsBridge()
+    void accountBridge()
       ?.server?.()
       .then((s) => setCurrent(s ?? ""))
       .catch(() => {});
   }, []);
   // A desktop build whose main process keeps no server signs in straight away.
-  const asksServer = inAndroidApp() || !!tabsBridge()?.server;
+  const asksServer = inAndroidApp() || !!accountBridge()?.server;
   const submit = (server: string) => {
     setAsking(false);
     setCurrent(server);
     if (inAndroidApp()) return phoneSignIn(server);
-    tabsBridge()?.signIn(server);
+    accountBridge()?.signIn(server);
   };
 
   const signedIn = me !== null && !me.local;
@@ -104,7 +104,7 @@ export function AccountButton({
           type="button"
           className={button}
           onClick={() =>
-            asksServer ? setAsking(true) : tabsBridge()?.signIn()
+            asksServer ? setAsking(true) : accountBridge()?.signIn()
           }
           title={m["account.signInAccount"]()}
           aria-label={m["auth.signIn"]()}
@@ -140,7 +140,7 @@ export function AccountButton({
           void fetch("/auth/logout", { method: "POST" })
             .catch(() => {})
             .then(() =>
-              inAndroidApp() ? location.reload() : setAsked((n) => n + 1),
+              tabsBridge() ? setAsked((n) => n + 1) : location.reload(),
             )
         }
         title={m["account.signOut"]()}
