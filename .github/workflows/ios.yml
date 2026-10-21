@@ -1,8 +1,8 @@
 # The iPhone app: engine/k7-ios built for a device, its engine and supervisor compiled from the ios-arm64
 # presets by engine/k7-ios/scripts/stage.mjs, the script a developer runs, then Xcode. UNSIGNED: signing is the
 # developer's own team for now, so the artifact is an .ipa to sign before it installs (engine/k7-runtime/docs/ios.md).
-# A workflow of its own rather than a job of desktop.yml: an iOS failure must not hold the desktop snapshot back.
-# On a vX.Y.Z tag the .ipa is attached to that release once desktop.yml has made it; snapshots never carry one.
+# A workflow of its own rather than a job of release.yml: an iOS failure must not hold the snapshot back.
+# On a vX.Y.Z tag the .ipa is attached to that release once release.yml has made it; snapshots never carry one.
 
 name: ios
 
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # the push's `before` commit, to diff against
-      # A diff rather than a `paths:` filter, which GitHub applies to tag pushes too and which then matches nothing — as in desktop.yml.
+      # A diff rather than a `paths:` filter, which GitHub applies to tag pushes too and which then matches nothing — as in release.yml.
       - id: plan
         shell: bash
         env:
@@ -70,7 +70,7 @@ jobs:
           # The whole history without its files: the build number is the commit count (docs/versioning.md).
           fetch-depth: 0
           filter: blob:none
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
@@ -161,14 +161,14 @@ jobs:
           path: dist/*.ipa
           if-no-files-found: error
 
-  # A version tag's release gets the .ipa; a snapshot does not. The release is desktop.yml's to make, after
-  # k7.yml passed and every desktop built, so this waits for it rather than racing it — no release, no upload.
+  # A version tag's release gets the .ipa; a snapshot does not. The release is release.yml's to make, after
+  # k7.yml passed and the engines built, so this waits for it rather than racing it — no release, no upload.
   publish:
     name: attach to the release
     needs: [decide, ios]
     if: needs.decide.outputs.release == 'yes'
     runs-on: ubuntu-latest
-    # Long enough for desktop.yml's three native builds behind the tests; past it, the release is not coming.
+    # Long enough for release.yml's three native builds behind the tests; past it, the release is not coming.
     timeout-minutes: 120
     permissions:
       contents: write # the release's assets
@@ -187,11 +187,11 @@ jobs:
         run: |
           set -euo pipefail
           until gh release view "$TAG" --json tagName >/dev/null 2>&1; do
-            echo "no release $TAG yet — desktop.yml makes it once its builds are done"
+            echo "no release $TAG yet — release.yml makes it once its builds are done"
             sleep 60
           done
 
-      # The .ipa beside the desktops, and its line in the release's SHA256SUMS so one check covers every file.
+      # The .ipa beside the engine archives and the APK, and its line in the release's SHA256SUMS so one check covers every file.
       - name: attach
         shell: bash
         env:

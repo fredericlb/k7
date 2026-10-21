@@ -31,7 +31,7 @@ case `AGENTS.md` warns about.
 
 No fetched source keeps a `.git`. A clone's history is most of its size — sfizz's 426 MB of 520,
 Tracktion's 332 of 493, nlohmann/json's 169 of 186 — and the source tree is what CI keeps in a cache
-of 10 GB shared by every leg (`docs/desktop-release.md` at the root). The six that are large without
+of 10 GB shared by every leg (`docs/release.md` at the root). The six that are large without
 it, measured on macOS: 2.7 GB as clones, 0.85 GB as archives.
 
 | how | which | why that way |

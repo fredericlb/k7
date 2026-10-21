@@ -90,7 +90,7 @@ anything else to keep none.
 
 ## The build
 
-Debian, like the engine's Linux leg in `desktop.yml`, with the same packages; the runtime is `bookworm-slim`
+Debian, like the engine's Linux leg in `release.yml`, with the same packages; the runtime is `bookworm-slim`
 and must stay glibc. k7's image is Alpine and could not load these binaries. A `ldd` check in the
 runtime stage fails the build when a library the binaries link is missing, so the failure shows up
 at build time and not when the engine first starts.

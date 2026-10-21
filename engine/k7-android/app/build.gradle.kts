@@ -33,7 +33,7 @@ val appVersionCode = if (git("rev-parse", "--is-shallow-repository") == "true")
     throw GradleException("a shallow clone has no history to count for versionCode (docs/versioning.md)")
 else git("rev-list", "--count", "HEAD").toInt()
 
-// The release key comes from the environment only, never from a file in the tree (docs/desktop-release.md).
+// The release key comes from the environment only, never from a file in the tree (docs/release.md).
 val releaseKeystore = System.getenv("K7_ANDROID_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
 
 fun releaseSecret(name: String): String =

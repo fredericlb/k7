@@ -74,7 +74,7 @@ services:
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
       # 1: list only machines paired with an account, or the render machine (packages/engine-registry/docs/heartbeat.md).
       STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
-      # The bearer desktop.yml publishes the apps' builds with; empty refuses every upload (docs/app-downloads.md).
+      # The bearer release.yml publishes the apps' builds with; empty refuses every upload (docs/app-downloads.md).
       APP_RELEASE_TOKEN: ${APP_RELEASE_TOKEN:-}
       # The hosts that show the coming-soon page rather than the app — the k7-site router below.
       STUDIO_SITE_HOSTS: ${SITE_DOMAIN:-k7.rocks},www.${SITE_DOMAIN:-k7.rocks}

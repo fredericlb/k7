@@ -93,7 +93,7 @@ studio_replace("modules/3rd_party/crill/impl/progressive_backoff_wait_impl.h"
     "return;\n\n               #if defined(__GNUC__)   // studio: GCC has no __wfe\n                __asm__ __volatile__ (\"wfe\");\n               #else\n                __wfe();\n               #endif\n")
 
 # JUCE builds juceaide in a nested CMake, in Debug with /Zi, and hands it the compiler launcher: under sccache those
-# objects share one .pdb and fail with C1041. On MSVC it builds uncached, a dozen files (docs/desktop-release.md).
+# objects share one .pdb and fail with C1041. On MSVC it builds uncached, a dozen files (docs/release.md).
 studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
     "if(CMAKE_C_COMPILER_LAUNCHER)\n"
     "if(CMAKE_C_COMPILER_LAUNCHER AND NOT MSVC)  # studio: juceaide's /Zi cannot go through sccache\n")

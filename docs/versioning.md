@@ -11,7 +11,7 @@ noted below.
 The root `package.json`'s `version` is the release version of everything this repository ships:
 the hosted image, the server's engine, the tray, the command-line engine, the APK, the
 iPhone app. A `vX.Y.Z` tag is a release of exactly that version, and CI refuses any other tag —
-`desktop.yml`'s and `tray.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
+`release.yml`'s and `tray.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
 before anything is built. So a release is two steps: `node scripts/check-version.mjs --set X.Y.Z`
 in a commit on `main`, then the tag on that commit.
 
@@ -176,7 +176,7 @@ and no location list to keep in step with the SPA's `base`.
 ## The submodule, and why CI needs a credential
 
 On GitHub, `commons` is a checkout of its own read with `COMMONS_TOKEN`
-([desktop-release.md](desktop-release.md)). On OneDev, whose jobs run by hand,
+([release.md](release.md)). On OneDev, whose jobs run by hand,
 `.gitmodules`' `url = ../commons.git` is relative to whatever origin the clone has.
 On a developer machine that resolves against the SSH remote; on the OneDev agent it
 resolves against the project's HTTP origin. This is why every `CheckoutStep` uses

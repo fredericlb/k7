@@ -72,7 +72,7 @@ Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 hosted image's stamp), [images.md](images.md) (why k7's Dockerfile is staged the way it is),
 [server-engine.md](server-engine.md) (the server's own engine: its image, its null-sink device),
 [publishing.md](publishing.md) (the four packages published for apps outside this repository), [release-scope.md](release-scope.md) (what
-the first release ships with — an invite-only hosted instance — and the hazards that accepts), [desktop-release.md](desktop-release.md) (the OTHER half — the
+the first release ships with — an invite-only hosted instance — and the hazards that accepts), [release.md](release.md) (the OTHER half — the
 command-line engine and the tray for the three desktop platforms, a rolling snapshot off `main` and a release per `vX.Y.Z`
 tag, the workflows that compile the C++ engine for them and the Android APK, and `ios.yml`, the unsigned iPhone build),
 and four plan/recipe pages, [platter-plan.md](platter-plan.md) (the DJ deck's

@@ -4,12 +4,12 @@
 package se.frediver.k7
 
 object UpdateCheck {
-    /** Where desktop.yml publishes every build (docs/app-downloads.md at the root). */
+    /** Where release.yml publishes every build (docs/app-downloads.md at the root). */
     const val DOWNLOADS = "https://k7.rocks/app_downloads"
 
     private val RELEASE = Regex("""v(\d+)\.(\d+)\.(\d+)""")
     private val SNAPSHOT = Regex("""snapshot-[0-9a-f]{7,40}""")
-    // The phone's file, as desktop.yml names it: `k7-android_<stamp>_arm64.apk`.
+    // The phone's file, as release.yml names it: `k7-android_<stamp>_arm64.apk`.
     private val APK = Regex("""k7-android_[A-Za-z0-9._-]+\.apk""")
 
     /** `release` or `snapshot`, or null for a build CI did not stamp (a checkout's, the e2e one). */

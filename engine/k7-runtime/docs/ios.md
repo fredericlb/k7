@@ -132,7 +132,7 @@ shell page and lays it out as `cap copy` would, and bundles the backend with `ap
   downloads, the microphone flow and the local-network prompt are compiled, not driven; pairing over the
   backend's routes (`SyncPairing.swift`) is neither compiled nor driven.
 - **No release signing.** `.github/workflows/ios.yml` builds an UNSIGNED `.ipa` for a device as an artifact,
-  attached to a version's release but never to the snapshot (`docs/desktop-release.md`); signing it is the
+  attached to a version's release but never to the snapshot (`docs/release.md`); signing it is the
   developer's own team, as for a local build.
 - **Node warns about file descriptors** in the file service's worker ("closed but not opened in unmanaged mode").
   The service answers regardless; where the descriptors come from is still to find.

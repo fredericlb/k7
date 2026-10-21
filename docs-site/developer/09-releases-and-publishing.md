@@ -1,7 +1,7 @@
 # Releases and publishing
 
 Four things leave this repository besides the hosted images: the **command-line engine** archive
-and the **Android APK**, built by the `desktop` workflow; the **tray** installers, built by the `tray`
+and the **Android APK**, built by the `release` workflow; the **tray** installers, built by the `tray`
 workflow; and four **npm packages** consumed by another repository.
 
 ## What a release contains

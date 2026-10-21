@@ -1,5 +1,5 @@
 # Waits for k7.yml's run on this commit and this ref, and fails unless it succeeded — the gate every publish
-# passes (docs/desktop-release.md, docs/images.md). A run that never appears is a failure, never a pass:
+# passes (docs/release.md, docs/images.md). A run that never appears is a failure, never a pass:
 # nothing untested reaches `:latest` or a release. Needs `actions: read` and the repository checked out.
 name: k7 passed
 description: Fail unless k7.yml's push run on this commit and ref succeeded, waiting for it if it is still running.

@@ -1,13 +1,14 @@
 # The tray release — apps/k7-tray, the engine run from the menu bar, on a machine that plays what k7 sends it.
 #
-# Its own workflow beside desktop.yml, on the same triggers and the same release stamps: per platform
-# (tray-platform.yml) it compiles the engine and the supervisor (engine-platform.yml, the cache desktop.yml's legs
+# Its own workflow beside release.yml, on the same triggers and the same release stamps: per platform
+# (tray-platform.yml) it compiles the engine and the supervisor (engine-platform.yml, the cache release.yml's legs
 # share) and packages the tray around them. It publishes to GitHub releases of its own, `tray-snapshot` and
 # `tray-vX.Y.Z`, so neither workflow ever recreates the other's, and to /app_downloads/tray, the feed the tray
 # updates from (docs/app-downloads.md).
 #
-# Unsigned, as the desktop app is. Nothing is published before k7.yml has passed on the same commit (`tested`).
-# See docs/desktop-release.md.
+# Its installers carry no code signature; its updates are signed (apps/k7-tray/docs/tray.md). Nothing is published
+# before k7.yml has passed on the same commit (`tested`).
+# See docs/release.md.
 
 name: tray
 
@@ -41,7 +42,7 @@ jobs:
         with:
           fetch-depth: 0 # the push's `before` commit, to diff against
 
-      # A diff rather than a `paths:` filter, which tag pushes would never match (desktop.yml says why).
+      # A diff rather than a `paths:` filter, which tag pushes would never match (release.yml says why).
       - id: plan
         shell: bash
         env:
@@ -104,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # desktop.yml's three legs, for the same reasons; the presets name the same compilers.
+        # release.yml's three legs, for the same reasons; the presets name the same compilers.
         include:
           - os: windows-latest
             label: windows-x64
@@ -136,7 +137,7 @@ jobs:
     permissions:
       contents: write # the release and its assets
     steps:
-      # The tray's assets alone: the engine archives are desktop.yml's to release.
+      # The tray's assets alone: the engine archives are release.yml's to release.
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: k7-tray-*
@@ -182,7 +183,7 @@ jobs:
           set -euo pipefail
           ls -l dist
           if [ "$CHANNEL" = snapshot ]; then
-            # Deleted and recreated: `tray-snapshot` is a MOVING tag, as desktop.yml's `snapshot` is.
+            # Deleted and recreated: `tray-snapshot` is a MOVING tag, as release.yml's `snapshot` is.
             gh release delete "$TAG" --yes --cleanup-tag || true
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
               --title "tray snapshot $STAMP" \

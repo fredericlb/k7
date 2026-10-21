@@ -1,4 +1,4 @@
-// routes.ts — the apps' downloads: desktop.yml and tray.yml upload a build under a bearer only CI and this server know
+// routes.ts — the apps' downloads: release.yml and tray.yml upload a build under a bearer only CI and this server know
 // (/api/app-releases, the tray's under /tray), and anyone fetches it at /app_downloads — the page, `<channel>.json` each
 // app's check reads, and every file of a build, latest*.yml included, which electron-updater reads. docs/app-downloads.md.
 
@@ -17,13 +17,13 @@ import {
   TooLargeError,
 } from "./store.ts";
 
-/** One store per workflow: desktop.yml's (the APK, the engine archives) and the tray's never share a folder, so neither publish drops the other. */
+/** One store per workflow: release.yml's (the APK, the engine archives) and the tray's never share a folder, so neither publish drops the other. */
 export interface AppReleaseStores {
   main: AppReleaseStore;
   tray: AppReleaseStore;
 }
 
-/** The stores under `root`: desktop.yml's at the root, the tray's in `tray/`. */
+/** The stores under `root`: release.yml's at the root, the tray's in `tray/`. */
 export const appReleaseStores = (root: string): AppReleaseStores => ({
   main: appReleaseStore(root),
   tray: appReleaseStore(join(root, "tray")),
@@ -85,7 +85,7 @@ function uploads(store: AppReleaseStore, maxBytes: number): Router {
   return router;
 }
 
-/** /api/app-releases: desktop.yml's builds at the root, the tray's under /tray. */
+/** /api/app-releases: release.yml's builds at the root, the tray's under /tray. */
 export function appReleasesRouter(
   stores: AppReleaseStores,
   token: string | undefined,

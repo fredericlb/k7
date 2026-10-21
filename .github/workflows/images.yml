@@ -45,7 +45,7 @@ jobs:
         run: |
           node scripts/check-version.mjs --tag "$GITHUB_REF_NAME"
           echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      # The image's own version label: the release on a tag, the version and the commit otherwise, as the desktop snapshot names itself.
+      # The image's own version label: the release on a tag, the version and the commit otherwise, as a release snapshot names itself.
       - id: label
         run: |
           version=$(node -p 'require("./package.json").version')
@@ -62,7 +62,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -149,7 +149,7 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

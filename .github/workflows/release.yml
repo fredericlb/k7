@@ -9,9 +9,9 @@
 # Hence the `decide` gate below — a main push that touched only docs/ does not pay for three native builds.
 #
 # The APK is signed with the release key held in secrets, and every release carries SHA256SUMS. Nothing is
-# published before k7.yml has passed on the same commit (`tested`). See docs/desktop-release.md.
+# published before k7.yml has passed on the same commit (`tested`). See docs/release.md.
 
-name: desktop
+name: release
 
 on:
   push:
@@ -21,7 +21,7 @@ on:
 
 # Three native builds are far too expensive to leave a superseded one running.
 concurrency:
-  group: desktop-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 # Read only; the publish job alone may write the release.
@@ -75,7 +75,7 @@ jobs:
           android=yes
           if [ "$HAS_KEYSTORE" != true ]; then
             if [ "$channel" = release ]; then
-              echo "::error::the Android release key secrets are missing (docs/desktop-release.md)"
+              echo "::error::the Android release key secrets are missing (docs/release.md)"
               exit 1
             fi
             android=no
@@ -87,7 +87,7 @@ jobs:
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
             # apps/ and packages/ in full: the APK bundles k7's backend and most of that tier.
-            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/(desktop|engine-platform)\.yml)' \
+            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/(release|engine-platform)\.yml)' \
               changed.txt || build=no
           fi
 
@@ -237,7 +237,7 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/k7-release.jks"
           echo "K7_ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/k7-release.jks" >> "$GITHUB_ENV"
 
-      # Gradle hands its environment to both CMake projects, whose presets read the launcher (docs/desktop-release.md).
+      # Gradle hands its environment to both CMake projects, whose presets read the launcher (docs/release.md).
       - name: apk
         shell: bash
         env:

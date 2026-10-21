@@ -1,4 +1,4 @@
-# k7 CI — the gate every publish waits for: images.yml and desktop.yml move nothing until this
+# k7 CI — the gate every publish waits for: images.yml and release.yml move nothing until this
 # workflow's push run on the same commit has passed (.github/actions/k7-passed).
 #
 # It runs on every push to main and every `vX.Y.Z` tag, with no path filter: a filter that misses
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"

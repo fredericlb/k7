@@ -5,13 +5,13 @@
 # The old generations are read by nobody, and they sit in the 10 GB until least-recently-used
 # eviction reaches them — usually by pushing out an entry still in use. This keeps the newest
 # entry per ref and FAMILY (the key minus its trailing timestamp or hash) and deletes the rest.
-# See docs/desktop-release.md.
+# See docs/release.md.
 
 name: caches
 
 on:
   workflow_run:
-    workflows: [desktop, ios, k7]
+    workflows: [release, tray, ios, k7]
     types: [completed]
   schedule:
     - cron: "17 4 * * *"

@@ -1,6 +1,6 @@
 # tray-platform.yml — one platform's tray, called once per platform by tray.yml: its engine (engine-platform.yml),
 # then apps/k7-tray packaged around that engine's archive. One call per platform, so a platform whose engine fails
-# skips its own tray and nothing else. See docs/desktop-release.md.
+# skips its own tray and nothing else. See docs/release.md.
 
 name: tray platform
 

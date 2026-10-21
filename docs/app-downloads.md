@@ -1,18 +1,18 @@
 # App downloads and updates
 
-Every build `desktop.yml` publishes — the APK and the command-line engine — and every tray
+Every build `release.yml` publishes — the APK and the command-line engine — and every tray
 `tray.yml` publishes is also published on k7 itself, at **`https://k7.rocks/app_downloads`**: one
 page anyone can open, no login, and the feeds the tray and the Android app update themselves from.
 The GitHub releases stay; the page is the address to give people, and the one the installed apps read.
 
 ## Two stores
 
-`desktop.yml`'s builds sit at the root (`app_downloads/<channel>/…`, `app_downloads/<channel>.json`),
+`release.yml`'s builds sit at the root (`app_downloads/<channel>/…`, `app_downloads/<channel>.json`),
 the tray's under `tray/` (`app_downloads/tray/<channel>/…`). The page lists both.
 
 | choice | why |
 |---|---|
-| a store per workflow, not the tray's files in `desktop.yml`'s build | a publish replaces its stamp's whole folder, and the two workflows publish the same stamp apart: sharing one, each would drop the other's files |
+| a store per workflow, not the tray's files in `release.yml`'s build | a publish replaces its stamp's whole folder, and the two workflows publish the same stamp apart: sharing one, each would drop the other's files |
 | the APK and the engine archives at the root | installed Android apps read `<channel>.json` there |
 
 ## Two channels
@@ -30,7 +30,7 @@ release first. An installed app follows its own channel and never crosses to the
 
 ## Publishing
 
-`desktop.yml`'s `publish` job, after the GitHub release, sends every file of `dist/` to
+`release.yml`'s `publish` job, after the GitHub release, sends every file of `dist/` to
 `https://app.k7.rocks/api/app-releases/<stamp>/<file>` (one `PUT` each, raw body) and then `POST`s
 `/api/app-releases/<stamp>/publish`, which switches the channel to that build at once.
 `tray.yml`'s does the same under `/api/app-releases/tray/`, with the updater's `latest.json` among

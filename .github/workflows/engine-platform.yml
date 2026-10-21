@@ -1,6 +1,6 @@
 # engine-platform.yml — one platform's engine and supervisor, compiled and archived as the command-line engine.
-# Called once per platform by desktop.yml, which publishes the archive, and by tray-platform.yml, which packages the
-# tray around it; both share its compiler cache, keyed by platform. See docs/desktop-release.md.
+# Called once per platform by release.yml, which publishes the archive, and by tray-platform.yml, which packages the
+# tray around it; both share its compiler cache, keyed by platform. See docs/release.md.
 
 name: engine platform
 
@@ -24,7 +24,7 @@ jobs:
     runs-on: ${{ inputs.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/desktop-release.md.
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit k7 pins — docs/release.md.
       - id: commons
         shell: bash
         run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
@@ -85,8 +85,8 @@ jobs:
         run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
 
       # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
-      # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
-      # The dependencies' SOURCES, on the slow leg only — the budget docs/desktop-release.md counts; exact key, since a
+      # per platform. sccache rather than ccache because it caches MSVC too — docs/release.md.
+      # The dependencies' SOURCES, on the slow leg only — the budget docs/release.md counts; exact key, since a
       # restored tree does not re-run a patch whose script changed. The folder is the same on every leg regardless.
       - name: dependency sources
         id: fetch

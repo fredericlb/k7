@@ -7,11 +7,11 @@ release stamps:
 
 | workflow | what it publishes |
 |---|---|
-| `.github/workflows/desktop.yml` | the **command-line engine** — `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived (`.zip` on Windows, `.tar.gz` elsewhere) — and the phone's APK |
+| `.github/workflows/release.yml` | the **command-line engine** — `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived (`.zip` on Windows, `.tar.gz` elsewhere) — and the phone's APK |
 | `.github/workflows/tray.yml` | **the tray**, `apps/k7-tray`, packaged around the same engine: the NSIS installer, the `.dmg` and the `.app.tar.gz` the updater takes, the `.AppImage` and the `.deb` |
 
 Each platform's engine is one call of the reusable `.github/workflows/engine-platform.yml`, from
-`desktop.yml` directly and from `tray-platform.yml`, which then packages the tray around that
+`release.yml` directly and from `tray-platform.yml`, which then packages the tray around that
 archive through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the engine a user
 runs from the command line and the one under the tray are the same sources and the same presets.
 One platform's failure costs that platform only: GitHub cannot make one matrix leg wait for the same
@@ -20,10 +20,10 @@ leg of another, so each platform's tray is one call that depends on its own engi
 
 | choice | why |
 |---|---|
-| the tray in a workflow of its own, not a job of `desktop.yml` | a red tray must not hold back the engine snapshot and the APK, nor a red APK the tray |
+| the tray in a workflow of its own, not a job of `release.yml` | a red tray must not hold back the engine snapshot and the APK, nor a red APK the tray |
 | its own GitHub releases, `tray-snapshot` and `tray-vX.Y.Z` | the snapshot release is deleted and recreated on each publish; two workflows sharing it would delete each other's files |
 | its own store on `k7.rocks/app_downloads/tray`, with the updater's `latest.json` | the feed the tray updates from ([app-downloads.md](app-downloads.md)) |
-| the engine compiled again, not taken from `desktop.yml`'s run | a workflow cannot wait on another's artifacts without coupling the two runs; both share the compiler cache (`engine-<label>`), so the second build is mostly cache hits |
+| the engine compiled again, not taken from `release.yml`'s run | a workflow cannot wait on another's artifacts without coupling the two runs; both share the compiler cache (`engine-<label>`), so the second build is mostly cache hits |
 | no end-to-end run before the installer | the tray has no page of its own to drive; its unit tests run in `k7.yml`, and the page it serves is the hosted build's |
 
 ## Two channels, and what names a file
@@ -52,7 +52,7 @@ too, and a tag push carries no commit list for it to match against — the relea
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
 every tag through.
 
-`desktop.yml`'s filter is `engine/`, `apps/` and `packages/` **whole**, and `commons`: the APK bundles
+`release.yml`'s filter is `engine/`, `apps/` and `packages/` **whole**, and `commons`: the APK bundles
 k7's frontend and backend and most of the shared tier, and the tier moves together. An `apps/`-only
 push does rebuild the engines; with their objects cached that costs minutes, and it keeps one engine
 build per release. `tray.yml`'s filter is narrower, `engine/`, `apps/k7-tray/` and what the tray
@@ -151,7 +151,7 @@ stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the a
 (`engine/k7-runtime/docs/android.md`), so there is no command-line archive for it to share. It runs as
 OneDev's `android` job does — the image's Android SDK, the platform, build tools and NDK that
 `app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
-compile to arm64 there. A red APK holds `desktop.yml`'s release back.
+compile to arm64 there. A red APK holds `release.yml`'s release back.
 
 ### The iPhone, in a workflow of its own
 
@@ -160,14 +160,14 @@ what the app is made of, on a `vX.Y.Z` tag, or by hand. It runs `engine/k7-ios/s
 from their `ios-arm64` presets, under the same compiler cache scheme as the desktop legs (`engine-ios-arm64`) — then
 Xcode, and uploads `k7-ios_<stamp>_arm64-unsigned.ipa` as an artifact, after checking that the three frameworks
 inside are arm64 device binaries (`engine/k7-runtime/docs/ios.md`). On a tag, its `publish` job then waits for the
-release `desktop.yml` makes and attaches the `.ipa` to it, with its line added to `SHA256SUMS`.
+release `release.yml` makes and attaches the `.ipa` to it, with its line added to `SHA256SUMS`.
 
 | choice | why |
 |---|---|
-| a workflow of its own, not a job of `desktop.yml` | an iOS build that fails must not hold back the engine snapshot, which a job feeding `publish` would |
+| a workflow of its own, not a job of `release.yml` | an iOS build that fails must not hold back the engine snapshot, which a job feeding `publish` would |
 | unsigned; attached to a VERSION's release, never to the snapshot | no Apple team is committed yet, so the app installs nowhere until its developer signs it. A version carries it for whoever does; the snapshot, replaced on every push, keeps to the downloads a musician can run |
-| the release waited for, not made | `desktop.yml` owns the release and makes it only after `k7.yml` passed and the engines built; attaching after it keeps one owner, and an iOS failure still leaves the release as it was |
-| a diff in `decide`, not a `paths:` filter | GitHub applies `paths:` to tag pushes too, where it matches nothing — a version would never get its `.ipa`, as `desktop.yml` already notes |
+| the release waited for, not made | `release.yml` owns the release and makes it only after `k7.yml` passed and the engines built; attaching after it keeps one owner, and an iOS failure still leaves the release as it was |
+| a diff in `decide`, not a `paths:` filter | GitHub applies `paths:` to tag pushes too, where it matches nothing — a version would never get its `.ipa`, as `release.yml` already notes |
 | `macos-26`, not `macos-latest` | the project file and its Swift are written for the Xcode 26 line, and a moving label would change the toolchain under them |
 | no dependency-source cache | the desktop legs keep one on the slow leg alone, within the 10 GB; this leg fetches its archives like the macOS one |
 
@@ -216,14 +216,14 @@ branch cannot read them.
 ## Checksums
 
 Every release carries `SHA256SUMS`, one line per file — the engine archives and the APK in
-`desktop.yml`'s, the tray's installers in `tray.yml`'s — written by the publish job (GitHub) or the `release` job (OneDev) over exactly the files it
+`release.yml`'s, the tray's installers in `tray.yml`'s — written by the publish job (GitHub) or the `release` job (OneDev) over exactly the files it
 publishes. `sha256sum -c SHA256SUMS` in the download folder checks them. It proves a download matches
 what CI published, not who published it: nothing is signed with a key of ours, since keyless signing
 would only bind the files to this repository's CI identity and no client checks it.
 
 ## What a workflow may do
 
-`desktop.yml`, `tray.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
+`release.yml`, `tray.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
 `contents: write`. The reusable `tray-platform.yml` and `engine-platform.yml` receive `COMMONS_TOKEN` by name, never
 `secrets: inherit`, since their jobs run third-party actions. Every action is pinned to a full commit
 SHA with its version in a comment: a tag can be moved under a run, a commit cannot. A bump is a new

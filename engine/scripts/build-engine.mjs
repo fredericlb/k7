@@ -13,7 +13,7 @@ import { buildSupervisor } from "./supervisorBuild.mjs";
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const engineDir = join(repo, "engine", "k7-runtime");
 
-// The CMake preset for this host, overridable because CI names its own (docs/desktop-release.md).
+// The CMake preset for this host, overridable because CI names its own (docs/release.md).
 const PRESET =
   process.env.STUDIO_ENGINE_PRESET ||
   ({ darwin: "macos-clang", win32: "windows-msvc" }[process.platform] ??
