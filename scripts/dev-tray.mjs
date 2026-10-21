@@ -5,7 +5,7 @@
 // first — a running image cannot be relinked on Windows. See docs/dev.md.
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync, watch } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stopAll } from "../engine/scripts/devEngine.mjs";
@@ -75,7 +75,11 @@ const TARGETS = {
         match: (b) => b === "Cargo.toml" || b === "tauri.conf.json",
       },
     ],
-    build: () => run("cargo", ["build"], tauriDir, "the tray build"),
+    build: () => {
+      // tauri.conf.json names resources/, which only stage.mjs fills: the dev tray reads the repo's builds instead.
+      mkdirSync(join(tauriDir, "resources"), { recursive: true });
+      run("cargo", ["build"], tauriDir, "the tray build");
+    },
   },
 };
 
