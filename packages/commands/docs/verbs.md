@@ -549,6 +549,11 @@ length is fixed (`packages/song/docs/timelines.md`). A write that would put a ti
 itself is refused before it lands, since the project would no longer load.
 `timeline play` sets the session's audition through the optional `CommandHost.timelinePlay`: a host
 with no engine refuses it, and nothing is written (`packages/song/docs/timelines.md`).
+`selection timeline` makes one from a rectangle: the events of ONE lane STARTING in `[from, to]`
+move into a new timeline as long as the range, and one event of it takes their place at `from`.
+One lane, because a timeline plays through the lane it sits on, so events of several lanes would
+come out of one instrument. The timeline file is written before the lane and removed if the lane's
+write fails, so the events are never in both places nor in neither.
 
 ## `events move` is one command, not a loop
 

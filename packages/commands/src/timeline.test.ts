@@ -146,4 +146,57 @@ describe("timeline verbs", () => {
     const none = await host("timeline play chorus");
     expect(none.lines.refuse.join(" ")).toMatch(/no timeline "chorus"/);
   });
+
+  describe("selection timeline", () => {
+    beforeEach(() => {
+      doc("tracks/gtr.k7x", {
+        extends: "@meta/track",
+        events: [
+          { ref: "a", start: "1:1" },
+          { ref: "a", start: "3:1" },
+          { ref: "a", start: "3:3", disabled: true },
+          { ref: "a", start: "5:1" },
+        ],
+      });
+    });
+
+    it("moves the range's events into a timeline placed in their stead, sounding the same", async () => {
+      const before = clips()?.map((c) => [c.start, !!c.disabled]);
+      const h = await run("selection timeline gtr 3:1 4:4 verse");
+      expect(h.lines.refuse).toEqual([]);
+      expect(timeline("verse")).toEqual({
+        length: "2:0",
+        lanes: [
+          {
+            lane: "gtr",
+            events: [
+              { ref: "a", start: "1:1" },
+              { ref: "a", start: "1:3", disabled: true },
+            ],
+          },
+        ],
+      });
+      expect(laneEvents()).toEqual([
+        { ref: "a", start: "1:1" },
+        { ref: "a", start: "5:1" },
+        { ref: "verse", start: "3:1" },
+      ]);
+      const after = clips()
+        ?.map((c) => [c.start, !!c.disabled])
+        .sort((x, y) => Number(x[0]) - Number(y[0]));
+      expect(after).toEqual(before);
+    });
+
+    it("refuses a rectangle over two lanes, an empty range and a name in use, writing nothing", async () => {
+      doc("tracks/bass.k7x", { extends: "@meta/track", events: [] });
+      const two = await run("selection timeline gtr,bass 3:1 4:4");
+      expect(two.lines.refuse.join(" ")).toMatch(/ONE track/);
+      const none = await run("selection timeline gtr 7:1 8:4");
+      expect(none.lines.refuse.join(" ")).toMatch(/nothing on 'gtr'/);
+      await run("timeline new verse");
+      const taken = await run("selection timeline gtr 3:1 4:4 verse");
+      expect(taken.lines.refuse.join(" ")).toMatch(/already exists/);
+      expect(laneEvents()).toHaveLength(4);
+    });
+  });
 });

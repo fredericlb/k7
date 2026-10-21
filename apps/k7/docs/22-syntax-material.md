@@ -269,6 +269,10 @@ double-click on a timeline event does. Its lanes are edited like the song's, and
 them by the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline new`,
 `timeline lane new` and `timeline lane remove` make the rest.
 
+A timeline can also be made from what is already on a lane: select a range on ONE lane (`v`) and run
+`selection timeline`, optionally with a name. The events starting in the range move into a new timeline as
+long as the range, and one event of it takes their place — the lane sounds exactly as before.
+
 **Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
 start, through the lane it is first placed on — that lane's instrument and effects, every other lane
 silent — and the playhead follows it. Back on the song, play is the song again. `timeline play verse`

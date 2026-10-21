@@ -2800,6 +2800,24 @@
       { name: from, type: timecode },
       { name: to, type: timecode, hint: "the range's end, inclusive" },
     ]
+# A rectangle's events into a TIMELINE of their own, one event of it put back where they started,
+# so the lane sounds the same. ONE lane, like consolidate: a timeline plays through the lane it sits
+# on (packages/song/docs/timelines.md).
+- command: "selection timeline"
+  sid: selection.timeline
+  readable:
+    en: "Turn a range into a timeline"
+    fr: "Transformer une plage en timeline"
+  help: "move the events starting in a range into a new timeline, placed in their stead (e.g. selection timeline drums 5:1 8:4 verse)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: tracks, complete: tracks, hint: "one track — a timeline plays through one lane" },
+      { name: from, type: timecode },
+      { name: to, type: timecode, hint: "the range's end, inclusive" },
+      { name: name, optional: true, hint: "the new timeline's id — optional" },
+    ]
 # `clip process` for ONE event: when anything else plays its material, the event gets a copy of
 # the clip first, so a right-click on one event never rewrites the others (verbs/eventProcess.ts).
 - command: "event process"

@@ -96,6 +96,12 @@ const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
     from: "selFrom",
     to: "selTo",
   },
+  // …and so is the timeline a range is turned into, the name left to the form.
+  "selection timeline": {
+    tracks: "selTracks",
+    from: "selFrom",
+    to: "selTo",
+  },
   // Only `at`: these two are project-wide, so making the length the hole is what keeps the gesture deliberate.
   "project add": { at: "at" },
   "project remove": { at: "at" },
