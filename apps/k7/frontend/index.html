@@ -19,12 +19,33 @@
     <title>k7 · editor</title>
     <!-- The startup splash, drawn before any script and replaced by React's first render (docs/icons.md). -->
     <style>
-      .k7-splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #07031F; }
+      .k7-splash { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 24px; align-items: center; justify-content: center; background: #07031F; }
       .k7-splash img { width: min(70vw, 420px); height: auto; }
+      .k7-splash p { margin: 0; font: 14px/1.4 system-ui, sans-serif; color: #b7b0d9; }
     </style>
   </head>
   <body>
-    <div id="root"><div class="k7-splash" role="status" aria-label="k7"><img src="/icon/k7-splash.svg" alt="" /></div></div>
+    <div id="root"><div class="k7-splash" role="status"><img src="/icon/k7-splash.svg" alt="k7" /><p id="k7-splash-status">Loading k7…</p></div></div>
+    <script>
+      // The splash's line, before any of k7's code: its files arriving, counted, until React's first render replaces it.
+      (() => {
+        const line = document.getElementById("k7-splash-status");
+        let fr = false;
+        try {
+          fr = localStorage.getItem("PARAGLIDE_LOCALE") === "fr";
+        } catch {}
+        const label = fr ? "Chargement de k7…" : "Loading k7…";
+        line.textContent = label;
+        if (!("PerformanceObserver" in window)) return;
+        let files = 0;
+        const watch = new PerformanceObserver((list) => {
+          if (!line.isConnected) return watch.disconnect();
+          files += list.getEntries().length;
+          line.textContent = `${label} ${fr ? `${files} fichiers reçus` : `${files} files received`}`;
+        });
+        watch.observe({ type: "resource", buffered: true });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -32,6 +32,12 @@ the system's launch screen and k7's first render flashes another colour.
 | Android | the window's background (`res/drawable/splash.xml`, `AppTheme.Launch`), then the shell page while the phone's k7 starts (`engine/k7-android/web/src/Backend.tsx`) | `res/drawable-nodpi/splash_art.png`; the SVG in the shell page |
 | iOS | `UILaunchScreen` (`Info.plist`), then the same shell page | `Assets.xcassets/Splash.imageset`, on `LaunchBackground` |
 
+- **The web splash says what it waits for**: "Loading k7…" and the count of files received so far,
+  from a few lines inlined in `index.html` that run before any of k7's code. Without them the cassette
+  sat silent through the longest wait a start has — the dev server sends the app as hundreds of
+  separate modules — and read as a hang. The language is the one the app stored
+  (`PARAGLIDE_LOCALE`), since paraglide itself has not loaded yet; from the first render on, the gates
+  word each step themselves ("Checking your sign-in…", "Opening the project…").
 - **Only the start draws it.** A wait inside a running app is the bar at the bottom
   (`packages/project-shell/docs/launch.md`), so `index.html`'s splash goes at React's first render
   and the lazy screens' `Booting` does not repeat it.
