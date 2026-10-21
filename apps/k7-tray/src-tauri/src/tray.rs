@@ -26,12 +26,12 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool, auto_update_on: bool) -> 
     let open = MenuItem::with_id(app, "open", "Open k7", false, None::<&str>)?;
     let engine = MenuItem::with_id(app, "engine", "Engine Settings…", true, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(app, "autostart", "Launch at Login", true, autostart_on, None::<&str>)?;
-    let check = MenuItem::with_id(app, "check_updates", "Check for Updates…", updates::available(), None::<&str>)?;
+    let check = MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
     let auto_update = CheckMenuItem::with_id(
         app,
         "auto_update",
         "Check for Updates Automatically",
-        updates::available(),
+        true,
         auto_update_on,
         None::<&str>,
     )?;
@@ -39,9 +39,12 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool, auto_update_on: bool) -> 
     let quit = MenuItem::with_id(app, "quit", "Quit k7 Tray", true, None::<&str>)?;
     let sep = || PredefinedMenuItem::separator(app);
     let (s1, s2, s3) = (sep()?, sep()?, sep()?);
-    let items: Vec<&dyn IsMenuItem<Wry>> = vec![
-        &status, &s1, &open, &engine, &s2, &autostart, &check, &auto_update, &logs, &s3, &quit,
-    ];
+    let mut items: Vec<&dyn IsMenuItem<Wry>> = vec![&status, &s1, &open, &engine, &s2, &autostart];
+    // Shown only where an update can happen: never in the dev session's debug build, nor in one without a key.
+    if updates::available() {
+        items.extend([&check as &dyn IsMenuItem<Wry>, &auto_update]);
+    }
+    items.extend([&logs as &dyn IsMenuItem<Wry>, &s3, &quit]);
     let menu = Menu::with_items(app, &items)?;
     Ok(MenuBuild { menu, status, downloads, open, autostart, auto_update })
 }

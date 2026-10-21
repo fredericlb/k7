@@ -30,9 +30,10 @@ fn downloads() -> String {
     std::env::var("K7_DOWNLOADS_URL").unwrap_or_else(|_| DOWNLOADS.to_string())
 }
 
-/// Whether this build can update at all: a CI stamp, and the key to check what it downloads.
+/// Whether this build can update at all: a release build, a CI stamp, and the key to check what it downloads.
 pub fn available() -> bool {
-    !PUBKEY.is_empty() && channel().is_some()
+    // A debug build is the dev session's (scripts/dev-tray.mjs): an update would replace the binary cargo just built.
+    !cfg!(debug_assertions) && !PUBKEY.is_empty() && channel().is_some()
 }
 
 /// The updater plugin, with the key built in, or none for a build that has no key.
@@ -93,6 +94,9 @@ pub fn set_auto(app: &AppHandle, on: bool) {
 
 /// A few seconds after start, then hourly whether the interval has passed; silent offline.
 pub fn start(app: &AppHandle) {
+    if !available() {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(5));

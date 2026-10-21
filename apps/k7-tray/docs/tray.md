@@ -66,6 +66,7 @@ tauri-plugin-updater (`docs/app-downloads.md` at the root).
 | told once per build, the menu's check always answers, a switch to turn it off | as the phone's check does; kept in `updates.json` beside the backend's state |
 | the backend stopped before the installer runs | the installer replaces binaries the backend and the engine are running, and a graceful stop deregisters the engine |
 | a `.deb` is told, not updated | it belongs to apt; Download opens the page |
+| a debug build never updates, and its menu has no update entry | it is the dev session's tray (`scripts/dev-tray.mjs`): an update would replace the binary cargo just built, whatever stamp the environment leaked into it |
 
 ## Quitting
 
