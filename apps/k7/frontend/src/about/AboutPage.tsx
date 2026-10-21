@@ -31,7 +31,7 @@ export function AboutPage() {
   const [showLicense, setShowLicense] = useState(false);
   const local = useLocalApp();
   return (
-    <HomeShell subtitle={m["about.title"]()}>
+    <HomeShell>
       <PageFrame title={m["about.title"]()} narrow>
         <Section title="k7" hint={m["about.tagline"]()}>
           <Row

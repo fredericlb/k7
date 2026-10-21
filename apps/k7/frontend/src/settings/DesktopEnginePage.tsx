@@ -69,7 +69,7 @@ export function DesktopEnginePage() {
     engineCommand("audio.priority", moveDevice(names, from, to).join(SEP));
 
   return (
-    <HomeShell subtitle={m["engine.title"]()}>
+    <HomeShell>
       <PageFrame title={m["engine.title"]()} narrow>
         {here === undefined ? null : !here ? (
           <p className="text-muted-foreground text-xs">

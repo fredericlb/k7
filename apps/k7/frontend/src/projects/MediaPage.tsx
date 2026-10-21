@@ -7,29 +7,22 @@ import {
   MediaLibrary,
   MediaPlayback,
   PlaybackPicker,
-  sectionAt,
 } from "@studio/ui-library";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { MEDIA_ROUTE, SETTINGS_ROUTE } from "./api";
+import { useNavigate } from "react-router-dom";
+import { SETTINGS_ROUTE } from "./api";
 import { HomeShell } from "./HomeSidebar";
 import { MediaHost } from "./MediaHost";
-import { mediaSectionLabel } from "./mediaLabels";
 
 export function MediaPage() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   // The library reports them, the sidebar draws them: lifted here, the one place holding both.
   const [counts, setCounts] = useState<Partial<Record<string, number>>>({});
   return (
     <MediaHost>
       {/* Around the whole frame: the picker sits in the sidebar, the bar under both. */}
       <MediaPlayback>
-        <HomeShell
-          subtitle={mediaSectionLabel(sectionAt(pathname, MEDIA_ROUTE))}
-          actions={<PlaybackPicker />}
-          mediaCounts={counts}
-        >
+        <HomeShell actions={<PlaybackPicker />} mediaCounts={counts}>
           <div className="flex min-h-0 flex-1 flex-col">
             <MediaLibrary
               onOpenSettings={() => navigate(SETTINGS_ROUTE)}

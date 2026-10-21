@@ -39,12 +39,10 @@ import { mediaSectionLabel } from "./mediaLabels";
 
 /** The page frame: the sidebar on the left, the page's own column on the right. */
 export function HomeShell({
-  subtitle,
   actions,
   mediaCounts,
   children,
 }: {
-  subtitle: ReactNode;
   /** Drawn above the user menu — a page's own control, such as a refresh. */
   actions?: ReactNode;
   /** Each media section's count, known only on the media pages, which load them. */
@@ -53,11 +51,7 @@ export function HomeShell({
 }) {
   return (
     <div className="flex h-full bg-background text-foreground">
-      <HomeSidebar
-        subtitle={subtitle}
-        actions={actions}
-        mediaCounts={mediaCounts}
-      />
+      <HomeSidebar actions={actions} mediaCounts={mediaCounts} />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
@@ -125,11 +119,9 @@ function SidebarGroup({ title, entries }: { title: string; entries: Entry[] }) {
 }
 
 function HomeSidebar({
-  subtitle,
   actions,
   mediaCounts,
 }: {
-  subtitle: ReactNode;
   actions?: ReactNode;
   mediaCounts?: Partial<Record<string, number>>;
 }) {
@@ -193,9 +185,6 @@ function HomeSidebar({
         >
           <img src={k7Logo} alt="k7" className="h-6 w-auto shrink-0" />
           <span className="hidden truncate sm:inline">k7</span>
-        </span>
-        <span className="hidden truncate text-xs text-muted-foreground sm:inline">
-          {subtitle}
         </span>
       </div>
 

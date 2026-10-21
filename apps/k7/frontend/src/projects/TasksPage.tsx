@@ -68,7 +68,7 @@ export function TasksPage() {
     .filter((l) => l.tasks.length > 0 || l.error);
 
   return (
-    <HomeShell subtitle={m["home.tasks"]()}>
+    <HomeShell>
       <PageFrame
         title={m["home.tasks"]()}
         summary={

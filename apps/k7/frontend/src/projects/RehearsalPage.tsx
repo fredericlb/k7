@@ -3,15 +3,8 @@
 // a lazy chunk. The take itself is held above the routes (appMain.tsx), so it outlives this page.
 
 import { Loader2 } from "@frediverse/ui/icons";
-import {
-  NewSessionButton,
-  REHEARSAL_SECTIONS,
-  rehearsalSectionAt,
-} from "@studio/ui-rehearsal";
+import { NewSessionButton } from "@studio/ui-rehearsal";
 import { lazy, Suspense } from "react";
-import { useLocation } from "react-router-dom";
-import { m } from "../paraglide/messages.js";
-import { REHEARSAL_ROUTE } from "./api";
 import { HomeShell } from "./HomeSidebar";
 
 const RehearsalRoutes = lazy(() =>
@@ -21,14 +14,8 @@ const RehearsalRoutes = lazy(() =>
 );
 
 export function RehearsalPage() {
-  const { pathname } = useLocation();
-  const id = rehearsalSectionAt(pathname, REHEARSAL_ROUTE);
-  const section = REHEARSAL_SECTIONS.find((s) => s.id === id);
   return (
-    <HomeShell
-      subtitle={section?.label() ?? m["home.rehearsal"]()}
-      actions={<NewSessionButton />}
-    >
+    <HomeShell actions={<NewSessionButton />}>
       <Suspense
         fallback={
           <div className="flex flex-1 items-center justify-center">

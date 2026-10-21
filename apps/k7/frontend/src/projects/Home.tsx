@@ -229,7 +229,7 @@ export function Home() {
   );
 
   return (
-    <HomeShell subtitle={m["home.projects"]()}>
+    <HomeShell>
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHostK7 />

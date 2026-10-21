@@ -28,7 +28,7 @@ export function LibrariesPage() {
   }, []);
 
   return (
-    <HomeShell subtitle={m["home.libraries"]()}>
+    <HomeShell>
       <AskHostK7 />
       <Toaster dismissLabel={m["common.dismiss"]()} />
       <PageFrame title={m["home.libraries"]()} narrow>

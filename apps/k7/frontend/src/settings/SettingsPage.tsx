@@ -30,7 +30,7 @@ const RehearsalSettings = lazy(() =>
 export function SettingsPage() {
   const local = useLocalApp();
   return (
-    <HomeShell subtitle={m["settings.title"]()}>
+    <HomeShell>
       <PageFrame title={m["settings.title"]()} narrow>
         {/* On the phone the app is the engine's machine: this page is where its engine is set. */}
         {/* Served by the tray's backend: this machine's engine has a page of its own. */}
