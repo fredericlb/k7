@@ -118,6 +118,8 @@ jobs:
     uses: ./.github/workflows/tray-platform.yml
     secrets:
       COMMONS_TOKEN: ${{ secrets.COMMONS_TOKEN }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     with:
       os: ${{ matrix.os }}
       label: ${{ matrix.label }}
@@ -140,6 +142,23 @@ jobs:
           pattern: k7-tray-*
           path: dist
           merge-multiple: true
+
+      # The updater's latest.json, from each platform's fragment; the version is the one tray-platform.yml built.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: src
+          sparse-checkout: |
+            package.json
+            engine/scripts
+      - name: updater manifest
+        shell: bash
+        env:
+          STAMP: ${{ needs.decide.outputs.stamp }}
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./src/package.json").version')
+          case "$STAMP" in snapshot-*) version="$version-$STAMP" ;; esac
+          node src/engine/scripts/tray-manifest.mjs --dir dist --version "$version"
 
       # One SHA256SUMS over every asset, attached beside them: `sha256sum -c SHA256SUMS` in the download folder.
       - name: checksums

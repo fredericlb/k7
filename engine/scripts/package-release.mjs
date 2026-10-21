@@ -15,6 +15,7 @@ import {
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { distDir, run } from "./buildTools.mjs";
+import { packageTray } from "./trayRelease.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RELEASE = join(distDir(repo), "release");
@@ -71,6 +72,22 @@ if (kind === "engine") {
   console.log(
     `\n✔ ${join(RELEASE, archive)}  (${(statSync(join(RELEASE, archive)).size / 1e6).toFixed(1)} MB)`,
   );
+} else if (kind === "tray") {
+  packageTray({
+    bundle: join(
+      repo,
+      "apps",
+      "k7-tray",
+      "src-tauri",
+      "target",
+      "release",
+      "bundle",
+    ),
+    release: RELEASE,
+    stamp,
+    platform,
+    arch,
+  });
 } else {
   const { workspace, prefix } = APPS[kind];
   const out = join(repo, "apps", workspace, "out");

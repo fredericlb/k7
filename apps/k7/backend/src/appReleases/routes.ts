@@ -117,7 +117,7 @@ function feed(store: AppReleaseStore): Router {
     if (!found)
       return void res.status(404).type("text/plain").send("not found");
     res.setHeader("Cache-Control", "no-cache");
-    const text = file.endsWith(".yml") || file === "SHA256SUMS";
+    const text = /\.(yml|json|sig)$/.test(file) || file === "SHA256SUMS";
     if (!text) res.setHeader("Content-Disposition", "attachment");
     streamFile(
       req,

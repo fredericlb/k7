@@ -11,9 +11,11 @@ on:
       label: { type: string, required: true }
       preset: { type: string, required: true }
       stamp: { type: string, required: true }
-    # The one secret it reads, named rather than inherited: these jobs run third-party actions.
+    # The secrets it reads, named rather than inherited: these jobs run third-party actions.
     secrets:
       COMMONS_TOKEN: { required: false }
+      TAURI_SIGNING_PRIVATE_KEY: { required: false }
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: { required: false }
 
 permissions:
   contents: read
@@ -66,12 +68,37 @@ jobs:
           done
           echo "STUDIO_PREBUILT_BIN=$RUNNER_TEMP/engine/k7-runtime" >> "$GITHUB_ENV"
 
-      # The tray: the supervisor and engine beside a windowless Electron app (apps/k7-tray/docs/tray.md).
+      # What Tauri links against on Linux: the system tray, and WebKitGTK, which Tauri needs even with no window open.
+      - name: linux tray deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf
+
+      # k7's backend bundle with the frontend in it, the engine from the job above, and a pinned node (apps/k7-tray/scripts/stage.mjs).
+      - name: stage
+        run: npm run stage --workspace k7-tray
+
+      # The bundle's version is the root package.json's, a snapshot's stamp added as a prerelease, as on the phone.
+      # The updater's artifacts are signed only when the key is there; without it the build has no updater at all.
       - name: tray app
+        shell: bash
         env:
-          # Inlined as the tray's release, shown in its System tab and compared with /app_downloads/tray's builds.
           STUDIO_RELEASE_STAMP: ${{ inputs.stamp }}
-        run: npm run package --workspace k7-tray
+          STAMP: ${{ inputs.stamp }}
+          K7_UPDATER_PUBKEY: ${{ vars.K7_UPDATER_PUBKEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          case "$STAMP" in snapshot-*) version="$version-$STAMP" ;; esac
+          signed=false
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$K7_UPDATER_PUBKEY" ]; then signed=true
+          else echo "::warning::no updater key: this tray build cannot update itself"; unset K7_UPDATER_PUBKEY; fi
+          cd apps/k7-tray
+          npx tauri build --config "{\"version\":\"$version\",\"bundle\":{\"createUpdaterArtifacts\":$signed}}"
 
       - name: installer
         shell: bash
@@ -83,8 +110,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: k7-tray-${{ inputs.label }}
-          # The installers and their blockmaps, and latest*.yml, which the tray updates from (docs/app-downloads.md).
+          # The installers, renamed, and the updater's fragment for this platform, merged into latest.json at publish.
           path: |
-            dist/release/k7-tray_*
-            dist/release/latest*.yml
+            dist/release/k7-tray*
           if-no-files-found: error

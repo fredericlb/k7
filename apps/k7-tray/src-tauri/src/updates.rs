@@ -3,7 +3,7 @@
 // and a `dev` build asks nothing. Every update's signature is checked against the key CI built in. See docs/tray.md.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -36,7 +36,7 @@ pub fn available() -> bool {
 }
 
 /// The updater plugin, with the key built in, or none for a build that has no key.
-pub fn plugin<R: Runtime>() -> Option<tauri::plugin::TauriPlugin<R>> {
+pub fn plugin<R: Runtime>() -> Option<tauri::plugin::TauriPlugin<R, tauri_plugin_updater::Config>> {
     available().then(|| tauri_plugin_updater::Builder::new().pubkey(PUBKEY).build())
 }
 

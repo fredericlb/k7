@@ -94,7 +94,8 @@ function section(
   const href = (name: string) => hrefOf(product, channel, name);
   const items = KINDS.flatMap(({ ext, label }) =>
     r.files
-      .filter((f) => f.name.endsWith(ext))
+      // The tray's macOS update archive is the updater's, not a download: it ends in .tar.gz like an engine.
+      .filter((f) => f.name.endsWith(ext) && !f.name.endsWith(".app.tar.gz"))
       .map(
         (f) =>
           `<li><a href="${href(f.name)}">${escapeHtml(labelOf(label, f.name))}</a><span>${escapeHtml(f.name)} · ${megabytes(f.bytes)}</span></li>`,

@@ -63,10 +63,9 @@ export function localEngineFromEnv(
   const roots = [env.STUDIO_FILES_ROOT, env.STUDIO_MEDIATEK].filter(
     (r): r is string => !!r,
   );
-  // The supervisor's own format, appended: the tray truncated the file when its session began.
+  // The supervisor's own format, appended: the tray truncated the file when its session began, and files our stdout there too.
   const mergedLog = join(home, ".studio.log");
   const log = (text: string): void => {
-    console.log(`[supervisor] ${text}`);
     try {
       appendFileSync(mergedLog, `${stamp(new Date())} [host] ${text}\n`);
     } catch {
