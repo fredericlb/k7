@@ -273,6 +273,11 @@ A timeline can also be made from what is already on a lane: select a range on ON
 `selection timeline`, optionally with a name. The events starting in the range move into a new timeline as
 long as the range, and one event of it takes their place — the lane sounds exactly as before.
 
+A lane can be copied to another timeline with `timeline lane copy verse>drums chorus` — or right-click the
+lane. `song` as the destination makes it a new lane of the song, with its own fader and an empty chain to put
+an instrument on. What is copied is the events: they name the same clips, sequences and timelines, so editing a
+clip is heard in both. A song lane is copied within the song by `track duplicate`, chain and all.
+
 **Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
 start, through the lane it is first placed on — that lane's instrument and effects, every other lane
 silent — and the playhead follows it. Back on the song, play is the song again. `timeline play verse`

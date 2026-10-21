@@ -10,6 +10,7 @@ import { wsData, wsEdit, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { timelineFromRange } from "@studio/song-edit/timelineFromRange";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { SONG_TARGET } from "@studio/song-schema/timelineLane";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitArgs, trackOf } from "./shared.ts";
 
@@ -82,9 +83,9 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
     if (to < from)
       return h.refuse([`the end (${toTc}) is before the start (${fromTc})`]);
     const id = name || freeId(h);
-    if (!ID.test(id))
+    if (!ID.test(id) || id === SONG_TARGET)
       return h.refuse([
-        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only`,
+        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only, and not '${SONG_TARGET}', which names the song`,
       ]);
     try {
       // `to` is the range's last beat, inclusive, as the rectangle draws it.
@@ -129,9 +130,9 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
   "timeline.new": async (a, h) => {
     const [name, len] = splitArgs(a);
     const id = name || freeId(h);
-    if (!ID.test(id))
+    if (!ID.test(id) || id === SONG_TARGET)
       return h.refuse([
-        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only`,
+        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only, and not '${SONG_TARGET}', which names the song`,
       ]);
     const file = join(h.songPath, "timelines", `${id}.k7x`);
     if (wsExists(file))

@@ -42,6 +42,7 @@ export type ArgProvider =
   | "samples"
   | "sequenceFiles"
   | "timelines"
+  | "laneTargets"
   | "timelineLanes"
   // The kinds of SURFACE the editor can draw — a closed set of words, since the file is about to be created.
   | "surfaceTypes"

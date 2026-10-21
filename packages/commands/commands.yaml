@@ -253,6 +253,20 @@
       { name: timeline, complete: timelines },
       { name: name, optional: true, hint: "the lane's name — optional" },
     ]
+- command: "timeline lane copy"
+  sid: timeline.laneCopy
+  readable:
+    en: "Copy a lane to another timeline"
+    fr: "Copier une piste vers une autre timeline"
+  help: "copy a lane's events onto a new lane of a timeline, or of the song (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass song)"
+  surfaces: [cli]
+  menu: [track]
+  args:
+    [
+      { name: lane, complete: tracks, hint: "a song lane, or a timeline's as <timeline>><lane>" },
+      { name: to, complete: laneTargets, hint: "a timeline, or song" },
+      { name: name, optional: true, hint: "the new lane's name — optional, the copied one's by default" },
+    ]
 - command: "timeline lane remove"
   sid: timeline.laneRemove
   readable:

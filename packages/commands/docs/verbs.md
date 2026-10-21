@@ -554,6 +554,10 @@ move into a new timeline as long as the range, and one event of it takes their p
 One lane, because a timeline plays through the lane it sits on, so events of several lanes would
 come out of one instrument. The timeline file is written before the lane and removed if the lane's
 write fails, so the events are never in both places nor in neither.
+`timeline lane copy <lane> <timeline|song> [name]` copies a lane's EVENTS onto a new lane there,
+named after the copied one (`-2`, `-3`… when taken). `song` is a reserved destination, which is why
+`timeline new song` is refused; a copy into the song gets `track new`'s file and strip and no chain.
+Song to song is refused for `track duplicate`, which copies the chain too.
 
 ## `events move` is one command, not a loop
 
