@@ -269,7 +269,8 @@ names them — Main first — and opens any timeline in Main's place; so does a 
 event. Until then there is no bar: `timeline new` (or `selection timeline`, below) makes the first. A
 right-click on a tab offers that timeline's commands — `timeline rename verse verse-a` renames its file
 and every event placing it. Its lanes are edited like Main's, and the `event` commands reach them by
-the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline lane new` and
+the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. To place a timeline, drag its tab
+onto a lane, or `event add gtr verse 9:1`. `timeline lane new` and
 `timeline lane remove` make the rest.
 
 A timeline can also be made from what is already on a lane: select a range on ONE lane (`v`) and run

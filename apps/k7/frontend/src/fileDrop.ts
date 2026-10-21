@@ -13,6 +13,14 @@ export interface DragPayload {
   itemKinds?: readonly string[];
 }
 
+/** A timeline's TAB in hand, carrying its id — dropped on a lane, it places that timeline there. */
+export const TIMELINE_MIME = "application/x-k7-timeline";
+
+/** True when the drag is a timeline tab rather than files: `types` alone says so, `getData` being empty until the drop. */
+export function isTimelineDrag(p: DragPayload): boolean {
+  return p.types.includes(TIMELINE_MIME);
+}
+
 /** True when the drag carries files from outside the page — two ways to say yes, browsers disagreeing, and an INTERNAL drag is refused. */
 export function acceptsFileDrop(p: DragPayload): boolean {
   if (p.types.includes(PARAM_MIME)) return false;

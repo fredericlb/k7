@@ -69,7 +69,12 @@ import {
   materialOf,
 } from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
-import { acceptsFileDrop, dragPayload } from "../fileDrop";
+import {
+  acceptsFileDrop,
+  dragPayload,
+  isTimelineDrag,
+  TIMELINE_MIME,
+} from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
 import { useLatest } from "../hooks/useLatest";
@@ -2026,6 +2031,11 @@ function TimelineTabView({
         : [],
   );
   const dropping = !readOnly && !!onDropFiles;
+  // A timeline TAB dropped on a lane is `event add` of that timeline there (TimelineSwitch.tsx).
+  const placing = !readOnly && !!cmds.addEvent;
+  /** The lane a timeline may go on: one holding events, never a picture lane. */
+  const takesTimeline = (lane: string) =>
+    dropTargets.some((d) => d.id === lane && d.kind === "audio");
   /** Where a file drag is over: the DOM says which lane, as it does for a clip drag, and the lane's own left edge says which beat. */
   const dropPointAt = (
     cx: number,
@@ -2098,6 +2108,7 @@ function TimelineTabView({
           onContext={(id, x, y) =>
             onContextMenu?.({ kind: "timeline", id }, x, y)
           }
+          draggable={!readOnly && !!cmds.addEvent}
         />
       )}
       <div className="flex min-h-0 flex-1">
@@ -2173,10 +2184,13 @@ function TimelineTabView({
           )}
           /** OS files: preventDefault is what ACCEPTS the drop — without it the browser silently refuses and then opens the file (fileDrop.ts). */
           onDragOver={(e) => {
-            if (!dropping || !acceptsFileDrop(dragPayload(e))) return;
+            const payload = dragPayload(e);
+            const tab = placing && isTimelineDrag(payload);
+            if (!tab && (!dropping || !acceptsFileDrop(payload))) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "copy";
-            const spot = dropPointAt(e.clientX, e.clientY);
+            const at = dropPointAt(e.clientX, e.clientY);
+            const spot = tab && at && !takesTimeline(at.lane) ? null : at;
             // Returning the same object bails the update out: `dragover` fires per frame, and this component is not small.
             setDropAt((d) =>
               d?.lane === spot?.lane && d?.beat === spot?.beat ? d : spot,
@@ -2188,6 +2202,23 @@ function TimelineTabView({
               setDropAt(null);
           }}
           onDrop={(e) => {
+            if (placing && isTimelineDrag(dragPayload(e))) {
+              e.preventDefault();
+              setDropAt(null);
+              const id = e.dataTransfer.getData(TIMELINE_MIME);
+              const spot = dropPointAt(e.clientX, e.clientY);
+              if (!id) return;
+              if (!spot || !takesTimeline(spot.lane)) {
+                setStatus(m["status.timeline.dropOnLane"]());
+                return;
+              }
+              cmds.addEvent?.(
+                spot.lane,
+                id,
+                beatsToPosition(spot.beat, tsNum, tsDen),
+              );
+              return;
+            }
             if (!dropping || !acceptsFileDrop(dragPayload(e))) return;
             e.preventDefault();
             setDropAt(null);

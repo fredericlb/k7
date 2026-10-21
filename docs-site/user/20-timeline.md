@@ -237,6 +237,9 @@ is first placed on, and the playhead follows it. Back on Main, play is the whole
 | `timeline lane copy <lane> <timeline\|main>` | Copy a lane's events onto another timeline, or into Main. |
 | `timeline play [timeline]` | Hear one alone; bare, the song again. |
 
+To put a timeline on a lane, **drag its tab onto the lane**: it lands where you drop it, snapped to
+the grid. `event add gtr verse 9:1` does the same from the command bar.
+
 The `event` commands reach a timeline's lane as `<timeline>><lane>`: `event add verse>drums kick 3:1`.
 How a timeline is written is in [Clips, sequences and curves](./33-material.md#timelines); exporting
 one alone, in [Exporting the mix](./27-export-import.md).
