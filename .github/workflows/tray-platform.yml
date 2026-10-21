@@ -97,8 +97,14 @@ jobs:
           signed=false
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$K7_UPDATER_PUBKEY" ]; then signed=true
           else echo "::warning::no updater key: this tray build cannot update itself"; unset K7_UPDATER_PUBKEY; fi
+          # The bundler signs updater artifacts only with the public key in its config, beside the one compiled in.
+          config=$(SIGNED="$signed" VERSION="$version" node -e '
+            const c = { version: process.env.VERSION, bundle: { createUpdaterArtifacts: process.env.SIGNED === "true" } };
+            if (c.bundle.createUpdaterArtifacts)
+              c.plugins = { updater: { pubkey: process.env.K7_UPDATER_PUBKEY.trim(), endpoints: [] } };
+            process.stdout.write(JSON.stringify(c));')
           cd apps/k7-tray
-          npx tauri build --config "{\"version\":\"$version\",\"bundle\":{\"createUpdaterArtifacts\":$signed}}"
+          npx tauri build --config "$config"
 
       - name: installer
         shell: bash
