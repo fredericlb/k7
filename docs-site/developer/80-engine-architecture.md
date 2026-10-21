@@ -1,6 +1,6 @@
 # Engine architecture
 
-This section covers everything that links a k7 page to sound: the C++ engine, its supervisor, the wire between them and the browsers, the registry that lists engines, the tunnel that reaches them, and the three hosts that ship them (the desktop app, the phone, the server image). This page is the map; the following pages go into each part.
+This section covers everything that links a k7 page to sound: the C++ engine, its supervisor, the wire between them and the browsers, the registry that lists engines, the tunnel that reaches them, and the three hosts that ship them (the tray, the phone, the server image). This page is the map; the following pages go into each part.
 
 | Page | Covers |
 |---|---|
@@ -9,7 +9,7 @@ This section covers everything that links a k7 page to sound: the C++ engine, it
 | [83 — The engine protocol](./83-engine-protocol.md) | `packages/engine-protocol` and the C++ handlers: every message, the state frame, the ProjectDoc, sessions, the audio stream |
 | [84 — Engine clients](./84-engine-clients.md) | `packages/engine-client` (Node) and `packages/engine-browser` (browser): access, probe, choice, lease, store, pairing, WebRTC |
 | [85 — Registry and tunnel](./85-registry-and-tunnel.md) | `packages/engine-registry` and `packages/engine-tunnel`: heartbeats, claims, the relay, the hub and agent, jobs |
-| [86 — Desktop and Android hosts](./86-desktop-and-android.md) | `packages/supervisor-host`, `apps/k7-standalone`, `engine/k7-android` |
+| [86 — The tray and the phone apps](./86-desktop-and-android.md) | `packages/supervisor-host`, `apps/k7-tray`, `engine/k7-android` |
 | [87 — Building and shipping engines](./87-engine-build-and-shipping.md) | `engine/scripts`, CMake presets, release archives, `engine/docker` |
 
 ## The processes
@@ -80,8 +80,8 @@ The account's files live on the server. When a project opens on an engine, the f
 | `packages/engine-browser/` | The browser client, React stores, access/probe/choose/lease, pairing, WebRTC socket, audio stream player |
 | `packages/engine-registry/` | The registry, its routes, the relay |
 | `packages/engine-tunnel/` | The tunnel hub, the TypeScript reference agent, jobs client, WebRTC answerer |
-| `packages/supervisor-host/` | Running the supervisor as an Electron app's child |
-| `apps/k7-standalone/` | The desktop app |
+| `packages/supervisor-host/` | Running the supervisor as a child of a node program (k7's backend under the tray) |
+| `apps/k7-tray/` | The tray (Tauri), k7 on a computer |
 
 ## Two implementations, one wire
 

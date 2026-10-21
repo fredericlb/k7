@@ -50,7 +50,7 @@ its network. After that, the owner reaches it from anywhere, through the relay.
 
 ## A standalone app's own engine is every account's on it
 
-The desktop and phone apps run a backend of their own (`STUDIO_LOCAL_USER=1`), and their engine
+The tray and the phone apps run a backend of their own (`STUDIO_LOCAL_USER=1`), and their engine
 beats to it from loopback. Several accounts sign in there — the app's local one before any other,
 then the person's real account — and whichever opened a project first would own the device's
 engine and hide it from the rest: a project that opens with "No sound — choose an engine" and

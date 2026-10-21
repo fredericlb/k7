@@ -1,19 +1,18 @@
-// AccountButton.tsx — the desktop app's account control, at the top of the home page: who is signed in, and the one button that signs in or out.
-// Signing in asks which k7 server to sync with, in a popin, on the desktop and the phones alike.
-// Signing in happens in the system browser — the desktop's main process, or the phone app catching `/auth/login`; signing out is the origin's own logout.
-// See apps/k7-standalone/docs/signIn.md and engine/k7-runtime/docs/android.md.
+// AccountButton.tsx — the account control at the top of the home page, wherever this machine runs its own backend:
+// who is signed in, and the one button that signs in or out. Signing in asks which k7 server to sync with, in a popin.
+// In a browser the page signs in itself (./browserAccount.ts); a phone app catches `/auth/login`. See ../../docs/localApp.md.
 
 import { LogIn, LogOut } from "@frediverse/ui/icons";
 import { STUDIO_ORIGIN } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { accountBridge, inAndroidApp, tabsBridge } from "./bridge";
+import { accountBridge, inAndroidApp } from "./bridge";
 import { ServerDialog } from "./ServerDialog";
 
 export interface Me {
   name?: string;
   email?: string | null;
-  /** The desktop's signed-out user, minted by its own backend. */
+  /** The machine's signed-out user, minted by its own backend. */
   local?: boolean;
 }
 
@@ -51,7 +50,7 @@ async function whoami(): Promise<Me | null> {
   }
 }
 
-/** Asked on mount and after a sign-out: a sign-in reloads the home page, which mounts this again. */
+/** Who is signed in, asked on mount: a sign-in and a sign-out both reload the page. */
 export function AccountButton({
   onUser,
 }: {
@@ -59,8 +58,8 @@ export function AccountButton({
   onUser?: (me: Me | null) => void;
 }) {
   const [me, setMe] = useState<Me | null>(null);
-  const [asked, setAsked] = useState(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `asked` changing IS the signal.
+  // Asked once: a sign-in and a sign-out both reload the page, which mounts this again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `onUser` is the parent's, told once per mount.
   useEffect(() => {
     let live = true;
     void whoami().then((m) => {
@@ -71,9 +70,9 @@ export function AccountButton({
     return () => {
       live = false;
     };
-  }, [asked]);
+  }, []);
 
-  // The last server chosen, prefilling the popin: the desktop's main process keeps it, a phone this page.
+  // The last server chosen, prefilling the popin: kept by this page, in a browser or a phone.
   const [asking, setAsking] = useState(false);
   const [current, setCurrent] = useState<string>("");
   useEffect(() => {
@@ -83,8 +82,6 @@ export function AccountButton({
       .then((s) => setCurrent(s ?? ""))
       .catch(() => {});
   }, []);
-  // A desktop build whose main process keeps no server signs in straight away.
-  const asksServer = inAndroidApp() || !!accountBridge()?.server;
   const submit = (server: string) => {
     setAsking(false);
     setCurrent(server);
@@ -103,9 +100,7 @@ export function AccountButton({
         <button
           type="button"
           className={button}
-          onClick={() =>
-            asksServer ? setAsking(true) : accountBridge()?.signIn()
-          }
+          onClick={() => setAsking(true)}
           title={m["account.signInAccount"]()}
           aria-label={m["auth.signIn"]()}
         >
@@ -132,16 +127,14 @@ export function AccountButton({
       >
         {name}
       </span>
-      {/* The desktop's main process watches the cookie go; the phone hears it from the page's reload, and falls back to the local user. */}
+      {/* A reload after the logout: AuthGate finds nobody and falls back to the machine's local user. */}
       <button
         type="button"
         className={button}
         onClick={() =>
           void fetch("/auth/logout", { method: "POST" })
             .catch(() => {})
-            .then(() =>
-              tabsBridge() ? setAsked((n) => n + 1) : location.reload(),
-            )
+            .then(() => location.reload())
         }
         title={m["account.signOut"]()}
         aria-label={m["account.signOut"]()}

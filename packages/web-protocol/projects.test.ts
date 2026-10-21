@@ -14,7 +14,6 @@ import {
   isExternalIndex,
   isHomePage,
   isLocal,
-  isProjectAddress,
   isShare,
   LOCAL_REPO,
   launchUrl,
@@ -414,41 +413,7 @@ describe("a project in a workspace with no repository", () => {
   });
 });
 
-// Two sides ask this and would drift: the main process, to know what a second window opens on,
-// and the tab strip, to know which tabs wear a note (apps/k7-standalone/docs/tabs.md).
-describe("which addresses open a project", () => {
-  const O = "http://127.0.0.1:8780";
-
-  it("says yes to a project, however it is addressed", () => {
-    for (const p of [
-      "/songs/first.k7",
-      "/band/albums/winter.k7",
-      "/songs/first.k7/timeline",
-      "/@local/lemo_mante/mymix.k7",
-      "/@shares/a7f3.k7",
-      "/songs/first.k7/@external/desk",
-    ])
-      expect(isProjectAddress(O + p), p).toBe(true);
-  });
-
-  it("says no to the home page and to the chrome", () => {
-    for (const p of [
-      "/",
-      "",
-      "/@tabs",
-      "/external",
-      "/libraries",
-      "/settings",
-      "/about",
-      "/media",
-      "/media/songs/Miles/So-What/song.yaml",
-      "/rehearsal",
-      "/rehearsal/sessions/abc",
-      "/rehearsal/@lemo",
-    ])
-      expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
-  });
-
+describe("which addresses are the home's own pages", () => {
   it("finds the home's own pages at the mount", () => {
     expect(isHomePage("/libraries", "/")).toBe(true);
     expect(isHomePage("/settings/", "/")).toBe(true);
@@ -468,8 +433,6 @@ describe("which addresses open a project", () => {
     // Only the head: a workspace may hold a project of that name.
     expect(isHomePage("/@local/settings/x.k7", "/")).toBe(false);
     expect(isHomePage("/@local/ws/settings", "/")).toBe(false);
-    // …and agreeing with isProjectAddress, which already read the head alone.
-    expect(isProjectAddress(`${O}/settings/engine`)).toBe(false);
   });
 
   it("takes `media` as a PREFIX, every address below it included", () => {
@@ -487,10 +450,5 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/rehearsal/@lemo", "/")).toBe(true);
     expect(isHomePage("/k7/rehearsal/songs", "/k7/")).toBe(true);
     expect(isHomePage("/songs/rehearsal", "/")).toBe(false);
-  });
-
-  it("says no to something that is not an address at all", () => {
-    expect(isProjectAddress("")).toBe(false);
-    expect(isProjectAddress("not a url")).toBe(false);
   });
 });

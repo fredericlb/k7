@@ -264,8 +264,8 @@ nothing arrives, so a stale one outlives its request and eats the following comm
   in is the difference between a report and a dead end.
 
   Before it, the arm waits for the session's link to OPEN (`armOnceOpen` in `src/engineArm.ts`,
-  five seconds), and does not refuse a link still dialling. In the desktop app every tab brought to
-  the front re-binds this service to the engine and re-dials the session's link, and the editor is
+  five seconds), and does not refuse a link still dialling. A page reopened on a project, or an engine
+  restarted under it, re-binds this service to the engine and re-dials the session's link, and the editor is
   drawn while that socket is still opening: refusing an arm clicked then would answer "engine
   offline", with the engine running and the project on its way. The document needs no such wait, since the
   client queues it until the socket opens, and the arm sent after the open goes out behind it. A

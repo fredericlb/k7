@@ -27,7 +27,7 @@ export interface SupervisorHostOptions {
   env?: Record<string, string>;
   /** The supervisor's `engine.pid`, read at stop to kill an engine that outlived the teardown. */
   enginePidFile?: string;
-  /** Where the host's own lines and the supervisor's stderr go; electron-shell's merged log by default. */
+  /** Where the host's own lines and the supervisor's stderr go; electron-shell's log writer by default (a file, no Electron). */
   log?: (text: string) => void;
   onSnapshot?: (s: Snapshot) => void;
   onNotify?: (n: NotifyFrame) => void;

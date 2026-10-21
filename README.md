@@ -7,7 +7,7 @@ The music and stage apps of the frediverse.
 | `apps/k7` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `app.priv.k7.rocks` |
 | `engine/k7-runtime` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/k7-supervisor` | the engine machine's supervisor: starts and watches the engine, holds its tunnel | — |
-| `apps/k7-standalone` | k7 as a desktop app (Electron): its backend, the supervisor and its engine, and a window | — |
+| `apps/k7-tray` | k7 on a computer (Tauri, in the menu bar): runs k7's backend, which runs the supervisor and its engine; k7 opens in the browser | — |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
@@ -26,7 +26,7 @@ If you already cloned without it: `git submodule update --init`.
 ```bash
 npm ci
 cp env.example.yaml env.yaml   # then fill in the secrets
-npm run dev                    # every app, plus the engine and the desktop app
+npm run dev                    # every app, plus the engine
 ```
 
 In dev the studio answers at **https://app.priv.k7.rocks** — k7 at the root, the media library
@@ -37,8 +37,8 @@ Nothing here terminates TLS: the name resolves to the LAN server, which reverse-
 the dev servers. See [docs/dev.md](docs/dev.md).
 
 `npm run dev` runs the whole studio as one Tilt session — every app's frontend and
-backend, plus a task that builds the C++ engine and launches the desktop app,
-and rebuilds+restarts both on save. One app on its own is still `npm run dev` inside its
+backend, plus a task that builds the C++ engine and runs it,
+and rebuilds+restarts it on save. One app on its own is still `npm run dev` inside its
 directory. See [docs/dev.md](docs/dev.md).
 
 ## The commons submodule
@@ -63,8 +63,8 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 
 `engine/k7-runtime` is a CMake/JUCE/Tracktion C++ project, `engine/k7-supervisor` a C++ program
 beside it — run from the command line as `k7-supervisor --config engine.json`, or carried by
-the desktop app, `apps/k7-standalone`. The two programs also run on the server, in the
-`k7-runtime` image (`docs/server-engine.md`); the desktop app is in no image —
+the tray, `apps/k7-tray`, through k7's backend. The two programs also run on the server, in the
+`k7-runtime` image (`docs/server-engine.md`); the tray is in no image —
 each `docker/Dockerfile` names the workspaces it installs rather than globbing. The moteur
 deliberately declares no `build` script at all, so `npm run build --workspaces --if-present` can
 never try to compile C++. They have their own commands:

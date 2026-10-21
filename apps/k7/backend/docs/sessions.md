@@ -26,8 +26,8 @@ bound on how long an admin removed at the IdP keeps admin rights here. A token l
 ## What a deploy of these rules does
 
 Every session minted before the stamps existed is refused, so everyone signs in once. Every token in
-the old `{sub, iat}` format is refused: a CLI or a desktop holding one mints a new one (k7's settings
-for a publish token, the pairing for a desktop).
+the old `{sub, iat}` format is refused: a CLI or an app holding one mints a new one (k7's settings
+for a publish token, the pairing for an app).
 
 ## Tokens handed over in code
 
@@ -42,7 +42,7 @@ stops — which is also when those holders stop.
 | `POST /api/token` | mint a library token, `{label}` in the body |
 | `GET /api/token` | the owner's library tokens, without the tokens themselves |
 | `DELETE /api/token/:id` | revoke one of them |
-| `GET /api/token/pair?return&state` | mint one for a desktop app, sent to its loopback port only |
+| `GET /api/token/pair?return&state` | mint one for a native app, sent to its loopback port only |
 | `POST`/`GET /api/token/publish`, `DELETE /api/token/publish/:id` | the same for the recorder's publish tokens |
 
 All of them take the session only. A POST or DELETE from a site outside the origin allowlist is

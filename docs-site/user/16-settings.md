@@ -59,7 +59,7 @@ The page edits a draft: **Save** writes it to your account; leaving with unsaved
 
 ## The home page's Settings page
 
-Reached from the home page's sidebar. It holds what a browser can change; the engine, the audio interface and the machine's own settings are set on that machine, in the desktop app or the command-line engine's config file. On the Android app, this page is also where the phone's engine is set.
+Reached from the home page's sidebar. It holds what a browser can change; the engine, the audio interface and the machine's own settings are set on that machine, on the tray's engine page or in the command-line engine's config file. On the Android app, this page is also where the phone's engine is set.
 
 ### Language
 
@@ -79,7 +79,7 @@ Phones, tablets and other computers on your local network allowed to drive this 
 
 ### Sync
 
-On the desktop or the phone app: whether this machine syncs your account's workspaces with a server, and **Unpair** to stop it (signing out does not stop it). On the server: the devices syncing your account, each removable. See [Sync, history and conflicts](./19-sync-and-history.md).
+On a computer running the tray or in the phone app: whether this machine syncs your account's workspaces with a server, and **Unpair** to stop it (signing out does not stop it). On the server: the devices syncing your account, each removable. See [Sync, history and conflicts](./19-sync-and-history.md).
 
 ### Engines, Soulseek and rehearsal pages
 

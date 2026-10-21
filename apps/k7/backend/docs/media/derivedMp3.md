@@ -48,7 +48,7 @@ is not retried in this process. No ffmpeg stops the sweep for good and says so o
 
 ## Off on the user's own machine
 
-`STUDIO_MP3_SWEEP=0` turns the sweep off, and the desktop app and the phone set it in their table
-([../standalone.md](../standalone.md)). Their window is Chromium or Android's WebView, which play
+`STUDIO_MP3_SWEEP=0` turns the sweep off, and the tray and the phone set it in their table
+([../standalone.md](../standalone.md)). Their page runs in a current browser or Android's WebView, which play
 a FLAC as it is, the engine shares that machine's CPU, and the phone has no ffmpeg at all.
 `/stream` still makes an MP3 on demand there when ffmpeg is on the `PATH`.

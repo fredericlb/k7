@@ -1,4 +1,4 @@
-// Renders icon/k7.svg into every platform's app icon (web, desktop, Android, iOS, the engine's window), and icon/k7-splash.svg into each startup splash.
+// Renders icon/k7.svg into every platform's app icon (web, Android, iOS, the engine's window), and icon/k7-splash.svg into each startup splash.
 // Run by hand after changing the SVG: node apps/k7/frontend/scripts/icons.mjs (apps/k7/frontend/docs/icons.md).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,9 +32,9 @@ const TARGETS = [
     shape: "tile",
     width: 0.78,
   },
-  // The desktop: the cassette alone on transparency, for the app's bundle and window, and the engine's plugin windows.
+  // The tray: the cassette alone on transparency, which `tauri icon` turns into its .ico and .icns (apps/k7-tray/docs/tray.md).
   {
-    out: "apps/k7/frontend/public/icon-desktop.png",
+    out: "apps/k7-tray/src-tauri/icons/icon.png",
     size: 1024,
     shape: "none",
     width: 0.92,
@@ -100,7 +100,7 @@ const SPLASH_TARGETS = [
     width: 840,
   },
 ];
-// The pages that fetch nothing carry the drawing inline (the desktop splash, k7.rocks), minus the namespaces HTML does not need.
+// The pages that fetch nothing carry the drawing inline (k7.rocks), minus the namespaces HTML does not need.
 const SPLASH_INLINE = "apps/k7/frontend/icon/k7-splash.inline.json";
 
 async function renderSplash(browser, width) {

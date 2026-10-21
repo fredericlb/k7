@@ -1,11 +1,10 @@
 # The functional suite
 
-One set of specs, `specs/app/`, run on one of three **targets**:
+One set of specs, `specs/app/`, run on one of two **targets**:
 
 | target | what it drives | command |
 |---|---|---|
 | `web` | a **running** k7 in Playwright's Chromium: the instance `npm run dev` serves, `https://app.priv.k7.rocks` by default, or `E2E_BASE_URL` | `npm run test:e2e` |
-| `desktop` | k7 the desktop app, started by the run itself in Electron | `npm run test:e2e:desktop` |
 | `android` | the app on a phone — its `e2e` build, built and installed by the run itself — through the app's own WebView | `npm run test:e2e:android` |
 
 ```bash
@@ -13,14 +12,12 @@ npm run e2e:install --workspace @studio/e2e   # once, for the web target: Playwr
 npm run test:e2e                              # every spec, on the web
 npm run test:e2e -- specs/app/transport.spec.ts
 
-npm run build:main --workspace k7-standalone       # the desktop target runs the checkout's app…
-npm run build:frontends --workspace k7-standalone  # …or the packaged one under apps/k7-standalone/out/
-npm run test:e2e:desktop
+npm run test:e2e:android
 ```
 
 Neither is part of `npm run test`, whose workspaces run vitest: both need an engine, which a unit run
 must never need. A failed spec keeps its trace under `e2e/test-results/`; the HTML report is
-`e2e/report/` (`report/desktop/` for the app). Requests answered 4xx and console errors do not fail a
+`e2e/report/`. Requests answered 4xx and console errors do not fail a
 spec: they are listed on the report as `noted` annotations, since some 4xx are the app asking whether
 a file exists.
 
@@ -28,22 +25,13 @@ a file exists.
 
 Specs import `test` from `src/target.ts`, never from `@playwright/test`, and drive a `k7` fixture:
 `k7.open(path)` for a page, `k7.landed(from, at)` for the page a click led to, `k7.files()` for the
-file service. They never call `page.goto`, because the two targets do not agree on what a page is:
-on the web a project replaces the page, while the app opens it in a tab of its own, a separate
-page Playwright sees appear. The desktop `open` therefore navigates the way a link does, from inside
-the home tab, so the app's own routing turns it into a tab (`apps/k7-standalone/docs/tabs.md`), and
-it closes the tabs a test opened when the test ends.
+file service. They never call `page.goto`, because the two targets do not agree on what the page is: on the web it
+is Playwright's own, on the instance's origin; on the phone it is the k7 view among the app's WebViews,
+on the phone's backend origin, reached over adb.
 
-That close is Cmd/Ctrl+W, sent by the main process (`webContents.sendInputEvent`) rather than by
-`page.keyboard`. A key Playwright presses travels over DevTools and never reaches the tab's
-`before-input-event`, where the app takes the shortcut, so the tab stays open — and the next test
-opening the same project is handed that tab back, with the previous test's state in it (a desk whose
-deck A already holds a record has no "deck A" button). A tab that is still open after the key is a
-failure of the test that opened it, not a silent leak into the next one.
-
-The target is chosen by `E2E_TARGET`, which `playwright.desktop.config.ts` sets, rather than by a
+The target is chosen by `E2E_TARGET`, which `playwright.android.config.ts` sets, rather than by a
 Playwright option: a fixture's dependencies are fixed when it is declared, so one `test` serving both
-would make the desktop run start Chromium too.
+would make the phone run start Chromium too.
 
 ## The web target signs in without the identity provider
 
@@ -58,26 +46,6 @@ its own, seeded with the `Examples` projects, so a spec that writes never touche
 The account is not an admin, and removing from the shared media library is an admin's
 (`apps/k7/backend/docs/media/gate.md`): the media specs reuse the song and the playlist they file
 rather than delete them, and check that the removal is refused.
-
-## The desktop target is one app per worker
-
-The app runs as its local user (`apps/k7-standalone/docs/signIn.md`), so there is no session to
-mint. Each launch gets a user-data folder of its own (`apps/k7-standalone/docs/e2e.md`), which means
-an app starts with no workspace but `Examples`, and the fixtures are seeded into **that** app by the
-worker that launched it, not by a setup project, which would run in a worker and an app of its own.
-Playwright replaces a worker after a failed test, so each failure costs a launch, a plugin scan and
-a seed: on Windows about thirty seconds before the next test, half of it the `k7-core` library's
-copy and the other half the fixtures written over HTTP.
-
-A fresh engine-home ranks no interface, so the engine plays through whatever the device manager
-opens, and on a machine whose Tracktion settings remember a blank output that is nothing: Play is
-accepted and the clock never moves (`engine/k7-runtime/docs/audioDevice.md`). `K7_E2E_AUDIO` names
-the outputs to rank, `;`-separated, and the launcher writes them as the engine-home's `audioPriority`
-before the app starts, the way a person would pick one on the Engine page.
-
-The app picks its backend's port free at launch, so the config has no `baseURL`: the launcher reads
-the port from the app's `ports.json` and hands the origin to the specs. A checkout without a
-supervisor build fails the run at once with the engine's reason.
 
 ## The android target installs a build of its own, beside the shipped app
 
@@ -102,8 +70,8 @@ Studio puts the SDK. `E2E_ANDROID_BUILD=0` skips the build and runs what is inst
 
 The worker then starts the app, forwards the backend's port with `adb forward` — the run seeds the
 fixtures over HTTP as on the other targets — and takes the page of the k7 view among the process's
-WebViews, the one on the backend's origin. There is no throwaway user-data folder: the fixtures go
-into the e2e app's local user, whose data is its own.
+WebViews, the one on the backend's origin. The fixtures go into the e2e app's local user, whose
+data is its own.
 
 Two things the run does that a person does once by hand. It writes the phone's engine into the
 account's preferences, since a project page picks no engine on its own and a fresh install has

@@ -120,4 +120,4 @@ The backend serves the frontend shell with `Cache-Control: no-cache` and the has
 `assets/` as `public, max-age=31536000, immutable`, so a new deployment is picked up on the next page
 load. A request for a hashed asset that no longer exists returns 404 rather than the shell.
 
-Desktop and phone releases use a different stamp: see [Releases and publishing](./09-releases-and-publishing.md).
+Engine, tray and phone releases use a different stamp: see [Releases and publishing](./09-releases-and-publishing.md).

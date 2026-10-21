@@ -33,7 +33,7 @@ Every place a file service runs holds a full working copy of the account's works
 replica:
 
 - the server's file service, one per account as today;
-- each authoring machine: the standalone app, a desktop, a phone.
+- each authoring machine: a computer running the tray, a phone.
 
 A browser is not a replica; it talks to one.
 
@@ -124,9 +124,9 @@ reconnects. Undo stays local and works offline.
 4. **Conflicts** — done: every op names what it replaced, the room sets aside one made against a
    value that moved, and a batch settles it; the file service lists and settles them
    (`GET`/`POST /sync/conflicts`).
-5. **A machine replica** — done for the desktop: pairing through the system browser, the pairing kept
-   per account, every workspace a replica from the start, and the rooms naming which workspaces
-   exist (`../apps/k7-standalone/docs/sync.md`, `../packages/file-hub/docs/syncRelay.md`).
+5. **A machine replica** — done for the tray: pairing started from the page in the browser, the
+   pairing kept per account, every workspace a replica from the start, and the rooms naming which
+   workspaces exist (`../apps/k7/frontend/docs/localApp.md`, `../packages/file-hub/docs/syncRelay.md`).
 6. **Browser push** — done: each ordered entry is a Server-Sent Event to the account's pages, the
    `/revision` poll a 30 s fallback, and the open conflicts settled from k7's footer and named over
    the file's editor (`../packages/file-hub/docs/syncRelay.md`, `../apps/k7/frontend/docs/conflicts.md`).
@@ -135,7 +135,7 @@ reconnects. Undo stays local and works offline.
 8. **History** — done: the room's whole log, checkpoints, diff and restore, at `/api/sync/history`
    and in k7's History panel (`../packages/file-hub/docs/history.md`).
 9. **The phone** — done for Android: the app runs the same backend and hub, pairs through the
-   system browser like the desktop, and its libraries follow the origin's read-only
+   system browser, and its libraries follow the origin's read-only
    (`../engine/k7-runtime/docs/android.md`). iOS is not started: it needs the editing code off `node:`.
 10. **Merging inside a list** — done: an item of a keyed list is named by its natural key, so two
     additions to one list are two additions and edits to two items merge

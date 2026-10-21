@@ -48,7 +48,7 @@ account. A module from a library is written `@<library>/…`, for example `@k7-c
 open a project until at least one library exists. See [The home page](./03-home-page.md#libraries).
 
 **Engine.** The program that makes the sound. It runs on a machine with an audio interface: your
-desktop with the k7 desktop app, the command-line engine, a phone, or the server's own engine. The
+computer with the k7 tray, the command-line engine, a phone, or the server's own engine. The
 browser never plays a project's audio itself. When you open a project, k7 picks an engine and sends
 the project to it. One engine plays one project at a time, and one project plays on one engine at a
 time. The engines section of this guide explains how to set one up.

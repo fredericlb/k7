@@ -1,6 +1,6 @@
 // mirror-termux-debs.mjs — copies every pinned Termux .deb into the project's `termux-debs` prerelease.
 // Run by hand after a re-pin, before the pool drops those versions; it needs `gh` signed in with write access.
-// The release is a prerelease never marked latest, since the desktop app's update check reads releases/latest.
+// The release is a prerelease never marked latest, since an update check reading releases/latest must never land on it.
 // Assets already there are kept, never replaced: a pin's name always means the same bytes.
 // Usage: node mirror-termux-debs.mjs [--dry-run]. See engine/k7-runtime/docs/android.md.
 

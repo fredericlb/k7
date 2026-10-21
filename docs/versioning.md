@@ -3,21 +3,21 @@
 What a build is called, and how that name reaches the screen. Two names answer two questions:
 **which release is this?** — the VERSION, `0.1.0`, one for the whole repository — and **which
 build of it?** — the STAMP, `26.08031412` for an image, `snapshot-9f2c1ab` or the tag itself for a
-desktop or phone build. The image half mirrors what `../phare` does, with one deliberate difference
+tray, engine or phone build. The image half mirrors what `../phare` does, with one deliberate difference
 noted below.
 
 ## One version, in the root package.json
 
 The root `package.json`'s `version` is the release version of everything this repository ships:
-the hosted image, the server's engine, the desktop app, the command-line engine, the APK, the
+the hosted image, the server's engine, the tray, the command-line engine, the APK, the
 iPhone app. A `vX.Y.Z` tag is a release of exactly that version, and CI refuses any other tag —
-`desktop.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
+`desktop.yml`'s and `tray.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
 before anything is built. So a release is two steps: `node scripts/check-version.mjs --set X.Y.Z`
 in a commit on `main`, then the tag on that commit.
 
 | choice | why |
 |---|---|
-| the root package.json, not a `VERSION` file | npm already requires a `version` in every manifest, so a separate file would be one more copy, not one fewer; node, Gradle and electron-builder all read JSON |
+| the root package.json, not a `VERSION` file | npm already requires a `version` in every manifest, so a separate file would be one more copy, not one fewer; node, Gradle and Tauri all read JSON |
 | every private workspace carries the same version | a manifest must hold some version, and a stale one is read as a claim; `npm run lint:version`, a blocking step of `k7.yml`, refuses a copy that differs |
 | the four published packages keep their own | their consumers outside this repository pin them by semver, and their version moves with their API, not with a release ([publishing.md](publishing.md)) |
 | `--set` writes every copy, the lockfile and the iOS project included | a bump is one command; nobody edits sixty manifests by hand |
@@ -30,7 +30,7 @@ Each artefact derives its name from it:
 | `/api/health` | `version` (the backend's package.json copy) and `build` (the stamp) | same |
 | the SPA's tooltip | `0.1.0 (26.08031412)` | same |
 | engine and supervisor `build` | `v0.1.0` | `0.1.0-snapshot-9f2c1ab`; `0.1.0-dev` locally |
-| desktop bundle version | `0.1.0` | `0.1.0-snapshot-9f2c1ab`, a semver prerelease |
+| tray bundle version | `0.1.0` | `0.1.0-snapshot-9f2c1ab`, a semver prerelease |
 | Android `versionName` / iOS `MARKETING_VERSION` | `0.1.0` | `0.1.0-snapshot-9f2c1ab` / `0.1.0` |
 | Android `versionCode` / iOS build number | the commit count | the commit count |
 
@@ -58,7 +58,7 @@ media library and the rehearsal recorder it serves keep answering
 
 `engine/k7-runtime` and `engine/k7-supervisor` are not in k7's image. The server's own engine is
 an image of its own, `k7-runtime`, which is tagged with k7's stamp and has no SPA to show it
-([server-engine.md](server-engine.md)). The desktop app, `apps/k7-standalone`, is in no image. The rehearsal recorder's store is a SQLite
+([server-engine.md](server-engine.md)). The tray, `apps/k7-tray`, is in no image. The rehearsal recorder's store is a SQLite
 file inside k7's process, so it ships with k7's stamp.
 
 Two containers on one hostname each ship and restart on their own, so a crash in one does not
@@ -88,7 +88,7 @@ The image also carries the commit hash, and `:latest` or, for a release, `:X.Y.Z
 use: the version you deploy, the commit you can `git show`, the stamp you can read. Only the
 commit's is pushed before the tests pass; the others follow once they have ([images.md](images.md)).
 Inside, the image says the same thing without its tag: `org.opencontainers.image.version` (`X.Y.Z`
-for a release, `X.Y.Z-snapshot-<commit>` otherwise, as the desktop snapshot names itself) and
+for a release, `X.Y.Z-snapshot-<commit>` otherwise, as the tray snapshot names itself) and
 `org.opencontainers.image.revision`, so `docker inspect` answers on a host that pulled it by digest.
 
 ## A deploy names its build

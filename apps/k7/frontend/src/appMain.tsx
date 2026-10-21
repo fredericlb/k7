@@ -1,6 +1,5 @@
-// appMain.tsx — k7 itself: the gates, the router and the editor. It was `main.tsx` until the
-// tab strip needed an address on this origin without paying for any of it — main.tsx is now a
-// dispatcher that imports one of us, and this is the heavy branch. See apps/k7-standalone/docs/tabs.md.
+// appMain.tsx — k7 itself: the gates, the router and the editor; main.tsx imports it unless the address is the
+// documentation host, so the docs never load the editor.
 
 import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
 import { registerWorker } from "@frediverse/vite-config/register";
@@ -116,10 +115,6 @@ setFileApiRevision(currentRevision, (path) =>
 );
 // A held finger or pen is a right-click on every surface, an iPad included (docs/contextMenu.md).
 installLongPress();
-
-// A desktop quit asks every page to write what its panes hold before the servers stop (commons/packages/electron-shell/docs/shell.md).
-(globalThis as { __beforeQuit?: () => Promise<unknown> }).__beforeQuit = () =>
-  import("@studio/ui-editor/autosave").then((m) => m.flushAutosaves());
 
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;

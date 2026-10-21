@@ -44,19 +44,8 @@
     "apps/k7/backend": {
       "entry": ["scripts/bundle.mjs"]
     },
-    "apps/k7-standalone": {
-      "entry": ["electron-builder.cjs", "src/main.ts", "src/preload.ts"],
-      "ignoreBinaries": ["vite"]
-    },
     "apps/k7-tray": {
-      "entry": [
-        "electron-builder.cjs",
-        "src/main.ts",
-        "src/preload.ts",
-        "scripts/*.mjs",
-        "settings/*.js"
-      ],
-      "ignoreBinaries": ["notepad.exe"]
+      "entry": ["scripts/*.mjs"]
     },
     "engine/k7-android/web": {
       "ignoreDependencies": ["@capacitor/android"]

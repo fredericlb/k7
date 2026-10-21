@@ -25,7 +25,7 @@ since the wake-ups are per block.
 ## Measured
 
 `01.danse` (15 tracks, 62 plugin instances, two of them external VSTs) and `05.paradoxe`
-(18 tracks, 48 instances), each played in the desktop app on a 12-core Windows machine through a
+(18 tracks, 48 instances), each played on a 12-core Windows machine through a
 Focusrite ASIO interface. Engine CPU is the whole process, in % of ONE core; the callback is
 `audio-cost`'s per-block mean and worst block over 24 s of playback. Two to three passes each, one
 row per pass.

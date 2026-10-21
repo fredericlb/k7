@@ -16,7 +16,6 @@ import { FirstProject } from "../projects/FirstProject";
 import { LibrariesCard } from "../projects/LibrariesCard";
 import type { AccountFiles } from "../projects/workspaceOps";
 import { findAccountFiles } from "../settings/accountFiles";
-import { useInFront } from "../tabs/useInFront";
 import type { RankedEngine } from "../types";
 import { ExternalSurface } from "./ExternalSurface";
 
@@ -54,8 +53,6 @@ export function ProjectGate({
   /** …and taking it back. */
   onResume: () => void;
 }) {
-  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/k7-standalone/docs/tabs.md.
-  const inFront = useInFront();
   // Started at once, not when the project opens: the download runs beside the gate's own work instead of after it.
   useEffect(() => {
     if (!external) void loadApp();
@@ -68,7 +65,6 @@ export function ProjectGate({
       waits="bar"
       // Twenty minutes untouched and this tab stops being a client of that engine.
       idleTimeoutMs={IDLE_TIMEOUT_MS}
-      asleep={!inFront}
       onIdle={onIdle}
       onResume={onResume}
       // The same two the router's basename is built from, read out of the address rather than handed over, so both sides agree.

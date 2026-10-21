@@ -1,6 +1,8 @@
 # The command-line engine
 
-The command-line engine is the engine and its supervisor with no window. Use it on a studio computer you drive from a browser elsewhere, on a machine you do not want to install the desktop app on, or on a small headless box next to your audio interface. You configure it with one JSON file.
+The command-line engine is the engine and its supervisor with no window. Use it on a studio computer you drive from a browser elsewhere, on a machine you do not want to install the [tray](./82-desktop-app.md) on, or on a small headless box next to your audio interface. You configure it with one JSON file.
+
+The tray runs this same engine, in the same `~/.k7` folder and on the same port: run one or the other on a computer, not both.
 
 For what the engine and supervisor are, see [Engines](./80-engines.md).
 

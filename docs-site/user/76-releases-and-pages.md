@@ -113,9 +113,9 @@ allows it, download it.
 A page set to **Signed in** asks a visitor who is not signed in to "Sign in to open @<nametag>".
 An unknown nametag says "No page named @<nametag>."
 
-## On a desktop or phone
+## On your computer or phone
 
-Releases and pages are kept on the server only. On the k7 desktop or Android app, Publications
+Releases and pages are kept on the server only. In k7 on your computer (the tray) or the Android app, Publications
 works through the server the device is paired with, as the person who paired it. When it cannot,
 the page says why: the device is not paired, the server cannot be reached, or the device must be
 paired again.

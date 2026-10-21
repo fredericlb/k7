@@ -31,12 +31,12 @@ and never trusted — every message it sends before the close is dropped.
 
 Allowed:
 
-- **no `Origin` header** — a native client: the supervisor, a Node process, the desktop app's main
-  process. A browser always sends one, so a page cannot pass for one of these;
+- **no `Origin` header** — a native client: the supervisor, a Node process such as k7's backend
+  under the tray. A browser always sends one, so a page cannot pass for one of these;
 - a `ws://` or `wss://` origin, which a browser never sends: it is IXWebSocket's default for a native
   client, the supervisor's included;
-- loopback pages, any port or none, on `http` or `https`: `127.0.0.1`, `localhost`, `[::1]` — the
-  desktop app's window, a dev server, the phone app's shell page (`https://localhost`) and its studio
+- loopback pages, any port or none, on `http` or `https`: `127.0.0.1`, `localhost`, `[::1]` — a
+  page on the tray's backend, a dev server, the phone app's shell page (`https://localhost`) and its studio
   views (`http://127.0.0.1:<port>`);
 - `https://k7.rocks` and `https://<sub>.k7.rocks` — the app, its dev instance, the docs — on the default port only;
 - every origin listed in `STUDIO_ENGINE_ALLOWED_ORIGINS`, comma-separated and matched exactly

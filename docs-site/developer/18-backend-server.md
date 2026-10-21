@@ -10,11 +10,11 @@ The order is load-bearing; `server.ts` mounts, top to bottom:
 
 1. **Refusal to start** (`apps/k7/backend/src/authGuard.ts`): unless `STUDIO_LOCAL_USER=1` (a device's own backend) or `STUDIO_DEV_AUTH=1` (a local dev session), the process exits when `OIDC_ISSUER`/`OIDC_CLIENT_ID` are missing (every visitor would be signed in as the dev stub) or when `SESSION_SECRET` is the public default or shorter than 32 characters.
 2. **Security headers** (`apps/k7/backend/src/hardening.ts`): `X-Content-Type-Options: nosniff`, a strict referrer policy; Express's `x-powered-by` is off.
-3. **Loopback only** (`apps/k7/backend/src/loopback.ts`) when `STUDIO_LOCAL_USER=1`: the desktop's and phone's backend answer their own machine only, by peer address **and** `Host` header (a rebound DNS name reaching 127.0.0.1 is refused).
+3. **Loopback only** (`apps/k7/backend/src/loopback.ts`) when `STUDIO_LOCAL_USER=1`: the tray's and phone's backend answer their own machine only, by peer address **and** `Host` header (a rebound DNS name reaching 127.0.0.1 is refused).
 4. **CORS** (`apps/k7/backend/src/media/cors.ts`, `studioCors(originPolicyFromEnv())`): credentialed calls are answered only for origins under `COOKIE_DOMAIN`, those in `TRUSTED_ORIGINS`, and loopback pages on a user's own machine; a cross-site write from any other origin is refused.
 5. Body parsers: the AI route first with its own limit, then one shared JSON parser (`apps/k7/backend/src/bodyLimits.ts`) at 256 kB, with a per-route table (the public comment at 64 kB, the songbook at 2 MB) and no parsing at all under the file hub's paths, whose bodies stream through to the file services.
 6. **OIDC** (`setupAuth` from `@frediverse/oidc`): owns `/auth/*` for the whole origin, cookie `studio.sid`, scopes from `OIDC_SCOPES`. Keep `groups` in the scopes: the library admins are gated on the same cookie's groups, and an empty scope list is not passed at all because the package treats `[]` as "no scopes" rather than "defaults".
-7. **Handoff** (`apps/k7/backend/src/handoff.ts`): a sign-in made in the system browser carried into an app's own view by a one-use, PKCE-bound code (two minutes), and the desktop's signed-out local user.
+7. **Handoff** (`apps/k7/backend/src/handoff.ts`): a sign-in made in the system browser carried into a phone app's own view by a one-use, PKCE-bound code (two minutes), and the signed-out local user of a machine's own backend.
 8. **Rehearsal** (`mountRehearsal` from `@studio/rehearsal-server`) **before** the library, whose catch-all `/api` guard would otherwise swallow its public pages and its bearer.
 9. **Media library** (`mountMedia`, `apps/k7/backend/src/media/mount.ts`) — Media section.
 10. **Preferences**: `/api/preferences` behind `requireAuth`.
@@ -23,7 +23,7 @@ The order is load-bearing; `server.ts` mounts, top to bottom:
 13. **The SPA**: precompressed static files from the frontend's build output (`dist` under `apps/k7/frontend`) — hashed assets cached for a year as immutable, the shell `no-cache` and only framable by the same origin — then `index.html` for every path except `/api`, `/auth` and `/assets/` (a missing chunk must 404, not return HTML).
 14. **`jsonErrorHandler`**, last: a JSON body for every error, never a 5xx's message or stack.
 
-`STUDIO_LISTEN_HOST` binds one interface (the desktop and phone set `127.0.0.1`). Requests may run 30 minutes (large uploads). On `SIGTERM`/`SIGINT` the media mount and rehearsal stop first (the account file services included), then the server drains, within 8 s of Docker's 10.
+`STUDIO_LISTEN_HOST` binds one interface (the tray and the phone set `127.0.0.1`). Requests may run 30 minutes (large uploads). On `SIGTERM`/`SIGINT` the media mount and rehearsal stop first (the account file services included), then the server drains, within 8 s of Docker's 10.
 
 ## Preferences
 

@@ -11,7 +11,9 @@ import type { NoticeEntry, Notices, Where } from "./types.ts";
 export const NPM_ROOTS: { dir: string; where: Where }[] = [
   { dir: "apps/k7/frontend", where: "web" },
   { dir: "apps/k7/backend", where: "server" },
-  { dir: "apps/k7-standalone", where: "desktop" },
+  // The tray ships the backend bundle, the frontend inside it, to a computer (apps/k7-tray/scripts/stage.mjs).
+  { dir: "apps/k7/backend", where: "desktop" },
+  { dir: "apps/k7/frontend", where: "desktop" },
   { dir: "engine/k7-android/web", where: "android" },
   // Bundled into the engine binary as strudel.bundle.js (engine/k7-runtime/docs/patternPlugin.md).
   { dir: "packages/song-strudel", where: "engine" },

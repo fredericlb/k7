@@ -1,12 +1,12 @@
 # Sync, history and conflicts
 
-Your workspaces live on the k7 server. Every device that opens one — a browser, the desktop app, the phone app — works on the same files, and every edit made on one reaches the others. This page explains what you see of that, what happens when two edits collide, and how to go back in time.
+Your workspaces live on the k7 server. Every device that opens one — a browser on the server, k7 on your computer through the tray, the phone app — works on the same files, and every edit made on one reaches the others. This page explains what you see of that, what happens when two edits collide, and how to go back in time.
 
 ## How edits travel
 
 - Every change — a command, a knob, a line typed in the editor — is sent to the server, which puts all edits in **one order** and passes them on to every other copy of the workspace.
 - Views refresh by themselves when something changed. Several tabs and devices can be open on the same workspace at once.
-- A desktop or phone app that syncs your account keeps its own copy of your workspaces and keeps editing while offline; its edits are sent when it reconnects. The home page shows, for each workspace on such a machine, whether it is synced with a server, on this machine only, or on the server only (with a **Download** button). Pairing a machine for sync and the servers it syncs with are covered in the Getting started and Engines sections; the Settings page's **Sync** section lists them (see [Settings](./16-settings.md)).
+- k7 on your computer (the tray) or a phone app that syncs your account keeps its own copy of your workspaces and keeps editing while offline; its edits are sent when it reconnects. The home page shows, for each workspace on such a machine, whether it is synced with a server, on this machine only, or on the server only (with a **Download** button). Pairing a machine for sync and the servers it syncs with are covered in the Getting started and Engines sections; the Settings page's **Sync** section lists them (see [Settings](./16-settings.md)).
 
 ### Opening a project that is still arriving
 

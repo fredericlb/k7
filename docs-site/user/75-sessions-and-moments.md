@@ -90,7 +90,7 @@ A session's audio and every extracted clip are files in the media library's Reco
 filed by day. The rehearsal pages keep only what describes them: durations, waveforms, moments,
 tags and markers. See [Songs and samples](./71-songs-and-samples.md#recordings).
 
-## On a desktop or phone paired with a server
+## On your computer or phone, paired with a server
 
 Sessions stay on the machine that recorded them. A moment can be shared with the server:
 

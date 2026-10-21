@@ -17,7 +17,7 @@ Two flags lift both rules, and nothing else does:
 
 | flag | who sets it | why it is safe there |
 |---|---|---|
-| `STUDIO_LOCAL_USER=1` | the desktop app and the phone, through `../standalone.json` | the backend answers its own machine only (`standalone.md`), and both generate a 64-hex-character secret anyway |
+| `STUDIO_LOCAL_USER=1` | the tray and the phone, through `../standalone.json` | the backend answers its own machine only (`standalone.md`), and both generate a 64-hex-character secret anyway |
 | `STUDIO_DEV_AUTH=1` | a developer, in `env.yaml`'s `k7-backend` section | a dev machine with no OIDC client registered; the dev session documented in `../../../../docs/dev.md` has a real one and does not set it |
 
 The check lives here rather than in `commons/packages/oidc` because the stub is a feature there,

@@ -54,7 +54,7 @@ what is missing. A host without a runner, such as the command line, simply waits
 
 Dropping footage on a picture lane runs it after `picture sound`.
 
-**With no ffmpeg on the machine** (the desktop app ships none), a file a browser plays as it is —
+**With no ffmpeg on the machine** (the tray ships none), a file a browser plays as it is —
 `.mp4`, `.m4v`, `.webm` — needs nothing and is passed over in silence, and the rest are named in one
 line that says what to do: convert to MP4 (H.264), or install ffmpeg. One file that cannot be read
 does not stop the others, and the command does not refuse: it runs after every video drop, and a

@@ -14,7 +14,7 @@ through it: a download from another library (`../src/remote.ts`) and a write int
 
 ## Why it bites here
 
-The library is the tree things **hold open**. On a musician's machine — the desktop app runs k7's
+The library is the tree things **hold open**. On a musician's machine — the tray runs k7's
 backend and its library on Windows — it is what the decks read and what the engine decodes. POSIX
 lets a file somebody is reading be renamed over; Windows does not, unless whoever opened it asked
 for `FILE_SHARE_DELETE`. Node asks, so a file Node is streaming does not get in the way. A C++

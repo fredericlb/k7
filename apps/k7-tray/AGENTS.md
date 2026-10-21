@@ -1,98 +1,58 @@
 # AGENTS.md — the tray
 
-The **menu-bar / system-tray view** for the engine supervisor — Electron, on
-`@frediverse/electron-shell` and `@studio/supervisor-host`. It starts with no window and opens exactly one on demand: the settings
-window, in seven tabs — the audio ranking dragged into order, the plugin catalogue, the sessions
-this engine holds, the k7 instances this engine is connected to, the instruments it downloads,
-the paired devices, and the machine itself. The menu bar keeps one status line and the way in.
+**k7 on a computer.** A windowless Tauri app in the menu bar / system tray. It starts one process, node running
+k7's backend bundle on `127.0.0.1:<standalone.json port>`. The backend runs the machine's supervisor
+(`engine/k7-supervisor`) and so its engine. The person uses k7 in their browser, at that address, as an
+installable web app. The tray shows one status line and opens k7.
 
-It is not itself a supervisor. It spawns **`k7-supervisor`** (engine/k7-supervisor, native) as a
-child and drives it over NDJSON on stdio: the supervisor owns the `~/.k7` contract, the registry
-and the engine. There is no file service on this machine: workspaces live on the server, and the
-supervisor runs the jobs the server hands it over the tunnel. The tray draws what the supervisor
-reports and sends clicks back.
+It has no webview and no settings of its own: every setting of the engine is a page of k7
+(`/settings/engine`), which reaches the supervisor through the backend (`apps/k7/backend/docs/localEngine.md`).
 
-There is exactly ONE implementation of the contract, and it is the supervisor's. If you find
-yourself about to add a second, that is the thing this arrangement exists to prevent.
-
-It ships on its own: `.github/workflows/tray.yml` builds it for the three desktops, publishes it
-as GitHub releases of its own and on `k7.rocks/app_downloads/tray`, and the installed tray updates
-itself from there exactly as the desktop app does (`@studio/app-updates`). The native pieces are
-built by `engine/scripts`, not here (`engine/scripts/docs/buildEngine.md`).
-
-## The protocol
-
-`engine/k7-supervisor/src/HostProtocol.h` is the written definition;
-`packages/supervisor-host/src/hostProtocol.ts` is its mirror, typed from
-`packages/supervisor-host/schema/hostProtocol.schema.json`. Three rules, all load-bearing:
-
-- **stdout is the protocol.** Only the supervisor's `protocol::emit` writes there. The tray files
-  the supervisor's stderr in the merged log.
-- **Snapshots, not deltas.** A `state` frame is the whole picture, emitted only when its
-  serialisation changes — so a supervisor that crashed and relaunched resyncs the tray in one
-  message, and an idle app is silent on the wire.
-- **The tray computes no policy.** Ports, identity, the registry URL and the audio picks all
-  arrive in the snapshot. A click goes back up as a `cmd`.
-
-A frame's missing lists are filled by `snapshotOf`; the tray reads a snapshot, never a raw frame.
+All Rust lives under `src-tauri/src/`. `docs/tray.md` says what was decided and why.
 
 ## Lifetime
 
 ```
-tray (Electron, windowless)   ← the process the user kills
- └─ k7-supervisor            ← spawned `detached` on Windows; makes the job and hands the tray its only handle
-     └─ k7-runtime            ← born inside that job
+tray (Tauri, windowless)        ← the process the user kills; creates the Job Object
+ └─ node: k7's backend          ← job::assign — the ONLY spawn; stdin closing is its stop
+     ├─ file services (node)
+     └─ k7-supervisor           ← run by the backend over stdio (localEngine/host.ts)
+         └─ k7-runtime
 ```
 
-- **Windows**: the kill-on-close job is the supervisor's, held by the tray alone
-  (`engine/k7-supervisor/docs/hostProtocol.md`), so a force-killed tray takes the stack with it.
-- **Unix**: the pipe does the same job. When the tray dies the OS closes the supervisor's stdin,
-  its reader ends, and it tears down.
-- **Supervisor crash**: relaunched with 1s→30s backoff; the status line reads
-  `⚠ supervisor restarting…`. The engine survives it — the pidfile lets the fresh supervisor
-  re-adopt.
-- **Quit**: `shutdown` first (its exit is what deregisters, and that wants the engine still up),
-  then the engine named by the pidfile is killed, tree and all, if it outlived the teardown.
+- **Windows**: `job::init()` runs before anything spawns; membership is inherited, so a force-killed tray takes
+  the whole tree with it.
+- **Unix**: the pipes do it. The tray's death closes the backend's stdin (`K7_STDIN_STOP`), whose stop stops the
+  supervisor, whose closing stdin stops the engine.
+- **Backend crash**: relaunched with 2 s→60 s backoff; six quick deaths in a row and the status line says so.
+- **Quit**: `backend::stop` closes stdin and waits 15 s (the supervisor deregisters first), then `pidkill::backstop`.
 
 ## Key modules
 
-- **`src/main.ts`** — the tray, its menu, the commands the settings page sends, quit.
-- **`@studio/supervisor-host/supervisorHost`** — spawn, the relaunch backoff, `send`, the stop and
-  its backstop; shared with `apps/k7-standalone`.
-- **`src/paths.ts`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the copy in the
-  app's `Resources/bin`, else the repo's newest build. A miss must be LOUD (`⚠ supervisor not
-  found`) — a tray supervising nothing looks identical to a healthy one.
-- **`src/status.ts`** / **`src/view.ts`** — what the menu bar and the settings page draw, as plain
-  functions of the snapshot. Tested.
-- **`src/settingsWindow.ts`** + **`src/preload.ts`** — the one window over `settings/`, and its
-  `window.k7Tray` bridge. Closing HIDES it.
-- **`src/trayIcon.ts`** — the icon drawn in code: four states, one animated. See `docs/trayIcon.md`.
-- **`src/mergedLog.ts`** — the tray's end of `<state>/.studio.log`: truncated once per session,
-  `[host]` lines in the supervisor's format.
-- **`src/updates.ts`** — `@studio/app-updates` on the tray's feed: the menu's two update entries
-  and the automatic check (`packages/app-updates/docs/appUpdates.md`).
-
-**The tray spawns no process** but the supervisor — and the installer electron-updater runs at
-quit, which is the update's, not the tray's. Anything else that needs a process started belongs
-there, not here.
+- **`backend.rs`** — the spawn, its environment (standalone.json's, plus the supervisor, the bearer, the stamp),
+  readiness on `/api/registry/hello`, the backoff, the stop.
+- **`loops.rs`** — the status poll (`/api/local/tray`, under the bearer), the spinner, the menu-bar appearance.
+- **`tray.rs`** — the menu. Draws what the backend words; computes nothing.
+- **`paths.rs`** — node, the bundle, the supervisor: the staged resources, else the checkout's builds. A miss
+  is said on the status line, never a silent empty tray.
+- **`updates.rs`** — tauri-plugin-updater on the tray's channel feed (`docs/tray.md`).
+- **`job.rs`**, **`pidkill.rs`**, **`logbus.rs`**, **`trayicon.rs`** — the safety nets, the merged log, the icon.
 
 ## Build / run
 
-- `npm start` — bundle the main process and run Electron on this checkout, in the foreground. It
-  finds the supervisor in `engine/k7-supervisor/build/`, which finds the engine in
-  `engine/k7-runtime/build/`.
-- `npm run tray:restart` — stop every tray and engine → bundle → start detached → wait for the
-  merged log to say `supervisor up`, exit non-zero if it didn't. The loop to use when nobody is
-  watching a terminal. See `scripts/docs/restartTray.md`.
-- `npm run package` — the installer for this platform into `out/`, from what is already built.
-  The root's `npm run engine:build` builds the native pieces first (`engine/scripts/docs/buildEngine.md`);
-  `node engine/scripts/package-release.mjs --kind tray` renames the installer for a release.
+Builds belong to Windows, never to WSL (root `AGENTS.md`). The scripts are `tray:dev` and `tray:build`, never
+`dev` and `build`: those would put the tray in every Tilt session and in the root `npm run build`.
 
-Builds and dev servers on the Windows machine follow the root `AGENTS.md`: nothing is built in WSL.
+- `npm run stage --workspace k7-tray` — the frontend and the backend bundle, the engine (the repo's builds, or
+  `$STUDIO_PREBUILT_BIN`), a pinned node, into `src-tauri/resources/`.
+- `npm run tray:dev --workspace k7-tray` — `tauri dev`; `cargo build` in `src-tauri` is enough to run
+  `target/debug/k7-tray.exe`, which finds the staged resources beside it.
+- `npm run tray:build --workspace k7-tray` — the installers; `node engine/scripts/package-release.mjs --kind tray`
+  renames them for a release.
 
 ## Verify
 
-`npm test` and `npx tsc --noEmit` here. Behavioural check: launch the tray, confirm the engine
-registers and appears in a web picker, then quit and confirm the engine stops. Force-kill the tray
-and confirm nothing survives — on Windows check Task Manager for
-`k7-supervisor.exe`/`k7-runtime.exe` and that 8765 is free.
+`cargo test` in `src-tauri`; the backend's side is `npx vitest run src/localEngine` in `apps/k7/backend`.
+Behavioural check: start the tray, open k7 from its menu, open a project and play it; then quit and confirm the
+engine stops. Force-kill the tray and confirm nothing survives: no `node.exe`, `k7-supervisor.exe` or
+`k7-runtime.exe` of its tree, and the k7 port and the engine's free.

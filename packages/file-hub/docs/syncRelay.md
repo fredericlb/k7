@@ -19,25 +19,25 @@ names its workspace. The relay keeps one Room per account and workspace, loaded 
 
 ## A machine pairs with the origin, per account
 
-A machine's hub serves several accounts at once — a desktop's local user beside the signed-in one —
+A machine's hub serves several accounts at once — a computer's local user beside the signed-in one —
 so where an account syncs is the ACCOUNT's, never the process's: `<account folder>/.sync-remote.json`
 (`../syncRemote.ts`) holds the origin's relay URL and the device token, and the hub hands them to that
 account's service alone. The local user's workspaces would otherwise land in the signed-in
 account's rooms.
 
-The token comes from the origin's `GET /api/sync/devices/pair`, which a desktop or a phone opens in
-the system browser: it signs the browser in when it must, mints a device token named after the
+The token comes from the origin's `GET /api/sync/devices/pair`, which a computer or a phone opens in
+the browser: it signs the browser in when it must, mints a device token named after the
 machine, and redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API
 token's pairing). A paired account's service starts with the hub and is never stopped for idleness,
 and pairing restarts it so it dials the new relay.
 
 ## Pairing through the browser is the machine's backend's
 
-The desktop, the Android app and the iPhone app pair the same way, and the way is written once, in
-the backend they all run (`../pairRoutes.ts`, `../pairingStore.ts`). What stays in each app is what
-only it can do: open the system browser (a Custom Tab, an `ASWebAuthenticationSession`, the
-desktop's default browser), ask the person first, and say how it ended (`apps/k7-standalone/docs/sync.md`,
-`engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`).
+A computer under the tray, the Android app and the iPhone app pair the same way, and the way is written once, in
+the backend they all run (`../pairRoutes.ts`, `../pairingStore.ts`). What stays in each host is what
+only it can do: open the browser (a Custom Tab, an `ASWebAuthenticationSession`, or on a computer a
+new tab opened from a click in k7's account bar), ask the person first, and say how it ended
+(`apps/k7/frontend/docs/localApp.md`, `engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`).
 
 - **The browser comes back to the backend's own port**, `SYNC_PAIR_RETURN_PATH` on `127.0.0.1`. No
   app opens a listener of its own: the backend is already a loopback HTTP server, and the phone's port
@@ -58,7 +58,7 @@ desktop's default browser), ask the person first, and say how it ended (`apps/k7
   kept a day, so the app says it at its next start and, once paired, hands the token to the phone's
   supervisor. The token itself is in `.sync-remote.json` only.
 - **The app waits by long poll** (`GET /api/sync/remote/pair/<state>?wait=`), on the session it already
-  has, and drops the pairing once it has said the ending (`DELETE`), which is also the desktop's Cancel.
+  has, and drops the pairing once it has said the ending (`DELETE`), which is also the account bar's Cancel.
   Ten minutes without a return is `expired`.
 
 **An account may be paired with several servers**, one of them the MAIN one: `.sync-remote.json` is
@@ -92,7 +92,7 @@ opened would otherwise neither send nor receive. On each connect it asks `GET /a
 (`../roomsRoute.ts`, the same token or secret as the socket) which workspaces the account has. The
 origin's own service creates and joins the ones it lacks at once, since the server holds them all; a
 paired machine only lists them, and joins one when the person downloads it
-(`../../../apps/k7-standalone/docs/sync.md`). Either way the relay's first answer fills it. A room left with no file — a workspace removed everywhere — is not offered, so the
+(`../../../apps/k7/frontend/docs/projects.md`). Either way the relay's first answer fills it. A room left with no file — a workspace removed everywhere — is not offered, so the
 machine that removed it does not bring it back. `Examples` is never synced: every build stocks its
 own on every replica.
 

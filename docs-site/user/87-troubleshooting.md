@@ -1,6 +1,6 @@
 # Troubleshooting engines
 
-Start with the engine machine's **log**. It is `.studio.log` in the engine's state folder: `~/.k7` for the command-line engine, `engine-home` inside the desktop app's folder for the app. In the editor, the **Logs** panel shows the same lines for the engine your project is bound to. Each line is tagged: `[host]` for the supervisor, `[engine]` for the engine, `[registry]` for the studios, `[tunnel]` for the tunnel.
+Start with the engine machine's **log**. It is `.studio.log` in the engine's state folder: `~/.k7`, for the tray and the command-line engine alike; the tray menu's **Show Logs** opens it. In the editor, the **Logs** panel shows the same lines for the engine your project is bound to. Each line is tagged: `[host]` for the supervisor, `[engine]` for the engine, `[registry]` for the studios, `[tunnel]` for the tunnel.
 
 ## The engine does not appear in the picker
 
@@ -8,7 +8,7 @@ The picker shows *No engines found*, or your machine is missing from the list.
 
 | Check | How |
 |---|---|
-| Is the supervisor running? | The desktop app's Engine page, the phone's tray, or the terminal of the command-line engine. |
+| Is the supervisor running? | The status line of the tray's menu or its engine page, the phone's tray, or the terminal of the command-line engine. |
 | Does it list the engine anywhere? | The log says `no registry configured — this engine is listed at no studio` when `registryUrls` is empty. |
 | Did the studio accept the heartbeat? | The log says `listed at <studio> (heartbeat accepted)` on success, and `heartbeat to <studio> failed: …` with the reason otherwise. |
 | Is the address a k7 studio? | `k7-supervisor --probe <address>`. |
@@ -44,11 +44,12 @@ The picker shows *unreachable* or *not reachable from this browser*.
 
 | Message | Meaning and fix |
 |---|---|
-| `an engine supervisor is already running (pid …) — quit it first` | Only one supervisor per state folder. Quit the other one (the desktop app and the command-line engine use different folders and can run together). |
+| `an engine supervisor is already running (pid …) — quit it first` | Only one supervisor per state folder. Quit the other one (the tray and the command-line engine share `~/.k7`: quit one before starting the other). |
 | `engine binary not found (build it)` | The supervisor found no `k7-runtime` beside it. Keep both binaries in the same folder, or set `STUDIO_ENGINE`. |
 | `something already serves :8765 and no pid could be found for it` | Another program holds the engine's port. Stop it, or change `port` in the config. |
 | `the app did not start the engine on :8765` (Android) | Quit the app and open it again. |
-| The desktop app quits at once with `no free port in 22000-23000` | Every port from 22000 to 23000 is in use. Close some of the programs holding them. |
+| The tray's menu says `⚠ port 18789 is in use by another program` | Something else holds the address k7 opens at on your computer. Quit it, then quit and reopen the tray. |
+| The tray's menu says `⚠ k7 keeps stopping … — see the logs` | k7 failed to start several times in a row. **Show Logs** says why; lines tagged `[backend]` are k7's own. |
 
 ## The engine crashed
 
@@ -83,4 +84,4 @@ The badge shows the total: network plus audio interface.
 
 ## Collecting a report
 
-When you report a problem, include the engine machine's `.studio.log`, the platform, and how the engine runs (desktop app, command-line engine, phone or server). On the desktop app, also include `standalone.log` from the app's folder.
+When you report a problem, include the engine machine's `.studio.log`, the platform, and how the engine runs (the tray, the command-line engine, a phone or a server). With the tray, `.studio.log` also holds k7's own lines, tagged `[backend]`.

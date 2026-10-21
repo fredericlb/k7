@@ -39,7 +39,10 @@ function nodeArchive() {
   const arch = process.arch === "arm64" ? "arm64" : "x64";
   const base = `node-v${NODE_VERSION}`;
   if (process.platform === "win32")
-    return { file: `${base}-win-${arch}.zip`, inner: `${base}-win-${arch}/node.exe` };
+    return {
+      file: `${base}-win-${arch}.zip`,
+      inner: `${base}-win-${arch}/node.exe`,
+    };
   const os = process.platform === "darwin" ? "darwin" : "linux";
   return {
     file: `${base}-${os}-${arch}.tar.gz`,
@@ -65,7 +68,8 @@ async function nodeBinary() {
     ?.split(/\s+/)[0];
   if (!want) throw new Error(`${file} is not in node's SHASUMS256.txt`);
   const archive = join(cache, file);
-  if (!existsSync(archive)) writeFileSync(archive, await download(`${dist}/${file}`));
+  if (!existsSync(archive))
+    writeFileSync(archive, await download(`${dist}/${file}`));
   const got = createHash("sha256").update(readFileSync(archive)).digest("hex");
   if (got !== want) {
     rmSync(archive, { force: true });

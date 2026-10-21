@@ -6,8 +6,8 @@ and a module names one as `@instruments/<name>/<file>.sfz`.
 
 ## The machine keeps what its musician chose
 
-**Nothing is downloaded until it is asked for**, on the desktop app's Engine page
-(`apps/k7-standalone/docs/engine.md`), in the Downloads section of k7's settings inside the Android
+**Nothing is downloaded until it is asked for**, on k7's engine settings page under the tray
+(`apps/k7/frontend/docs/localApp.md`), in the Downloads section of k7's settings inside the Android
 app (`engine/k7-runtime/docs/android.md`), or in `instruments` in the command-line engine's config file —
 `["all"]` keeps every one (`docs/supervisor.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
 kits more — and a machine that never plays a piano should not pay for one. What is chosen is

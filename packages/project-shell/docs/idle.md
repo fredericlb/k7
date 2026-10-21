@@ -54,9 +54,9 @@ and the registry's own rules apply.
 
 ### A tab moved behind another sleeps at once
 
-The same sleep, without the twenty minutes: in the desktop app a tab that is no longer in front
-returns its lease and unloads its project immediately — a machine holds one project at a time.
-`ProjectGate` takes an `asleep` prop for that, putting it in
+The same sleep, without the twenty minutes, for a host that can tell its page is no longer in front
+(no host in this repository passes it): such a page returns its lease and unloads its project
+immediately — a machine holds one project at a time. `ProjectGate` takes an `asleep` prop for that, putting it in
 the `idle` phase exactly as the timer does.
 
 The phase remembers **why** it fell asleep, and that field carries: a tab brought back to the front

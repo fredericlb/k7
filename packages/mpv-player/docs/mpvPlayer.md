@@ -95,5 +95,5 @@ does not offer the destination (`packages/ui-library/docs/playbackTarget.md`). I
 takes a restart to be seen, which is the price of not spawning a probe per poll.
 
 The hosted image does not install it: a container has no sound device, and alpine's mpv pulls
-X, Wayland and mesa for a player that could never make a sound there. The desktop app and a
+X, Wayland and mesa for a player that could never make a sound there. A computer under the tray and a
 dedicated player box find it on their PATH when the musician installed it.

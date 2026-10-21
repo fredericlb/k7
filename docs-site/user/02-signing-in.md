@@ -30,14 +30,14 @@ again.
 
 After signing out, the page reloads on the sign-in screen.
 
-## In the desktop and Android apps
+## On your computer and on a phone
 
-The desktop app and the phone app run k7 on the device itself. Their home page has an **account
-bar** across the top (a plain browser does not show it).
+When k7 runs on the device itself, from the [tray](./82-desktop-app.md) on a computer or the phone
+app, its home page has an **account bar** across the top (k7 on a server does not show it).
 
 ### Signed out
 
-When nobody is signed in, the app uses the machine's own local user. The bar says:
+When nobody is signed in, k7 uses the machine's own local user. The bar says:
 
 > Signed out: this is the machine's local user. Your account's workspaces keep syncing, and are
 > listed again when you sign in.
@@ -47,25 +47,27 @@ You can still create and open projects. They belong to that local user.
 ### Signing in
 
 1. Click the sign-in icon at the right of the account bar.
-2. On the desktop app, a field opens that asks which k7 server to sync with. It is filled with the
-   last server you used (`app.k7.rocks` is shown as an example). Type the server's address and press
-   Enter, or click the sign-in icon beside the field. Press Escape or click the cross to cancel.
-3. Sign-in finishes in your system browser. On a phone, the app opens the system browser directly.
-4. Back in the app, the bar shows your name. Hovering it shows your email and the server you sync
-   with.
+2. A field opens that asks which k7 server to sync with. It is filled with the last server you
+   used (`app.k7.rocks` is shown as an example). Type the server's address and press Enter, or
+   click the sign-in icon beside the field. Press Escape or click the cross to cancel.
+3. On a computer, the sign-in page opens in the same browser tab. On a phone, the app opens the
+   system browser.
+4. Back on the home page, the bar shows your name. Hovering it shows your email and the server you
+   sync with. On a computer, the bar then asks *Sync this computer's workspaces with …?*: click
+   **Sync**, and finish linking the computer in the server's page, which opens in a new tab.
 
 To sign out, click the sign-out icon beside your name.
 
 ### The servers you sync with
 
-When you are signed in on the desktop app, the account bar lists the servers under **Syncs with**:
+When you are signed in on your computer, the account bar lists the servers under **Syncs with**:
 
 | Control | What it does |
 |---|---|
 | **main** label | Marks the main server. Libraries and new workspaces come from it. |
 | **Make main** | Makes another server the main one. |
 | **Stop syncing with …** | Asks for confirmation, then stops syncing with that server. Its workspaces stay on this machine but no longer sync. Nothing is deleted on the server. |
-| **Add a server** | Opens a field for another k7 server to sync with, beside the main one. Pairing finishes in the system browser, and the list grows once it has. |
+| **Add a server** | Opens a field for another k7 server to sync with, beside the main one. Linking finishes in the server's page, in a new browser tab, and the list grows once it has. |
 
 When the account syncs with more than one server, each workspace row on the home page shows which
 server it lives on (see [Workspaces](./04-workspaces.md#where-a-workspace-lives)).

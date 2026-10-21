@@ -1,6 +1,6 @@
 # Overall findings — the audio axis
 
-Scope: `apps/k7`, `engine/k7-runtime`, `engine/k7-supervisor`, `apps/k7-standalone` and the packages they drive. Out of
+Scope: `apps/k7`, `engine/k7-runtime`, `engine/k7-supervisor`, `apps/k7-tray` and the packages they drive. Out of
 scope: the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means

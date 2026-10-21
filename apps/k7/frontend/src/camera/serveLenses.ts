@@ -12,7 +12,6 @@ import {
   sendFrame,
 } from "@studio/k7-plugins/video/camera/relay";
 import { type Lens, localLens } from "@studio/ui-eyes/camera";
-import { tabBridge } from "../tabs/bridge";
 
 /** Reconnect delay after the socket drops, doubling to this — the app restarting is the usual cause. */
 const RETRY_MS = 1000;
@@ -68,12 +67,7 @@ function lensCache() {
   };
 }
 
-/** Answer every viewer this relay sends us, until the returned function is called.
- *
- * Only while this tab is IN FRONT. Every project tab runs this file, the relay holds one host
- * slot, and a second offer closes the first — whose reconnect then closes the second, once a
- * second for ever. Following the front tab is the same rule the rest of the app already obeys
- * (apps/k7-standalone/docs/tabs.md), and off the desktop there are no tabs and it is always true. */
+/** Answer every viewer the relay sends, while the page is visible: the relay holds one host slot, so a hidden tab steps aside. */
 export function serveLenses(): () => void {
   let ws: WebSocket | null = null;
   let timer = 0;
@@ -202,13 +196,13 @@ export function serveLenses(): () => void {
     holding.clear();
   };
 
-  const bridge = tabBridge();
   stopped = true; // `follow` toggles from here, so the first call always does the connecting
-  follow(bridge?.state().active ?? true);
-  const unsubscribe = bridge?.subscribe((s) => follow(s.active));
+  const visible = () => follow(document.visibilityState === "visible");
+  visible();
+  document.addEventListener("visibilitychange", visible);
 
   return () => {
-    unsubscribe?.();
+    document.removeEventListener("visibilitychange", visible);
     follow(false);
     stopped = true;
   };

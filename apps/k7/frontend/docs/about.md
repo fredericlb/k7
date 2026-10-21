@@ -10,8 +10,8 @@ of the origin keeps the things you visit on purpose and rarely. The word is rese
 
 The page reads `src/version.ts` and nothing else. That module is the frontend's one version
 source, whatever the build feeds it (`../../../../docs/versioning.md`); a second reading of a
-`package.json` here would be a second answer the day the two differ. Inside the desktop app the
-release of the app is shown beside it, as on the settings page.
+`package.json` here would be a second answer the day the two differ. Under the tray the
+release of the tray is shown beside it, as on the settings page (`GET /api/local`, `localApp.md`).
 
 ## Why the source link is there
 
@@ -29,7 +29,7 @@ nobody can name — the app ships nothing it cannot account for — while the de
 A manifest that names no licence is read by hand and written into `npmOverrides`, with why.
 
 The npm half is the `dependencies` closure (optional and peer dependencies included, dev
-dependencies not) of every app that ships: the frontend, k7's backend, the desktop app, the
+dependencies not) of every app that ships: the frontend, k7's backend (which the tray ships, with the frontend inside it), the
 Android shell, and `packages/song-strudel`, which is bundled into the engine. It is walked on
 disk rather than read from the lockfile because the licence TEXT is a file in the package, and
 because a platform's binaries are then the ones that platform actually installed. Workspace
@@ -40,11 +40,11 @@ browser bundle holds, which is the safe direction for a notice.
 
 What npm does not install is `notices/components.json`: the libraries CMake fetches for the
 engine and its supervisor, the Termux packages of the phone, the OS packages of the two runtime
-images, Electron, the fonts and sound font alphaTab copies in. Each names its licence, where it
+images, the fonts and sound font alphaTab copies in. Each names its licence, where it
 ships, and its own notice under `notices/texts/`. `collect.test.ts` fails when a
 `FetchContent_Declare`, a pinned Termux package, or an `apk`/`apt` package of a runtime image has
 no entry, and when a hand-written version is no longer in the file that pins it. A version the
-tree already pins elsewhere (Termux, Electron, alphaTab) is READ from there, never copied.
+tree already pins elsewhere (Termux, alphaTab) is READ from there, never copied.
 
 `notices/vendor.ts` refreshes the engine's notices from the licence files in an engine build's
 `_deps` — the library's own and those of the submodules it compiles in. It is run by hand after
@@ -62,8 +62,7 @@ worker precaches like every other chunk so a deploy never leaves the page withou
 
 ## What it does not cover
 
-Chromium's own credits in the desktop app stay in `LICENSES.chromium.html` beside the
-executable, and the Debian packages of the engine image keep theirs under `/usr/share/doc`: the
+The Debian packages of the engine image keep theirs under `/usr/share/doc`: the
 page says so rather than carrying tens of megabytes. The iPhone app's NodeMobile is not listed,
 and neither are the web fonts the page links from Google Fonts, which are served, not shipped.
 The command-line engine's archive carries no page; its notices are the engine rows here.

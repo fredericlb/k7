@@ -132,7 +132,7 @@ lock, so it waits for the watcher rather than corrupting the build folder. Never
 
 | Command | What it starts |
 |---|---|
-| `npm run desktop:dev` | The desktop app from source (`npm start` in `apps/k7-standalone`: builds the Electron main bundle, then starts it). |
+| `npm run stage --workspace k7-tray`, then `npm run dev --workspace k7-tray` | The tray from source (`tauri dev`), on the staged backend bundle and engine. |
 | `npm run storybook` | Storybook on port 6006, with stories from `packages/*/src` and `apps/*/frontend/src`. |
 
 ## Windows

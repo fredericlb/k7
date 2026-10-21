@@ -10,7 +10,7 @@ The engine's supervisor tells a studio about the engine every five seconds. You 
 |---|---|
 | Command-line engine | List the studio under `registryUrls` in the config file and restart the supervisor ([The command-line engine](./81-command-line-engine.md)). |
 | Android app | **Settings → Studios**, or the tray: type the address and click **Connect** ([The Android app](./83-android-app.md)). |
-| Desktop app | The app's engine is listed at the app's own built-in studio. To offer a desktop computer to a remote studio, run the command-line engine on it instead. |
+| The tray | The engine is always listed at the k7 on your computer. On the engine page (**Engine Settings…** in the tray menu), **Studios**: type the address and click **Connect** ([The tray](./82-desktop-app.md#studios)). |
 
 Any address of a studio works: k7 reduces it to the studio's main address, so `docs.k7.rocks`, `app.k7.rocks` and the former `play.st0.app` and `st0.app` are the same studio. Before adding it, the supervisor asks the address whether it is a k7 studio, since the heartbeat carries the engine's secret token. If it is not, nothing is added and the reason is shown, for example *https://example.org is not an k7 instance* or *… did not answer (it redirects)*. The command-line engine can run the same check on its own: `k7-supervisor --probe <address>`.
 
@@ -66,5 +66,5 @@ The device remembers its approval in the browser. A private window forgets it wh
 If your studio's HTTPS certificate is signed by your own certificate authority, the supervisor must trust that authority, or every heartbeat fails and the engine never appears in that studio's picker.
 
 - Command-line engine: point `extraCaCerts` at a PEM file of the authority ([config keys](./81-command-line-engine.md#every-key)).
-- Desktop app: the supervisor trusts the operating system's certificate store, so install the authority there.
+- The tray: the supervisor trusts the operating system's certificate store, so install the authority there.
 - Android app: **Settings → Private CA → Trust a certificate…** ([The Android app](./83-android-app.md#private-ca)).

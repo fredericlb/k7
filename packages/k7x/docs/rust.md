@@ -1,7 +1,7 @@
 # k7x in Rust
 
 `rust/` is the k7x reader in Rust, and `parse` (`src/edit.ts`) reads through it on every host: the
-browser, the hosted server, the desktop app, Android and iOS. It is the READER only — a file's
+browser, the hosted server, the tray, Android and iOS. It is the READER only — a file's
 data — and `src/parse.ts` stays the source of truth: the tree with its spans, every edit, and the
 answer whenever the Rust reader declines.
 
@@ -9,7 +9,7 @@ answer whenever the Rust reader declines.
 
 | host | runs | why |
 |---|---|---|
-| a browser, the server's node, Electron's node, Termux's node | WebAssembly, `src/k7xWasm.generated.ts` | each has a JIT, so one module serves all of them — no binary per OS and CPU |
+| a browser, the server's node, the tray's bundled node, Termux's node | WebAssembly, `src/k7xWasm.generated.ts` | each has a JIT, so one module serves all of them — no binary per OS and CPU |
 | NodeMobile on iOS | `k7x.framework`, the Node-API addon `rust/node` | a JIT-less V8 has no WebAssembly at all |
 
 The addon is the app's ONE native library, so it also carries the waveform measure of

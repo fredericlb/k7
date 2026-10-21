@@ -1,4 +1,4 @@
-// pairing.ts — how a desktop app asks a server for a token and gets it back on its own
+// pairing.ts — how a machine's own backend (the tray's, a phone app's) asks a server for a token and gets it back on its own
 // loopback port. Both halves are here because they are ONE rule seen from two sides: the app
 // builds the return address, k7's backend validates it, and a second spelling of "is this loopback"
 // would be a hole rather than a drift. See apps/k7/backend/docs/handoff.md.
@@ -8,7 +8,7 @@
 
 import { currentStudioUrl } from "./services.ts";
 
-/** Where the desktop listens for its token. One path, so the server's rule and the app's agree. */
+/** Where a machine's backend listens for its token. One path, so the server's rule and the app's agree. */
 export const PAIR_RETURN_PATH = "/desktop/pair";
 
 /** The route on k7's backend that hands a token back. */
@@ -36,7 +36,7 @@ export function isLoopbackReturn(raw: string): boolean {
 }
 
 /**
- * The URL the desktop opens in the system browser — never in a window of its own
+ * The URL the machine opens in the browser — never in a window of its own
  * (RFC 8252 §8.12). `base` is where the token route answers, i.e. `serviceUrl(server, "pl8")`,
  * and the route is appended to its PATH rather than resolved against its origin: a base mounted
  * under a path prefix keeps it, where `new URL("/api/…", base)` would silently drop it.
@@ -52,7 +52,7 @@ export function pairUrl(
   return u.toString();
 }
 
-/** Where the desktop listens for its SYNC device token, beside the API token's path. */
+/** Where a machine's backend listens for its SYNC device token, beside the API token's path. */
 export const SYNC_PAIR_RETURN_PATH = "/desktop/sync-pair";
 
 /** Where live sync's relay answers at an origin, as a WebSocket: the file hub's `SYNC_PATH`. */
@@ -61,7 +61,7 @@ export const SYNC_RELAY_PATH = "/api/sync";
 /** The route on the origin that mints a device token for live sync and hands it back. */
 export const SYNC_PAIR_ROUTE = "/api/sync/devices/pair";
 
-/** The URL the desktop opens in the system browser to pair this machine with the origin's relay; `name` labels the device. */
+/** The URL the machine opens in the browser to pair itself with the origin's relay; `name` labels the device. */
 export function syncPairUrl(
   base: string,
   returnUrl: string,

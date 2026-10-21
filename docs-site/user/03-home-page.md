@@ -11,7 +11,7 @@ engine is running.
 
 ```text
 +------------+-------------------------------------------------+
-| k7         | (account bar: desktop and phone apps only)      |
+| k7         | (account bar: tray and phone apps only)         |
 | Projects   +-------------------------------------------------+
 |            | [library notice, when there is something to say]|
 | Projects   | [New]                                           |
@@ -52,10 +52,10 @@ The round button at the foot of the sidebar opens the user menu:
 - your email, as the heading;
 - **Settings**, which opens `/settings` (language, chains, AI key, paired devices, sync pairings,
   registered engines and other account settings, described in the editor shell section);
-- in the desktop app, **Engine**, which opens `/settings/engine`, the settings of the engine built
-  into the app;
-- a link to each other app of the site, if there is one. In the desktop app these links
-  point at the server you are paired with. If the app is not paired with a server, the menu says
+- on a computer running the [tray](./82-desktop-app.md), **Engine**, which opens `/settings/engine`,
+  the settings of this computer's engine;
+- a link to each other app of the site, if there is one. On a computer running the tray these
+  links point at the server you are paired with. If it is not paired with a server, the menu says
   "Other apps — pair a server in Settings to open them" instead;
 - the logout entry.
 
@@ -66,7 +66,7 @@ The main column lists your workspaces. Each workspace row shows:
 | Item | Meaning |
 |---|---|
 | Folder icon and name | Click it to open the workspace's file tree (see [Browsing a workspace's files](#browsing-a-workspaces-files)). |
-| Sync icon | In the desktop and phone apps: whether the workspace is synced with a server, on this machine only, or on the server only. See [Workspaces](./04-workspaces.md#where-a-workspace-lives). |
+| Sync icon | On a computer running the tray and in the phone apps: whether the workspace is synced with a server, on this machine only, or on the server only. See [Workspaces](./04-workspaces.md#where-a-workspace-lives). |
 | Server name | Shown when your account syncs with several servers. |
 | **N projects** badge | How many projects the workspace holds. |
 | **Nouveau projet** button | Creates a project in this workspace. See [Projects](./05-projects.md#creating-a-project). |

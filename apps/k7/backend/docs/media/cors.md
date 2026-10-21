@@ -22,7 +22,7 @@ page a signed-in user happens to visit.
 | the request's own host (`X-Forwarded-Host` first, as `publicOrigin` reads it) | a page calling its own origin, through the dev proxy too, where `Host` is rewritten |
 | `https://` on `COOKIE_DOMAIN` or any subdomain of it | the `play.` and `k7.` aliases calling k7's root, and any sibling app sharing the cookie |
 | each entry of `TRUSTED_ORIGINS`, exactly | another origin a deployment names on purpose — the same list its login bounces back to |
-| `http://127.0.0.1:*`, `localhost`, `[::1]` | only where there is no `COOKIE_DOMAIN`, or with `STUDIO_LOCAL_USER=1`: a dev run on bare ports, or the desktop and phone backends; never on a hosted origin, where a loopback page is whatever runs on the visitor's machine |
+| `http://127.0.0.1:*`, `localhost`, `[::1]` | only where there is no `COOKIE_DOMAIN`, or with `STUDIO_LOCAL_USER=1`: a dev run on bare ports, or the tray's and the phone's backends; never on a hosted origin, where a loopback page is whatever runs on the visitor's machine |
 
 Every other origin gets no CORS header at all, and a preflight from it is answered `204` empty, which
 the browser reads as a refusal. Reading `COOKIE_DOMAIN` and `TRUSTED_ORIGINS` from the same
@@ -41,8 +41,7 @@ request other than `GET`, `HEAD` or `OPTIONS` is answered `403` when:
 - its `Origin` header is present and not on the list (an opaque `null` origin included), or
 - it has no `Origin` and `Sec-Fetch-Site` says `cross-site`.
 
-A request with neither header passes: that is a native client — the supervisor, the desktop's main
-process, a script with a bearer token — which carries no browser cookie for a page to ride. `GET`
+A request with neither header passes: that is a native client — the supervisor, the tray, a script with a bearer token — which carries no browser cookie for a page to ride. `GET`
 routes stay unguarded, so a route that changes state on `GET` is a hole this guard does not close.
 
 ## The headers are a list

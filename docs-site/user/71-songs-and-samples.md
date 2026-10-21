@@ -150,7 +150,7 @@ sets section), and the rehearsal songbook's **Make instrumental** (see
 
 When a browser plays a FLAC master, it is sent an MP3 made from it. The server makes these MP3s
 in the background and keeps each beside its FLAC under the same name. They never appear in the
-library; the engine and the desktop copies keep using the FLAC.
+library; the engine and the copies on your computers and phones keep using the FLAC.
 
 ## Samples
 

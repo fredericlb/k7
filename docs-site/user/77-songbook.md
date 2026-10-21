@@ -164,9 +164,9 @@ zip named `songbook-<format>-<date>.zip`:
 Each file is named `Artist - Title`. The menu reports sheets that were left out and songs that
 failed.
 
-## On a desktop or phone paired with a server
+## On your computer or phone, paired with a server
 
-The songbook on a desktop or phone is the device's own. When it is paired with a server, each song
+The songbook in k7 on your computer (the tray) or on a phone is the device's own. When it is paired with a server, each song
 shows "Synced with <server>" or "On this machine only", and the server's songs this device does not
 have are listed with a **Download** button, which copies the song with its sheets and track.
 

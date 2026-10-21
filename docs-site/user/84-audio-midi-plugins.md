@@ -8,7 +8,7 @@ The audio interface is a fact about the **engine's machine**, not about a song, 
 
 | Where the engine runs | Where you set the interface |
 |---|---|
-| Desktop app | The **Engine** page, *Audio interfaces* section ([The desktop app](./82-desktop-app.md#audio-interfaces)) |
+| The tray, on your computer | The engine page (**Engine Settings…** in the tray menu), *Audio interfaces* section ([The tray](./82-desktop-app.md#audio-interfaces)) |
 | Command-line engine | The `audioPriority` key of the config file ([The command-line engine](./81-command-line-engine.md#every-key)) |
 | Android app | Nothing to set: the phone's own audio device is used |
 
@@ -22,7 +22,7 @@ You give a list of interfaces, best first. The engine uses the **first one in th
 - An interface that is not in the list is never chosen automatically. If nothing in the list is present, the engine stays on whatever it has open.
 - The list is saved first and applied second, so an interface that refuses to open does not lose your order.
 
-To find the exact names, look at the desktop app's list, or run `k7-runtime --list-audio-devices` next to the command-line engine. Names are matched exactly.
+To find the exact names, look at the list on the tray's engine page, or run `k7-runtime --list-audio-devices` next to the command-line engine. Names are matched exactly.
 
 On Windows, ASIO drivers are supported as well as Windows Audio. On macOS the engine uses CoreAudio, on Linux ALSA.
 
@@ -62,13 +62,13 @@ The details of recording and mapping are in the arranging and chains sections of
 
 ### Which plugins the engine loads
 
-On Windows, macOS and Linux, the engine hosts **VST3** and **LADSPA** plugins found in the standard install locations for each format. The Android engine hosts no third-party plugins. Every engine also has its built-in modules (the sampler, amp modeling, Faust and JavaScript DSP, the eurorack modules, Surge XT on desktop, and the others listed in the chains section).
+On Windows, macOS and Linux, the engine hosts **VST3** and **LADSPA** plugins found in the standard install locations for each format. The Android engine hosts no third-party plugins. Every engine also has its built-in modules (the sampler, amp modeling, Faust and JavaScript DSP, the eurorack modules, Surge XT on Windows, macOS and Linux, and the others listed in the chains section).
 
 The engine scans for plugins in separate processes, one plugin at a time, so a plugin that crashes during the scan does not take the engine down. The result is cached on the machine, and only new or changed plugins are scanned again.
 
 ### Rescanning after installing a plugin
 
-- Desktop app: **Engine** page, **Rescan**.
+- The tray: the engine page (**Engine Settings…**), **Rescan**.
 - From the command bar: `system plugins scan`.
 - To see what the engine has: `system plugins list`, or `system plugins list vst3` for one format.
 

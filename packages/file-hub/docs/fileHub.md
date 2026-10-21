@@ -179,7 +179,7 @@ two copies would compile a song two ways.
   published their own from the draft — it goes in as the next free number, its manifest saying
   `seed: <its own>`: both series are kept, a pin on the taken number keeps hearing what it heard, and
   the next start finds the seed under its new number rather than adding it again. Same number, same
-  `requires`, same notes is the seed itself, which is why a seed's notes say what it changed. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
+  `requires`, same notes is the seed itself, which is why a seed's notes say what it changed. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the tray
   and the phone name the `k7-core` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **Every copy is asynchronous, and they run one at a time.** A library is IR and amp-model

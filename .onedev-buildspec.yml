@@ -157,7 +157,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 1800
-# Manual-only (no triggers): a cheap, fast stand-in for the desktop build's real archive —
+# Manual-only (no triggers): a cheap, fast stand-in for the engine build's real archive —
 # run this from the OneDev UI BEFORE the first "release" to find a too-low upload limit
 # in seconds rather than after a 30+ minute compile. Raise PROBE_MB and re-run if it passes
 # at 250 but the real archive turns out bigger; check both OneDev's own Administration ->
@@ -188,7 +188,7 @@ jobs:
   timeout: 600
 # The release graph, GitHub's (.github/workflows/desktop.yml) minus Linux, which only GitHub builds (docs/desktop-release.md):
 # an ENGINE job — engine/k7-runtime and engine/k7-supervisor compiled and archived as the command-line engine —
-# then a DESKTOP job packaging apps/k7-standalone around that archive, compiling nothing; beside them the APK;
+# beside it the APK; the tray is GitHub's alone (.github/workflows/tray.yml);
 # and "release", which the triggers name and which gathers every file into one build.
 # The engine and the APK wait for "lint and test": a release must not ship what the tests refuse.
 # The phone: engine/k7-android's release APK, signed with the key in the android-* job secrets — the engine as
@@ -399,59 +399,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 7200
-- name: desktop windows
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: false
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: package the desktop app
-    runInContainer: false
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        git config core.longpaths true || exit /b 1
-        rem The token in the environment, not on the command line, where any process listing would show it.
-        set "GIT_CONFIG_COUNT=1"
-        set "GIT_CONFIG_KEY_0=http.extraHeader"
-        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
-        git submodule update --init commons || exit /b 1
-        set "GIT_CONFIG_COUNT="
-        set "GIT_CONFIG_KEY_0="
-        set "GIT_CONFIG_VALUE_0="
-        call npm ci || exit /b 1
-        git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
-        set /p STUDIO_RELEASE_STAMP=<build_version
-        rem The engine job's archive, retrieved by the dependency below; System32's tar reads a .zip.
-        if exist "%TEMP%\k7-runtime-bin" rmdir /s /q "%TEMP%\k7-runtime-bin"
-        mkdir "%TEMP%\k7-runtime-bin" || exit /b 1
-        for %%A in (dist\release\k7-runtime_*.zip) do "%SystemRoot%\System32\tar.exe" -xf "%%A" -C "%TEMP%\k7-runtime-bin" || exit /b 1
-        set "STUDIO_PREBUILT_BIN=%TEMP%\k7-runtime-bin\k7-runtime"
-        call npm run package --workspace k7-standalone || exit /b 1
-        node engine/scripts/package-release.mjs --kind desktop || exit /b 1
-    useTTY: false
-    condition: SUCCESSFUL
-    optional: false
-  - type: PublishArtifactStep
-    name: publish the installer
-    artifacts: dist/release/*.exe
-    condition: SUCCESSFUL
-    optional: false
-  jobDependencies:
-  - jobName: engine windows
-    requireSuccessful: true
-    artifacts: dist/release/k7-runtime_*
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 3600
-# What a push or a tag starts: Windows's two jobs and the APK, run through the dependencies below, and their
+# What a push or a tag starts: the Windows engine and the APK, run through the dependencies below, and their
 # files gathered into this one build — OneDev's release page. Red when any of them is. The paths are GitHub's gate:
 # a push that touched only docs builds nothing (docs/desktop-release.md).
 - name: release
@@ -480,9 +428,6 @@ jobs:
     optional: false
   jobDependencies:
   - jobName: engine windows
-    requireSuccessful: true
-    artifacts: dist/release/*
-  - jobName: desktop windows
     requireSuccessful: true
     artifacts: dist/release/*
   - jobName: android

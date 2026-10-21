@@ -1,56 +1,46 @@
-# The desktop release
+# The engine and tray release
 
 `docker/` ships the hosted apps. This is the other half: what runs on the musician's machine and is in
-no image. **GitHub builds it** (`.github/workflows/desktop.yml`), the repository being public, so
-its Actions minutes cover three desktops on every push. `.onedev-buildspec.yml` draws the same graph
-for OneDev, with no trigger: its jobs run by hand. Both build it in two stages per platform, beside
-the phone's APK, and publish **two files per desktop**:
+no image. **GitHub builds it**, the repository being public, so its Actions minutes cover three
+desktop platforms on every push. Two workflows share the work, on the same triggers and the same
+release stamps:
 
-| stage | job | what it publishes |
-|---|---|---|
-| 1 | engine | the **command-line engine**: `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
-| 2 | desktop | the **desktop app**, `apps/k7-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` and the `.deb` |
+| workflow | what it publishes |
+|---|---|
+| `.github/workflows/desktop.yml` | the **command-line engine** — `engine/k7-runtime` and `engine/k7-supervisor` (C++, CMake) compiled and staged as one folder, archived (`.zip` on Windows, `.tar.gz` elsewhere) — and the phone's APK |
+| `.github/workflows/tray.yml` | **the tray**, `apps/k7-tray`, packaged around the same engine: the NSIS installer, the `.dmg` and the `.app.tar.gz` the updater takes, the `.AppImage` and the `.deb` |
 
-The desktop job compiles nothing: it unpacks its platform's engine archive and hands it to the app's
-staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the engine a user runs
-from the command line and the one inside the app are the same build, byte for byte. One platform's
-failure costs that platform only: a desktop job depends on its own engine job and no other, so a
-platform whose engine fails skips its own desktop build and the others carry on. On OneDev that is a
-job dependency; on GitHub, which cannot make one matrix leg wait for the same leg of another, each
-platform is one call of `.github/workflows/desktop-platform.yml`, whose engine job is
-`.github/workflows/engine-platform.yml`. Its desktop job also boots the app it just packaged under
-Playwright before making the installer (`apps/k7-standalone/docs/e2e.md`).
-
-### The tray, in a workflow of its own
-
-`.github/workflows/tray.yml` releases the tray (`apps/k7-tray`), the engine run from the menu bar,
-on the same triggers and stamps as `desktop.yml`. Per platform, `tray-platform.yml` runs the same
-`engine-platform.yml` and then packages the tray around that archive, as the desktop job does. It
-publishes `k7-tray_<stamp>_<platform>-<arch>.*` and its `latest*.yml` to GitHub releases of its own
-and to `k7.rocks/app_downloads/tray`, the feed the tray updates from (`docs/app-downloads.md`).
+Each platform's engine is one call of the reusable `.github/workflows/engine-platform.yml`, from
+`desktop.yml` directly and from `tray-platform.yml`, which then packages the tray around that
+archive through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the engine a user
+runs from the command line and the one under the tray are the same sources and the same presets.
+One platform's failure costs that platform only: GitHub cannot make one matrix leg wait for the same
+leg of another, so each platform's tray is one call that depends on its own engine job and no other.
+`.onedev-buildspec.yml` draws the engine and the APK for OneDev, with no trigger: its jobs run by hand.
 
 | choice | why |
 |---|---|
-| a workflow of its own, not a job of `desktop.yml` | the tray is an app of its own: a red tray must not hold back the desktop snapshot, nor a red desktop the tray |
+| the tray in a workflow of its own, not a job of `desktop.yml` | a red tray must not hold back the engine snapshot and the APK, nor a red APK the tray |
 | its own GitHub releases, `tray-snapshot` and `tray-vX.Y.Z` | the snapshot release is deleted and recreated on each publish; two workflows sharing it would delete each other's files |
+| its own store on `k7.rocks/app_downloads/tray`, with the updater's `latest.json` | the feed the tray updates from ([app-downloads.md](app-downloads.md)) |
 | the engine compiled again, not taken from `desktop.yml`'s run | a workflow cannot wait on another's artifacts without coupling the two runs; both share the compiler cache (`engine-<label>`), so the second build is mostly cache hits |
-| no end-to-end run before the installer | the tray has no page to drive; its unit tests run in `k7.yml` |
+| no end-to-end run before the installer | the tray has no page of its own to drive; its unit tests run in `k7.yml`, and the page it serves is the hosted build's |
 
 ## Two channels, and what names a file
 
 A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On GitHub the snapshot is a prerelease on the moving tag
-`snapshot`, deleted and recreated rather than edited, because a GitHub release keeps the commit its tag
+`snapshot` (`tray-snapshot` for the tray), deleted and recreated rather than edited, because a GitHub release keeps the commit its tag
 points at however its assets are replaced — an edited one would keep advertising the commit it was
 first cut from.
 
 Each file is named for that channel — `k7-runtime_v1.4.0_macos-arm64.tar.gz`,
-`k7_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
-each build. `engine/scripts/package-release.mjs` does the naming, for both kinds.
+`k7-tray_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
+each build. `engine/scripts/package-release.mjs` does the naming, for both kinds (`--kind engine|tray`).
 
 Every published build is also put on **`https://k7.rocks/app_downloads`**, the page people download
-from and the feed the desktop app updates itself from, one channel each
-([app-downloads.md](app-downloads.md)). That is why electron-builder already names the desktop
-installers as the release does: the `latest*.yml` beside them must name the files the page serves.
+from and the feed the tray and the phone update themselves from, one channel each
+([app-downloads.md](app-downloads.md)). That is why the tray's `latest.json` is written from the
+renamed files: it must name the files the page serves.
 
 ## Why the gate job, and not a `paths:` filter
 
@@ -62,11 +52,11 @@ too, and a tag push carries no commit list for it to match against — the relea
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
 every tag through.
 
-Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles k7's frontend and
-backend and most of the shared tier, and the tier moves together. `commons` counts too: the Electron
-shell under the app, `@frediverse/electron-shell`, lives there, and a change to it reaches this tree as
-a bump of that one path. An `apps/`-only push does rebuild the engines; with their objects cached
-that costs minutes, and it keeps one engine build per release.
+`desktop.yml`'s filter is `engine/`, `apps/` and `packages/` **whole**, and `commons`: the APK bundles
+k7's frontend and backend and most of the shared tier, and the tier moves together. An `apps/`-only
+push does rebuild the engines; with their objects cached that costs minutes, and it keeps one engine
+build per release. `tray.yml`'s filter is narrower, `engine/`, `apps/k7-tray/` and what the tray
+itself depends on: its workflow names the paths.
 
 ## Nothing is published untested
 
@@ -153,7 +143,7 @@ it stays until eviction, which takes the least recently used entry, often one st
 entry per ref and family — the key without its trailing timestamp or hash — and deletes the rest.
 `gh cache list --sort size_in_bytes` shows what the 10 GB holds.
 
-## The phone, beside the desktops
+## The phone, beside the engines
 
 The `android` job builds `engine/k7-android`'s **release** APK, signed with the project's release key,
 and the release carries it as `k7-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
@@ -161,25 +151,25 @@ stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the a
 (`engine/k7-runtime/docs/android.md`), so there is no command-line archive for it to share. It runs as
 OneDev's `android` job does — the image's Android SDK, the platform, build tools and NDK that
 `app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
-compile to arm64 there. Like the desktops, a red APK holds the release back.
+compile to arm64 there. A red APK holds `desktop.yml`'s release back.
 
 ### The iPhone, in a workflow of its own
 
 `.github/workflows/ios.yml` builds `engine/k7-ios` for a device on `macos-26`, on a `main` push that touches
 what the app is made of, on a `vX.Y.Z` tag, or by hand. It runs `engine/k7-ios/scripts/stage.mjs` — the engine and the supervisor
-from their `ios-arm64` presets, under the same compiler cache scheme as the desktops (`engine-ios-arm64`) — then
+from their `ios-arm64` presets, under the same compiler cache scheme as the desktop legs (`engine-ios-arm64`) — then
 Xcode, and uploads `k7-ios_<stamp>_arm64-unsigned.ipa` as an artifact, after checking that the three frameworks
 inside are arm64 device binaries (`engine/k7-runtime/docs/ios.md`). On a tag, its `publish` job then waits for the
 release `desktop.yml` makes and attaches the `.ipa` to it, with its line added to `SHA256SUMS`.
 
 | choice | why |
 |---|---|
-| a workflow of its own, not a job of `desktop.yml` | an iOS build that fails must not hold back the desktop snapshot, which a job feeding `publish` would |
+| a workflow of its own, not a job of `desktop.yml` | an iOS build that fails must not hold back the engine snapshot, which a job feeding `publish` would |
 | unsigned; attached to a VERSION's release, never to the snapshot | no Apple team is committed yet, so the app installs nowhere until its developer signs it. A version carries it for whoever does; the snapshot, replaced on every push, keeps to the downloads a musician can run |
-| the release waited for, not made | `desktop.yml` owns the release and makes it only after `k7.yml` passed and the desktops built; attaching after it keeps one owner, and an iOS failure still leaves the release as it was |
+| the release waited for, not made | `desktop.yml` owns the release and makes it only after `k7.yml` passed and the engines built; attaching after it keeps one owner, and an iOS failure still leaves the release as it was |
 | a diff in `decide`, not a `paths:` filter | GitHub applies `paths:` to tag pushes too, where it matches nothing — a version would never get its `.ipa`, as `desktop.yml` already notes |
 | `macos-26`, not `macos-latest` | the project file and its Swift are written for the Xcode 26 line, and a moving label would change the toolchain under them |
-| no dependency-source cache | the desktops keep one on the slow leg alone, within the 10 GB; this leg fetches its archives like the macOS one |
+| no dependency-source cache | the desktop legs keep one on the slow leg alone, within the 10 GB; this leg fetches its archives like the macOS one |
 
 ### The release key
 
@@ -199,7 +189,7 @@ so a lost key means every user uninstalls, and a leaked one means anyone can shi
 signed with any other key — a developer's debug build — needs the installed app removed first.
 
 **Without the secrets**, a tag fails in `decide`, before any build, since a release without its APK
-is incomplete; a snapshot (a `main` push, a dispatch) builds and publishes the desktops and no APK,
+is incomplete; a snapshot (a `main` push, a dispatch) builds and publishes the engine archives and no APK,
 with a warning on the run. A fork has no secrets, so its snapshots carry no APK.
 
 Create the key once, on a trusted machine, and keep the `.jks` and its passwords offline as well:
@@ -225,8 +215,8 @@ branch cannot read them.
 
 ## Checksums
 
-Every release carries `SHA256SUMS`, one line per file — the engine archives, the installers, the
-APK — written by the publish job (GitHub) or the `release` job (OneDev) over exactly the files it
+Every release carries `SHA256SUMS`, one line per file — the engine archives and the APK in
+`desktop.yml`'s, the tray's installers in `tray.yml`'s — written by the publish job (GitHub) or the `release` job (OneDev) over exactly the files it
 publishes. `sha256sum -c SHA256SUMS` in the download folder checks them. It proves a download matches
 what CI published, not who published it: nothing is signed with a key of ours, since keyless signing
 would only bind the files to this repository's CI identity and no client checks it.
@@ -234,7 +224,7 @@ would only bind the files to this repository's CI identity and no client checks 
 ## What a workflow may do
 
 `desktop.yml`, `tray.yml` and `k7.yml` grant `contents: read` at the top; the publish job alone gets
-`contents: write`. The reusable `desktop-platform.yml`, `tray-platform.yml` and `engine-platform.yml` receive `COMMONS_TOKEN` by name, never
+`contents: write`. The reusable `tray-platform.yml` and `engine-platform.yml` receive `COMMONS_TOKEN` by name, never
 `secrets: inherit`, since their jobs run third-party actions. Every action is pinned to a full commit
 SHA with its version in a comment: a tag can be moved under a run, a commit cannot. A bump is a new
 SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
@@ -242,41 +232,35 @@ SHA, resolved with `gh api repos/<owner>/<repo>/commits/<tag> -q .sha`.
 The release stamp — the tag, or `snapshot-<commit>` — reaches commands through the environment and is
 checked in `decide` against `vX.Y.Z` or `snapshot-<hex>`: a tag name is chosen by whoever pushes it,
 and anything else stops the run. A tag must also be `v` + the root package.json's version, which
-every artefact ships under ([versioning.md](versioning.md)). The desktop job hands it to the app's build as
-`$STUDIO_RELEASE_STAMP`, which inlines it as the app's release — shown in About and compared with
-this repository's releases to tell the person a newer one exists (`apps/k7-standalone/docs/menu.md`,
-`apps/k7-standalone/docs/notices.md`). The app reads `releases/latest` and the `snapshot` prerelease
-through GitHub's unauthenticated API, so that notice works once the repository is public. The engine
-job hands the same stamp to the engine's and the supervisor's CMake, which compile it into one file
-each as the `build` both state (`packages/engine-protocol/docs/version.md`).
+every artefact ships under ([versioning.md](versioning.md)). The tray job hands it to the build as
+`$STUDIO_RELEASE_STAMP`: it is the release the tray ships, which the page shows in About, and it picks
+the tray's update channel (`apps/k7-tray/docs/tray.md`). The engine job hands the same stamp to the
+engine's and the supervisor's CMake, which compile it into one file each as the `build` both state
+(`packages/engine-protocol/docs/version.md`).
 
 ## The installer each platform gets
 
-electron-builder makes them, from `apps/k7-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`
-on macOS, an `.AppImage` and a `.deb` on Linux. It runs with `--publish never`: on a tagged CI run it would
-otherwise try to publish to GitHub itself, and the release is the `publish` job's alone.
+`tauri build` makes them, from `apps/k7-tray/src-tauri/tauri.conf.json`: NSIS on Windows, a `.dmg`
+and an `.app.tar.gz` on macOS, an `.AppImage` and a `.deb` on Linux. With the updater key present it
+also signs the files the updater installs; without it the build has no updater
+([app-downloads.md](app-downloads.md)).
 
-The `.dmg` is electron-builder's own target, which drives `hdiutil convert`. On the dev Mac that path
-has failed with `EAGAIN` out of `CUDIFFileAccess::updateHeader`, intermittently and on trivial images
-too; a red macOS desktop leg that names `hdiutil` is that, and `hdiutil create -srcfolder` is the path
-that works around it.
+## The tray is not signed by a certificate
 
-## The desktops are not signed
+The macOS app is signed ad-hoc (`signingIdentity: "-"`) — with no certificate, which is all that keeps
+it from being reported "damaged" — and unnotarised; the engine archive is unsigned beyond the linker's
+own ad-hoc signature; the Windows installer and binaries are unsigned. So they warn on first launch.
+This is not a gap in the workflow; it is a certificate nobody has bought. ONNX Runtime, a third-party
+library loaded beside the supervisor, is the sharp end of the same thing. The updater's signature is
+another matter: it proves an update came from CI, not who the publisher is to the OS.
 
-The macOS `.dmg` is signed ad-hoc — with no certificate, which is all that keeps it from being
-reported "damaged" (`apps/k7-standalone/docs/standalone.md`) — and unnotarised; the engine archive
-is unsigned beyond the linker's own ad-hoc signature; the Windows installer and binaries are
-unsigned. So they warn on first launch. This is not a gap in the workflow; it is a
-certificate nobody has bought. ONNX Runtime, a third-party library loaded beside the supervisor, is
-the sharp end of the same thing.
-
-**What a user does to open them.** On macOS 15 and later, right-click > Open no longer lets an
-unnotarised app through. Open k7 once, dismiss the refusal, then System Settings > Privacy &
-Security, where an "Open Anyway" button for k7 appears for about an hour; confirm with the account's
+**What a user does to open them.** On macOS 15 and later, right-click > Open does not let an
+unnotarised app through. Open the tray once, dismiss the refusal, then System Settings > Privacy &
+Security, where an "Open Anyway" button appears for about an hour; confirm with the account's
 password. The same from a terminal, after copying the app to Applications:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/k7.app
+xattr -dr com.apple.quarantine /Applications/k7-tray.app
 ```
 
 An engine archive unpacked from a download needs the same command on its folder. On Windows,
@@ -284,14 +268,12 @@ SmartScreen's "Windows protected your PC" has a More info link, then Run anyway.
 
 **What signing would take.** On macOS, an Apple Developer Program membership, a Developer ID
 Application certificate in the build's keychain (a `.p12` and its password as secrets), every
-binary in the bundle signed with the hardened runtime — the supervisor, the engine and ONNX Runtime
-included, or Gatekeeper kills the unsigned children — and the `.dmg` notarised with `notarytool`
-(an App Store Connect API key or an app-specific password) and stapled. electron-builder does all of
-it once `mac.identity` names that certificate instead of `-`, `mac.hardenedRuntime` is back on and
-`mac.notarize` is set. On Windows, an Authenticode
-certificate, whose key the CAs now issue only on a hardware token or in a cloud HSM — so CI signs
-through a signing service (Azure Trusted Signing, a CA's cloud signer) called from
-electron-builder's `win.signtoolOptions`.
+binary in the bundle signed with the hardened runtime — node, the supervisor, the engine and ONNX
+Runtime included, or Gatekeeper kills the unsigned children — and the app notarised (an App Store
+Connect API key or an app-specific password) and stapled; Tauri does it once `signingIdentity` names
+that certificate and its notarisation variables are set. On Windows, an Authenticode certificate,
+whose key the CAs now issue only on a hardware token or in a cloud HSM — so CI signs through a
+signing service (Azure Trusted Signing, a CA's cloud signer) called from Tauri's `signCommand`.
 
 ## The two limits worth knowing before reading a red run
 
@@ -299,8 +281,8 @@ electron-builder's `win.signtoolOptions`.
 preset) and no other change; it is absent because nobody has asked for it, not because it is hard.
 
 **Linux is the least walked of the three legs.** The apt list — JUCE's ALSA/JACK/X11 set — is
-the part most likely to need a name added. Electron needs none of it to package: it carries its
-own GTK at run time.
+the part most likely to need a name added; the tray's leg adds what Tauri links against
+(WebKitGTK, the app indicator), which Tauri needs even with no window open.
 
 ## Running one leg by hand
 
@@ -310,8 +292,9 @@ been a script:
 ```bash
 STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc node engine/scripts/build-engine.mjs
 node engine/scripts/package-release.mjs --kind engine --stamp local
-npm run package --workspace k7-standalone
-node engine/scripts/package-release.mjs --kind desktop --stamp local
+npm run stage --workspace k7-tray
+npm run build --workspace k7-tray
+node engine/scripts/package-release.mjs --kind tray --stamp local
 ```
 
 `.github/workflows/k7.yml` stays as it is and compiles no C++: it is the gate every push runs
@@ -319,10 +302,9 @@ through, and it must be minutes rather than hours.
 
 ## On OneDev
 
-`.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `desktop windows`, `android` —
-and builds no Linux leg: that one is GitHub's alone, and OneDev's container runs would only duplicate it. No job carries a trigger: **`release`**, run by hand, is
-the one to start. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
-and it gathers every file into its own build: that build's artifacts are the release. The file names
+`.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `android` —
+and builds no Linux leg and no tray: those are GitHub's alone, and OneDev's container runs would only duplicate it. No job carries a trigger: **`release`**, run by hand, is
+the one to start. Its dependencies run the rest, and it gathers every file into its own build: that build's artifacts are the release. The file names
 are GitHub's — the tag, or `snapshot-<commit>`. The engine job and the APK wait for `lint and test`: a release
 should not ship what the tests refuse, and the APK shares its machine, where a C++ compile beside it times
 its slower tests out.

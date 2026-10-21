@@ -1,6 +1,6 @@
 # engine-platform.yml — one platform's engine and supervisor, compiled and archived as the command-line engine.
-# Called by desktop-platform.yml and tray-platform.yml, which package their app around this archive and compile
-# nothing themselves; both share its compiler cache, keyed by platform. See docs/desktop-release.md.
+# Called once per platform by desktop.yml, which publishes the archive, and by tray-platform.yml, which packages the
+# tray around it; both share its compiler cache, keyed by platform. See docs/desktop-release.md.
 
 name: engine platform
 
@@ -37,8 +37,8 @@ jobs:
 
       - uses: ./.github/actions/node
 
-      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
-      # brings its own GTK at run time and needs none of it to package.
+      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image; the tray adds its own
+      # (tray-platform.yml).
       - name: linux build deps
         if: runner.os == 'Linux'
         run: |
@@ -152,7 +152,7 @@ jobs:
           STAMP: ${{ inputs.stamp }}
         run: node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
 
-      # An archive, not the folder: an artifact keeps no executable bit, and the desktop job unpacks this one.
+      # An archive, not the folder: an artifact keeps no executable bit, and the tray job unpacks this one.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: k7-runtime-${{ inputs.label }}

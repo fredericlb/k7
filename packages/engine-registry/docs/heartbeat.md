@@ -42,7 +42,7 @@ The heartbeat is the one way onto every account's picker, and a user who picks a
 their project and file roots. Left open, it lets anyone who can reach the origin list a machine
 of their own. So a heartbeat may PROVE who sent it, two ways:
 
-- **a device token** of an account (`Authorization: Bearer …`): the token a phone or a desktop gets
+- **a device token** of an account (`Authorization: Bearer …`): the token a phone or a computer gets
   when it pairs with the server (`../../file-hub/docs/fileHub.md`), or one minted on the account's
   devices page for a command-line engine (`$STUDIO_DEVICE_TOKEN`);
 - **the render key** (`x-studio-render-key`): the server's own engine, which no account pairs.
@@ -51,8 +51,8 @@ of their own. So a heartbeat may PROVE who sent it, two ways:
 the way in. Unset, it is taken as before and the machine is logged as unpaired, once a minute: a
 supervisor older than the device token keeps working until the flag is turned on, and the log says
 which machines would drop off. Proving an account lists the machine; who may then see and drive it is
-ownership's (`ownership.md`). A desktop app's engine is listed at its own app only
-(`apps/k7-standalone/docs/engine.md`).
+ownership's (`ownership.md`). The tray's engine is listed at its own backend first, and at any server the person adds
+(`apps/k7/backend/docs/localEngine.md`).
 
 ## What is logged here
 

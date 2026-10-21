@@ -243,18 +243,6 @@ export function localProjectUrl(
   );
 }
 
-/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/k7-standalone/docs/tabs.md. */
-export const TABS_REPO = "@tabs";
-
-export function isTabs(repo: string): boolean {
-  return repo === TABS_REPO;
-}
-
-/** Where the strip is, on whatever origin the app is serving from. */
-export function tabsUrl(origin: string): string {
-  return `${serviceUrl(origin, "k7")}/${TABS_REPO}`;
-}
-
 /** How a project is NAMED in an engine claim — the one spelling "one engine per project" rests on; docs/addresses.md. */
 export function projectClaimKey(l: Launch): string {
   return `${l.repo}/${l.project}`;
@@ -369,34 +357,6 @@ export function isHomePage(pathname: string, base: string): boolean {
 /** Is this address that menu? Exactly one segment below the mount, and that word. */
 export function isExternalIndex(pathname: string, base: string): boolean {
   return isReservedPage(pathname, base, EXTERNAL_INDEX);
-}
-
-/**
- * Does this ADDRESS open a project? Every screen on this origin that is not one is named here:
- * the home page has no segment at all, `@tabs` is chrome, `external` is the menu of surfaces,
- * `libraries`, `settings`, `tasks`, `media/…` and `rehearsal/…` the home's own pages. Everything else is `<repo>/<project>`, `@local/…` and `@shares/…` included.
- *
- * One definition because two sides ask it and would drift: the main process, to know what a
- * second window would open on, and the tab strip, to know which tabs wear a note.
- */
-export function isProjectAddress(url: string): boolean {
-  let head: string;
-  try {
-    head = new URL(url).pathname.split("/").filter(Boolean)[0] ?? "";
-  } catch {
-    return false; // not an address we can reason about
-  }
-  return (
-    head !== "" &&
-    !isTabs(head) &&
-    head !== EXTERNAL_INDEX &&
-    head !== LIBRARIES_PAGE &&
-    head !== SETTINGS_PAGE &&
-    head !== ABOUT_PAGE &&
-    head !== TASKS_PAGE &&
-    head !== MEDIA_PAGE &&
-    head !== REHEARSAL_PAGE
-  );
 }
 
 /** …and the whole URL of it: a surface cannot use the router, its basename ending at the project. */

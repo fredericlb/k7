@@ -45,8 +45,7 @@ the front door, and putting it behind a prefix you have to know how to type woul
 **The user menu — the account, the settings, the logout — is in THIS page's
 sidebar, and only here.** Opened on a project, k7 draws the editor's header, where a menu that
 leaves the session has no business. It is the menu every app of the origin carries —
-`@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
-browser (`packages/ui-user-menu/docs/userMenu.md`).
+`@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab (`packages/ui-user-menu/docs/userMenu.md`).
 
 **One left sidebar for this page and the ones that hang off it**, `/tasks`, `/libraries`,
 `/settings`, the médiathèque's `/media/…` and the rehearsal recorder's `/rehearsal/…`
@@ -140,7 +139,7 @@ that scan before it goes to the engine (`packages/file-service/docs/engineLoad.m
 says it is running — "Scanning plugins… N / M", a thin bar above the command bar
 (`projects/PluginScanBar.tsx`) — so that a project opened just then does not seem slow for no
 reason. Which engine: the one the policy would play the account's projects on, else the one the
-account remembers, else the only one that answered; on the desktop that is the app's own. With
+account remembers, else the only one that answered; under the tray that is the machine's own. With
 none, or one that reports no scan, there is no bar. It is asked after the list, beside it, and
 never in front of it, for the reason above: the list needs no engine. The page listens on a
 socket that claims nothing (`packages/engine-browser/docs/access.md`), since it plays nothing.
@@ -326,9 +325,7 @@ this page, and a new tab for each one stacks tabs nobody closes, each one an edi
 session. The way back is the **back arrow** at the left of the editor's header, ahead of the
 project's name, which links here too (`projectsUrl`, the same address both gates use when they send
 you back). The browser's own Back works as well, since this was an ordinary navigation. On a
-**share** there is neither: the visitor has no account, so no home page to go to (`shared.md`). Nor
-in the **desktop app**'s tab, whose strip already holds the way home and the song's name
-(`apps/k7-standalone/docs/tabs.md`).
+**share** there is neither: the visitor has no account, so no home page to go to (`shared.md`).
 Leaving with an edit the autosave is still holding back is caught by the editor's `beforeunload`
 prompt (`packages/ui-editor/src/unsaved.ts`), and the arrow goes through that prompt like any other
 departure.
@@ -441,14 +438,14 @@ last listed below the others with a Download, since bringing gigabytes of takes 
 person's choice. The server itself and an unpaired machine draw no icon: there, every workspace is
 simply here.
 
-**A desktop paired with several servers** lists the workspaces of all of them: each row names its
+**A computer paired with several servers** lists the workspaces of all of them: each row names its
 server's host beside the icon, a workspace only on a server downloads from that one, and the row's ⋮
 offers **Copy to** and **Move to** every other server (`WorkspaceMenu.tsx`), each confirmed with what
 it does. Both send it whole to the target; a move then empties it from the one it left, whose history
 keeps it, while a copy leaves it synced where it was and the target holding a workspace of its own
 (`packages/file-service/docs/liveCapture.md`, "Several servers"). Either runs on its own and the row
 says so until it ends, or says why it failed. Which servers, and which is the main one, are the home
-page's account bar (`SyncServers.tsx`, `apps/k7-standalone/docs/sync.md`).
+page's account bar (`SyncServers.tsx`, `packages/file-hub/docs/syncRelay.md`).
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,

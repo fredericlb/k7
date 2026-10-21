@@ -1,8 +1,8 @@
 # The engine on Android
 
 The same engine and the same supervisor, built for arm64 Android by their `android-arm64` presets
-and run by the app in `engine/k7-android`, which drives the supervisor as the desktop app does. The supervisor lists the
-phone at the studios it is connected to, exactly as on desktop, and the engine serves the same
+and run by the app in `engine/k7-android`, which drives the supervisor as k7's backend does under the tray. The supervisor lists the
+phone at the studios it is connected to, exactly as on a computer, and the engine serves the same
 WebSocket protocol on port 8765, bound to every interface.
 
 **It lives as long as `MainActivity`**, and leaving it deregisters the engine, stops it and ends the
@@ -16,22 +16,22 @@ and its three page scripts — account, top colour, media session — which acce
 
 ## Standalone: the phone runs its own studio
 
-Like the desktop app (`apps/k7-standalone/docs/standalone.md`), the phone needs no server: it runs
+Like the tray on a computer (`apps/k7-tray/docs/tray.md`), the phone needs no server: it runs
 **k7's backend itself**, with the file services that backend starts, and the engine. A studio
-elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is the desktop's
-`main.ts` on a phone.
+elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is the tray's
+`backend.rs` on a phone.
 
 | choice | why |
 |---|---|
-| the desktop's port, environment and folders, read from `apps/k7/backend/standalone.json` | one table for both, whose values `apps/k7/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
-| the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — the cookie watch the desktop does, with the signal the views already had |
+| the tray's port, environment and folders, read from `apps/k7/backend/standalone.json` | one table for both, whose values `apps/k7/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
+| the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — what a page on the tray's backend does (`apps/k7/frontend/docs/localApp.md`), with the signal the views already had |
 | the phone's own studio pinned FIRST in the supervisor's list, before it starts | the supervisor's saved list overrides `$STUDIO_REGISTRY_URL`, so a phone that already listed a studio would never see its own otherwise |
 | Termux's arm64 node, as `lib*.so` (`engine/k7-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is the one pinned, by file and SHA-256, in `engine/k7-android/scripts/termux-packages.json`, and a download that does not match fails the build: Termux's index is unsigned as the script reads it, so it is never trusted at build time. The versions shipped are recorded in `termux-versions.json` |
-| the pinned debs fetched from the project's own `termux-debs` prerelease on GitHub first, Termux's pool after it (`engine/k7-android/scripts/termux-debs.mjs`) | Termux's pool keeps current versions only, so a pin 404s there with the package's next upgrade, and no Termux host keeps old ones on purpose — the mirrors that still have one are only behind. A source is just a place to look: the SHA-256 decides, so the order costs no trust. The release is a PRERELEASE created with `--latest=false`, since the desktop app's update check reads `releases/latest`, and its tag matches no workflow's `v*.*.*`. GitHub's android job also caches the debs under a key hashed from the pin table |
+| the pinned debs fetched from the project's own `termux-debs` prerelease on GitHub first, Termux's pool after it (`engine/k7-android/scripts/termux-debs.mjs`) | Termux's pool keeps current versions only, so a pin 404s there with the package's next upgrade, and no Termux host keeps old ones on purpose — the mirrors that still have one are only behind. A source is just a place to look: the SHA-256 decides, so the order costs no trust. The release is a PRERELEASE created with `--latest=false`, since `releases/latest` must stay the project's newest version, and its tag matches no workflow's `v*.*.*`. GitHub's android job also caches the debs under a key hashed from the pin table |
 | bumping a pin: `node engine/k7-android/scripts/termux-tools.mjs --pin`, commit, then `node engine/k7-android/scripts/mirror-termux-debs.mjs` with `gh` signed in | the mirror is filled by hand, while the pool still has those versions; it only adds the debs it lacks and never replaces one, so an old pin keeps building. `--dry-run` fetches and verifies without touching the release |
-| the backend BUNDLED (`apps/k7/backend/scripts/bundle.mjs`), the packaged desktop's bundle | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/k7/backend/docs/standalone.md`) |
+| the backend BUNDLED (`apps/k7/backend/scripts/bundle.mjs`), the one the tray runs | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/k7/backend/docs/standalone.md`) |
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
-| cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
+| cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as under the tray, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
 | the backend answers `/api/registry/hello` only once the bundled library is installed | the start screen hands over on that answer, and a workspace created before the library exists has none; the backend owns the wait (`apps/k7/backend/docs/standalone.md`, "Ready means the library is there"), so `BackendHost` and the iPhone's need no probe of their own |
 | the shell page shows the start — "Starting k7…", with the unpack's percentage — and a failed one says why, with a Retry (`web/src/Backend.tsx`) | the phone's own studio is the one a first launch opens, so a start that never ends must not be a blank screen; the percentage is the bytes of `backend.zip` read, which is stored uncompressed in the APK, so its length is known before the unpack |
@@ -100,9 +100,9 @@ Two ways from the page to the native half:
   object is offered to every origin because the studio can change under a view that already
   exists, and a listener's origin rules are fixed when it is added; the check is per message
   instead. k7's origin is whichever studio is open, possibly a remote one, so a script on it is
-  not trusted with the supervisor: `command` takes the desktop's seven (`engine.start|stop|restart`,
-  `audio.priority`, `plugins.rescan`, `instruments.download|remove`, as in
-  `apps/k7-standalone/src/engineBridge.ts`) plus `weburi.remove`, which only unlists this engine;
+  not trusted with the supervisor: `command` takes the seven the engine page sends on a computer (`engine.start|stop|restart`,
+  `audio.priority`, `plugins.rescan`, `instruments.download|remove`, as the tray's backend allows,
+  `apps/k7/backend/docs/localEngine.md`) plus `weburi.remove`, which only unlists this engine;
   `weburi.add` asks the user in a native dialog naming the address, and anything else is refused —
   `shutdown`, `session.drop`, `registry.deregister` and pairing included, which the panel never sends.
   `chooseStudio` takes `https` origins, or this phone's own loopback one; an origin no listed studio
@@ -114,7 +114,7 @@ Two ways from the page to the native half:
 The page takes the studios from the supervisor's own list, the phone's own first, and gives the view
 `serviceUrl(origin, "k7")`, the mapping `UserMenu` uses — or, for the loopback one, `localServiceUrl`,
 which is why the shell page and every view on the phone's own studio get `__STUDIO_PORTS__` (a
-document-start script, the desktop's preload). With several studios connected, k7's settings pick
+document-start script). With several studios connected, k7's settings pick
 which one the apps open.
 
 What the app views do that a browser would do on its own:
@@ -248,8 +248,7 @@ would be an activity start from the background, which Android refuses.
 
 ## Updates come from k7.rocks, and the person installs them
 
-A sideloaded app has no store to update it, so `Updates.kt` does what the desktop app does
-(`apps/k7-standalone/docs/notices.md`): it asks `k7.rocks/app_downloads/<channel>.json` 5 s after
+A sideloaded app has no store to update it, so `Updates.kt` asks `k7.rocks/app_downloads/<channel>.json` 5 s after
 every start and every 6 hours while the process lives, and fetches a newer build's APK
 ([docs/app-downloads.md](../../../docs/app-downloads.md) at the root). The channel and the stamp
 compared are `BuildConfig.RELEASE_STAMP`, which only a CI release build carries; a checkout's build
@@ -289,7 +288,7 @@ just do nothing.
 The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
 register at the identity provider for the phone.
 
-**The account is on k7's home page**, as on the desktop (`apps/k7/frontend/src/projects/AccountBar.tsx`):
+**The account is on k7's home page**, as in a browser (`apps/k7/frontend/src/projects/AccountBar.tsx`):
 not in a native bar over the views, because an account is chosen where its workspaces are listed, and
 a bar over every page is height taken from all of them. The page tells it is in the app by
 `window.k7Android`; its Sign in only goes to `/auth/login`, which the plugin catches as above, and its
@@ -308,12 +307,12 @@ app off the network, its DNS included: without the hold the sign-in fails with `
 provider's host. It is released when the app is back in front, answered or not, and Android ends a
 short service on its own after a few minutes.
 
-## Pairing with the origin, as the desktop does
+## Pairing with the origin, as a computer does
 
-The phone runs the desktop's backend and hub, so it is a live-sync replica the same way
-(`apps/k7-standalone/docs/sync.md`): an account PAIRED with the origin has its workspaces kept in
+The phone runs the same backend and hub as the tray, so it is a live-sync replica the same way
+(`apps/k7/frontend/docs/localApp.md`): an account PAIRED with the origin has its workspaces kept in
 step with the origin's, and the phone's libraries follow the origin's read-only
-(`packages/file-hub/docs/fileHub.md`). The pairing is the BACKEND's, the one the desktop uses too
+(`packages/file-hub/docs/fileHub.md`). The pairing is the BACKEND's, the one the tray's backend uses too
 (`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"), with the same rules — once per
 account per run, never for the local user, refused when the browser is signed in to the origin as
 someone else. `SyncPairing.kt` keeps what only the app can do: it **asks first**, in a dialog over the
@@ -333,7 +332,7 @@ browser signed in as another account gets a dialog naming both accounts and a Tr
   the app is back in front; killed, the backend finds the pairing on disk at the next start, the
   browser's page reloaded delivers the answer, and the app says the ending — and hands a paired
   token to the supervisor — whenever it next asks.
-- **The server is the person's choice, as on desktop.** Sign in opens the same popin
+- **The server is the person's choice, as on a computer.** Sign in opens the same popin
   (`ServerDialog.tsx`), and the address rides on the `/auth/login` the shell already intercepts, as
   `?server=`: the page has no other way to the shell that both phones share. The shell keeps it
   (`SyncPairing.choose`, `SharedPreferences` here, `UserDefaults` on iOS) and pairs with it,
@@ -390,17 +389,17 @@ The supervisor needs no Java — no JUCE, no audio — and is built to be a chil
 stdio, so it stays exactly that. The app packages it as `libk7supervisor.so`: only files named like
 a library reach the native library directory, the one place Android lets an app execute its own
 binary, and `useLegacyPackaging` has the installer extract them as real files. `SupervisorHost.kt`
-is then what `SupervisorHost` (`packages/supervisor-host/src/supervisorHost.ts`) is to the desktop app — it starts the program, reads its frames, sends its commands,
+is then what `SupervisorHost` (`packages/supervisor-host/src/supervisorHost.ts`) is to k7's backend under the tray — it starts the program, reads its frames, sends its commands,
 and closes stdin to quit it.
 
-Only the ENGINE changes hands. On desktop the supervisor spawns it and kills its process tree; here
+Only the ENGINE changes hands. On a computer the supervisor spawns it and kills its process tree; here
 it lives in the app, so `EngineProcess.cpp` asks instead:
 
 - **start** emits an `engine` frame carrying the id, token and port it would have put in the
   child's environment, then waits for the port to answer. The app sets that environment and serves.
   The pidfile names the supervisor's PARENT, which is the process the engine is a thread of.
 - **stop** emits the request and never kills anything: that pid is the app's own.
-- An engine already serving is **adopted**, as on desktop — a supervisor the app restarted finds it.
+- An engine already serving is **adopted**, as on a computer — a supervisor the app restarted finds it.
 
 **One supervisor per process, not per activity.** Android recreates an activity on its own — an
 overlay change is enough, and `configChanges` does not cover it — and a second supervisor is refused
@@ -408,14 +407,14 @@ by the host lock while the first keeps drawing into the dead activity. So `Super
 `object`, like `EngineBridge`: it starts once, keeps the last snapshot, and whichever activity is on
 screen listens.
 
-**A supervisor that dies unasked is relaunched**, on the desktop host's backoff — 1 s doubling to
+**A supervisor that dies unasked is relaunched**, on `SupervisorHost`'s backoff — 1 s doubling to
 30 s, back to 1 s after a run of 20 s — and its last snapshot is marked down meanwhile, so the
 pages say why rather than show a stale status. Without it the phone drops off every studio until the
 app restarts; the engine keeps serving through the gap and the new supervisor adopts it. It never
 gives up: unlike the backend, nothing on the phone would retry it.
 
 **No instrument is downloaded until the user asks**, in the Downloads section of k7's settings —
-the desktop's own section, through this app's bridge (`engine/k7-supervisor/docs/instruments.md`).
+the engine page's own section, through this app's bridge (`engine/k7-supervisor/docs/instruments.md`).
 Every instrument together is close to 3 GB, the piano alone 750 MB, and a phone is often on a
 metered network: a first launch that fetched them all would spend a data plan on instruments
 nobody chose.
@@ -510,7 +509,7 @@ copy a Termux package's symlinks, which Windows' tar cannot create.
 
 ## In CI
 
-OneDev's **android** job builds the APK for every release, beside the desktops, from a cold SDK install
+OneDev's **android** job builds the APK for every release, beside the engine archives, from a cold SDK install
 pinned by version and checksum (`.onedev-buildspec.yml`), and GitHub's `android` job does the same.
 Both build the RELEASE type, not debuggable, signed with the release key from their secrets
 (`docs/desktop-release.md`); a debug build is for a developer's own phone, and replacing one with the
@@ -531,8 +530,8 @@ also catches the GL driver's chatter, which is noise.
 - **No ffmpeg, yt-dlp or mpv on the phone**: waveforms are decoded by WebAssembly instead, and an mp4 or a .mov is probed from its boxes
   (`packages/audio-analysis/docs/analysis.md`); what else needs them — transcoding, the hunt, the server-side
   player — answers as it does on a machine without them.
-- **The rehearsal recorder's store is the server's**: SQLite under `K7_DATA_DIR`, as on desktop and on the server (`packages/rehearsal-server/docs/store.md`).
-- **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
+- **The rehearsal recorder's store is the server's**: SQLite under `K7_DATA_DIR`, as on a computer and on the server (`packages/rehearsal-server/docs/store.md`).
+- **The tunnel and WebRTC are untested on a phone.** They are the code a computer runs, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **The busy service and the microphone flow have not been driven on a phone yet**: a take with the screen off,

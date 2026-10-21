@@ -8,8 +8,8 @@
   "type": "module",
   "scripts": {
     "stage": "node scripts/stage.mjs",
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "tray:dev": "tauri dev",
+    "tray:build": "tauri build",
     "tauri": "tauri"
   },
   "devDependencies": {

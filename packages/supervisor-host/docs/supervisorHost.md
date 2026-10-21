@@ -1,10 +1,10 @@
 # The supervisor host
 
-`engine/k7-supervisor` as the child of an Electron app: `apps/k7-standalone`
-(`apps/k7-standalone/docs/standalone.md`). The Android app drives the same supervisor the same way,
-from Kotlin (`engine/k7-runtime/docs/android.md`). Everything else an Electron app needs — its servers, its window,
-its quit, its build — is `@frediverse/electron-shell`'s (`commons/packages/electron-shell/docs/shell.md`),
-which is shared with phare and knows nothing about an engine.
+`engine/k7-supervisor` as the child of a node process: k7's backend under the tray, which runs the
+machine's supervisor and so its engine (`apps/k7/backend/docs/localEngine.md`). The Android and iOS apps
+drive the same supervisor the same way, from Kotlin and Swift (`engine/k7-runtime/docs/android.md`). The
+package also stages the binaries every package carries: the tray's (`apps/k7-tray/scripts/stage.mjs`) and
+the command-line engine's (`engine/scripts/build-engine.mjs`).
 
 | subpath | what it holds |
 |---|---|
@@ -29,9 +29,9 @@ spawns it directly and keeps it running. Five choices:
   for an executable named `k7-runtime`. A bare pid, or a process the OS will not describe, is left
   running (`engine/k7-supervisor/docs/supervisorPolicy.md`).
 - **A write to a dead supervisor is logged, not thrown.** Its stdin's EPIPE has a listener, since
-  an `error` event nobody hears ends the app.
+  an `error` event nobody hears ends the process.
 - **It is spawned `detached` on Windows, and told `STUDIO_HOST_PID`.** libuv's job lets
-  grandchildren break away, so the engine would survive a force-killed app. The supervisor makes
+  grandchildren break away, so the engine would survive a force-killed host. The supervisor makes
   the job itself and hands the host the only handle.
 
 ## One schema for the wire

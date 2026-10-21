@@ -6,7 +6,7 @@
 
 | File | Role |
 |---|---|
-| `apps/k7/frontend/src/main.tsx` | Parses the address with `parseLaunch` and dynamically imports **either** the desktop tab strip (`src/tabs/mountStrip.tsx`) or the app (`src/appMain.tsx`). Both arms are dynamic so neither pays for the other. A chunk that fails to load reloads the page once (`src/chunkReload.ts`). |
+| `apps/k7/frontend/src/main.tsx` | Dynamically imports **either** the documentation site (`src/docs/mountSite`, on the docs host) or the app (`src/appMain.tsx`). Both arms are dynamic so neither pays for the other. A chunk that fails to load reloads the page once (`src/chunkReload.ts`). |
 | `apps/k7/frontend/src/appMain.tsx` | Decides what the address is, **from the address alone**, and mounts the matching stack under one `BrowserRouter` and the `LocaleProvider`. |
 
 `appMain.tsx` recognises, in order:

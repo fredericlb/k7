@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 // package-release.mjs — one release file per kind, for the platform that produced it, into dist/release/:
-// `engine` archives dist/k7-runtime/ (build-engine.mjs); `desktop` and `tray` rename the installer apps/k7-standalone
-// or apps/k7-tray built, with the update files that name it.
+// `engine` archives dist/k7-runtime/ (build-engine.mjs); `tray` renames the installers apps/k7-tray built and writes
+// its updater fragment (trayRelease.mjs).
 // Named for a STAMP, not a package version, which does not move with each build. See docs/desktop-release.md.
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from "node:fs";
-import { dirname, extname, join } from "node:path";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { distDir, run } from "./buildTools.mjs";
 import { packageTray } from "./trayRelease.mjs";
@@ -31,15 +24,8 @@ function arg(name) {
 }
 
 const kind = arg("--kind");
-// Each installer kind: the workspace that packages it, and the prefix its files carry (its electron-builder.cjs).
-const APPS = {
-  desktop: { workspace: "k7-standalone", prefix: "k7" },
-  tray: { workspace: "k7-tray", prefix: "k7-tray" },
-};
-if (kind !== "engine" && !APPS[kind])
-  fail(
-    "usage: package-release.mjs --kind engine|desktop|tray [--stamp <stamp>]",
-  );
+if (kind !== "engine" && kind !== "tray")
+  fail("usage: package-release.mjs --kind engine|tray [--stamp <stamp>]");
 const stamp = (
   arg("--stamp") ??
   process.env.STUDIO_RELEASE_STAMP ??
@@ -72,7 +58,7 @@ if (kind === "engine") {
   console.log(
     `\n✔ ${join(RELEASE, archive)}  (${(statSync(join(RELEASE, archive)).size / 1e6).toFixed(1)} MB)`,
   );
-} else if (kind === "tray") {
+} else {
   packageTray({
     bundle: join(
       repo,
@@ -88,30 +74,4 @@ if (kind === "engine") {
     platform,
     arch,
   });
-} else {
-  const { workspace, prefix } = APPS[kind];
-  const out = join(repo, "apps", workspace, "out");
-  // electron-builder's top level holds the installers beside blockmaps, update manifests and its own debug file.
-  const installers = existsSync(out)
-    ? readdirSync(out).filter((f) => /\.(dmg|exe|appimage|deb)$/i.test(f))
-    : [];
-  if (!installers.length)
-    fail(
-      `no installer in ${out} — run \`npm run package --workspace ${workspace}\` first.`,
-    );
-  for (const f of installers) {
-    const name = `${prefix}_${stamp}_${platform}-${arch}${extname(f)}`;
-    copyFileSync(join(out, f), join(RELEASE, name));
-    console.log(`✔ ${join(RELEASE, name)}`);
-  }
-  // What the app updates from (docs/app-downloads.md): electron-builder already named the installers as above, so these name them right.
-  const updater = readdirSync(out).filter(
-    (f) =>
-      /^latest.*\.yml$/.test(f) ||
-      (f.startsWith(`${prefix}_${stamp}_`) && f.endsWith(".blockmap")),
-  );
-  for (const f of updater) {
-    copyFileSync(join(out, f), join(RELEASE, f));
-    console.log(`✔ ${join(RELEASE, f)}`);
-  }
 }

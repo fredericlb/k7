@@ -68,8 +68,8 @@ jobs:
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # What the tray is built from: the native tree, the app, the two packages it bundles, the shell, the workflows.
-            grep -qE '^(engine/|apps/k7-tray/|packages/(supervisor-host|app-updates)/|commons$|package-lock\.json|\.github/workflows/(tray|tray-platform|engine-platform)\.yml)' \
+            # What the tray is built from: the native tree, k7 itself (the backend bundle and the frontend in it, with the library and the demos), the workflows.
+            grep -qE '^(engine/|apps/|packages/|k7-core/|demos/|commons$|package-lock\.json|\.github/workflows/(tray|tray-platform|engine-platform)\.yml)' \
               changed.txt || build=no
           fi
 

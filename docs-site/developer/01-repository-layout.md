@@ -1,7 +1,7 @@
 # Repository layout
 
 The `studio` repository holds k7 and everything it is built from: the web app, its backend, the
-shared TypeScript packages, the C++ engine and its supervisor, the desktop and phone shells, and
+shared TypeScript packages, the C++ engine and its supervisor, the tray and the phone shells, and
 the module library k7 ships with. It is one npm workspace tree driven from the root
 `package.json`.
 
@@ -9,7 +9,7 @@ the module library k7 ships with. It is one npm workspace tree driven from the r
 
 | Folder | What lives there |
 |---|---|
-| `apps/` | The applications: `apps/k7` (the web app: `frontend/` and `backend/`) and `apps/k7-standalone` (the Electron desktop app). |
+| `apps/` | The applications: `apps/k7` (the web app: `frontend/` and `backend/`) and `apps/k7-tray` (the tray: k7 on a computer, a windowless Tauri app that runs k7's backend and opens k7 in the browser). |
 | `packages/` | The shared `@studio/*` packages, consumed as raw TypeScript source. |
 | `engine/` | The native side: `k7-runtime` (the C++ audio engine), `k7-supervisor` (the C++ program that runs and watches it), `k7-android` (the phone app, Gradle), `scripts` (the Node scripts that build and package the native binaries) and `docker` (the server engine's image). |
 | `commons/` | A git submodule shared with another monorepo: the `@frediverse/*` packages and dev tooling. |
@@ -48,9 +48,10 @@ The root `package.json` declares these workspace globs:
   "apps/k7",
   "apps/k7/frontend",
   "apps/k7/backend",
-  "apps/k7-standalone",
+  "apps/k7-tray",
   "engine/k7-runtime",
-  "engine/k7-android/web"
+  "engine/k7-android/web",
+  "e2e"
 ]
 ```
 
@@ -59,7 +60,7 @@ The root `package.json` declares these workspace globs:
 | `apps/k7` | `k7` | An aggregator: its `dev` script runs the frontend and backend together with `concurrently`. |
 | `apps/k7/frontend` | `k7-frontend` | React + Vite single-page app. |
 | `apps/k7/backend` | `k7-backend` | Express server, run with `tsx` straight from `src/server.ts`. |
-| `apps/k7-standalone` | `k7-standalone` | Electron desktop app. |
+| `apps/k7-tray` | `k7-tray` | The tray; its code is Rust under `src-tauri/`, and the workspace exists for its npm scripts (`stage`, `dev`, `build`). |
 | `engine/k7-runtime` | `k7-runtime` | Not JavaScript: the workspace exists for its npm scripts (`dev`, `build:win`, `build:mac`, `build:android`, `test`, `test:all` and the `gen:*` generators). It declares no `build` script, so `npm run build` never compiles C++. |
 | `engine/k7-android/web` | `@studio/k7-android-shell` | The Capacitor page of the Android app. |
 | `packages/*` | `@studio/*` | The shared tier, below. |
@@ -139,7 +140,7 @@ Each area has its own section in this guide; the package's own `package.json` de
 | `engine/k7-runtime` | CMake (`CMakePresets.json`: `macos-clang`, `windows-msvc`, `windows-msvc-ninja`, `dev-gcc`, `release-gcc`, `android-arm64` and others) | The `k7-runtime` executable (or `libk7runtime.so` on Android) |
 | `engine/k7-supervisor` | CMake, its own presets | The `k7-supervisor` executable and its unit-test binary |
 | `engine/k7-android` | Gradle (`./gradlew assembleDebug`) | The Android APK, which builds its own arm64 engine and supervisor |
-| `engine/scripts` | Node | `build-engine.mjs` (build and stage the command-line engine into `dist/k7-runtime/`), `package-release.mjs` (archive it, or rename the desktop installer), `devEngine.mjs` and `supervisorBuild.mjs` (used by the dev session) |
+| `engine/scripts` | Node | `build-engine.mjs` (build and stage the command-line engine into `dist/k7-runtime/`), `package-release.mjs` (archive it, or rename the tray's installers), `devEngine.mjs` and `supervisorBuild.mjs` (used by the dev session) |
 | `engine/docker` | Docker | The server engine's image (`Dockerfile`, `entrypoint.sh`, `asound.conf`) |
 
 The engine section of this guide covers the C++ code itself.
@@ -155,7 +156,7 @@ second monorepo. It provides:
 | `@frediverse/oidc` | `setupAuth()`, the OIDC login and the `studio.sid` session the backend mints. |
 | `@frediverse/http` | Express helpers (precompressed static files, proxy awareness, route validation). |
 | `@frediverse/i18n` | The Paraglide wrapper the frontend compiles its catalogues with. |
-| `@frediverse/electron-shell` | The Electron base the desktop app is built on. |
+| `@frediverse/electron-shell` | Its log helpers, which `@studio/supervisor-host` writes through. |
 | `@frediverse/env` | `loadServiceEnv()`, which reads a service's section of `env.yaml`. |
 | `@frediverse/vite-config` | `defineAppConfig()`, the shared Vite config (ports, proxy, PWA, Tailwind). |
 | `@frediverse/tsconfig`, `@frediverse/api-client`, `@frediverse/docker-runtime`, `@frediverse/db-grist` | Shared TS config, API client, base runtime image, Grist client. |
@@ -177,7 +178,7 @@ read with the `COMMONS_TOKEN` secret).
 
 ## `k7-core/`: the default library
 
-`k7-core/` is the module library a new origin, desktop or phone starts from. Its folders
+`k7-core/` is the module library a new origin, computer or phone starts from. Its folders
 are `modules/`, `chains/`, `assemblies/`, `presets/`, `irs/`, `models/`, `samples/` and
 `wavetables/`; the binaries in it are ordinary tracked files.
 
@@ -185,8 +186,8 @@ It is consumed in three ways:
 
 - **The server** copies a library listed by an origin but missing on disk from
   `$STUDIO_LIBRARY_SEED` (`packages/file-hub/libraries.ts`), which can name `k7-core`.
-- **The desktop and phone bundles** carry a copy: `apps/k7/backend/scripts/bundle.mjs` writes one
-  into the bundle, and the desktop app copies from the repository's `k7-core` when it runs unpackaged.
+- **The tray and phone bundles** carry a copy: `apps/k7/backend/scripts/bundle.mjs` writes one
+  into the bundle, which the backend seeds from (`STUDIO_LIBRARY_SEED`).
 - **Lints** read it: `npm run lint:layouts` and `npm run lint:panels` check its module panels.
 
 `biome.json` excludes `k7-core` from linting. The Windows CI jobs set `core.longpaths`, but keep

@@ -22,8 +22,8 @@ To make sound, k7 needs an **audio engine**. The header says where the sound com
 - **Sound on <machine>** — an engine on that computer is playing, through *its* speakers or audio
   interface. If that is not the computer in front of you, you will not hear it here.
 - **Sound in this browser** — the server's engine is playing, streamed to this page.
-- **No sound — choose an engine** — nothing is playing yet. Open the k7 desktop app on this
-  computer, or click the label and pick an engine from the list.
+- **No sound — choose an engine** — nothing is playing yet. Start the k7 tray on this
+  computer and open k7 from its menu, or click the label and pick an engine from the list.
 
 The project opens and stays editable either way; the bar along the bottom says what it is still
 waiting for.

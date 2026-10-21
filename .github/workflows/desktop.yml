@@ -1,18 +1,15 @@
-# The desktop release — the half of the repo the hosted image never carries.
+# The engine release — the half of the repo the hosted image never carries, but for the tray (tray.yml) and the iPhone (ios.yml).
 #
-# `docker/` ships the hosted apps; these ship to a musician's machine, in two stages per desktop
-# (desktop-platform.yml): `engine` compiles engine/k7-runtime and engine/k7-supervisor (C++, CMake) and
-# publishes them as the command-line engine; `desktop` then packages apps/k7-standalone around THOSE
-# binaries, compiling nothing, and only when that platform's engine built. Beside them, `android`
-# builds the phone's APK, whose arm64 engine and supervisor Gradle compiles itself.
+# `docker/` ships the hosted apps; this ships to a musician's machine: per desktop, `engine`
+# (engine-platform.yml) compiles engine/k7-runtime and engine/k7-supervisor (C++, CMake) and publishes them as the
+# command-line engine. Beside them, `android` builds the phone's APK, whose arm64 engine and supervisor Gradle
+# compiles itself.
 #
-# It and ios.yml, for the iPhone, are the workflows here that compile the C++ engine. k7.yml deliberately does not: a cold
-# build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
-# push that touched only docs/ does not pay for three native builds.
+# k7.yml deliberately compiles no engine: a cold build is tens of minutes per platform, a cached one several.
+# Hence the `decide` gate below — a main push that touched only docs/ does not pay for three native builds.
 #
-# The desktops are NOT signed: the .dmg is unsigned and unnotarised, the Windows installer unsigned. The APK is
-# signed with the release key held in secrets, and every release carries SHA256SUMS. Nothing is published
-# before k7.yml has passed on the same commit (`tested`). See docs/desktop-release.md.
+# The APK is signed with the release key held in secrets, and every release carries SHA256SUMS. Nothing is
+# published before k7.yml has passed on the same commit (`tested`). See docs/desktop-release.md.
 
 name: desktop
 
@@ -89,8 +86,8 @@ jobs:
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # apps/ and packages/ in full: the desktop app bundles k7 and most of that tier; commons, for its Electron shell.
-            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/(desktop|desktop-platform|engine-platform)\.yml)' \
+            # apps/ and packages/ in full: the APK bundles k7's backend and most of that tier.
+            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/(desktop|engine-platform)\.yml)' \
               changed.txt || build=no
           fi
 
@@ -139,7 +136,7 @@ jobs:
           - os: ubuntu-latest
             label: linux-x64
             preset: release-gcc
-    uses: ./.github/workflows/desktop-platform.yml
+    uses: ./.github/workflows/engine-platform.yml
     secrets:
       COMMONS_TOKEN: ${{ secrets.COMMONS_TOKEN }}
     with:
@@ -338,11 +335,6 @@ jobs:
           merge-multiple: true
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          pattern: k7-desktop-*
-          path: dist
-          merge-multiple: true
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
           pattern: k7-android-*
           path: dist
           merge-multiple: true
@@ -376,7 +368,7 @@ jobs:
             gh release delete "$TAG" --yes --cleanup-tag || true
             gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
               --title "snapshot $STAMP" \
-              --notes "Build of main ($GITHUB_SHA); desktops unsigned, files listed in SHA256SUMS. Replaced by the next one." \
+              --notes "Build of main ($GITHUB_SHA); files listed in SHA256SUMS. Replaced by the next one." \
               dist/*
           else
             gh release create "$TAG" --title "$TAG" --generate-notes dist/*

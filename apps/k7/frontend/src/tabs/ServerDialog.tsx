@@ -1,6 +1,6 @@
-// ServerDialog.tsx — the popin a desktop or phone app asks the k7 server through, before its sign-in opens the browser.
+// ServerDialog.tsx — the popin the account control asks the k7 server through, before its sign-in opens.
 // The address names where the account SYNCS; the sign-in itself still goes through the app's own provider.
-// See apps/k7-standalone/docs/signIn.md and engine/k7-runtime/docs/android.md.
+// See ../../docs/localApp.md and engine/k7-runtime/docs/android.md.
 
 import { Button } from "@frediverse/ui/button";
 import {

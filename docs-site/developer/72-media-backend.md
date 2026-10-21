@@ -29,7 +29,7 @@ or hold secrets.
 | `/api/engine-local` | session |
 | `/api/player*` (mpv) | bearer or session, and the catch-all guard for every `/api` route mounted after it |
 | `POST /api/token` | session only: mints a bearer for the signed-in user |
-| `GET /api/token/pair?return=…` | session; redirects a token to a desktop app's loopback address only (`isLoopbackReturn`) |
+| `GET /api/token/pair?return=…` | session; redirects a token to a loopback address only (`isLoopbackReturn`) |
 
 ## `/api/mediatek` — the library
 

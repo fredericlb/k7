@@ -59,7 +59,7 @@ A ranked interface (`audioPriority`, below) still moves the engine afterwards.
 | where | who writes it | who applies it | when |
 |---|---|---|---|
 | `<state>/preferences.yaml` (`audioDevice`) | whoever edits the file — no route writes it | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
-| `<state>/engine-host.json` (`audioPriority`) | the command-line engine's config file, or the desktop app's Engine page | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
+| `<state>/engine-host.json` (`audioPriority`) | the command-line engine's config file, or k7's engine page under the tray | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
 `set-audio-device` switches the RUNNING engine and is forgotten the moment it exits — in dev
@@ -278,7 +278,7 @@ an eight-input interface with nothing to say why. A row therefore carries two fl
 for the output side with the output count, `currentInput` for the device named by the setup's
 `inputDeviceName` with the input count. On an unsplit setup both land on the same row; a list of
 interfaces says "output only" or "input only" when they do not. The supervisor relays both
-counts in its snapshot (`inputs`, `outputs`), and the desktop's engine page prints them in the
+counts in its snapshot (`inputs`, `outputs`), and k7's engine page prints them in the
 badge on the interface in use.
 
 The engine also undoes such a split when it opens: `keepInputsOnOutputDevice` moves the inputs

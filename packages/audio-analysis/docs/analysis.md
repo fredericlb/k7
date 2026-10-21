@@ -8,7 +8,7 @@ from the same decode.
 
 The arithmetic lives here once. What varies is where the samples come from:
 
-- **The engine's `--decode`** on a machine that has an engine — the musician's, the standalone app.
+- **The engine's `--decode`** on a machine that has an engine — the musician's, under the tray.
   It decodes any format JUCE reads, it is already installed, and the musician's machine has no
   ffmpeg to rely on.
 - **ffmpeg** where there is no engine — k7's backend, which is hosted. The engine is never in that image and

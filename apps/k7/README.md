@@ -47,7 +47,7 @@ engine/k7-runtime/               the C++ project (k7-runtime)             — na
   server/    app k7-runtime          (WebSocket audio server, Serve.cpp)
 engine/k7-supervisor/           the supervisor (C++): identity, registry, engine, tunnel, machine jobs
 engine/scripts/                  the native build: engine + supervisor, staged and packaged
-apps/k7-standalone/             the desktop app (Electron; runs k7's backend, drives k7-supervisor)
+apps/k7-tray/                   the tray (Tauri; runs k7's backend, which drives k7-supervisor)
 apps/k7/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
   song/                    @studio/song            — song model + compiler + Strudel patterns

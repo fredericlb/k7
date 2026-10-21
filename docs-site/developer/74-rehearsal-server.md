@@ -36,7 +36,7 @@ Change a signature in both files.
 | `SESSION_SECRET` | RTC tickets and API tokens derive from it; the dev default is refused in production |
 | `K7_API_TOKEN_SECRET` | The release bearer's secret (default `SESSION_SECRET:api-token`), kept separate so saved tokens keep verifying |
 | `K7_DATA_DIR` | The store and cache (default `~/.studio/k7`) |
-| `K7_INSTANCE` | `server` (default) or `local` on a desktop or phone |
+| `K7_INSTANCE` | `server` (default) or `local` under the tray or on a phone |
 | `CACHE_MAX_GB` | Disk cache of audio copies, trimmed oldest first (default 20) |
 | `AUTH_ADMIN_GROUPS` | OIDC groups whose members may delete a public song |
 | `POCKETBASE_URL`, `POCKETBASE_EMAIL`, `POCKETBASE_PASSWORD` | When all set and the store is empty, rows are imported once at boot |
@@ -125,7 +125,7 @@ in memory. The file service reads the URL and token from `.settings.json` at the
   `pageVersion()` in `@studio/rehearsal-shared/pageVersion`, shared with the editor so the link
   never plays something the owner did not pick.
 
-## Server, desktop and phone
+## Server, computer and phone
 
 - `src/publications.ts`: releases and pages live on the server only. With `K7_INSTANCE=local`,
   `PUBLICATION_ROUTES` are forwarded to the paired server as the person who paired it, and answer

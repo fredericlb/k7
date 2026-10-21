@@ -77,8 +77,8 @@ sends `<session>\x1f<id>`. An empty `audio.priority` is meaningful — rank noth
 
 `{"t":"engine","action":"start","id","token","port","host","origins","safeMode"}` and `{"t":"engine","action":"stop"}`.
 On Android the engine is a library in the app that spawned the supervisor, so `EngineProcess.cpp`
-cannot start or kill it and asks the app instead (`engine/k7-runtime/docs/android.md`). The desktop
-build never emits it, which is why the desktop app has no reader for it.
+cannot start or kill it and asks the app instead (`engine/k7-runtime/docs/android.md`). No other
+build emits it, which is why `@studio/supervisor-host` has no reader for it.
 
 ## Why stdio and not a localhost socket
 

@@ -9,7 +9,7 @@
 
 # ---- build: the two CMake projects and the script that stages them, nothing else of the repo ----
 FROM node:24-bookworm AS build
-# The same set as the desktop job's Linux leg (.onedev-buildspec.yml), plus ccache.
+# The same set as the engine job's Linux leg (.github/workflows/engine-platform.yml), plus ccache.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build ccache git ca-certificates pkg-config python3 \
       libssl-dev \

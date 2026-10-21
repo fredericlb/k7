@@ -25,7 +25,7 @@ drawn by anything.
 
 ### The remote lens
 
-On the desktop app, a second device on the LAN loads the page over plain HTTP: not a secure context,
+When a second device on the LAN loads the page from a machine's own backend over plain HTTP, it is not a secure context,
 so no `getUserMedia`. `RTCPeerConnection` is gated on nothing and exempt from mixed-content rules,
 so the machine's own window — on the loopback origin, which is secure — opens the camera and serves
 it. `apps/k7/frontend/src/camera/serveLenses.ts` answers on the machine (one peer connection per

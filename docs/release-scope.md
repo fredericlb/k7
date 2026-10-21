@@ -32,5 +32,5 @@ Opening sign-up means closing every row of that table first.
 
 - **iOS.** The app is built by CI as an unsigned check (`.github/workflows/ios.yml`) and is not
   distributed.
-- **Signed installers.** The macOS and Windows builds are unsigned, so Gatekeeper and SmartScreen
+- **Signed installers.** The tray's macOS and Windows builds carry no certificate, so Gatekeeper and SmartScreen
   stop them on first launch; the user guide says how to open them anyway (`docs/desktop-release.md`).

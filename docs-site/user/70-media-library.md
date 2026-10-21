@@ -64,9 +64,9 @@ library plays:
 The choice is saved on your account. When you choose **The engine** and no engine is answering,
 playback falls back to **This machine**; the button and the song screen say so with "(fallback)".
 
-## On a desktop or phone paired with a server
+## On your computer or phone, paired with a server
 
-When the k7 desktop or Android app is paired with a server, the media library on that device is
+When k7 on your computer (the tray) or the Android app is paired with a server, the media library on that device is
 its own local library, and it also shows what the server holds:
 
 - An entry the server has and this machine does not is drawn in the tree with a cloud icon,

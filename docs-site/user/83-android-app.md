@@ -1,6 +1,6 @@
 # The Android app
 
-The k7 Android app turns a phone into a k7 machine. Like the desktop app, it is standalone: it runs its own small k7 server, the supervisor and the engine, so the phone opens its own studio and needs no network. It can also list its engine at other studios, so a browser elsewhere can play through the phone's audio output.
+The k7 Android app turns a phone into a k7 machine. Like the [tray](./82-desktop-app.md) on a computer, it is standalone: it runs its own small k7 server, the supervisor and the engine, so the phone opens its own studio and needs no network. It can also list its engine at other studios, so a browser elsewhere can play through the phone's audio output.
 
 For what the engine and supervisor are, see [Engines](./80-engines.md).
 

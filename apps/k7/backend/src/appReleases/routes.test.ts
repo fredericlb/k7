@@ -175,7 +175,7 @@ describe("/app_downloads", () => {
     expect(await servedStamp("release")).toBe("v0.1.0");
   });
 
-  it("keeps the tray's builds in a feed of their own, beside the desktop app's", async () => {
+  it("keeps the tray's builds in a feed of their own, beside the root store's", async () => {
     const stamp = "v0.1.0";
     const exe = `k7-tray_${stamp}_windows-x64.exe`;
     const up = (file: string, body: string) =>
@@ -196,9 +196,9 @@ describe("/app_downloads", () => {
     expect(((await served.json()) as { stamp: string }).stamp).toBe(stamp);
     const yml = await fetch(`${base}/app_downloads/tray/release/latest.yml`);
     expect(await yml.text()).toBe(`path: ${exe}`);
-    // The same stamp published for the tray leaves the desktop app's build whole.
-    const desktop = await fetch(`${base}/app_downloads/release/latest.yml`);
-    expect(await desktop.text()).toBe("path: k7_v0.1.0_windows-x64.exe");
+    // The same stamp published for the tray leaves the root store's build whole.
+    const rootYml = await fetch(`${base}/app_downloads/release/latest.yml`);
+    expect(await rootYml.text()).toBe("path: k7_v0.1.0_windows-x64.exe");
     expect(existsSync(join(root, "tray", "release", stamp, exe))).toBe(true);
 
     const page = await (

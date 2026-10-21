@@ -91,7 +91,7 @@ Every URL, whichever tier it came from, is read as its family's **one registry, 
 `packages/web-protocol/services.ts` — `Url_test.cpp` replays that file's cases): `https://app.k7.rocks`,
 `https://docs.k7.rocks` and the former hosts `https://st0.app` and `https://play.st0.app` all mean
 `https://app.k7.rocks`, and any loopback URL means
-`http://localhost:8789` — or k7's port in `$STUDIO_PORTS` when a host moved it, as the desktop app
+`http://localhost:8789` — or k7's port in `$STUDIO_PORTS` when a host moved it, as the tray
 does (`packages/web-protocol/docs/addresses.md`). The registry is mounted by k7's backend
 (`packages/engine-registry/docs/shared.md`), so a supervisor that saved `https://play.st0.app` still
 heartbeats the right place. The answer is a **list**, one per studio this engine is connected to, deduped.
@@ -173,7 +173,7 @@ server asks for it over the jobs channel (`readLog` in `MachineJobs.cpp`), since
 machine.
 
 Under an app a line is **not** echoed to stderr: stderr is what the app files under its own tag, in
-its own log (`standalone.log` on the desktop, logcat on the phone), and an echo would put every line
+its own log (the merged log under `[host]` under the tray, logcat on the phone), and an echo would put every line
 in two places. Run from a config file there is no app, and every line is echoed — stderr is then the
 only place a terminal sees it.
 

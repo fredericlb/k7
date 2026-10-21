@@ -79,11 +79,11 @@ sees the reply. So a handler works on local paths only, and a caller on server p
 separation's source and model arrive on the machine, and its stems land where the server asked.
 
 The path map only knows a server path in the tunnel's spelling: a root as the server names it,
-then `/` between the segments below it. A Windows server — the desktop app's own backend — joins
+then `/` between the segments below it. A Windows server — the tray's own backend — joins
 its paths with `\`, and such a path would cross unmapped and be refused by the handler. So a request
 reaching a jobs channel through the hub's loopback path has every path under a root respelt first
 (`jobSpelling.ts`), as does a stem cut, which opens its channel itself. On a `/` server that changes
-nothing. An ENGINE channel is left as sent: the desktop's engine opens its backend's own files.
+nothing. An ENGINE channel is left as sent: the tray's engine opens its backend's own files.
 
 `sync` is the one request the AGENT answers rather than the machine's list, since copying is the
 tunnel's own business: its files are NOT brought down before it starts, it copies them itself and

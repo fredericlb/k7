@@ -30,15 +30,13 @@ the zone's `docs/` directory is where the justification belongs:
 | the native supervisor | `engine/k7-supervisor/docs/` |
 | the Android app | `engine/k7-runtime/docs/android.md` |
 | the iOS app | `engine/k7-runtime/docs/ios.md` |
-| the standalone desktop app | `apps/k7-standalone/docs/` |
-| the tray (the engine in the menu bar) | `apps/k7-tray/docs/` |
-| how the Electron apps update themselves | `packages/app-updates/docs/` |
-| the Electron shell under it | `commons/packages/electron-shell/docs/`, and `packages/supervisor-host/docs/` for the supervisor it drives |
+| the tray (k7 on a computer) | `apps/k7-tray/docs/` |
+| k7's backend running the machine's supervisor | `apps/k7/backend/docs/localEngine.md`, and `packages/supervisor-host/docs/` for spawning it |
 | the rehearsal recorder | `packages/rehearsal-server/docs/` (the routes) and `packages/ui-rehearsal/docs/` (the screens) |
 | the engine's build scripts | `engine/scripts/docs/` |
 | the plugin contract | `packages/k7-sdk/docs/` |
 | k7's builtin plugins | `packages/k7-plugins/docs/` |
-| the functional suite (Playwright, against a running instance or inside the desktop app) | `e2e/docs/` |
+| the functional suite (Playwright, against a running instance or the Android app) | `e2e/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
 
 (Those are notes for developers. `apps/k7/docs/` is the exception: it is the
@@ -64,10 +62,9 @@ the production image, and the repo-wide pages in `docs/`. The short map:
 | `engine/k7-runtime` | C++ audio engine: receives a compiled `ProjectDoc` over WebSocket, plays it; never parses song files (its own `AGENTS.md`) |
 | `engine/k7-supervisor` | C++ supervisor of the engine machine: starts and watches the engine, holds the tunnel, runs the jobs a server asks (its own `AGENTS.md`) |
 | `engine/k7-android`, `engine/k7-ios` | the engine and supervisor on a phone, with k7's backend bundled (`engine/k7-runtime/docs/android.md`, `ios.md`) |
-| `engine/scripts` | builds the engine and supervisor, packages the CLI archive and the desktop installer |
+| `engine/scripts` | builds the engine and supervisor, packages the CLI archive and the tray's release files |
 | `apps/k7` | the text-first DAW — frontend (React/Vite) + backend (Express: auth, prefs, the médiathèque, the rehearsal recorder, shares, engine registry) (its own `AGENTS.md`) |
-| `apps/k7-standalone` | k7 as an Electron desktop app, with the supervisor and engine beside it (`apps/k7-standalone/docs/`) |
-| `apps/k7-tray` | the engine alone, run from the menu bar: an Electron view over the supervisor, released by its own `tray.yml` (`apps/k7-tray/docs/`) |
+| `apps/k7-tray` | k7 on a computer: a windowless Tauri app in the menu bar that runs k7's backend on `127.0.0.1:18789`, which runs the machine's supervisor and engine; k7 opens in the browser. Released by its own `tray.yml` (`apps/k7-tray/docs/`) |
 | `packages/` | `@studio/*`, consumed as raw TypeScript through `exports` subpaths (a bare deep import fails on purpose); four are published (`docs/publishing.md`) |
 | `k7-core/` | the `@k7-core` modules library, the seed every library folder is copied from |
 | `commons/` | git submodule shared with the `phare` monorepo |

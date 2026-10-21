@@ -64,7 +64,7 @@ export function packageTray({ bundle, release, stamp, platform, arch }) {
   }
   if (!found)
     throw new Error(
-      `no installer under ${bundle} — run \`npm run build --workspace k7-tray\` first`,
+      `no installer under ${bundle} — run \`npm run tray:build --workspace k7-tray\` first`,
     );
   if (!Object.keys(fragment).length) return null;
   const at = join(release, `k7-tray-updater_${platform}-${arch}.json`);

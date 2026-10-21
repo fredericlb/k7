@@ -8,7 +8,7 @@ each account's process both ways when k7's backend stops, and a terminal sends S
 
 - **The end of stdin is a stop, when the spawner says so.** Windows delivers no SIGTERM to Node: a
   `kill` there ends the process on the spot. So the file hub spawns the service with a stdin pipe
-  and `ELECTRON_SHELL_STDIN_STOP=1`, the convention the desktop app's guard uses for its servers
+  and `ELECTRON_SHELL_STDIN_STOP=1`, the name `@frediverse/electron-shell` gives that convention
   (`commons/packages/electron-shell/docs/shell.md`), and closing that pipe is the graceful stop
   everywhere. The variable is removed once read, so nothing the service spawns inherits it. Without
   it, stdin is left alone: a service run from a terminal must not stop when the terminal's stdin does.
@@ -18,7 +18,7 @@ each account's process both ways when k7's backend stops, and a terminal sends S
   keep-alive sockets with it, and the process exits as soon as the last request has answered.
 - **A grace of 5 s, then out anyway.** A request that never ends must not hold the quit: the
   backend above this process waits 8 s for its children (`apps/k7/backend/src/server.ts`), and the
-  desktop app's guard longer than that (`commons/packages/electron-shell/docs/shell.md`).
+  tray waits 15 s for the backend (`apps/k7-tray/docs/tray.md`).
 - **Nothing is flushed on the way out.** Every file this service writes goes through
   `writeFileAtomic` (`packages/song/docs/atomicWrite.md`) synchronously, so a signal — handled
   between two tasks of the event loop — never lands in the middle of a write, and a SIGKILL

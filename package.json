@@ -10,7 +10,6 @@
     "apps/k7",
     "apps/k7/frontend",
     "apps/k7/backend",
-    "apps/k7-standalone",
     "apps/k7-tray",
     "engine/k7-runtime",
     "engine/k7-android/web",
@@ -19,8 +18,6 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:native": "node scripts/dev-native.mjs",
-    "desktop:build": "npm run build:frontends --workspace k7-standalone",
-    "desktop:dev": "npm start --workspace k7-standalone",
     "clean": "rm -rf node_modules commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",
     "tokens": "node scripts/tokens.mjs",
     "commons:sync": "git submodule update --remote --merge commons",
@@ -48,7 +45,6 @@
     "lint:layouts": "tsx packages/ui-module-builder/scripts/checkLayouts.ts",
     "engine:build": "node engine/scripts/build-engine.mjs",
     "test:e2e": "npm run e2e --workspace @studio/e2e --",
-    "test:e2e:desktop": "npm run e2e:desktop --workspace @studio/e2e --",
     "test:e2e:android": "npm run e2e:android --workspace @studio/e2e --"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-// SyncDevicesSection.tsx — live sync's pairings, from both ends: on the desktop or the phone, whether this
+// SyncDevicesSection.tsx — live sync's pairings, from both ends: on the tray's backend or the phone, whether this
 // machine syncs the account with an origin and the Unpair that stops it; on the origin, the account's
 // devices, each removable. Both are session routes of the hub this page is served by. See ../../docs/settings.md.
 
@@ -24,7 +24,7 @@ interface Device {
 interface Me {
   email?: string | null;
   name?: string;
-  /** The desktop's signed-out user, which has no account at any origin. */
+  /** The machine's signed-out user, which has no account at any origin. */
   local?: boolean;
 }
 

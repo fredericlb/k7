@@ -8,7 +8,7 @@ host and the modules the `@k7-core` library offers on top of it.
 | Kind | Notes |
 |---|---|
 | **Built-in processors** | Compiled into the engine, available on every machine. |
-| **VST3 plugins** | Installed on the engine's machine and found by its plugin scan. Desktop only. |
+| **VST3 plugins** | Installed on the engine's machine and found by its plugin scan. Engines on Windows, macOS and Linux only. |
 | **LADSPA plugins** | On Linux, found by the same scan. |
 | **JS DSP and Faust modules** | DSP described in the module folder and run by the engine. See [DSP in JavaScript and Faust](./49-dsp.md). |
 
@@ -34,7 +34,7 @@ song that uses an external plugin can still play on another machine through an a
 | Family | Processors |
 |---|---|
 | Tracktion | 4OSC, Sampler, Volume & Pan, VCA, Level Meter, Equaliser, Reverb, Compressor, Chorus, Delay, Phaser, Pitch Shifter, Low-Pass Filter, MIDI Modifier, Impulse Response, and routing utilities |
-| k7 | Neural Amp Modeler, SFZ Player, Surge XT (desktop only), DSP Graph, MIDI Graph, Faust, Arpeggiator, Mixer, Recorder, Quick Master |
+| k7 | Neural Amp Modeler, SFZ Player, Surge XT (Windows, macOS and Linux), DSP Graph, MIDI Graph, Faust, Arpeggiator, Mixer, Recorder, Quick Master |
 | Eurorack (Mutable Instruments ports) | Plaits, Braids, Rings, Elements, Clouds, Warps, Tides, Peaks |
 | AirWindows | A collection of 186 effects |
 
@@ -104,7 +104,7 @@ purest-gain), `voice-of-the-starship`, `voice-trick`, `volume-pan`.
 | `keys/piano` | A sampled concert grand (Salamander Grand Piano), downloaded on demand from the engine settings' **Downloads**. |
 | `keys/electric-keys` | stereo-rhodes, clavinet, clavinet-v, stage-73-v2, wurli-v2, wurt. |
 | `keys/organ` | b-3-v2, farfisa-v, vox-continental-v2. |
-| `synth/surge-xt` | Surge XT with 608 factory patches. Desktop only. |
+| `synth/surge-xt` | Surge XT with 608 factory patches. Engines on Windows, macOS and Linux only. |
 | `synth/wavetable` | A Faust wavetable synth reading a library wavetable. |
 | `synth/mu-elements`, `mu-macro-osc` (plaits, braids), `mu-peaks`, `mu-rings`, `mu-tides` | Eurorack voices. |
 | `synth/art-*` | Faces for Arturia instruments (Analog Lab V, ARP 2600 V3, Augmented Strings, Augmented Voices, Buchla Easel V, CMI V, CS-80 V4, CZ V, DX7 V, Emulator II V, Jun-6 V, Jup-8 V4, MS-20 V, Matrix-12 V2, Mellotron V, Mini V3, Modular V3, OP-Xa V, Piano V3, Prophet-5 V, Prophet VS V, SEM V2, Solina V2, SQ80 V, Synclavier V, Synthi V, Vocoder V). These need the plugin installed on the engine's machine. |

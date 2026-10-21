@@ -1,4 +1,4 @@
-// store.ts — the desktop and Android builds desktop.yml publishes, kept on disk per channel for /app_downloads.
+// store.ts — the builds desktop.yml and tray.yml publish (the APK, the engine archives, the tray), kept on disk per channel for /app_downloads.
 // A build is named by its release stamp: `vX.Y.Z` is the `release` channel, `snapshot-<commit>` the `snapshot` one.
 // Files arrive in <channel>/incoming/<stamp>/; publish moves the folder into place and points `current` at it.
 // The build before stays too, so an update that read latest.yml just before a publish still finds its installer.

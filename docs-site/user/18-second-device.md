@@ -17,7 +17,7 @@ A project declares its special views — its *surfaces* — in its `surfaces/` f
 
 Open the **Share** panel (`ui share`). Its **On another device** section shows one QR code for the whole project, then one per surface. Scan it with the device's camera.
 
-On the desktop app, the codes carry the computer's address on your local network rather than `127.0.0.1`, which the phone could not reach. If the computer has no local network address, no code is shown.
+In k7 opened from the [tray](./82-desktop-app.md), at `127.0.0.1`, no code is shown: that address answers only the computer itself, so a phone could not open it. To drive the computer's engine from a phone, list the engine at a k7 server such as `app.k7.rocks` (the tray's engine page, **Studios**) and open the project there.
 
 ### Copy the link
 
@@ -51,7 +51,7 @@ A surface type that cannot be drawn alone on a device says it is drawn in k7's w
 
 ## Pairing a device on your local network
 
-When the second device reaches the engine directly over your local network (for example the desktop app at home, without going through a server), the engine only answers devices its machine has approved.
+When the second device reaches the engine directly over your local network (for example an engine at home, without going through a server), the engine only answers devices its machine has approved.
 
 On the device, a card says **This device isn't paired** with the machine's name:
 

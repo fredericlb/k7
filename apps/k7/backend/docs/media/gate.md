@@ -31,7 +31,7 @@ The secret is `API_TOKEN_SECRET`, or `SESSION_SECRET` with `:pl8` appended when 
 (`mount.ts`). Changing it revokes every token at once.
 
 `POST /api/token` mints one, `GET /api/token` lists the owner's and `DELETE /api/token/:id` revokes one;
-all are **session only**, deliberately: a token must not be able to mint another. `GET /api/token/pair` hands one to a desktop app on its loopback port, and
+all are **session only**, deliberately: a token must not be able to mint another. `GET /api/token/pair` hands one to a native app on its loopback port, and
 `isLoopbackReturn` is that route's whole security. Two routes refuse the bearer for reasons of their
 own — the hunt, which spends an account's reputation ([hunt.md](hunt.md)), and the settings, which
 hold the slskd key and have no headless caller ([settings.md](settings.md)).
@@ -64,7 +64,7 @@ names the tool that filed a song (`packages/mediatek/docs/songs.md`), not the ac
 
 A bearer token is no admin: it carries no groups, and none of its callers removes anything.
 
-The desktop and the phone are the exception. Their backend runs with `STUDIO_LOCAL_USER=1`, answers
+The tray's backend and the phone's are the exception. Their backend runs with `STUDIO_LOCAL_USER=1`, answers
 loopback only, and holds that machine's own library, so whoever reaches it may manage it — and the
 local user is never an admin ([../standalone.md](../standalone.md)).
 

@@ -67,6 +67,6 @@ shapes has no camera and no arm button.
 
 A surface opened on another device (see the external surfaces pages in the
 [index](./00-index.md)) can show the viewport too. Against a hosted k7 the other device opens its
-own camera. Against the **desktop app** over your local network, a tablet or phone has no secure
-connection and cannot open a camera; it receives the desktop machine's camera instead, streamed
-over the local network. Two devices watching one camera open it only once on the machine.
+own camera. Against an engine reached directly over your local network, a tablet or phone has no
+secure connection and cannot open a camera; it receives the engine machine's camera instead,
+streamed over the local network. Two devices watching one camera open it only once on the machine.

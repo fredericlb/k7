@@ -25,7 +25,7 @@ interface it has as a program:
 - **The supervisor** speaks its NDJSON over two pipes the app holds, not over stdio (`k7_supervisor_run`,
   `SupervisorHost.swift`). Its frames have a descriptor of their own (`sendFramesTo`), because the app's stdout
   is shared with node and the engine. It installs no signal or crash handler and never exits. Closing the command
-  pipe is its quit, as closing stdin is on desktop. Its `engine` requests are the app's to carry out, as on Android
+  pipe is its quit, as closing stdin is on a computer. Its `engine` requests are the app's to carry out, as on Android
   (`K7_ENGINE_IN_APP`, `src/Platform.h`). It is started again IN the process after a CA change. Each run's loop is
   left allocated, since a `work()` thread may still post to it, and the roots are read again (`forgetRoots`).
 - **Node** runs `backend-boot.mjs`. That script starts the bundled backend on a worker thread and stops it, on

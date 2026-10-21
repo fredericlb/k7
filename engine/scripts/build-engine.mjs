@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // build-engine.mjs — `npm run engine:build`: builds the C++ engine and the native supervisor, then stages the
 // command-line engine into dist/k7-runtime/ — the two binaries side by side, what they load, an example config.
-// The desktop app is packaged from these builds by apps/k7-standalone, not here. See docs/buildEngine.md.
+// The tray is packaged from these builds by apps/k7-tray, not here. See docs/buildEngine.md.
 
 import { copyFileSync, existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";

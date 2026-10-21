@@ -22,7 +22,7 @@ person who left a note and cannot find it will not write a second one.
 
 SQLite is `node:sqlite` — **no dependency at all**, and no native build in an image that has none
 to spare. It needs no flag on Node 24, the version the image, CI and
-the desktop all run (`docs/images.md`).
+the tray all run (`docs/images.md`).
 
 The file is `<media library>/.shares/comments.db`, inside the dot-folder `writablePath` already
 refuses and `revision.ts` already does not walk — the same free invisibility the blobs get. WAL,

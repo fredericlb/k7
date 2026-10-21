@@ -1,7 +1,7 @@
-// SyncServers.tsx — the servers a signed-in desktop account syncs with, in the home page's account bar: the
+// SyncServers.tsx — the servers a signed-in account on this machine syncs with, in the home page's account bar: the
 // MAIN one (libraries, new workspaces), the others beside it, each one made main or let go, and another added.
-// Adding pairs through the system browser like the main one does (the app's main process); the rest is the
-// local backend's `/api/sync/remote`. See apps/k7-standalone/docs/sync.md, "Several servers".
+// Adding pairs through the browser like the main one does (../tabs/browserAccount.ts); the rest is the local
+// backend's `/api/sync/remote` (packages/file-hub/docs/syncRelay.md).
 
 import { Check, Plus, Star, X } from "@frediverse/ui/icons";
 import { askConfirm } from "@studio/project-shell/ask";

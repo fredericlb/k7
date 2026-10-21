@@ -9,7 +9,7 @@ the frontend does with it.
 
 The docs host is routed to k7's container and served k7's bundle, unchanged. `main.tsx` reads the
 hostname before anything else (`isDocsHost`) and imports `src/docs/mountSite.tsx` instead of the
-app — the same dispatch that keeps the tab strip from loading the editor. `src/docs/site/pages.ts`
+app — the same dispatch that keeps the home page from loading the editor (`shell.md`). `src/docs/site/pages.ts`
 globs `docs-site/` at build time, so the host needs no server of its own, no build of its own and
 no copy of the pages. The backend already answers every path that is not `/api`, `/auth` or
 `/assets/` with `index.html`, which is all a deep link here needs.

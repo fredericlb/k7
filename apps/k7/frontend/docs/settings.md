@@ -7,11 +7,11 @@ set while you look at the song they affect; these are not.
 
 It holds what a **browser** may change. Everything about a machine — which audio interface the
 engine opens, whether the engine is running, the studios it is listed at — is set on that machine:
-in the command-line engine's config file (`engine/k7-supervisor/engine.example.json`), or by the
-app that runs the engine. Not because moving it here would be hard: those settings need a process
+in the command-line engine's config file (`engine/k7-supervisor/engine.example.json`), or on the
+engine page of the backend that runs it (below). Not because moving it here would be hard: those settings need a process
 on that machine, and this page is served to any machine that asks.
 
-So the split is not desktop-versus-web. It is **whose disk answers**. The LANGUAGE sits at one end
+So the split is not computer-versus-web. It is **whose disk answers**. The LANGUAGE sits at one end
 of that line: no disk answers for it, and it lives in this browser alone. The separation chains
 sit at the other: they are the machine's, read from the account's file service.
 
@@ -22,7 +22,7 @@ reason it was drawn: the process on the machine is the app k7 is running in, and
 config file to hand its user. So the page's first sections are **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
 which one the apps open, the instruments it downloads, the private CA. The Downloads section is the
-desktop page's own (`settings/InstrumentsSection.tsx`), since what a phone keeps is chosen the same
+computer's engine page's own (`settings/InstrumentsSection.tsx`), since what a phone keeps is chosen the same
 way (`engine/k7-supervisor/docs/instruments.md`). The hint that sends a browser to the engine's machine is not drawn there, since
 that machine is this one.
 
@@ -148,20 +148,19 @@ and the section says so. `pairing.md` is the page.
 ## Sync — the pairing, from either end
 
 `SyncDevicesSection.tsx`. Live sync pairs a MACHINE with the origin for one account
-(`apps/k7-standalone/docs/sync.md`), and a pairing has two ends, each answered by the hub that
+(`packages/file-hub/docs/syncRelay.md`), and a pairing has two ends, each answered by the hub that
 serves this page:
 
-- **On the desktop or the phone**, which run their own backend, the section says which account
+- **On the tray or the phone**, which run their own backend, the section says which account
   this machine syncs and with which origin, and offers Unpair. It is here because signing out does
-  NOT unpair: the window's sign-in is not the machine's sync, and an Unpair hidden behind the
+  NOT unpair: the page's sign-in is not the machine's sync, and an Unpair hidden behind the
   sign-out would stop a phone syncing every time someone handed it over. Unpaired, it says that
   pairing follows a sign-in, which is where it happens.
 - **On the origin**, the account's devices, each with Remove: a lost phone is stopped from the
   machine you still have.
 
 Which end this page is on is not a route's answer, since every hub answers both routes: it is the
-app it runs in, the desktop's tab bridge or the Android bridge (`tabs/bridge.ts`,
-`androidEngine.ts`). A local backend lists its devices too, and the list is shown there only when
+backend's own probe (`GET /api/local`, `localApp.md`) or the Android bridge (`tabs/bridge.ts`). A local backend lists its devices too, and the list is shown there only when
 it holds one.
 
 ## Rehearsal — the recorder's own section
@@ -176,16 +175,17 @@ the same user-menu row. The language is not repeated there: the rehearsal pages 
 ## Why there are no machine settings here
 
 Audio, the engine, its sessions, the servers it is listed at and the machine itself are set where a
-process on the machine can apply them: the command-line engine's config file, or the app running
-the engine. A second screen for one setting is two that disagree the day one is
+process on the machine can apply them: the command-line engine's config file, or the engine page of
+the backend running the engine (below). A second screen for one setting is two that disagree the day one is
 changed.
 
-## The desktop app's engine is a page of its own
+## The computer's engine is a page of its own
 
-In the desktop app the user menu has an **Engine** row under Settings, opening `/settings/engine`:
-the built-in engine's state, its audio interface ranking and its plugins, reached through the app's
-main process, since the supervisor opens no socket (`../../../k7-standalone/docs/engine.md`). A browser has no
-such engine, so the row is drawn only when the app's bridge is there.
+Served by the tray's backend, this page links to `/settings/engine` (`settings/DesktopEnginePage.tsx`):
+the machine's engine's state, its audio interface ranking, its plugins and its instruments, reached
+through the backend that runs the supervisor (`apps/k7/backend/docs/localEngine.md`), since the
+supervisor opens no socket. The link is drawn only when `GET /api/local` says this backend runs the
+engine (`localApp.md`); anywhere else the page says the engine's settings are on the engine's machine.
 
 ## About is beside it, not in it
 

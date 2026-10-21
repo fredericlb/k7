@@ -69,7 +69,7 @@ its answer and its request.
 cache answers each key for good (`staleTime: Infinity`) and never refetches on focus, on
 reconnect or on a timer: the shell already says when something changed, and a second trigger
 would be a second request for the same thing. A key no one reads any more is dropped a minute
-later. `networkMode` is `always`: the desktop app with no internet still reaches its own
+later. `networkMode` is `always`: a page on the tray with no internet still reaches its own
 loopback server, and the default holds every read while `navigator.onLine` is false.
 
 **The scope is the counter the key counts.** The shell's reload key, a second device's own one

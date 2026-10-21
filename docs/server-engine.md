@@ -7,7 +7,7 @@ anything, and every render k7 cannot make itself is made here.
 
 ## It is one more machine, not a part of k7
 
-The container runs the same supervisor and the same engine as the desktop builds, and the
+The container runs the same supervisor and the same engine as the tray and the command-line engine, and the
 supervisor reaches k7 the way every musician's machine does: it heartbeats to the registry and
 dials the tunnel (`packages/engine-tunnel/docs/tunnel.md`), at `http://k7:8789` on the container
 network. Nothing in k7 knows this engine is local to it:
@@ -84,13 +84,13 @@ writes nothing to stdout; its diagnostics go to stderr, which is the container's
 ## Instruments
 
 `STUDIO_INSTRUMENTS=all`: the server has no Downloads tab to choose instruments in, so it keeps all of
-them, like the desktop app (`engine/k7-supervisor/docs/instruments.md`). The first start downloads
+them (`engine/k7-supervisor/docs/instruments.md`). The first start downloads
 them into the `engine-home` volume, which keeps them across restarts. Set `ENGINE_INSTRUMENTS` to
 anything else to keep none.
 
 ## The build
 
-Debian, like the desktop job's Linux leg, with the same packages; the runtime is `bookworm-slim`
+Debian, like the engine's Linux leg in `desktop.yml`, with the same packages; the runtime is `bookworm-slim`
 and must stay glibc. k7's image is Alpine and could not load these binaries. A `ldd` check in the
 runtime stage fails the build when a library the binaries link is missing, so the failure shows up
 at build time and not when the engine first starts.

@@ -27,7 +27,7 @@ The audio arm's checks are in the `transport arm` handler (a group, no input, a 
 in the engine (no interface channel, two armed lanes sharing an input). The file service waits for
 the engine's answer (`awaitArm` in `packages/file-service/src/engineArm.ts`, 2 s) so a refusal
 reaches the command bar instead of being lost, after waiting up to 5 s for the session's link to
-the engine to open: on the desktop, a tab coming to the front re-dials it.
+the engine to open: a page coming back to the front re-dials it.
 
 ## Inputs
 

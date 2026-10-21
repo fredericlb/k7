@@ -191,7 +191,6 @@ import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
-import { exposeBusy } from "./desktopBusy";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { useLatest } from "./hooks/useLatest";
 import { isTyping } from "./hooks/useWindowKey";
@@ -222,7 +221,6 @@ import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
 import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
 import { ShellContexts } from "./state/ShellContexts";
 import { createShellStore, type ShellVerbs } from "./state/shellStore";
-import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import type { Tool } from "./timelineTools";
 import type {
@@ -289,8 +287,6 @@ function sameCaret(a: CaretFields, b: CaretFields): boolean {
 }
 
 /** The tap-chain popin's first node: where the signal its modules process comes in, named and nothing more. */
-// In the desktop app's tab, whose strip already shows the way home and the song's name (apps/k7-standalone/docs/tabs.md).
-const inDesktopTab = !!tabBridge();
 
 /** The shot a new video project is scaffolded with (packages/song/src/scaffold.ts) — a picture holding only it is untouched. */
 const SCAFFOLD_SAMPLE = /(^|\/)clips\/sample\.mp4$/;
@@ -484,8 +480,6 @@ export default function App({
   } | null>(null);
   // The engine's live state as an EXTERNAL store, so a component re-renders only when its own slice changes.
   const store = useRef(new EngineStore()).current;
-  // The desktop app's quit asks this before it stops the engine (apps/k7-standalone/docs/standalone.md).
-  useEffect(() => exposeBusy(store), [store]);
   const playing = useStoreState(store, (s) => s.playing);
   // NOTE: App does NOT subscribe to `playhead` — at ~20 Hz that would re-render the whole tree every frame.
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
@@ -2917,7 +2911,7 @@ export default function App({
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
                     {snapshot.manifest.name || "…"}
                   </span>
-                ) : inDesktopTab ? null : (
+                ) : (
                   <span className="flex min-w-0 items-center gap-1">
                     {/* The back arrow, first in the bar: the home page is where every project is opened from. */}
                     <a
@@ -2946,7 +2940,7 @@ export default function App({
                             : "down"
                     }
                   >
-                    {!inDesktopTab && projectLink}
+                    {projectLink}
                     {engineSwitch}
                     <div className="px-1.5">{engineLink}</div>
                     {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}

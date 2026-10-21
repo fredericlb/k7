@@ -177,9 +177,8 @@ long export is slower.
 
 ## What "can this export?" actually asks
 
-`"VideoEncoder" in window` answers the wrong question. It is true in every Chromium — and in
-**Electron it is always true** — while saying nothing about the platform encoder behind it
-(Media Foundation, VideoToolbox, OpenH264, libvpx). A build with WebCodecs and no encoder for the
+`"VideoEncoder" in window` answers the wrong question. It is true in every Chromium while saying
+nothing about the platform encoder behind it (Media Foundation, VideoToolbox, OpenH264, libvpx). A build with WebCodecs and no encoder for the
 codec asked fails at frame 0, *after* the progress bar has drawn, with a `NotSupportedError` that
 names no cause.
 

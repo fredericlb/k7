@@ -1,5 +1,5 @@
 // UpdateCheck.kt — what Updates.kt decides without Android: the channel a stamp follows, whether the build k7.rocks serves
-// is newer, and which of its files is the APK. Mirrors packages/app-updates/src/updateCheck.ts; tested on the JVM.
+// is newer, and which of its files is the APK. Mirrors apps/k7-tray/src-tauri/src/updates.rs; tested on the JVM.
 
 package se.frediver.k7
 

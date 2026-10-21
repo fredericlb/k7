@@ -17,12 +17,10 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>k7 · editor</title>
-    <!-- The startup splash, drawn before any script and replaced by React's first render (docs/icons.md).
-         Hidden in a view too short to be a page: the desktop's 36-pixel tab strip loads this file too. -->
+    <!-- The startup splash, drawn before any script and replaced by React's first render (docs/icons.md). -->
     <style>
       .k7-splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #07031F; }
       .k7-splash img { width: min(70vw, 420px); height: auto; }
-      @media (max-height: 120px) { .k7-splash { display: none; } }
     </style>
   </head>
   <body>

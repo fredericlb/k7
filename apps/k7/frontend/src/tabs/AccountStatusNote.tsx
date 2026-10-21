@@ -1,5 +1,5 @@
-// AccountStatusNote.tsx — beside the desktop's account button: a sign-in or a pairing waiting on the browser, with Cancel, or how it ended.
-// The main process sends a code; the wording is here, in the person's language. See apps/k7-standalone/docs/notices.md.
+// AccountStatusNote.tsx — beside the account button: a sign-in or a pairing waiting on the browser, with Cancel, an offer to
+// pair after a sign-in, or how it ended. The wording is here, in the person's language. See ../../docs/localApp.md.
 
 import { X } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";

@@ -1,7 +1,7 @@
 # k7 documentation
 
 k7 is a text-first digital audio workstation: a song is a folder of text files, edited in the
-browser, the desktop app or on a phone, and played by an audio engine on the machine with the
+browser (from a k7 server, or from the k7 tray on your own computer) or on a phone, and played by an audio engine on the machine with the
 sound card. Around the editor it carries a media library, a rehearsal recorder, a DJ desk and a
 picture compositor.
 

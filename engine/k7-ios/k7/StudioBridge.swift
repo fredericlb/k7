@@ -224,7 +224,7 @@ final class StudioBridge: NSObject, WKScriptMessageHandler, SupervisorListener, 
         NSError(domain: "k7", code: 4, userInfo: [NSLocalizedDescriptionKey: why])
     }
 
-    /// The desktop's list (apps/k7-standalone/src/engineBridge.ts), plus removing a studio, which only unlists this engine.
+    /// The commands the tray's pages may send too (apps/k7/backend/src/localEngine/routes.ts), plus removing a studio, which only unlists this engine.
     private static let allowed: Set<String> = [
         "engine.start", "engine.stop", "engine.restart", "audio.priority",
         "plugins.rescan", "instruments.download", "instruments.remove", "weburi.remove",

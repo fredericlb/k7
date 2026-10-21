@@ -190,7 +190,7 @@ k7 owns the flow because it is the service with NO path prefix: `redirectUriFor`
 It is `engine/k7-runtime`'s `dev` script, which is what gives it a pane in the TUI beside the
 servers. It builds the engine and the supervisor, and runs the supervisor as the command-line engine
 — `k7-supervisor --config <state>/engine-host.json` (`engine/scripts/devEngine.mjs`), the settings
-file a desktop install keeps, created as `{}` when absent so the studio comes from
+file the tray's engine keeps too, created as `{}` when absent so the studio comes from
 `$STUDIO_REGISTRY_URL`. Edit that file to point the dev engine elsewhere; the supervisor never writes
 it back.
 

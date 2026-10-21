@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src", "specs", "playwright.config.ts", "playwright.desktop.config.ts"]
+  "include": ["src", "specs", "playwright.config.ts"]
 }

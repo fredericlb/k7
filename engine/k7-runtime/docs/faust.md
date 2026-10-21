@@ -143,9 +143,10 @@ target on a machine that is building at the same time.
 ## Where `import("stdfaust.lib")` is resolved
 
 At **runtime**, when the engine compiles a module — not at build time. So the folder has to travel
-with the app: `stage.mjs` copies the submodule's 43 `.lib` files into `resources/faust-libs/`, and
-`faustLibrariesDir()` probes the four layouts an Electron package can take, in the same order and
-for the same reason `bundle.ts` does for the file service. `$STUDIO_FAUST_LIBS` comes first: a host
+with the engine: `stageEngine` (`packages/supervisor-host/scripts/stageEngine.mjs`) copies the
+submodule's `.lib` files into `faust-libs/` beside the binaries, for the command-line archive and the
+tray alike, and `faustLibrariesDir()` probes the layouts a package may use, beside the executable first,
+rather than assuming one. `$STUDIO_FAUST_LIBS` comes first: a host
 with no executable to look beside — the Android app — names the folder it unpacked them into
 (`docs/android.md`).
 

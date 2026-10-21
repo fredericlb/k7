@@ -16,7 +16,7 @@ it sends, `src/compile/jsDspChild.ts`.
 | `--permission` with nothing granted | no file read or write, no child process, no worker, no addon, no inspector. It is the gate the rest leans on |
 | a resolve hook refuses every import but the two `data:` URLs, and `@studio/dsp` maps to its own | node 24's permission model has no network gate, so `node:net` and `node:http` are closed by refusing the import, along with every other builtin |
 | `fetch`, `WebSocket`, `EventSource` and `process`'s escape hatches are deleted before the module loads | these reach a builtin or the network without an import |
-| an empty environment | nothing a module could print back. Only `ELECTRON_RUN_AS_NODE` under Electron and `SystemRoot` on Windows are set, which the binary needs to start as node. On Windows libuv adds the variables it holds a process needs (`PATH`, `TEMP`, `USERNAME`, `USERPROFILE`…) to every child it spawns, and no option of node's turns that off: there the module sees those, which name the user and their folders and nothing secret |
+| an empty environment | nothing a module could print back. Only `SystemRoot` on Windows is set, which the binary needs to start (and `ELECTRON_RUN_AS_NODE` when the parent is Electron's node). On Windows libuv adds the variables it holds a process needs (`PATH`, `TEMP`, `USERNAME`, `USERPROFILE`…) to every child it spawns, and no option of node's turns that off: there the module sees those, which name the user and their folders and nothing secret |
 | `--disallow-code-generation-from-strings`, a 256 MB heap, 30 s and `SIGKILL`, 1 MB of output | a module may fail or loop, but it cannot make the compile hang or swallow the box |
 | a module with no default export prints `{}` | its node keeps its place in the chain, with no parameters, instead of disappearing |
 | the module may not import at run time | a song folder has no `node_modules`, and the builder already arrives as an argument. `import type` is erased and is all a module needs |
@@ -42,13 +42,13 @@ owns nothing.
   - a pre-forked privileged daemon is more code holding the same privilege.
 - **A process running as root** drops the child to `STUDIO_DSP_UID`/`STUDIO_DSP_GID`, or to
   `nobody` (65534) when neither is set. It never runs a module as root.
-- **The desktop and the phone** have one user, and it is the author's own, so they skip this
+- **The tray and the phone** have one user, and it is the author's own, so they skip this
   layer. The environment, the permission model and the hook still apply.
 
 ## What stays open
 
-- The network on the desktop and the phone, if a module finds a way past the hook. In the image,
+- The network under the tray and on the phone, if a module finds a way past the hook. In the image,
   `dsp` has the same network as `node`.
 - CPU for 30 seconds per compile. The result is cached in `jsdsp.json`, so steady state runs nothing.
-- A packaged desktop or phone has no esbuild beside its bundle, so it runs no jsdsp at all and
+- The tray and the phone apps have no esbuild beside their bundle, so it runs no jsdsp at all and
   plays the committed `jsdsp.json`.

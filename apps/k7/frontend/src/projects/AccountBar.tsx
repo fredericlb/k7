@@ -1,6 +1,6 @@
-// AccountBar.tsx — the top of the home page in the desktop and Android apps: the account's control and, signed in, the servers
-// it syncs with (SyncServers.tsx); signed out, what that means here — the machine's local user, whose workspaces are
-// its own, the account's syncing on and back on sign-in. Absent on the hosted build. See apps/k7-standalone/docs/signIn.md.
+// AccountBar.tsx — the top of the home page wherever this machine runs its own backend (the tray's, a phone app's): the
+// account's control and, signed in, the servers it syncs with (SyncServers.tsx); signed out, what that means here — the
+// machine's local user, whose workspaces are its own. Absent on a server. See ../../docs/localApp.md.
 
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";

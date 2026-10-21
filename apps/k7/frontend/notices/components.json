@@ -293,22 +293,13 @@
       "text": "sonivox.txt"
     },
     {
-      "name": "Electron",
-      "versionFrom": "package:apps/k7-standalone#electron",
-      "license": "MIT",
-      "url": "https://github.com/electron/electron",
-      "where": ["desktop"],
-      "text": "electron.txt",
-      "shipped": "LICENSES.chromium.html, beside the app's executable, lists Chromium's and Node.js's components."
-    },
-    {
       "name": "Node.js",
       "version": "24",
       "source": "apps/k7/docker/Dockerfile",
       "license": "MIT",
       "url": "https://nodejs.org",
-      "where": ["server"],
-      "note": "The node:24-alpine image k7's server runs on.",
+      "where": ["desktop", "server"],
+      "note": "The node:24-alpine image k7's server runs on, and the node the tray bundles to run k7's backend.",
       "text": "nodejs.txt"
     },
     {

@@ -71,7 +71,7 @@ Unlike a project, a removed workspace does not go to a recycle bin.
 
 ## Where a workspace lives
 
-In the desktop and phone apps, each workspace row carries an icon saying where it is:
+On a computer running the [tray](./82-desktop-app.md) and in the phone apps, each workspace row carries an icon saying where it is:
 
 | State | Tooltip |
 |---|---|

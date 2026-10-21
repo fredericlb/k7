@@ -20,7 +20,7 @@ env.yaml
 # The native build outputs. None of it belongs in an image — the web image builds from the
 # workspace sources only, and the engine image (engine/docker/Dockerfile) compiles its own
 # binaries for its own Linux. All are gitignored, so CI's fresh checkout never has them; this is what stops a LOCAL
-# image build from shipping ~30GB of CMake output and Electron packages to the daemon as build
+# image build from shipping ~30GB of CMake output and app packages to the daemon as build
 # context.
 engine/k7-runtime/build
 engine/k7-supervisor/build

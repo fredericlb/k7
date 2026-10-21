@@ -58,7 +58,7 @@ it does declare (the DJ desk for a `mix` project, the chains graph for a `live` 
 | **Can't reach this engine's files** | The engine's file service did not answer. Retry, or choose another engine. |
 | **The project could not be loaded on the engine** | Some audio files did not reach the engine's machine, so the project was not sent (its clips would be silent). Click **Reload project**. |
 | "The engine crashed and was restarted…" | The project is sent again automatically. Anything playing stopped. |
-| A module needs a sampled instrument "…which is not on the engine's machine" | Download that instrument on the engine's machine (desktop app: Settings → Engine → Downloads). |
+| A module needs a sampled instrument "…which is not on the engine's machine" | Download that instrument on the engine's machine (on a computer running the tray: the engine page's Downloads, from **Engine Settings…** in the tray menu). |
 
 ## The editor's header
 
@@ -102,9 +102,6 @@ If nothing happens in a project's tab for 20 minutes, the session goes to sleep:
 unloaded from the engine, which becomes free for someone else, and the screen **Session asleep**
 appears. Your files are untouched, since everything was already saved. Click **Resume session** to
 reopen it where you left off.
-
-A tab put behind another tab (in the desktop app) also lets go of the engine, and takes it back on
-its own when it comes to the front.
 
 ## Leaving a project
 

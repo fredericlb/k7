@@ -45,7 +45,7 @@ machine of its own.
 3. calls `setupAuth()` from `@frediverse/oidc` with cookie name `studio.sid`. This backend
    **owns** `/auth/*` for the origin: it mints the session other services only verify. With no
    `OIDC_*` configured it runs a "Dev User" stub;
-4. mounts the desktop handoff routes, then the rehearsal recorder (`@studio/rehearsal-server`)
+4. mounts the phone apps' sign-in handoff routes, then the rehearsal recorder (`@studio/rehearsal-server`)
    **before** the media library, whose catch-all `/api` guard would otherwise swallow it;
 5. mounts the media library (`apps/k7/backend/src/media/mount.ts`), which in turn mounts the
    engine registry, the tunnel hub, the file hub, shares, stems and the mpv player;
@@ -93,7 +93,7 @@ Where engine machines run:
 | Form | Code |
 |---|---|
 | Command-line engine (`k7-supervisor --config <file>`) | `engine/k7-supervisor`, staged by `engine/scripts/build-engine.mjs` |
-| Desktop app | `apps/k7-standalone`: Electron runs k7's backend and file services locally and drives the supervisor through `@studio/supervisor-host` |
+| The tray | `apps/k7-tray`: a windowless Tauri app that runs k7's backend on `127.0.0.1:18789`; the backend runs the file services and the supervisor (`@studio/supervisor-host`), and the person opens k7 in their browser |
 | Android app | `engine/k7-android`: the engine as a library, the supervisor as a program, and k7's backend bundled |
 | Server engine | `engine/docker/Dockerfile`: a container that dials k7 over the compose network and plays into a PulseAudio null sink |
 
@@ -112,6 +112,6 @@ details of these steps.
 
 ## What runs in production
 
-The hosted origin is the k7 image and the server engine image (see [Images and deployment](./08-images-and-deployment.md)). The desktop and phone apps
+The hosted origin is the k7 image and the server engine image (see [Images and deployment](./08-images-and-deployment.md)). The tray and the phone apps
 carry the same backend, bundled, and run it locally (see
 [Releases and publishing](./09-releases-and-publishing.md)).

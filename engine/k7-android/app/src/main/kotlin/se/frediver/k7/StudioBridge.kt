@@ -199,7 +199,7 @@ class StudioBridge(
         const val NAME = "k7Android"
         private const val TAG = "k7-bridge"
 
-        /** The desktop's list (apps/k7-standalone/src/engineBridge.ts), plus removing a studio, which only unlists this engine. */
+        /** The commands the tray's pages may send too (apps/k7/backend/src/localEngine/routes.ts), plus removing a studio, which only unlists this engine. */
         private val ALLOWED = setOf(
             "engine.start", "engine.stop", "engine.restart", "audio.priority",
             "plugins.rescan", "instruments.download", "instruments.remove", "weburi.remove",

@@ -43,7 +43,7 @@ Housekeeping: `staleCaches.ts` purges `.renders` and `.history` entries unused f
 request:
 
 - **Command:** `node <tsx cli> <@studio/file-service>/src/server.ts`, or `node $STUDIO_FILE_SERVICE_ENTRY`
-  when the backend is bundled (desktop, phone).
+  when the backend is bundled (the tray, the phone).
 - **Environment:** an allow-list of the parent's (`packages/file-hub/serviceEnv.ts`), plus `STUDIO_HOME=<root>/<slug>`, `STUDIO_FILE_PORT` (a free
   loopback port), `STUDIO_HUB_SECRET` (random per instance), `STUDIO_LIBRARIES_HOME=<root>/libraries`,
   `STUDIO_HUB_URL`, `STUDIO_SYNC_URL` (the hub's own relay, or the paired server's with
@@ -69,14 +69,14 @@ stamped. A ticket may carry `~<engineId>` to bind that engine to the account fir
 | `/api/files-hub/internal/*` | `x-studio-hub-secret` of a running instance | Called by a file service: `share/checkpoint`, `share/files`, `libraries/remote`, `libraries/sync`. |
 | `GET /api/public/libraries[/<name>/<v>[/file?path=]]` | none | Published library versions, for machines that fetch them. Never the draft. |
 | `WS /api/sync` | device token or hub secret | The live-sync relay ([live-sync](./38-live-sync.md)). |
-| `/api/sync/devices` (`GET`, `POST`, `DELETE /:id`), `GET /api/sync/devices/pair` | session | Device tokens, and the browser pairing flow that hands one to a desktop. |
+| `/api/sync/devices` (`GET`, `POST`, `DELETE /:id`), `GET /api/sync/devices/pair` | session | Device tokens, and the browser pairing flow that hands one to a machine's own backend. |
 | `/api/sync/remote` (`GET`, `PUT`, `POST /main`, `DELETE`) | session | Pair this machine's account with remote servers; writes refused (403) unless pairing is enabled. |
 | `/api/sync/blobs/:hash` | device token or hub secret | Binary blobs: GET with ranges, resumable PUT verified against the hash, 2 GiB max. |
 | `GET /api/sync/rooms` | token or secret | Workspaces that have a room. |
 | `/api/sync/history/:workspace` (`GET`, `POST /checkpoints`, `GET /diff`, `POST /restore`) | session | The server log as history; a restore is submitted to the room as a batch. |
 | `GET /api/sync/events` | session | Server-sent change notices, 20 s heartbeat. |
 
-**Remote pairing** is enabled only where `STUDIO_LOCAL_USER=1` (the desktop and the phone builds,
+**Remote pairing** is enabled only where `STUDIO_LOCAL_USER=1` (the tray's and the phone's backends,
 option `remotePairing`). On the origin server no account may be paired, because the origin's
 libraries follow the first paired account.
 

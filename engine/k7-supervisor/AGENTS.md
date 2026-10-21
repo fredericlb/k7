@@ -1,6 +1,6 @@
 # AGENTS.md — k7-supervisor
 
-The engine machine's supervisor, in C++, run two ways: spawned by an app (the desktop app, the phone)
+The engine machine's supervisor, in C++, run two ways: spawned by an app (k7's backend under the tray, the phone)
 and driven over NDJSON on stdio, or on its own as the command-line engine, `k7-supervisor --config
 <file>`. Either way it starts or adopts `k7-runtime`, keeps it listed at the studios it is connected
 to, holds the tunnel a server reaches the machine through, and runs the jobs the server hands it. Why

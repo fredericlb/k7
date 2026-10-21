@@ -17,15 +17,15 @@ import {
   TooLargeError,
 } from "./store.ts";
 
-/** One store per app: the desktop app's builds and the tray's never share a folder, so neither publish drops the other. */
+/** One store per workflow: desktop.yml's (the APK, the engine archives) and the tray's never share a folder, so neither publish drops the other. */
 export interface AppReleaseStores {
-  desktop: AppReleaseStore;
+  main: AppReleaseStore;
   tray: AppReleaseStore;
 }
 
-/** The stores under `root`: the desktop app's at the root, as it always was, the tray's in `tray/`. */
+/** The stores under `root`: desktop.yml's at the root, the tray's in `tray/`. */
 export const appReleaseStores = (root: string): AppReleaseStores => ({
-  desktop: appReleaseStore(root),
+  main: appReleaseStore(root),
   tray: appReleaseStore(join(root, "tray")),
 });
 
@@ -85,7 +85,7 @@ function uploads(store: AppReleaseStore, maxBytes: number): Router {
   return router;
 }
 
-/** /api/app-releases: the desktop app's builds at the root, the tray's under /tray. */
+/** /api/app-releases: desktop.yml's builds at the root, the tray's under /tray. */
 export function appReleasesRouter(
   stores: AppReleaseStores,
   token: string | undefined,
@@ -94,7 +94,7 @@ export function appReleasesRouter(
   const router = Router();
   router.use(releaseToken(token));
   router.use("/tray", uploads(stores.tray, maxBytes));
-  router.use(uploads(stores.desktop, maxBytes));
+  router.use(uploads(stores.main, maxBytes));
   return router;
 }
 
@@ -146,14 +146,14 @@ export function appDownloadsRouter(stores: AppReleaseStores): Router {
       .type("html")
       .send(
         downloadsPage(
-          { desktop: builds(stores.desktop), tray: builds(stores.tray) },
+          { main: builds(stores.main), tray: builds(stores.tray) },
           req.acceptsLanguages("en", "fr") === "fr",
         ),
       );
   });
 
-  // Before the desktop's: `/tray/release.json` would otherwise read as the file `release.json` of a channel `tray`.
+  // Before the root's: `/tray/release.json` would otherwise read as the file `release.json` of a channel `tray`.
   router.use("/tray", feed(stores.tray));
-  router.use(feed(stores.desktop));
+  router.use(feed(stores.main));
   return router;
 }

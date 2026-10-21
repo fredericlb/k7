@@ -98,7 +98,7 @@ async function pair(server: string, main: boolean): Promise<boolean> {
   return follow(pairing.state);
 }
 
-/** The account controls' bridge in a browser — the shape the desktop app's preload had (./bridge.ts). */
+/** The account controls' sign-in and pairing in a browser (./bridge.ts). */
 export const browserAccount = {
   signIn(server?: string): void {
     if (server) {

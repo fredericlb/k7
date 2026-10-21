@@ -40,11 +40,11 @@ const LABELS = {
     none: "No build published yet.",
     published: "published",
     updates:
-      "The Windows app, the AppImage and the Android app update themselves. On macOS and with the .deb, download again from here.",
+      "The tray and the Android app update themselves; with the tray's .deb, download again from here.",
     sums: "Checksums",
     tray: "Tray",
     trayNote:
-      "The engine alone, run from the menu bar, for a machine that plays what k7 sends it. It updates itself like the desktop app.",
+      "The engine alone, run from the menu bar, for a machine that plays what k7 sends it. It updates itself.",
   },
   fr: {
     lang: "fr",
@@ -56,11 +56,11 @@ const LABELS = {
     none: "Aucune build publiée pour l'instant.",
     published: "publiée le",
     updates:
-      "L'app Windows, l'AppImage et l'app Android se mettent à jour seules. Sur macOS et avec le .deb, retéléchargez ici.",
+      "Le tray et l'app Android se mettent à jour seuls ; avec le .deb du tray, retéléchargez ici.",
     sums: "Sommes de contrôle",
     tray: "Tray",
     trayNote:
-      "Le moteur seul, lancé depuis la barre de menus, pour une machine qui joue ce que k7 lui envoie. Il se met à jour comme l'app de bureau.",
+      "Le moteur seul, lancé depuis la barre de menus, pour une machine qui joue ce que k7 lui envoie. Il se met à jour seul.",
   },
 };
 
@@ -78,7 +78,7 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c]);
 const megabytes = (bytes: number) =>
   `${Math.max(1, Math.round(bytes / 1048576))} MB`;
 
-type Product = "desktop" | "tray";
+type Product = "main" | "tray";
 
 // The tray's feed sits under tray/, as routes.ts mounts it.
 const hrefOf = (product: Product, channel: Channel, name: string) =>
@@ -123,7 +123,7 @@ export function downloadsPage(
   french: boolean,
 ): string {
   const t = french ? LABELS.fr : LABELS.en;
-  const sections = (["desktop", "tray"] as const)
+  const sections = (["main", "tray"] as const)
     .flatMap((p) =>
       (["release", "snapshot"] as const).map((c) =>
         section(p, c, builds[p][c], t),

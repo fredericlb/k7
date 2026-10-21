@@ -65,7 +65,7 @@ Each row is one line of the playlist, numbered from 1.
 | Put on a deck | Drag the row onto a deck of the desk. |
 | Separate the stems | The **Separate the stems** button opens a bar that prepares every song; see [Preparing a gig](./65-gig-prep.md#separating-stems). |
 
-At the foot of the list, **Add new songs** opens the media library's songs page, which is where a song is uploaded. On the desktop app with no server paired, it says to pair one in Settings instead.
+At the foot of the list, **Add new songs** opens the media library's songs page, which is where a song is uploaded. On a computer running the tray with no server paired, it says to pair one in Settings instead.
 
 A row that cannot play says why: not found in the media library, the variant does not exist, or the variant's file is missing from the song's folder. A row already separated says so too.
 

@@ -22,7 +22,6 @@
     "./pairing": "./pairing.ts",
     "./settings": "./settings.ts",
     "./handoff": "./handoff.ts",
-    "./desktop": "./desktop.ts",
     "./playlists": "./playlists.ts",
     "./paths": "./paths.ts"
   },

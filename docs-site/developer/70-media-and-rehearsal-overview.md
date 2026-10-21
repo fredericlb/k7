@@ -61,9 +61,9 @@ The rehearsal store carries **no audio**: it keeps paths into the media library,
 of copies for Range requests (`packages/rehearsal-server/src/cache.ts`), trimmed past
 `CACHE_MAX_GB` (20 by default).
 
-## Server, desktop and phone
+## Server, computer and phone
 
-The same backend runs on the hosted server and, bundled, inside the desktop and Android apps. On a
+The same backend runs on the hosted server and, bundled, inside the tray and the Android app. On a
 device:
 
 - The media library and the songbook are local; a paired device compares its entries with the

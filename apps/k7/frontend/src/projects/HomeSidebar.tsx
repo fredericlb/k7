@@ -221,7 +221,7 @@ function HomeSidebar({
           settingsLabel={m["home.settings"]()}
           label={m["home.account"]()}
           logoutLabel={m["home.signOut"]()}
-          // Beside Settings, in an app that updates itself; the desktop app's own engine page; About (../../docs/about.md).
+          // Beside Settings, in an app that updates itself; this machine's engine page, on the tray's backend; About (../../docs/about.md).
           items={[
             ...(canCheckForUpdates()
               ? [

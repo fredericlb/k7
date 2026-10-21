@@ -63,7 +63,7 @@ only judged absent against a cache that has something in it.
 `engineModules()` offers the generated table (`@studio/song-schema/builtinParams`) as the scan
 would list them — `internal`, by display name and role — whenever the cache is empty. An account's
 file service has no cache until an engine is bound to it (`packages/file-hub/binding.ts` writes it
-then), and a project compiled before that — an open through the API, a fresh desktop app — would
+then), and a project compiled before that — an open through the API, a fresh install on a computer — would
 otherwise lose every `@engine/…` node, a Surge synth sent no patch. A scan that says something
 replaces the table rather than adding to it: it is what THIS engine has, and a build without Surge
 must not be sent one. Externals have no table, so they stay unknown until the scan lands.

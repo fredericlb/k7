@@ -604,7 +604,7 @@ hold that number and that rate down.
 - **The playhead moves without repainting** (`playhead.md`). A transform written per frame was,
   by itself, a full re-layerization per frame even with nothing else on screen moving.
 
-Measured on that song in the desktop app, playing (% of one core):
+Measured on that song in Chromium, playing (% of one core):
 
 | | layers | layerize per frame | renderer | GPU process |
 |---|---|---|---|---|

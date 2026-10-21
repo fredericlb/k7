@@ -1,6 +1,6 @@
 # live-sync: edits as operations
 
-A workspace lives on the server and on every device that opens it: a desktop, a phone, the file
+A workspace lives on the server and on every device that opens it: a computer, a phone, the file
 service behind the browser. `packages/live-sync` defines how an edit travels between them — as an
 **operation** on a key path when one can express it, as a whole text otherwise — and the **order**
 in which every replica applies them. The server's room assigns that order; its log is the

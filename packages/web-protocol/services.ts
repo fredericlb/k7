@@ -109,7 +109,7 @@ export function parsePorts(
   return out;
 }
 
-/** SERVICE_PORTS, with what the host moved, and pl8 on k7's — the desktop app runs on its own ports beside a dev session. */
+/** SERVICE_PORTS, with what the host moved, and pl8 on k7's — a phone app runs on its own port. */
 export function servicePorts(): Record<StudioService, number> {
   const g = globalThis as {
     [PORTS_GLOBAL]?: unknown;

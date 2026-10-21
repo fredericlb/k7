@@ -2,13 +2,13 @@
 
 `engine/scripts/` builds the two native programs and packages what ships to a musician's machine.
 They live under `engine/` because both deliverables are built around the same two binaries: the
-command-line engine IS those binaries, and the desktop app (`apps/k7-standalone`) carries them.
+command-line engine IS those binaries, and the tray (`apps/k7-tray`) carries them.
 
 | script | what |
 |---|---|
 | `build-engine.mjs` (`npm run engine:build`) | the engine, then the supervisor, then the command-line engine staged in `dist/k7-runtime/` |
 | `supervisorBuild.mjs` | building and finding the supervisor — one answer for this script, the dev session and the Android app's Gradle build |
-| `package-release.mjs --kind engine\|desktop\|tray` | one release file per kind into `dist/release/`, named for a stamp (`docs/desktop-release.md`) |
+| `package-release.mjs --kind engine\|tray` | one release file per kind into `dist/release/`, named for a stamp (`docs/desktop-release.md`) |
 | `devEngine.mjs` | the dev session's engine: the supervisor run with `--config <state>/engine-host.json`, and every running supervisor and engine stopped before a relink (`docs/dev.md`) |
 | `buildTools.mjs` | where output goes, and spawning with the Windows shell quirk |
 
@@ -19,7 +19,7 @@ defined once. Each program's preset comes from the host platform, or from `STUDI
 ## The command-line engine is a folder, not an installer
 
 `dist/k7-runtime/` holds everything the engine needs to run with no repo and nothing on `PATH`,
-staged by `packages/supervisor-host/scripts/stageEngine.mjs` — the same function the desktop app
+staged by `packages/supervisor-host/scripts/stageEngine.mjs` — the same function the tray
 stages its `bin/` with, so the two deliverables cannot carry different things:
 
 | file | what |
@@ -35,7 +35,7 @@ release: unpacking it is the whole install, and the config is a file the user ed
 nothing for an installer to do.
 
 `stageEngine` also takes a staged folder as it is, from `$STUDIO_PREBUILT_BIN`: that is how CI's
-desktop job packages the app around the binaries its engines job built, compiling nothing.
+tray job packages the tray around the binaries the engine job built, compiling nothing.
 
 ### ONNX Runtime, beside the supervisor
 

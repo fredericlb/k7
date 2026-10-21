@@ -5,8 +5,8 @@ settings, a row per app on the origin minus the one drawing it, and the logout. 
 header has a settings button of its own**: the host hands `onSettings` its own navigation, so the
 settings are found the same way everywhere.
 
-Other pages of the SAME app go in `items`, as rows under Settings: k7 in the desktop app adds
-**Engine** there (`apps/k7-standalone/docs/engine.md`). They are callbacks into the host's router,
+Other pages of the SAME app go in `items`, as rows under Settings: k7 on a machine that runs its own engine adds
+**Engine** there (`apps/k7/frontend/docs/localApp.md`). They are callbacks into the host's router,
 where the app rows are links to other apps.
 
 The menu itself — the email heading, the rows opening in a new tab, the logout, the notice in
@@ -53,7 +53,7 @@ way, so the tab lands on the app's mount rather than on a redirect to it.
 ## `origin`, and the day there is none
 
 Hosted, the apps share one origin and every row is a same-origin path — `origin` is left out and
-the links are relative. On the **desktop** they are not: that app serves k7's bundle locally and
+the links are relative. On a **computer** they are not: the tray's backend serves k7's bundle locally and
 nothing else, so the hosted apps answer on the PAIRED SERVER and every row is built against it
 (`apps/k7/frontend/src/desktop.ts` holds the pairing).
 

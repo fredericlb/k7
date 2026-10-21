@@ -112,7 +112,7 @@ New to k7? Read [What k7 is](./01-what-is-k7.md), then [The home page](./03-home
 
 - [Engines: what plays your music](./80-engines.md)
 - [The command-line engine](./81-command-line-engine.md)
-- [The desktop app](./82-desktop-app.md)
+- [k7 on your computer: the tray](./82-desktop-app.md)
 - [The Android app](./83-android-app.md)
 - [Audio interfaces, MIDI and plugins](./84-audio-midi-plugins.md)
 - [Connecting a machine to a studio](./85-connecting-machines.md)

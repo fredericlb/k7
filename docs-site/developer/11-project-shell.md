@@ -47,7 +47,7 @@ Only `@local/<workspace>/<project>` and `@banc` addresses resolve; an older two-
 
 `useIdleTimeout` stamps a module-level "last active" time on pointer, key, wheel and touch events (and `markActive()` for what no event reports, such as playback) and checks it every 15 s — a timestamp rather than a restarted timer, so a machine waking from sleep tells the truth. k7 passes `IDLE_TIMEOUT_MS` (20 minutes). Tabs of the same origin tell each other when they were last used over a `BroadcastChannel`, so a forgotten tab does not unload a session another tab is using.
 
-`sleepMove` is the shared rule: an open project goes to sleep when out of sight (a background desktop tab) or idle; only a `hidden` sleep wakes by itself. Going to sleep unloads the engine; the host app is told through `onIdle` / `onResume` because k7's engine lease belongs to the gate above.
+`sleepMove` is the shared rule: an open project goes to sleep when out of sight (a background browser tab) or idle; only a `hidden` sleep wakes by itself. Going to sleep unloads the engine; the host app is told through `onIdle` / `onResume` because k7's engine lease belongs to the gate above.
 
 ## Undo
 

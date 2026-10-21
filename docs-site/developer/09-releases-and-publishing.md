@@ -1,16 +1,16 @@
 # Releases and publishing
 
-Three things leave this repository besides the hosted images: the **command-line engine** archive,
-the **desktop app** installer and the **Android APK**, all built by the desktop release, and four
-**npm packages** consumed by another repository.
+Four things leave this repository besides the hosted images: the **command-line engine** archive
+and the **Android APK**, built by the `desktop` workflow; the **tray** installers, built by the `tray`
+workflow; and four **npm packages** consumed by another repository.
 
 ## What a release contains
 
 | File | Built from | Platforms |
 |---|---|---|
 | `k7-runtime_<stamp>_<platform>-<arch>.tar.gz` (`.zip` on Windows) | `engine/scripts/build-engine.mjs` + `engine/scripts/package-release.mjs --kind engine` | `windows-x64`, `macos-arm64`, `linux-x64` |
-| `k7_<stamp>_<platform>-<arch>.<dmg/exe/AppImage>` | `npm run package --workspace k7-standalone` + `package-release.mjs --kind desktop` | Same three |
-| `k7-android_<stamp>_arm64.apk` | `./gradlew assembleDebug` in `engine/k7-android` | Android arm64 |
+| `k7-android_<stamp>_arm64.apk` | `./gradlew assembleRelease` in `engine/k7-android` | Android arm64 |
+| `k7-tray_<stamp>_<platform>-<arch>.<exe/dmg/AppImage/deb>`, and the updater's `latest.json` | `npm run build --workspace k7-tray` + `package-release.mjs --kind tray` | `windows-x64`, `macos-arm64`, `linux-x64`; in releases of their own |
 
 ### The stamp
 
@@ -28,8 +28,12 @@ Release files are named by a stamp, not by a package version:
 
 | Channel | When | GitHub release |
 |---|---|---|
-| Snapshot | Every push to `main` that touches `engine/`, `apps/`, `packages/`, `commons`, `package-lock.json` or the desktop workflows | The `snapshot` release is deleted and recreated as a pre-release pointing at the new commit, titled `snapshot <stamp>`. |
-| Release | A tag matching `v*.*.*`, equal to `v` + the root `package.json` version | A release named after the tag, with generated notes. |
+| Snapshot | Every push to `main` that touches what the workflow builds from ([CI](./07-ci.md)) | The `snapshot` release (and the tray's `tray-snapshot`) is deleted and recreated as a pre-release pointing at the new commit, titled `snapshot <stamp>`. |
+| Release | A tag matching `v*.*.*`, equal to `v` + the root `package.json` version | A release named after the tag (the tray's `tray-vX.Y.Z`), with generated notes. |
+
+The tray keeps its own GitHub releases so that neither workflow ever recreates the other's. Both
+workflows also upload to `k7.rocks/app_downloads` (the tray under `/app_downloads/tray`), the page
+people download from and the feed the tray updates from (`docs/app-downloads.md`).
 
 To cut a release, set the version (the root `package.json`'s, copied into every private workspace)
 in a commit on `main`, then tag that commit with the same version. CI refuses a tag that differs
@@ -42,16 +46,17 @@ git tag v1.2.0
 git push origin main v1.2.0
 ```
 
-A manual dispatch of the `desktop` workflow on another branch builds everything and uploads the
-artifacts to the run without publishing a release.
+A manual dispatch of the `desktop` or `tray` workflow on another branch builds everything and
+uploads the artifacts to the run without publishing a release.
 
-OneDev can build the Windows engine archive, the Windows installer and the APK, by hand, and
-gathers them as the files of its `release` build (see [CI](./07-ci.md)). The Linux and macOS files
-come from GitHub only.
+OneDev can build the Windows engine archive and the APK, by hand, and gathers them as the files of
+its `release` build (see [CI](./07-ci.md)). The other files come from GitHub only.
 
-Nothing is signed. The macOS app sets `identity: null` in `apps/k7-standalone/electron-builder.cjs`
-and is not notarised; the Windows NSIS installer is unsigned; the APK is debug-signed. Both desktop
-installers warn on first launch.
+The APK is signed with the release key held in CI secrets. The tray's installers are not
+code-signed (the macOS app is ad-hoc signed and not notarised, so it warns on first launch), but
+every tray update is signed with the updater key (`TAURI_SIGNING_PRIVATE_KEY` in CI secrets, its
+public half in the repository variable `K7_UPDATER_PUBKEY`), and a build without it ships with no
+updater rather than one that trusts anything.
 
 ## The command-line engine
 
@@ -78,32 +83,31 @@ Environment variables the build reads:
 | `STUDIO_COMPILER_LAUNCHER` | Compiler launcher read by the presets (`sccache` or `ccache` in CI). |
 | `CMAKE_BUILD_PARALLEL_LEVEL` | Compiler parallelism; the build scripts default to cores minus two. |
 
-## The desktop app
+## The tray
 
-`npm run package --workspace k7-standalone`:
-
-1. builds the Electron main bundle (`apps/k7-standalone/scripts/build-main.mjs`);
-2. stages `apps/k7-standalone/staging/` (`apps/k7-standalone/scripts/stage.mjs`): the frontend built
-   with Vite, k7's backend and file service bundled as plain JavaScript by
-   `apps/k7/backend/scripts/bundle.mjs` (the same bundle the phone runs, including the frontend, the
-   demos and the `k7-core` library), and the engine binaries via `stageEngine`;
-3. runs `electron-builder` with `apps/k7-standalone/electron-builder.cjs`: a `dmg` on macOS, an `nsis`
-   installer on Windows, an `AppImage` on Linux, app ID `org.parapluie.k7.standalone`.
+`npm run stage --workspace k7-tray` (`apps/k7-tray/scripts/stage.mjs`) fills
+`apps/k7-tray/src-tauri/resources/`: k7's backend and file service bundled as plain JavaScript by
+`apps/k7/backend/scripts/bundle.mjs` (the same bundle the phone runs, including the frontend, the
+demos and the `k7-core` library), the engine binaries via `stageEngine`, and a pinned, checksummed
+Node 24. `npm run build --workspace k7-tray` then runs `tauri build`: an NSIS installer on Windows,
+a `dmg` and the updater's `.app.tar.gz` on macOS, an AppImage and a `.deb` on Linux.
 
 `stageEngine` takes the binaries from `$STUDIO_PREBUILT_BIN` when it is set, instead of from the
-local build folders. CI uses this to package the desktop app around the engine archive built by the
-previous job, without compiling anything. `package-release.mjs --kind desktop` copies each installer
-from `apps/k7-standalone/out/` to `dist/release/` under its release name.
+local build folders. CI uses this to package the tray around the engine archive built by the
+previous job, without compiling anything. `package-release.mjs --kind tray` copies each installer
+to `dist/release/` under its release name and writes that platform's fragment of the updater's
+`latest.json`, which `engine/scripts/tray-manifest.mjs` merges in the publish job.
 
-The desktop and Android sections of this guide cover the apps themselves.
+[The tray and the phone apps](./86-desktop-and-android.md) covers the apps themselves.
 
 ## The Android APK
 
 Gradle builds everything: the engine as `libk7runtime.so` in the `android-arm64` preset, the
 supervisor, and the Capacitor page from the `engine/k7-android/web` workspace (which is why CI runs
 `npm ci` at the root first). The versions it needs are pinned in `engine/k7-android/app/build.gradle.kts`:
-compile SDK 36 and NDK 29.0.14206865, on JDK 21. CI caches the debug keystore, because Android
-refuses to update an app signed by a different key.
+compile SDK 36 and NDK 29.0.14206865, on JDK 21. CI signs the release APK with the key held in its
+secrets, because Android refuses to update an app signed by a different key; a tag without that key
+fails, a snapshot without it ships no APK.
 
 ```bash
 npm ci

@@ -83,7 +83,7 @@ test("/settings draws every section with its controls", async ({ k7 }) => {
   watch.assertClean();
 });
 
-test("/settings/engine says on the web that it is the desktop app's page", async ({
+test("/settings/engine says on a server that it is the tray's page", async ({
   k7,
 }) => {
   const page = await k7.open("/settings");
@@ -99,7 +99,7 @@ test("/settings/engine says on the web that it is the desktop app's page", async
   if (TARGET === "web")
     await expect(
       page.getByText(
-        "This page is the desktop app's: open it there to set its built-in engine.",
+        "This page is for a machine running the k7 tray: open k7 from the tray to set its engine.",
       ),
     ).toBeVisible();
   watch.assertClean();

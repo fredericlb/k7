@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "engine/k7-supervisor as the child of an Electron app: spawned, kept running, its NDJSON frames, and its binaries staged into the app. Built on @frediverse/electron-shell. See docs/supervisorHost.md.",
+  "description": "engine/k7-supervisor as a child process: spawned, kept running, its NDJSON frames, and its binaries staged into an app. Run by k7's backend under the tray, and by engine/scripts. See docs/supervisorHost.md.",
   "exports": {
     "./supervisorHost": "./src/supervisorHost.ts",
     "./hostProtocol": "./src/hostProtocol.ts",
@@ -14,12 +14,8 @@
     "test": "vitest run",
     "generate": "node scripts/generateProtocol.mjs"
   },
-  "peerDependencies": {
-    "electron": ">=40"
-  },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "electron": "44.7.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10",
     "zod": "^4.4.3"

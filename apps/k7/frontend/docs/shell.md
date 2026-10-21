@@ -1573,11 +1573,10 @@ Measured on a build: the icon chunk is ~150 KB gzipped, and the home page carrie
 
 ## The entry is split by ADDRESS, and the home page is what that is for
 
-`main.tsx` already branched before importing anything heavy, so a 36-pixel tab strip would not load the
-whole of k7. `appMain.tsx` did not, and the home page paid for it: it statically imported `App`, so
-opening the app at `/` parsed and executed the entire editor — CodeMirror, dagre, `@studio/ui-eyes`,
-`@studio/ui-turntables` — before drawing a single workspace row. The symptom is a window that opens and
-stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
+`main.tsx` branches on the address before importing anything heavy, and `appMain.tsx` must too: a static
+`import App` there makes opening the app at `/` parse and execute the entire editor — CodeMirror, dagre,
+`@studio/ui-eyes`, `@studio/ui-turntables` — before drawing a single workspace row. The symptom is a page
+that opens and stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
 
 The screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
 `SharedGate`, the public rehearsal page, and the home's own other pages — the médiathèque, the libraries,
@@ -1660,8 +1659,8 @@ cannot scan has no fallback there, and `ui external <surface>` is what remains f
 
 ### The one thing a QR code here gets wrong on its own
 
-Every address in this app is built on `window.location.origin`, and in the desktop window that origin is
-**loopback**. Encoded straight into a code, it scans perfectly and the phone opens *itself* — a silent
+Every address in this app is built on `window.location.origin`, and on a machine's own backend (the tray's,
+`http://127.0.0.1:18789`) that origin is **loopback**. Encoded straight into a code, it scans perfectly and the phone opens *itself* — a silent
 failure that reads as a broken camera. `src/remoteUrl.ts` is the conversion, and it is a tested pure
 function for that reason: a loopback origin is rebased onto a LAN address (`lanUrls`), a real
 origin is already reachable and left alone, and a machine
