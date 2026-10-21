@@ -1,19 +1,16 @@
-# The tray icon is drawn, not loaded
+# The tray icon: the k7 cassette, and a badge drawn in code
 
-`src-tauri/src/trayicon.rs` rasterizes the menu-bar icon in code rather than shipping PNGs.
+`src-tauri/src/trayicon.rs` builds the menu-bar icon from two parts: the k7 cassette, and a status badge
+in its bottom-right corner.
 
-The icon has to say four different things (running, stopped, can't start, loading), the
-loading one has to **animate**, and on macOS the glyph has to flip dark-on-light for a
-light menu bar. That is one shipped asset per state, per frame, per appearance — so it is a
-generator, not an asset set. The whole icon is about fifteen rectangles, circles and arcs,
-which is far less code than the pipeline that would bake them all.
+| choice | why |
+|---|---|
+| the cassette is the tray's own app icon (`src-tauri/icons/icon.png`), embedded and scaled down once | one drawing of k7, rendered from `icon/k7.svg` by `apps/k7/frontend/scripts/icons.mjs`; the menu bar shows the same mark as the installer and the PWA |
+| in colour, not a template image | macOS would turn a template monochrome, badge and all; the cassette's own colours read on a light menu bar and a dark one, so the icon asks no appearance |
+| the badge drawn in code | it says four things (running, stopped, can't start, loading) and the loading one animates: an asset per state per frame, where the code is a few circles, a triangle and an arc |
+| a cleared ring around the badge | it reads as its own token rather than part of the cassette, whose corner it takes |
 
-The glyph is the app icon's mark (three bars and a note) re-traced as plain geometry. It is
-deliberately **not** the 512px app icon downscaled: that art's long shadow and soft edges
-turn to mush at 22pt, and the badge needs the bottom-right corner cleared.
-
-Everything is described in a 0..1 unit square, rasterized 3× oversampled and box-filtered
-down — which is where the antialiasing comes from.
-
-The pixels leave as RGBA handed straight to Tauri's tray icon — no image library for one 44-pixel
-square — at 2×, the menu bar's 22pt.
+Everything is composed on a 3× oversampled canvas and box-filtered down in premultiplied alpha, which is
+where the antialiasing comes from, and leaves as RGBA handed straight to Tauri's tray icon at 2×, the
+menu bar's 22pt. `cargo test dump_icons` writes every state to a folder, a 22pt icon being too small to
+judge in place.

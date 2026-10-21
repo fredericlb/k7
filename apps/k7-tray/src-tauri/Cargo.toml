@@ -10,8 +10,8 @@ tauri-build = { version = "2", features = [] }
 # Short on purpose: the tray starts one process and draws one line. What k7 does happens in the backend and the
 # supervisor; a crate added here for logic is logic in the wrong place (docs/tray.md).
 [dependencies]
-# tray-icon: TrayIconBuilder. No webview feature is used: the tray opens no window.
-tauri = { version = "2", features = ["tray-icon"] }
+# tray-icon: TrayIconBuilder; image-png: the cassette the tray icon is drawn from. The tray opens no window.
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-updater = "2"

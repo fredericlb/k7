@@ -45,7 +45,6 @@ pub struct AppState {
     pub token: String,
     pub port: u16,
     pub spinner: usize,
-    pub dark_menubar: bool,
     pub menus: Option<Menus>,
 }
 

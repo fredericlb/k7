@@ -50,9 +50,8 @@ fn main() {
 
             let autostart_on = handle.autolaunch().is_enabled().unwrap_or(false);
             let mb = tray::build_menu(&handle, autostart_on, updates::auto_enabled(&handle))?;
-            let dark = trayicon::menubar_is_dark();
             let icon = TrayIconBuilder::with_id("main")
-                .icon(trayicon::render(trayicon::IconState::Loading(0), dark))
+                .icon(trayicon::render(trayicon::IconState::Loading(0)))
                 .tooltip("k7")
                 .menu(&mb.menu)
                 .show_menu_on_left_click(true)
@@ -65,7 +64,6 @@ fn main() {
                 token: backend::random_hex(32),
                 port: backend::port(&handle),
                 spinner: 0,
-                dark_menubar: dark,
                 menus: Some(Menus {
                     status: mb.status,
                     downloads: mb.downloads,

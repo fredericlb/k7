@@ -76,7 +76,7 @@ pub fn tick_spinner(app: &AppHandle) {
         let mut s = shared.lock().unwrap();
         s.spinner = s.spinner.wrapping_add(1);
         let Some(m) = s.menus.as_ref() else { return };
-        (m.tray.clone(), trayicon::render(shown(&s).0, s.dark_menubar))
+        (m.tray.clone(), trayicon::render(shown(&s).0))
     };
     let _ = tray.set_icon(Some(icon));
 }
@@ -87,7 +87,7 @@ pub fn refresh(app: &AppHandle) {
     let (status, line, downloads, toggle, open, ready, tray, icon) = {
         let mut s = shared.lock().unwrap();
         let (state, line, downloads) = shown(&s);
-        let icon = trayicon::render(state, s.dark_menubar);
+        let icon = trayicon::render(state);
         let ready = s.backend == Backend::Ready;
         let Some(m) = s.menus.as_mut() else { return };
         let show = downloads.is_some();

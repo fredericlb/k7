@@ -31,7 +31,7 @@ tray (Tauri, windowless)        ← the process the user kills; creates the Job 
 
 - **`backend.rs`** — the spawn, its environment (standalone.json's, plus the supervisor, the bearer, the stamp),
   readiness on `/api/registry/hello`, the backoff, the stop.
-- **`loops.rs`** — the status poll (`/api/local/tray`, under the bearer), the spinner, the menu-bar appearance.
+- **`loops.rs`** — the status poll (`/api/local/tray`, under the bearer) and the spinner.
 - **`tray.rs`** — the menu. Draws what the backend words; computes nothing.
 - **`paths.rs`** — node, the bundle, the supervisor: the staged resources, else the checkout's builds. A miss
   is said on the status line, never a silent empty tray.
