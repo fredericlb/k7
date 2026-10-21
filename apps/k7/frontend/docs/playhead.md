@@ -69,6 +69,23 @@ keeps the line monotonic when the estimate moves down.
 Stopped, there is nothing to estimate: the frame IS the answer, and a scrub lands exactly where
 it says.
 
+### A stop pressed here freezes the line at the press
+
+A prediction runs on until something says it is wrong, and for a stop that something is late: the
+engine reads Tracktion's position off a 50 Hz timer, samples it into a frame on a 20 Hz one, and
+the frame still has to travel. The stopped frame lands 50 to 100 ms after the sound stopped, and a
+line drawn until then overshoots and then **jumps back** to where the engine really is.
+
+So the one callback every stop goes through (`useEngineLink`'s `transport`) tells the store first
+(`EngineStore.pressed`), and the clock freezes where it is drawn at that instant
+(`haltPlayhead`). The frames still saying "playing" are the ones already in flight, sampled
+before the engine heard the stop, so they are ignored. The engine's stopped frame is still the
+answer when it lands, but by then it is a few milliseconds away, not a tenth of a second.
+
+The hold ends on that stopped frame, on a play pressed here, or after `HALT_HOLD_MS`. A stop that
+was lost would otherwise leave a frozen line over a song still playing. A stop the engine makes
+on its own, or one pressed in another tab, has no press to freeze on and still jumps back.
+
 ### Measured against a PLL
 
 The same feed, with realistic transit times (4 to 55 ms, never negative — a frame cannot arrive

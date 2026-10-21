@@ -13,6 +13,9 @@ export const WINDOW_MS = 4000;
 /** The most the drawn offset may creep per second of real time while chasing the estimate. */
 export const SLEW = 0.02;
 
+/** How long a stop pressed HERE holds the line against frames still saying "playing" — the ones already in flight. */
+export const HALT_HOLD_MS = 500;
+
 /** One frame, as evidence about the offset rather than as a position. */
 interface Sample {
   /** `playhead − rate·arrival`: what the local clock's zero maps to in transport seconds. */
@@ -33,6 +36,8 @@ export interface PlayheadClock {
   drawnAt: number;
   /** Seconds of position per second of local time — 1 for the transport, signed for a platter. */
   rate: number;
+  /** When a stop pressed here froze the line, until the engine's own stopped frame confirms it. */
+  haltedAt?: number;
 }
 
 /** The window starts EMPTY: the estimate is built only from frames that actually arrived, never seeded from a snapshot. */
@@ -68,7 +73,16 @@ export function feedPlayhead(
   seekEps = SEEK_EPS,
 ): PlayheadClock {
   if (!playing)
-    return { ...c, playing, window: [], anchorSec: seconds, drawnAt: now };
+    return {
+      ...c,
+      playing,
+      window: [],
+      anchorSec: seconds,
+      drawnAt: now,
+      haltedAt: undefined,
+    };
+  // Sampled before the engine heard the stop: drawing it would roll the line on past where it stopped.
+  if (c.haltedAt !== undefined && now - c.haltedAt < HALT_HOLD_MS) return c;
   const sample: Sample = { offset: seconds - (c.rate * now) / 1000, at: now };
   // An empty window is a seed rather than a rollback, but it takes the same path: one sample, and the drawn offset set to it.
   const edge = !c.playing || c.window.length === 0;
@@ -83,6 +97,7 @@ export function feedPlayhead(
       drawnOffset: sample.offset, // the rollback: draw the authority, not the old prediction
       anchorSec: seconds,
       drawnAt: now,
+      haltedAt: undefined,
     };
   const window = [...c.window, sample].filter((s) => now - s.at <= WINDOW_MS);
   return {
@@ -93,6 +108,23 @@ export function feedPlayhead(
     anchorSec: seconds,
   };
 }
+
+/** A stop pressed HERE at `at`: the line freezes where it is drawn, rather than rolling on until the engine's frame says so (docs/playhead.md). */
+export function haltPlayhead(c: PlayheadClock, at: number): PlayheadClock {
+  if (!c.playing) return c;
+  return {
+    ...c,
+    playing: false,
+    window: [],
+    anchorSec: playheadAt(c, at),
+    drawnAt: at,
+    haltedAt: at,
+  };
+}
+
+/** A play pressed here: the hold is lifted, so the frames of the new roll are drawn as soon as they arrive. */
+export const unhaltPlayhead = (c: PlayheadClock): PlayheadClock =>
+  c.haltedAt === undefined ? c : { ...c, haltedAt: undefined };
 
 /** Where to draw at `now`: a straight line in local time, with even a re-estimate slewed in rather than stepped, so it stays monotonic. */
 export function advancePlayhead(c: PlayheadClock, now: number): PlayheadClock {

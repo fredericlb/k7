@@ -207,8 +207,16 @@ export function useEngineLink(
       const step = throughPanicRule(a, Date.now(), lastStopAt.current);
       lastStopAt.current = step.lastStopAt;
       engineRef.current?.transport(step.send);
+      // The drawn playhead stops on the press, not when the engine's stopped frame lands 50–100 ms later (docs/playhead.md).
+      const stops =
+        step.send === "stop" ||
+        step.send === "panic" ||
+        (step.send === "toggle" && store.getSnapshot().playing);
+      if (stops) store.pressed("stop");
+      else if (step.send === "play" || step.send === "toggle")
+        store.pressed("play");
     },
-    [],
+    [store],
   );
   const seek = useCallback(
     (seconds: number) => engineRef.current?.seek(seconds),

@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   advancePlayhead,
   feedPlayhead,
+  HALT_HOLD_MS,
+  haltPlayhead,
   newPlayheadClock,
   playheadAt,
   retimePlayhead,
   SEEK_EPS,
   shiftPlayhead,
+  unhaltPlayhead,
   WINDOW_MS,
 } from "./playheadClock";
 
@@ -221,5 +224,49 @@ describe("playheadClock at a KNOWN rate other than one", () => {
       c = feedPlayhead(c, true, t / 1000, t + 5);
     c = feedPlayhead(c, true, 1.2, 1055, 0.1);
     expect(c.window).toHaveLength(1);
+  });
+
+  describe("a stop pressed here", () => {
+    /** Rolling from 0 at local time 0, frames arriving 10 ms after they were sampled. */
+    const rolling = () => {
+      let c = newPlayheadClock(0, true, 0);
+      for (let t = 50; t <= 1000; t += 50)
+        c = feedPlayhead(c, true, t / 1000, t + 10);
+      return advancePlayhead(c, 1010);
+    };
+
+    it("freezes the line where it is drawn at the press", () => {
+      const c = rolling();
+      const at = playheadAt(c, 1010);
+      const h = haltPlayhead(c, 1010);
+      expect(h.playing).toBe(false);
+      expect(playheadAt(h, 1080)).toBe(at);
+    });
+
+    it("ignores the frames already in flight, which would roll it on past the stop", () => {
+      const h = haltPlayhead(rolling(), 1010);
+      const late = feedPlayhead(h, true, 1.05, 1060);
+      expect(late.playing).toBe(false);
+      expect(playheadAt(late, 1060)).toBe(playheadAt(h, 1010));
+    });
+
+    it("takes the engine's stopped frame as the answer, and lifts the hold", () => {
+      const h = haltPlayhead(rolling(), 1010);
+      const done = feedPlayhead(h, false, 1.003, 1070);
+      expect(playheadAt(done, 1070)).toBe(1.003);
+      expect(done.haltedAt).toBeUndefined();
+    });
+
+    it("gives up the hold when no stop ever comes back", () => {
+      const h = haltPlayhead(rolling(), 1010);
+      const back = feedPlayhead(h, true, 1.6, 1010 + HALT_HOLD_MS + 1);
+      expect(back.playing).toBe(true);
+      expect(back.haltedAt).toBeUndefined();
+    });
+
+    it("lets a play pressed before the stop came back roll at once", () => {
+      const h = unhaltPlayhead(haltPlayhead(rolling(), 1010));
+      expect(feedPlayhead(h, true, 1.02, 1100).playing).toBe(true);
+    });
   });
 });

@@ -27,11 +27,22 @@ export class EngineStore {
   // Each recorder's picture so far, accumulated HERE because the engine resends it whole in one
   // frame when the socket connects — a second before any card exists. See takeEnvelope.ts.
   private takes: Record<string, TakeView> = {};
+  // When a stop was last pressed in this page, null once a play is: not engine state, a gesture the playhead answers first.
+  private halt: number | null = null;
 
   getSnapshot = (): EngineState => this.state;
 
   /** One recorder node's accumulated take, or undefined for a node that has made none. */
   takeOf = (node: string): TakeView | undefined => this.takes[node];
+
+  /** The `performance.now()` of the last stop pressed here, or null since a play — what the drawn playhead freezes on (apps/k7/frontend/docs/playhead.md). */
+  haltedAt = (): number | null => this.halt;
+
+  /** A transport press in this page, told to the subscribers before the engine's frame can be. */
+  pressed = (verb: "stop" | "play"): void => {
+    this.halt = verb === "stop" ? performance.now() : null;
+    for (const l of this.listeners) l();
+  };
 
   subscribe = (cb: () => void): (() => void) => {
     this.listeners.add(cb);

@@ -5,9 +5,11 @@
 import {
   advancePlayhead,
   feedPlayhead,
+  haltPlayhead,
   newPlayheadClock,
   type PlayheadClock,
   playheadAt,
+  unhaltPlayhead,
 } from "@studio/engine-browser/playhead-clock";
 import { useEngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef } from "react";
@@ -48,19 +50,31 @@ export function usePlayheadFrames(
       // The loop lives exactly as long as the transport does: a paused tab schedules nothing.
       raf = clock.current?.playing ? requestAnimationFrame(loop) : 0;
     };
+    // What this clock has already taken in: a press notifies too, and must not re-feed the frame from before it.
+    let fed = s0;
+    let halt = store.haltedAt();
     const start = () => {
       if (!raf && clock.current?.playing) raf = requestAnimationFrame(loop);
     };
     const onFrameIn = () => {
       const s = store.getSnapshot();
-      clock.current = feedPlayhead(
-        clock.current ?? newPlayheadClock(),
-        s.playing,
-        s.playhead,
-        performance.now(),
-      );
+      const h = store.haltedAt();
+      if (h !== halt) {
+        halt = h;
+        const c = clock.current ?? newPlayheadClock();
+        clock.current = h === null ? unhaltPlayhead(c) : haltPlayhead(c, h);
+      }
+      if (s !== fed) {
+        fed = s;
+        clock.current = feedPlayhead(
+          clock.current ?? newPlayheadClock(),
+          s.playing,
+          s.playhead,
+          performance.now(),
+        );
+      }
       // Rolling: the loop draws it. Stopped: nothing else will, so draw the scrub now.
-      if (s.playing) start();
+      if (clock.current?.playing) start();
       else draw();
     };
     draw(); // put the line where it is before any frame arrives
