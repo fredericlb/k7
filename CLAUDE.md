@@ -18,6 +18,12 @@ What an agent may do is run a Windows build ON Windows, through WSL interop, in 
   Never PowerShell, never `cmd.exe` with a command line (UNC cwd warnings, and the encoding rules above).
 - **A session isolated in a WSL worktree cannot run Windows commands** (the guard cannot prove they stay in
   the worktree): commit, push to `win`, leave the worktree, and drive Windows from the main session.
+- **Restart the Tilt session's resources yourself, from WSL**, once a change has landed in the Windows
+  checkout — never leave it to the user. `tilt.exe` is on the PATH and talks to the running session:
+  `tilt.exe trigger <resource> --port 10350` restarts one (`k7-tray`, `k7-backend`, `k7-frontend`…);
+  `tilt.exe trigger "(Tiltfile)" --port 10350` re-reads the task list, which a `dev` script added or removed
+  needs (a resource is only created or dropped then); `tilt.exe get uiresources --port 10350 -o name` lists
+  them and `tilt.exe logs <resource> --port 10350` reads one's output, to confirm the restart came up.
 - **Git Bash rewrites `/flag` arguments into paths**: `/m:6` reaches MSBuild as `m:6`. Use CMake's portable
   `cmake --build <dir> --config RelWithDebInfo --target <t> --parallel 6`, or `MSYS_NO_PATHCONV=1`.
 - **What fails on this machine whatever the branch** — check `main` before blaming a change:
