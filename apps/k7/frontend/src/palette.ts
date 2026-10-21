@@ -152,6 +152,8 @@ export function makeListArg(shell: {
   surfaces: () => string[];
   /** The languages the shell is compiled for. */
   locales: () => string[];
+  /** The project's timelines but Main, by id — which one `project export audio` renders. */
+  timelines: () => string[];
 }) {
   return async (
     command: string,
@@ -178,6 +180,9 @@ export function makeListArg(shell: {
             : [...MIX_FORMATS];
       if (priorArgs.length === 2 && priorArgs[0] === "video")
         return [...MIX_FORMATS, "none"];
+      // The audio of ONE timeline, Main's being the song's (@studio/song docs/timelines.md).
+      if (priorArgs.length === 2 && priorArgs[0] === "audio")
+        return ["main", ...shell.timelines()];
       return [];
     }
     if (canonical === "fs file upload" && !first) return ["files", "folder"];

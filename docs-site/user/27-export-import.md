@@ -17,6 +17,22 @@ The render runs on a machine that has an engine: the server's own, or the machin
 playing on. MP3 needs ffmpeg on that machine; without it the export says so and WAV still works.
 If no engine is available at all, the export fails with "no engine to render with".
 
+### Exporting one timeline
+
+A project with other timelines than **Main** shows a **Timeline** choice above the two buttons. Pick
+one and the export renders that timeline alone, from its start, exactly as you hear it when it is
+open in the timeline pane: through the lane it is placed on, with that lane's instrument and
+effects. The file is named after it (`winter-verse.wav`). From the command bar the timeline is a
+third word, `main` being the song itself:
+
+```
+project export audio wav verse
+project export audio mp3 main
+```
+
+The video export, publishing to k7 and share links are always of Main: a timeline has no picture of
+its own, and publishing is publishing the song.
+
 A song with a picture also offers a video export there; it is covered in the Picture section of
 this guide.
 

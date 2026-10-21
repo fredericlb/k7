@@ -269,7 +269,8 @@ names them — Main first — and opens any timeline in Main's place; so does a 
 event. Until then there is no bar: `timeline new` (or `selection timeline`, below) makes the first. A
 right-click on a tab offers that timeline's commands — `timeline rename verse verse-a` renames its file
 and every event placing it. Its lanes are edited like Main's, and the `event` commands reach them by
-the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. `timeline lane new` and
+the address `<timeline>><lane>`: `event add verse>drums kick 3:1`. To place a timeline, drag its tab
+onto a lane, or `event add gtr verse 9:1`. `timeline lane new` and
 `timeline lane remove` make the rest.
 
 A timeline can also be made from what is already on a lane: select a range on ONE lane (`v`) and run
@@ -287,3 +288,7 @@ start, through the lane it is first placed on — that lane's instrument and eff
 silent — and the playhead follows it. Back on Main, play is the whole song again. `timeline play verse`
 and a bare `timeline play` do the same from the command bar. A timeline placed on no lane still plays
 its audio; its sequences have no instrument until it is placed.
+
+**Exporting one alone.** With other timelines than Main, the Share panel's mixdown asks which one; the
+file is that timeline rendered as it is auditioned, named after it. `project export audio wav verse` does
+the same, `main` being the song itself. The video export and publishing are always Main's.

@@ -1,10 +1,12 @@
 // TimelineSwitch.tsx — the bar above the lanes naming what the pane draws: Main, the project's own
 // timeline, or one of its others, and the fixed length of the one open. Which is open is session
-// state and writes nothing; a tab's right-click is the timeline's commands (docs/timeline.md).
+// state and writes nothing; a tab's right-click is the timeline's commands, and dragged onto a lane it
+// places the timeline there (docs/timeline.md).
 
 import { Layers, Plus } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebTimeline } from "@studio/web-protocol";
+import { TIMELINE_MIME } from "../../fileDrop";
 import { m } from "../../paraglide/messages.js";
 
 const TAB =
@@ -17,6 +19,7 @@ export function TimelineSwitch({
   onNew,
   lengthOf,
   onContext,
+  draggable = false,
 }: {
   timelines: WebTimeline[];
   open: string | null;
@@ -27,6 +30,8 @@ export function TimelineSwitch({
   lengthOf: (t: WebTimeline) => string;
   // A tab's right-click: the timeline's own menu, rename first among it.
   onContext?: (id: string, x: number, y: number) => void;
+  // A tab dragged onto a lane places its timeline there; off on a document that takes no edit.
+  draggable?: boolean;
 }) {
   const current = timelines.find((t) => t.id === open);
   return (
@@ -46,6 +51,11 @@ export function TimelineSwitch({
           aria-pressed={t.id === open}
           title={m["tl.timelineTitle"]({ name: t.id, length: lengthOf(t) })}
           onClick={() => onOpen(t.id)}
+          draggable={draggable}
+          onDragStart={(e) => {
+            e.dataTransfer.setData(TIMELINE_MIME, t.id);
+            e.dataTransfer.effectAllowed = "copy";
+          }}
           onContextMenu={(e) => {
             if (!onContext) return;
             e.preventDefault();

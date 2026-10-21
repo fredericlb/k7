@@ -3,6 +3,11 @@
 `src/shareLink.ts` runs the link, `src/shareSnapshot.ts` builds what it shares, and `src/shareOps.ts`
 holds the two acts that render audio: the mixdown and the publish to k7.
 
+The mixdown may be of ONE timeline (`/export?timeline=`): `exportMix` hands the renderer the document
+that timeline is auditioned with (`@studio/song`'s `timelineAudition.ts`) rather than the song's, so
+an export sounds as the timeline did when it was open. The publish to k7 stays the song's: a release
+is the song, and a timeline has no picture for the video either.
+
 ## A share is a checkpoint, played by the server's engine
 
 The link plays the project **as it was when it was shared**. That point is a checkpoint in the

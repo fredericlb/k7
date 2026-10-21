@@ -1,6 +1,6 @@
 import { PARAM_MIME } from "@studio/ui-module-builder/param-drag";
 import { describe, expect, it } from "vitest";
-import { acceptsFileDrop } from "./fileDrop";
+import { acceptsFileDrop, isTimelineDrag, TIMELINE_MIME } from "./fileDrop";
 
 // This predicate decides whether `dragover` calls preventDefault, and a `dragover` that does not is a drop the browser refuses in SILENCE.
 
@@ -35,5 +35,16 @@ describe("acceptsFileDrop", () => {
     expect(
       acceptsFileDrop({ types: [PARAM_MIME, "Files"], itemKinds: ["file"] }),
     ).toBe(false);
+  });
+});
+
+describe("isTimelineDrag", () => {
+  it("is a timeline tab in hand, and never a file drop", () => {
+    const tab = { types: [TIMELINE_MIME], itemKinds: ["string"] };
+    expect(isTimelineDrag(tab)).toBe(true);
+    expect(acceptsFileDrop(tab)).toBe(false);
+    expect(isTimelineDrag({ types: ["Files"], itemKinds: ["file"] })).toBe(
+      false,
+    );
   });
 });

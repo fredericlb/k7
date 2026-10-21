@@ -493,6 +493,7 @@
   "master.noMeter": "no meter on this screen — give a level in dB",
   "share.button": "Share / export",
   "share.mixdown": "Mixdown",
+  "share.timeline": "Timeline",
   "share.exportAudio": "Export {format}",
   "share.exportVideo": "Export video — {format}, {size}",
   "share.noMp4": "This browser cannot make MP4, so the video is WebM — Chrome or Edge can make MP4.",

@@ -7,6 +7,7 @@
 //
 // See ../docs/picture.md.
 
+import { SONG_TARGET as MAIN_TIMELINE } from "@studio/song-schema/timelineLane";
 import { EXPORT_QUALITIES } from "@studio/ui-eyes/exportQuality";
 import { VIDEO_FORMATS, type VideoFormat } from "@studio/ui-eyes/exportSupport";
 import {
@@ -35,7 +36,8 @@ export const TIMELINE_FORMATS = ["otio", "edl"] as const;
 export type TimelineFormat = (typeof TIMELINE_FORMATS)[number];
 
 export type ExportAsk =
-  | { kind: "audio"; format: MixFormat }
+  /** `timeline`: one timeline alone, as it is auditioned; absent — or `main` — the song (@studio/song docs/timelines.md). */
+  | { kind: "audio"; format: MixFormat; timeline?: string }
   /** `audio` is absent only when the line asked for a silent film — `video webm none`. */
   | {
       kind: "video";
@@ -45,13 +47,16 @@ export type ExportAsk =
     }
   | { kind: "timeline"; format: TimelineFormat; lane?: string };
 
+/** A timeline's id, as its filename is spelled (@studio/song docs/timelines.md). */
+const TIMELINE_ID = /^[A-Za-z0-9_.-]+$/;
+
 const isMix = (s: string): s is MixFormat =>
   (MIX_FORMATS as readonly string[]).includes(s);
 const isVideo = (s: string): s is VideoFormat =>
   (VIDEO_FORMATS as readonly string[]).includes(s);
 
 /** The usage line, built from the vocabularies above so it cannot drift from them. */
-export const EXPORT_USAGE = `project export audio <${MIX_FORMATS.join("|")}> · project export video <${VIDEO_FORMATS.join("|")}> [<${MIX_FORMATS.join("|")}>|none] [size=720p|1280x720] [quality=${EXPORT_QUALITIES.join("|")}] [from=<t>] [to=<t>] · project export timeline <${TIMELINE_FORMATS.join("|")}> [lane]`;
+export const EXPORT_USAGE = `project export audio <${MIX_FORMATS.join("|")}> [timeline] · project export video <${VIDEO_FORMATS.join("|")}> [<${MIX_FORMATS.join("|")}>|none] [size=720p|1280x720] [quality=${EXPORT_QUALITIES.join("|")}] [from=<t>] [to=<t>] · project export timeline <${TIMELINE_FORMATS.join("|")}> [lane]`;
 
 /**
  * Read the rest of a `project export` line, or null when it says nothing this understands.
@@ -64,10 +69,22 @@ export function parseExportAsk(rest: string): ExportAsk | null {
   const raw = rest.trim().split(/\s+/).filter(Boolean);
   const parts = raw.map((p, i) => (i < 2 ? p.toLowerCase() : p));
   const [what, format, ...tail] = parts;
-  if (what === "audio")
-    return !tail.length && isMix(format ?? "")
-      ? { kind: "audio", format: format as MixFormat }
-      : null;
+  if (what === "audio") {
+    if (tail.length > 1 || !isMix(format ?? "")) return null;
+    // A third word is a timeline's id — never a second format, which is a slip rather than a name.
+    const word = tail[0];
+    if (
+      word !== undefined &&
+      (isMix(word.toLowerCase()) || !TIMELINE_ID.test(word))
+    )
+      return null;
+    const timeline = word && word !== MAIN_TIMELINE ? word : undefined;
+    return {
+      kind: "audio",
+      format: format as MixFormat,
+      ...(timeline ? { timeline } : {}),
+    };
+  }
   if (what === "timeline") {
     if (
       !(TIMELINE_FORMATS as readonly string[]).includes(format ?? "") ||

@@ -15,6 +15,7 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import type { ShareProgress } from "@studio/web-protocol";
+import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { ShareLinkProgress } from "./ShareLinkProgress";
 import { SurfaceQr } from "./SurfaceQr";
@@ -29,6 +30,7 @@ export function SharePanel({
   externals,
   lanUrls,
   hasPicture,
+  timelines = [],
   onRun,
   onClose,
 }: {
@@ -43,12 +45,19 @@ export function SharePanel({
   /** Does this project draw a picture? The video row is absent when it does not — a project with
    *  no video document has nothing to render, and a greyed row would not say why. */
   hasPicture?: boolean;
+  /** The project's other timelines: with any, the mixdown asks which one — Main, the song, by default. */
+  timelines?: readonly string[];
   onRun: (command: string) => void;
   onClose: () => void;
 }) {
   const row =
     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50";
   const head = "px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground";
+  // Which timeline the mixdown renders; one that has gone since is Main again.
+  const [timeline, setTimeline] = useState("");
+  const chosen = timelines.includes(timeline) ? timeline : "";
+  const audioLine = (format: string) =>
+    `project export audio ${format}${chosen ? ` ${chosen}` : ""}`;
 
   return (
     <aside className="flex w-[24rem] min-w-0 shrink-0 flex-col border-l border-border bg-background">
@@ -75,11 +84,32 @@ export function SharePanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         <div className={head}>{m["share.mixdown"]()}</div>
+        {/* Only once there is a choice, as the timeline pane's tabs are. */}
+        {timelines.length ? (
+          <label className="flex items-center gap-2 px-2 py-1 text-sm">
+            <span className="text-muted-foreground">
+              {m["share.timeline"]()}
+            </span>
+            <select
+              className="min-w-0 flex-1 rounded border border-border bg-background px-1 py-0.5"
+              value={chosen}
+              disabled={busy}
+              onChange={(e) => setTimeline(e.target.value)}
+            >
+              <option value="">{m["tl.main"]()}</option>
+              {timelines.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <button
           type="button"
           className={row}
           disabled={busy}
-          onClick={() => onRun("project export audio mp3")}
+          onClick={() => onRun(audioLine("mp3"))}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
           {m["share.exportAudio"]({ format: "MP3" })}
@@ -88,7 +118,7 @@ export function SharePanel({
           type="button"
           className={row}
           disabled={busy}
-          onClick={() => onRun("project export audio wav")}
+          onClick={() => onRun(audioLine("wav"))}
         >
           <Download className="h-4 w-4 text-muted-foreground" />
           {m["share.exportAudio"]({ format: "WAV" })}

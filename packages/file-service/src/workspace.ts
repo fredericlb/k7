@@ -1019,14 +1019,17 @@ export class Workspace {
     };
   }
 
-  /** Render the mixdown ("mp3" transcodes, needing ffmpeg) — see shareOps.ts. */
-  exportMix(format: "wav" | "mp3"): Promise<{
+  /** Render the mixdown ("mp3" transcodes, needing ffmpeg), of Main or of one timeline — see shareOps.ts. */
+  exportMix(
+    format: "wav" | "mp3",
+    timeline?: string,
+  ): Promise<{
     path: string;
     filename: string;
     mime: string;
     cleanup: () => void;
   }> {
-    return exportMix(this.shareHost(), format);
+    return exportMix(this.shareHost(), format, timeline);
   }
 
   /** Start `project share link`: a share at a checkpoint, made as a job — shareLink.ts. */

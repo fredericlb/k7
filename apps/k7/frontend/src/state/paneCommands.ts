@@ -30,6 +30,7 @@ export interface PaneCommands {
   newTimeline: () => void;
   newTimelineLane: (timeline: string) => void;
   timelinePlay: (timeline: string | null) => void;
+  addEvent: (track: string, ref: string, tc: string) => void;
   videoArm: (id: string) => void;
   videoToggle: (id: string, control: "mute" | "solo") => void;
   reorder: (family: LaneFamily, lane: string, target: string) => void;
@@ -71,6 +72,7 @@ export function paneCommandsFor(go: (line: string) => void): PaneCommands {
     newVideoTrack: () => go("picture lane new"),
     newTimeline: () => go("timeline new"),
     newTimelineLane: (timeline) => go(`timeline lane new ${timeline}`),
+    addEvent: (track, ref, tc) => go(`event add ${track} ${ref} ${tc}`),
     timelinePlay: (timeline) =>
       go(timeline ? `timeline play ${timeline}` : "timeline play"),
     videoArm: (id) => go(`ui picture arm ${id}`),

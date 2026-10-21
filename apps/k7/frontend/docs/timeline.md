@@ -1070,7 +1070,10 @@ tracks (`timelineView.ts`), so every gesture — move, resize, drop, paste — a
 A tab is a right-click entity, `timeline`, so its menu is the timeline's commands with the timeline
 filled in — `rename`, `play`, `length`, `lane new` — derived like every other (`contextMenu.md`).
 A rename keeps the pane on the renamed timeline (`followRename`): the timeline that vanished as one
-alone appeared is the same one.
+alone appeared is the same one. A tab DRAGGED onto a lane places its timeline there, at the snapped
+beat under the pointer — `event add`, as every gesture here is a command. It carries the timeline
+under a type of its own (`TIMELINE_MIME`, `fileDrop.ts`), so the file drop never reads it as files,
+and only a lane holding events takes it.
 
 Opening a timeline also AUDITIONS it: the pane sends `timeline play <id>` and seeks to 0, so the
 engine plays that timeline alone from its start and the playhead reads its own time; back on the

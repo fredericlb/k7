@@ -248,8 +248,11 @@ export const api = {
   // Render the mixdown and hand back blob + filename. "mp3" needs ffmpeg on the engine host; "wav" always works.
   exportMix: async (
     format: "wav" | "mp3",
+    // One timeline alone, as it is auditioned; absent, Main.
+    timeline?: string,
   ): Promise<{ blob: Blob; filename: string }> => {
-    const res = await fetch(cfg().base + `/export?format=${format}`, {
+    const tl = timeline ? `&timeline=${encodeURIComponent(timeline)}` : "";
+    const res = await fetch(cfg().base + `/export?format=${format}${tl}`, {
       headers: fileHeaders(),
     });
     if (!res.ok)
