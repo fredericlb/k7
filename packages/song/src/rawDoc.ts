@@ -86,6 +86,7 @@ export interface RawVideoPlacement {
   animate?: unknown; // the shot's keyframes (song-video docs/animation.md)
   speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
   effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
+  silent?: unknown; // its sound is not played, its picture is (docs/videoSound.md)
 }
 
 /** A video track file's struct (video_tracks/<id>.k7x). */

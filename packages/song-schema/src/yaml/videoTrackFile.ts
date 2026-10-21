@@ -22,6 +22,8 @@ export interface VideoPlacement {
   sourceFrom: number;
   /** How fast its source runs, signed — present only when the file states one (song-video docs/speed.md). */
   speed?: number;
+  /** Its sound is not played — present only when the file says so (packages/song/docs/videoSound.md). */
+  silent?: true;
 }
 
 type Data = Record<string, unknown>;
@@ -70,6 +72,7 @@ export function listVideoPlacements(
       length: num(p.length),
       sourceFrom: num(p.source_from),
       ...(p.speed != null ? { speed: num(p.speed, 1) } : {}),
+      ...(p.silent === true ? { silent: true as const } : {}),
     };
   });
 }
@@ -129,6 +132,19 @@ export function setVideoSpeedAt(
   if (!hasIndex(eventsOf(doc), index)) return false;
   if (Math.abs(speed - 1) < 1e-9) doc.deleteIn(["events", index, "speed"]);
   else doc.setIn(["events", index, "speed"], Math.round(speed * 10000) / 10000);
+  return true;
+}
+
+/** Silence (or let be heard again) the sound of the placement at `index`; false with none there. */
+export function setVideoSilentAt(
+  doc: K7Scope,
+  index: number,
+  silent: boolean,
+): boolean {
+  if (!hasIndex(eventsOf(doc), index)) return false;
+  // Removed rather than written `false`: a heard shot is the default, and a file says what is unusual.
+  if (silent) doc.setIn(["events", index, "silent"], true);
+  else doc.deleteIn(["events", index, "silent"]);
   return true;
 }
 

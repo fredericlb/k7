@@ -1,6 +1,7 @@
 // `picture sound` — a picture lane's shots made audible through an engine lane. What would go
 // wrong silently: a rerun making a second lane, a clip's existing `sound:` extracted over, and a
-// new lane keeping the `events: []` that a sounding lane may not state.
+// new lane keeping the `events: []` that a sounding lane may not state, and a removed sound clip
+// that takes its shot's picture with it.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -18,6 +19,8 @@ import { parse } from "@studio/k7x/document";
 import { compileNodeProject } from "@studio/song/nodeProject";
 import { writeDoc } from "@studio/song/testSupport";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
+import { beatsToPosition } from "@studio/song-schema/timecode";
+import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
@@ -90,6 +93,53 @@ describe("picture sound", () => {
     await runCommand("picture sound main", host(), "cli");
     await runCommand("event move main-sound 1:1 2:1", host(), "cli");
     expect(refusals.join("\n")).toMatch(/plays main's sound — edit the shot/);
+  });
+
+  it("silences the shot when its sound clip is removed, and `picture silence` brings it back", async () => {
+    writeDoc(join(song, "video_tracks", "main.k7x"), {
+      events: [
+        { ref: "shot", start: 0, length: 2 },
+        { ref: "shot", start: 4, length: 2 },
+      ],
+    });
+    writeDoc(join(song, "clips", "shot.k7x"), {
+      source: "clips/shot.mp4",
+      sound: "clips/shot.wav",
+    });
+    writeFileSync(join(song, "clips", "shot.mp4"), "");
+    writeFileSync(join(song, "clips", "shot.wav"), "");
+    await runCommand("picture sound main", host(), "cli");
+    const heard = () =>
+      compileNodeProject(song)
+        .tracks.find((x) => x.id === "main-sound")
+        ?.clips.map((c) => c.start);
+    const { tempo, timeSigNumerator, timeSigDenominator } =
+      compileNodeProject(song);
+    const second = beatsToPosition(
+      (4 * tempo) / 60,
+      timeSigNumerator,
+      timeSigDenominator,
+    );
+    await runCommand(`event remove main-sound ${second}`, host(), "cli");
+    expect(refusals).toEqual([]);
+    expect(heard()).toEqual([0]);
+    // The picture keeps both shots: only the second one's sound went.
+    const shots = listVideoPlacements(
+      wsRead(join(song, "video_tracks", "main.k7x")),
+    );
+    expect(shots.map((x) => [x.start, x.silent])).toEqual([
+      [0, undefined],
+      [4, true],
+    ]);
+    await runCommand("picture silence main 4", host(), "cli");
+    expect(heard()).toEqual([0, (4 * tempo) / 60]);
+    await runCommand(
+      'events remove [{"track":"main-sound","start":"1:1"}]',
+      host(),
+      "cli",
+    );
+    expect(refusals).toEqual([]);
+    expect(heard()).toEqual([(4 * tempo) / 60]);
   });
 
   it("makes no lane when no shot has a sound", async () => {

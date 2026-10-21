@@ -544,6 +544,7 @@ export function contextMenu(
         { verb: "picture move", arg: `${where} `, needsMore: true },
         { verb: "picture head", arg: `${where} `, needsMore: true },
         { verb: "picture length", arg: `${where} `, needsMore: true },
+        { verb: "picture silence", arg: where },
         { verb: "picture delete", arg: where },
       ]);
     }

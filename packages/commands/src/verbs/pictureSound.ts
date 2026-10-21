@@ -2,12 +2,14 @@
 // plays. Each shot's clip gets its sound extracted once, beside the video, and named by `sound:`;
 // then one audio lane says `video_source: <lane>` and takes its events from the shots. Run again
 // it does only what is missing, which is why the timeline can run it after every drop.
+// Removing a clip from that lane SILENCES its shot, as `picture silence` does: the picture stays.
 // See packages/song/docs/videoSound.md.
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { extractSound } from "@studio/audio-analysis/extract";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import type { K7Scope } from "@studio/k7x/document";
 import {
   confineTo,
   confineToProject,
@@ -15,14 +17,20 @@ import {
 } from "@studio/song/confine";
 import { loadGraph } from "@studio/song/graph";
 import { createTrackFile, readYamlEntities } from "@studio/song/loader";
-import type { RawClip } from "@studio/song/rawDoc";
+import type { RawClip, RawVideoTrack } from "@studio/song/rawDoc";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
+import { videoSoundPieces } from "@studio/song/videoSound";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
-import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
+import {
+  listVideoPlacements,
+  setVideoSilentAt,
+  type VideoPlacement,
+} from "@studio/song-schema/yaml/videoTrackFile";
 import type { CommandHost, SidHandler } from "../commands.ts";
-import { laneFile } from "./picture.ts";
+import { laneFile, put, target } from "./picture.ts";
 import { splitWords } from "./shared.ts";
 
 /** Where a video's sound is written: beside it, under a name no clip of its own is likely to hold. */
@@ -98,6 +106,84 @@ function soundLane(lane: string, track: string, h: CommandHost): string[] {
   ];
 }
 
+/** The picture lane `track` plays the sound of, or null for an ordinary lane. */
+export function soundingPicture(
+  songPath: string,
+  track: string,
+): string | null {
+  try {
+    return loadGraph(songPath).tracks[track]?.videoSource ?? null;
+  } catch {
+    return null; // a song that does not load is the caller's to report
+  }
+}
+
+/** A shot whose sound a removed clip was: its lane's file, its index in `events:` and its ref. */
+interface SoundedShot {
+  abs: string;
+  rel: string;
+  index: number;
+  ref: string;
+  start: number;
+}
+
+/** The shot whose sound starts at `atBeats` on the lane sounding `picture`, or why there is none. */
+export function shotSoundingAt(
+  h: CommandHost,
+  picture: string,
+  atBeats: number,
+): SoundedShot | string {
+  const found = laneFile(picture, h);
+  if (!found) return `no picture lane '${picture}'`;
+  const clips = readYamlEntities(h.songPath, "clips").values as Record<
+    string,
+    RawClip
+  >;
+  const lane = wsData(found.abs) as RawVideoTrack;
+  // The compile's own rule, so the piece found is the one the timeline drew (packages/song/docs/videoSound.md).
+  const piece = videoSoundPieces(
+    h.songPath,
+    lane,
+    clips,
+    h.project().tempo,
+  ).find((p) => Math.abs(p.clip.start - atBeats) < 1e-6);
+  if (!piece) return `no shot of ${picture} sounds there`;
+  const shot = listVideoPlacements(found.text)[piece.shot] as VideoPlacement;
+  return { ...found, index: piece.shot, ref: shot.ref, start: shot.start };
+}
+
+/** Silence every shot named, one edit per lane file; false once one was refused. */
+export function silenceShots(
+  h: CommandHost,
+  shots: readonly SoundedShot[],
+): boolean {
+  const byFile = new Map<string, SoundedShot[]>();
+  for (const s of shots) byFile.set(s.abs, [...(byFile.get(s.abs) ?? []), s]);
+  for (const [abs, list] of byFile) {
+    const mute = (doc: K7Scope) => {
+      for (const s of list) setVideoSilentAt(doc, s.index, true);
+    };
+    if (!put(abs, mute, h, "silence")) return false;
+  }
+  return true;
+}
+
+/** `event remove` on a sounding lane: the shot under the clip is silenced, its picture kept. */
+export function silenceSoundAt(
+  h: CommandHost,
+  track: string,
+  picture: string,
+  atBeats: number,
+): void | Promise<void> {
+  const shot = shotSoundingAt(h, picture, atBeats);
+  if (typeof shot === "string") return h.refuse([shot]);
+  if (!silenceShots(h, [shot])) return;
+  h.log([
+    `${track}: ${shot.ref}'s sound silenced — the shot stays on ${picture} (picture silence ${picture} ${shot.start} brings it back)`,
+  ]);
+  return h.reload();
+}
+
 /** Why an `event…` verb may not touch a SOUNDING lane, or null: its clips are shots, and a shot is edited as one. */
 export function soundingLaneRefusal(
   spec: { sid: string; args?: { name: string }[] },
@@ -105,8 +191,10 @@ export function soundingLaneRefusal(
   songPath: string,
 ): string | null {
   const first = spec.args?.[0]?.name;
+  // Removing is the one edit it takes, as silencing the shot (`event.remove`, `events.remove`).
   if (
     !spec.sid.startsWith("event") ||
+    spec.sid === "event.remove" ||
     (first !== "track" && first !== "tracks")
   )
     return null;
@@ -125,6 +213,27 @@ export function soundingLaneRefusal(
 }
 
 export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
+  /** `picture silence <lane> <at>` — the shot's sound is not played, or is again; its picture is untouched. */
+  "picture.silence": (a, h) => {
+    const t = target(a, h, "silence", "");
+    if (!t) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    if (!shot.ref) {
+      h.refuse([
+        `the event at ${t.at}s is an ACTIVATION — it has no sound to silence`,
+      ]);
+      return;
+    }
+    // Read back rather than assumed: a toggle has to start from what the file says right now.
+    const on = !shot.silent;
+    const edit = (doc: K7Scope) => setVideoSilentAt(doc, t.index, on);
+    if (!put(t.abs, edit, h, "silence")) return;
+    h.log([
+      `${t.rel}: ${shot.ref} at ${t.at}s ${on ? "silenced — its picture stays" : "heard again"}`,
+    ]);
+    return h.reload();
+  },
+
   "picture.sound": async (a, h) => {
     const [laneArg, trackArg] = splitWords(a);
     if (!laneArg) {

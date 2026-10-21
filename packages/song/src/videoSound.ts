@@ -12,6 +12,8 @@ import { wsExists } from "./yaml/workspaceFile";
 
 /** One shot as the picture rule reads it, in seconds; `end` is Infinity for an open-ended last one. */
 interface Shot {
+  /** Its index in the lane's `events:`, which a verb edits it by. */
+  index: number;
   ref: string;
   start: number;
   end: number;
@@ -20,6 +22,7 @@ interface Shot {
   speed: number;
   fadeIn: number;
   fadeOut: number;
+  silent: boolean;
 }
 
 // A fade's length in seconds, a bare number or a map's `over`; song-video's `readFade` would be a package cycle.
@@ -44,6 +47,7 @@ function shotsOf(events: readonly RawVideoPlacement[]): Shot[] {
           : Number.POSITIVE_INFINITY;
     const span = end - start;
     return {
+      index: i,
       ref: String(p.ref ?? ""),
       start,
       end,
@@ -52,6 +56,7 @@ function shotsOf(events: readonly RawVideoPlacement[]): Shot[] {
       // A fade is clamped to its own shot, as the picture clamps it.
       fadeIn: Math.min(fadeOver(p.fade_in), span),
       fadeOut: Number.isFinite(end) ? Math.min(fadeOver(p.fade_out), span) : 0,
+      silent: p.silent === true,
     };
   });
 }
@@ -73,6 +78,12 @@ function subtract(
   return out;
 }
 
+/** One engine clip of a lane's sound, and the index in `events:` of the shot it is the sound of. */
+export interface SoundPiece {
+  shot: number;
+  clip: ClipDoc;
+}
+
 /** What one video lane's shots sound like, as engine clips; a shot whose clip states no `sound:` is silent. */
 export function videoSoundClips(
   dir: string,
@@ -80,16 +91,26 @@ export function videoSoundClips(
   clipsMap: Record<string, RawClip>,
   tempo: number,
 ): ClipDoc[] {
+  return videoSoundPieces(dir, lane, clipsMap, tempo).map((p) => p.clip);
+}
+
+/** `videoSoundClips`, each clip with the shot it came from — what removing one sound clip silences. */
+export function videoSoundPieces(
+  dir: string,
+  lane: RawVideoTrack,
+  clipsMap: Record<string, RawClip>,
+  tempo: number,
+): SoundPiece[] {
   const bps = tempo / 60;
   // Every event times its neighbour; one with no `ref` is an ACTIVATION, which covers and sounds nothing.
   const shots = shotsOf(Array.isArray(lane.events) ? lane.events : []).filter(
     (s) => s.ref !== "",
   );
-  const out: ClipDoc[] = [];
+  const out: SoundPiece[] = [];
   shots.forEach((s, i) => {
     const sound = clipsMap[s.ref]?.sound;
     // A freeze holds one frame and a reverse runs a clip backwards, which the engine cannot: both are silent (docs/videoSound.md).
-    if (!sound || !(s.speed > 0)) return;
+    if (!sound || !(s.speed > 0) || s.silent) return;
     // A LATER shot covers this one once its own fade_in is done; during that fade the two cross.
     let spans: [number, number][] = [[s.start, s.end]];
     const crossAt = new Map<number, number>();
@@ -105,7 +126,7 @@ export function videoSoundClips(
       // Ending where a later shot finishes fading in is that crossfade's outgoing half, as the incoming fade_in IS the transition.
       const fadeOut = crossAt.get(b) ?? (b === s.end ? s.fadeOut : 0);
       const sourceFrom = s.sourceFrom + (a - s.start) * s.speed;
-      out.push({
+      const clip: ClipDoc = {
         id: placementId(s.ref, a * bps),
         type: "audio",
         name: s.ref,
@@ -133,7 +154,8 @@ export function videoSoundClips(
         loopStart: 0,
         loopEnd: 0,
         notes: [],
-      });
+      };
+      out.push({ shot: s.index, clip });
     }
   });
   return out;

@@ -58,6 +58,18 @@ remove. The compile refuses the pair by name. The `event …` verbs refuse a sou
 once, at dispatch (`soundingLaneRefusal` in `runCommand`), and name the `picture` verb to use: the
 shot is what an edit moves, and its sound follows.
 
+Removing is the exception. Deleting a clip on the sounding lane is how a person says "not this
+shot's sound", so `event remove` and `events remove` do not refuse it: they set `silent: true` on
+the shot that clip is the sound of, found by the compile's own rule (`videoSoundPieces`). The
+picture keeps the shot. `picture silence <lane> <at>` is the same flag as a toggle, and the way
+back.
+
+## A silent shot still covers
+
+`silent` takes a shot's sound away, not the shot. A silent shot cuts the sound of the shots under
+it exactly as a heard one does, because the picture does not show them there either. Hearing the
+earlier shot through it would be sound with no picture.
+
 ## Heard where it is seen
 
 The sound follows the picture's own rule (`packages/ui-eyes/src/timeline.ts`), not a separate

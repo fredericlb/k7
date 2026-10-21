@@ -46,6 +46,18 @@ describe("a shot's sound, where the picture shows it", () => {
     ]);
   });
 
+  it("plays nothing for a silent shot, which still covers the one under it", () => {
+    expect(
+      sound([
+        { ref: "a", start: 0, length: 10 },
+        { ref: "b", start: 2, length: 3, silent: true },
+      ]).map((c) => [c.start, c.length]),
+    ).toEqual([
+      [0, 4],
+      [10, 10],
+    ]);
+  });
+
   it("cuts the earlier sound where a later shot covers it, and brings it back after", () => {
     const out = sound([
       { ref: "a", start: 0, length: 10 },
