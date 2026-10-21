@@ -7,12 +7,13 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./addresses": "./src/addresses.ts",
     "./pages": "./src/pages.ts",
     "./public": "./src/public.ts",
     "./settings": "./src/settings.ts"
   },
   "scripts": {
-    "i18n": "paraglide-js compile --emit-ts-declarations --strategy localStorage baseLocale --silent",
+    "i18n": "paraglide-js compile --emit-ts-declarations --output-structure locale-modules --strategy localStorage baseLocale --silent",
     "pretypecheck": "npm run i18n",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run i18n",

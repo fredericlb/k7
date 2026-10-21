@@ -1369,6 +1369,11 @@ on the next reload, since new data is a new chance. One more wraps the whole tre
 the last line before a white page. `createRoot`'s `onCaughtError` / `onUncaughtError` put every
 fault in the console with its component stack, and a promise nobody caught goes to the Logs panel.
 
+**A project page loads no home page and no rehearsal code.** The routes with no project in the
+address — the home page, its sibling pages and the rehearsal take held above them — are one lazy
+chunk, `projects/HomeRoutes.tsx`; `appMain.tsx` imports only `publicPageAt` from the rehearsal package,
+through its light `addresses` subpath, to recognise a public page before the sign-in gate.
+
 **A missing chunk is a deploy.** The open page names hashed files the server no longer has, so the
 first failed dynamic import reloads the page once ([`../src/chunkReload.ts`](../src/chunkReload.ts),
 on Vite's `vite:preloadError`), which fetches the new shell. A second failure within a minute is not

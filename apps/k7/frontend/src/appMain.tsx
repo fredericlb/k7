@@ -23,7 +23,7 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Profiler, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { canServeLenses, serveLenses } from "./camera/serveLenses";
 import { AuthGate } from "./components/AuthGate";
 
@@ -38,6 +38,10 @@ const ExternalIndex = lazy(() =>
     default: m.ExternalIndex,
   })),
 );
+/** The home page and its sibling pages, with the rehearsal take held above them: a project page never loads them. */
+const HomeRoutes = lazy(() =>
+  import("./projects/HomeRoutes").then((m) => ({ default: m.HomeRoutes })),
+);
 const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
@@ -46,59 +50,17 @@ const RehearsalPublicPage = lazy(() =>
     default: m.RehearsalPublicPage,
   })),
 );
-const RehearsalRemote = lazy(() =>
-  import("@studio/ui-rehearsal/public").then((m) => ({
-    default: m.RehearsalRemote,
-  })),
-);
 
 import { PROFILING } from "@studio/project-shell/profiling";
-import { publicPageAt, RehearsalRecording } from "@studio/ui-rehearsal";
+import { publicPageAt } from "@studio/ui-rehearsal/addresses";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { currentRevision } from "./hooks/useRevision";
 import { LocaleProvider } from "./i18n";
 import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
 import { m } from "./paraglide/messages.js";
-import {
-  ABOUT_ROUTE,
-  ENGINE_SETTINGS_ROUTE,
-  LIBRARIES_ROUTE,
-  MEDIA_ROUTE,
-  REHEARSAL_ROUTE,
-  SETTINGS_ROUTE,
-  TASKS_ROUTE,
-} from "./projects/api";
-import { Home } from "./projects/Home";
-import { RehearsalHost } from "./projects/RehearsalHost";
-import { RehearsalPage } from "./projects/RehearsalPage";
+import { REHEARSAL_ROUTE } from "./projects/api";
 import { queryClient } from "./queries/client";
-
-/** The home's other pages, fetched when visited: the médiathèque carries the editor stack the login and home pages must not wait for (docs/audit.md). */
-const LibrariesPage = lazy(() =>
-  import("./projects/LibrariesPage").then((m) => ({
-    default: m.LibrariesPage,
-  })),
-);
-const MediaPage = lazy(() =>
-  import("./projects/MediaPage").then((m) => ({ default: m.MediaPage })),
-);
-const TasksPage = lazy(() =>
-  import("./projects/TasksPage").then((m) => ({ default: m.TasksPage })),
-);
-const DesktopEnginePage = lazy(() =>
-  import("./settings/DesktopEnginePage").then((m) => ({
-    default: m.DesktopEnginePage,
-  })),
-);
-const SettingsPage = lazy(() =>
-  import("./settings/SettingsPage").then((m) => ({
-    default: m.SettingsPage,
-  })),
-);
-const AboutPage = lazy(() =>
-  import("./about/AboutPage").then((m) => ({ default: m.AboutPage })),
-);
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -244,43 +206,7 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                   <ExternalIndex />
                 ) : !at ? (
                   // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
-                  <RehearsalHost>
-                    <RehearsalRecording>
-                      {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
-                      <Suspense fallback={<Booting />}>
-                        <Routes>
-                          <Route
-                            path={LIBRARIES_ROUTE}
-                            element={<LibrariesPage />}
-                          />
-                          <Route
-                            path={SETTINGS_ROUTE}
-                            element={<SettingsPage />}
-                          />
-                          <Route
-                            path={ENGINE_SETTINGS_ROUTE}
-                            element={<DesktopEnginePage />}
-                          />
-                          <Route path={ABOUT_ROUTE} element={<AboutPage />} />
-                          <Route path={TASKS_ROUTE} element={<TasksPage />} />
-                          <Route
-                            path={`${MEDIA_ROUTE}/*`}
-                            element={<MediaPage />}
-                          />
-                          {/* The phone's microphone: a page of its own, outside the frame. */}
-                          <Route
-                            path={`${REHEARSAL_ROUTE}/remote`}
-                            element={<RehearsalRemote />}
-                          />
-                          <Route
-                            path={`${REHEARSAL_ROUTE}/*`}
-                            element={<RehearsalPage />}
-                          />
-                          <Route path="*" element={<Home />} />
-                        </Routes>
-                      </Suspense>
-                    </RehearsalRecording>
-                  </RehearsalHost>
+                  <HomeRoutes fallback={<Booting />} />
                 ) : profiling ? (
                   <Profiler id="app" onRender={reportCommit}>
                     <EngineGate external={external} />

@@ -16,6 +16,9 @@ const OTHER_APPS = /^\/(api|auth|rtc|app_downloads)(\/|$)/;
 /** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
 
+/** One module per language, not per message: the dev server sends each module alone, and a build drops unused exports just the same (docs/settings.md). */
+const OUTPUT = "locale-modules" as const;
+
 /** The rehearsal pages' OWN catalogue, compiled where that package reads it: frediverseParaglide fixes the paths to this app's. */
 // fileURLToPath, not `.pathname`: on Windows the latter is `/D:/…`, which a resolve turns into `D:\D:\…`.
 const REHEARSAL_I18N = fileURLToPath(
@@ -52,18 +55,20 @@ export default defineAppConfig({
   extend: {
     // Compiled into src/paraglide/; no `preferredLanguage`, this app defaulting to ENGLISH — docs/settings.md.
     plugins: [
-      frediverseParaglide({ strategy: STRATEGY }),
+      frediverseParaglide({ strategy: STRATEGY, outputStructure: OUTPUT }),
       paraglideVitePlugin({
         project: `${REHEARSAL_I18N}project.inlang`,
         outdir: `${REHEARSAL_I18N}src/paraglide`,
         emitTsDeclarations: true,
         strategy: STRATEGY,
+        outputStructure: OUTPUT,
       }),
       paraglideVitePlugin({
         project: `${PLUGINS_I18N}project.inlang`,
         outdir: `${PLUGINS_I18N}src/paraglide`,
         emitTsDeclarations: true,
         strategy: STRATEGY,
+        outputStructure: OUTPUT,
       }),
       // alphaTab copies its font and soundfont into public/ and wires its worker and worklet (packages/score).
       alphaTab(),
