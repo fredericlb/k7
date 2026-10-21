@@ -1,6 +1,6 @@
-// TimelineSwitch.tsx — the bar above the lanes naming what the pane draws: the song, or one of the
-// project's other timelines, and the fixed length of the one open. Which is open is session state
-// and writes nothing; making one is `timeline new` like any other edit (docs/timeline.md).
+// TimelineSwitch.tsx — the bar above the lanes naming what the pane draws: Main, the project's own
+// timeline, or one of its others, and the fixed length of the one open. Which is open is session
+// state and writes nothing; a tab's right-click is the timeline's commands (docs/timeline.md).
 
 import { Layers, Plus } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
@@ -16,6 +16,7 @@ export function TimelineSwitch({
   onOpen,
   onNew,
   lengthOf,
+  onContext,
 }: {
   timelines: WebTimeline[];
   open: string | null;
@@ -24,6 +25,8 @@ export function TimelineSwitch({
   onNew?: () => void;
   // The open timeline's length as the ruler reads it, e.g. "8 bars".
   lengthOf: (t: WebTimeline) => string;
+  // A tab's right-click: the timeline's own menu, rename first among it.
+  onContext?: (id: string, x: number, y: number) => void;
 }) {
   const current = timelines.find((t) => t.id === open);
   return (
@@ -34,7 +37,7 @@ export function TimelineSwitch({
         onClick={() => onOpen(null)}
         className={cn(TAB, !current && "bg-muted font-medium")}
       >
-        {m["tl.song"]()}
+        {m["tl.main"]()}
       </button>
       {timelines.map((t) => (
         <button
@@ -43,6 +46,11 @@ export function TimelineSwitch({
           aria-pressed={t.id === open}
           title={m["tl.timelineTitle"]({ name: t.id, length: lengthOf(t) })}
           onClick={() => onOpen(t.id)}
+          onContextMenu={(e) => {
+            if (!onContext) return;
+            e.preventDefault();
+            onContext(t.id, e.clientX, e.clientY);
+          }}
           className={cn(TAB, t.id === open && "bg-muted font-medium")}
         >
           <Layers className="h-3 w-3 opacity-70" />

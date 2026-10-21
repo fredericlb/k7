@@ -9,7 +9,9 @@ import { auditionHosts } from "@studio/song/timelineAudition";
 import { wsData, wsEdit, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { timelineFromRange } from "@studio/song-edit/timelineFromRange";
+import { renameTimeline } from "@studio/song-edit/timelineRename";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { SONG_TARGET } from "@studio/song-schema/timelineLane";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitArgs, trackOf } from "./shared.ts";
 
@@ -49,6 +51,27 @@ const lanesOf = (file: string): { lane?: unknown }[] => {
 };
 
 export const TIMELINE_VERBS: Record<string, SidHandler> = {
+  // `timeline rename <timeline> <name>` — the file, and every event placing it, wherever it sits.
+  "timeline.rename": async (a, h) => {
+    const [from, to] = splitArgs(a);
+    if (!from || !to)
+      return h.refuse([
+        "usage: timeline rename <timeline> <name>  (e.g. timeline rename verse verse-a)",
+      ]);
+    if (!ID.test(to) || to === SONG_TARGET)
+      return h.refuse([
+        `invalid timeline name '${to}' — letters, digits, '.', '_' and '-' only, and not '${SONG_TARGET}', which names the main timeline`,
+      ]);
+    try {
+      const n = renameTimeline(h.songPath, from, to);
+      h.log([
+        `${from} → ${to}${n ? `, and the ${n} event${n === 1 ? "" : "s"} placing it` : ""}`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`timeline rename failed: ${(e as Error).message}`]);
+    }
+  },
   /** selection timeline <track> <from> <to> [name] — a rectangle's events into a new timeline, placed in their stead; docs/verbs.md. */
   "selection.timeline": async (a, h) => {
     const [tracksArg, fromTc, toTc, name] = splitArgs(a);
@@ -82,9 +105,9 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
     if (to < from)
       return h.refuse([`the end (${toTc}) is before the start (${fromTc})`]);
     const id = name || freeId(h);
-    if (!ID.test(id))
+    if (!ID.test(id) || id === SONG_TARGET)
       return h.refuse([
-        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only`,
+        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only, and not '${SONG_TARGET}', which names the main timeline`,
       ]);
     try {
       // `to` is the range's last beat, inclusive, as the rectangle draws it.
@@ -117,7 +140,7 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
       return h.refuse([`no timeline "${id}"`]);
     if (!h.timelinePlay?.(id ?? null))
       return h.refuse(["timeline play: this host drives no engine"]);
-    if (!id) return h.log(["playing the song"]);
+    if (!id) return h.log(["playing the main timeline"]);
     const hosts = auditionHosts(p, id);
     h.log([
       hosts.length
@@ -129,9 +152,9 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
   "timeline.new": async (a, h) => {
     const [name, len] = splitArgs(a);
     const id = name || freeId(h);
-    if (!ID.test(id))
+    if (!ID.test(id) || id === SONG_TARGET)
       return h.refuse([
-        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only`,
+        `invalid timeline name '${id}' — letters, digits, '.', '_' and '-' only, and not '${SONG_TARGET}', which names the main timeline`,
       ]);
     const file = join(h.songPath, "timelines", `${id}.k7x`);
     if (wsExists(file))

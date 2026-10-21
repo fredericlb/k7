@@ -55,6 +55,8 @@ export type MenuCtx =
   | { kind: "marker-add"; tc: string; loop?: "set" | "clear" }
   // Right-click on an existing marker — offer to delete it by name.
   | { kind: "marker"; name: string }
+  // Right-click on a timeline's TAB — its rename, play, length and lanes.
+  | { kind: "timeline"; id: string }
   /** Right-click on a STRETCH POINT in the warp view: `src` is the FILE second it pins, already spelled, the rounding being the caller's. */
   | { kind: "warp-point"; clip: string; src: string }
   /** A SHOT on a picture lane: the lane, and where it starts in SECONDS — the dialect the `picture …` verbs read. */
@@ -162,6 +164,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   assembly: "assembly",
   "marker-add": "project",
   marker: "project",
+  // The rows read 'rename', 'play', 'length': the tab is the timeline.
+  timeline: "timeline",
   // 'clip': the row reads 'warp remove', which is what the point under the pointer is about.
   "warp-point": "clip",
   // 'picture': the rows read 'move', 'length', 'head', 'delete' — the shot is what was clicked.
@@ -190,6 +194,7 @@ const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   assembly: "assembly",
   "marker-add": "ruler",
   marker: "marker",
+  timeline: "timeline",
   "warp-point": "warp",
   "picture-shot": "shot",
   pad: "pad",
@@ -532,6 +537,8 @@ export function contextMenu(
     case "marker":
       // Through `offer` like every other case: going straight to `build` skipped the prefs, in one menu out of nine.
       return offer(from([{ provider: "markerNames", value: ctx.name }]));
+    case "timeline":
+      return offer(from([{ provider: "timelines", value: ctx.id }]));
     case "warp-point":
       /** Written out rather than derived, for the reason a take's two verbs are; `clip warp` is deliberately not beside it — placing is the gesture. */
       return offer([

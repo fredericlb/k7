@@ -174,6 +174,7 @@ export const MENU_ENTITIES = [
   "curve",
   "ruler",
   "marker",
+  "timeline",
   "assembly",
   "warp",
   "shot",

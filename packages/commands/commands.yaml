@@ -216,9 +216,9 @@
 - command: "timeline play"
   sid: timeline.play
   readable:
-    en: "Hear a timeline alone, or the song again"
-    fr: "Écouter une timeline seule, ou le morceau"
-  help: "play one timeline alone from its start, through the lane it is placed on (e.g. timeline play verse) — bare, the song again"
+    en: "Hear a timeline alone, or the main one again"
+    fr: "Écouter une timeline seule, ou la principale"
+  help: "play one timeline alone from its start, through the lane it is placed on (e.g. timeline play verse) — bare, the main timeline again"
   surfaces: [cli]
   args:
     [
@@ -226,8 +226,20 @@
         name: timeline,
         optional: true,
         complete: timelines,
-        hint: "the timeline to hear — absent, the song",
+        hint: "the timeline to hear — absent, the main one",
       },
+    ]
+- command: "timeline rename"
+  sid: timeline.rename
+  readable:
+    en: "Rename a timeline"
+    fr: "Renommer une timeline"
+  help: "rename a timeline, its file and every event placing it (e.g. timeline rename verse verse-a)"
+  surfaces: [cli]
+  args:
+    [
+      { name: timeline, complete: timelines },
+      { name: name, hint: "the new id, which is its filename" },
     ]
 - command: "timeline length"
   sid: timeline.length
@@ -252,6 +264,20 @@
     [
       { name: timeline, complete: timelines },
       { name: name, optional: true, hint: "the lane's name — optional" },
+    ]
+- command: "timeline lane copy"
+  sid: timeline.laneCopy
+  readable:
+    en: "Copy a lane to another timeline"
+    fr: "Copier une piste vers une autre timeline"
+  help: "copy a lane's events onto a new lane of a timeline, or of the main one (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass main)"
+  surfaces: [cli]
+  menu: [track]
+  args:
+    [
+      { name: lane, complete: tracks, hint: "a song lane, or a timeline's as <timeline>><lane>" },
+      { name: to, complete: laneTargets, hint: "a timeline, or main" },
+      { name: name, optional: true, hint: "the new lane's name — optional, the copied one's by default" },
     ]
 - command: "timeline lane remove"
   sid: timeline.laneRemove

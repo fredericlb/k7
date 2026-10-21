@@ -42,6 +42,7 @@ export type ArgProvider =
   | "samples"
   | "sequenceFiles"
   | "timelines"
+  | "laneTargets"
   | "timelineLanes"
   // The kinds of SURFACE the editor can draw — a closed set of words, since the file is about to be created.
   | "surfaceTypes"
@@ -69,6 +70,8 @@ export const MENU_ENTITIES = [
   // The timeline RULER, where nothing is yet — what a click there could put one.
   "ruler",
   "marker",
+  // A timeline's TAB above the lanes (song docs/timelines.md).
+  "timeline",
   "assembly",
   // A stretch point in a clip's warp view.
   "warp",

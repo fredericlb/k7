@@ -22,6 +22,7 @@ import {
   moduleStatusOf,
 } from "@studio/song-schema/moduleTypes";
 import { PLAYLISTS_DIR } from "@studio/song-schema/playlist";
+import { SONG_TARGET } from "@studio/song-schema/timelineLane";
 import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
 import { type CommandHost, collectPluginModules } from "./commands";
 
@@ -70,6 +71,8 @@ export const PROVIDERS = {
     ];
   },
   timelines: (h) => (h.project().timelines ?? []).map((t) => t.id),
+  // Where a lane can be copied: a timeline, or the main one (`timeline lane copy`).
+  laneTargets: (h): string[] => [SONG_TARGET, ...PROVIDERS.timelines(h)],
   timelineLanes: (h) =>
     (h.project().timelines ?? []).flatMap((t) => t.lanes.map((l) => l.name)),
   /** Every alternative name in the project, deduped, off the module FILES — docs/completions.md. */
@@ -238,6 +241,7 @@ export type ArgClass = (typeof ARG_CLASSES)[number];
 export const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   tracks: "track",
   timelines: "file",
+  laneTargets: "file",
   timelineLanes: "track",
   moduleAlternatives: "choice",
   moduleEngines: "choice",
@@ -279,6 +283,7 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
     "one of this module's engines — the folders under its engines/",
   tracks: "a track of this project",
   timelines: "a timeline of this project (timelines/)",
+  laneTargets: "a timeline of this project, or main",
   timelineLanes: "a lane of that timeline",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",

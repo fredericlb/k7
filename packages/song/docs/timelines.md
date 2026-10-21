@@ -62,6 +62,10 @@ edits it; the engine ignores it as it ignores `groups`. A timeline's lane is add
 that address to the timeline file and the lane's map inside it. Every event writer goes through it,
 so add, move, paste, resize, split and loop work inside a timeline with no verb of their own.
 
+A lane moves between timelines as its events alone (`timeline lane copy`, `verbs/timelineLaneCopy.ts`):
+they are references, so a copy shares its material, and a timeline's lane has no chain to copy. Into
+the song it becomes a lane with a fresh strip, since a song lane is a module node and needs one.
+
 ## Auditioned alone, through its host
 
 A timeline has to be heard while it is written, and its lanes have no instrument of their own. So

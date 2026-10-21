@@ -17,3 +17,17 @@ export function timelineView<D extends WebProject | null | undefined>(
     timeline,
   };
 }
+
+/** The open timeline once the ids changed: kept, or followed when it alone vanished as one alone appeared — a rename. */
+export function followRename(
+  open: string | null,
+  before: readonly string[],
+  after: readonly string[],
+): string | null {
+  if (!open || after.includes(open)) return open;
+  const added = after.filter((id) => !before.includes(id));
+  const gone = before.filter((id) => !after.includes(id));
+  return gone.length === 1 && gone[0] === open && added.length === 1
+    ? added[0]
+    : null;
+}
