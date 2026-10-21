@@ -5,7 +5,6 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2, StickyNote } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ReactNode } from "react";
@@ -91,16 +90,13 @@ export function ShellFooter({
         isMobile ? "gap-2 px-2 py-0.5 text-[10px]" : "gap-3 px-4 py-1 text-xs",
       )}
     >
-      {/* left: the frediverse logo, then the status text; a phone puts the controls first and these states at the right end */}
+      {/* left: the status text; a phone puts the controls first and these states at the right end */}
       <div
         className={cn(
           "flex min-w-0 items-center gap-2.5",
           isMobile && "order-last ml-auto",
         )}
       >
-        {!isMobile && (
-          <FrediverseMark size="sm" className="shrink-0 opacity-60" />
-        )}
         {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
         {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
         {rollMode && shownSlot?.kind === "clip" ? (

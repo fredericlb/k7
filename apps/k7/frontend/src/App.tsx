@@ -63,6 +63,7 @@ import {
   useState,
 } from "react";
 import { useStore } from "zustand";
+import k7Logo from "../icon/k7.svg";
 import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
@@ -2922,7 +2923,16 @@ export default function App({
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </a>
-                    {!isMobile && projectLink}
+                    {!isMobile && (
+                      <>
+                        <img
+                          src={k7Logo}
+                          alt=""
+                          className="ml-1 h-4 w-auto shrink-0"
+                        />
+                        {projectLink}
+                      </>
+                    )}
                   </span>
                 )}
                 {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
