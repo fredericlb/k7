@@ -78,6 +78,7 @@ The right column holds one side panel at a time; opening one closes the one that
 |---|---|---|
 | Playlists | `ui playlists` (button shown on a DJ set only) | The workspace's set lists |
 | References | `ui references` | Tracks you listen against |
+| External resources | `ui resources` | The audio and video imported into this project, to preview and place again |
 | Tasks | `ui tasks` | The workspace's task list and the project's tags |
 | History | `ui history` | The song's undo steps and the workspace's sync history |
 | Sync conflicts | its footer button, shown only while there are conflicts | Edits the sync set aside |

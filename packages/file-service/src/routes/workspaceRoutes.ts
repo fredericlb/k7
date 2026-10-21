@@ -163,6 +163,14 @@ workspaceRouter.get(
 
 // No route makes a playlist: that is the `playlist new` command — see docs/fileRoutes.md.
 
+/** The active project's EXTERNAL RESOURCES: its imported audio and video clips, played over `/media` (docs/resources.md). */
+workspaceRouter.get(
+  "/resources",
+  wrap((req, res) => {
+    res.json({ resources: req.ws!.resources() });
+  }),
+);
+
 /** The LISTING of `_references/`; a track is uploaded with `/upload` and played over `/media`. */
 workspaceRouter.get(
   "/references",

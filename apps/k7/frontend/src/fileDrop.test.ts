@@ -1,6 +1,12 @@
 import { PARAM_MIME } from "@studio/ui-module-builder/param-drag";
 import { describe, expect, it } from "vitest";
-import { acceptsFileDrop, isTimelineDrag, TIMELINE_MIME } from "./fileDrop";
+import {
+  acceptsFileDrop,
+  isTimelineDrag,
+  resourceDragKind,
+  resourceMime,
+  TIMELINE_MIME,
+} from "./fileDrop";
 
 // This predicate decides whether `dragover` calls preventDefault, and a `dragover` that does not is a drop the browser refuses in SILENCE.
 
@@ -46,5 +52,15 @@ describe("isTimelineDrag", () => {
     expect(isTimelineDrag({ types: ["Files"], itemKinds: ["file"] })).toBe(
       false,
     );
+  });
+});
+
+describe("resourceDragKind", () => {
+  it("reads the kind off the type alone, and is never a file drop", () => {
+    const video = { types: [resourceMime("video")], itemKinds: ["string"] };
+    expect(resourceDragKind(video)).toBe("video");
+    expect(resourceDragKind({ types: [resourceMime("audio")] })).toBe("audio");
+    expect(acceptsFileDrop(video)).toBe(false);
+    expect(resourceDragKind({ types: ["Files"] })).toBeNull();
   });
 });

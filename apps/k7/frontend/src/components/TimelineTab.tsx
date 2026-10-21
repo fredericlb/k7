@@ -73,11 +73,14 @@ import {
   acceptsFileDrop,
   dragPayload,
   isTimelineDrag,
+  resourceDragKind,
+  resourceMime,
   TIMELINE_MIME,
 } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
 import { useEdgeResize, useFadeDrag } from "../hooks/useEdgeDrags";
 import { useLatest } from "../hooks/useLatest";
+import type { ResourceDropEvent } from "../hooks/useTimelineDrop";
 import { useVideoDrag } from "../hooks/useVideoDrag";
 import { isTyping } from "../hooks/useWindowKey";
 import { blurOnClick } from "../keys";
@@ -341,6 +344,7 @@ function TimelineTabView({
   videoArmed,
   videoRecording,
   onDropFiles,
+  onDropResource,
   dropUpload,
   pictureLanes = false,
   lanesLocked = false,
@@ -368,6 +372,8 @@ function TimelineTabView({
   onVideoEdit?: (trackId: string, edits: VideoEdit[]) => void;
   /** OS files were dropped on a lane: upload, declare and place them. Absent ⇒ the pane refuses the drag (hooks/useTimelineDrop.ts). */
   onDropFiles?: (d: TimelineDropEvent) => void;
+  /** A clip from the resources panel dropped on a lane of its kind (ResourcesPanel.tsx). */
+  onDropResource?: (d: ResourceDropEvent) => void;
   /** …and how far that upload has got, drawn at the foot of the pane — the file tree's bar, over here. */
   dropUpload?: DropUpload | null;
   onEditTarget: (t: EditFocus | null) => void; // the clip under the caret, for the shell
@@ -2033,6 +2039,11 @@ function TimelineTabView({
   const dropping = !readOnly && !!onDropFiles;
   // A timeline TAB dropped on a lane is `event add` of that timeline there (TimelineSwitch.tsx).
   const placing = !readOnly && !!cmds.addEvent;
+  /** A resource goes on a lane of its own kind: audio on one holding events, a video on a picture lane. */
+  const takesResource = (lane: string, kind: "audio" | "video") =>
+    !readOnly &&
+    !!onDropResource &&
+    dropTargets.some((d) => d.id === lane && d.kind === kind);
   /** The lane a timeline may go on: one holding events, never a picture lane. */
   const takesTimeline = (lane: string) =>
     dropTargets.some((d) => d.id === lane && d.kind === "audio");
@@ -2186,11 +2197,18 @@ function TimelineTabView({
           onDragOver={(e) => {
             const payload = dragPayload(e);
             const tab = placing && isTimelineDrag(payload);
-            if (!tab && (!dropping || !acceptsFileDrop(payload))) return;
+            const resource = onDropResource ? resourceDragKind(payload) : null;
+            if (!tab && !resource && (!dropping || !acceptsFileDrop(payload)))
+              return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "copy";
             const at = dropPointAt(e.clientX, e.clientY);
-            const spot = tab && at && !takesTimeline(at.lane) ? null : at;
+            const spot =
+              at &&
+              ((tab && !takesTimeline(at.lane)) ||
+                (resource && !takesResource(at.lane, resource)))
+                ? null
+                : at;
             // Returning the same object bails the update out: `dragover` fires per frame, and this component is not small.
             setDropAt((d) =>
               d?.lane === spot?.lane && d?.beat === spot?.beat ? d : spot,
@@ -2217,6 +2235,38 @@ function TimelineTabView({
                 id,
                 beatsToPosition(spot.beat, tsNum, tsDen),
               );
+              return;
+            }
+            const resource = onDropResource
+              ? resourceDragKind(dragPayload(e))
+              : null;
+            if (resource) {
+              e.preventDefault();
+              setDropAt(null);
+              const spot = dropPointAt(e.clientX, e.clientY);
+              let dragged: { id?: string; url?: string } = {};
+              try {
+                dragged = JSON.parse(
+                  e.dataTransfer.getData(resourceMime(resource)),
+                );
+              } catch {}
+              if (!dragged.id || !dragged.url) return;
+              if (!spot || !takesResource(spot.lane, resource)) {
+                setStatus(
+                  resource === "video"
+                    ? m["status.res.dropOnPicture"]()
+                    : m["status.timeline.dropOnLane"](),
+                );
+                return;
+              }
+              onDropResource?.({
+                lane: spot.lane,
+                kind: resource,
+                id: dragged.id,
+                url: dragged.url,
+                tc: beatsToPosition(spot.beat, tsNum, tsDen),
+                seconds: Math.round((spot.beat / bps) * 1000) / 1000,
+              });
               return;
             }
             if (!dropping || !acceptsFileDrop(dragPayload(e))) return;

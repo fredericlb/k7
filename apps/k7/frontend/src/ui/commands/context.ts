@@ -57,6 +57,7 @@ export type RightPanelId =
   | "settings"
   | "playlists"
   | "references"
+  | "resources"
   | "tasks"
   | "history"
   | "share"

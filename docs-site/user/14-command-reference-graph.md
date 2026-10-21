@@ -163,7 +163,7 @@ These only change what you see; they never edit the song.
 | `ui settings` | | Opens or closes the settings panel. |
 | `ui settings editor`, `ui settings io`, `ui settings project`, `ui settings account` | | Opens the settings panel on that tab. |
 | `ui settings commands` | | Opens the Commands page. |
-| `ui playlists`, `ui references`, `ui tasks`, `ui history`, `ui share` | | Opens or closes that side panel. |
+| `ui playlists`, `ui references`, `ui resources`, `ui tasks`, `ui history`, `ui share` | | Opens or closes that side panel. |
 | `ui vim` | | Turns the editor's vim mode on or off. |
 | `ui language` | `<language>` | Changes the interface language: `en` or `fr`. |
 | `ui engine` | | Back to the engine picker. |

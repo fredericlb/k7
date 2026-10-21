@@ -14,14 +14,22 @@ export interface MediaInfo {
 
 /** The file's duration and frame size, or null when the browser cannot read its metadata. */
 export function mediaInfo(file: Blob): Promise<MediaInfo | null> {
+  const url = URL.createObjectURL(file);
+  return probe(url, () => URL.revokeObjectURL(url));
+}
+
+/** The same, of a file the service SERVES — a resource placed again, whose bytes are already up. */
+export const mediaInfoAt = (url: string): Promise<MediaInfo | null> =>
+  probe(url, () => {});
+
+function probe(url: string, release: () => void): Promise<MediaInfo | null> {
   return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
     const video = document.createElement("video");
     const done = (info: MediaInfo | null) => {
       clearTimeout(timer);
       video.removeAttribute("src");
       video.load();
-      URL.revokeObjectURL(url);
+      release();
       resolve(info);
     };
     const timer = setTimeout(() => done(null), PROBE_TIMEOUT_MS);

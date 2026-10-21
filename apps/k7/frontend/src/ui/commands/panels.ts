@@ -70,6 +70,11 @@ export const PANEL_COMMANDS: LocalCommand[] = [
     en: "Open or close this workspace's playlists",
     fr: "Ouvrir ou fermer les playlists de cet espace",
   }),
+  // What the user IMPORTED into this project, to hear again and place again (docs/resources.md).
+  toggle("resources", {
+    en: "Open or close the project's imported audio and video",
+    fr: "Ouvrir ou fermer les médias importés du projet",
+  }),
   // What you listen AGAINST, which belongs to the workspace the same way (docs/references.md).
   toggle("references", {
     en: "Open or close this workspace's reference tracks",

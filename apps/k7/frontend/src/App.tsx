@@ -8,6 +8,7 @@ import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
   ArrowLeft,
+  FolderOpen,
   Headphones,
   History,
   ListChecks,
@@ -109,6 +110,7 @@ import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
 import { ReferenceBar } from "./components/ReferenceBar";
 import { ReferencesPanel } from "./components/ReferencesPanel";
+import { ResourcesPanel } from "./components/ResourcesPanel";
 import { RightPanel } from "./components/RightPanel";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SETTINGS_TABS, SettingsPanel } from "./components/SettingsPanel";
@@ -1987,7 +1989,11 @@ export default function App({
     };
   }, []);
   // Files dropped on a lane — here rather than beside the picture drag, since it PLACES with commands (hooks/useTimelineDrop.ts).
-  const { onDrop: onDropOnTimeline, upload: timelineUpload } = useTimelineDrop(
+  const {
+    onDrop: onDropOnTimeline,
+    onDropResource,
+    upload: timelineUpload,
+  } = useTimelineDrop(
     ws?.activeProject ?? ".",
     runCommand,
     setStatus,
@@ -2538,6 +2544,7 @@ export default function App({
   );
   const playlistKey = commandKeys.get("ui playlists");
   const referencesKey = commandKeys.get("ui references");
+  const resourcesKey = commandKeys.get("ui resources");
   const tasksKey = commandKeys.get("ui tasks");
   const historyKey = commandKeys.get("ui history");
   const shareKey = commandKeys.get("ui share");
@@ -2588,6 +2595,17 @@ export default function App({
         onClick={() => void runCommand("ui references")}
       >
         <Headphones className="h-4 w-4" />
+      </FooterTab>
+      {/* What this PROJECT imported — audio and video, to hear and place again (docs/resources.md). */}
+      <FooterTab
+        plain={isMobile}
+        active={rightPanel === "resources"}
+        title={`${m["res.title"]()}${resourcesKey ? ` (${resourcesKey})` : ""}`}
+        aria-label={m["res.title"]()}
+        aria-keyshortcuts={resourcesKey}
+        onClick={() => void runCommand("ui resources")}
+      >
+        <FolderOpen className="h-4 w-4" />
       </FooterTab>
       {/* What is left to do, for the whole WORKSPACE — TODOS.md at its root (docs/tasks.md). */}
       <FooterTab
@@ -3155,6 +3173,9 @@ export default function App({
                               onDropFiles={
                                 frozen ? undefined : onDropOnTimeline
                               }
+                              onDropResource={
+                                frozen ? undefined : onDropResource
+                              }
                               dropUpload={timelineUpload}
                               // A song with a frame has two kinds of lane, which makes the new-lane button a menu.
                               pictureLanes={hasViewport}
@@ -3318,6 +3339,18 @@ export default function App({
                         sounding={referenceSounding}
                         onPlay={setReference}
                         onToggle={() => referenceToggle.current?.()}
+                        onClose={() => setRightPanel(null)}
+                      />
+                    </PaneBoundary>
+                  )}
+                  {rightPanel === "resources" && (
+                    <PaneBoundary
+                      name="resources"
+                      resetKey={reloadKey}
+                      onError={paneError}
+                    >
+                      <ResourcesPanel
+                        reloadKey={reloadKey}
                         onClose={() => setRightPanel(null)}
                       />
                     </PaneBoundary>

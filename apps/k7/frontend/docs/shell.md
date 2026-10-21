@@ -815,6 +815,7 @@ The buttons:
 |---|---|---|
 | ♪ (a SET only) | Playlists | the workspace's set lists: a searchable dropdown, its songs under it |
 | ⌾ | Références | the workspace's reference tracks — what you listen AGAINST ([references.md](references.md)) |
+| 🗀 | Ressources externes | the PROJECT's imported audio and video, to preview and drag onto a lane ([resources.md](resources.md)) |
 | ☑ | Tâches | the workspace's task list, `TODOS.md` at its root ([tasks.md](tasks.md)) |
 | ⟲ | Historique | the open song's undo steps, newest first |
 | ⇪ | Partager | export, publish |

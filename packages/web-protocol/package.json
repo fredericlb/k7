@@ -23,6 +23,7 @@
     "./settings": "./settings.ts",
     "./handoff": "./handoff.ts",
     "./playlists": "./playlists.ts",
+    "./resources": "./resources.ts",
     "./paths": "./paths.ts"
   },
   "scripts": {

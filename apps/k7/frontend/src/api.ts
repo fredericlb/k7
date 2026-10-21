@@ -34,6 +34,7 @@ import {
   type StemsReply,
 } from "@studio/web-protocol";
 import type { PlaylistInfo } from "@studio/web-protocol/playlists";
+import type { ProjectResource } from "@studio/web-protocol/resources";
 import type { CommandPrefs } from "./commandPrefs";
 import { pl8Url } from "./projects/api";
 import type {
@@ -129,6 +130,9 @@ export const api = {
 
   // The LISTING only: a track goes up with `upload` and is played over `mediaUrl`, both of which already take any workspace path.
   references: () => fget<{ references: ReferenceTrack[] }>("/references"),
+
+  // The active project's imported audio and video clips, played over `mediaUrl` (../docs/resources.md).
+  resources: () => fget<{ resources: ProjectResource[] }>("/resources"),
 
   // --- What a project asks of its engine (engineCompat.ts) ---
 
