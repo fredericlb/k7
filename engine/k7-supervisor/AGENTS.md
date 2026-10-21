@@ -18,7 +18,7 @@ build/macos-clang/k7_supervisor_tests
 ```
 
 The first configure fetches mbedTLS, IXWebSocket, libdatachannel and ONNX Runtime; after that a
-build is seconds. `npm run dev` rebuilds it on save and restarts it (`scripts/dev-native.mjs`).
+build is seconds. `npm run dev` rebuilds it on save and restarts it, with the tray that runs it (`scripts/dev-tray.mjs`).
 
 The unit tests need no device, no network and no engine. The tunnel is tested by
 `packages/engine-tunnel`'s suites, which pick up the built `tunnel_harness` and run every case

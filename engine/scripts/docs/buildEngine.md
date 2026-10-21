@@ -9,7 +9,7 @@ command-line engine IS those binaries, and the tray (`apps/k7-tray`) carries the
 | `build-engine.mjs` (`npm run engine:build`) | the engine, then the supervisor, then the command-line engine staged in `dist/k7-runtime/` |
 | `supervisorBuild.mjs` | building and finding the supervisor — one answer for this script, the dev session and the Android app's Gradle build |
 | `package-release.mjs --kind engine\|tray` | one release file per kind into `dist/release/`, named for a stamp (`docs/release.md`) |
-| `devEngine.mjs` | the dev session's engine: the supervisor run with `--config <state>/engine-host.json`, and every running supervisor and engine stopped before a relink (`docs/dev.md`) |
+| `devEngine.mjs` | what the dev session stops before a relink: every running tray, supervisor and engine (`docs/dev.md`) |
 | `buildTools.mjs` | where output goes, and spawning with the Windows shell quirk |
 
 The engine builds through `engine/k7-runtime/scripts/build.mjs`, so "how the engine builds" is

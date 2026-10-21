@@ -40,13 +40,15 @@ tray (Tauri, windowless)        ← the process the user kills; creates the Job 
 
 ## Build / run
 
-Builds belong to Windows, never to WSL (root `AGENTS.md`). The scripts are `tray:dev` and `tray:build`, never
-`dev` and `build`: those would put the tray in every Tilt session and in the root `npm run build`.
+Builds belong to Windows, never to WSL (root `AGENTS.md`). `dev` is the dev session's `k7-tray` resource
+(`scripts/dev-tray.mjs`, `docs/dev.md`); the installers are `tray:build`, never `build`, which the root `npm run build`
+would run.
 
 - `npm run stage --workspace k7-tray` — the frontend and the backend bundle, the engine (the repo's builds, or
   `$STUDIO_PREBUILT_BIN`), a pinned node, into `src-tauri/resources/`.
-- `npm run tray:dev --workspace k7-tray` — `tauri dev`; `cargo build` in `src-tauri` is enough to run
-  `target/debug/k7-tray.exe`, which finds the staged resources beside it.
+- `npm run dev` (Tilt) or `npm run dev:tray` (alone) — builds the engine, the supervisor, k7's backend bundle and
+  the tray, runs the tray on them, and rebuilds and restarts on save. `cargo build` in `src-tauri` alone is enough
+  to run `target/debug/k7-tray.exe` on staged resources.
 - `npm run tray:build --workspace k7-tray` — the installers; `node engine/scripts/package-release.mjs --kind tray`
   renames them for a release.
 

@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "stage": "node scripts/stage.mjs",
-    "tray:dev": "tauri dev",
+    "dev": "node ../../scripts/dev-tray.mjs",
     "tray:build": "tauri build",
     "tauri": "tauri"
   },

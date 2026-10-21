@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "dev:native": "node scripts/dev-native.mjs",
+    "dev:tray": "node scripts/dev-tray.mjs",
     "clean": "rm -rf node_modules commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",
     "tokens": "node scripts/tokens.mjs",
     "commons:sync": "git submodule update --remote --merge commons",

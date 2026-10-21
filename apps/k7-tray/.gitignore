@@ -3,3 +3,5 @@ src-tauri/resources/
 # Cargo's build output, and the schemas tauri-build generates.
 src-tauri/target/
 src-tauri/gen/
+# The backend bundle the dev session's tray runs (scripts/dev-tray.mjs).
+.dev/

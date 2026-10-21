@@ -1,11 +1,8 @@
-// devEngine.mjs — the dev session's engine: the repo's supervisor build run as the command-line engine, with
-// `<state>/engine-host.json` as its config, and every supervisor or engine already running stopped first.
-// Steps THROW rather than exit, so the long-lived watcher survives a failed start. See docs/buildEngine.md.
+// devEngine.mjs — what the dev session stops before it relinks: every tray, supervisor and engine running on the
+// machine, the dev tray's and an installed one's alike. Steps THROW rather than exit, so the long-lived watcher survives
+// a failed stop. See docs/buildEngine.md.
 
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { stateDir } from "../../scripts/stateDir.mjs";
+import { spawnSync } from "node:child_process";
 
 const exe = (n) => (process.platform === "win32" ? `${n}.exe` : n);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -58,44 +55,9 @@ async function stopNamed(name) {
     );
 }
 
-let child = null;
-
-/** Stop ours, then every supervisor and engine on the machine: a survivor holds the binary a relink replaces. */
+/** Every tray, supervisor and engine on the machine: a survivor holds the binary a relink replaces. */
 export async function stopAll() {
-  if (child) {
-    child.kill("SIGTERM");
-    child = null;
-  }
-  await stopNamed("k7-supervisor"); // first: it deregisters while its engine still answers
+  await stopNamed("k7-tray"); // its job object takes its backend along; on Unix its pipes do
+  await stopNamed("k7-supervisor"); // then any left: it deregisters while its engine still answers
   await stopNamed("k7-runtime");
-}
-
-/** The config the dev engine runs from: the settings file a desktop install keeps, created empty if absent. */
-function devConfig() {
-  const file = join(stateDir(), "engine-host.json");
-  if (!existsSync(file)) {
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, "{}\n");
-  }
-  return file;
-}
-
-/** Run `supervisor --config` as our child, its log on our stderr; throws when it exits within the first seconds. */
-export async function launch(supervisor) {
-  const config = devConfig();
-  const proc = spawn(supervisor, ["--config", config], {
-    stdio: ["ignore", "ignore", "inherit"],
-    windowsHide: true,
-  });
-  let exited = null;
-  proc.on("exit", (code) => {
-    exited = code ?? 1;
-  });
-  child = proc;
-  await sleep(3000);
-  if (exited !== null) {
-    child = null;
-    throw new Error(`the supervisor exited at once (code ${exited})`);
-  }
-  return `supervisor up (pid ${proc.pid}), config ${config}`;
 }

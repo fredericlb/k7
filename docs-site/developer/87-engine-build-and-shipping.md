@@ -31,8 +31,8 @@ Platform dependencies fetched at configure time: the Steinberg ASIO SDK on Windo
 | `engine/scripts/build-engine.mjs` | `npm run engine:build`: builds the engine (preset from `$STUDIO_ENGINE_PRESET` or the platform: `macos-clang`, `windows-msvc`, `release-gcc`) and the supervisor, then stages the command-line engine into `dist/k7-runtime/` with `stageEngine` and copies `engine.example.json` as `engine.json` |
 | `engine/scripts/package-release.mjs --kind engine\|tray [--stamp <s>]` | Into `dist/release/`: `engine` archives `dist/k7-runtime/` as `k7-runtime_<stamp>_<platform>-<arch>.tar.gz` (`.zip` on Windows, made with System32's bsdtar); `tray` renames the installers `tauri build` left under `apps/k7-tray/src-tauri/target` to `k7-tray_<stamp>_<platform>-<arch>.<ext>` and writes the platform's fragment of the updater's `latest.json` (`engine/scripts/trayRelease.mjs`). The stamp comes from `--stamp`, `$STUDIO_RELEASE_STAMP`, or `dev`. |
 | `engine/scripts/buildTools.mjs` | `distDir`, and `run` with the Windows shell quirk |
-| `engine/scripts/devEngine.mjs` | The dev session's engine: stop every running supervisor and engine (a running image cannot be relinked on Windows), then run the repo's supervisor as `--config <state>/engine-host.json` |
-| `scripts/dev-native.mjs` | The dev session's native task (the k7-runtime workspace's `dev` script): build both, launch through `devEngine.mjs`, watch both source trees, rebuild and restart on save |
+| `engine/scripts/devEngine.mjs` | What the dev session stops before a relink: every running tray, supervisor and engine (a running image cannot be relinked on Windows) |
+| `scripts/dev-tray.mjs` | The dev session's tray task (the k7-tray workspace's `dev` script): build the engine, the supervisor, the backend bundle and the tray, run the tray on them, rebuild and restart on save |
 | `packages/supervisor-host/scripts/stageEngine.mjs` | Copy the binaries and what they load into a `bin/` ([86](./86-desktop-and-android.md#studiosupervisor-host)) |
 
 ## The command-line engine archive

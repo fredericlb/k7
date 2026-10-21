@@ -13,10 +13,9 @@ a compiled `ProjectDoc`. They stay out of each other's way by naming a **session
 This workspace declares **no `build` script**, so `npm run build --workspaces --if-present`
 can never try to compile C++. Use the `build:*` / `test:*` scripts below.
 
-It does declare `dev`, and that one is not a build: it is `scripts/dev-native.mjs`, the
-repo dev session's native task — watch the sources, rebuild, restart. It restarts the
-**supervisor** too, because the supervisor is what holds the running engine open and no relink can
-happen until it lets go. See [docs/dev.md](../../docs/dev.md).
+It declares no `dev`: the dev session rebuilds this engine from the tray's task (`scripts/dev-tray.mjs`) —
+watch the sources, rebuild, restart. It stops the **tray** and its supervisor first, because they are
+what holds the running engine open and no relink can happen until they let go. See [docs/dev.md](../../docs/dev.md).
 
 ## Architecture
 

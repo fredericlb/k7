@@ -1,7 +1,7 @@
 # Building the engine — one build per folder, and a compiler cap
 
 `scripts/build.mjs` is what `npm run build:mac|win|android` and the dev session's watcher
-(`scripts/dev-native.mjs`) both run. It configures only when there is no cache, then builds.
+(`scripts/dev-tray.mjs`) both run. It configures only when there is no cache, then builds.
 
 ## One build per build folder
 

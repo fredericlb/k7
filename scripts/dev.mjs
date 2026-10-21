@@ -45,7 +45,7 @@ async function shutdown(code = 0) {
   if (stopping) return;
   stopping = true;
   tilt.kill();
-  // Tilt may end the native resource too abruptly for it to stop its engine (../docs/dev.md).
+  // Tilt may end the tray resource too abruptly for it to stop its engine (../docs/dev.md).
   try {
     await stopAll();
   } catch {}

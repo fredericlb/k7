@@ -63,8 +63,8 @@ restart just one. The session therefore runs under **[Tilt](https://tilt.dev)**:
 `npm run dev` is `tilt up --port 10350` (`scripts/dev.mjs`, which also refuses to
 start a second session). Each dev server
 is a `local_resource` with its own status, its own filterable logs, and its own
-restart button in the web UI at `http://localhost:10350`. The native monitor
-(`dev:native`, the engine + supervisor rebuild loop) is a resource like the others, so a
+restart button in the web UI at `http://localhost:10350`. The tray task
+(`k7-tray`, the engine + supervisor + tray rebuild loop) is a resource like the others, so a
 broken engine build is a red row with readable logs instead of a dead session.
 
 The `Tiltfile` derives the resource list by running `scripts/tilt-tasks.mjs` (a

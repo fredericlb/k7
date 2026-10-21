@@ -5,7 +5,6 @@
   "description": "Headless C++ audio engine (Tracktion + IXWebSocket). Receives a compiled ProjectDoc over WebSocket, plays audio, pushes transport and meter state back. Never parses song files.",
   "license": "GPL-3.0-only",
   "scripts": {
-    "dev": "node ../../scripts/dev-native.mjs",
     "build:win": "node scripts/build.mjs windows-msvc",
     "build:mac": "node scripts/build.mjs macos-clang",
     "build:android": "node scripts/build.mjs android-arm64",

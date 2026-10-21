@@ -7,7 +7,7 @@ Every script in the root `package.json`, grouped by purpose. Run them from the r
 | Script | Runs | Purpose |
 |---|---|---|
 | `dev` | `node scripts/dev.mjs` | The dev session under Tilt. Extra arguments go to `tilt up` (`npm run dev -- k7-backend`). See [Dev setup](./03-dev-setup.md). |
-| `dev:native` | `node scripts/dev-native.mjs` | The engine and supervisor build-run-watch loop on its own, outside Tilt. |
+| `dev:tray` | `node scripts/dev-tray.mjs` | The engine, supervisor and tray build-run-watch loop on its own, outside Tilt. |
 | `storybook` | `storybook dev -p 6006` | Storybook for components under `packages/*/src` and `apps/*/frontend/src`. |
 | `build-storybook` | `storybook build` | Static Storybook into `storybook-static/`. |
 

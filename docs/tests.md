@@ -126,8 +126,8 @@ rather than about the code — the same lesson as the 64-lane benches in
 Two MSBuild runs in the same `build/<preset>` collide, and the failure looks like a compile error
 in Faust or Tracktion rather than like contention — which is exactly how it reads when it happens.
 Hit twice while writing this page: once by running `test` and `test:all` at the same time, and it
-is the same hazard `npm run dev` carries, because the native task watches and rebuilds the engine
-in that very directory (`dev-native.mjs`, and see [dev.md](dev.md)). If the C++ tests fail with a
+is the same hazard `npm run dev` carries, because the tray task watches and rebuilds the engine
+in that very directory (`dev-tray.mjs`, and see [dev.md](dev.md)). If the C++ tests fail with a
 compiler error you cannot explain, check whether something else is building before reading the
 error.
 

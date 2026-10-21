@@ -42,11 +42,8 @@ const tasks = workspacePackages()
     const rel = relative(repo, dir).replaceAll("\\", "/");
     return {
       name,
-      // Tilt resource names allow only [A-Za-z0-9_-]; `k7-runtime` is the native monitor.
-      label:
-        name === "k7-runtime"
-          ? "native"
-          : name.replace(/^@/, "").replace(/[^A-Za-z0-9_-]+/g, "-"),
+      // Tilt resource names allow only [A-Za-z0-9_-].
+      label: name.replace(/^@/, "").replace(/[^A-Za-z0-9_-]+/g, "-"),
       dir: rel,
       group: rel.split("/")[0],
     };

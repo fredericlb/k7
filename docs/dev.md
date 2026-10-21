@@ -2,8 +2,8 @@
 
 ```bash
 npm run dev                        # every app + the engine, under Tilt
-npm run dev -- native k7-frontend # only the named Tilt resources
-npm run dev:native                 # only the engine, no Tilt
+npm run dev -- k7-tray k7-frontend # only the named Tilt resources
+npm run dev:tray                   # only the tray and its engine, no Tilt
 npm run vscode                     # the browser editor at /dev, on its own
 ```
 
@@ -185,28 +185,39 @@ k7 owns the flow because it is the service with NO path prefix: `redirectUriFor`
 `<origin>/auth/callback`, and that is the single `redirect_uri` the IdP has registered. See
 `packages/web-protocol/services.ts`.
 
-## The native task — `scripts/dev-native.mjs`
+## The tray task — `scripts/dev-tray.mjs`
 
-It is `engine/k7-runtime`'s `dev` script, which is what gives it a pane in the TUI beside the
-servers. It builds the engine and the supervisor, and runs the supervisor as the command-line engine
-— `k7-supervisor --config <state>/engine-host.json` (`engine/scripts/devEngine.mjs`), the settings
-file the tray's engine keeps too, created as `{}` when absent so the studio comes from
-`$STUDIO_REGISTRY_URL`. Edit that file to point the dev engine elsewhere; the supervisor never writes
-it back.
+It is `apps/k7-tray`'s `dev` script, which is what makes it the `k7-tray` resource beside the servers.
+It builds the engine, the supervisor, k7's backend bundle (the frontend inside it) and the tray, then
+runs the tray on those builds: k7 answers at `http://127.0.0.1:18789`, the tray's backend runs the
+supervisor on `~/.k7`, and the supervisor runs the engine. The machine's engine during a session is
+therefore the tray's, as it is on a musician's machine (`apps/k7-tray/docs/tray.md`).
 
-The engine is C++, so it has no watch mode that means anything: there is nothing to
-hot-reload, only a binary to relink and a process to restart — and the supervisor has to be stopped
-for that relink, since it holds the engine running. That is what the monitor does — watch
-the sources, rebuild, restart.
+The tray is pointed at the repo's builds through the overrides its `paths.rs` reads first —
+`K7_BACKEND_BUNDLE` for the bundle in the tray workspace's gitignored `.dev` folder, `STUDIO_ENGINE_HOST_CMD` for the
+supervisor build — so nothing is staged. The dev web app keeps reaching the same engine as long as
+`~/.k7/engine-host.json` lists the dev backend (`http://localhost:8789`) beside the tray's own
+registry, which the tray's backend pins first and never removes.
+
+The engine is C++, so it has no watch mode that means anything: there is nothing to hot-reload, only
+a binary to relink and a process to restart — and the tray has to be stopped for that relink, since
+its tree holds the engine running. That is what the task does — watch the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
 | `k7-runtime` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace k7-runtime` |
 | `k7-supervisor` | `src/`, `CMakeLists.txt`, `CMakePresets.json` | `supervisorBuild.mjs` |
+| `k7-tray` | `src-tauri/src/`, `Cargo.toml`, `tauri.conf.json` | `cargo build` in `apps/k7-tray/src-tauri` |
 
-A failed build of either half leaves the engine down, and says so — `✖ … the engine is stopped, fix
-and save again`. The cycle stops the supervisor and the engine BEFORE building, since a running image
-cannot be relinked, and starts the supervisor again only once every dirty target has built. The
+| choice | why |
+|---|---|
+| the backend bundle built at every start of the task, never watched | its sources are the whole workspace, and a production build of the frontend takes a minute; live frontend and backend work belongs to the `k7-frontend` and `k7-backend` resources, and the Tilt restart button rebuilds the tray's copy |
+| every tray stopped first, an installed one included | it holds port 18789 and `~/.k7`, and its single-instance guard would turn the dev tray's launch into a no-op |
+| a failed bundle ends the task | a tray without a backend would only say so on its status line; a red resource says it where the session is watched |
+
+A failed build of any target leaves the tray down, and says so — `✖ … the tray is stopped, fix and
+save again`. The cycle stops the tray, the supervisor and the engine BEFORE building, since a running
+image cannot be relinked, and starts the tray again only once every dirty target has built. The
 target that failed stays dirty, so the next save retries it instead of looping on it.
 
 `engine/k7-runtime/tests/` is deliberately not watched: it links a binary of its own, and
@@ -218,19 +229,19 @@ lands in the same `build/` folder, the APK being built on the desk it is tested 
 lookup that picks a binary to run or to stage skips those presets (`CROSS` in
 `engine/scripts/supervisorBuild.mjs`).
 
-### Why one process owns both watches
+### Why one process owns every watch
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 a relink against a live binary fails with a confusing linker error, and the engine's
 does the same while the supervisor has `k7-runtime.exe` running. The order is
 therefore stop → build → start.
 
-And the processes that must be stopped are *the same* for both targets: the supervisor holds the
-engine, so stopping one without the other leaves a binary held. Two independent watchers would race
-to stop and restart one pair. So there is one, and a cycle that needs both rebuilds does one stop,
-both builds, one start.
+And the processes that must be stopped are *the same* for every target: the tray holds the backend,
+which holds the supervisor, which holds the engine, so stopping one part leaves a binary held. Several
+independent watchers would race to stop and restart one tree. So there is one, and a cycle that
+needs several rebuilds does one stop, every build, one start.
 
-This is also why the monitor owns the *build* and not just the restart. A watcher that
+This is also why the task owns the *build* and not just the restart. A watcher that
 only reacted to a changed binary could never fire: while the session is up, nothing can
 produce that binary.
 
@@ -239,16 +250,15 @@ produce that binary.
 Saves are debounced 500 ms and coalesced per target. A target is removed from the dirty
 set **before** its build, not after, so a save landing mid-build is not swallowed — it
 just queues another cycle. A save landing during a build re-arms the timer, which keeps
-retrying until the cycle in flight frees the engine.
+retrying until the cycle in flight frees the tree.
 
-A failed build puts its target back in the dirty set and stops there, leaving the engine
+A failed build puts its target back in the dirty set and stops there, leaving the tray
 down. It is **not** retried on a timer: a broken build retried every 500 ms is a fan, not
 a signal. Save again and it tries again.
 
-At startup the monitor rebuilds the engine only if there is no binary, or if the sources are newer
-than the one in `engine/k7-runtime/build`, and the supervisor likewise; then it starts the supervisor
-whatever was rebuilt. A session should not pay a cmake run to be told there is nothing to do, and
-should not silently run the engine you had before a `git pull`.
+At startup the task rebuilds a target only if there is no binary, or if its sources are newer than
+the binary, then starts the tray whatever was rebuilt. A session should not pay a cmake run to be
+told there is nothing to do, and should not silently run the engine you had before a `git pull`.
 
 ### A build that succeeds without replacing the image
 
@@ -259,22 +269,23 @@ therefore checks the binary's mtime afterwards.
 The test is deliberately *"is the binary at least as new as its sources"* and **not** *"did it
 change"*. A watcher event can fire with nothing actually edited — Windows reports odd names for
 changes under the build tree — and a no-op build is then the correct outcome. Demanding a change
-turns that harmless case into a hard failure that leaves the engine stopped, which is worse than the
+turns that harmless case into a hard failure that leaves the tray stopped, which is worse than the
 bug being guarded.
 
 The watch roots filter by BASE name, because a recursive `fs.watch` reports a path relative to the
-root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
-every editor swap file — from triggering a rebuild. The rebuild order is engine first: building the
-slow one first means a broken engine never costs a supervisor rebuild.
+root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output, Cargo's
+`target/` — and every editor swap file — from triggering a rebuild. The rebuild order is engine first:
+building the slow one first means a broken engine never costs the cheaper rebuilds.
 
 ### On exit
 
-The supervisor is the monitor's child, but in config mode nothing ties its life to the monitor's: it
-stops on a signal, not when a pipe closes. So `dev-native.mjs` stops every supervisor and engine on
-`SIGINT`/`SIGTERM` and again at startup, and `dev.mjs` repeats it after Tilt is gone — a resource may
-be ended too abruptly for its own handler to run, and an engine left holding its port and its binary
-is the one leak worth being sure about. Every step **throws** rather than calling `process.exit`, so
-a watcher meant to outlive a bad build survives one.
+`dev-tray.mjs` stops every tray, supervisor and engine on `SIGINT`/`SIGTERM` and again at startup
+(`stopAll` in `engine/scripts/devEngine.mjs`), and `dev.mjs` repeats it after Tilt is gone — a
+resource may be ended too abruptly for its own handler to run, and an engine left holding its port and
+its binary is the one leak worth being sure about. Stopping the tray is enough on Windows, where its
+job object takes the rest along; the supervisor and the engine are stopped by name anyway, for the
+cases where it is not. Every step **throws** rather than calling `process.exit`, so a watcher meant
+to outlive a bad build survives one.
 
 ## Two checkouts on the Windows machine — what RUNS stays on NTFS
 
