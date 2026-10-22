@@ -2905,7 +2905,7 @@ export default function App({
                 ref={headerGroupRef}
                 className="flex min-w-0 flex-1 items-center gap-3"
               >
-                {/* The way back, whole-page since the project is the router's BASENAME; a share has none (docs/shared.md). */}
+                {/* The way back, a full address since the project is the router's BASENAME (appNav.ts); a share has none (docs/shared.md). */}
                 {snapshot ? (
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
                     {snapshot.manifest.name || "…"}

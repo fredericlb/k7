@@ -56,6 +56,33 @@ alone. Read
 before touching any of it, in particular why the address is a path and the workspace is named
 rather than spelled out.
 
+## Going into a project, and out of it, loads no page
+
+The router is mounted by the address's **scope** (`src/address.ts`): the home pages are one, each
+project is one — keyed by its basename — and a share, a rehearsal public page and the surfaces menu
+are one each. `Root` in `appMain.tsx` keys the `BrowserRouter` by that scope, so moving inside one
+re-renders nothing above it, and crossing to another swaps the whole tree under the router, with the
+same teardown a page load gave — the lease, the socket, the editor — and none of its cost: the code,
+the sign-in and `AuthGate` stay. The project is still the basename, so everything said above about
+it holds inside a project.
+
+What a page load used to forget is now forgotten by hand, and that is the hazard to keep in mind
+when adding state: **module-level state kept for ONE project** survives into the next, and most of it
+is keyed by a path, which names a file in every project. Each such module registers its forget with
+`onLeave` (`src/scopeLeave.ts`), and `Root` runs them all in a render of its own between unmounting
+one scope and mounting the next: the file transport's shared reads (`resetFileApi`), the revision
+poller's token, autosave's held buffers, the waveform envelopes, the LCD sounds' project, and the
+query cache. A module holding per-project state with no `onLeave` hands project A's answer to
+project B.
+
+The crossings go through `go` (`src/appNav.ts`): an app address is pushed and drawn in place, any
+other is loaded. A same-origin link to an app address is caught at the document, since a router only
+writes below its own basename and the home page's rows are plain links — ctrl-click and the rest
+stay the browser's. The gate's own departures (Quit, an address naming no project) come through
+`setAddressNavigator`. Leaving flushes the autosaves first and asks only when a pane still holds
+work that is not on disk (`hasUnsavedWork`), and a Back that would leave such work is put back if
+refused; a real reload keeps the browser's `beforeunload` prompt.
+
 **ProjectGate also closes the session again.** Twenty minutes untouched and it stops rendering the
 editor — which is what closes the engine socket — flushes the project out of the engine and draws
 a card offering to resume. EngineGate lets go of its lease at the same moment, since a tab with no
@@ -227,7 +254,7 @@ while playing, not clicked, and the divider after it is what says so.
 The **way back to the home page** is a hamburger just left of the project's name: it opens the home
 page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
 home too. Projects open in the home page's tab rather than a new one, so a drawer entry is the
-gesture that ends a session — a whole-page navigation. The drawer is loaded on first open, since it
+gesture that ends a session, drawn in place like any crossing (see above). The drawer is loaded on first open, since it
 carries the media library's and the rehearsal pages' sections. On a frozen share there is no
 hamburger and the name is plain text (`docs/shared.md`).
 

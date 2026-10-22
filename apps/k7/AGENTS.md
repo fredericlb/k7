@@ -347,7 +347,7 @@ keeps the folder there. Arriving with no project in the address is the home page
 than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
 anything. There is deliberately no SECOND picker.
 
-**The project is the router's `basename`** (`projectBasename` in `main.tsx`), which is why
+**The project is the router's `basename`** (`projectBasename`, read by `src/address.ts`; the router is keyed by it in `appMain.tsx`, so entering or leaving a project loads no page — `frontend/docs/shell.md`), which is why
 there is no storage anywhere near it: React Router only writes below its basename, so
 `routes.ts` cannot rewrite the project away, and a reload or a pasted link simply re-reads the
 address. Hold it in a query string and a session instead, and a tab handed a project that does

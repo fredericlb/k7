@@ -34,6 +34,13 @@ basename, so nothing can rewrite the project away, and the address IS the state:
 re-reads it, a bookmark works, and a wrong project is fixed by editing the URL. There is nothing
 to clear.
 
+**A basename is fixed for a router's life, not for the page's.** A host may cross to another project
+without a page load by mounting a new router keyed by the new basename — k7 does
+(`apps/k7/frontend/docs/shell.md`). The gate's own departures then have to be the host's too:
+`goToAddress` is a page load unless the host installs its own with `setAddressNavigator`. And such a
+host owes what the load used to do for free: `resetFileApi` between two projects, and a fresh
+`configureFileApi` for the next (`fileApi.md`).
+
 **A folder, not a repository.** No service keeps a register mapping a short name to a git URI, so
 nothing has to answer before a project can open, and a machine with no server is not a degraded
 one: an imported repository and a project made locally are the same thing, a folder with an

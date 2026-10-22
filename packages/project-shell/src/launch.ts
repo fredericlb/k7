@@ -26,3 +26,21 @@ export {
 export function projectsUrl(origin: string): string {
   return `${serviceUrl(origin, "k7")}/`;
 }
+
+/** How the gate leaves for another address: a page load unless the host draws it in place (docs/launch.md). */
+export type AddressNavigator = (url: string, replace: boolean) => void;
+
+let navigateTo: AddressNavigator = (url, replace) => {
+  if (replace) window.location.replace(url);
+  else window.location.assign(url);
+};
+
+/** Let a host that switches projects without a page load take the gate's departures. */
+export function setAddressNavigator(fn: AddressNavigator): void {
+  navigateTo = fn;
+}
+
+/** Go to `url` the host's way — the gate's Quit, and its way out of an address naming no project. */
+export function goToAddress(url: string, replace = false): void {
+  navigateTo(url, replace);
+}

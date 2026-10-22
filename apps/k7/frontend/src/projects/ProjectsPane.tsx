@@ -12,6 +12,7 @@ import type {
 } from "@studio/web-protocol";
 import { isDroppableProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
+import { go } from "../appNav";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
 import { type DroppedProject, ImportProject } from "./ImportProject";
@@ -175,8 +176,7 @@ export function ProjectsPane({
   /** …and open what it wrote, in this tab like every other project link on this page. */
   const openImported = useCallback(() => {
     const ws = workspaces.find((w) => w.name === dropped?.workspace);
-    if (ws && imported)
-      window.location.assign(projectHref(ws, { path: imported, app: "k7" }));
+    if (ws && imported) void go(projectHref(ws, { path: imported, app: "k7" }));
     setDropped(null);
     setImported(null);
   }, [workspaces, dropped, imported]);

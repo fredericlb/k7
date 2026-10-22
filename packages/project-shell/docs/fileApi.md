@@ -24,6 +24,10 @@ send headers, so everything including the token rides in the query.
 
 ### A GET already in the air is joined, not re-issued
 
+The joined and the settled reads below are keyed by PATH, and a path names a file in every project:
+`configureFileApi` therefore starts a new epoch and drops them, and `resetFileApi` forgets the
+project outright — for a host that leaves one without a page load (`launch.md`).
+
 `fget` is **not a cache** — nothing is kept once a request settles, so two calls a second apart are
 two requests. What it collapses is the burst. The derived views are asked for by several components
 at once, every one of them on the same reload key, and each answer costs the service a real compile

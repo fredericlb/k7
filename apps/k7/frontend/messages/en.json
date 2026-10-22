@@ -832,6 +832,7 @@
   "engineSwitch.soundHere": "Sound in this browser",
   "engineSwitch.noSound": "No sound — choose an engine",
   "engineSwitch.noSoundHint": "The project is open, but no audio engine is playing it. Start the k7 tray on this computer, or pick an engine here.",
+  "leave.unsaved": "Some changes are not saved yet. Leave this project anyway?",
   "engineSwitch.change": "Change",
   "engineSwitch.section": "Engine",
   "engineSwitch.info": "Project and engine",

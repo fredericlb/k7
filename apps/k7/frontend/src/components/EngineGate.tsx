@@ -19,6 +19,7 @@ import { GateWait } from "@studio/project-shell/progress";
 import { claimSlot } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engines } from "../api";
+import { go } from "../appNav";
 import { compatByEngine } from "../engineCompat";
 import { accountEngine } from "../engineSession";
 import { m } from "../paraglide/messages.js";
@@ -248,7 +249,7 @@ export function EngineGate({
   }, [chosen, hosted]);
 
   const toProjects = () => {
-    window.location.href = projectsUrl(window.location.href);
+    void go(projectsUrl(window.location.href));
   };
 
   if (taken)

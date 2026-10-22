@@ -5,6 +5,7 @@
 
 import type { LcdSounds } from "@studio/ui-chains/lcdScreen";
 import { mediaUrl } from "./api";
+import { onLeave } from "./scopeLeave";
 
 /** A PCM or float WAV, its channels averaged; null for anything else. */
 export function decodeWav(buf: ArrayBuffer): Float32Array | null {
@@ -135,3 +136,9 @@ export const touchesSounds = (files: { path: string }[] | null): boolean =>
 
 /** Forget the decoded sounds after such a write; the screens ask again for what they draw. */
 export const refreshLcdSounds = (): void => shared.clear();
+
+// Forgotten with the project: the next one names its own.
+onLeave(() => {
+  openProject = null;
+  shared.clear();
+});

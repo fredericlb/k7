@@ -832,6 +832,7 @@
   "engineSwitch.soundHere": "Son dans ce navigateur",
   "engineSwitch.noSound": "Pas de son — choisir un moteur",
   "engineSwitch.noSoundHint": "Le projet est ouvert, mais aucun moteur audio ne le joue. Lancez le tray k7 sur cet ordinateur, ou choisissez un moteur ici.",
+  "leave.unsaved": "Certaines modifications ne sont pas encore enregistrées. Quitter ce projet quand même ?",
   "engineSwitch.change": "Changer",
   "engineSwitch.section": "Moteur",
   "engineSwitch.info": "Projet et moteur",

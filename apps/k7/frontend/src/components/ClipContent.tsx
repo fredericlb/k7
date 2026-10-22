@@ -8,6 +8,7 @@ import { bandsAt, spectrumColumns } from "@studio/ui-waveform/spectrum";
 import { memo, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey, type EnvelopeProject } from "../clipEnvelope";
+import { onLeave } from "../scopeLeave";
 import type { WebClip, WebNote, WebWaveform } from "../types";
 
 /** Memoised: this is the most numerous thing on the surface once the lanes are expanded, and below here a waveform is fetched per clip. */
@@ -148,6 +149,9 @@ const WAVE_H = 100;
 
 /** ONE entry per clip, holding the key it was fetched under — so this stays bounded by the clip count however often one is trimmed. */
 const wfCache = new Map<string, { key: string; data: WebWaveform | null }>();
+
+// Forgotten with the project: a clip id can name a clip in the next one too.
+onLeave(() => wfCache.clear());
 
 /** The clip's envelope, fetched once and shared, keyed by `clipEnvelopeKey` — a trim changes what plays without changing the id. */
 export function useClipWaveform(
