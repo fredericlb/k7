@@ -1,7 +1,7 @@
 // bundle.mjs — k7's backend and the file service it starts as plain JS, what the desktop and phone apps run,
 // with the files they read at run time laid out at their repo paths. A source's `import.meta` is rewritten to
 // its ORIGINAL path under that tree, so a bundle reads `../meta` or `frontend/dist` as the source did.
-// Usage: node bundle.mjs <outDir>, after the frontend's build; `--in-tree` for the server image. See ../docs/standalone.md.
+// Usage: node bundle.mjs <outDir>, after the frontend's build; `--in-tree` for the server image, `--no-frontend` for the dev tray. See ../docs/standalone.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -25,16 +25,22 @@ const repo = join(
   "..",
 );
 const out = process.argv[2];
-if (!out) throw new Error("usage: bundle.mjs <outDir> [--in-tree] [--list]");
+if (!out)
+  throw new Error(
+    "usage: bundle.mjs <outDir> [--in-tree] [--no-frontend] [--list]",
+  );
 // The server image: the two entries only, in a folder of the checkout, whose files they read where they lie.
 const inTree = process.argv.includes("--in-tree");
 
 // The bundles' own folder; `import.meta` of a source resolves against its parent, the staged tree.
 const BIN = "bin";
 
+// The dev tray's backend serves the page from Vite (K7_DEV_FRONTEND), so its bundle needs no built frontend.
+const noFrontend = process.argv.includes("--no-frontend");
+
 // What the bundles read beside themselves, at the path the source names it from.
 const DATA = [
-  "apps/k7/frontend/dist",
+  ...(noFrontend ? [] : ["apps/k7/frontend/dist"]),
   "packages/song/meta",
   "packages/song/samples/video/sample.mp4",
   "packages/commands/commands.yaml",

@@ -78,6 +78,10 @@ export default defineAppConfig({
     // The docs host and the former hosts still reach these servers — see scripts/dev-hosts.mjs.
     server: {
       allowedHosts: [DOCS_DEV_HOST, ...LEGACY_DEV_HOSTS],
+      // HMR by NAME, so a page this Vite serves through another origin — the dev tray's 18789 — reaches it too (docs/dev.md).
+      ...(process.env.STUDIO_WEB_PORT
+        ? {}
+        : { ws: { host: DEV_HOST, protocol: "wss", clientPort: 443 } }),
     },
     // The three @studio UI packages are consumed as raw .ts, and esbuild's dep scanner chokes on the extension in their exports maps.
     optimizeDeps: {

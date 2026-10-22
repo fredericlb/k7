@@ -188,7 +188,7 @@ k7 owns the flow because it is the service with NO path prefix: `redirectUriFor`
 ## The tray task — `scripts/dev-tray.mjs`
 
 It is `apps/k7-tray`'s `dev` script, which is what makes it the `k7-tray` resource beside the servers.
-It builds the engine, the supervisor, k7's backend bundle (the frontend inside it) and the tray, then
+It builds the engine, the supervisor, k7's backend bundle and the tray, then
 runs the tray on those builds: k7 answers at `http://127.0.0.1:18789`, the tray's backend runs the
 supervisor on `~/.k7`, and the supervisor runs the engine. The machine's engine during a session is
 therefore the tray's, as it is on a musician's machine (`apps/k7-tray/docs/tray.md`).
@@ -200,6 +200,31 @@ site by its public name, `https://app.priv.k7.rocks`, on the engine page (`/sett
 `http://localhost:8789`: under the tray, the machine's loopback k7 is the tray's backend, which the
 supervisor reaches every loopback registry at, so the tray's backend drops any other loopback entry
 when it pins its own (`apps/k7/backend/docs/localEngine.md`).
+
+**The page on 18789 is `k7-frontend`'s Vite, with HMR.** The task hands the tray
+`K7_DEV_FRONTEND=http://localhost:5223`, and the tray's backend then streams every request it would have
+answered from `frontend/dist` to that Vite instead (`apps/k7/backend/src/devFrontend.ts`); `/api` and
+`/auth` stay its own. So the local PWA is developed on its real origin — its service worker, its cookie,
+its storage, the tray's own "Open k7" — rather than on a stand-in port. HMR's websocket goes to Vite by
+name, `wss://app.priv.k7.rocks`, which is why k7's `vite.config.ts` names the host in `server.ws`: left
+to the page, a page on 18789 would look for Vite on `127.0.0.1:443`. Off the LAN proxy, HMR has no
+socket and the page still loads; a full reload picks up an edit. With `k7-frontend` down, 18789 answers
+a 502 naming it. `K7_DEV_FRONTEND=` (empty) before `npm run dev` brings back the built page.
+
+**Its backend runs from source and restarts on save.** The bundle's `bin/backend.mjs` is replaced by an
+import of `scripts/devTrayBackend.mjs`, which runs `apps/k7/backend/src/server.ts` under `tsx watch` — a
+save in any file it imports, `packages/` included, restarts it — and drops `STUDIO_FILE_SERVICE_ENTRY`,
+so the hub starts each file service from source too. A restart ENDS THE ENGINE: the backend holds the
+supervisor's job (`engine/k7-supervisor/docs/hostProtocol.md`), which is what keeps a killed tray from
+leaving a ghost engine, so the engine is down a few seconds and the project reloads — the cost a manual
+`tilt trigger k7-tray` already had, paid on every save instead of when chosen. A save in `@studio/song`
+or `@studio/commands` for the page bounces it too. `K7_DEV_BACKEND=bundle` before `npm run dev` runs the
+bundled backend, for a session spent listening. The tray's stdin stays the SHIM's: `tsx watch` reads its
+own stdin, for the key that reruns its child, and a backend reading the same pipe for `K7_STDIN_STOP`
+never got past its start on Windows. So `tsx watch` gets none, the backend no stop-on-end, and when the
+tray closes the shim's stdin the shim ends the whole tree — `taskkill /T` on Windows, where a killed
+backend takes its supervisor and engine with it through the job it holds; a SIGTERM first elsewhere. A
+backend left behind would hold 18789 for the next tray.
 
 The engine is C++, so it has no watch mode that means anything: there is nothing to hot-reload, only
 a binary to relink and a process to restart — and the tray has to be stopped for that relink, since
@@ -213,7 +238,7 @@ its tree holds the engine running. That is what the task does — watch the sour
 
 | choice | why |
 |---|---|
-| the backend bundle built at every start of the task, never watched | its sources are the whole workspace, and a production build of the frontend takes a minute; live frontend and backend work belongs to the `k7-frontend` and `k7-backend` resources, and the Tilt restart button rebuilds the tray's copy |
+| the backend bundle built at every start of the task, with no frontend in it | the page is Vite's and the backend tsx's (above); what is left in the bundle is the `k7-core` seed and the files the tray reads, and `K7_DEV_BACKEND=bundle` runs it whole |
 | every tray stopped first, an installed one included | it holds port 18789 and `~/.k7`, and its single-instance guard would turn the dev tray's launch into a no-op |
 | a failed bundle ends the task | a tray without a backend would only say so on its status line; a red resource says it where the session is watched |
 

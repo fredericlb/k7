@@ -77,3 +77,4 @@ A data file a source starts reading is added to `DATA`; `--list` prints every so
 | `cpu-features` and `*.node` left out | ssh2's native helpers, optional: it falls back to JS, and no addon could target both the tray's node and Termux's |
 | `playwright-core` left out | only the server's picture render reaches it, through a lazy `import()`, and it does not bundle: its optional `chromium-bidi` imports are not installed. The server image has it in `node_modules`; the tray and the phone render no picture |
 | `node24` | the node the tray pins and ships beside it (`apps/k7-tray/scripts/stage.mjs`) |
+| `--no-frontend`, and `K7_DEV_FRONTEND` at run time | the dev tray's page is `k7-frontend`'s Vite, streamed by the backend for HMR on 18789 (`../src/devFrontend.ts`, `../../../../docs/dev.md`); a release always carries the built one, since nothing sets the variable there |

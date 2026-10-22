@@ -29,6 +29,7 @@ import {
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
 import { jsonBodies } from "./bodyLimits.ts";
+import { devFrontend } from "./devFrontend.ts";
 import { mountHandoff } from "./handoff.ts";
 import {
   jsonErrorHandler,
@@ -238,25 +239,30 @@ app.use((req, res, next) => {
 const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
 // The shell is asked again on every load and a hashed asset is kept for good — ../../../../docs/versioning.md.
 const SHELL_CACHE = "no-cache";
-app.use(
-  precompressedStatic(FRONTEND_DIST, {
-    setHeaders: (res, path) => {
-      res.setHeader(
-        "Cache-Control",
-        path.startsWith(join(FRONTEND_DIST, "assets"))
-          ? "public, max-age=31536000, immutable"
-          : SHELL_CACHE,
-      );
-      if (path.endsWith(".html")) shellFrameHeaders(res);
-    },
-  }),
-);
-// Not for /assets/: a hashed chunk that is gone must 404, or the page parses index.html as a script.
-app.get(/^(?!\/api|\/auth|\/assets\/)/, (_req, res) => {
-  res.setHeader("Cache-Control", SHELL_CACHE);
-  shellFrameHeaders(res);
-  res.sendFile(join(FRONTEND_DIST, "index.html"));
-});
+// …or, in the dev tray, a running Vite in its place, for HMR on this origin (./devFrontend.ts).
+const DEV_FRONTEND = process.env.K7_DEV_FRONTEND || "";
+if (DEV_FRONTEND) app.use(devFrontend(DEV_FRONTEND));
+else {
+  app.use(
+    precompressedStatic(FRONTEND_DIST, {
+      setHeaders: (res, path) => {
+        res.setHeader(
+          "Cache-Control",
+          path.startsWith(join(FRONTEND_DIST, "assets"))
+            ? "public, max-age=31536000, immutable"
+            : SHELL_CACHE,
+        );
+        if (path.endsWith(".html")) shellFrameHeaders(res);
+      },
+    }),
+  );
+  // Not for /assets/: a hashed chunk that is gone must 404, or the page parses index.html as a script.
+  app.get(/^(?!\/api|\/auth|\/assets\/)/, (_req, res) => {
+    res.setHeader("Cache-Control", SHELL_CACHE);
+    shellFrameHeaders(res);
+    res.sendFile(join(FRONTEND_DIST, "index.html"));
+  });
+}
 
 // Mounted LAST: a JSON answer for every error, and never a 5xx's message or stack.
 app.use(jsonErrorHandler);
