@@ -159,6 +159,9 @@ mountHandoff(app, {
   auth,
 });
 
+// Under the home directory so a dev run needs no volume (packages/user-prefs/docs/store.md).
+const PREFS_DIR =
+  process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "k7");
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.
 const tokens = mediaTokens();
 // Before the library: its public pages are unguarded and its releases take k7's own bearer.
@@ -177,6 +180,10 @@ const media = mountMedia(app, {
   port: PORT,
   tokens,
   onRemote: localEngine ? pairingHooks(localEngine) : undefined,
+  favorites: {
+    own: prefsStore(join(PREFS_DIR, "favorites")),
+    prefs: prefsStore(PREFS_DIR),
+  },
 });
 
 /** One person's layer over a command, as the WIRE shape — the meaning is the frontend's `commandPrefs.ts`. */
@@ -194,12 +201,9 @@ const prefsSchema = z.object({
   engineId: z.string().optional(),
   commands: z.record(z.string(), commandPrefSchema).optional(),
   playbackTarget: z.string().optional(),
-  // The songs and albums starred in the médiathèque, as library paths (packages/ui-library/docs/library.md).
+  // Kept so a page's wholesale save still passes; it only seeds the favorites store (./media/routes/favorites.ts).
   favorites: z.array(z.string()).optional(),
 });
-// Under the home directory so a dev run needs no volume (packages/user-prefs/docs/store.md).
-const PREFS_DIR =
-  process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "k7");
 // Only `/preferences`, which the mpv player's `/player/*` routes above never shadow.
 app.use(
   "/api",
