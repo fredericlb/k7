@@ -49,6 +49,7 @@ ojson stateFrame(const Snapshot& s)
     f["audioDevices"] = devices;
     f["audioPriority"] = s.audioPriority;
     f["audioMenuSig"] = s.audioMenuSig;
+    f["lanOpen"] = s.lanOpen;
     ojson edit = ojson::array();
     for (const auto& e : s.editPlugins)
         edit.push_back({{"session", e.session}, {"id", e.id}, {"name", e.name}, {"hasNativePluginUI", e.hasNativePluginUI}});

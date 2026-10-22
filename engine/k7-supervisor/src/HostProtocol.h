@@ -124,6 +124,7 @@ struct Snapshot {
     std::vector<AudioDevice> audioDevices;
     std::vector<std::string> audioPriority;
     std::string audioMenuSig;
+    bool lanOpen = true;
     std::vector<EditPlugin> editPlugins;
     std::string editPluginsSig;
     std::vector<Instance> instances;

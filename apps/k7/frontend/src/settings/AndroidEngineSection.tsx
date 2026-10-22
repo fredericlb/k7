@@ -3,6 +3,7 @@
 // the instruments it downloads, a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
 // See ../../docs/settings.md, engine/k7-runtime/docs/android.md and docs/ios.md.
 
+import { Switch } from "@frediverse/ui/switch";
 import { studioFamily } from "@studio/web-protocol/services";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -49,6 +50,27 @@ export function AndroidEngineSection() {
           <Action danger onClick={() => void engineCall("quit")}>
             {m["android.quit"]()}
           </Action>
+        </Row>
+      </Section>
+
+      <Section title={m["engine.lanTitle"]()} hint={m["engine.lanHint"]()}>
+        <Row
+          label={m["engine.lanOpen"]()}
+          detail={
+            state?.lanOpen ? m["engine.lanOpenOn"]() : m["engine.lanOpenOff"]()
+          }
+        >
+          <Switch
+            checked={state?.lanOpen ?? false}
+            disabled={!state}
+            onCheckedChange={(on) =>
+              void engineCall("command", {
+                cmd: "lan.open",
+                arg: on ? "1" : "0",
+              })
+            }
+            aria-label={m["engine.lanOpen"]()}
+          />
         </Row>
       </Section>
 

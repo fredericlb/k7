@@ -7,6 +7,7 @@
 #include <ixwebsocket/IXWebSocket.h>
 #include <nlohmann/json.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <functional>
@@ -101,6 +102,9 @@ struct ServeContext {
     std::unordered_set<const ix::WebSocket*> trusted;
     std::unordered_set<const ix::WebSocket*> local;   // …and the loopback ones among them
     std::unordered_set<const ix::WebSocket*> refused;   // …and the pages from a site not allowed, closing
+    std::unordered_set<const ix::WebSocket*> lanTrusted;   // …and the LAN ones trusted unpaired, closed when the LAN is
+    // A LAN peer drives unpaired while this holds: the supervisor's `lanOpen`, sent once it connects; closed until then.
+    std::atomic<bool> lanOpen{false};
     std::vector<std::string> allowedOrigins;   // `STUDIO_ENGINE_ALLOWED_ORIGINS`, beside the built-in ones
     bool isTrusted(const ix::WebSocket* ws) {
         std::lock_guard<std::mutex> lk(trustMx);

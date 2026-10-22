@@ -31,6 +31,8 @@ struct Settings {
     std::optional<std::vector<std::string>> instruments;
     /** The device token each studio paired this machine with, by registry URL: what a studio that lists paired machines only asks. */
     std::map<std::string, std::string> deviceTokens;
+    /** A device on this machine's network drives the engine unpaired; off, it pairs first (engine/k7-runtime/docs/pairing.md). */
+    bool lanOpen = true;
 };
 
 /** Parse a settings document leniently; anything missing or malformed falls back to its default. */

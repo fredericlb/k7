@@ -68,6 +68,7 @@ The snapshot (`Snapshot` in `HostProtocol.h`) carries: `status` (`stopped`/`runn
 | `weburi.remove` | a studio URL | Drop that family from the persisted list and deregister from it |
 | `registry.deregister` | | Deregister from every studio now |
 | `audio.priority` | names joined by U+001F | Save the whole ranking, then switch if needed |
+| `lan.open` | `1` or `0` | Save whether a device on this network drives the engine unpaired, then tell the engine |
 | `plugins.rescan` | | Ask the engine to rescan; the count is cleared to show a spinner |
 | `plugin.showUI` | `<session>␟<id>` or `<id>` | Open a plugin's native window |
 | `session.drop` | session id | Drop a session in the engine |

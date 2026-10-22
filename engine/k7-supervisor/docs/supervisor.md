@@ -18,7 +18,8 @@ are in [supervisorPolicy.md](supervisorPolicy.md).
 ("The engine's port", below).
 
 The config file has the settings' schema (`registryUrls`, `port`, `audioPriority`, `onnxProviders`,
-`instruments`, `deviceTokens`), plus a single `deviceToken` for every studio the file names, and the three keys that otherwise come from the environment — `machineName`,
+`instruments`, `deviceTokens`, `lanOpen` — whether a device on this network drives the engine unpaired,
+`engine/k7-runtime/docs/pairing.md`), plus a single `deviceToken` for every studio the file names, and the three keys that otherwise come from the environment — `machineName`,
 `extraCaCerts`, `renderKey` — and `"instruments": ["all"]` for `$STUDIO_INSTRUMENTS=all`. A key the
 file names wins over the environment; one it leaves out falls back to it, so `{}` is a valid config.
 `engine.example.json` beside this folder is the one the release archive carries.

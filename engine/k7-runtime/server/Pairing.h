@@ -21,6 +21,9 @@ namespace studio {
 /** A peer address the machine itself owns: 127.0.0.0/8, ::1, and the v4-mapped form of either. */
 bool isLoopbackAddress(const std::string& ip);
 
+/** A peer on this machine's own network: 10/8, 172.16/12, 192.168/16, 169.254/16, fc00::/7, fe80::/10, v4-mapped or not. */
+bool isPrivateAddress(const std::string& ip);
+
 /** Two secrets compared in a time that does not depend on where they first differ. */
 bool sameKey(const std::string& a, const std::string& b);
 

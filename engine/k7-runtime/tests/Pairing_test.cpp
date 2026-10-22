@@ -37,6 +37,16 @@ void loopback_is_the_machine_and_nothing_else() {
     CHECK(!isLoopbackAddress(""));
 }
 
+// What the open LAN admits unpaired: this machine's own network, never a public address a router forwarded.
+void private_is_the_lan_and_nothing_else() {
+    for (const char* lan : {"192.168.1.20", "10.0.0.1", "172.16.0.5", "172.31.255.1", "169.254.3.4",
+                            "::ffff:192.168.1.20", "fe80::1", "FE80::abcd", "fd12:3456::1", "fc00::2"})
+        CHECK(studio::isPrivateAddress(lan));
+    for (const char* not_lan : {"8.8.8.8", "172.32.0.1", "172.15.0.1", "192.169.0.1", "100.64.0.1", "2001:db8::1",
+                                "::ffff:8.8.8.8", "127.0.0.1", "::1", "", "256.1.1.1", "10.0.0.1x"})
+        CHECK(!studio::isPrivateAddress(not_lan));
+}
+
 // A page the user merely visits must not drive the engine: only the studio's own origins, and native clients.
 void only_the_studio_origins_open_a_socket() {
     const std::vector<std::string> none;
@@ -138,6 +148,7 @@ void an_unreadable_store_pairs_nobody() {
 
 int main() {
     RUN(loopback_is_the_machine_and_nothing_else);
+    RUN(private_is_the_lan_and_nothing_else);
     RUN(only_the_studio_origins_open_a_socket);
     RUN(an_approved_request_yields_a_key_that_verifies);
     RUN(a_denied_request_is_gone);

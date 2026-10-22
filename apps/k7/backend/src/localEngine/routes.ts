@@ -13,6 +13,7 @@ export const PAGE_COMMANDS = new Set([
   "engine.stop",
   "engine.restart",
   "audio.priority",
+  "lan.open",
   "plugins.rescan",
   "instruments.download",
   "instruments.remove",

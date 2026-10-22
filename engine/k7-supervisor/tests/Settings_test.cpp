@@ -47,6 +47,17 @@ void aRoundTripIsExact()
     CHECK(!out.instruments.has_value());
 }
 
+// The LAN is open unless the musician closed it; a closed one survives a save, and a non-boolean is ignored.
+void theLanIsOpenUntilClosed()
+{
+    CHECK(settingsFrom(json::parse("{}")).lanOpen);
+    CHECK(settingsFrom(json::parse(R"({"lanOpen":"no"})")).lanOpen);
+    CHECK(!settingsFrom(json::parse(R"({"lanOpen":false})")).lanOpen);
+    Settings in;
+    in.lanOpen = false;
+    CHECK(!settingsFrom(k7::settingsJson(in)).lanOpen);
+}
+
 // Absent is "never chosen", which a boot settles; an empty list is a choice to keep nothing, and stays one.
 void theInstrumentsKeptTellAbsentFromEmpty()
 {
@@ -118,6 +129,7 @@ void runSettingsTests()
     RUN(aFixedPortIsNeverSaved);
     RUN(aPortOutOfRangeIsTheDefault);
     RUN(theInstrumentsKeptTellAbsentFromEmpty);
+    RUN(theLanIsOpenUntilClosed);
     RUN(aConfigFileSetsWhatTheEnvironmentOtherwiseCarries);
     RUN(deviceTokensAreKeptByStudio);
     RUN(aConfigFilesOneTokenIsItsOwnStudios);
