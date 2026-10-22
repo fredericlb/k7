@@ -24,6 +24,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
+import {
+  HomeEngine,
+  SidebarEngine,
+  type SidebarEngineProps,
+} from "../components/SidebarEngine";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
@@ -68,15 +73,18 @@ const homeHref = (route: string): string =>
 export function HomeDrawer({
   open,
   onClose,
+  engine,
 }: {
   open: boolean;
   onClose: () => void;
+  /** The project's live engine, which the sidebar's engine block shows and changes. */
+  engine?: SidebarEngineProps;
 }) {
   usePopin(open, onClose);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex">
-      <HomeSidebar away />
+      <HomeSidebar away engine={engine} />
       <button
         type="button"
         aria-label={m["common.close"]()}
@@ -182,11 +190,14 @@ function HomeSidebar({
   actions,
   mediaCounts,
   away,
+  engine,
 }: {
   actions?: ReactNode;
   mediaCounts?: Partial<Record<string, number>>;
   /** Drawn over a project: whole-page links, nothing lit, never folded to the rail. */
   away?: boolean;
+  /** The project's engine, given by the drawer; absent on a home page, which shows the account's own. */
+  engine?: SidebarEngineProps;
 }) {
   const routerNavigate = useNavigate();
   const navigate = (route: string) =>
@@ -284,6 +295,9 @@ function HomeSidebar({
           away={away}
         />
       </div>
+
+      {/* The one engine selector, above the user menu: the project's live engine in the drawer, the account's elsewhere. */}
+      {engine ? <SidebarEngine {...engine} /> : <HomeEngine />}
 
       <div
         className={cn(

@@ -1,5 +1,5 @@
 // useEngineCompat.ts — how compatible the engine playing this tab is with the OPEN project,
-// for the header's warning (EngineSwitch). Re-asked when the project changes, since adding a
+// for the sidebar engine selector's warning (SidebarEngine). Re-asked when the project changes, since adding a
 // module can add a plugin. The same two roads as ../engineCompat.ts: files on the SERVER are
 // scored here, against the catalogue this tab's engine lists once per connection; files on the
 // ENGINE'S MACHINE are scored by that machine's file service, against its own engine's scan.

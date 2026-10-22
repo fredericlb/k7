@@ -2,7 +2,7 @@
 // server's hub's, reached with no engine bound; the engine is looked for meanwhile — registered,
 // MEASURED, and chosen for you (`bestEngine`: compatibility with the project, then latency class,
 // then performance, among TRUSTED engines only). The editor's link waits for that choice, and a
-// project with no engine at all stays open and silent, the header saying so. See ../../docs/shell.md.
+// project with no engine at all stays open and silent, the sidebar saying so. See ../../docs/shell.md.
 
 import type { HostedFiles } from "@studio/engine-browser/access";
 import { bestEngine } from "@studio/engine-browser/choose";
@@ -320,8 +320,6 @@ export function EngineGate({
           setPicking(true);
           void refresh();
         }}
-        // From the header's engine menu: straight to that engine, no picker in between.
-        onSwitchEngine={(r) => void pick(r, true, true)}
         onIdle={() => setAsleep(true)}
         onResume={() => setAsleep(false)}
       />

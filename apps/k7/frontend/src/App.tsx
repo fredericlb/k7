@@ -87,7 +87,6 @@ import { DemoBanner } from "./components/DemoBanner";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLink } from "./components/EngineLink";
 import { EngineLostStrip } from "./components/EngineLostStrip";
-import { EngineSwitch } from "./components/EngineSwitch";
 import { syncRunning } from "./components/EngineSyncProgress";
 import {
   FloatingCommandBar,
@@ -313,7 +312,6 @@ export default function App({
   onQuitWorkspace,
   onChangeEngine,
   engine,
-  onSwitchEngine,
   snapshot,
   engineSearching = false,
 }: {
@@ -327,8 +325,6 @@ export default function App({
   onChangeEngine: () => void;
   /** The engine playing this project, for the header's engine menu; absent on a share, which has none. */
   engine?: RankedEngine;
-  /** Move this project to another engine from that menu. */
-  onSwitchEngine?: (r: RankedEngine) => void;
   /** The FROZEN snapshot this shell draws when it was opened through a share link — see docs/shared.md. */
   snapshot?: OpenShare;
   /** No engine yet, and the gate is still looking for one: the project is drawn meanwhile (docs/shell.md). */
@@ -2667,17 +2663,7 @@ export default function App({
       {project?.name || "…"}
     </a>
   );
-  // Which engine plays this project, and the way to another (components/EngineSwitch.tsx).
-  const engineSwitch = !frozen && onSwitchEngine && (
-    <EngineSwitch
-      current={engine ?? null}
-      onSwitch={onSwitchEngine}
-      compat={engineCompat}
-      audioToBrowser={audioToBrowser}
-      searching={engineSearching}
-    />
-  );
-  // …and how that engine is doing, right of it: the light, the latency, the memory (components/EngineLink.tsx).
+  // How the engine is doing: the light, the latency, the memory (components/EngineLink.tsx); it is CHOSEN in the sidebar.
   const engineLink = !frozen && (
     <EngineLink connected={connected} latency={engineLatency} />
   );
@@ -2965,7 +2951,6 @@ export default function App({
                     }
                   >
                     {projectLink}
-                    {engineSwitch}
                     <div className="px-1.5">{engineLink}</div>
                     {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}
                     <div className="px-1.5 text-muted-foreground text-xs">
@@ -2973,10 +2958,7 @@ export default function App({
                     </div>
                   </MobileInfo>
                 ) : (
-                  <>
-                    {engineSwitch}
-                    {engineLink}
-                  </>
+                  engineLink
                 )}
                 {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
                 {snapshot && (
@@ -3695,7 +3677,26 @@ export default function App({
 
             {homeDrawer && (
               <Suspense fallback={null}>
-                <HomeDrawer open onClose={closeHomeDrawer} />
+                <HomeDrawer
+                  open
+                  onClose={closeHomeDrawer}
+                  // The one engine selector, given this project's live engine; a share has none to change (docs/shell.md).
+                  engine={
+                    frozen
+                      ? undefined
+                      : {
+                          current: engine ?? null,
+                          searching: engineSearching,
+                          compat: engineCompat,
+                          audioToBrowser,
+                          stats: engineLink,
+                          onChange: () => {
+                            closeHomeDrawer();
+                            onChangeEngine();
+                          },
+                        }
+                  }
+                />
               </Suspense>
             )}
 
