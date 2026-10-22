@@ -3,6 +3,7 @@
 // service, and the two polls — for the presentational body beside it. The list is the SERVER's
 // files and needs no engine. See ../../docs/projects.md.
 
+import { Terminal } from "@frediverse/ui/icons";
 import { Toaster } from "@studio/project-shell/toast";
 import type {
   AccountLibrary,
@@ -12,11 +13,11 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AskHostK7 } from "../AskHostK7";
+import type { CommandBarHandle } from "../components/CommandBar";
 import {
-  barTint,
-  CommandBar,
-  type CommandBarHandle,
-} from "../components/CommandBar";
+  FloatingCommandBar,
+  useSummonKey,
+} from "../components/FloatingCommandBar";
 import { useWindowKey } from "../hooks/useWindowKey";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
@@ -158,7 +159,15 @@ export function Home() {
 
   /** This screen's command bar and status line, with its own vocabulary (`homeCommands.ts`) rather than the editor's. */
   const cmdRef = useRef<CommandBarHandle>(null);
-  // Whether the bar is waiting on a command's answers, which tints its strip (CommandBar's `barTint`).
+  // Hidden until summoned, as in the editor (../../docs/commandBar.md).
+  const [barOpen, setBarOpen] = useState(false);
+  const closeBar = useCallback(() => setBarOpen(false), []);
+  const summonBar = useCallback(() => {
+    setBarOpen(true);
+    cmdRef.current?.focus();
+  }, []);
+  useSummonKey(summonBar);
+  // Whether the bar is waiting on a command's answers, which tints it (CommandBar's `barTint`).
   const [pending, setPending] = useState(false);
   const onBarPending = useCallback((p: unknown) => setPending(!!p), []);
   const { locale } = useLocale();
@@ -198,7 +207,7 @@ export function Home() {
     [fileService, workspaces, openWs, reread],
   );
 
-  /** Two bare Shifts give it the keyboard, the editor's own gesture; the bar never takes focus itself, and `e.repeat` drops a held Shift. */
+  /** Two bare Shifts summon it too, the editor's own gesture; `e.repeat` drops a held Shift. */
   const lastShiftAt = useRef(0);
   useWindowKey((e) => {
     if (e.key !== "Shift" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
@@ -208,7 +217,7 @@ export function Home() {
     const now = e.timeStamp;
     if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
       lastShiftAt.current = 0;
-      cmdRef.current?.focus();
+      summonBar();
     } else lastShiftAt.current = now;
   });
 
@@ -258,38 +267,48 @@ export function Home() {
         />
       </div>
 
-      {/* The bar, full width at the bottom on the editor's own terms, with what it said held above it in amber (../../docs/commandBar.md). */}
+      {/* What the floating command bar said, held at the foot of the page in amber (../../docs/commandBar.md). */}
       <div className="shrink-0 border-t border-border bg-popover">
-        {/* The account's engine scanning its plugins, above the bar and gone when it is done (PluginScanBar.tsx). */}
+        {/* The account's engine scanning its plugins, gone when it is done (PluginScanBar.tsx). */}
         <PluginScanBar />
-        {said && (
+        <div className="flex items-center gap-2 px-3 py-1.5">
           <p
-            className={`truncate px-3 pt-1.5 text-xs ${
-              said.refused ? "text-amber-500" : "text-muted-foreground"
+            className={`min-w-0 flex-1 truncate text-xs ${
+              said?.refused ? "text-amber-500" : "text-muted-foreground"
             }`}
-            title={said.text}
+            title={said?.text}
           >
-            {said.text}
+            {said?.text}
           </p>
-        )}
-        <div className={`flex items-center px-3 py-2 ${barTint(pending)}`}>
-          <CommandBar
-            onPending={onBarPending}
-            ref={cmdRef}
-            commands={palette}
-            // Everything a field can offer is already on screen, so the answer is immediate.
-            listArg={async (command, prior) =>
-              homeArgValues(command, prior.length, {
-                fileService: fileService ?? null,
-                workspaces,
-                openWs,
-              })
-            }
-            onRun={(line) => void run(line)}
-            onClose={() => cmdRef.current?.blur()}
-          />
+          {/* A phone has no Ctrl+Shift+P nor double-Shift, so the bar needs a control of its own. */}
+          <button
+            type="button"
+            onClick={summonBar}
+            title="Ctrl+Shift+P"
+            className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            {m["commandBar.list"]()}
+          </button>
         </div>
       </div>
+      <FloatingCommandBar
+        ref={cmdRef}
+        open={barOpen}
+        onDismiss={closeBar}
+        pending={pending}
+        onPending={onBarPending}
+        commands={palette}
+        // Everything a field can offer is already on screen, so the answer is immediate.
+        listArg={async (command, prior) =>
+          homeArgValues(command, prior.length, {
+            fileService: fileService ?? null,
+            workspaces,
+            openWs,
+          })
+        }
+        onRun={(line) => void run(line)}
+      />
     </HomeShell>
   );
 }

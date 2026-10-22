@@ -3,7 +3,7 @@
 > **Two screens mount this component.** The editor's bar is what this page describes; the HOME
 > page runs the same one over a catalogue of its own — seven verbs about workspaces and projects,
 > since there is no project open there to have any others (`projects.md`). Everything below about
-> matching, the form, the docked strip and double-Shift is true of both; the gesture inlets and
+> matching, the form, the floating bar and its summoning is true of both; the gesture inlets and
 > the caret are the editor's alone, and the home page passes neither.
 
 ## `CommandBar.tsx` — one question, then a form
@@ -101,7 +101,7 @@ are searching.
 named by its placeholder, then what Enter does this press. The bar's whole STRIP takes a violet wash while it waits, an inset ring
 of the accent breathing once a second (`animate-pending` in `src/index.css`; a still ring under reduced motion — and a ring rather
 than a fade of the whole strip, which would fade the text being typed), padding included — the host's background, from `barTint` and the bar's
-`onPending`, since only the host knows its own padding: a command half-given is the shell waiting on you, and a bottom strip that looks the same
+`onPending`, since only the host knows its own padding: a command half-given is the shell waiting on you, and a bar that looks the same
 asking or idle is one nobody looks at. **Every question is on screen at once**, and an answer
 given three fields ago can be changed without unwinding the ones after it. It holds no state —
 the command, the answers and the gesture inlets all live in `CommandBar`, because two
@@ -121,9 +121,9 @@ components with two copies of that would be two commands.
 - **Escape** drops the list, and a second Escape abandons the command and gives the bar back.
 
 On the row and not in a panel: a command being completed IS a line being typed, so it is drawn
-where the line was, reading as the CLI line it builds. The row is the bottom strip, so a gesture
+where the line was, reading as the CLI line it builds. The bar stays up while it asks, so a gesture
 in the timeline or the graph can answer a field while every field stays in view. A field's
-suggestions open UPWARD from the row, best value nearest it, as the command list does — so ↑ walks
+suggestions open DOWNWARD from the row, best value nearest it, as the command list does — so ↓ walks
 forward through either.
 
 A command may declare trailing params it runs without (`optional: true` in `commands.yaml` —
@@ -143,58 +143,46 @@ A completion list is part of the field you are typing in, so it goes when the fo
 
 That follows from the bar not being modal: answering a param by reaching into a pane takes the
 focus away, and the list would otherwise sit parked over the timeline you just clicked —
-covering the thing the gesture was about. It is load-bearing with the bar docked: the
+covering the thing the gesture was about. It is load-bearing while the bar waits on a command: the
 catalogue is non-empty from the moment it loads, so "are there matches" would leave thirty rows
 hanging over the minimap for ever. A row commits on `mousedown` and preventDefaults to keep the
 focus, so the blur that closes the list can never be the one that was about to pick from it.
 
-## It is NOT modal
+## It is NOT modal, and it is not there until summoned
 
-On a wide screen the bar is **always there**: under the minimap, full width, the last row of
-the window. Nothing opens it and nothing closes it. Double-tapping Shift focuses it, Escape
-blurs it, and in between it sits where a terminal's prompt sits.
+The bar is **hidden** until you ask for it, and then floats at the top of the window, centred,
+focused — the palette of a code editor. **Ctrl+Shift+P** (⌘+Shift+P on a Mac) summons it from
+anywhere, the text editor included: the key is caught before CodeMirror sees it, since a palette you
+cannot reach while typing is one you leave the keyboard to reach. Double-Shift summons it too, and on
+a phone, which has neither, the hamburger menu carries an opener (the home page carries one in its
+footer). Both screens mount the same wrapper, `FloatingCommandBar.tsx`.
+
+Hidden, because the panes are what the window is for: a permanent strip is a row of every pane
+spent on a prompt that is idle almost all the time. At the top, because that is where the eye
+already goes for a palette, and because a phone's soft keyboard rises from the bottom.
 
 It has no backdrop, because a backdrop blocks the very gestures that fill it (see below) and
-dimming hides the clip you are being asked to point at. And with no backdrop, fed by the editor
-behind it, "opened" would do no work: summoning it would only be a permanent tool with a curtain
-in front of it.
+dimming hides the clip you are being asked to point at.
 
-What being docked actually buys, beyond one less keystroke:
+### It goes away when it loses the keyboard
 
-- **It says what it accepts before you commit to it.** The prompt, the field's colour and its
-  hint are on screen while you work, so the vocabulary is visible rather than recalled.
-- **A gesture has somewhere to land.** The bar reports what it is waiting for and the shell
-  routes drags to it; that contract has no state in which the receiver does not exist.
-- **The layout stops moving.** A strip that appears over the window covers the bottom of the
-  panes exactly when you are pointing at them. A row that is always there is a row the panes
-  were never given.
-
-The phone keeps the popin, opened from the hamburger. It has no minimap to sit under, and a
-permanent prompt would cost the band a phone has least of — the same trade that keeps the
-minimap off it.
-
-That opener is the one thing in the menu that is not a place to go, and it has to be there: a
-phone has no double-Shift, so without it the bar could not be summoned at all.
-
-Both forms are the same component. The phone's opens focused, because you opened it on purpose;
-the docked one never takes the keyboard by itself, since a shell that started with it captured
-could not be typed into.
-
-### On a phone it goes away when it loses the keyboard
-
-A popin over a phone screen is most of the screen: leaving it up after you have tapped past it
-costs the pane you tapped *into*. The docked bar has no reason to do this and does not.
+Escape, a run, or a blur closes it. A floating bar left up after you have clicked past it covers
+the top of the pane you clicked *into*.
 
 **Unless a command is being completed.** While the bar is asking a command's questions it is not
-idle, whatever the command field's focus says — so the dismissal reads `barPending`, the same
-signal the shell already uses to route a gesture to the field that is waiting.
+idle, whatever the command field's focus says — a gesture in a pane may be what answers it, and the
+receiver has to exist for that. So the dismissal reads the `pending` flag, the same signal the shell
+uses to route a gesture to the field that is waiting.
 
-The bar REPORTS the focus (`onFocusChange`) and the shell decides, because what losing it means
-is the shell's business: a popin on a phone, a permanent strip on a wide screen. And it waits a
-moment rather than acting on the blur itself — picking a command takes the keyboard from the
-command field and hands it to the parameter form one render later, so closing in between would
-dismiss the bar at the exact moment it was about to ask you something. The timer re-reads
-`barPending` when it fires, for the same reason.
+The bar REPORTS the focus (`onFocusChange`) and the wrapper decides. It waits a moment rather than
+acting on the blur itself — picking a command takes the keyboard from the command field and hands
+it to the parameter form one render later, so closing in between would dismiss the bar at the
+exact moment it was about to ask you something. The timer re-reads `pending` when it fires, for the
+same reason. A press on the bar's own padding keeps the focus where it was, or clicking beside a
+field would close the bar under the pointer.
+
+A line pre-written by a menu or a graph insert opens the bar if it is hidden, and is written into it
+once it is mounted.
 
 ### The editor pane is `isolate`
 
@@ -310,12 +298,11 @@ in the bar would compete for the keys. Clicking it abandons the command and give
 Each param KIND has its own colour (`ARG_COLOR`) — worn by the active field, its label and its
 suggestions — so a question tells you what it is asking for before you read the prompt.
 
-The bar sits at the bottom of the window, so the command list opens UPWARD and is rendered
-bottom-first: the best match sits right above the input (where the eye already is) and ↑ walks
-away from it, the way a shell completion list reads.
+The bar floats at the top of the window, so the command list opens DOWNWARD: the best match sits
+right under the input (where the eye already is) and ↓ walks away from it.
 
 Both lists, the commands and a field's values, are positioned ABOVE the row rather than in it:
-the bar is a flex row in the shell's bottom strip, and a list in its flow would push the fields
+the bar is a flex row, and a list in its flow would push the fields
 around under the caret.
 
 ## `ModulePicker.tsx` — "which module?"

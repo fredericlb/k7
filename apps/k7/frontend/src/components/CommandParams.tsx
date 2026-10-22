@@ -1,7 +1,7 @@
 // CommandParams.tsx — the parameter form, as ONE row in the bar's own place: the command, then a field per param.
 //
 // Every question is on screen at once, so an answer given three fields ago can be changed without
-// unwinding the ones after it; a field's suggestions open upward from the row, as the command list does.
+// unwinding the ones after it; a field's suggestions open downward from the row, as the command list does.
 //
 // It holds NO state: CommandBar owns the command, the answers and the gesture inlets, and two
 // copies of that would be two commands. See docs/commandBar.md.
@@ -108,8 +108,8 @@ export function CommandParams({
       </span>
 
       {suggestions.length > 0 && (
-        // Opens UPWARD and lists bottom-first, as the command list does, so the best value sits right above the row.
-        <ul className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-xs shadow-md">
+        // Opens DOWNWARD, as the command list does, so the best value sits right under the row.
+        <ul className="absolute top-full left-0 right-0 z-30 mt-2 flex max-h-72 flex-col overflow-auto rounded-md border border-border bg-popover py-1 text-xs shadow-md">
           {suggestions.map((o, i) => (
             <li
               key={o.value}
