@@ -234,8 +234,11 @@ A surgical rewrite, never a re-serialisation: these files carry the comments tha
 format. **The drag's edit is keyed by the placement's INDEX** in the lane's `events:`, which is
 the only address that is always unique and always there: one source may be placed twice on a
 lane, and an ACTIVATION on a lane of shapes names no source at all
-(`packages/song-video/docs/shapes.md`). `vt.clips[i]` IS `events[i]` — the compile maps them
-one to one and filters nothing — so the row the pointer is over knows the address.
+(`packages/song-video/docs/shapes.md`). A lane's OWN shots are its `events:` one to one, so the
+row the pointer is over knows the address. The shots a placed timeline puts on a song lane come
+first in its compiled clips and are in no file of that lane: `ownShots` takes them off before an
+index is read, and they are drawn apart, out of the drag's reach (`docs/timeline.md`). A timeline's
+own picture lane is written in the timeline's file, at `pictures[i]`, by the same index.
 
 The verbs address a shot by **where it starts** instead, that being what somebody can type, and
 land on the same `setVideoPlacementFieldAt`. What they cannot tell apart is two shots starting at

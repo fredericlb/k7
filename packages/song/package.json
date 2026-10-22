@@ -43,6 +43,7 @@
     "./namespaceMigrate": "./src/namespaceMigrate.ts",
     "./nodeProject": "./src/nodeProject.ts",
     "./timelineAudition": "./src/timelineAudition.ts",
+    "./timelinePictures": "./src/timelinePictures.ts",
     "./enginePattern": "./src/enginePattern.ts",
     "./project": "./src/project.ts",
     "./testSupport": "./src/testSupport.ts",

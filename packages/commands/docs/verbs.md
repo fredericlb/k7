@@ -558,7 +558,13 @@ write fails, so the events are never in both places nor in neither.
 named after the copied one (`-2`, `-3`… when taken). `main` — the song's own timeline, `Main` on
 screen — is a reserved destination, which is why no timeline may be named `main`; a copy into it
 gets `track new`'s file and strip and no chain. Main to Main is refused for `track duplicate`, which
-copies the chain too. `timeline rename` repoints every placement of the timeline, in every lane
+copies the chain too. A PICTURE lane — the song's, or a timeline's `<timeline>><lane>` — is copied
+by the same verb (`timelinePictureCopy.ts`): its shots, in seconds as written, onto a timeline's
+`pictures:` or into a new `video_tracks/` file. Main to Main is allowed there and keeps the frame,
+picture having no duplicate verb of its own. The `picture` verbs take `<timeline>><lane>` wherever
+they take a lane, by resolving it to the timeline's file and the lane's map inside it (`laneFile`);
+`mute`, `solo`, `rect` and `sound` refuse it (`layerFile`), being about the song lane it draws on.
+`timeline rename` repoints every placement of the timeline, in every lane
 file and every other timeline, before it renames the file, so no event is left naming nothing.
 
 ## `events move` is one command, not a loop

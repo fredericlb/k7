@@ -10,6 +10,7 @@ import type {
   RawVideoPlacement,
   RawVideoTrack,
 } from "@studio/song/rawDoc";
+import type { RawTimeline } from "@studio/song/timelinePictures";
 import {
   ANIMATED_PROPS,
   type AnimatedProp,
@@ -18,6 +19,7 @@ import {
   keysOf,
 } from "@studio/song-schema/keyframes";
 import { DISSOLVE, OVER } from "@studio/song-schema/moduleTypes";
+import { timelineLaneId } from "@studio/song-schema/timelineLane";
 import {
   CAPTION_SOURCE,
   IMAGE_SOURCE,
@@ -70,6 +72,7 @@ export function videoPlacementToClip(
 ): VideoClipDoc {
   const ref = String(p.ref ?? "");
   const animate = readAnimate(p.animate);
+  const placedBy = p.timeline ? { timeline: p.timeline } : {};
   // No ref is an ACTIVATION: a span with no picture in it, saying the lane is on — docs/shapes.md.
   if (!ref)
     return {
@@ -80,6 +83,7 @@ export function videoPlacementToClip(
       length: Number(p.length ?? 0),
       sourceFrom: 0,
       ...(animate ? { animate } : {}),
+      ...placedBy,
     };
   if (!clipsMap[ref])
     warnings?.push(
@@ -119,6 +123,7 @@ export function videoPlacementToClip(
     ...(Number.isFinite(speed) && speed !== 1 ? { speed } : {}),
     ...(typeof p.effect === "string" && p.effect ? { effect: p.effect } : {}),
     ...captionsOf(dir, clipsMap[ref], ref, warnings),
+    ...placedBy,
   };
 }
 
@@ -238,6 +243,52 @@ export function compileVideoTracks(
       shapes: [],
     };
   });
+}
+
+/** Each timeline's own picture lanes at its own positions, framed like the song lane each draws on. */
+export function compileTimelinePictures(
+  dir: string,
+  timelines: Record<string, RawTimeline>,
+  /** The song's lanes, already compiled: a timeline's lane takes the frame of the one of its name. */
+  layers: readonly VideoTrackDoc[],
+  clipsMap: Record<string, RawClip>,
+  viewport: readonly [number, number],
+  warnings?: string[],
+): Record<string, VideoTrackDoc[]> {
+  const out: Record<string, VideoTrackDoc[]> = {};
+  for (const [timeline, t] of Object.entries(timelines)) {
+    if (!t.pictures?.length) continue;
+    out[timeline] = t.pictures.map((lane) => {
+      const id = timelineLaneId(timeline, lane.lane);
+      const host = layers.find((l) => l.id === lane.lane);
+      if (!host)
+        warnings?.push(
+          `${id} draws on the song's picture lane '${lane.lane}', and there is none — 'picture lane new ${lane.lane}' adds it`,
+        );
+      return {
+        id,
+        name: lane.lane,
+        color: lane.color ?? "",
+        mute: !!lane.disabled,
+        solo: false,
+        x: host?.x ?? 0,
+        y: host?.y ?? 0,
+        w: host?.w ?? viewport[0],
+        h: host?.h ?? viewport[1],
+        clips: (lane.events ?? []).map((p) =>
+          videoPlacementToClip(
+            dir,
+            p as RawVideoPlacement,
+            clipsMap,
+            warnings,
+            id,
+          ),
+        ),
+        shapes: [],
+      };
+    });
+  }
+  return out;
 }
 
 /** Where the last picture ends, in seconds; a length-0 clip contributes its `start` alone. */

@@ -87,6 +87,7 @@ export interface RawVideoPlacement {
   speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
   effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
   silent?: unknown; // its sound is not played, its picture is (docs/videoSound.md)
+  timeline?: string; // never written: the timeline whose placement put this shot here (docs/timelines.md)
 }
 
 /** A video track file's struct (video_tracks/<id>.k7x). */

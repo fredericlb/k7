@@ -164,6 +164,7 @@ export function toWebVideoTracks(
       ...(c.speed !== undefined ? { speed: c.speed } : {}),
       ...(c.effect ? { effect: c.effect } : {}),
       ...(c.captions ? { captions: c.captions } : {}),
+      ...(c.timeline ? { timeline: c.timeline } : {}),
     })),
     // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
     shapes: t.shapes.map((s) => ({ ...s })),

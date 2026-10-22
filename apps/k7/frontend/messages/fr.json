@@ -437,6 +437,7 @@
   "menuEntity.assembly": "une boîte",
   "menuEntity.warp": "un point d'élasticité",
   "menuEntity.shot": "un plan d'une piste image",
+  "menuEntity.picture": "une piste image",
   "menuEntity.pad": "un pas du séquenceur",
   "menuEntity.note": "une note du piano roll",
   "menuEntity.tap": "un son d'un rack, sur sa carte",

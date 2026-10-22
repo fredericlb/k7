@@ -152,6 +152,16 @@ export function webVideoProjectOf(
         run.map((pl) => webPlugin(pl, toRel)),
       ]),
     ),
+    ...(p.timelines
+      ? {
+          timelines: Object.fromEntries(
+            Object.entries(p.timelines).map(([k, lanes]) => [
+              k,
+              toWebVideoTracks(lanes, toRel),
+            ]),
+          ),
+        }
+      : {}),
   };
 }
 

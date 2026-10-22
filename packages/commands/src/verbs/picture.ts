@@ -7,7 +7,8 @@
 
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { K7Scope } from "@studio/k7x/document";
+import type { K7Path } from "@studio/k7x/ast";
+import { K7Document, type K7Scope } from "@studio/k7x/document";
 import {
   createVideoTrackFile,
   loadProjectRoot,
@@ -17,6 +18,7 @@ import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
+import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
 import {
   addVideoPlacement,
@@ -39,11 +41,58 @@ const LANES_DIR = "video_tracks";
 /** How close two starts have to be to be the same one — the file is written to the millisecond. */
 const SAME = 5e-4;
 
-/** A lane's file, or a refusal naming the lanes there are. */
-export function laneFile(
-  lane: string,
+/** A timeline's name, the way `timeline new` makes one — also what keeps a path out of it. */
+const ID = /^[A-Za-z0-9_.-]+$/;
+
+/** Where a picture lane's map is: its own file at the root, or a timeline's file at `pictures[i]`. */
+export interface PictureLaneAt {
+  rel: string;
+  abs: string;
+  text: string;
+  path: K7Path;
+  /** The timeline holding it, when it is one of a timeline's (@studio/song docs/timelines.md). */
+  timeline?: string;
+}
+
+/** The placements a lane holds, in file order — the indices every edit writes by. */
+export const placementsOf = (lane: PictureLaneAt): VideoPlacement[] =>
+  listVideoPlacements(new K7Document(lane.text).at(lane.path));
+
+/** A timeline's picture lane, `<timeline>><lane>`, or a refusal naming the ones it has. */
+function timelinePictureLane(
+  tl: { timeline: string; lane: string },
   h: CommandHost,
-): { rel: string; abs: string; text: string } | null {
+): PictureLaneAt | null {
+  const rel = `timelines/${tl.timeline}.k7x`;
+  const abs = join(h.songPath, rel);
+  if (!ID.test(tl.timeline) || !wsExists(abs)) {
+    h.refuse([`no timeline '${tl.timeline}' — ${rel} does not exist`]);
+    return null;
+  }
+  const pictures = wsData(abs).pictures;
+  const names = (Array.isArray(pictures) ? pictures : []).map((p) =>
+    String((p as { lane?: unknown })?.lane),
+  );
+  const at = names.indexOf(tl.lane);
+  if (at < 0) {
+    h.refuse([
+      `timeline '${tl.timeline}' has no picture lane '${tl.lane}'${names.length ? ` — it has ${names.join(", ")}` : ""}`,
+    ]);
+    return null;
+  }
+  return {
+    rel,
+    abs,
+    text: wsText(abs),
+    path: ["pictures", at],
+    timeline: tl.timeline,
+  };
+}
+
+/** A lane's file, or a refusal naming the lanes there are; a timeline's lane is its map in the timeline's file. */
+export function laneFile(lane: string, h: CommandHost): PictureLaneAt | null {
+  const tl = timelineLaneOf(lane.trim());
+  if (tl) return timelinePictureLane(tl, h);
   const name = stripDocExt(lane.trim());
   const dir = resolve(h.songPath, LANES_DIR);
   const abs = join(dir, `${name}.k7x`);
@@ -67,7 +116,24 @@ export function laneFile(
     rel: `${LANES_DIR}/${name}.k7x`,
     abs,
     text: wsText(abs),
+    path: [],
   };
+}
+
+/** `laneFile` for a verb about the LAYER — its frame, its visibility — which a timeline's lane borrows from the song's. */
+export function layerFile(
+  lane: string,
+  h: CommandHost,
+  verb: string,
+): PictureLaneAt | null {
+  const tl = timelineLaneOf(lane.trim());
+  if (tl) {
+    h.refuse([
+      `picture ${verb}: ${lane} draws on the song's picture lane '${tl.lane}' — ${verb} that one`,
+    ]);
+    return null;
+  }
+  return laneFile(lane, h);
 }
 
 /** A wall-clock argument as seconds, or a refusal in the dialect's own words. */
@@ -114,7 +180,7 @@ function placementAt(
 
 /** Edit the lane, snapshotting first for the undo journal; an edit answering false writes nothing and is refused with `refusal`. */
 export function put(
-  abs: string,
+  lane: { abs: string; path: K7Path },
   edit: (doc: K7Scope) => unknown,
   h: CommandHost,
   verb: string,
@@ -122,9 +188,9 @@ export function put(
 ): boolean {
   let refused = false;
   try {
-    h.snapshot?.(abs);
-    wsEdit(abs, (doc) => {
-      if (edit(doc.at([])) !== false) return;
+    h.snapshot?.(lane.abs);
+    wsEdit(lane.abs, (doc) => {
+      if (edit(doc.at(lane.path)) !== false) return;
       refused = true;
       throw new Error(refusal);
     });
@@ -141,15 +207,14 @@ export function target(
   h: CommandHost,
   verb: string,
   tail: string,
-): {
-  rel: string;
-  abs: string;
-  text: string;
-  list: VideoPlacement[];
-  at: number;
-  index: number;
-  rest: string[];
-} | null {
+):
+  | (PictureLaneAt & {
+      list: VideoPlacement[];
+      at: number;
+      index: number;
+      rest: string[];
+    })
+  | null {
   const [laneArg, atArg, ...rest] = splitWords(a);
   if (!laneArg || !atArg) {
     h.refuse([`usage: picture ${verb} <lane> <at> ${tail}`.trimEnd()]);
@@ -159,7 +224,7 @@ export function target(
   if (!found) return null;
   const at = seconds(atArg, h);
   if (at === null) return null;
-  const list = listVideoPlacements(found.text);
+  const list = placementsOf(found);
   const index = placementAt(list, at, found.rel, h);
   if (index === null) return null;
   return { ...found, list, at, index, rest };
@@ -178,6 +243,31 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
   /** `picture lane new [name]` — `track new`'s counterpart, and the only picture verb that MAKES something. */
   "picture.laneNew": async (a, h) => {
     const id = splitWords(a)[0] || nextLaneId(h);
+    // `<timeline>><lane>` is a picture lane of that timeline, drawing on the song's of its name.
+    const tl = timelineLaneOf(id);
+    if (tl) {
+      const file = join(h.songPath, "timelines", `${tl.timeline}.k7x`);
+      if (!ID.test(tl.timeline) || !wsExists(file))
+        return h.refuse([`no timeline '${tl.timeline}'`]);
+      if (!ID.test(tl.lane))
+        return h.refuse([
+          `invalid lane name '${tl.lane}' — letters, digits, '.', '_' and '-' only`,
+        ]);
+      const data = wsData(file);
+      const taken = [data.lanes, data.pictures].flatMap((l) =>
+        Array.isArray(l) ? l.map((x) => String(x?.lane)) : [],
+      );
+      if (taken.includes(tl.lane))
+        return h.refuse([
+          `timeline '${tl.timeline}' already has a lane '${tl.lane}'`,
+        ]);
+      h.snapshot?.(file);
+      wsEdit(file, (doc) =>
+        doc.addIn(["pictures"], { lane: tl.lane, events: [] }),
+      );
+      h.log([`${tl.timeline}: + picture lane ${tl.lane}`]);
+      return h.reload();
+    }
     try {
       const written = createVideoTrackFile(h.songPath, id);
       h.log([`+ picture lane ${id} (${written.join(", ")})`]);
@@ -235,11 +325,11 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       h.refuse(["usage: picture mute <lane>"]);
       return;
     }
-    const found = laneFile(lane, h);
+    const found = layerFile(lane, h, "mute");
     if (!found) return;
     // Read back rather than assumed: a toggle has to start from what the file says right now.
     const on = wsData(found.abs).mute !== true;
-    if (!put(found.abs, (doc) => setVideoLaneMute(doc, on), h, "mute")) return;
+    if (!put(found, (doc) => setVideoLaneMute(doc, on), h, "mute")) return;
     h.log([`${found.rel}: ${on ? "hidden" : "shown"}`]);
     return h.reload();
   },
@@ -251,7 +341,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       h.refuse(["usage: picture solo <lane>"]);
       return;
     }
-    if (!laneFile(lane, h)) return;
+    if (!layerFile(lane, h, "solo")) return;
     const cur = (loadProjectRoot(h.songPath).soloed ?? []).map(String);
     const on = !cur.includes(lane);
     const next = on ? [...cur, lane] : cur.filter((x) => x !== lane);
@@ -290,11 +380,10 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const found = laneFile(laneArg, h);
+    const found = layerFile(laneArg, h, "rect");
     if (!found) return;
     const rect = { x, y, w, h: box };
-    if (!put(found.abs, (doc) => setVideoLaneRect(doc, rect), h, "rect"))
-      return;
+    if (!put(found, (doc) => setVideoLaneRect(doc, rect), h, "rect")) return;
     h.log([`${found.rel}: ${w}x${box} at ${x},${y}`]);
     return h.reload();
   },
@@ -309,7 +398,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const move = (doc: K7Scope) => {
       setVideoPlacementFieldAt(doc, t.index, "start", to);
     };
-    if (!put(t.abs, move, h, "move")) return;
+    if (!put(t, move, h, "move")) return;
     h.log([`${t.rel}: ${shot.ref} ${t.at}s → ${to}s`]);
     return h.reload();
   },
@@ -324,7 +413,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const extent = (doc: K7Scope) => {
       setVideoPlacementFieldAt(doc, t.index, "length", len);
     };
-    if (!put(t.abs, extent, h, "length")) return;
+    if (!put(t, extent, h, "length")) return;
     h.log([
       `${t.rel}: ${shot.ref} lasts ${len ? `${len}s` : "to the end of its source"}`,
     ]);
@@ -367,7 +456,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
       shiftVideoAnimationAt(doc, t.index, delta);
     };
-    if (!put(t.abs, head, h, "head")) return;
+    if (!put(t, head, h, "head")) return;
     h.log([
       `${t.rel}: ${shot.ref} head ${t.at}s → ${to}s` +
         (shot.length > 0 ? ", tail held" : ", length still the source's"),
@@ -383,7 +472,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const drop = (doc: K7Scope) => {
       removeVideoPlacementAt(doc, t.index);
     };
-    if (!put(t.abs, drop, h, "delete")) return;
+    if (!put(t, drop, h, "delete")) return;
     h.log([
       `${t.rel}: − ${shot.ref} at ${t.at}s (the clip stays; a lane holds placements)`,
     ]);
@@ -399,7 +488,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const shot = t.list[t.index] as VideoPlacement;
     const split = (doc: K7Scope) => splitVideoPlacementAt(doc, t.index, where);
     const outside = `${t.rel}: ${where}s is not inside the shot at ${t.at}s`;
-    if (!put(t.abs, split, h, "split", outside)) return;
+    if (!put(t, split, h, "split", outside)) return;
     h.log([
       `${t.rel}: ${shot.ref || "activation"} at ${t.at}s split at ${where}s`,
     ]);
@@ -430,7 +519,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const shot = { ref, start: at, length, sourceFrom };
     const add = (doc: K7Scope) => addVideoPlacement(doc, shot);
     const shape = `${found.rel}: the way \`events\` is written there is not a shape this can extend — add the line by hand`;
-    if (!put(found.abs, add, h, "add", shape)) return;
+    if (!put(found, add, h, "add", shape)) return;
     h.log([
       `${found.rel}: + ${ref} at ${at}s${length ? ` for ${length}s` : ""}`,
       ...(unknown

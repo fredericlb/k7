@@ -190,6 +190,8 @@ export interface WebVideoClip {
   speed?: number;
   /** The run this shot alone goes through, by head node — a key of `stretches` (song-video/docs/effects.md). */
   effect?: string;
+  /** The timeline that placed this shot here, which is where it is edited (song/docs/timelines.md). */
+  timeline?: string;
   /** A subtitle clip's cues and style (mirrors CaptionsDoc, song-video/docs/titles.md). */
   captions?: {
     cues: { start: number; end: number; text: string }[];
@@ -361,6 +363,8 @@ export interface WebVideoProject {
   transitions: Record<string, WebVideoTransition>;
   /** Every stretch a fade NAMES, by its head node — the passes a shot runs through on its way in or out. */
   stretches: Record<string, WebVideoPlugin[]>;
+  /** Each timeline's own picture lanes at its own positions, `<timeline>><lane>` — drawn while that timeline is open. */
+  timelines?: Record<string, WebVideoTrack[]>;
 }
 
 // --- Project errors: whether the project even compiles --------------------------

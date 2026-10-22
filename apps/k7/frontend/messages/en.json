@@ -437,6 +437,7 @@
   "menuEntity.assembly": "a box",
   "menuEntity.warp": "a stretch point",
   "menuEntity.shot": "a shot on a picture lane",
+  "menuEntity.picture": "a picture lane",
   "menuEntity.pad": "a step of the sequencer",
   "menuEntity.note": "a note on the piano roll",
   "menuEntity.tap": "a sound of a rack, on its card",

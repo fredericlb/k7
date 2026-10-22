@@ -10,7 +10,12 @@ import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { listFilesUnder } from "@studio/song/listFiles";
-import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import {
+  loadModuleRefs,
+  loadModules,
+  MODULE_TYPES,
+  readYamlEntities,
+} from "@studio/song/loader";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { isDocName } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
@@ -22,7 +27,7 @@ import {
   moduleStatusOf,
 } from "@studio/song-schema/moduleTypes";
 import { PLAYLISTS_DIR } from "@studio/song-schema/playlist";
-import { SONG_TARGET } from "@studio/song-schema/timelineLane";
+import { SONG_TARGET, timelineLaneId } from "@studio/song-schema/timelineLane";
 import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
 import { type CommandHost, collectPluginModules } from "./commands";
 
@@ -35,6 +40,24 @@ function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
     /* no ranking, still a complete list */
   }
   return (name) => moduleStatusOf(refs[name]);
+}
+
+/** Every timeline's picture lanes, off the files — the sound compile `h.project()` knows none of them. */
+function timelinePictures(
+  h: CommandHost,
+): { timeline: string; lane: string }[] {
+  if (!h.songPath) return [];
+  try {
+    const all = readYamlEntities(h.songPath, "timelines").values as Record<
+      string,
+      { pictures?: { lane?: unknown }[] }
+    >;
+    return Object.entries(all).flatMap(([timeline, t]) =>
+      (t.pictures ?? []).map((p) => ({ timeline, lane: String(p.lane) })),
+    );
+  } catch {
+    return []; // an unreadable timeline costs the completion, not the command
+  }
 }
 
 // Named providers behind commands.yaml `complete:`; `satisfies` is load-bearing, docs/completions.md.
@@ -73,8 +96,10 @@ export const PROVIDERS = {
   timelines: (h) => (h.project().timelines ?? []).map((t) => t.id),
   // Where a lane can be copied: a timeline, or the main one (`timeline lane copy`).
   laneTargets: (h): string[] => [SONG_TARGET, ...PROVIDERS.timelines(h)],
-  timelineLanes: (h) =>
-    (h.project().timelines ?? []).flatMap((t) => t.lanes.map((l) => l.name)),
+  timelineLanes: (h) => [
+    ...(h.project().timelines ?? []).flatMap((t) => t.lanes.map((l) => l.name)),
+    ...timelinePictures(h).map((p) => p.lane),
+  ],
   /** Every alternative name in the project, deduped, off the module FILES — docs/completions.md. */
   moduleAlternatives: (h) => {
     if (!h.songPath) return [];
@@ -127,15 +152,22 @@ export const PROVIDERS = {
   /** This song's picture LANES, off the folder — a lane the compiler refuses still has a file to name. */
   pictureLanes: (h) => {
     if (!h.songPath) return [];
+    // A timeline's own, addressed `<timeline>><lane>` (@studio/song docs/timelines.md).
+    const nested = timelinePictures(h).map((p) =>
+      timelineLaneId(p.timeline, p.lane),
+    );
     try {
-      return readdirSync(join(h.songPath, "video_tracks"), {
-        withFileTypes: true,
-      })
-        .filter((e) => e.isFile() && isDocName(e.name))
-        .map((e) => stripDocExt(e.name))
-        .sort();
+      return [
+        ...readdirSync(join(h.songPath, "video_tracks"), {
+          withFileTypes: true,
+        })
+          .filter((e) => e.isFile() && isDocName(e.name))
+          .map((e) => stripDocExt(e.name))
+          .sort(),
+        ...nested,
+      ];
     } catch {
-      return []; // a song with no picture has no lanes, which is not an error
+      return nested; // a song with no picture lane of its own may still have a timeline's
     }
   },
   // What `clip process` accepts — clips then audio files, and no track. See docs/completions.md.

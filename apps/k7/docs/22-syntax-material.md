@@ -243,6 +243,8 @@ lanes([
   lane("bass").events([ref("bassline").start("1:1")]).color("#4a90d9"),
   lane("keys").events([ref("chords").start("1:1")]).disabled(),
 ])
+// Its picture: shots in SECONDS from the timeline's start, drawn on the song's `cam` picture lane.
+pictures([lane("cam").events([ref("shot_a").start(0).length(4), ref("shot_b").start(4).length(12)])])
 ```
 
 ```k7x schema=Module
@@ -255,6 +257,14 @@ events([ref("verse").start("1:1"), ref("verse").start("9:1").gain(-2)])
 no fader and no routing, and everything they hold — clips and sequences alike — plays through the song lane
 the event sits on, its instrument and its effects. Lanes inside a timeline are there to keep its material
 apart while you write it. A `disabled` lane is silent wherever the timeline is placed.
+
+**Its picture draws on the song's lane of the same name.** A timeline may hold picture lanes too, under
+`pictures`: shots in seconds, counted from the timeline's start, written like a picture lane's own. Wherever
+the timeline is placed, those shots appear on the song's picture lane named like theirs — `cam` above draws on
+`video_tracks/cam.k7x`, in its frame, under its effects — from the second the timeline starts, cut where it
+ends. The song lane's own shots stay on top of them. Main's timeline shows them dashed: they are edited in the
+timeline, which a double-click opens. A picture lane of a timeline with no song lane of its name draws nothing,
+and the picture says so.
 
 **Its length is fixed.** `length` is a duration (`"8:0"` is eight bars); left out, it is what the lanes hold,
 rounded up to the bar. Every placement plays exactly that much: what runs past the end is cut, and the event
@@ -282,6 +292,12 @@ lane. `main` as the destination makes it a new lane of Main, with its own fader 
 an instrument on — which is why no timeline may be named `main`. What is copied is the events: they name the
 same clips, sequences and timelines, so editing a clip is heard in both. A lane of Main is copied within Main
 by `track duplicate`, chain and all.
+
+A picture lane is copied the same way — `timeline lane copy cam verse`, `timeline lane copy verse>cam chorus`,
+or right-click its name. It keeps its name, so the copy draws on the same song lane wherever its timeline is
+placed. Into `main` it becomes a new picture lane on top of the others; copied from Main to Main it keeps its
+frame. `picture lane new verse>broll` adds an empty one to a timeline, and the `picture` verbs edit its shots
+by the same `verse>broll` address; hiding, soloing and the frame stay the song lane's.
 
 **Opening a timeline is listening to it.** While it is open, play runs that timeline alone from its
 start, through the lane it is first placed on — that lane's instrument and effects, every other lane

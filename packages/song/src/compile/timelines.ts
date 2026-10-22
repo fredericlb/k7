@@ -47,6 +47,7 @@ export interface TimelineCtx {
   pos: (tc: unknown) => number; // a 1-based position, in beats
   dur: (tc: unknown) => number; // a 0-based duration, in beats
   bar: number; // beats in a bar
+  beatsPerSec: number; // the one tempo, which places a timeline's picture shots
   clipOf: (p: RawPlacement) => ClipDoc; // an ordinary event, compiled
   lengths?: Map<string, number>;
 }
@@ -76,6 +77,13 @@ export function timelineLength(
           : ctx.clipOf(p).length;
         end = Math.max(end, ctx.pos(p.start) + extent);
       }
+    // A shot with no length counts as nothing past its start, as an audio clip with no `to` does.
+    for (const lane of t.pictures ?? [])
+      for (const s of lane.events ?? [])
+        end = Math.max(
+          end,
+          ((s.start ?? 0) + (s.length ?? 0)) * ctx.beatsPerSec,
+        );
     len = Math.max(1, Math.ceil(end / ctx.bar - 1e-9)) * ctx.bar;
   }
   memo.set(id, len);

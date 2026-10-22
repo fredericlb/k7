@@ -45,6 +45,8 @@ export interface VideoClipDoc {
   effect?: string;
   /** A SUBTITLE file's cues, in seconds of the file, and how they are set — docs/titles.md. */
   captions?: CaptionsDoc;
+  /** The timeline that placed this shot here, and whose lane is where it is edited — @studio/song docs/timelines.md. */
+  timeline?: string;
 }
 
 /** A transition ON a placement: how long, and which kind. The kind's GLSL is on the PROJECT, once per name. */
@@ -173,6 +175,8 @@ export interface VideoProjectDoc {
   transitions: Record<string, VideoTransitionDoc>;
   /** Every stretch a fade NAMES, by its head node: the passes a shot runs through on its way in or out. */
   stretches: Record<string, VideoPluginDoc[]>;
+  /** Each timeline's own picture lanes at its own positions, `<timeline>><lane>`, for the view that edits it. */
+  timelines?: Record<string, VideoTrackDoc[]>;
   /** What compiled but is not right — a shot naming no clip, say. A THROW is for a picture that
    *  cannot be built at all; this is for the ones that build and then draw nothing (docs/picture.md). */
   warnings: string[];

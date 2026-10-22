@@ -66,6 +66,32 @@ A lane moves between timelines as its events alone (`timeline lane copy`, `verbs
 they are references, so a copy shares its material, and a timeline's lane has no chain to copy. Into
 the song it becomes a lane with a fresh strip, since a song lane is a module node and needs one.
 
+## Its picture draws on the song's lane of the same NAME
+
+A timeline holds picture lanes too, under `pictures:` — shots in SECONDS from its start, the shape of a
+`video_tracks/` lane's `events:` (`TimelinePictureSchema`). They are a list of their own rather than a
+kind of lane because the two count time differently: one lane name per timeline still, across both.
+
+Where a placed timeline's shots draw cannot be the lane it is placed on, as its sound does: that is a
+sound lane, with no frame, no layer and no video run. So a picture lane lands on the song's picture lane
+of its NAME, in that lane's frame and through its effects. A copy keeps the name, so a lane copied from
+the song into a timeline draws where it came from. A timeline lane with no song lane of its name draws
+nothing and the picture compile says so; inventing a layer for it would put on screen a lane with no file,
+whose mute, solo and frame no verb could reach.
+
+`timelinePictures.ts` expands them as `expandEvents` does the sound: every timeline event on a song lane,
+nested ones included, shifts its shots by where it plays and cuts them at its end. Each placed shot gets
+an explicit length — the picture's rule (a length, else the next shot's start, else open) applied within
+its own lane — since on the song lane its "next shot" would be somebody else's. They are put FIRST on
+that lane: a lane's own last shot with no length is open-ended, and a placed shot after it in file order
+would end it. So the lane's own shots cover a timeline's where both are on.
+
+Both compiles read the merged lane: the picture draws it, and a lane sounding that picture lane
+(`videoSound.md`) plays the placed shots' sound too, heard where they are seen. The picture document
+also carries each timeline's own lanes at its own positions (`VideoProjectDoc.timelines`), the view
+that edits them. A placed shot carries `timeline`, the one whose file holds it: the verbs and the drag
+address a lane's file by index, and must never be handed it.
+
 ## Auditioned alone, through its host
 
 A timeline has to be heard while it is written, and its lanes have no instrument of their own. So

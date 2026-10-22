@@ -30,7 +30,7 @@ import {
   type VideoPlacement,
 } from "@studio/song-schema/yaml/videoTrackFile";
 import type { CommandHost, SidHandler } from "../commands.ts";
-import { laneFile, put, target } from "./picture.ts";
+import { laneFile, layerFile, put, target } from "./picture.ts";
 import { splitWords } from "./shared.ts";
 
 /** Where a video's sound is written: beside it, under a name no clip of its own is likely to hold. */
@@ -163,7 +163,7 @@ export function silenceShots(
     const mute = (doc: K7Scope) => {
       for (const s of list) setVideoSilentAt(doc, s.index, true);
     };
-    if (!put(abs, mute, h, "silence")) return false;
+    if (!put({ abs, path: [] }, mute, h, "silence")) return false;
   }
   return true;
 }
@@ -227,7 +227,7 @@ export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
     // Read back rather than assumed: a toggle has to start from what the file says right now.
     const on = !shot.silent;
     const edit = (doc: K7Scope) => setVideoSilentAt(doc, t.index, on);
-    if (!put(t.abs, edit, h, "silence")) return;
+    if (!put(t, edit, h, "silence")) return;
     h.log([
       `${t.rel}: ${shot.ref} at ${t.at}s ${on ? "silenced — its picture stays" : "heard again"}`,
     ]);
@@ -242,7 +242,7 @@ export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const found = laneFile(laneArg, h);
+    const found = layerFile(laneArg, h, "sound");
     if (!found) return;
     const lane = found.rel.replace(/^.*\//, "").replace(/\.k7x$/, "");
     const clips = readYamlEntities(h.songPath, "clips").values as Record<

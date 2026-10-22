@@ -270,12 +270,12 @@
   readable:
     en: "Copy a lane to another timeline"
     fr: "Copier une piste vers une autre timeline"
-  help: "copy a lane's events onto a new lane of a timeline, or of the main one (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass main)"
+  help: "copy a lane's events onto a new lane of a timeline, or of the main one — a picture lane's shots too (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass main, timeline lane copy cam verse)"
   surfaces: [cli]
-  menu: [track]
+  menu: [track, picture]
   args:
     [
-      { name: lane, complete: tracks, hint: "a song lane, or a timeline's as <timeline>><lane>" },
+      { name: lane, complete: tracks, hint: "a song lane or picture lane, or a timeline's as <timeline>><lane>" },
       { name: to, complete: laneTargets, hint: "a timeline, or main" },
       { name: name, optional: true, hint: "the new lane's name — optional, the copied one's by default" },
     ]
@@ -1506,7 +1506,7 @@
   readable:
     en: "Add a picture lane"
     fr: "Ajouter une piste vidéo"
-  help: "add a video lane (e.g. picture lane new broll) — named layer-N if you don't say"
+  help: "add a video lane (e.g. picture lane new broll), or a timeline's (picture lane new verse>broll) — named layer-N if you don't say"
   surfaces: [cli, timeline]
   args:
     [

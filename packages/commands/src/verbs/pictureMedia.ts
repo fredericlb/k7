@@ -9,7 +9,6 @@ import { readYamlEntities } from "@studio/song/loader";
 import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
-import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
 import {
   ANDROID_PLAYABLE_CODECS,
   PLAYABLE_CODECS,
@@ -18,7 +17,7 @@ import {
 import { NoFfmpegError, probeVideo } from "@studio/video-prep/probe";
 import { copyPathOf, makeCopy } from "@studio/video-prep/transcode";
 import type { CommandHost, SidHandler } from "../commands.ts";
-import { laneFile } from "./picture.ts";
+import { laneFile, placementsOf } from "./picture.ts";
 import { splitWords } from "./shared.ts";
 
 /** What a browser plays as it is, so a machine with no ffmpeg needs do nothing for it. */
@@ -108,7 +107,7 @@ export const PICTURE_MEDIA_VERBS: Record<string, SidHandler> = {
     >;
     const refs = [
       ...new Set(
-        listVideoPlacements(found.text)
+        placementsOf(found)
           .map((p) => p.ref)
           .filter(Boolean),
       ),

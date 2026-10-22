@@ -12,9 +12,18 @@ import {
   readYamlEntities,
 } from "@studio/song/loader";
 import type { RawClip } from "@studio/song/rawDoc";
+import {
+  loadTimelinePictures,
+  type PlacedShots,
+  withTimelineShots,
+} from "@studio/song/timelinePictures";
 import { compileVideoChains, type VideoChainDocs } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc, VideoTrackDoc } from "./videoDoc";
-import { compileVideoTracks, readViewport } from "./videoTracks";
+import {
+  compileTimelinePictures,
+  compileVideoTracks,
+  readViewport,
+} from "./videoTracks";
 import {
   chainStretchHead,
   collectTransitions,
@@ -61,10 +70,19 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
   >;
   const videoTracksMap = loadVideoTracks(abs, true);
   const warnings: string[] = [];
+  // A placed timeline's shots draw on the song lane of their lane's name (@studio/song docs/timelines.md).
+  const { timelines, placed } = (() => {
+    try {
+      return loadTimelinePictures(abs);
+    } catch (e) {
+      warnings.push(`timelines: ${(e as Error).message}`);
+      return { timelines: {}, placed: new Map() as PlacedShots };
+    }
+  })();
   const tracks = compileVideoTracks(
     abs,
     proj.layers,
-    videoTracksMap,
+    withTimelineShots(videoTracksMap, placed),
     clipsMap,
     viewport,
     Array.isArray(root.soloed) ? root.soloed.map(String) : [],
@@ -130,6 +148,15 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     };
   });
 
+  const pictures = compileTimelinePictures(
+    abs,
+    timelines,
+    drawn,
+    clipsMap,
+    viewport,
+    warnings,
+  );
+
   return {
     ...(typeof proj.uuid === "string" ? { uuid: proj.uuid } : {}),
     name: String(proj.name ?? "untitled"),
@@ -165,6 +192,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     framePlugins: chains.frame,
     transitions,
     stretches,
+    ...(Object.keys(pictures).length ? { timelines: pictures } : {}),
     warnings,
   };
 }

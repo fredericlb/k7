@@ -309,6 +309,45 @@ describe("a picture shot", () => {
   });
 });
 
+/** A picture LANE's gutter: the copy between timelines, and the song lane's two toggles. */
+describe("a picture lane", () => {
+  const catalogue = [
+    {
+      command: "timeline lane copy",
+      help: "copy a lane",
+      args: [a("lane", "track", "tracks"), a("to", "choice", "laneTargets")],
+      menu: ["track" as const, "picture" as const],
+    },
+    {
+      command: "picture mute",
+      help: "hide a lane",
+      args: [a("lane", "file", "pictureLanes")],
+    },
+    {
+      command: "picture solo",
+      help: "solo a lane",
+      args: [a("lane", "file", "pictureLanes")],
+    },
+  ];
+
+  it("asks where to copy the song's lane, and toggles it", () => {
+    const menu = contextMenu({ kind: "picture-lane", lane: "cam" }, catalogue);
+    expect(lines(menu)).toEqual([
+      "timeline lane copy cam ",
+      "picture mute cam",
+      "picture solo cam",
+    ]);
+  });
+
+  it("offers a timeline's lane the copy alone — its frame and visibility are the song lane's", () => {
+    const menu = contextMenu(
+      { kind: "picture-lane", lane: "verse>cam" },
+      catalogue,
+    );
+    expect(lines(menu)).toEqual(["timeline lane copy verse>cam "]);
+  });
+});
+
 describe("a track among several shift-clicked", () => {
   it("offers to GROUP them first, then what the clicked one answers", () => {
     const menu = contextMenu(

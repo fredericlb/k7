@@ -148,6 +148,7 @@ import { GROW } from "./timeline/grow";
 import { LaneAlternative } from "./timeline/LaneAlternative";
 import { LaneMeter } from "./timeline/LaneMeter";
 import { LaneVstFreeze } from "./timeline/LaneVstFreeze";
+import { ownShots, PlacedShot } from "./timeline/PlacedShot";
 import { Playhead } from "./timeline/Playhead";
 import { RecordingClip } from "./timeline/RecordingClip";
 import { TimelineSwitch } from "./timeline/TimelineSwitch";
@@ -325,6 +326,7 @@ function TimelineTabView({
   midiTake = null,
   tasks = NO_TASKS,
   videoTracks: songVideoTracks,
+  timelineVideoTracks,
   fps,
   onVideoEdit,
   onEditTarget,
@@ -366,6 +368,8 @@ function TimelineTabView({
   midiTake?: { lane: string; from: number } | null;
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
+  /** …and each timeline's own, drawn in place of those while it is open (`WebVideoProject.timelines`). */
+  timelineVideoTracks?: Record<string, WebVideoTrack[]>;
   /** The picture's frame rate, absent when the song has none — it puts the seconds ruler's fine ticks on frames (docs/picture.md). */
   fps?: number;
   /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
@@ -508,8 +512,10 @@ function TimelineTabView({
     lastIds.current = timelineIds;
     setOpenTimeline((open) => followRename(open, before, timelineIds));
   }, [timelineIds]);
-  // A timeline has no picture: its lanes play through a song lane, wherever it is placed.
-  const videoTracks = shownTimeline ? NO_VIDEO : songVideoTracks;
+  // A timeline's own picture lanes, which draw on the song's of their name wherever it is placed.
+  const videoTracks = shownTimeline
+    ? (timelineVideoTracks?.[shownTimeline.id] ?? NO_VIDEO)
+    : songVideoTracks;
   // In a timeline's view a new lane is that timeline's.
   const onNewLane =
     shownTimeline && !readOnly && cmds.newTimelineLane
@@ -2644,12 +2650,19 @@ function TimelineTabView({
                         rowDrag.lane !== vt.id &&
                         DROP_ROW,
                     )}
-                    // No context menu: it is DERIVED from the command catalogue, and picture has no verbs in it (docs/contextMenu.md).
                     style={{ height: ROW_H }}
                   >
                     <div
                       style={{ width: GUTTER }}
                       {...gutterProps(row)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onContextMenu?.(
+                          { kind: "picture-lane", lane: vt.id },
+                          e.clientX,
+                          e.clientY,
+                        );
+                      }}
                       className={cn(
                         "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
                         GUTTER_STICKY,
@@ -2679,8 +2692,8 @@ function TimelineTabView({
                       >
                         {trackLabel(vt.name)}
                       </span>
-                      {/* [m]ute and [s]olo, the audio lane's two, meaning HIDDEN and hides-the-rest. */}
-                      {onVideoToggle && (
+                      {/* [m]ute and [s]olo, the audio lane's two, meaning HIDDEN and hides-the-rest — the song lane's, which a timeline's draws on. */}
+                      {onVideoToggle && !shownTimeline && (
                         <div className="flex shrink-0 items-center gap-0.5">
                           {(
                             [
@@ -2714,7 +2727,7 @@ function TimelineTabView({
                         </div>
                       )}
                       {/* ARM: a picture lane records its camera in the BROWSER, so a lane DRAWING shapes — which has no input — gets no button. */}
-                      {onVideoArm && !vt.shapes.length && (
+                      {onVideoArm && !shownTimeline && !vt.shapes.length && (
                         <button
                           type="button"
                           title={m["tl.armVideoTitle"]({ name: vt.name })}
@@ -2753,7 +2766,19 @@ function TimelineTabView({
                       )}
                       style={{ width: laneW }}
                     >
-                      {vt.clips.map((c, i) => {
+                      {/* A placed timeline's shots: edited in that timeline, opened by a double-click (song/docs/timelines.md). */}
+                      {vt.clips.map((c) =>
+                        c.timeline ? (
+                          <PlacedShot
+                            key={`${c.timeline}@${c.start}:${c.id}`}
+                            clip={c}
+                            left={x(c.start * bps)}
+                            width={Math.max(ppb, c.length * bps * ppb)}
+                            onOpen={setOpenTimeline}
+                          />
+                        ) : null,
+                      )}
+                      {ownShots(vt).clips.map((c, i) => {
                         // The one being dragged draws where the pointer says — the ghost the commit then makes true.
                         const live =
                           vdrag && vdrag.trackId === vt.id && vdrag.index === i
@@ -2796,7 +2821,7 @@ function TimelineTabView({
                             // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
                             key={`${c.id}:${i}`}
                             onPointerDown={(e) =>
-                              beginVideoDrag(e, vt, c, i, "move")
+                              beginVideoDrag(e, ownShots(vt), c, i, "move")
                             }
                             onPointerMove={onVideoDragMove}
                             onPointerUp={commitVideoDrag}
@@ -2846,13 +2871,13 @@ function TimelineTabView({
                               <>
                                 <span
                                   onPointerDown={(e) =>
-                                    beginVideoDrag(e, vt, c, i, "in")
+                                    beginVideoDrag(e, ownShots(vt), c, i, "in")
                                   }
                                   className="absolute inset-y-0 left-0 w-2 cursor-ew-resize"
                                 />
                                 <span
                                   onPointerDown={(e) =>
-                                    beginVideoDrag(e, vt, c, i, "out")
+                                    beginVideoDrag(e, ownShots(vt), c, i, "out")
                                   }
                                   className="absolute inset-y-0 right-0 w-2 cursor-ew-resize"
                                 />
