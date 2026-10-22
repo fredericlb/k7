@@ -74,8 +74,10 @@ claimed by one project at a time; the claim rules do not change.
 2. **Engine and supervisor** — built: `lanOpen` in `Settings.h/.cpp`, sent to the engine as a
    `lan-open` message and applied in `ServePairing.cpp`; `lan.open` on every page allow-list
    (`engine/k7-runtime/docs/pairing.md`).
-3. **One Servers list**: the add flow mints the device token and passes it with the URL
-   (`weburi.add <url> <token>`), on the tray and the phone; Studios and Sync servers merged.
+3. **One Servers list** — built on the tray: a sync pairing hands its token to the supervisor
+   (`weburi.pair`), the engine page adds a server by pairing, the pairings made before are listed
+   once; on the phones the token goes through the same command. Left: the phone's own Add, which
+   still lists the engine without a token until it pairs through the native flow.
 4. **Screens** — built: the LAN switch on the engine page and the phone's panel; Everyone beside
    the email list in `EngineShareEditor`.
 5. **The functional suite**: the rehearsal stems spec running with no share, once lot 3 lets the

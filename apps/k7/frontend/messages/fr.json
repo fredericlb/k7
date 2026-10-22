@@ -331,7 +331,7 @@
   "engine.title": "Le moteur de cette machine",
   "engine.hint": "Le moteur de cette machine, lancé par le tray k7 : il joue vos projets sur l'interface audio de cette machine.",
   "engine.notHere": "Cette page est celle d'une machine où tourne le tray k7 : ouvrez k7 depuis le tray pour régler son moteur.",
-  "engine.connectConfirm": "Inscrire le moteur de cette machine sur {url} ? Ce serveur pourra alors jouer sur le moteur de cette machine.",
+  "engine.serversSignIn": "Connectez-vous pour ajouter un serveur : votre compte s'y synchronise alors, et le moteur de cette machine y est le vôtre.",
   "engine.waiting": "En attente du moteur…",
   "engine.running": "En marche, sur le port {port}",
   "engine.error": "Arrêté par une erreur : {error}",

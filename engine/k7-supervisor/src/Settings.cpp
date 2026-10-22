@@ -3,6 +3,7 @@
 #include "Settings.h"
 
 #include "Paths.h"
+#include "Url.h"
 
 #include <algorithm>
 #include <cctype>
@@ -86,6 +87,7 @@ Settings settingsFrom(const nlohmann::json& raw)
     if (auto one = trim(str(raw, "deviceToken")); !one.empty())
         for (const auto& u : s.registryUrls) s.deviceTokens.emplace(u, one);
     if (auto it = raw.find("lanOpen"); it != raw.end() && it->is_boolean()) s.lanOpen = it->get<bool>();
+    if (auto it = raw.find("pairingsListed"); it != raw.end() && it->is_boolean()) s.pairingsListed = it->get<bool>();
     return s;
 }
 
@@ -97,6 +99,7 @@ nlohmann::json settingsJson(const Settings& s)
         {"audioPriority", s.audioPriority},
         {"onnxProviders", s.onnxProviders},
         {"lanOpen", s.lanOpen},
+        {"pairingsListed", s.pairingsListed},
     };
     if (s.instruments) j["instruments"] = *s.instruments;
     if (!s.deviceTokens.empty()) j["deviceTokens"] = s.deviceTokens;
@@ -158,6 +161,22 @@ void saveSettings(const Settings& s)
     }
     std::filesystem::rename(tmp, path, ec);
     if (ec) std::filesystem::remove(tmp, ec);
+}
+
+bool listPairedStudios(Settings& s)
+{
+    if (s.pairingsListed) return false;
+    s.pairingsListed = true;
+    // An empty list is `$STUDIO_REGISTRY_URL`'s: one entry added would replace that environment's studio.
+    if (s.registryUrls.empty()) return true;
+    for (const auto& [studio, token] : s.deviceTokens) {
+        const auto reg = url::engineRegistryUrl(studio);
+        if (reg.empty()) continue;
+        const bool listed = std::any_of(s.registryUrls.begin(), s.registryUrls.end(),
+                                        [&](const std::string& u) { return url::studioFamily(u) == url::studioFamily(reg); });
+        if (!listed) s.registryUrls.push_back(reg);
+    }
+    return true;
 }
 
 }  // namespace k7

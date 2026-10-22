@@ -142,6 +142,18 @@ still receives the token. That is why the form says so, and why only instances t
 there. `$STUDIO_REGISTRY_URL` is not asked — an environment variable is configuration, not a form — and
 there is no other way to pin a registry: every add goes through this one.
 
+### `weburi.pair`: a studio and the token that names its owner
+
+`weburi.pair <origin>␟<token>` is `weburi.add` with the device token the studio minted for the
+account this machine paired: asked the same way, then the token saved under the registry URL the
+heartbeat looks it up by, before the list, so the first heartbeat already carries it. The pages never
+send it; the tray's backend does once a pairing is stored, and the phone apps once theirs is — through
+the command rather than the file, since a running supervisor saves its own settings over a file
+written behind it. `weburi.remove` forgets the studio's token with it.
+
+A token held for a studio that is not listed — the phones wrote them before this command existed — is
+listed at the supervisor's first start with this version (`listPairedStudios`, `pairingsListed`), once.
+
 ### A heartbeat proves its machine
 
 A studio may list paired machines only (`packages/engine-registry/docs/heartbeat.md`), so each

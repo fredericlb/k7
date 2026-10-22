@@ -194,6 +194,13 @@ through the backend that runs the supervisor (`apps/k7/backend/docs/localEngine.
 supervisor opens no socket. The link is drawn only when `GET /api/local` says this backend runs the
 engine (`localApp.md`); anywhere else the page says the engine's settings are on the engine's machine.
 
+Its list of servers has no address form of its own: **Add** pairs the signed-in account with the
+server through the browser, as the home page's "Add a server" does, because the engine is the
+account's on a server only through the device token that pairing brings back
+(`packages/file-hub/docs/syncRelay.md`, "The engine follows the account"). Signed out, the machine's
+local user has no account to pair, and the section says to sign in. **Remove** there unlists the
+engine alone; the home page's "Stop syncing" lets go of both.
+
 ## About is beside it, not in it
 
 The user menu's About row, under Settings, opens `/about` (`about.md`): the version, the licence,

@@ -21,13 +21,16 @@ export function StudiosSection({
   rows,
   check,
   add,
+  addHint,
   remove,
   detail,
   extra,
 }: {
   rows: StudioRow[];
   check?: StudioCheck;
-  add: (url: string) => void;
+  /** Absent, no form: `addHint` says why, and how to add one instead. */
+  add?: (url: string) => void;
+  addHint?: ReactNode;
   remove: (url: string) => void;
   /** A line under a row, or nothing. */
   detail?: (row: StudioRow) => string | undefined;
@@ -37,7 +40,7 @@ export function StudiosSection({
   const [address, setAddress] = useState("");
   const connect = () => {
     const url = address.trim();
-    if (url) add(url);
+    if (url) add?.(url);
   };
   return (
     <Section title={m["android.studios"]()} hint={m["android.studiosHint"]()}>
@@ -51,27 +54,32 @@ export function StudiosSection({
           )}
         </Row>
       ))}
-      <form
-        className="flex items-center gap-2 px-4 py-2.5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          connect();
-        }}
-      >
-        <input
-          type="url"
-          inputMode="url"
-          autoCapitalize="off"
-          autoCorrect="off"
-          placeholder="https://studio.example"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-neutral-200 text-sm"
-        />
-        <Action onClick={connect} disabled={!address.trim()}>
-          {m["android.connect"]()}
-        </Action>
-      </form>
+      {!add && addHint && (
+        <p className="px-4 py-2.5 text-faint text-xs">{addHint}</p>
+      )}
+      {add && (
+        <form
+          className="flex items-center gap-2 px-4 py-2.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            connect();
+          }}
+        >
+          <input
+            type="url"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            placeholder="https://studio.example"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-neutral-200 text-sm"
+          />
+          <Action onClick={connect} disabled={!address.trim()}>
+            {m["android.connect"]()}
+          </Action>
+        </form>
+      )}
       {check?.state === "checking" && (
         <p className="px-4 py-2 text-faint text-xs">
           {m["android.checking"]({ url: check.url ?? "" })}

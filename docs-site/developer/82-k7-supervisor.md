@@ -65,7 +65,8 @@ The snapshot (`Snapshot` in `HostProtocol.h`) carries: `status` (`stopped`/`runn
 | `engine.stop` | | Stop an owned engine (never a foreign one) and deregister at once |
 | `engine.restart` | | Stop then start |
 | `weburi.add` | an address | Probe the registry, then add and persist it, then heartbeat |
-| `weburi.remove` | a studio URL | Drop that family from the persisted list and deregister from it |
+| `weburi.pair` | `<origin>␟<device token>` | Probe, save the token for that registry, then add it and heartbeat |
+| `weburi.remove` | a studio URL | Drop that family and its token from the persisted list and deregister from it |
 | `registry.deregister` | | Deregister from every studio now |
 | `audio.priority` | names joined by U+001F | Save the whole ranking, then switch if needed |
 | `lan.open` | `1` or `0` | Save whether a device on this network drives the engine unpaired, then tell the engine |

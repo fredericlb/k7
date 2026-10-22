@@ -36,6 +36,7 @@ import {
   shellFrameHeaders,
 } from "./hardening.ts";
 import { awaitLibraries } from "./listenGate.ts";
+import { listPairedOnce, pairingHooks } from "./localEngine/followPairings.ts";
 import { localEngineFromEnv } from "./localEngine/host.ts";
 import {
   localEngineRouter,
@@ -170,7 +171,12 @@ const rehearsal = mountRehearsal(app, {
   },
 });
 // Mounted before the prefs below: their `/api` guard is session-only, and a bearer or a ticket must reach these first.
-const media = mountMedia(app, { requireAuth, port: PORT, tokens });
+const media = mountMedia(app, {
+  requireAuth,
+  port: PORT,
+  tokens,
+  onRemote: localEngine ? pairingHooks(localEngine) : undefined,
+});
 
 /** One person's layer over a command, as the WIRE shape — the meaning is the frontend's `commandPrefs.ts`. */
 const commandPrefSchema = z.object({
@@ -263,6 +269,9 @@ const onListening = () => {
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
   rehearsal.serve(server);
   localEngine?.start();
+  // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
+  if (localEngine && process.env.STUDIO_FILES_ROOT)
+    listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);
 };
 const server = behindProxy(createServer(app));
 const listen = (): void => {

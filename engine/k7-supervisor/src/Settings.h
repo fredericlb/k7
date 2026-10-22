@@ -33,7 +33,12 @@ struct Settings {
     std::map<std::string, std::string> deviceTokens;
     /** A device on this machine's network drives the engine unpaired; off, it pairs first (engine/k7-runtime/docs/pairing.md). */
     bool lanOpen = true;
+    /** The studios held a token for were listed once; after that only a pairing or a removal changes the list. */
+    bool pairingsListed = false;
 };
+
+/** The first time: every studio of `deviceTokens` not in `registryUrls` added, and `pairingsListed` set; true when `s` changed. */
+bool listPairedStudios(Settings& s);
 
 /** Parse a settings document leniently; anything missing or malformed falls back to its default. */
 Settings settingsFrom(const nlohmann::json& raw);

@@ -70,6 +70,21 @@ every pairing rides in `STUDIO_SYNC_SERVERS`, for the workspaces each server hol
 relay's host, so pairing the same server again replaces it rather than listing it twice.
 `POST /api/sync/remote/main` makes another one main and `DELETE /api/sync/remote?url=` forgets one.
 
+## The engine follows the account
+
+On a machine (the tray), a pairing is also where its engine goes: the server that minted the device
+token is the one the engine should be the account's on (`packages/engine-registry/docs/ownership.md`).
+So the hub calls `onPaired(origin, token)` once a pairing is stored, and the tray's backend hands both
+to its supervisor (`weburi.pair`, `apps/k7/backend/src/localEngine/followPairings.ts`); forgetting a
+pairing calls `onForgotten(origin)`, which unlists the engine there. A second add of a server already
+paired answers 409 as before, and lists the engine back with the token held — what re-adding a server
+from the engine page means after the engine was removed from it alone.
+
+The token is the sync's: one device of the account's list, so revoking that device on the server ends
+both the sync and the ownership. The pairings made before the engine followed them are listed once,
+when the backend first starts (a marker under the files root), and never again: a server the engine
+was removed from keeps syncing without being listed back.
+
 ## A server's accounts
 
 An account on a server may be paired with other servers too, and the server it is signed in to stays

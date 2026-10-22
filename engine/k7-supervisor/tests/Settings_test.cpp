@@ -2,6 +2,7 @@
 // spellings are read as the new ones; a round trip gives back exactly what went in.
 
 #include "Settings.h"
+#include "Url.h"
 
 #include "test_harness.h"
 
@@ -56,6 +57,27 @@ void theLanIsOpenUntilClosed()
     Settings in;
     in.lanOpen = false;
     CHECK(!settingsFrom(k7::settingsJson(in)).lanOpen);
+}
+
+// A studio held a token for is listed the first time only: one removed later stays removed.
+void theStudiosPairedAreListedOnce()
+{
+    Settings s;
+    s.registryUrls = {"http://127.0.0.1:18789"};
+    s.deviceTokens = {{"https://app.k7.rocks", "t1"}, {"http://127.0.0.1:18789", "t0"}};
+    CHECK(k7::listPairedStudios(s));
+    CHECK((s.registryUrls ==
+           std::vector<std::string>{"http://127.0.0.1:18789", k7::url::engineRegistryUrl("https://app.k7.rocks")}));
+    CHECK(s.pairingsListed);
+    s.registryUrls = {"http://127.0.0.1:18789"};
+    CHECK(!k7::listPairedStudios(s));
+    CHECK(s.registryUrls.size() == 1);
+    CHECK(settingsFrom(k7::settingsJson(s)).pairingsListed);
+    // The environment's studio, an empty list stands for, is not replaced by the first token.
+    Settings env;
+    env.deviceTokens = {{"https://app.k7.rocks", "t1"}};
+    CHECK(k7::listPairedStudios(env));
+    CHECK(env.registryUrls.empty());
 }
 
 // Absent is "never chosen", which a boot settles; an empty list is a choice to keep nothing, and stays one.
@@ -130,6 +152,7 @@ void runSettingsTests()
     RUN(aPortOutOfRangeIsTheDefault);
     RUN(theInstrumentsKeptTellAbsentFromEmpty);
     RUN(theLanIsOpenUntilClosed);
+    RUN(theStudiosPairedAreListedOnce);
     RUN(aConfigFileSetsWhatTheEnvironmentOtherwiseCarries);
     RUN(deviceTokensAreKeptByStudio);
     RUN(aConfigFilesOneTokenIsItsOwnStudios);
