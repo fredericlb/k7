@@ -115,6 +115,7 @@ struct Supervisor::Impl {
         snap.engineId = identity.id;
         snap.enginePort = enginePort->load();
         snap.audioPriority = settings.audioPriority;
+        snap.lanOpen = settings.lanOpen;
         std::string joined;
         for (size_t i = 0; i < registryUrls.size(); ++i) joined += (i ? ", " : "") + registryUrls[i];
         // Joined for display: the snapshot carries ONE registry line.
@@ -197,6 +198,8 @@ struct Supervisor::Impl {
                                                    snap.safeMode = protocol::SafeMode{safeModeCrashes, ""};
                                                else
                                                    snap.safeMode.reset();
+                                               // The engine keeps its LAN closed until told: the musician's setting, every time it comes up.
+                                               engine->setLanOpen(settings.lanOpen, [] {});
                                                inspectEngine(r.kind == engine::StartKind::Adopted);
                                            }
                                            publish();
@@ -878,6 +881,12 @@ struct Supervisor::Impl {
             deregisterFrom(registryUrls, [this, cmd] { reply(cmd.id, true); });
         } else if (c == "audio.priority") {
             audioPriority(cmd);
+        } else if (c == "lan.open") {
+            // `1` or `0`; remembered first, then told to the engine, which drops the LAN devices it let in when it closes.
+            settings.lanOpen = cmd.arg == "1";
+            saveSettings(settings);
+            publish();
+            engine->setLanOpen(settings.lanOpen, [this, cmd] { reply(cmd.id, true); });
         } else if (c == "plugins.rescan") {
             // The spinner at once: the scan runs inside the engine and its count comes back through the poll.
             snap.pluginCount.reset();

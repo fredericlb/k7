@@ -344,6 +344,14 @@ void EngineQueries::pairVerb(const std::string& verb, const std::string& id, std
     });
 }
 
+void EngineQueries::setLanOpen(bool open, std::function<void()> done)
+{
+    worker_->enqueue([w = worker_, &loop = loop_, open, done = std::move(done)] {
+        w->send({{"type", "lan-open"}, {"open", open}});
+        loop.post(done);
+    });
+}
+
 void EngineQueries::dropSession(const std::string& session, std::function<void()> done)
 {
     worker_->enqueue([w = worker_, &loop = loop_, session, done = std::move(done)] {

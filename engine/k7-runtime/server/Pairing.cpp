@@ -65,6 +65,22 @@ bool isLoopbackAddress(const std::string& ip) {
     return v == "::1" || v == "localhost" || v.rfind("127.", 0) == 0;
 }
 
+bool isPrivateAddress(const std::string& ip) {
+    std::string v = ip;
+    if (v.rfind("::ffff:", 0) == 0) v = v.substr(7);
+    unsigned a = 0, b = 0, c = 0, d = 0;
+    char tail = 0;
+    if (std::sscanf(v.c_str(), "%u.%u.%u.%u%c", &a, &b, &c, &d, &tail) == 4) {
+        if (a > 255 || b > 255 || c > 255 || d > 255) return false;
+        return a == 10 || (a == 172 && b >= 16 && b <= 31) || (a == 192 && b == 168) || (a == 169 && b == 254);
+    }
+    if (v.find(':') == std::string::npos || v.size() < 4) return false;
+    std::string h = v.substr(0, 4);
+    for (char& ch : h) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    // fc00::/7 is the unique-local range, fe80::/10 the link-local one.
+    return h[0] == 'f' && (h[1] == 'c' || h[1] == 'd' || (h[1] == 'e' && h[2] >= '8' && h[2] <= 'b'));
+}
+
 namespace {
 
 std::string lower(std::string s) {

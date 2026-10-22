@@ -85,6 +85,7 @@ Settings settingsFrom(const nlohmann::json& raw)
     // A config file's one `deviceToken` is the token of the studios that same file names.
     if (auto one = trim(str(raw, "deviceToken")); !one.empty())
         for (const auto& u : s.registryUrls) s.deviceTokens.emplace(u, one);
+    if (auto it = raw.find("lanOpen"); it != raw.end() && it->is_boolean()) s.lanOpen = it->get<bool>();
     return s;
 }
 
@@ -95,6 +96,7 @@ nlohmann::json settingsJson(const Settings& s)
         {"port", s.port},
         {"audioPriority", s.audioPriority},
         {"onnxProviders", s.onnxProviders},
+        {"lanOpen", s.lanOpen},
     };
     if (s.instruments) j["instruments"] = *s.instruments;
     if (!s.deviceTokens.empty()) j["deviceTokens"] = s.deviceTokens;

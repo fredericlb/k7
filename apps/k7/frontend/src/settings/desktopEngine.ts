@@ -25,6 +25,8 @@ export interface DesktopEngineSnapshot {
     outputs?: number;
   }[];
   audioPriority?: string[];
+  /** Whether a device on this network drives the engine unpaired; absent from an older supervisor. */
+  lanOpen?: boolean;
   /** The k7 servers this engine is listed at; one from the environment is not removable. */
   instances?: { url: string; removable?: boolean }[];
   instanceCheck?: { state?: string; url?: string; message?: string } | null;

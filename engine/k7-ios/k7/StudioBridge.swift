@@ -226,7 +226,7 @@ final class StudioBridge: NSObject, WKScriptMessageHandler, SupervisorListener, 
 
     /// The commands the tray's pages may send too (apps/k7/backend/src/localEngine/routes.ts), plus removing a studio, which only unlists this engine.
     private static let allowed: Set<String> = [
-        "engine.start", "engine.stop", "engine.restart", "audio.priority",
+        "engine.start", "engine.stop", "engine.restart", "audio.priority", "lan.open",
         "plugins.rescan", "instruments.download", "instruments.remove", "weburi.remove",
     ]
 

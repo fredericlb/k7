@@ -1,8 +1,10 @@
 // DesktopEnginePage.tsx — `/settings/engine`, this machine's engine as the tray runs it: whether it runs, which audio
-// interface it takes first, its plugins, the servers it is listed at, and the instruments it downloads. What the
-// command-line engine reads from its config file; the tray hands its user no such file. See ../../docs/settings.md.
+// interface it takes first, whether its network may use it unpaired, its plugins, the servers it is listed at, and the
+// instruments it downloads. What the command-line engine reads from its config file; the tray hands its user no such file.
+// See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
+import { Switch } from "@frediverse/ui/switch";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
 import { PageFrame } from "../projects/PageFrame";
@@ -65,6 +67,8 @@ export function DesktopEnginePage() {
   const devices = s ? rankedDevices(s) : [];
   const names = devices.map((d) => d.name);
   const asio = s ? idleAsioDriver(s) : null;
+  // Absent from an older supervisor, whose engine always asks pairing.
+  const lanOpen = s?.lanOpen ?? false;
   const move = (from: number, to: number) =>
     engineCommand("audio.priority", moveDevice(names, from, to).join(SEP));
 
@@ -171,6 +175,27 @@ export function DesktopEnginePage() {
                   </Row>
                 ))
               )}
+            </Section>
+
+            <Section
+              title={m["engine.lanTitle"]()}
+              hint={m["engine.lanHint"]()}
+            >
+              <Row
+                label={m["engine.lanOpen"]()}
+                detail={
+                  lanOpen ? m["engine.lanOpenOn"]() : m["engine.lanOpenOff"]()
+                }
+              >
+                <Switch
+                  checked={lanOpen}
+                  disabled={!s}
+                  onCheckedChange={(on) =>
+                    engineCommand("lan.open", on ? "1" : "0")
+                  }
+                  aria-label={m["engine.lanOpen"]()}
+                />
+              </Row>
             </Section>
 
             <StudiosSection

@@ -69,17 +69,17 @@ claimed by one project at a time; the claim rules do not change.
 
 ## Lots
 
-1. **Registry**: ownership from the proven heartbeat (slug → email), no enrolment on open,
-   reassignment, `everyone`, the loopback rule on every backend. Unit tests in
-   `packages/engine-registry`.
-2. **Engine and supervisor**: `lanOpen` in `Settings.h/.cpp`, passed to the engine, applied in
-   `ServePairing.cpp`; a supervisor command to set it, on the backend's allow-list.
+1. **Registry** — built: ownership from the proven heartbeat (slug → email), no enrolment on open,
+   reassignment, `everyone`, the loopback rule on every backend (`ownership.md`).
+2. **Engine and supervisor** — built: `lanOpen` in `Settings.h/.cpp`, sent to the engine as a
+   `lan-open` message and applied in `ServePairing.cpp`; `lan.open` on every page allow-list
+   (`engine/k7-runtime/docs/pairing.md`).
 3. **One Servers list**: the add flow mints the device token and passes it with the URL
    (`weburi.add <url> <token>`), on the tray and the phone; Studios and Sync servers merged.
-4. **Screens**: the LAN switch on the engine page; Everyone beside the email list in
-   `EngineShareEditor`.
-5. **Docs and the functional suite**: `ownership.md`, `pairing.md`, `e2e/docs/e2e.md`, and the
-   rehearsal stems spec running with no share.
+4. **Screens** — built: the LAN switch on the engine page and the phone's panel; Everyone beside
+   the email list in `EngineShareEditor`.
+5. **The functional suite**: the rehearsal stems spec running with no share, once lot 3 lets the
+   dev machine's engine prove its owner.
 
 ## Open questions
 

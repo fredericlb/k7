@@ -54,6 +54,10 @@
         "audioDevices": { "type": "array", "items": { "$ref": "#/definitions/AudioDevice" } },
         "audioPriority": { "type": "array", "items": { "type": "string" } },
         "audioMenuSig": { "type": "string" },
+        "lanOpen": {
+          "description": "Whether a device on this machine's network drives the engine unpaired; absent from an older supervisor, which always asks pairing.",
+          "type": "boolean"
+        },
         "editPlugins": { "type": "array", "items": { "$ref": "#/definitions/EditPlugin" } },
         "editPluginsSig": { "type": "string" },
         "sessions": { "type": "array", "items": { "$ref": "#/definitions/Session" } },

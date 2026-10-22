@@ -19,6 +19,7 @@
   ],
   "audioPriority": ["Focusrite USB ASIO", "Speakers (Focusrite USB Audio)"],
   "audioMenuSig": "a1",
+  "lanOpen": true,
   "editPlugins": [{ "session": "s1", "id": "n4", "name": "Diva", "hasNativePluginUI": true }],
   "editPluginsSig": "x1",
   "sessions": [{ "id": "s1", "project": "@local/w/song", "loaded": true, "playing": true, "tracks": 4, "listeners": 2 }],

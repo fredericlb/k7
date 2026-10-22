@@ -6,8 +6,26 @@ it must work at a venue with no internet. Without pairing, that same port let an
 Wi-Fi drive a project, read the engine's token, and ask it to load a binary from a path of their
 choosing.
 
-So a LAN peer drives only once **paired**: the musician approves the device once, on the machine, and
-the device keeps a key it shows on every connection.
+So a LAN peer drives once **paired** — the musician approves the device once, on the machine, and the
+device keeps a key it shows on every connection — or while the musician leaves the **LAN open**.
+
+## The open LAN
+
+A home or a rehearsal room is the network the engine is mostly on, and pairing every phone there is a
+chore the room does not need. So the supervisor's `lanOpen` (`engine-host.json`, on by default, the
+**Available on the local network** switch of the engine's settings page) lets a peer on a **private**
+address drive unpaired: 10/8, 172.16/12, 192.168/16, 169.254/16, `fc00::/7`, `fe80::/10`
+(`isPrivateAddress`, `Pairing.cpp`). A public address — a port someone forwarded on a router — still
+pairs, open or not; and the verbs that manage pairing stay the machine's own either way.
+
+The engine learns it from the supervisor, not from its environment: a `lan-open` message on the
+supervisor's own loopback socket, sent each time the engine comes up and each time the switch moves.
+An engine nobody has told keeps the LAN **closed** — one started by hand, or by an older supervisor —
+which is the side to fail on. Closing it drops at once every socket the open LAN let in
+(`lanTrusted`): a phone that was driving must pair before it drives again. A message, rather than a
+variable read at start, because a phone's engine cannot restart without the app's process doing so.
+
+Open is a choice made for the room the product is for, and a café's Wi-Fi is what the switch is for.
 
 ## Loopback needs nothing, and that includes the relay
 
@@ -54,7 +72,7 @@ before it starts the engine.
 
 ## What an unpaired LAN peer may say
 
-Three things, and every other message is answered `{type:"error", code:"unpaired"}`:
+With the LAN closed, or from a public address: three things, and every other message is answered `{type:"error", code:"unpaired"}`:
 
 - `whoami` (or `hello`) — answered with the id and `needsPairing: true`, and **never the token**. A
   probe still learns an engine is there and that it wants pairing.

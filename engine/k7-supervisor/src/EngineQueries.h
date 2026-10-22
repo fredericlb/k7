@@ -66,6 +66,9 @@ public:
     /** Fire-and-forget `pair-approve`, `pair-deny` (a requestId) or `unpair-device` (a deviceId); the pairing poll shows the result. */
     void pairVerb(const std::string& verb, const std::string& id, std::function<void()> done);
 
+    /** Fire-and-forget `lan-open`: whether a device on this network drives unpaired; closing drops the ones it let in. */
+    void setLanOpen(bool open, std::function<void()> done);
+
     /** Fire-and-forget: the engine acknowledges by drawing the window. */
     void showNativePluginUI(const std::string& id, const std::optional<std::string>& session, std::function<void()> done);
 

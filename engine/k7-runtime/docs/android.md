@@ -100,8 +100,8 @@ Two ways from the page to the native half:
   object is offered to every origin because the studio can change under a view that already
   exists, and a listener's origin rules are fixed when it is added; the check is per message
   instead. k7's origin is whichever studio is open, possibly a remote one, so a script on it is
-  not trusted with the supervisor: `command` takes the seven the engine page sends on a computer (`engine.start|stop|restart`,
-  `audio.priority`, `plugins.rescan`, `instruments.download|remove`, as the tray's backend allows,
+  not trusted with the supervisor: `command` takes the eight the engine page sends on a computer (`engine.start|stop|restart`,
+  `audio.priority`, `lan.open`, `plugins.rescan`, `instruments.download|remove`, as the tray's backend allows,
   `apps/k7/backend/docs/localEngine.md`) plus `weburi.remove`, which only unlists this engine;
   `weburi.add` asks the user in a native dialog naming the address, and anything else is refused —
   `shutdown`, `session.drop`, `registry.deregister` and pairing included, which the panel never sends.

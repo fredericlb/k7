@@ -21,9 +21,14 @@ export interface StateFrame {
     /**
      * Null unless a studio address is being checked or was refused.
      */
-    instanceCheck:   InstanceCheck | null;
-    instances?:      Instance[];
-    instruments?:    InstrumentRow[];
+    instanceCheck: InstanceCheck | null;
+    instances?:    Instance[];
+    instruments?:  InstrumentRow[];
+    /**
+     * Whether a device on this machine's network drives the engine unpaired; absent from an
+     * older supervisor, which always asks pairing.
+     */
+    lanOpen?:        boolean;
     lastHeartbeatOk: boolean;
     owns:            Owns;
     ownsEngine:      boolean;

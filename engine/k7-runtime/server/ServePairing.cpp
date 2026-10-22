@@ -1,6 +1,6 @@
 // ServePairing.cpp — the gate every message passes first: a page from a site not allowed is closed at its
-// handshake, a loopback peer drives, a LAN peer drives once paired, and approving a device is the machine's
-// own business. The verbs and the flow are in docs/pairing.md.
+// handshake, a loopback peer drives, a LAN peer drives unpaired while the LAN is open and once paired
+// otherwise, and approving a device is the machine's own business. The verbs and the flow are in docs/pairing.md.
 // The one thing a reader would get wrong: relayed traffic (tunnel, WebRTC) reaches us from loopback, and is trusted.
 
 #include "ServeContext.h"
@@ -16,7 +16,7 @@ namespace {
 
 // What only the machine itself may ask: a paired phone cannot approve a second one, nor list what pairs it.
 const std::unordered_set<std::string> kLocalOnly = {"pair-approve", "pair-deny", "list-pair-requests",
-                                                    "list-paired-devices", "unpair-device"};
+                                                    "list-paired-devices", "unpair-device", "lan-open"};
 
 // The largest frame a socket not yet trusted may send: a pairing request or a probe is well under a kilobyte.
 constexpr size_t kMaxUntrustedBytes = 16 * 1024;
@@ -46,6 +46,13 @@ void untrust(ServeContext& ctx, const ix::WebSocket* ws) {
     ctx.trusted.erase(ws);
     ctx.local.erase(ws);
     ctx.refused.erase(ws);
+    ctx.lanTrusted.erase(ws);
+}
+
+// A peer of this network, the LAN being open: trusted unpaired, and remembered so a close of the LAN drops it.
+void trustLan(ServeContext& ctx, const ix::WebSocket* ws) {
+    std::lock_guard<std::mutex> lk(ctx.trustMx);
+    if (ctx.trusted.insert(ws).second) ctx.lanTrusted.insert(ws);
 }
 
 void refuse(ix::WebSocket& ws, const std::string& code, const std::string& message) {
@@ -84,11 +91,16 @@ bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peer
     auto& pairing = *ctx.pairing;
     const bool isLocal = isLoopbackAddress(peerIp);
     if (isLocal) trust(ctx, &ws, true);
+    else if (ctx.lanOpen.load() && isPrivateAddress(peerIp)) trustLan(ctx, &ws);
     const bool trusted = isLocal || ctx.isTrusted(&ws);
 
     if (type == "pair-request") {
         if (isLocal) {
             refuse(ws, "not-needed", "this machine needs no pairing");
+            return true;
+        }
+        if (ctx.lanOpen.load() && isPrivateAddress(peerIp)) {
+            refuse(ws, "not-needed", "this engine is open to its own network: no pairing is needed");
             return true;
         }
         const auto r = pairing.request(j.value("name", std::string{}), peerIp, &ws);
@@ -165,6 +177,20 @@ bool screenMessage(ServeContext& ctx, ix::WebSocket& ws, const std::string& peer
             ctx.closeSocket(live);
         }
         ctx.broadcastLocal(devicesJson(pairing));
+    } else if (type == "lan-open") {
+        const bool open = j.value("open", false);
+        ctx.lanOpen.store(open);
+        std::vector<const ix::WebSocket*> dropped;
+        if (!open) {
+            std::lock_guard<std::mutex> lk(ctx.trustMx);
+            dropped.assign(ctx.lanTrusted.begin(), ctx.lanTrusted.end());
+        }
+        // Closed, the LAN devices let in by it go now: a phone must pair before it drives again.
+        for (const auto* live : dropped) {
+            untrust(ctx, live);
+            ctx.closeSocket(live);
+        }
+        std::cerr << "[pairing] the LAN is " << (open ? "open: a device on this network drives unpaired" : "closed: a device on this network pairs first") << "\n";
     }
     return true;
 }
