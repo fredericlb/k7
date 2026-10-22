@@ -67,7 +67,7 @@ const REFUSALS = {
 export interface HeartbeatGate {
   /** On, a heartbeat proving neither is refused; off, it is taken as before and only counted. */
   requireDevice: boolean;
-  /** The account a device token belongs to, or null. */
+  /** The email of the account a device token belongs to, or null: that account owns the engine. */
   deviceOf: (token: string) => string | null;
   /** The deployment's render key, which the server's own engine presents; unset, none. */
   renderKey?: string;
@@ -98,10 +98,8 @@ const safeEqual = (a: string, b: string): boolean => {
 export interface RouterOptions {
   /** Whether the request's account administers this origin: it may reset an engine's owner. */
   isAdmin?: (req: Request) => boolean;
-  /** Who may list an engine; absent, anyone, as before — docs/heartbeat.md. */
+  /** Who may list an engine, and whose it is; absent, anyone lists one and nobody owns one — docs/heartbeat.md. */
   heartbeat?: HeartbeatGate;
-  /** A standalone app's backend: the engine on its own machine is every signed-in account's — docs/ownership.md. */
-  localMachine?: boolean;
 }
 
 /** The routes over the one registry, pl8's — see docs/shared.md. */
@@ -116,7 +114,7 @@ export function engineRegistryRouter(
   const gate = opts.heartbeat;
   /** What the request's account is to engine `id` — docs/ownership.md. */
   const roleFor = (id: string, holder: string): EngineRole =>
-    engineRole(reg, id, holder, !!tunnels?.isRenderer(id), opts.localMachine);
+    engineRole(reg, id, holder, !!tunnels?.isRenderer(id));
   // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
   const complain = throttledLog(log);
   /** Who a refusal is about, as the log should name it. */
@@ -147,8 +145,9 @@ export function engineRegistryRouter(
           .json({ error: `heartbeat refused — ${read.error}` });
       }
       const b = read.beat;
+      const proven = gate ? provenBy(req, gate) : null;
       // An open route would let anyone list a machine every account then sends its project to (docs/heartbeat.md).
-      if (gate && !provenBy(req, gate)) {
+      if (gate && !proven) {
         complain(
           `${b.id}|unpaired`,
           `${gate.requireDevice ? "refused" : "took"} a heartbeat from ${who(b.id, b.hostname, req.ip)} with no device token`,
@@ -186,6 +185,13 @@ export function engineRegistryRouter(
         );
         return res.status(status).json({ error });
       }
+      // The account its device token proves owns it here; a move ends the old owner's claims now — docs/ownership.md.
+      if (
+        proven &&
+        proven !== "render" &&
+        reg.owners.assign(b.id, proven) === "moved"
+      )
+        reg.evict(b.id, (h) => mayUse(roleFor(b.id, h)));
       res.json({
         ok: true,
         ...(b.cleaned.length ? { cleaned: b.cleaned } : {}),
@@ -303,7 +309,18 @@ export function engineRegistryRouter(
       const holder = claimHolder(req);
       // Ownership before the claim rules: those only arbitrate between accounts that may use it — docs/ownership.md.
       const access = roleFor(id, holder);
-      if (!mayUse(access) && !(access === "unowned" && holder)) {
+      if (access === "unowned") {
+        complain(
+          `${id}|select-unowned`,
+          `select of ${who(id)} refused: its heartbeat proves no account here`,
+        );
+        return res.status(403).json({
+          error: "unowned",
+          message:
+            "this engine belongs to no account here — add this server from the engine's machine, signed in",
+        });
+      }
+      if (!mayUse(access)) {
         complain(
           `${id}|select-owner|${holder}`,
           `select of ${who(id)} refused: ${holder || "an anonymous session"} neither owns it nor was shared it`,
@@ -320,11 +337,6 @@ export function engineRegistryRouter(
         secret,
       });
       // 409 and not 403: nothing is wrong with the request, the project moved on, and the client's job is to let go and say so.
-      // An OPEN with the token of an unowned engine is the first direct use: this account becomes its owner.
-      if (result.ok && access === "unowned" && secret === undefined) {
-        reg.owners.enrol(id, holder);
-        reg.evict(id, (h) => h === holder);
-      }
       if (!result.ok)
         return res.status(409).json({
           error: "project taken",

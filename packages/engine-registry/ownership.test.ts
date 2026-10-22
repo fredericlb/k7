@@ -1,7 +1,7 @@
-// ownership.test.ts — an engine is its enrolling account's: the store outlives a restart, `select`
-// refuses everyone the owner did not share it with, the first direct open enrols, the relay never
-// hands the token to an account that may not use the engine, and only the owner (or an admin)
-// edits the shares or gives the engine up.
+// ownership.test.ts — an engine is the account its heartbeat proves: the store outlives a restart, a
+// proven heartbeat assigns or moves the owner, an open enrols nobody, `select` refuses everyone the
+// owner did not share it with (or with everyone), an engine on the backend's own machine is every
+// account's, the relay never hands the token to an account that may not use it.
 
 import { mkdtempSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -20,25 +20,51 @@ import { engineRegistryRouter } from "./router.ts";
 const quiet = () => {};
 
 describe("the owners store", () => {
-  it("persists an owner and its shares across a restart, and forgets a released one", () => {
+  it("persists an owner, its shares and its everyone flag across a restart, and forgets a released one", () => {
     const file = join(mkdtempSync(join(tmpdir(), "owners-")), OWNERS_FILE);
     const a = createOwners(file, quiet);
-    expect(a.enrol("e1", "ann@x")).toBe(true);
-    expect(a.enrol("e1", "bob@x")).toBe(false);
-    a.share("e1", ["bob@x"]);
-    a.enrol("e2", "ann@x");
+    expect(a.assign("e1", "ann@x")).toBe("new");
+    expect(a.assign("e1", "ann@x")).toBe("same");
+    a.share("e1", ["bob@x"], true);
+    a.assign("e2", "ann@x");
     a.release("e2");
     const b = createOwners(file, quiet);
-    expect(b.get("e1")).toMatchObject({ owner: "ann@x", shared: ["bob@x"] });
+    expect(b.get("e1")).toMatchObject({
+      owner: "ann@x",
+      shared: ["bob@x"],
+      everyone: true,
+    });
     expect(b.get("e2")).toBeUndefined();
     expect(JSON.parse(readFileSync(file, "utf8")).version).toBe(1);
   });
 
+  it("moves an engine to another account, which does not inherit the old shares", () => {
+    const o = createOwners(undefined, quiet);
+    o.assign("e1", "ann@x");
+    o.share("e1", ["bob@x"], true);
+    expect(o.assign("e1", "cat@x")).toBe("moved");
+    expect(o.get("e1")).toMatchObject({
+      owner: "cat@x",
+      shared: [],
+      everyone: false,
+    });
+  });
+
+  it("leaves the everyone flag as it was when a share edit does not name it", () => {
+    const o = createOwners(undefined, quiet);
+    o.assign("e1", "ann@x");
+    o.share("e1", [], true);
+    o.share("e1", ["bob@x"]);
+    expect(o.get("e1")?.everyone).toBe(true);
+  });
+
   it("reads each account's role, the server's engine being everybody's", () => {
-    const o = { owner: "ann@x", shared: ["bob@x"], since: 0 };
+    const o = { owner: "ann@x", shared: ["bob@x"], everyone: false, since: 0 };
     expect(roleOf(o, "ann@x", false)).toBe("owner");
     expect(roleOf(o, "BOB@x", false)).toBe("shared");
     expect(roleOf(o, "eve@x", false)).toBe("none");
+    expect(roleOf({ ...o, everyone: true }, "eve@x", false)).toBe("shared");
+    expect(roleOf({ ...o, everyone: true }, "", false)).toBe("none");
     expect(roleOf(o, "eve@x", true)).toBe("server");
     expect(roleOf(undefined, "eve@x", false)).toBe("unowned");
   });
@@ -52,12 +78,18 @@ describe("the owners store", () => {
   });
 });
 
+/** The device tokens of the tests' heartbeat gate, and the account each proves. */
+const DEVICES: Record<string, string> = {
+  "dev-ann": "ann@x",
+  "dev-cat": "cat@x",
+};
+
 /** A registry behind its routes, with the session's account read from an `x-user` header. */
-async function routes(
-  server: { renderer?: string; localMachine?: boolean } = {},
-) {
+async function routes(server: { renderer?: string } = {}) {
   const reg = createRegistry({ bindings: createBindings(undefined, quiet) });
   const app = express();
+  // So a test heartbeat can come from the LAN rather than from this loopback.
+  app.set("trust proxy", true);
   app.use(express.json());
   app.use((req, _res, next) => {
     const email = req.header("x-user");
@@ -73,7 +105,11 @@ async function routes(
     engineRegistryRouter(reg, tunnels as never, quiet, {
       isAdmin: (req) =>
         (req as { user?: { email?: string } }).user?.email === "root@x",
-      localMachine: server.localMachine,
+      heartbeat: {
+        requireDevice: false,
+        deviceOf: (t) => DEVICES[t] ?? null,
+        renderKey: "the-render-key",
+      },
     }),
   );
   const http = app.listen(0);
@@ -92,12 +128,29 @@ async function routes(
     });
     return { status: res.status, body: (await res.json()) as never };
   };
+  /** A heartbeat over the route, from the LAN unless told otherwise, with these credentials. */
+  const heartbeat = (id: string, headers: Record<string, string> = {}) =>
+    fetch(`${base}/api/registry/heartbeat`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "10.0.0.9",
+        ...headers,
+      },
+      body: JSON.stringify({
+        id,
+        token: `tok-${id}`,
+        hostname: `host-${id}`,
+        machineFingerprint: "fp",
+        addresses: { loopback: "127.0.0.1", lanIps: [], port: 8765 },
+      }),
+    });
   // Every socket closed with the server, so no keep-alive connection outlives its test.
   const close = () => {
     http.closeAllConnections();
     http.close();
   };
-  return { reg, call, close };
+  return { reg, call, heartbeat, close };
 }
 
 const beat = (reg: EngineRegistry, id: string, ip = "10.0.0.9") =>
@@ -109,6 +162,41 @@ const beat = (reg: EngineRegistry, id: string, ip = "10.0.0.9") =>
     addresses: { loopback: "127.0.0.1", lanIps: ["192.168.1.9"], port: 8765 },
     publicIpHint: ip,
   });
+
+describe("the heartbeat names the owner", () => {
+  let r: Awaited<ReturnType<typeof routes>>;
+  beforeEach(async () => {
+    r = await routes();
+  });
+  afterEach(() => r.close());
+
+  it("makes the account a device token proves the owner, from the first heartbeat", async () => {
+    expect(
+      (await r.heartbeat("e1", { authorization: "Bearer dev-ann" })).status,
+    ).toBe(200);
+    expect(r.reg.owners.get("e1")?.owner).toBe("ann@x");
+  });
+
+  it("owns nothing on a heartbeat that proves no account, the render machine's included", async () => {
+    await r.heartbeat("e1");
+    await r.heartbeat("e2", { authorization: "Bearer forged" });
+    await r.heartbeat("srv", { "x-studio-render-key": "the-render-key" });
+    expect(r.reg.owners.all()).toEqual([]);
+  });
+
+  it("moves the engine to the account a later heartbeat proves, ending the old owner's claims", async () => {
+    await r.heartbeat("e1", { authorization: "Bearer dev-ann" });
+    const open = await r.call("ann@x", "POST", "/engine/select", {
+      id: "e1",
+      token: "tok-e1",
+      project: null,
+    });
+    expect(open.status).toBe(200);
+    await r.heartbeat("e1", { authorization: "Bearer dev-cat" });
+    expect(r.reg.owners.get("e1")?.owner).toBe("cat@x");
+    expect(r.reg.holds("e1", "ann@x")).toBe(false);
+  });
+});
 
 describe("select, listing and the share routes", () => {
   let r: Awaited<ReturnType<typeof routes>>;
@@ -127,43 +215,35 @@ describe("select, listing and the share routes", () => {
       secret,
     });
 
-  it("enrols the first account that opens an unowned engine with its token", async () => {
-    expect((await select("ann@x")).status).toBe(200);
-    expect(r.reg.owners.get("e1")?.owner).toBe("ann@x");
-    const eve = await select("eve@x");
-    expect(eve.status).toBe(403);
-    expect(eve.body).toMatchObject({ error: "not-yours" });
-    expect(r.reg.holds("e1", "ann@x")).toBe(true);
-  });
-
-  it("refuses an anonymous session, which can own nothing", async () => {
-    expect((await select("")).status).toBe(403);
+  it("refuses to open an unowned engine, and an open enrols nobody", async () => {
+    const ann = await select("ann@x");
+    expect(ann.status).toBe(403);
+    expect(ann.body).toMatchObject({ error: "unowned" });
     expect(r.reg.owners.get("e1")).toBeUndefined();
   });
 
+  it("refuses an anonymous session, which can own nothing", async () => {
+    r.reg.owners.assign("e1", "ann@x");
+    expect((await select("")).status).toBe(403);
+  });
+
   it("lets the owner and a shared account claim, and every account the server's engine", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     r.reg.owners.share("e1", ["bob@x"]);
     expect((await select("ann@x")).status).toBe(200);
     const bob = await select("bob@x");
     expect(bob.status).toBe(200);
     // Between allowed accounts the claim rules still hold: a claim with no project displaces nobody.
     expect((bob.body as { tookOver?: unknown }).tookOver).toBeUndefined();
+    const eve = await select("eve@x");
+    expect(eve.status).toBe(403);
+    expect(eve.body).toMatchObject({ error: "not-yours" });
     expect((await select("eve@x", "srv")).status).toBe(200);
     expect(r.reg.owners.get("srv")).toBeUndefined();
   });
 
-  it("does not enrol on a renewal", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
-    const open = await select("ann@x");
-    r.reg.owners.release("e1");
-    const secret = (open.body as { secret: string }).secret;
-    expect((await select("ann@x", "e1", secret)).status).toBe(200);
-    expect(r.reg.owners.get("e1")).toBeUndefined();
-  });
-
   it("lists owned engines to their accounts alone, the server's to all, an unowned one without its LAN or a ticket", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     const ann = (await r.call("ann@x", "GET", "/engines")).body as {
       id: string;
       access: string;
@@ -194,7 +274,7 @@ describe("select, listing and the share routes", () => {
   });
 
   it("names the owner to a shared account", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     r.reg.owners.share("e1", ["bob@x"]);
     const bob = (await r.call("bob@x", "GET", "/engines")).body as {
       id: string;
@@ -209,7 +289,7 @@ describe("select, listing and the share routes", () => {
   });
 
   it("lets the owner alone read and replace the shares, and a withdrawn share ends that claim", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     expect(
       (
         await r.call("bob@x", "PUT", "/engines/e1/shares", {
@@ -220,13 +300,17 @@ describe("select, listing and the share routes", () => {
     const put = await r.call("ann@x", "PUT", "/engines/e1/shares", {
       emails: ["Bob@x", "bob@x"],
     });
-    expect(put.body).toMatchObject({ ok: true, shared: ["bob@x"] });
+    expect(put.body).toMatchObject({
+      ok: true,
+      shared: ["bob@x"],
+      everyone: false,
+    });
     expect((await r.call("bob@x", "GET", "/engines/e1/shares")).status).toBe(
       404,
     );
     expect(
       (await r.call("ann@x", "GET", "/engines/e1/shares")).body,
-    ).toMatchObject({ owner: "ann@x", shared: ["bob@x"] });
+    ).toMatchObject({ owner: "ann@x", shared: ["bob@x"], everyone: false });
     expect(
       (await r.call("ann@x", "PUT", "/engines/e1/shares", { emails: ["nope"] }))
         .status,
@@ -237,8 +321,29 @@ describe("select, listing and the share routes", () => {
     expect(r.reg.holds("e1", "bob@x")).toBe(false);
   });
 
+  it("shares with everyone on the server, and withdrawing it ends their claims", async () => {
+    r.reg.owners.assign("e1", "ann@x");
+    expect((await select("eve@x")).status).toBe(403);
+    const put = await r.call("ann@x", "PUT", "/engines/e1/shares", {
+      emails: [],
+      everyone: true,
+    });
+    expect(put.body).toMatchObject({ ok: true, everyone: true });
+    const eve = (await r.call("eve@x", "GET", "/engines")).body as {
+      id: string;
+      access: string;
+    }[];
+    expect(eve.find((e) => e.id === "e1")?.access).toBe("shared");
+    expect((await select("eve@x")).status).toBe(200);
+    await r.call("ann@x", "PUT", "/engines/e1/shares", {
+      emails: [],
+      everyone: false,
+    });
+    expect(r.reg.holds("e1", "eve@x")).toBe(false);
+  });
+
   it("lets the owner give it up and an admin reset it, nobody else", async () => {
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     expect((await r.call("eve@x", "DELETE", "/engines/e1/owner")).status).toBe(
       404,
     );
@@ -249,11 +354,53 @@ describe("select, listing and the share routes", () => {
       200,
     );
     expect(r.reg.owners.get("e1")).toBeUndefined();
-    r.reg.owners.enrol("e1", "ann@x");
+    r.reg.owners.assign("e1", "ann@x");
     expect((await r.call("ann@x", "DELETE", "/engines/e1/owner")).status).toBe(
       200,
     );
     expect(r.reg.owners.get("e1")).toBeUndefined();
+  });
+});
+
+describe("the backend's own machine", () => {
+  let r: Awaited<ReturnType<typeof routes>>;
+  beforeEach(async () => {
+    r = await routes();
+    // The backend machine's engine beats from loopback; a LAN one from another machine.
+    beat(r.reg, "own", "::ffff:127.0.0.1");
+    beat(r.reg, "lan");
+    r.reg.owners.assign("own", "local@x");
+    r.reg.owners.assign("lan", "local@x");
+  });
+  afterEach(() => r.close());
+
+  it("lists its engine to every signed-in account, and nobody else's", async () => {
+    const fred = (await r.call("fred@x", "GET", "/engines")).body as {
+      id: string;
+      access: string;
+    }[];
+    expect(fred.map((e) => [e.id, e.access])).toEqual([["own", "owner"]]);
+    expect((await r.call("", "GET", "/engines")).body).toEqual([]);
+  });
+
+  it("lets another account select it, without changing whose it is", async () => {
+    const res = await r.call("fred@x", "POST", "/engine/select", {
+      id: "own",
+      token: "tok-own",
+      project: null,
+    });
+    expect(res.status).toBe(200);
+    expect(r.reg.owners.get("own")?.owner).toBe("local@x");
+  });
+
+  it("needs no owner at all", async () => {
+    beat(r.reg, "bare", "127.0.0.1");
+    const res = await r.call("fred@x", "POST", "/engine/select", {
+      id: "bare",
+      token: "tok-bare",
+      project: null,
+    });
+    expect(res.status).toBe(200);
   });
 });
 
@@ -280,6 +427,7 @@ describe("the relay and the token", () => {
     });
     await new Promise((r) => engine.once("listening", r));
     reg = createRegistry({ bindings: createBindings(undefined, quiet) });
+    // The relay dials where the heartbeat came from, so the engine is the backend machine's own here.
     reg.upsert({
       id: "e1",
       token: "tok",
@@ -319,56 +467,14 @@ describe("the relay and the token", () => {
       ws.once("error", reject);
     });
 
-  it("hands the token to nobody while the engine is unowned, so a relayed browser cannot enrol it", async () => {
-    expect(await whoami("eve@x")).toEqual({ type: "whoami", id: "e1" });
+  // The owner, shared and everyone cases go through the same `engineRole` the routes above test.
+  it("hands the token of an engine on this machine to every signed-in account, owned or not", async () => {
+    expect((await whoami("eve@x")).token).toBe("tok");
+    reg.owners.assign("e1", "ann@x");
+    expect((await whoami("eve@x")).token).toBe("tok");
   });
 
-  it("hands it to the owner and a shared account, never to another", async () => {
-    reg.owners.enrol("e1", "ann@x");
-    reg.owners.share("e1", ["bob@x"]);
-    expect((await whoami("ann@x")).token).toBe("tok");
-    expect((await whoami("bob@x")).token).toBe("tok");
-    expect((await whoami("eve@x")).token).toBeUndefined();
-  });
-});
-
-describe("on a standalone app's backend", () => {
-  let r: Awaited<ReturnType<typeof routes>>;
-  beforeEach(async () => {
-    r = await routes({ localMachine: true });
-    // The device's own engine beats from loopback; a LAN one from another machine.
-    beat(r.reg, "own", "::ffff:127.0.0.1");
-    beat(r.reg, "lan");
-    // The account that opened the app first enrolled both.
-    r.reg.owners.enrol("own", "local@x");
-    r.reg.owners.enrol("lan", "local@x");
-  });
-  afterEach(() => r.close());
-
-  it("lists the device's own engine to every signed-in account, and nobody else's", async () => {
-    const fred = (await r.call("fred@x", "GET", "/engines")).body as {
-      id: string;
-      access: string;
-    }[];
-    expect(fred.map((e) => [e.id, e.access])).toEqual([["own", "owner"]]);
-    expect((await r.call("", "GET", "/engines")).body).toEqual([]);
-  });
-
-  it("lets another account select it, without changing who enrolled it", async () => {
-    const res = await r.call("fred@x", "POST", "/engine/select", {
-      id: "own",
-      token: "tok-own",
-      project: null,
-    });
-    expect(res.status).toBe(200);
-    expect(r.reg.owners.get("own")?.owner).toBe("local@x");
-  });
-
-  it("is off on a hosted backend: the device's engine stays its owner's", async () => {
-    const hosted = await routes();
-    beat(hosted.reg, "own", "127.0.0.1");
-    hosted.reg.owners.enrol("own", "local@x");
-    expect((await hosted.call("fred@x", "GET", "/engines")).body).toEqual([]);
-    hosted.close();
+  it("never to an anonymous ticket", async () => {
+    expect(await whoami("")).toEqual({ type: "whoami", id: "e1" });
   });
 });

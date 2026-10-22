@@ -4,6 +4,7 @@
 // See docs/fileHub.md.
 
 import { createHmac, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { join, resolve } from "node:path";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
@@ -122,9 +123,18 @@ export class FileHub {
     return this.instances.status();
   }
 
-  /** The account a device token was minted for, or null: what the engine registry asks of a heartbeat. */
-  deviceAccount(token: string): string | null {
-    return this.devices.verify(token)?.slug ?? null;
+  /** The email of the account a device token was minted for, or null: the engine registry's owner of a heartbeat. */
+  deviceEmail(token: string): string | null {
+    const slug = this.devices.verify(token)?.slug;
+    if (!slug) return null;
+    // The slug is one-way; the account's file service recorded its email on its first start.
+    try {
+      const file = join(this.sync.accountDir(slug), "owner.json");
+      const owner = JSON.parse(readFileSync(file, "utf8")).owner;
+      return typeof owner === "string" && owner ? owner : null;
+    } catch {
+      return null;
+    }
   }
   /** The live-sync routes beside the relay: devices, pairing, rooms, blobs, history — syncRoutes.ts. */
   readonly sync: SyncRoutes;

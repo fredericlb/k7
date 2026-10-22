@@ -6,16 +6,17 @@ machine an id is (`token.md`). Neither says whose engine it is. Ownership does.
 
 ## The rule
 
-An engine belongs to the account that **enrolled** it. Other accounts may use it only if the owner
-**shared** it with them. The server's own engine — `server`, its tunnel proved by the render key
-(`packages/engine-tunnel/docs/jobs.md`) — is usable by every account and is never owned.
+An engine belongs to the account its **heartbeat proves**. Other accounts may use it only if the
+owner **shared** it with them, by email or with **everyone** on this server. Two engines need no
+owner at all: the server's own — `server`, its tunnel proved by the render key
+(`packages/engine-tunnel/docs/jobs.md`) — and an engine on this backend's own machine.
 
 | role (`PublicEngine.access`) | listed | relay ticket, token through the relay | `select` |
 |---|---|---|---|
 | `owner` | yes | yes | yes |
 | `shared` | yes, with `ownedBy` | yes | yes |
 | `server` | yes | yes | yes |
-| `unowned` | yes, LAN addresses only to its own network (`sameSourceIp`) | no | an open with its token enrols the caller |
+| `unowned` | yes, LAN addresses only to its own network (`sameSourceIp`) | no | **403** `unowned` |
 | anyone else | **no** — no name, no address | no | **403** `not-yours` |
 
 Between accounts that may use an engine, the claim rules are unchanged: the newcomer still displaces
@@ -26,39 +27,28 @@ owner check and every claim check compare one name. Shares are emails, compared 
 
 ## How an engine gets an owner
 
-By its first **direct** open. The token is what `select` takes, and the browser reads it from the
-engine's `whoami`. Three places answer one: the engine's own machine, a paired LAN device
-(`engine/k7-runtime/docs/pairing.md`), and the server's relay. The relay withholds it
-(`relayGate.ts`, `withoutToken`) from every account that may not use the engine, which includes
-everybody while the engine has no owner. So holding the token of an unowned engine means this
-browser reached it directly: it sits on that machine or on a network the musician paired it to.
-The first `select` that OPENS (no claim secret) with that token makes the caller the owner, and
-drops whatever claims other accounts held on it.
+From its heartbeat. A supervisor that added this server holds a **device token** the server minted
+for the account that added it (`packages/file-hub/docs/fileHub.md`), and sends it with every
+heartbeat. `deviceOf` turns it into that account's email, and the engine is that account's from the
+first heartbeat on: no open, no approval, nothing the person does twice.
 
-There is no separate enrol route: an open that presents the token is the enrolment, and it needs
-nothing the probe does not already do (`packages/engine-browser/src/probe.ts`). A RENEWAL never
-enrols, so an owner who gives the engine up from one tab is not made owner again by that tab's next
-renewal.
+An open never makes an owner. Holding the token proves only that a browser reached the machine —
+any account signed in on any browser there, which is how a stub dev account or a guest's session
+would end up owning a musician's engine. The machine's own credential is the stronger statement.
 
-A heartbeat may carry a device token, which proves the machine was paired by SOME account and so
-may be listed at all. It does not make that account the owner: a token sits in a settings file, and
-ownership is decided by who reaches the engine itself. So an engine is never owned at registration.
+A heartbeat proving another account than the recorded one **moves** the engine: the new owner starts
+with no shares, and every claim of an account that may no longer use it ends at once. A heartbeat
+that proves nothing, or proves the render machine, changes no record; such an engine stays unowned,
+usable only by the two rules that need no owner.
 
-On an HTTPS page only loopback is dialled directly (`packages/engine-browser/docs/access.md`). The
-first open of an engine is therefore made from a browser on its own machine, or over plain HTTP on
-its network. After that, the owner reaches it from anywhere, through the relay.
+## An engine on this backend's own machine is every account's on it
 
-## A standalone app's own engine is every account's on it
-
-The tray and the phone apps run a backend of their own (`STUDIO_LOCAL_USER=1`), and their engine
-beats to it from loopback. Several accounts sign in there — the app's local one before any other,
-then the person's real account — and whichever opened a project first would own the device's
-engine and hide it from the rest: a project that opens with "No sound — choose an engine" and
-never plays, on the device that holds the engine. So such a backend mounts the registry with
-`localMachine`, and an engine whose heartbeat came from loopback is `owner` to every signed-in
-account (`engineRole`, in `owners.ts`, the one rule the listing, a select and the relay apply).
-The owners file is left as it is: an engine on another machine of the network is owned as anywhere
-else, and the hosted backend never sets the flag.
+An engine whose heartbeat came from loopback runs on the machine this backend runs on: the tray's or
+the phone's own engine, a developer's in a dev session, a server's next to it. Several accounts sign
+in there — an app's local one before any other, then the person's real one, or the functional
+suite's — and the machine is theirs alike. So such an engine is `owner` to every signed-in account
+(`engineRole`, in `owners.ts`, the one rule the listing, a select and the relay apply), whatever its
+record says, and its record is left as it is for every other backend it beats to.
 
 ## Sharing and giving up
 
@@ -66,17 +56,18 @@ Behind the session, under `/api/engines` (`ownershipRoutes.ts`):
 
 | route | who | does |
 |---|---|---|
-| `GET /engines/:id/shares` | the owner, an admin | `{ owner, shared, since }` |
-| `PUT /engines/:id/shares` `{ emails }` | the owner | replaces the list (at most `MAX_SHARED`); a removed account's claims end now |
-| `DELETE /engines/:id/owner` | the owner, an admin | the engine is unowned again |
+| `GET /engines/:id/shares` | the owner, an admin | `{ owner, shared, everyone, since }` |
+| `PUT /engines/:id/shares` `{ emails, everyone? }` | the owner | replaces the list (at most `MAX_SHARED`), and the flag when given; a removed account's claims end now |
+| `DELETE /engines/:id/owner` | the owner, an admin | the record goes; the next proven heartbeat assigns it again |
 | `GET /engines/owners` | an admin | every record |
 
 Anyone else gets `404 not-yours` from the first three — the same answer as for an engine nobody
 owns, so a stranger cannot probe which ids are owned. An admin is `isAdmin` as the host defines it;
 k7 passes `isAdminRequest` (`AUTH_ADMIN_GROUPS`, `apps/k7/backend/src/media/admin.ts`).
 
-Giving an engine up hands it to the next account that opens it with its token. That includes every
-account it was ever shared with, since they read its token through the relay while they could.
+**Everyone** is a flag beside the list rather than a list of every account, so an account created
+after the share is included without the owner editing anything. Absent from a `PUT`, it stays as
+it was: a client that only edits the emails does not withdraw it.
 
 In k7 the Engines card of `/settings` (`packages/ui-library/src/EnginesSettings.tsx`) badges each
 engine with its role and gives the owner the share list and the way to give it up; the picker
@@ -88,7 +79,7 @@ Every server route that reaches an engine for an account asks for a claim (`clai
 is what lets the server reach an engine"), and only an account that may use the engine gets one. So
 the file hub's binding, a stem cut, a song brought down for the player, a WebRTC offer and the
 relay's driving frames are all ownership-gated through `select`. A claim taken before a share was
-withdrawn is evicted with it.
+withdrawn, or before the engine moved, is evicted with it.
 
 A browser that loses a claim this way is told `ClaimLost` with reason `refused`
 (`packages/engine-browser/src/registry.ts`), and the lease stops for good rather than retrying.
@@ -100,9 +91,5 @@ A browser that loses a claim this way is told `ClaimLost` with reason `refused`
 (`stateFile.ts`). Capped at `MAX_OWNED` ids, the oldest record going first. Without a state dir it
 lives in memory.
 
-## Engines registered before ownership existed
-
-They have no record, and are listed `unowned` until one account opens one directly. A token is a
-long-lived value: an account that holds one — read on a device paired once, or through a relay
-older than this gate — can enrol that engine first while it is unowned. An admin resetting the owner
-undoes that; a fresh `engine-id.json` on the machine (a new id and token) ends it for good.
+A record with no proven heartbeat behind it is kept until one names another account: dropping it
+would leave an engine nobody can use through the relay until its supervisor holds a device token.

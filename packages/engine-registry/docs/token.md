@@ -24,8 +24,8 @@ account, while the engine has no owner ([ownership.md](ownership.md)). The brows
 it is what `select` takes to claim that engine (`packages/engine-browser/src/probe.ts`). So the
 token is held by the owner, the accounts it is shared with, every account for the server's own
 engine, and whoever reached the engine directly. It is an unguessable identifier, not an
-authentication; for an unowned engine it is the proof that this browser reached it directly, which
-is what enrols an owner.
+authentication, and it makes nobody an owner: the heartbeat's device token does
+([ownership.md](ownership.md)).
 
 ## The tunnel secret is the machine's proof
 
@@ -70,8 +70,8 @@ holds. The server's own engine is built from this tree and sends a secret like a
 
 ## What the token still gates
 
-`select` checks it, so a claim names an engine the browser actually reached, and an open of an
-unowned engine with it enrols the caller ([ownership.md](ownership.md)). The relay's server-side dial
+`select` checks it, so a claim names an engine the browser actually reached; whether the caller may
+claim it at all is ownership's ([ownership.md](ownership.md)). The relay's server-side dial
 shows it to the engine as the pairing key of a socket the server opened (`proxy.md`). Neither is a
 defence against an account that holds it; ownership, the claim rules (`claim.md`) and the relay's
 gate are.

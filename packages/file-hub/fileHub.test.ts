@@ -2,7 +2,7 @@
 // and not the service's: the session decides who is calling, a client cannot forge it or the
 // secret, each account gets its own process and home, and an engine binds only on a claim.
 
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -60,9 +60,10 @@ describe("the file hub", () => {
   /** The ENGINE bindings; each comes with a jobs one for the same machine. */
   const engineBinds = () => bound.filter((b) => b.kind === "engine");
   let claims: Map<string, string[]>;
+  let dir: string;
 
   beforeEach(async () => {
-    const dir = mkdtempSync(join(tmpdir(), "file-hub-"));
+    dir = mkdtempSync(join(tmpdir(), "file-hub-"));
     const fake = join(dir, "fake.mjs");
     writeFileSync(fake, FAKE);
     bound = [];
@@ -414,6 +415,28 @@ describe("the file hub", () => {
         headers: { authorization: "Bearer nope" },
       });
       expect(forged.status).toBe(401);
+    });
+
+    it("names the email a device token's account recorded, which is what owns an engine", async () => {
+      const r = await fetch(
+        `${origin()}/api/sync/devices/pair?return=${encodeURIComponent("http://127.0.0.1:9/p")}&state=s&name=laptop`,
+        {
+          headers: { "x-test-session": "fred@example.com" },
+          redirect: "manual",
+        },
+      );
+      const token =
+        new URL(r.headers.get("location") ?? "").searchParams.get("token") ??
+        "";
+      // No owner.json until the account's file service first starts: nobody to name yet.
+      expect(hub.deviceEmail(token)).toBeNull();
+      const [slug] = readdirSync(join(dir, "data"));
+      writeFileSync(
+        join(dir, "data", slug ?? "", "owner.json"),
+        JSON.stringify({ owner: "fred@example.com" }),
+      );
+      expect(hub.deviceEmail(token)).toBe("fred@example.com");
+      expect(hub.deviceEmail("nope")).toBeNull();
     });
 
     it("sends a token to another server's https return only once the person allowed it on this origin's page", async () => {
