@@ -211,6 +211,18 @@ to the page, a page on 18789 would look for Vite on `127.0.0.1:443`. Off the LAN
 socket and the page still loads; a full reload picks up an edit. With `k7-frontend` down, 18789 answers
 a 502 naming it. `K7_DEV_FRONTEND=` (empty) before `npm run dev` brings back the built page.
 
+**Its backend runs from source and restarts on save.** The bundle's `bin/backend.mjs` is replaced by an
+import of `scripts/devTrayBackend.mjs`, which runs `apps/k7/backend/src/server.ts` under `tsx watch` — a
+save in any file it imports, `packages/` included, restarts it — and drops `STUDIO_FILE_SERVICE_ENTRY`,
+so the hub starts each file service from source too. A restart ENDS THE ENGINE: the backend holds the
+supervisor's job (`engine/k7-supervisor/docs/hostProtocol.md`), which is what keeps a killed tray from
+leaving a ghost engine, so the engine is down a few seconds and the project reloads — the cost a manual
+`tilt trigger k7-tray` already had, paid on every save instead of when chosen. A save in `@studio/song`
+or `@studio/commands` for the page bounces it too. `K7_DEV_BACKEND=bundle` before `npm run dev` runs the
+bundled backend, for a session spent listening. The tray's stdin is still the backend's, so quitting the
+tray stops it cleanly; the shim then ends `tsx watch`, which would otherwise wait for a save holding
+nothing, and a backend left behind would hold 18789 for the next tray.
+
 The engine is C++, so it has no watch mode that means anything: there is nothing to hot-reload, only
 a binary to relink and a process to restart — and the tray has to be stopped for that relink, since
 its tree holds the engine running. That is what the task does — watch the sources, rebuild, restart.
@@ -223,7 +235,7 @@ its tree holds the engine running. That is what the task does — watch the sour
 
 | choice | why |
 |---|---|
-| the backend bundle built at every start of the task, never watched, with no frontend in it | its sources are the whole workspace; the page is Vite's (above), so the minute a production frontend build takes is not spent; live backend work belongs to the `k7-backend` resource, and the Tilt restart button rebuilds the tray's copy |
+| the backend bundle built at every start of the task, with no frontend in it | the page is Vite's and the backend tsx's (above); what is left in the bundle is the `k7-core` seed and the files the tray reads, and `K7_DEV_BACKEND=bundle` runs it whole |
 | every tray stopped first, an installed one included | it holds port 18789 and `~/.k7`, and its single-instance guard would turn the dev tray's launch into a no-op |
 | a failed bundle ends the task | a tray without a backend would only say so on its status line; a red resource says it where the session is watched |
 
