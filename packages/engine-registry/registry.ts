@@ -18,11 +18,20 @@ import {
 } from "@studio/web-protocol";
 import type { EnginePerformance } from "@studio/web-protocol/performance";
 import { claimSlot } from "@studio/web-protocol/projects";
+import { isLoopbackAddress } from "@studio/web-protocol/services";
 import { createBindings, type SecretBindings } from "./bindings.ts";
 import { createOwners, type EngineOwners } from "./owners.ts";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
+/** Whether the engine runs on this backend's machine: a loopback heartbeat within the TTL, whatever address beat since. */
+export function onThisMachine(
+  e: Pick<EngineEntry, "loopbackSeen"> | undefined,
+  now = Date.now(),
+): boolean {
+  return !!e?.loopbackSeen && now - e.loopbackSeen < REGISTRY_TTL_MS;
+}
+
 /** At most this many engines listed at once: the heartbeat is open, so the list must not be. */
 const MAX_ENGINES = 1000;
 /** At most this many ids NEW to the list from one source address in a minute. */
@@ -52,6 +61,8 @@ export interface EngineEntry {
   build?: string;
   safeMode?: boolean;
   publicIpHint?: string; // the source IP the heartbeat arrived from
+  /** Epoch ms of its last heartbeat from loopback: one that also beats through a proxy is still on this machine. */
+  loopbackSeen?: number;
   /** Its supervisor sends no tunnel secret: listed and tunnelled on its token alone — docs/token.md. */
   legacy: boolean;
   // Live holders by their secret, expiring on their own because a holder is a browser tab that may never say goodbye.
@@ -121,6 +132,8 @@ export interface EngineRegistry {
   owners: EngineOwners;
   upsert(input: HeartbeatInput): UpsertResult;
   get(id: string): EngineEntry | undefined;
+  /** Whether a listed engine runs on this backend's machine — `onThisMachine`, for ownership's rule. */
+  onThisMachine(id: string): boolean;
   verifyToken(id: string, token: string): boolean;
   /** Whether a TUNNEL for `id` may open: its token, and its secret when the id is bound to one. */
   verifyTunnel(id: string, token: string, secret: string | undefined): boolean;
@@ -236,6 +249,9 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
         build: input.build,
         safeMode: input.safeMode,
         publicIpHint: input.publicIpHint,
+        loopbackSeen: isLoopbackAddress(input.publicIpHint)
+          ? now
+          : existing?.loopbackSeen,
         legacy: !input.tunnelSecret,
         holders: existing?.holders ?? new Map(),
         seen: now,
@@ -244,6 +260,8 @@ export function createRegistry(opts: RegistryOptions = {}): EngineRegistry {
     },
 
     get,
+
+    onThisMachine: (id) => onThisMachine(get(id)),
 
     /** The anti-spoof gate: does this id exist and match this token? */
     verifyToken(id, token) {

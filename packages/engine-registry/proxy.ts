@@ -21,7 +21,11 @@ import {
 } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import { engineRole, mayUse } from "./owners.ts";
-import type { EngineEntry, EngineRegistry } from "./registry.ts";
+import {
+  type EngineEntry,
+  type EngineRegistry,
+  onThisMachine,
+} from "./registry.ts";
 import { type Frame, RelayGate } from "./relayGate.ts";
 
 /** Per PROCESS and deliberately not configured: nothing to share between machines — see docs/proxy.md. */
@@ -77,9 +81,12 @@ export function verifyEngineTicket(
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
 /** Where the SERVER may dial this engine: the address its heartbeat came FROM, never one it names — see docs/proxy.md. */
-export function hostsFor(e: Pick<EngineEntry, "publicIpHint">): string[] {
+export function hostsFor(
+  e: Pick<EngineEntry, "publicIpHint" | "loopbackSeen">,
+): string[] {
   const ip = (e.publicIpHint ?? "").replace(/^::ffff:/, "");
-  if (ip === "::1" || ip.startsWith("127.")) return ["127.0.0.1"];
+  if (ip === "::1" || ip.startsWith("127.") || onThisMachine(e))
+    return ["127.0.0.1"];
   return IPV4.test(ip) ? [ip] : [];
 }
 

@@ -50,6 +50,11 @@ suite's — and the machine is theirs alike. So such an engine is `owner` to eve
 (`engineRole`, in `owners.ts`, the one rule the listing, a select and the relay apply), whatever its
 record says, and its record is left as it is for every other backend it beats to.
 
+"Came from loopback" is any heartbeat in the last 15 s (`onThisMachine`, `registry.ts`), not the
+last one: a supervisor may list the same backend twice, once on `localhost` and once through a
+reverse proxy whose address is all the second heartbeat shows, and the engine would flip between
+everyone's and its owner's every few seconds.
+
 ## Sharing and giving up
 
 Behind the session, under `/api/engines` (`ownershipRoutes.ts`):

@@ -393,6 +393,15 @@ describe("the backend's own machine", () => {
     expect(r.reg.owners.get("own")?.owner).toBe("local@x");
   });
 
+  it("stays this machine's when it also beats through a proxy, which hides that it is local", async () => {
+    beat(r.reg, "own", "192.168.87.10");
+    const fred = (await r.call("fred@x", "GET", "/engines")).body as {
+      id: string;
+      access: string;
+    }[];
+    expect(fred.map((e) => [e.id, e.access])).toEqual([["own", "owner"]]);
+  });
+
   it("needs no owner at all", async () => {
     beat(r.reg, "bare", "127.0.0.1");
     const res = await r.call("fred@x", "POST", "/engine/select", {
