@@ -18,7 +18,7 @@ import {
   sleepMove,
   useIdleTimeout,
 } from "./idle.ts";
-import { parseLaunch, projectsUrl } from "./launch.ts";
+import { goToAddress, parseLaunch, projectsUrl } from "./launch.ts";
 import { accountLibraries } from "./repoLookup.ts";
 import { waitForSync } from "./syncWait.tsx";
 
@@ -95,7 +95,7 @@ export function useGatePhase({
       void fileRoutes.unloadEngine().catch(() => {
         /* engine/file service gone — leaving is still right */
       });
-    window.location.href = projectsUrl(window.location.href);
+    goToAddress(projectsUrl(window.location.href));
   }, []);
 
   /** Armed only while the project is OPEN — every other phase idles already. See docs/idle.md. */
@@ -136,7 +136,7 @@ export function useGatePhase({
 
   // No target at all: go to k7's home page rather than grow a second picker — docs/launch.md.
   useEffect(() => {
-    if (!target) window.location.replace(projectsUrl(window.location.href));
+    if (!target) goToAddress(projectsUrl(window.location.href), true);
   }, [target]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is the Retry trigger; `app`, `engineWait` and the bench wording are fixed for a mount.

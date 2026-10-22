@@ -2,7 +2,7 @@
 // /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
 // media library's and the rehearsal pages' sections, the user menu at its foot. All are routes, so going between them reloads
 // nothing. Below `sm` it folds to an icon rail. Inside a project it is a DRAWER (`HomeDrawer`): the
-// router's basename is the project there, so its entries are whole-page links. See ../../docs/projects.md.
+// router's basename is the project there, so its entries are full addresses (appNav.ts). See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -23,6 +23,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
+import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import {
   HomeEngine,
@@ -65,7 +66,7 @@ export function HomeShell({
   );
 }
 
-/** A home route as a whole-page address, for a sidebar drawn outside the home router. */
+/** A home route as a full address, which appNav draws in place, for a sidebar drawn outside the home router. */
 const homeHref = (route: string): string =>
   new URL(route.slice(1), projectsUrl(window.location.href)).href;
 
@@ -194,14 +195,14 @@ function HomeSidebar({
 }: {
   actions?: ReactNode;
   mediaCounts?: Partial<Record<string, number>>;
-  /** Drawn over a project: whole-page links, nothing lit, never folded to the rail. */
+  /** Drawn over a project: full-address links, nothing lit, never folded to the rail. */
   away?: boolean;
   /** The project's engine, given by the drawer; absent on a home page, which shows the account's own. */
   engine?: SidebarEngineProps;
 }) {
   const routerNavigate = useNavigate();
   const navigate = (route: string) =>
-    away ? window.location.assign(homeHref(route)) : routerNavigate(route);
+    away ? void go(homeHref(route)) : routerNavigate(route);
   // Over a project the address is the project's, so no entry is "here".
   const pathname = useLocation().pathname;
   const here = (route: string) => !away && pathname === route;

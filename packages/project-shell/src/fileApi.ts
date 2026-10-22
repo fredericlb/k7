@@ -41,9 +41,24 @@ export function setFileApiTally(fn: Tally): void {
 
 let fileCfg: FileCfg | null = null;
 
-/** Point every file op at a chosen engine + workspace. Called by the gate, once. */
+/** Point every file op at a chosen engine + workspace — a new project, so nothing read for the last one is reused. */
 export function configureFileApi(config: FileCfg): void {
   fileCfg = config;
+  forgetReads();
+}
+
+/** Forget the project: a host that leaves it without a page load calls this, and the next gate configures afresh. */
+export function resetFileApi(): void {
+  fileCfg = null;
+  renewing = null;
+  forgetReads();
+}
+
+// The shared and settled reads are keyed by path, which names a file in EVERY project: a new epoch drops them all.
+function forgetReads(): void {
+  epoch++;
+  inFlight.clear();
+  settled.clear();
 }
 
 // One renewal at a time, however many requests met the same expired ticket.

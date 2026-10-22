@@ -1,5 +1,6 @@
 // appMain.tsx — k7 itself: the gates, the router and the editor; main.tsx imports it unless the address is the
-// documentation host, so the docs never load the editor.
+// documentation host, so the docs never load the editor. The router is mounted by the address's SCOPE
+// (address.ts), so going into a project or out of one swaps the tree without a page load (appNav.ts).
 
 import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
 import { registerWorker } from "@frediverse/vite-config/register";
@@ -7,23 +8,22 @@ import {
   setFileApiRevision,
   setFileApiTally,
 } from "@studio/project-shell/fileApi";
-import {
-  isExternalIndex,
-  parseExternal,
-  parseLaunch,
-  projectBasename,
-} from "@studio/project-shell/launch";
 import { GateProgress } from "@studio/project-shell/progress";
-import {
-  isHomePage,
-  isShare,
-  projectLabel,
-  shareToken,
-} from "@studio/web-protocol/projects";
+import { projectLabel } from "@studio/web-protocol/projects";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Profiler, Suspense } from "react";
+import {
+  lazy,
+  Profiler,
+  type ReactNode,
+  Suspense,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { type Scope, scopeOf } from "./address";
+import { currentScopeKey, subscribeAddress, useScopeWatch } from "./appNav";
 import { canServeLenses, serveLenses } from "./camera/serveLenses";
 import { AuthGate } from "./components/AuthGate";
 
@@ -52,15 +52,14 @@ const RehearsalPublicPage = lazy(() =>
 );
 
 import { PROFILING } from "@studio/project-shell/profiling";
-import { publicPageAt } from "@studio/ui-rehearsal/addresses";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { currentRevision } from "./hooks/useRevision";
 import { LocaleProvider } from "./i18n";
 import { installLongPress } from "./longPress";
 import { PaneBoundary } from "./PaneBoundary";
 import { m } from "./paraglide/messages.js";
-import { REHEARSAL_ROUTE } from "./projects/api";
 import { queryClient } from "./queries/client";
+import { forgetLeftScope } from "./scopeLeave";
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -81,49 +80,39 @@ installLongPress();
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
-/** The pages hanging off the home — `/libraries`, `/settings`, `/about`, `/tasks`, `/media/…` — read FIRST: `parseLaunch` would take the word for a workspace. */
-const homePage = isHomePage(window.location.pathname, import.meta.env.BASE_URL);
+const BASE = import.meta.env.BASE_URL;
 
-/** Which of the three things this address is, read out of the address and nothing else — a branch, a SHARE being the wrong stack rather than a disabled one. */
-const at = homePage
-  ? null
-  : parseLaunch(window.location.pathname, "k7", import.meta.env.BASE_URL);
-const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
-
-/** …and a rehearsal PUBLIC page, `/rehearsal/@<nametag>`, which nobody signs in to see: read before the AuthGate. */
-const rehearsalNametag = homePage
-  ? publicPageAt(
-      window.location.pathname,
-      `${import.meta.env.BASE_URL.replace(/\/$/, "")}${REHEARSAL_ROUTE}`,
-    )
-  : null;
-
-/** …and the MENU of surfaces, `/external`, read BEFORE any of it: a single segment is a legal project address, so the word is reserved. */
-const externalIndex = isExternalIndex(
-  window.location.pathname,
-  import.meta.env.BASE_URL,
+// What the page wears before any scope dresses it, put back when a scope does not.
+const PAGE_TITLE = document.title;
+const manifestLink = document.querySelector<HTMLLinkElement>(
+  'link[rel="manifest"]',
 );
+const appleTitle = document.querySelector<HTMLMetaElement>(
+  'meta[name="apple-mobile-web-app-title"]',
+);
+const PAGE_MANIFEST = manifestLink?.getAttribute("href") ?? null;
+const PAGE_APPLE_TITLE = appleTitle?.getAttribute("content") ?? null;
 
-/** …and when it IS that page, install as that page: a manifest's `start_url` resolves against the MANIFEST's address (docs/external.md). */
-if (externalIndex) {
-  document
-    .querySelector<HTMLLinkElement>('link[rel="manifest"]')
-    ?.setAttribute("href", "/manifest-external.webmanifest");
-  // iOS reads the name off the meta and never off the manifest, so the two are swapped together.
-  document
-    .querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]')
-    ?.setAttribute("content", "surfaces");
-}
-
-/**
- * …and every page says which one it is. Off the ADDRESS, so it is right before anything has
- * loaded; `App` refines it to the song's own name once it has one.
- */
-if (at && !isShare(at.repo))
+/** Dress the page for its scope: its title off the ADDRESS, right before anything loads; `App` refines it to the song's own name. */
+function dressPage(scope: Scope): void {
   document.title =
-    at.project === "."
-      ? at.repo
-      : projectLabel(at.project.split("/").pop() ?? "");
+    scope.kind === "project"
+      ? scope.at.project === "."
+        ? scope.at.repo
+        : projectLabel(scope.at.project.split("/").pop() ?? "")
+      : PAGE_TITLE;
+  // The surfaces menu installs as itself: a manifest's `start_url` resolves against the MANIFEST's address (docs/external.md).
+  const menu = scope.kind === "external-index";
+  if (PAGE_MANIFEST !== null)
+    manifestLink?.setAttribute(
+      "href",
+      menu ? "/manifest-external.webmanifest" : PAGE_MANIFEST,
+    );
+  // iOS reads the name off the meta and never off the manifest, so the two are swapped together.
+  if (PAGE_APPLE_TITLE !== null)
+    appleTitle?.setAttribute("content", menu ? "surfaces" : PAGE_APPLE_TITLE);
+}
+dressPage(scopeOf(window.location.pathname, BASE));
 
 /** …and this machine's own window offers the cameras it may open, to a device that may not — the
  *  loopback origin being both the secure context and the proof of whose machine this is. */
@@ -131,13 +120,6 @@ if (canServeLenses()) serveLenses();
 
 /** …and the worker that makes either an installable app — a SECOND opening, not offline; its scope is `/`, and each deploy replaces it (@frediverse/vite-config/register). */
 if ("serviceWorker" in navigator) registerWorker();
-
-/** …and the fourth thing an address can be: ONE SURFACE on another device — not a fourth GATE, it rides the same stack (components/ExternalSurface.tsx). */
-const external = parseExternal(
-  window.location.pathname,
-  "k7",
-  import.meta.env.BASE_URL,
-);
 
 /** What is on screen while a split-out screen arrives. The window is already painted in the
  *  app's colour by then (apps/k7/frontend/docs/shell.md), so this only has to say "coming". */
@@ -152,7 +134,98 @@ function Booting() {
 // React's DEV build leaves a `performance.measure` per render that the browser keeps forever — cleared (docs/shell.md).
 clearDevPerfEntries(import.meta.env.DEV);
 
-// The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
+/** The router of ONE scope, keyed by it: the project is its basename, so React Router only writes below it and cannot rewrite the project out. */
+function Scoped({
+  scope,
+  ready,
+  children,
+}: {
+  scope: Scope;
+  /** False for the one render between two scopes: the last one is gone, the next one not yet drawn. */
+  ready: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <BrowserRouter key={scope.key} basename={scope.basename}>
+      <ScopeWatch />
+      {ready ? children : null}
+    </BrowserRouter>
+  );
+}
+
+function ScopeWatch() {
+  useScopeWatch();
+  return null;
+}
+
+/** What the address is, drawn — remounted between scopes, with what the last one kept forgotten in between (appNav.ts). */
+function Root() {
+  const key = useSyncExternalStore(subscribeAddress, currentScopeKey);
+  const [shown, setShown] = useState(key);
+  // Two steps: the old scope unmounts on this render, the page forgets it, and only then does the new one mount.
+  const ready = shown === key;
+  useLayoutEffect(() => {
+    if (ready) return;
+    forgetLeftScope();
+    dressPage(scopeOf(window.location.pathname, BASE));
+    setShown(key);
+  }, [key, ready]);
+  const scope = scopeOf(window.location.pathname, BASE);
+  return (
+    // The last line: a fault that escaped every pane's own boundary draws a card here, not a white page.
+    <PaneBoundary name="k7" resetKey={scope.key}>
+      {scope.kind === "share" ? (
+        <Scoped scope={scope} ready={ready}>
+          <Suspense fallback={<Booting />}>
+            <SharedGate token={scope.token}>
+              {(share) => (
+                <App
+                  snapshot={share}
+                  // The visitor's own session on the server's engine, through the share's player — docs/shared.md.
+                  engineUrl={share.player}
+                  engineLatency={null}
+                  userEmail=""
+                  onQuitWorkspace={() => {}}
+                  onChangeEngine={() => {}}
+                />
+              )}
+            </SharedGate>
+          </Suspense>
+        </Scoped>
+      ) : scope.kind === "rehearsal-public" ? (
+        // A rehearsal PUBLIC page, which nobody signs in to see: before the AuthGate.
+        <Scoped scope={scope} ready={ready}>
+          <Suspense fallback={<Booting />}>
+            <RehearsalPublicPage nametag={scope.nametag} />
+          </Suspense>
+        </Scoped>
+      ) : (
+        // Above the router, so moving between scopes does not ask who you are again.
+        <AuthGate>
+          <Scoped scope={scope} ready={ready}>
+            <Suspense fallback={<Booting />}>
+              {scope.kind === "external-index" ? (
+                // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
+                <ExternalIndex />
+              ) : scope.kind === "home" ? (
+                // The pages with no project are ROUTES of one scope, so going between them remounts nothing; a take outlives them all.
+                <HomeRoutes fallback={<Booting />} />
+              ) : profiling ? (
+                <Profiler id="app" onRender={reportCommit}>
+                  <EngineGate external={scope.external} />
+                </Profiler>
+              ) : (
+                <EngineGate external={scope.external} />
+              )}
+            </Suspense>
+          </Scoped>
+        </AuthGate>
+      )}
+    </PaneBoundary>
+  );
+}
+
+// The gates before the editor, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
 ReactDOM.createRoot(document.getElementById("root")!, {
   // What the boundaries catch, and what nothing did, both reach the console with their component stack.
   onCaughtError: (error, info) =>
@@ -160,65 +233,10 @@ ReactDOM.createRoot(document.getElementById("root")!, {
   onUncaughtError: (error, info) =>
     console.error("[uncaught]", error, info.componentStack),
 }).render(
-  // The basename is the app's mount AND the project it was opened on: React Router only writes BELOW it, so the project cannot be rewritten out.
-  <BrowserRouter
-    basename={
-      homePage
-        ? import.meta.env.BASE_URL
-        : projectBasename(
-            window.location.pathname,
-            "k7",
-            import.meta.env.BASE_URL,
-          )
-    }
-  >
-    {/* One cache for the page: the panes' shared reads, keyed by what they follow (queries/client.ts). */}
-    <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
-        {/* The last line: a fault that escaped every pane's own boundary draws a card here, not a white page. */}
-        <PaneBoundary name="k7">
-          {sharedToken ? (
-            <Suspense fallback={<Booting />}>
-              <SharedGate token={sharedToken}>
-                {(share) => (
-                  <App
-                    snapshot={share}
-                    // The visitor's own session on the server's engine, through the share's player — docs/shared.md.
-                    engineUrl={share.player}
-                    engineLatency={null}
-                    userEmail=""
-                    onQuitWorkspace={() => {}}
-                    onChangeEngine={() => {}}
-                  />
-                )}
-              </SharedGate>
-            </Suspense>
-          ) : rehearsalNametag ? (
-            <Suspense fallback={<Booting />}>
-              <RehearsalPublicPage nametag={rehearsalNametag} />
-            </Suspense>
-          ) : (
-            <AuthGate>
-              <Suspense fallback={<Booting />}>
-                {/* No project in the address: the home page, behind the account and nothing else, since listing workspaces needs no engine. */}
-                {externalIndex ? (
-                  // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
-                  <ExternalIndex />
-                ) : !at ? (
-                  // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
-                  <HomeRoutes fallback={<Booting />} />
-                ) : profiling ? (
-                  <Profiler id="app" onRender={reportCommit}>
-                    <EngineGate external={external} />
-                  </Profiler>
-                ) : (
-                  <EngineGate external={external} />
-                )}
-              </Suspense>
-            </AuthGate>
-          )}
-        </PaneBoundary>
-      </LocaleProvider>
-    </QueryClientProvider>
-  </BrowserRouter>,
+  // One cache for the page: the panes' shared reads, keyed by what they follow (queries/client.ts) — and cleared between projects.
+  <QueryClientProvider client={queryClient}>
+    <LocaleProvider>
+      <Root />
+    </LocaleProvider>
+  </QueryClientProvider>,
 );

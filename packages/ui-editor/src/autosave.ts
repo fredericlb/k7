@@ -71,6 +71,10 @@ export const recallBuffer = (path: string): string | null =>
 export const dropBuffer = (path: string): void => {
   held.delete(path);
 };
+/** Forget every held buffer — the project they belong to was left, and its paths name files in the next one too. */
+export const forgetBuffers = (): void => {
+  held.clear();
+};
 /** Forget it only if what is held is the text that just landed: anything typed since stays. */
 export const settleBuffer = (path: string, landed: string): void => {
   if (held.get(path) === landed) held.delete(path);

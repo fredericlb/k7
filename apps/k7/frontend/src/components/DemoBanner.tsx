@@ -12,6 +12,7 @@ import {
   projectLabel,
 } from "@studio/web-protocol/projects";
 import { useState } from "react";
+import { go } from "../appNav";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref } from "../projects/api";
 import { CopyProject } from "../projects/CopyProject";
@@ -77,9 +78,7 @@ export function DemoBanner({ project }: { project: string }) {
               onStep,
             );
             // Straight into the copy: what was being edited is what should keep being edited.
-            window.location.assign(
-              projectHref(to, { path: copied, app: "k7" }),
-            );
+            void go(projectHref(to, { path: copied, app: "k7" }));
           }}
         />
       )}

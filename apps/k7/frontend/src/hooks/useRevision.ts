@@ -7,6 +7,7 @@
 import { openedRevision } from "@studio/project-shell/files";
 import { useSyncExternalStore } from "react";
 import { api } from "../api";
+import { onLeave } from "../scopeLeave";
 import { subscribeWorkspace } from "../syncFeed";
 import { pollWhileVisible } from "../visiblePoll";
 
@@ -33,6 +34,8 @@ export interface RevisionPoller {
   /** Counts quiet writes, for the few who must still see one (the open file, the history); its own listeners. */
   subscribeQuiet: (listener: () => void) => () => void;
   getQuiet: () => number;
+  /** Forget the token: the project was left, and the next one adopts its own `/open` answer. */
+  reset: () => void;
 }
 
 export function createRevisionPoller(
@@ -148,6 +151,12 @@ export function createRevisionPoller(
       return () => quietListeners.delete(listener);
     },
     getQuiet: () => quiet,
+    reset: () => {
+      // Bumped too, so an answer still in the air for the project just left is dropped.
+      generation++;
+      token = null;
+      seen = null;
+    },
   };
 }
 
@@ -163,6 +172,9 @@ const poller = createRevisionPoller(
 export function currentRevision(): string | null {
   return poller.get();
 }
+
+// Forgotten with the project, so the next one adopts the token its own `/open` answered.
+onLeave(() => poller.reset());
 
 /** Tell the poller the token a writing command just answered with — only for a caller that has already reloaded the shell. */
 export function noteRevision(rev: string): void {

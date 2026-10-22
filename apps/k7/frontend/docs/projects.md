@@ -46,7 +46,8 @@ the front door, and putting it behind a prefix you have to know how to type woul
 sidebar**, never in the editor's header. Inside a project the header's hamburger opens the same
 sidebar as a drawer (`HomeDrawer`), so everything this page links to is one click away from any
 project without the header carrying it. The router's basename is the project there, so the drawer's
-entries are whole-page links resolved against `projectsUrl`, and none is lit. It is the menu every app of the origin carries —
+entries are full addresses resolved against `projectsUrl` — drawn in place, no page load
+(`shell.md`) — and none is lit. It is the menu every app of the origin carries —
 `@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab (`packages/ui-user-menu/docs/userMenu.md`).
 
 **One left sidebar for this page and the ones that hang off it**, `/tasks`, `/libraries`,
@@ -327,14 +328,14 @@ link, the import's **Open** — opens in the same tab. Opening a project is the 
 this page, and a new tab for each one stacks tabs nobody closes, each one an editor holding a
 session. The way back is the **hamburger** at the left of the editor's header, which opens this
 page's sidebar over the project, and the project's name, which links here too (`projectsUrl`, the same address both gates use when they send
-you back). The browser's own Back works as well, since this was an ordinary navigation. On a
+you back). The browser's own Back works as well: each crossing is a history entry. On a
 **share** there is neither: the visitor has no account, so no home page to go to (`shared.md`).
-Leaving with an edit the autosave is still holding back is caught by the editor's `beforeunload`
-prompt (`packages/ui-editor/src/unsaved.ts`), and the drawer's links go through that prompt like any
-other departure.
+Leaving with an edit the autosave is still holding back asks first (`hasUnsavedWork`,
+`packages/ui-editor/src/unsaved.ts`), whichever way you leave.
 
-It is a whole-page navigation and not a `<Link>`: the project is the router's `basename`, so
-nothing under it can route outside (`packages/project-shell/docs/launch.md`).
+None of it is a page load, and none of it is a `<Link>` either: the project is the router's
+`basename`, so a router cannot route outside it — the crossing is `appNav`'s, which swaps the router
+for the next scope's (`shell.md`, `packages/project-shell/docs/launch.md`).
 
 `RepoList` and `RepoTree` receive a `projectHref`, not an `onOpenProject`. **An address and not an
 action** — the page computes where the row leads, the view makes it a link. That is what keeps
