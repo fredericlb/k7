@@ -109,13 +109,14 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
           body.tookFor ?? null,
         );
       }
-      // 403 `not-yours`: the engine is another account's, unshared — an answer like 409, never retried (engine-registry docs/ownership.md).
+      // 403 `not-yours` or `unowned`: nobody shared it with this account — an answer like 409, never retried (engine-registry docs/ownership.md).
       if (res.status === 403) {
         const body = (await res
           .clone()
           .json()
           .catch(() => ({}))) as { error?: string };
-        if (body.error === "not-yours") throw new ClaimLost("", "refused");
+        if (body.error === "not-yours" || body.error === "unowned")
+          throw new ClaimLost("", "refused");
       }
       return json<ClaimGrant>(res, "select");
     },

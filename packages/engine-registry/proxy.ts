@@ -196,8 +196,6 @@ export function attachEngineProxy(
   server: Server,
   reg: EngineRegistry,
   tunnels?: TunnelHub,
-  /** A standalone app's backend — the same rule the listing applies (owners.ts `engineRole`). */
-  localMachine = false,
 ): void {
   const wss = new WebSocketServer({
     noServer: true,
@@ -251,15 +249,7 @@ export function attachEngineProxy(
         holds: () => reg.holds(id, ticket.holder),
         // Asked per frame: a share withdrawn mid-socket stops the token at once — docs/ownership.md.
         mayReadToken: () =>
-          mayUse(
-            engineRole(
-              reg,
-              id,
-              ticket.holder,
-              !!tunnels?.isRenderer(id),
-              localMachine,
-            ),
-          ),
+          mayUse(engineRole(reg, id, ticket.holder, !!tunnels?.isRenderer(id))),
         toEngine: (f) => {
           if (upstream) forward(upstream, client, f);
           else if (!pending.push(f.data, f.binary)) overloaded(client);

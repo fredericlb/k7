@@ -300,7 +300,7 @@ describe("the WebRTC offer", () => {
   });
 
   it("mints each listed engine a ticket for the asking account, naming only its own claims", async () => {
-    reg.owners.enrol("e1", "bob");
+    reg.owners.assign("e1", "bob");
     reg.owners.share("e1", ["alice"]);
     reg.claim("e1", { project: "@local/ws/a.k7", holder: "alice" });
     const list = (await (await fetch(`${base}/api/engines`)).json()) as {

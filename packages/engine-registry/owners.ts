@@ -1,7 +1,7 @@
-// owners.ts — which ACCOUNT each engine id belongs to, and whom its owner shared it with. The
-// first account to open an unowned engine with its token becomes its owner: the relay no longer
-// hands that token to anyone who may not use the engine, so holding it means this browser met the
-// engine directly. Kept on disk beside the bindings, since a listing lasts 15 s. See docs/ownership.md.
+// owners.ts — which ACCOUNT each engine id belongs to, and whom its owner shared it with. The owner
+// is the account the engine's heartbeat PROVES with a device token, never whoever opened it first:
+// an open proves only that a browser reached the machine. Kept on disk beside the bindings, since a
+// listing lasts 15 s. See docs/ownership.md.
 
 import { isLoopbackAddress } from "@studio/web-protocol/services";
 import type { EngineRegistry } from "./registry.ts";
@@ -15,23 +15,25 @@ const MAX_OWNED = 10_000;
 export const MAX_SHARED = 50;
 
 export interface Ownership {
-  /** The account that enrolled it, spelled as `claimHolder` spells the session. */
+  /** The account its heartbeat proves, spelled as `claimHolder` spells the session. */
   owner: string;
   /** The accounts it is shared with, lowercase emails. */
   shared: string[];
-  /** Epoch ms it was enrolled. */
+  /** Shared with every signed-in account of this server, present and future. */
+  everyone: boolean;
+  /** Epoch ms this owner was assigned. */
   since: number;
 }
 
-/** What an account is to one engine: only the first three may claim it, `unowned` once it proves it reached it. */
+/** What an account is to one engine: only the first three may claim it. */
 export type EngineRole = "owner" | "shared" | "server" | "unowned" | "none";
 
 export interface EngineOwners {
   get(id: string): Ownership | undefined;
-  /** Make `owner` the owner of an unowned id; false when the id already has one. */
-  enrol(id: string, owner: string): boolean;
-  /** Replace the share list of an owned id; false when the id has no owner. */
-  share(id: string, emails: string[]): boolean;
+  /** Make `owner` the owner of `id`; `moved` when it took it from another account, whose shares go with it. */
+  assign(id: string, owner: string): "same" | "new" | "moved";
+  /** Replace the share list of an owned id, and its everyone flag when given; false when the id has no owner. */
+  share(id: string, emails: string[], everyone?: boolean): boolean;
   /** Forget the id's owner and its shares; it is unowned again. */
   release(id: string): boolean;
   all(): [string, Ownership][];
@@ -70,19 +72,19 @@ export function roleOf(
   if (!o) return "unowned";
   if (!holder) return "none";
   if (o.owner === holder) return "owner";
-  return o.shared.includes(holder.toLowerCase()) ? "shared" : "none";
+  return o.everyone || o.shared.includes(holder.toLowerCase())
+    ? "shared"
+    : "none";
 }
 
-/** What `holder` is to engine `id`: the ONE rule the listing, a select and the relay apply — on a standalone app, its own machine's engine is every signed-in account's (docs/ownership.md). */
+/** What `holder` is to engine `id`: the ONE rule the listing, a select and the relay apply — an engine on this backend's own machine is every signed-in account's (docs/ownership.md). */
 export function engineRole(
   reg: EngineRegistry,
   id: string,
   holder: string,
   server: boolean,
-  localMachine = false,
 ): EngineRole {
-  if (localMachine && holder && isLoopbackAddress(reg.get(id)?.publicIpHint))
-    return "owner";
+  if (holder && isLoopbackAddress(reg.get(id)?.publicIpHint)) return "owner";
   return roleOf(reg.owners.get(id), holder, server);
 }
 
@@ -109,21 +111,27 @@ export function createOwners(
 
   return {
     get: (id) => map.get(id),
-    enrol(id, owner) {
-      if (!owner || map.has(id)) return false;
-      map.set(id, { owner, shared: [], since: now() });
+    assign(id, owner) {
+      const was = map.get(id)?.owner;
+      if (was === owner) return "same";
+      map.set(id, { owner, shared: [], everyone: false, since: now() });
       if (map.size > MAX_OWNED) {
         const oldest = [...map].sort((x, y) => x[1].since - y[1].since)[0];
         if (oldest) map.delete(oldest[0]);
       }
-      log(`engine ${id} enrolled by ${owner}`);
+      log(
+        was
+          ? `engine ${id} moved from ${was} to ${owner}, its heartbeat proving it`
+          : `engine ${id} is ${owner}'s, its heartbeat proving it`,
+      );
       save();
-      return true;
+      return was ? "moved" : "new";
     },
-    share(id, emails) {
+    share(id, emails, everyone) {
       const o = map.get(id);
       if (!o) return false;
       o.shared = emails.slice(0, MAX_SHARED);
+      if (everyone !== undefined) o.everyone = everyone;
       save();
       return true;
     },
@@ -156,6 +164,7 @@ function load(
       {
         owner: o.owner,
         shared,
+        everyone: o.everyone === true,
         since: typeof o.since === "number" ? o.since : 0,
       },
     ]);

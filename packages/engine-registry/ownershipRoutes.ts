@@ -11,6 +11,8 @@ import type { EngineRegistry } from "./registry.ts";
 
 const sharesBody = z.object({
   emails: z.array(z.string().max(254)).max(MAX_SHARED),
+  // Absent, the flag stays as it was: a client that only edits the list does not withdraw everyone.
+  everyone: z.boolean().optional(),
 });
 
 /** The owner's and the admin's routes over `reg.owners`. */
@@ -41,7 +43,12 @@ export function ownershipRouter(
       const o = owners.get(id);
       if (!o || !(owns(id, req) || isAdmin(req)))
         return res.status(404).json(notYours);
-      res.json({ owner: o.owner, shared: o.shared, since: o.since });
+      res.json({
+        owner: o.owner,
+        shared: o.shared,
+        everyone: o.everyone,
+        since: o.since,
+      });
     }),
   );
 
@@ -51,20 +58,23 @@ export function ownershipRouter(
     wrap((req, res) => {
       const id = String(req.params.id);
       if (!owns(id, req)) return res.status(404).json(notYours);
-      const cleaned = cleanShares(
-        (req.body as z.infer<typeof sharesBody>).emails,
-      );
+      const body = req.body as z.infer<typeof sharesBody>;
+      const cleaned = cleanShares(body.emails);
       if (!cleaned.ok)
         return res.status(400).json({ error: `not an email: ${cleaned.bad}` });
-      owners.share(id, cleaned.emails);
+      owners.share(id, cleaned.emails, body.everyone);
       // A withdrawn share ends that account's claim now, not when its tab next renews.
       const o = owners.get(id);
       reg.evict(id, (h) => roleOf(o, h, false) !== "none");
-      res.json({ ok: true, shared: o?.shared ?? [] });
+      res.json({
+        ok: true,
+        shared: o?.shared ?? [],
+        everyone: o?.everyone ?? false,
+      });
     }),
   );
 
-  // The owner gives it up, or an admin resets it; claims stay, and the next direct open enrols it again.
+  // The owner gives it up, or an admin resets it; claims stay, and the next proven heartbeat assigns it again.
   router.delete(
     "/engines/:id/owner",
     wrap((req, res) => {

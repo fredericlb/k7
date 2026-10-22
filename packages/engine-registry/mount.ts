@@ -36,12 +36,10 @@ export function mountEngineRegistry(
     exitOnSignal?: boolean;
     /** Where the engines' secret bindings and owners are kept across restarts; in memory alone when absent — docs/token.md. */
     stateDir?: string;
-    /** The account a device token belongs to: given, a heartbeat may prove a paired machine — docs/heartbeat.md. */
+    /** The email of the account a device token belongs to: given, a heartbeat proves its engine's owner — docs/heartbeat.md. */
     deviceOf?: (token: string) => string | null;
     /** Whether a request's account administers the origin, and so may reset an engine's owner — docs/ownership.md. */
     isAdmin?: (req: Request) => boolean;
-    /** A standalone app's backend, whose own machine's engine every signed-in account may use — docs/ownership.md. */
-    localMachine?: boolean;
   },
 ): EngineMount {
   app.use(
@@ -76,7 +74,6 @@ export function mountEngineRegistry(
     "/api",
     engineRegistryRouter(registry, tunnels, undefined, {
       isAdmin: opts.isAdmin,
-      localMachine: opts.localMachine,
       heartbeat: deviceOf
         ? {
             requireDevice: process.env.STUDIO_REGISTRY_REQUIRE_DEVICE === "1",
@@ -91,7 +88,7 @@ export function mountEngineRegistry(
     registry,
     tunnels,
     serve(server, url, alsoOnStop) {
-      attachEngineProxy(server, registry, tunnels, opts.localMachine);
+      attachEngineProxy(server, registry, tunnels);
       const unadvertise = advertiseRegistry(opts.service, url);
       let said = false;
       const bye = () => {

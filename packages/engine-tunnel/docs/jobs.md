@@ -59,8 +59,8 @@ key is refused outright rather than treated as an ordinary engine, so a misconfi
 machine says so in its log instead of silently rendering nothing.
 
 The registry's engine list marks that machine `server` (`TunnelHub.isRenderer`) for as long as its
-last tunnel presented the key, up or down: a drop must not leave it unowned, since any account holds
-its token and could otherwise enrol it (`packages/engine-registry/docs/ownership.md`). It is the one
+last tunnel presented the key, up or down: a drop must not leave it unowned, which no account may
+select (`packages/engine-registry/docs/ownership.md`). It is the one
 engine reached only through the server that a browser may take without a click: the render key is
 a proof no stranger's heartbeat can make (`packages/engine-browser/docs/access.md`, "Who is taken
 unasked").
