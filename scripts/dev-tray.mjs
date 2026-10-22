@@ -23,6 +23,9 @@ const tauriDir = join(trayDir, "src-tauri");
 // The backend bundle the dev tray runs, rebuilt at every start of the task; gitignored.
 const bundleDir = join(trayDir, ".dev", "backend");
 
+// The page the tray's backend serves: k7-frontend's Vite, for HMR on 18789 — set it empty for the built one (docs/dev.md).
+const devFrontend = process.env.K7_DEV_FRONTEND ?? "http://localhost:5223";
+
 // Long enough that a formatter's write burst is one rebuild, short enough to feel like a save.
 const DEBOUNCE_MS = 500;
 
@@ -110,17 +113,19 @@ function buildEngine() {
     );
 }
 
-/** k7's frontend, then the backend bundle with it inside — what the tray serves (apps/k7-tray/scripts/stage.mjs). */
+/** The backend bundle, with k7's frontend built inside unless the page comes from Vite (apps/k7-tray/scripts/stage.mjs). */
 function buildBundle() {
-  run(
-    "npm",
-    ["exec", "--workspace", "k7-frontend", "--", "vite", "build"],
-    repo,
-    "the frontend build",
-  );
+  if (!devFrontend)
+    run(
+      "npm",
+      ["exec", "--workspace", "k7-frontend", "--", "vite", "build"],
+      repo,
+      "the frontend build",
+    );
+  const bundle = join(repo, "apps", "k7", "backend", "scripts", "bundle.mjs");
   run(
     "node",
-    [join(repo, "apps", "k7", "backend", "scripts", "bundle.mjs"), bundleDir],
+    devFrontend ? [bundle, bundleDir, "--no-frontend"] : [bundle, bundleDir],
     repo,
     "the backend bundle",
   );
@@ -201,6 +206,7 @@ function launchTray() {
       ...process.env,
       K7_BACKEND_BUNDLE: bundleDir,
       STUDIO_ENGINE_HOST_CMD: supervisor,
+      K7_DEV_FRONTEND: devFrontend,
     },
   });
   tray.on("exit", (code) => {
@@ -209,7 +215,7 @@ function launchTray() {
     tray = null;
   });
   log(
-    `tray up (pid ${tray.pid}) — k7 at http://127.0.0.1:18789, the merged log in ~/.k7/.studio.log`,
+    `tray up (pid ${tray.pid}) — k7 at http://127.0.0.1:18789${devFrontend ? `, its page from ${devFrontend}` : ""}, the merged log in ~/.k7/.studio.log`,
   );
 }
 
