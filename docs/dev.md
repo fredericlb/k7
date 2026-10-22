@@ -219,9 +219,12 @@ supervisor's job (`engine/k7-supervisor/docs/hostProtocol.md`), which is what ke
 leaving a ghost engine, so the engine is down a few seconds and the project reloads — the cost a manual
 `tilt trigger k7-tray` already had, paid on every save instead of when chosen. A save in `@studio/song`
 or `@studio/commands` for the page bounces it too. `K7_DEV_BACKEND=bundle` before `npm run dev` runs the
-bundled backend, for a session spent listening. The tray's stdin is still the backend's, so quitting the
-tray stops it cleanly; the shim then ends `tsx watch`, which would otherwise wait for a save holding
-nothing, and a backend left behind would hold 18789 for the next tray.
+bundled backend, for a session spent listening. The tray's stdin stays the SHIM's: `tsx watch` reads its
+own stdin, for the key that reruns its child, and a backend reading the same pipe for `K7_STDIN_STOP`
+never got past its start on Windows. So `tsx watch` gets none, the backend no stop-on-end, and when the
+tray closes the shim's stdin the shim ends the whole tree — `taskkill /T` on Windows, where a killed
+backend takes its supervisor and engine with it through the job it holds; a SIGTERM first elsewhere. A
+backend left behind would hold 18789 for the next tray.
 
 The engine is C++, so it has no watch mode that means anything: there is nothing to hot-reload, only
 a binary to relink and a process to restart — and the tray has to be stopped for that relink, since
