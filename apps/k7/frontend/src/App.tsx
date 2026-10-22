@@ -76,12 +76,10 @@ import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView } from "./components/ClipView";
-import {
-  barTint,
-  CommandBar,
-  type CommandBarHandle,
-  type CommandPending,
-  type PaletteCommand,
+import type {
+  CommandBarHandle,
+  CommandPending,
+  PaletteCommand,
 } from "./components/CommandBar";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
@@ -91,6 +89,10 @@ import { EngineLink } from "./components/EngineLink";
 import { EngineLostStrip } from "./components/EngineLostStrip";
 import { EngineSwitch } from "./components/EngineSwitch";
 import { syncRunning } from "./components/EngineSyncProgress";
+import {
+  FloatingCommandBar,
+  useSummonKey,
+} from "./components/FloatingCommandBar";
 import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab } from "./components/FooterTab";
 import { GraphPanel } from "./components/GraphPanel";
@@ -600,32 +602,13 @@ export default function App({
       .catch(() => {});
   }, []);
   const cmdRef = useRef<CommandBarHandle>(null);
-  // On a wide screen the bar is DOCKED and always there; `paletteOpen` governs the PHONE's popin alone (docs/commandBar.md).
+  // The wide-screen layout, which docks the minimap at the foot of the window.
   const docked = !isMobile;
+  // The command bar floats, hidden until summoned — Ctrl/⌘+Shift+P, double-Shift, the phone's menu (docs/commandBar.md).
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
   // Which field the command bar is waiting on, or null — it decides whether a gesture ACTS or feeds the bar (docs/commandBar.md).
   const [barPending, setBarPending] = useState<CommandPending | null>(null);
-  // …and read LIVE by the phone's dismiss timer below, which fires after the state that would have told it not to.
-  const barPendingRef = useRef<CommandPending | null>(null);
-  barPendingRef.current = barPending;
-
-  /** The PHONE's bar goes away when it loses the keyboard — two guards, both load-bearing; see docs/commandBar.md. */
-  const dismiss = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onBarFocusChange = useCallback(
-    (focused: boolean) => {
-      if (dismiss.current) {
-        clearTimeout(dismiss.current);
-        dismiss.current = null;
-      }
-      if (docked || focused) return;
-      dismiss.current = setTimeout(() => {
-        dismiss.current = null;
-        if (!barPendingRef.current) setPaletteOpen(false);
-      }, 150);
-    },
-    [docked],
-  );
-  useEffect(() => () => clearTimeout(dismiss.current ?? undefined), []);
   // The editor as a POPIN: the SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
   // A popin in the registry's sense too, so Esc closes it; its own vim keeps Escape while you are typing in it.
@@ -2060,14 +2043,14 @@ export default function App({
   const paletteOpenRef = useLatest(paletteOpen);
   const prewriteCommand = useCallback(
     (text: string) => {
-      // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
-      if (docked || paletteOpenRef.current) cmdRef.current?.prewrite(text);
+      // An open bar is written into; a hidden one is opened, and the effect below writes once it is mounted.
+      if (paletteOpenRef.current) cmdRef.current?.prewrite(text);
       else {
         pendingPrewrite.current = text;
         setPaletteOpen(true);
       }
     },
-    [docked],
+    [paletteOpenRef],
   );
   useEffect(() => {
     if (paletteOpen && pendingPrewrite.current != null) {
@@ -2341,15 +2324,15 @@ export default function App({
     rollMode,
   ]);
 
-  /** The command entry a double-Shift opens: docked it FOCUSES the bar, on the phone it opens the popin palette. */
-  const onDoubleShift = useCallback(() => {
-    if (docked) cmdRef.current?.focus();
-    else
-      setPaletteOpen((o) => {
-        if (!o) pendingPrewrite.current = null;
-        return !o;
-      });
-  }, [docked]);
+  /** Summon the bar — Ctrl/⌘+Shift+P or double-Shift: open it focused, or give an open one the keys back. */
+  const summonBar = useCallback(() => {
+    if (paletteOpenRef.current) cmdRef.current?.focus();
+    else {
+      pendingPrewrite.current = null;
+      setPaletteOpen(true);
+    }
+  }, [paletteOpenRef]);
+  useSummonKey(summonBar, !commandsPage && !builder);
 
   /** Global keys — every binding names a command and runs through runCommand (hooks/useCommandKeys.ts); the two screens that switch it off own the surface outright. */
   useCommandKeys({
@@ -2357,7 +2340,7 @@ export default function App({
     effKeys,
     conditions,
     runCommand,
-    onDoubleShift,
+    onDoubleShift: summonBar,
   });
 
   // Ctrl+Z / Ctrl+Y — the project journal, captured so it runs before CodeMirror's keymap and spends the buffer's history first (project-shell/undo.ts).
@@ -3052,7 +3035,7 @@ export default function App({
                 <div
                   {...paneProps("editor")}
                   className={cn(
-                    // `isolate` — load-bearing: CodeMirror's panels and gutters (z 200–300) would cover the phone's command bar (docs/commandBar.md).
+                    // `isolate` — load-bearing: CodeMirror's panels and gutters (z 200–300) would cover the floating command bar (docs/commandBar.md).
                     "isolate flex min-h-0 min-w-0 flex-col",
                     // The SAME element in the same place in the tree, restyled — so the open file, its undo history and the CodeMirror node survive.
                     editorPopin
@@ -3638,32 +3621,15 @@ export default function App({
               headerTools={headerTools}
             />
 
-            {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
-            {docked && (
-              <>
-                {minimapDocked && (
-                  <Minimap
-                    // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
-                    automation={laneNodes.automation}
-                    caret={caret}
-                    highlight={openItem}
-                    onSeek={seek}
-                  />
-                )}
-                <div
-                  className={`flex shrink-0 items-center border-t border-border px-3 py-2 ${barTint(!!barPending)}`}
-                >
-                  <CommandBar
-                    ref={cmdRef}
-                    commands={paletteCommands}
-                    listArg={listArg}
-                    onRun={(line) => void runCommand(line)}
-                    onClose={() => cmdRef.current?.blur()}
-                    onPending={setBarPending}
-                    caret={caretAim}
-                  />
-                </div>
-              </>
+            {/* The bottom of the window: the minimap, desktop-only (docs/shell.md). */}
+            {docked && minimapDocked && (
+              <Minimap
+                // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
+                automation={laneNodes.automation}
+                caret={caret}
+                highlight={openItem}
+                onSeek={seek}
+              />
             )}
 
             {/* The FRAME: a WINDOW over every page, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
@@ -3714,31 +3680,18 @@ export default function App({
 
             {/* A tab bar stood here, one tab per pane; it is in the hamburger now — see `headerActions` and docs/shell.md. */}
 
-            {/* The PHONE's command bar, summoned rather than docked and deliberately not modal (docs/commandBar.md). */}
-            {!docked && paletteOpen && (
-              <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4">
-                {/* A click anywhere on the bar is a click on its field: landing on the padding would otherwise blur the input. */}
-                <div
-                  className={`pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border px-3 py-2.5 shadow-2xl ${barTint(!!barPending)}`}
-                  onPointerDown={() => cmdRef.current?.focus()}
-                >
-                  <CommandBar
-                    ref={cmdRef}
-                    commands={paletteCommands}
-                    listArg={listArg}
-                    onRun={(line) => {
-                      void runCommand(line);
-                      setPaletteOpen(false);
-                    }}
-                    onClose={() => setPaletteOpen(false)}
-                    onPending={setBarPending}
-                    onFocusChange={onBarFocusChange}
-                    caret={caretAim}
-                    autoFocus
-                  />
-                </div>
-              </div>
-            )}
+            {/* The command bar, floating at the top once summoned and deliberately not modal (docs/commandBar.md). */}
+            <FloatingCommandBar
+              ref={cmdRef}
+              open={paletteOpen}
+              onDismiss={closePalette}
+              pending={!!barPending}
+              commands={paletteCommands}
+              listArg={listArg}
+              onRun={(line) => void runCommand(line)}
+              onPending={setBarPending}
+              caret={caretAim}
+            />
 
             {/* What Play is still waiting for, along the bottom — the project is drawn meanwhile (components/StartupBar.tsx). */}
             {!frozen && (

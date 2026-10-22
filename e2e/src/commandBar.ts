@@ -1,15 +1,19 @@
 // commandBar.ts — running a line from k7's command bar the way a person does: type it, pick its row.
-// The bar is the combobox at the foot of a project page, named "Command" (apps/k7/frontend/docs/commandBar.md).
+// The bar is a combobox named "Command", floating once summoned (apps/k7/frontend/docs/commandBar.md).
 import { expect, type Locator, type Page } from "@playwright/test";
 import { folded, navControl } from "./nav.ts";
 
 export const commandBar = (page: Page): Locator =>
   page.getByRole("combobox", { name: "Command" });
 
-/** The bar, opened from the Menu's Commands item on a phone, where it is a popin rather than docked. */
+/** The bar, summoned by Ctrl/⌘+Shift+P, or from the Menu's Commands item on a phone. */
 export async function openCommandBar(page: Page): Promise<Locator> {
   const bar = commandBar(page);
-  if (!(await folded(page))) return bar;
+  if (await bar.isVisible()) return bar;
+  if (!(await folded(page))) {
+    await page.keyboard.press("ControlOrMeta+Shift+P");
+    return bar;
+  }
   // A phone's toast sits where the popin's suggestions open, and covers them until it is closed.
   for (const close of await page
     .getByRole("button", { name: "Dismiss", exact: true })

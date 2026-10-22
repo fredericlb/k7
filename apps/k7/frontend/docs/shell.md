@@ -1122,7 +1122,7 @@ It is a **second view of the timeline**, and that decides where it may appear.
 | what is on screen | the minimap |
 |---|---|
 | the timeline (the default layout, and `full timeline`) | none — it would say what the timeline already says |
-| another pane fullscreened | docked, above the command bar |
+| another pane fullscreened | docked at the foot of the window |
 | the editor **popin** | floating, pinned to the bottom of the window, with the mini transport |
 
 The popin is the case the docked strip cannot serve. It covers the layout, so the minimap has to come
@@ -1805,7 +1805,7 @@ editor needs a keyboard and the graph needs room.
 
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window is about 400px
 tall, so the header and footer are trimmed to what a touch target needs and no more. The one control that
-could not simply move is the command bar's opener: a phone has no double-Shift, so the menu carries it.
+could not simply move is the command bar's opener: a phone has neither Ctrl+Shift+P nor double-Shift, so the menu carries it.
 
 **The shell's root clips its overflow** (`overflow-hidden` on `App.tsx`'s outer box). A pane
 wider than the screen — the DJ desk in portrait wants about 810px of a 420px phone — would
