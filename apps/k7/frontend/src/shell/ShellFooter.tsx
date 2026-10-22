@@ -5,7 +5,7 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { Loader2, StickyNote } from "@frediverse/ui/icons";
+import { Loader2, StickyNote, Terminal } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ReactNode } from "react";
 import { EngineSyncProgress } from "../components/EngineSyncProgress";
@@ -50,6 +50,7 @@ export function ShellFooter({
   panel,
   mixerStrips,
   headerTools,
+  onSummonBar,
 }: {
   isMobile: boolean;
   rollMode: RollMode | null;
@@ -77,6 +78,8 @@ export function ShellFooter({
   mixerStrips: string[];
   /** The side panels' buttons, drawn here on a desktop and in the menu on a phone. */
   headerTools: ReactNode;
+  /** Opens the floating command bar, as Ctrl+Shift+P does. */
+  onSummonBar: () => void;
 }) {
   // The graph's notes: whether they are drawn, and how many the pane holding the graph found.
   const showDocs = useShell((s) => s.showDocs);
@@ -90,6 +93,17 @@ export function ShellFooter({
         isMobile ? "gap-2 px-2 py-0.5 text-[10px]" : "gap-3 px-4 py-1 text-xs",
       )}
     >
+      {/* The command bar's opener, at the bottom-left on every screen: the bar itself stays hidden until summoned (docs/commandBar.md). */}
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        className="shrink-0"
+        onClick={onSummonBar}
+        title={`${m["commandBar.list"]()} (Ctrl+Shift+P)`}
+        aria-label={m["commandBar.list"]()}
+      >
+        <Terminal className="h-3.5 w-3.5" />
+      </Button>
       {/* left: the status text; a phone puts the controls first and these states at the right end */}
       <div
         className={cn(

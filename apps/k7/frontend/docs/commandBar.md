@@ -153,9 +153,11 @@ focus, so the blur that closes the list can never be the one that was about to p
 The bar is **hidden** until you ask for it, and then floats at the top of the window, centred,
 focused — the palette of a code editor. **Ctrl+Shift+P** (⌘+Shift+P on a Mac) summons it from
 anywhere, the text editor included: the key is caught before CodeMirror sees it, since a palette you
-cannot reach while typing is one you leave the keyboard to reach. Double-Shift summons it too, and on
-a phone, which has neither, the hamburger menu carries an opener (the home page carries one in its
-footer). Both screens mount the same wrapper, `FloatingCommandBar.tsx`.
+cannot reach while typing is one you leave the keyboard to reach. Double-Shift summons it too, and so
+does a command icon at the bottom-left of the footer, left of the status line — the one opener a
+mouse finds without being told, and on a phone, which has neither key, the hamburger menu carries a
+second (the home page carries a Commands button in its footer). Both screens mount the same wrapper,
+`FloatingCommandBar.tsx`.
 
 Hidden, because the panes are what the window is for: a permanent strip is a row of every pane
 spent on a prompt that is idle almost all the time. At the top, because that is where the eye
