@@ -6,7 +6,7 @@ import { Button } from "@frediverse/ui/button";
 import { Loader2, Share2 } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
 import { Textarea } from "@frediverse/ui/textarea";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { engineShares, parseShares } from "./engineShares";
 import { useLabels } from "./host";
 
@@ -22,6 +22,7 @@ export function EngineShareEditor({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState<string | null>(null);
   const [everyone, setEveryone] = useState(false);
+  const everyoneId = useId();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -74,15 +75,15 @@ export function EngineShareEditor({
   return (
     <div className="mt-2 flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">{l.shareHint}</p>
-      <label className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-sm">
         <Switch
+          id={everyoneId}
           checked={everyone}
           onCheckedChange={setEveryone}
           disabled={busy || text === null}
-          aria-label={l.shareEveryone}
         />
-        {l.shareEveryone}
-      </label>
+        <label htmlFor={everyoneId}>{l.shareEveryone}</label>
+      </div>
       <Textarea
         value={text ?? ""}
         onChange={(e) => setText(e.target.value)}
