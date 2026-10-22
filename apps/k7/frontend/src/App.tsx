@@ -3619,6 +3619,7 @@ export default function App({
               panel={panel}
               mixerStrips={mixerStrips}
               headerTools={headerTools}
+              onSummonBar={summonBar}
             />
 
             {/* The bottom of the window: the minimap, desktop-only (docs/shell.md). */}
