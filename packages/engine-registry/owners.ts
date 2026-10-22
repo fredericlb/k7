@@ -3,7 +3,6 @@
 // an open proves only that a browser reached the machine. Kept on disk beside the bindings, since a
 // listing lasts 15 s. See docs/ownership.md.
 
-import { isLoopbackAddress } from "@studio/web-protocol/services";
 import type { EngineRegistry } from "./registry.ts";
 import { loadJson, saveJson } from "./stateFile.ts";
 
@@ -84,7 +83,7 @@ export function engineRole(
   holder: string,
   server: boolean,
 ): EngineRole {
-  if (holder && isLoopbackAddress(reg.get(id)?.publicIpHint)) return "owner";
+  if (holder && reg.onThisMachine(id)) return "owner";
   return roleOf(reg.owners.get(id), holder, server);
 }
 
