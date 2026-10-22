@@ -232,6 +232,7 @@ export function mediaLabels(): LibraryLabels {
       unownedHint: m["media.engines.unownedHint"](),
       share: m["media.engines.share"](),
       shareHint: m["media.engines.shareHint"](),
+      shareEveryone: m["media.engines.shareEveryone"](),
       sharePlaceholder: m["media.engines.sharePlaceholder"](),
       shareSave: m["media.engines.shareSave"](),
       shareSaved: m["media.engines.shareSaved"](),
