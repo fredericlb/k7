@@ -47,6 +47,11 @@ import type {
 } from "./project";
 import { parseMarkers, parseSettings } from "./project";
 import type { RawPlacement } from "./rawDoc";
+import {
+  type PlacedShots,
+  timelineShots,
+  withTimelineShots,
+} from "./timelinePictures";
 import type { Material } from "./trackModule";
 import { videoSoundLanes } from "./videoSound";
 
@@ -181,6 +186,7 @@ function compileNodeProjectIn(
     dur: (tc) =>
       tc != null && tc !== "" ? parseDuration(String(tc), num, den) : 0,
     bar: (num * 4) / den,
+    beatsPerSec: tempo / 60,
     clipOf: plain,
   };
 
@@ -209,10 +215,15 @@ function compileNodeProjectIn(
   // One entry per HALF, ordered over the LANES so both halves stay adjacent — see docs/trackKind.md.
   const laneErrs: string[] = [];
   // The lanes that play a PICTURE lane's sound, their clips derived from its shots (docs/videoSound.md).
+  // …a placed timeline's shots among them, since they draw on that picture lane (docs/timelines.md).
+  const placedShots: PlacedShots = new Map();
+  for (const t of Object.values(lanesMap))
+    if (t.type !== "group" && !t.disabled)
+      timelineShots(t.events, timelineCtx, placedShots);
   const videoSounds = videoSoundLanes(
     dir,
     lanesMap,
-    loadVideoTracks(dir),
+    withTimelineShots(loadVideoTracks(dir), placedShots),
     clipsMap,
     tempo,
     laneErrs,

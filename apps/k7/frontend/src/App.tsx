@@ -3163,6 +3163,7 @@ export default function App({
                               // …and the MIDI take, drawn on its lane the same way, whichever record started it.
                               midiTake={paneFns.midiTake}
                               videoTracks={videoTracks}
+                              timelineVideoTracks={videoDoc?.timelines}
                               // A song with no picture lane has no frame to land on, whatever its document defaults.
                               fps={
                                 videoTracks.length ? videoDoc?.fps : undefined

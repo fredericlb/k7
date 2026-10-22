@@ -54,7 +54,7 @@ export const PICTURE_KEY_VERBS: Record<string, SidHandler> = {
     const ease = (easeArg as Ease | undefined) ?? "linear";
     const key = (doc: K7Scope) =>
       setVideoKeyAt(doc, t.index, prop, when - shot.start, value, ease);
-    if (!put(t.abs, key, h, "key")) return;
+    if (!put(t, key, h, "key")) return;
     h.log([
       `${t.rel}: ${shot.ref || "activation"} ${prop} = ${value} at ${when}s (${Math.round((when - shot.start) * 1000) / 1000}s into the shot)`,
     ]);
@@ -74,7 +74,7 @@ export const PICTURE_KEY_VERBS: Record<string, SidHandler> = {
     const unkey = (doc: K7Scope) =>
       removeVideoKeyAt(doc, t.index, prop, when - shot.start);
     const none = `${t.rel}: no ${prop} key at ${when}s on the shot at ${t.at}s`;
-    if (!put(t.abs, unkey, h, "unkey", none)) return;
+    if (!put(t, unkey, h, "unkey", none)) return;
     h.log([`${t.rel}: ${shot.ref || "activation"} − ${prop} key at ${when}s`]);
     return h.reload();
   },

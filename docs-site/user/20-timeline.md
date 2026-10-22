@@ -227,6 +227,10 @@ Main's.
 **Opening a timeline is listening to it**: play runs it alone from its start, through the lane it
 is first placed on, and the playhead follows it. Back on Main, play is the whole song again.
 
+A timeline can hold **video lanes** too. Wherever the timeline is placed, their shots appear on
+Main's video lane of the same name, from the moment it starts. Main shows them dashed; double-click
+one to open its timeline and edit it there.
+
 | Command | What it does |
 |---|---|
 | `timeline new [name] [length]` | Make a timeline, four bars long unless you say. |
@@ -234,7 +238,9 @@ is first placed on, and the playhead follows it. Back on Main, play is the whole
 | `timeline rename <timeline> <name>` | Rename it, and every event placing it — also on a tab's right-click. |
 | `timeline length <timeline> <duration>` | Change what every placement of it plays. |
 | `timeline lane new` / `timeline lane remove` | Add or remove one of its lanes. |
-| `timeline lane copy <lane> <timeline\|main>` | Copy a lane's events onto another timeline, or into Main. |
+| `timeline lane copy <lane> <timeline\|main>` | Copy a lane's events onto another timeline, or into Main — a video lane's shots too, also from its right-click. |
+| `picture lane new <timeline>><lane>` | Give a timeline a video lane of its own. |
+| `picture lane rename` / `picture lane delete` | Rename or delete a video lane — also on its right-click, which offers what an audio lane's does wherever a video lane has the same act. |
 | `timeline play [timeline]` | Hear one alone; bare, the song again. |
 
 To put a timeline on a lane, **drag its tab onto the lane**: it lands where you drop it, snapped to

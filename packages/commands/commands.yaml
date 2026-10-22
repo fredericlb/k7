@@ -270,12 +270,12 @@
   readable:
     en: "Copy a lane to another timeline"
     fr: "Copier une piste vers une autre timeline"
-  help: "copy a lane's events onto a new lane of a timeline, or of the main one (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass main)"
+  help: "copy a lane's events onto a new lane of a timeline, or of the main one — a picture lane's shots too (e.g. timeline lane copy verse>drums chorus, timeline lane copy verse>bass main, timeline lane copy cam verse)"
   surfaces: [cli]
-  menu: [track]
+  menu: [track, picture]
   args:
     [
-      { name: lane, complete: tracks, hint: "a song lane, or a timeline's as <timeline>><lane>" },
+      { name: lane, complete: tracks, hint: "a song lane or picture lane, or a timeline's as <timeline>><lane>" },
       { name: to, complete: laneTargets, hint: "a timeline, or main" },
       { name: name, optional: true, hint: "the new lane's name — optional, the copied one's by default" },
     ]
@@ -1506,7 +1506,7 @@
   readable:
     en: "Add a picture lane"
     fr: "Ajouter une piste vidéo"
-  help: "add a video lane (e.g. picture lane new broll) — named layer-N if you don't say"
+  help: "add a video lane (e.g. picture lane new broll), or a timeline's (picture lane new verse>broll) — named layer-N if you don't say"
   surfaces: [cli, timeline]
   args:
     [
@@ -1530,6 +1530,32 @@
       { name: lane, complete: pictureLanes },
       { name: position, hint: "1-based in `layers`, bottom first" },
     ]
+# A picture lane's `track rename` and `track delete`: the lane is named in its file, `layers:`,
+# `soloed:`, the graph, a sounding lane's `video_source` and the timelines drawing on it, and both
+# follow it everywhere (src/verbs/pictureLane.ts).
+- command: "picture lane rename"
+  sid: picture.laneRename
+  readable:
+    en: "Rename a picture lane and its file"
+    fr: "Renommer une piste vidéo et son fichier"
+  help: "rename a video lane, and every place that names it (e.g. picture lane rename layer-1 broll)"
+  surfaces: [cli]
+  menu: [picture]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: name, hint: "the new name, which is its filename" },
+    ]
+- command: "picture lane delete"
+  sid: picture.laneDelete
+  readable:
+    en: "Delete a picture lane"
+    fr: "Supprimer une piste vidéo"
+  help: "delete a video lane — its file, its layer and its wiring; its clips stay on disk (e.g. picture lane delete broll)"
+  surfaces: [cli]
+  menu: [picture]
+  confirm: true
+  args: [{ name: lane, complete: pictureLanes }]
 # WHERE in the frame a lane draws, in viewport px — the one picture verb about geometry rather
 # than about time. A lane stating no rect fills the frame, so this is what a viewport drag writes
 # the moment you move or resize one. See apps/k7/frontend/docs/picture.md.

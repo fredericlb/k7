@@ -1078,8 +1078,14 @@ and only a lane holding events takes it.
 Opening a timeline also AUDITIONS it: the pane sends `timeline play <id>` and seeks to 0, so the
 engine plays that timeline alone from its start and the playhead reads its own time; back on the
 song, a bare `timeline play`. What it plays through is the song lane it is placed on, so a
-timeline's lanes draw no meter, arm, mute or solo of their own, and no markers, picture or
-automation rows.
+timeline's lanes draw no meter, arm, mute or solo of their own, and no markers or automation rows.
+
+Its PICTURE lanes are drawn, from `WebVideoProject.timelines`, at the timeline's own seconds: they are
+edited here like the song's, by the same drag and the same `picture` verbs, at `<timeline>><lane>`. Their
+gutter has no mute, solo or arm, since what they draw on is the song lane of their name, and those three
+are its. On that song lane the shots a placed timeline puts there are dashed `PlacedShot` blocks that no
+drag or menu reaches: the drag writes the lane's file BY INDEX, and they are not in it. A double-click
+opens their timeline, as it does a timeline event (`packages/song/docs/timelines.md`).
 
 A timeline EVENT on a song lane is one dashed block of its fixed length, its clips' activity drawn
 where each plays. It has no edge or fade handles — its length is its timeline's — and a

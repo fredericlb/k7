@@ -44,7 +44,7 @@ export const PICTURE_SPEED_VERBS: Record<string, SidHandler> = {
     const pace = (doc: K7Scope) => {
       setVideoSpeedAt(doc, t.index, speed);
     };
-    if (!put(t.abs, pace, h, "speed")) return;
+    if (!put(t, pace, h, "speed")) return;
     h.log([
       `${t.rel}: ${shot.ref} at ${t.at}s ${speed === 1 ? "back to its own pace" : speed === 0 ? "frozen on its first frame" : `at ${speed}×`}`,
     ]);

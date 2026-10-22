@@ -4,6 +4,7 @@
 // A row is drawn as the command's NAME minus the word naming what was clicked; what it does is a
 // sentence for the status bar. See docs/contextMenu.md.
 
+import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { type CommandPrefs, inMenu } from "./commandPrefs";
 import type { ArgClass, ArgProvider, CommandInfo, MenuEntity } from "./types";
 
@@ -61,6 +62,8 @@ export type MenuCtx =
   | { kind: "warp-point"; clip: string; src: string }
   /** A SHOT on a picture lane: the lane, and where it starts in SECONDS — the dialect the `picture …` verbs read. */
   | { kind: "picture-shot"; lane: string; at: string; name: string }
+  /** A picture LANE's gutter: the song's, or a timeline's as `<timeline>><lane>`. */
+  | { kind: "picture-lane"; lane: string }
   /** A PAD in the step sequencer — sequence, key and start beat, plus what it ALREADY carries, so a row is offered only when it does something. */
   | {
       kind: "pad";
@@ -170,6 +173,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   "warp-point": "clip",
   // 'picture': the rows read 'move', 'length', 'head', 'delete' — the shot is what was clicked.
   "picture-shot": "picture",
+  // …and on the lane: 'mute', 'solo', and the copy, which keeps its whole name.
+  "picture-lane": "picture",
   // 'sequence note': a pad's rows are named for the value they set, and the head is what every one of them shares.
   pad: "sequence note",
   // The same head, for the same reason: on the roll the rows read 'remove' and 'split'.
@@ -197,6 +202,7 @@ const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   timeline: "timeline",
   "warp-point": "warp",
   "picture-shot": "shot",
+  "picture-lane": "picture",
   pad: "pad",
   note: "note",
   tap: "tap",
@@ -553,6 +559,52 @@ export function contextMenu(
         { verb: "picture length", arg: `${where} `, needsMore: true },
         { verb: "picture silence", arg: where },
         { verb: "picture delete", arg: where },
+      ]);
+    }
+    case "picture-lane": {
+      /** An audio lane's rows, in its order, where a picture lane has the same act — docs/contextMenu.md. */
+      const lane = quoteArg(ctx.lane);
+      const tl = timelineLaneOf(ctx.lane);
+      const shared: Entry[] = [
+        { verb: "picture lane rename", arg: `${lane} `, needsMore: true },
+        { verb: "timeline lane copy", arg: `${lane} `, needsMore: true },
+      ];
+      const shot: Entry = {
+        verb: "picture add",
+        arg: `${lane} `,
+        needsMore: true,
+      };
+      // A timeline's lane: its frame, visibility, order and camera are the song lane's it draws on.
+      if (tl)
+        return offer([
+          ...shared,
+          { verb: "picture lane delete", arg: lane },
+          shot,
+          {
+            verb: "ui file",
+            arg: `timelines/${tl.timeline}.k7x`,
+            help: "open the timeline's file, which holds this lane",
+          },
+        ]);
+      return offer([
+        { verb: "picture lane order", arg: `${lane} `, needsMore: true },
+        {
+          verb: "timeline lane copy",
+          arg: `${lane} main`,
+          name: "duplicate",
+          help: "copy this lane within the song — its shots and its frame",
+        },
+        ...shared,
+        { verb: "picture mute", arg: lane },
+        { verb: "picture solo", arg: lane },
+        { verb: "picture lane delete", arg: lane },
+        shot,
+        { verb: "ui picture arm", arg: lane },
+        {
+          verb: "ui file",
+          arg: `video_tracks/${ctx.lane}.k7x`,
+          help: "open the lane's own file, video_tracks/<id>.k7x",
+        },
       ]);
     }
     case "pad": {

@@ -18,16 +18,13 @@ import type { Placement } from "@studio/song-schema/yaml/placementSchema";
 import { placementValues } from "@studio/song-schema/yaml/trackFile";
 import type { SidHandler } from "../commands.ts";
 import { makesCycle, splitArgs, trackOf } from "./shared.ts";
+import {
+  copyPictureLane,
+  freeName,
+  isPictureLane,
+} from "./timelinePictureCopy.ts";
 
 const NAME = /^[A-Za-z0-9_.-]+$/;
-
-/** `base`, or `base-2`, `base-3`… — the first that `taken` does not hold. */
-function freeName(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base;
-  let n = 2;
-  while (taken.has(`${base}-${n}`)) n++;
-  return `${base}-${n}`;
-}
 
 export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
   /** timeline lane copy <lane> <timeline|main> [name] — the lane's events onto a new lane there; docs/verbs.md. */
@@ -37,6 +34,8 @@ export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
       return h.refuse([
         "usage: timeline lane copy <lane> <timeline|main> [name]  (e.g. timeline lane copy verse>drums chorus)",
       ]);
+    // A picture lane's shots are seconds, and land in a timeline's `pictures:` (timelinePictureCopy.ts).
+    if (isPictureLane(h, laneArg)) return copyPictureLane(h, laneArg, to, name);
     const p = h.project();
     const track = trackOf(p, laneArg);
     if (!track) return h.refuse([`no track "${laneArg}"`]);

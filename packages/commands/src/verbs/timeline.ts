@@ -218,6 +218,16 @@ export const TIMELINE_VERBS: Record<string, SidHandler> = {
     if (!file) return;
     const lanes = lanesOf(file);
     const at = lanes.findIndex((l) => l.lane === lane);
+    // A picture lane goes the same way; the one a timeline must keep is a sound lane.
+    const pictures = wsData(file).pictures;
+    const pic = Array.isArray(pictures)
+      ? pictures.findIndex((l) => l?.lane === lane)
+      : -1;
+    if (at < 0 && pic >= 0) {
+      wsEdit(file, (doc) => doc.deleteIn(["pictures", pic]));
+      h.log([`${id}: - picture lane ${lane}`]);
+      return h.reload();
+    }
     if (at < 0) return h.refuse([`timeline '${id}' has no lane '${lane}'`]);
     if (lanes.length === 1)
       return h.refuse([

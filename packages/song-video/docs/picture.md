@@ -5,10 +5,11 @@ An `.k7` folder holds sound **and image**. Same folder, same loader, read twice:
 | file | read by the SONG compile | read by the PICTURE compile |
 |---|---|---|
 | `project.k7x` | `tempo`, `sampleRate`, `timeSignature`, `markers` | `viewport`, `layers`, `markers` |
-| `nodes/<id>.k7x` | the lanes | — |
+| `nodes/<id>.k7x` | the lanes | where each timeline is placed |
 | `graph.k7x` | the signal graph | — |
 | `clips/<id>.k7x` | a source (audio) | a source (video) |
 | `video_tracks/<id>.k7x` | — | one file per picture LANE |
+| `timelines/<id>.k7x` | its `lanes:` | its `pictures:`, drawn on the lanes of their names (`@studio/song` `docs/timelines.md`) |
 
 `loadProject` produces the `ProjectDoc` the C++ engine is handed. `loadVideoProject`
 produces the `VideoProjectDoc` `@studio/ui-eyes` composites. **They share no field.**
