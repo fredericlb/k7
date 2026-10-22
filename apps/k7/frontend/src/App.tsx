@@ -7,13 +7,13 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
-  ArrowLeft,
   FolderOpen,
   Headphones,
   History,
   ListChecks,
   ListMusic,
   Lock,
+  Menu,
   MessageSquare,
   Settings,
   Share2,
@@ -254,6 +254,13 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
 // One key for every song: where the picture's window sits is a habit of this screen (floatingRect.ts).
 const VIEWPORT_FLOAT_KEY = "k7.viewportWindow";
+
+// The home page's sidebar, as a drawer over the project: it carries the media and rehearsal sections, so it loads on first open.
+const HomeDrawer = lazy(() =>
+  import("./projects/HomeSidebar").then((mod) => ({
+    default: mod.HomeDrawer,
+  })),
+);
 
 // The two builders open on demand, and carry an editor and a language of their own: loaded then, not with the shell.
 const ModuleBuilder = lazy(() =>
@@ -607,6 +614,9 @@ export default function App({
   // The command bar floats, hidden until summoned — Ctrl/⌘+Shift+P, double-Shift, the phone's menu (docs/commandBar.md).
   const [paletteOpen, setPaletteOpen] = useState(false);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
+  // The home sidebar's drawer, opened by the header's hamburger (docs/shell.md).
+  const [homeDrawer, setHomeDrawer] = useState(false);
+  const closeHomeDrawer = useCallback(() => setHomeDrawer(false), []);
   // Which field the command bar is waiting on, or null — it decides whether a gesture ACTS or feeds the bar (docs/commandBar.md).
   const [barPending, setBarPending] = useState<CommandPending | null>(null);
   // The editor as a POPIN: the SAME instance, restyled onto the surface — see docs/shell.md.
@@ -2916,15 +2926,17 @@ export default function App({
                   </span>
                 ) : (
                   <span className="flex min-w-0 items-center gap-1">
-                    {/* The back arrow, first in the bar: the home page is where every project is opened from. */}
-                    <a
-                      href={projectsUrl(window.location.href)}
-                      title={m["project.backToProjects"]()}
-                      aria-label={m["project.backToProjects"]()}
+                    {/* The hamburger, first in the bar: it opens the home page's sidebar over the project. */}
+                    <button
+                      type="button"
+                      onClick={() => setHomeDrawer(true)}
+                      title={m["common.menu"]()}
+                      aria-label={m["common.menu"]()}
+                      aria-expanded={homeDrawer}
                       className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      <ArrowLeft className="h-4 w-4" />
-                    </a>
+                      <Menu className="h-4 w-4" />
+                    </button>
                     {!isMobile && (
                       <>
                         <img
@@ -3680,6 +3692,12 @@ export default function App({
             )}
 
             {/* A tab bar stood here, one tab per pane; it is in the hamburger now — see `headerActions` and docs/shell.md. */}
+
+            {homeDrawer && (
+              <Suspense fallback={null}>
+                <HomeDrawer open onClose={closeHomeDrawer} />
+              </Suspense>
+            )}
 
             {/* The command bar, floating at the top once summoned and deliberately not modal (docs/commandBar.md). */}
             <FloatingCommandBar

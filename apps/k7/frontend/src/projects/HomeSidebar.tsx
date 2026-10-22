@@ -1,7 +1,8 @@
 // HomeSidebar.tsx — the left sidebar of the home page and of the pages that hang off it, /libraries,
 // /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
 // media library's and the rehearsal pages' sections, the user menu at its foot. All are routes, so going between them reloads
-// nothing. Below `sm` it folds to an icon rail. See ../../docs/projects.md.
+// nothing. Below `sm` it folds to an icon rail. Inside a project it is a DRAWER (`HomeDrawer`): the
+// router's basename is the project there, so its entries are whole-page links. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -14,6 +15,7 @@ import {
   RefreshCw,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { projectsUrl } from "@studio/project-shell/launch";
 import { LIBRARY_SECTIONS, sectionAt, sectionPath } from "@studio/ui-library";
 import { REHEARSAL_SECTIONS, rehearsalSectionAt } from "@studio/ui-rehearsal";
 import { UserMenu } from "@studio/ui-user-menu";
@@ -24,6 +26,7 @@ import { api } from "../api";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
+import { usePopin } from "../popins";
 import { useOnDesktopEngine } from "../settings/desktopEngine";
 import { VERSION } from "../version";
 import {
@@ -57,6 +60,33 @@ export function HomeShell({
   );
 }
 
+/** A home route as a whole-page address, for a sidebar drawn outside the home router. */
+const homeHref = (route: string): string =>
+  new URL(route.slice(1), projectsUrl(window.location.href)).href;
+
+/** The sidebar over a project: slides in from the left, a click beside it or Escape closes it. */
+export function HomeDrawer({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  usePopin(open, onClose);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <HomeSidebar away />
+      <button
+        type="button"
+        aria-label={m["common.close"]()}
+        className="flex-1 cursor-default bg-black/40"
+        onClick={onClose}
+      />
+    </div>
+  );
+}
+
 interface Entry {
   label: string;
   icon: LucideIcon;
@@ -69,9 +99,34 @@ interface Entry {
 /** A LINK, not a button: an entry is an address, so it opens in a new tab and copies like one. */
 function SidebarEntry({
   entry: { label, icon: Icon, route, active, count },
+  away,
 }: {
   entry: Entry;
+  away?: boolean;
 }) {
+  const inner = (
+    <>
+      <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary-text")} />
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-left",
+          away ? "inline" : "hidden sm:inline",
+        )}
+      >
+        {label}
+      </span>
+      {count !== undefined ? (
+        <span
+          className={cn(
+            "shrink-0 text-muted-foreground text-xs tabular-nums",
+            away ? "inline" : "hidden sm:inline",
+          )}
+        >
+          {count}
+        </span>
+      ) : null}
+    </>
+  );
   return (
     <Button
       variant="ghost"
@@ -80,39 +135,44 @@ function SidebarEntry({
       aria-current={active ? "page" : undefined}
       asChild
       className={cn(
-        "justify-center sm:justify-start",
+        away ? "justify-start" : "justify-center sm:justify-start",
         // The lit entry is the one place the sidebar wears the accent: violet means "you are here" (../../docs/projects.md).
         active &&
           "bg-primary/15 text-foreground hover:bg-primary/20 hover:text-foreground",
       )}
     >
-      <Link to={route}>
-        <Icon
-          className={cn("h-4 w-4 shrink-0", active && "text-primary-text")}
-        />
-        <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
-          {label}
-        </span>
-        {count !== undefined ? (
-          <span className="hidden shrink-0 text-muted-foreground text-xs tabular-nums sm:inline">
-            {count}
-          </span>
-        ) : null}
-      </Link>
+      {away ? (
+        <a href={homeHref(route)}>{inner}</a>
+      ) : (
+        <Link to={route}>{inner}</Link>
+      )}
     </Button>
   );
 }
 
 /** A titled run of entries below the first: the title on a wide sidebar, a rule on the rail. */
-function SidebarGroup({ title, entries }: { title: string; entries: Entry[] }) {
+function SidebarGroup({
+  title,
+  entries,
+  away,
+}: {
+  title: string;
+  entries: Entry[];
+  away?: boolean;
+}) {
   return (
     <nav className="mt-4 flex flex-col gap-1 px-2" aria-label={title}>
-      <span className="hidden px-3 pb-1 text-muted-foreground text-xs sm:inline">
+      <span
+        className={cn(
+          "px-3 pb-1 text-muted-foreground text-xs",
+          away ? "inline" : "hidden sm:inline",
+        )}
+      >
         {title}
       </span>
-      <span className="mx-2 mb-1 border-border border-t sm:hidden" />
+      {!away && <span className="mx-2 mb-1 border-border border-t sm:hidden" />}
       {entries.map((e) => (
-        <SidebarEntry key={e.route} entry={e} />
+        <SidebarEntry key={e.route} entry={e} away={away} />
       ))}
     </nav>
   );
@@ -121,12 +181,19 @@ function SidebarGroup({ title, entries }: { title: string; entries: Entry[] }) {
 function HomeSidebar({
   actions,
   mediaCounts,
+  away,
 }: {
   actions?: ReactNode;
   mediaCounts?: Partial<Record<string, number>>;
+  /** Drawn over a project: whole-page links, nothing lit, never folded to the rail. */
+  away?: boolean;
 }) {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const routerNavigate = useNavigate();
+  const navigate = (route: string) =>
+    away ? window.location.assign(homeHref(route)) : routerNavigate(route);
+  // Over a project the address is the project's, so no entry is "here".
+  const pathname = useLocation().pathname;
+  const here = (route: string) => !away && pathname === route;
 
   // Null off the tray's backend; on it, the SERVER is whose apps the menu lists (../desktop.ts).
   const engineHere = useOnDesktopEngine();
@@ -152,7 +219,7 @@ function HomeSidebar({
     { label: m["home.projects"](), icon: Folders, route: "/" },
     { label: m["home.tasks"](), icon: ListChecks, route: TASKS_ROUTE },
     { label: m["home.libraries"](), icon: LibraryBig, route: LIBRARIES_ROUTE },
-  ].map((e) => ({ ...e, active: pathname === e.route }));
+  ].map((e) => ({ ...e, active: here(e.route) }));
 
   // The media library's sections: active by the section the address shows, the bare prefix included.
   const onMedia =
@@ -162,7 +229,7 @@ function HomeSidebar({
     label: mediaSectionLabel(s.id),
     icon: s.icon,
     route: sectionPath(s.id, MEDIA_ROUTE),
-    active: shownSection === s.id,
+    active: !away && shownSection === s.id,
     count: s.counted ? mediaCounts?.[s.id] : undefined,
   }));
 
@@ -172,19 +239,33 @@ function HomeSidebar({
     label: s.label(),
     icon: s.icon,
     route: `${REHEARSAL_ROUTE}${s.path}`,
-    active: shownRehearsal === s.id,
+    active: !away && shownRehearsal === s.id,
   }));
 
   return (
-    <aside className="z-20 flex w-14 shrink-0 flex-col bg-card sm:w-52">
-      <div className="flex flex-col gap-1 px-3 pt-4 pb-3 sm:px-5">
+    <aside
+      className={cn(
+        "z-20 flex shrink-0 flex-col bg-card",
+        away ? "h-full w-52 shadow-2xl" : "w-14 sm:w-52",
+      )}
+    >
+      <div
+        className={cn(
+          "flex flex-col gap-1 pt-4 pb-3",
+          away ? "px-5" : "px-3 sm:px-5",
+        )}
+      >
         {/* The logo alone on the rail: it is too narrow for the logo and the name together. */}
         <span
           className="flex min-w-0 items-center gap-2 font-brand text-xl leading-none text-white"
           title={VERSION}
         >
           <img src={k7Logo} alt="k7" className="h-6 w-auto shrink-0" />
-          <span className="hidden truncate sm:inline">k7</span>
+          <span
+            className={cn("truncate", away ? "inline" : "hidden sm:inline")}
+          >
+            k7
+          </span>
         </span>
       </div>
 
@@ -192,15 +273,24 @@ function HomeSidebar({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-3">
         <nav className="flex flex-col gap-1 px-2">
           {items.map((e) => (
-            <SidebarEntry key={e.route} entry={e} />
+            <SidebarEntry key={e.route} entry={e} away={away} />
           ))}
         </nav>
 
-        <SidebarGroup title={m["home.media"]()} entries={media} />
-        <SidebarGroup title={m["home.rehearsal"]()} entries={rehearsal} />
+        <SidebarGroup title={m["home.media"]()} entries={media} away={away} />
+        <SidebarGroup
+          title={m["home.rehearsal"]()}
+          entries={rehearsal}
+          away={away}
+        />
       </div>
 
-      <div className="flex flex-col items-center gap-1 px-2 pb-3 sm:flex-row sm:justify-end">
+      <div
+        className={cn(
+          "flex items-center gap-1 px-2 pb-3",
+          away ? "flex-row justify-end" : "flex-col sm:flex-row sm:justify-end",
+        )}
+      >
         {actions}
         {/* Last: the account, the settings, the other apps, the logout (packages/ui-user-menu/docs/userMenu.md). */}
         <UserMenu

@@ -224,10 +224,12 @@ being the widest thing in the row, leaving it on the left made the transport's `
 over what was left rather than over the pane. It stays ahead of the icon row because it is read
 while playing, not clicked, and the divider after it is what says so.
 
-The **way back to the home page** is a back arrow just left of the project's name, and the name
-links there too. Projects open in the home page's tab rather than a new one, so the arrow is the
-gesture that ends a session. It is a whole-page navigation, and on a frozen share there is no arrow
-and the name is plain text (`docs/shared.md`).
+The **way back to the home page** is a hamburger just left of the project's name: it opens the home
+page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
+home too. Projects open in the home page's tab rather than a new one, so a drawer entry is the
+gesture that ends a session — a whole-page navigation. The drawer is loaded on first open, since it
+carries the media library's and the rehearsal pages' sections. On a frozen share there is no
+hamburger and the name is plain text (`docs/shared.md`).
 
 **The engine is named right after it** (`components/EngineSwitch.tsx`), because which machine plays
 the song is the first thing to check when it sounds wrong or not at all. It is said as WHERE THE
@@ -426,7 +428,7 @@ A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's hea
 means "show me that page", and the current row is where you are, not a switch left on.
 
 **The project's name, the engine switch and the engine's health fold into one info icon** on the
-left (`MobileInfo`), beside the back arrow. Their labels and figures would take the width the
+left (`MobileInfo`), beside the hamburger. Their labels and figures would take the width the
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure
