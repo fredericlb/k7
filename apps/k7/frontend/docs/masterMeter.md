@@ -208,7 +208,7 @@ something the clip light cannot see past.
 ## The engine's memory, beside its name
 
 `EngineLoad.tsx` shows the engine PROCESS's memory, and its tooltip adds the plugins' summed share
-of each audio block. It sits right of the header's engine switch, with the connection light and the
+of each audio block. It sits in the header's engine health, with the connection light and the
 latency (`EngineLink.tsx`), and not beside this meter: the figure is the engine's, not this
 project's — every session on that engine counts in it. Why memory is the process's and not a node's is
 `engine/k7-runtime/docs/load.md`; the node's own CPU is on its card. Rounded to whole megabytes

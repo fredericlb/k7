@@ -17,13 +17,15 @@ and opens the copy.
 The **Play** button sits in the middle of the header, with **Stop**, the clock, **Loop** and
 **Record** beside it. **Space** does the same as Play.
 
-To make sound, k7 needs an **audio engine**. The header says where the sound comes out:
+To make sound, k7 needs an **audio engine**. The engine is chosen in one place: the foot of the
+sidebar (the **☰** at the left of a project's header opens it), which says where the sound comes out,
+with a **Change** button and the engine's figures right below:
 
 - **Sound on <machine>** — an engine on that computer is playing, through *its* speakers or audio
   interface. If that is not the computer in front of you, you will not hear it here.
 - **Sound in this browser** — the server's engine is playing, streamed to this page.
 - **No sound — choose an engine** — nothing is playing yet. Start the k7 tray on this
-  computer and open k7 from its menu, or click the label and pick an engine from the list.
+  computer and open k7 from its menu, or press **Change** and pick an engine from the list.
 
 The project opens and stays editable either way; the bar along the bottom says what it is still
 waiting for.

@@ -231,14 +231,22 @@ gesture that ends a session — a whole-page navigation. The drawer is loaded on
 carries the media library's and the rehearsal pages' sections. On a frozen share there is no
 hamburger and the name is plain text (`docs/shared.md`).
 
-**The engine is named right after it** (`components/EngineSwitch.tsx`), because which machine plays
-the song is the first thing to check when it sounds wrong or not at all. It is said as WHERE THE
-SOUND COMES OUT — "Sound on <machine>", or "Sound in this browser" when the engine streams to the
-page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at home is silent with no
-other clue; with no engine it reads "No sound — choose an engine", in amber. Its menu lists the engines
-MEASURED when it opens, not a list kept from the gate, and picking one moves the project there
-without the full-screen picker: the files are the server's, so a switch costs the playing position
-and nothing else. An engine another tab or person holds is shown and refused before the click.
+**There is ONE engine selector, at the foot of the sidebar** (`components/SidebarEngine.tsx`), above
+the user menu — on the home pages, and in the drawer the header's hamburger opens over a project. Two
+selectors were two answers to "which machine plays", and the sidebar is the one place every screen
+reaches. It says WHERE THE SOUND COMES OUT — "Sound on <machine>", or "Sound in this browser" when the
+engine streams to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at
+home is silent with no other clue; with no engine it reads "No sound — choose an engine". A **Change**
+button beside it opens the engine list, MEASURED when it opens rather than kept, and the engine's
+figures sit right below.
+
+- **In a project** the drawer hands it the gate's live choice: Change is `ui engine`, the gate's
+  list over the project, and a pick remounts the project on that engine — the files are the
+  server's, so a switch costs the playing position and nothing else. The figures are `EngineLink`'s.
+- **On a home page** there is no session: it shows the engine remembered on the account (else the
+  policy's pick), with the probe's latency and performance, and a pick there is remembered on the
+  account, so it is what the next project opens on. The probe is shared for 30 s, since the sidebar
+  remounts on every home route and a probe reaches every engine.
 
 A **warning triangle** follows the name when that engine lacks a plugin the open project uses —
 its compatibility under 100 — and its tooltip says the score and which plugins are missing
@@ -396,9 +404,10 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The **engine's health** sits in the header, right of the engine switch (`components/EngineLink.tsx`):
-the connection light, the Q badge and the engine process's memory. They describe the engine that
-switch names, so they stand beside its name rather than at the far end of the status bar. Q1/Q2/Q3
+The **engine's health** sits in the header, after the project's name (`components/EngineLink.tsx`):
+the connection light, the Q badge and the engine process's memory — and again under the sidebar's
+engine selector, beside the engine they describe. The header keeps them because a dropped link is
+what to see while playing, without opening anything. Q1/Q2/Q3
 off the measured latency is a property of the SESSION rather than of a screen — it decides what you
 can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. The light changes SHAPE as well as colour — a dot when connected, an unplugged
 plug when not — so it reads for someone who cannot tell red from green.
@@ -427,7 +436,7 @@ else.
 A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
 means "show me that page", and the current row is where you are, not a switch left on.
 
-**The project's name, the engine switch and the engine's health fold into one info icon** on the
+**The project's name and the engine's health fold into one info icon** on the
 left (`MobileInfo`), beside the hamburger. Their labels and figures would take the width the
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,

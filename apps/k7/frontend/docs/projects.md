@@ -56,7 +56,8 @@ groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, u
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
 count, and **Find** — what you DRAW ON; then **Rehearsal** — **Sessions**, **Publications**,
 **Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
-one for the page you are on is lit in the accent, and the user menu sits at its foot; below `sm` it folds to an
+one for the page you are on is lit in the accent, the app's one engine selector sits above the user menu at its
+foot (`SidebarEngine.tsx`, `shell.md`), and the user menu last; below `sm` it folds to an
 icon rail, where a rule stands in for a group's title. The same entries in the same place on
 every page say which of them you are on, so none of the others carries a back button of its own.
 
