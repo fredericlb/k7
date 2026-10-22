@@ -69,6 +69,8 @@ export function mountMedia(
     requireAuth: RequestHandler;
     port: number;
     tokens: ReturnType<typeof mediaTokens>;
+    /** Under the tray: what the machine's engine does as a pairing is stored or let go. */
+    onRemote?: Parameters<typeof mountFileHub>[6];
   },
 ): MediaMount {
   const { requireAuth, port, tokens } = opts;
@@ -138,6 +140,7 @@ export function mountMedia(
     filesRoot,
     // Held in memory only: the service it is handed to dies with this process.
     (user) => issueApiToken(user, { ephemeral: true }),
+    opts.onRemote,
   );
 
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.

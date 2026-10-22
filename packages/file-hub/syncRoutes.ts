@@ -21,6 +21,7 @@ import type { attachSyncRelay } from "./syncRelay.ts";
 import { SYNC_PATH } from "./syncRelay.ts";
 import {
   forgetRemote,
+  originOfRelay,
   readRemote,
   readRemotes,
   type SyncRemote,
@@ -54,6 +55,10 @@ export interface SyncContext {
   isLocal?: (req: Request) => boolean;
   /** This backend's port on 127.0.0.1, where a pairing's browser comes back. */
   selfPort?: () => number;
+  /** A pairing stored: the machine's engine is listed at that server with its token (docs/syncRelay.md). */
+  onPaired?: (origin: string, token: string) => void;
+  /** A pairing let go: the machine's engine leaves that server too. */
+  onForgotten?: (origin: string) => void;
 }
 
 export class SyncRoutes {
@@ -78,6 +83,7 @@ export class SyncRoutes {
           : publicOrigin(req),
       ownMain: !this.c.remotePairing,
       selfHost: publicHost,
+      onPaired: this.c.onPaired,
     };
   }
 
@@ -287,7 +293,11 @@ export class SyncRoutes {
         return void res.status(401).json({ error: "no user on the session" });
       // One server by `?url=`, else every one.
       const url = typeof req.query.url === "string" ? req.query.url : undefined;
+      const before = readRemotes(w.home);
       const was = forgetRemote(w.home, url);
+      const after = new Set(readRemotes(w.home).map((r) => r.url));
+      for (const r of before)
+        if (!after.has(r.url)) this.c.onForgotten?.(originOfRelay(r.url));
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: false, was }),
         (e: Error) => res.status(500).json({ error: e.message }),

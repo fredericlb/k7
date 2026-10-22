@@ -1,12 +1,14 @@
 // syncRemote.test.ts — an account's pairings: one MAIN server and others beside it, the file from before
 // secondaries read as the main one, and making another main or forgetting one. See docs/syncRelay.md.
 
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   forgetRemote,
+  originOfRelay,
+  pairedServers,
   readRemote,
   readRemotes,
   setMainRemote,
@@ -71,6 +73,36 @@ describe("an account's pairings", () => {
     expect(readRemotes(h).map((r) => [r.url, r.main])).toEqual([[B, true]]);
     expect(forgetRemote(h)).toBe(true);
     expect(readRemotes(h)).toEqual([]);
+  });
+});
+
+describe("the servers a machine's engine is listed at", () => {
+  it("names a relay's server as the origin the engine heartbeats to", () => {
+    expect(originOfRelay(A)).toBe("https://app.k7.rocks");
+    expect(originOfRelay("ws://127.0.0.1:8789/api/sync")).toBe(
+      "http://127.0.0.1:8789",
+    );
+    expect(originOfRelay("not a url")).toBe("");
+  });
+
+  it("lists every account's pairings with their tokens", () => {
+    const root = home();
+    const ann = join(root, "ann");
+    const bob = join(root, "bob");
+    mkdirSync(ann);
+    mkdirSync(bob);
+    writeRemote(ann, pair(A, true));
+    writeRemote(ann, pair(B, false));
+    writeRemote(bob, pair(B, true));
+    writeFileSync(join(root, "a-file"), "");
+    expect(
+      pairedServers(root).sort((x, y) => x.token.localeCompare(y.token)),
+    ).toEqual([
+      { origin: "https://app.k7.rocks", token: `t-${A}` },
+      { origin: "https://k7.example.org", token: `t-${B}` },
+      { origin: "https://k7.example.org", token: `t-${B}` },
+    ]);
+    expect(pairedServers(join(root, "none"))).toEqual([]);
   });
 });
 

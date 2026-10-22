@@ -7,7 +7,8 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./ports": "./ports.ts"
+    "./ports": "./ports.ts",
+    "./sync-remote": "./syncRemote.ts"
   },
   "scripts": {
     "test": "vitest run",

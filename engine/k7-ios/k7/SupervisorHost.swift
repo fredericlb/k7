@@ -268,16 +268,18 @@ final class SupervisorHost {
         writeSettings(settings)
     }
 
-    /// The device token `origin` paired this phone with, for the supervisor's heartbeat there; read at its next start.
+    /// The device token `origin` paired this phone with: told to a running supervisor, which lists the engine there, and kept for its next start.
     func rememberDeviceToken(origin: String, token: String) {
         if origin.isEmpty || token.isEmpty { return }
         lock.lock()
-        defer { lock.unlock() }
         var settings = readSettings()
         var tokens = settings["deviceTokens"] as? [String: String] ?? [:]
         tokens[origin] = token
         settings["deviceTokens"] = tokens
         writeSettings(settings)
+        lock.unlock()
+        // Outside the lock, which `command` takes: a running supervisor saves its own settings over the file, and keeps this.
+        command("weburi.pair", "\(origin)\u{1f}\(token)")
     }
 
     // What the picker shows for this engine: the name iOS gives an app, which is the model unless entitled to more.

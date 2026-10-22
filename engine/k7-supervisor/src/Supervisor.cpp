@@ -787,6 +787,9 @@ struct Supervisor::Impl {
         const auto key = instanceKey(u);
         std::vector<std::string> kept, dropped;
         for (const auto& p : settings.registryUrls) (instanceKey(p) == key ? dropped : kept).push_back(p);
+        // Its device token goes with it: a studio removed and later added by hand must not prove an account behind the user's back.
+        const auto tokens = std::erase_if(settings.deviceTokens, [&](const auto& t) { return instanceKey(t.first) == key; });
+        if (dropped.empty() && tokens > 0) saveSettings(settings);
         if (dropped.empty()) {
             publish();
             then();
@@ -832,6 +835,35 @@ struct Supervisor::Impl {
         });
     }
 
+    /** `<origin>␟<token>`: the studio an account of this machine paired with, listed with the token that names its owner there. */
+    void weburiPair(const protocol::Command& cmd)
+    {
+        const auto sep = cmd.arg.find(protocol::kUnitSep);
+        const auto origin = url::normaliseUserOrigin(sep == std::string::npos ? cmd.arg : cmd.arg.substr(0, sep));
+        const std::string token = sep == std::string::npos ? "" : cmd.arg.substr(sep + protocol::kUnitSep.size());
+        if (!origin || token.empty()) {
+            reply(cmd.id, false, "weburi.pair wants <origin>\x1f<device token>");
+            return;
+        }
+        const auto reg = url::engineRegistryUrl(*origin);
+        // Probed like an add: the token is only ever sent to a registry that answers as one.
+        loop.work<registry::Probe>([reg] { return registry::probe(reg); },
+                                   [this, cmd, reg, token, o = *origin](registry::Probe p) {
+                                       if (!p.ok) {
+                                           log::line("registry", "not pairing with " + reg + ": " + p.why);
+                                           reply(cmd.id, false, p.why);
+                                           return;
+                                       }
+                                       // Keyed as `headersFor` looks it up, and saved before the list, so the first heartbeat carries it.
+                                       if (settings.deviceTokens[reg] != token) {
+                                           settings.deviceTokens[reg] = token;
+                                           saveSettings(settings);
+                                           log::line("registry", "paired with " + reg + ": its heartbeats name the account's owner there");
+                                       }
+                                       addRegistry(o, [this, cmd, o] { reply(cmd.id, true, o); });
+                                   });
+    }
+
     void audioPriority(const protocol::Command& cmd)
     {
         // The WHOLE ranking, in one command: a reorder is one act.
@@ -873,6 +905,8 @@ struct Supervisor::Impl {
             startEngine([this, cmd](bool up) { reply(cmd.id, up, snap.error); });
         } else if (c == "weburi.add") {
             weburiAdd(cmd);
+        } else if (c == "weburi.pair") {
+            weburiPair(cmd);
         } else if (c == "weburi.remove") {
             removeInstance(cmd.arg, [this, cmd] { reply(cmd.id, true); });
         } else if (c == "registry.deregister") {
@@ -979,6 +1013,8 @@ void Supervisor::start()
                                  ") — quit it first");
     s.timers.push_back(s.loop.every(Ms(hostlock::kRefreshMs), [] { hostlock::refresh(); }));
     s.settings = loadSettings();
+    // Once: a studio this machine holds a token for, from before a pairing listed the engine, is listed now.
+    if (listPairedStudios(s.settings)) saveSettings(s.settings);
     s.identity = ensureEngineIdentity();
     s.registryUrls = registry::resolve(s.settings.registryUrls);
     s.enginePort->store(s.settings.port);

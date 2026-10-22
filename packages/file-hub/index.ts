@@ -57,7 +57,7 @@ import {
   type SyncRemote,
   syncTarget,
 } from "./syncRemote.ts";
-import { SyncRoutes } from "./syncRoutes.ts";
+import { type SyncContext, SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
@@ -92,6 +92,8 @@ export interface FileHubOptions
   isLocal?: (req: Request) => boolean;
   /** DEV: stop every instance when the file service's source changes — sourceWatch.ts. */
   watchSources?: boolean;
+  /** A pairing stored or let go: the machine's engine follows it — docs/syncRelay.md, "The engine follows the account". */
+  onRemote?: Pick<SyncContext, "onPaired" | "onForgotten">;
   log?: (msg: string) => void;
 }
 
@@ -189,6 +191,7 @@ export class FileHub {
       remotePairing: opts.remotePairing === true,
       isLocal: opts.isLocal,
       selfPort: opts.selfPort,
+      ...opts.onRemote,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
     for (const r of pairedAccounts(resolve(opts.dataRoot)))

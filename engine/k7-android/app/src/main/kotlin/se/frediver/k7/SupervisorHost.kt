@@ -189,7 +189,7 @@ object SupervisorHost {
         file.writeText(settings.put("registryUrls", pinned).toString(2))
     }
 
-    /** The device token `origin` paired this phone with, for the supervisor's heartbeat there; read at its next start. */
+    /** The device token `origin` paired this phone with: told to a running supervisor, which lists the engine there, and kept for its next start. */
     fun rememberDeviceToken(context: Context, origin: String, token: String) {
         if (origin.isEmpty() || token.isEmpty()) return
         val home = EngineBridge.stateDir(context.applicationContext)
@@ -203,6 +203,8 @@ object SupervisorHost {
             tmp.writeText(settings.put("deviceTokens", tokens.put(origin, token)).toString(2))
             if (!tmp.renameTo(file)) file.writeText(tmp.readText()).also { tmp.delete() }
         }
+        // A running supervisor saves its own settings over the file: the command is what it keeps (engine/k7-supervisor/docs/hostProtocol.md).
+        command("weburi.pair", "$origin\u001f$token")
     }
 
     // What the picker shows for this engine: the name the user gave the phone, else its model.

@@ -30,6 +30,8 @@ export interface PairContext {
   ownMain: boolean;
   /** The host this backend is reached at, which it cannot pair with. */
   selfHost: (req: Request) => string;
+  /** A pairing stored, with the server's origin and its token: the machine's engine is listed there. */
+  onPaired?: (origin: string, token: string) => void;
 }
 
 /** The longest one GET /:state holds before answering a pairing still waiting. */
@@ -101,8 +103,14 @@ export function pairRouter(c: PairContext): Router {
       return void res.status(400).json({ error: "origin is no k7 server" });
     if (hostOf(origin) === c.selfHost(req))
       return void res.status(400).json({ error: "that is this server" });
-    if (hostsOf(email).has(hostOf(origin)))
+    if (hostsOf(email).has(hostOf(origin))) {
+      // Synced already: asked again, the engine is listed back there with the token it holds.
+      const held = readRemotes(c.accountDir(accountKey(email))).find(
+        (s) => hostOf(s.url) === hostOf(origin),
+      );
+      if (held) c.onPaired?.(origin, held.token);
       return void res.status(409).json({ error: "already paired there" });
+    }
     // A server is named after itself on the other one's list of devices.
     const name =
       (c.ownMain ? c.selfHost(req) : String(req.body?.name ?? "").trim()) ||
@@ -205,6 +213,8 @@ export function pairReturnHandler(c: PairContext): RequestHandler {
         main: p.main,
       });
       await c.restart(p.email);
+      // The engine follows the account: listed at that server, its heartbeats name this account its owner there.
+      c.onPaired?.(p.origin, token);
       return ending(
         c.store.settle(p.state, "paired") ?? { ...p, phase: "paired" },
       );

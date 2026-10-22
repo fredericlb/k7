@@ -10,6 +10,7 @@ import {
   FILE_HUB_INTERNAL,
   FILE_HUB_PATH,
   FileHub,
+  type FileHubOptions,
   PUBLIC_LIBRARIES_PATH,
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
@@ -39,6 +40,7 @@ export function mountFileHub(
   port: number,
   dataRoot: string,
   issueApiToken: (sub: string) => string,
+  onRemote?: FileHubOptions["onRemote"],
 ): FileHub {
   const hub = new FileHub({
     dataRoot,
@@ -60,6 +62,8 @@ export function mountFileHub(
     // The tray and the phones follow a main server; a server stays its accounts' main one, others beside it (docs/fileHub.md).
     remotePairing: process.env.STUDIO_LOCAL_USER === "1",
     isLocal: (req) => (req.user as SessionUser | undefined)?.local === true,
+    // Under the tray, the machine's engine follows each pairing (../localEngine/followPairings.ts).
+    onRemote,
     // Stable across restarts, so an open page keeps its ticket through a deploy.
     ticketKey: process.env.SESSION_SECRET
       ? `${process.env.SESSION_SECRET}:files`

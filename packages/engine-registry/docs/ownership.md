@@ -28,7 +28,8 @@ owner check and every claim check compare one name. Shares are emails, compared 
 ## How an engine gets an owner
 
 From its heartbeat. A supervisor that added this server holds a **device token** the server minted
-for the account that added it (`packages/file-hub/docs/fileHub.md`), and sends it with every
+for the account that added it — the sync pairing's own, handed over by `weburi.pair`
+(`packages/file-hub/docs/syncRelay.md`, "The engine follows the account") — and sends it with every
 heartbeat. `deviceOf` turns it into that account's email, and the engine is that account's from the
 first heartbeat on: no open, no approval, nothing the person does twice.
 

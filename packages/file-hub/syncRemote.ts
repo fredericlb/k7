@@ -131,6 +131,34 @@ export function pairedAccounts(dataRoot: string): SyncRemote[] {
   });
 }
 
+/** The server a relay URL belongs to, as an https origin: `wss://app.k7.rocks/api/sync` → `https://app.k7.rocks`. */
+export function originOfRelay(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.protocol === "ws:" ? "http:" : "https:"}//${u.host}`;
+  } catch {
+    return "";
+  }
+}
+
+/** Every pairing of every account under `dataRoot`, as the server's origin and its token: what a machine's engine is listed at. */
+export function pairedServers(
+  dataRoot: string,
+): { origin: string; token: string }[] {
+  let names: string[] = [];
+  try {
+    names = readdirSync(dataRoot);
+  } catch {
+    return [];
+  }
+  return names.flatMap((n) =>
+    readRemotes(join(dataRoot, n)).flatMap((r) => {
+      const origin = originOfRelay(r.url);
+      return origin ? [{ origin, token: r.token }] : [];
+    }),
+  );
+}
+
 /** Where an account's service syncs: its MAIN server by its device token, the others beside it, else this hub's own relay `own`. */
 export function syncTarget(
   own: string,

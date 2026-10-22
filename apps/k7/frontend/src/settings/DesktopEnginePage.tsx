@@ -5,9 +5,12 @@
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
+import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
 import { PageFrame } from "../projects/PageFrame";
+import { AccountStatusNote } from "../tabs/AccountStatusNote";
+import { accountBridge } from "../tabs/bridge";
 import {
   type DesktopEngineSnapshot,
   engineCommand,
@@ -71,6 +74,16 @@ export function DesktopEnginePage() {
   const lanOpen = s?.lanOpen ?? false;
   const move = (from: number, to: number) =>
     engineCommand("audio.priority", moveDevice(names, from, to).join(SEP));
+  // A server is added by pairing the account with it, which the machine's local user has none of.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    void fetch("/auth/me", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b: { user?: { local?: boolean } } | null) =>
+        setSignedIn(!!b?.user && !b.user.local),
+      )
+      .catch(() => setSignedIn(false));
+  }, []);
 
   return (
     <HomeShell>
@@ -206,12 +219,17 @@ export function DesktopEnginePage() {
                   row.removable && new URL(row.url).origin !== location.origin,
               }))}
               check={s?.instanceCheck ?? undefined}
-              add={(url) => {
-                if (window.confirm(m["engine.connectConfirm"]({ url })))
-                  engineCommand("weburi.add", url);
-              }}
+              // Paired through the browser: the account syncs there, and the engine is listed with its token (docs/settings.md).
+              add={
+                signedIn
+                  ? (url) => void accountBridge()?.addServer?.(url)
+                  : undefined
+              }
+              addHint={signedIn === false ? m["engine.serversSignIn"]() : null}
+              // The engine leaves that server; the account keeps syncing with it.
               remove={(url) => engineCommand("weburi.remove", url)}
             />
+            <AccountStatusNote />
             <InstrumentsSection snapshot={s} send={engineCommand} />
 
             <Section
