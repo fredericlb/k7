@@ -194,6 +194,7 @@ export interface LibraryLabels {
     unownedHint: string;
     share: string;
     shareHint: string;
+    shareEveryone: string;
     sharePlaceholder: string;
     shareSave: string;
     shareSaved: string;

@@ -45,6 +45,8 @@ export function accessLabel(
 export interface EngineShares {
   owner: string;
   shared: string[];
+  /** Shared with every signed-in account of this server. */
+  everyone: boolean;
   since: number;
 }
 
@@ -63,11 +65,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** The owner's three calls; every other account is answered 404, as if the engine had no owner. */
 export const engineShares = {
   load: (id: string) => call<EngineShares>(`${encodeURIComponent(id)}/shares`),
-  save: (id: string, emails: string[]) =>
-    call<{ ok: true; shared: string[] }>(`${encodeURIComponent(id)}/shares`, {
-      method: "PUT",
-      body: JSON.stringify({ emails }),
-    }),
+  save: (id: string, emails: string[], everyone: boolean) =>
+    call<{ ok: true; shared: string[]; everyone: boolean }>(
+      `${encodeURIComponent(id)}/shares`,
+      { method: "PUT", body: JSON.stringify({ emails, everyone }) },
+    ),
   giveUp: (id: string) =>
     call<{ ok: true }>(`${encodeURIComponent(id)}/owner`, {
       method: "DELETE",

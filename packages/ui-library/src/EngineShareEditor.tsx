@@ -1,11 +1,12 @@
 // EngineShareEditor.tsx — under an engine row of the Engines card, for its OWNER only: the
-// accounts it is shared with, edited as one list of emails, and the way to give the engine up.
-// The server decides who may (packages/engine-registry/docs/ownership.md); this only asks it.
+// accounts it is shared with, edited as one list of emails or as everyone on this server, and the
+// way to give the engine up. The server decides who may (packages/engine-registry/docs/ownership.md).
 
 import { Button } from "@frediverse/ui/button";
 import { Loader2, Share2 } from "@frediverse/ui/icons";
+import { Switch } from "@frediverse/ui/switch";
 import { Textarea } from "@frediverse/ui/textarea";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { engineShares, parseShares } from "./engineShares";
 import { useLabels } from "./host";
 
@@ -20,6 +21,8 @@ export function EngineShareEditor({
   const l = useLabels().engines;
   const [open, setOpen] = useState(false);
   const [text, setText] = useState<string | null>(null);
+  const [everyone, setEveryone] = useState(false);
+  const everyoneId = useId();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -40,7 +43,9 @@ export function EngineShareEditor({
     setOpen(true);
     if (text === null)
       void run(async () => {
-        setText((await engineShares.load(id)).shared.join("\n"));
+        const s = await engineShares.load(id);
+        setText(s.shared.join("\n"));
+        setEveryone(s.everyone === true);
       });
   };
 
@@ -48,8 +53,9 @@ export function EngineShareEditor({
   const save = () =>
     run(async () => {
       if (!parsed.ok) return;
-      const r = await engineShares.save(id, parsed.emails);
+      const r = await engineShares.save(id, parsed.emails, everyone);
       setText(r.shared.join("\n"));
+      setEveryone(r.everyone === true);
       setNote(l.shareSaved);
     });
   const giveUp = () =>
@@ -69,6 +75,15 @@ export function EngineShareEditor({
   return (
     <div className="mt-2 flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">{l.shareHint}</p>
+      <div className="flex items-center gap-2 text-sm">
+        <Switch
+          id={everyoneId}
+          checked={everyone}
+          onCheckedChange={setEveryone}
+          disabled={busy || text === null}
+        />
+        <label htmlFor={everyoneId}>{l.shareEveryone}</label>
+      </div>
       <Textarea
         value={text ?? ""}
         onChange={(e) => setText(e.target.value)}
@@ -92,7 +107,7 @@ export function EngineShareEditor({
         <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
           {l.close}
         </Button>
-        {/* Two clicks, inline: the next account to open it directly becomes its owner. */}
+        {/* Two clicks, inline: the engine has no owner here until its machine's next proven heartbeat. */}
         <Button
           variant={confirming ? "destructive" : "ghost"}
           size="sm"
