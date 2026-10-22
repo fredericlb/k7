@@ -240,6 +240,7 @@ one to open its timeline and edit it there.
 | `timeline lane new` / `timeline lane remove` | Add or remove one of its lanes. |
 | `timeline lane copy <lane> <timeline\|main>` | Copy a lane's events onto another timeline, or into Main — a video lane's shots too, also from its right-click. |
 | `picture lane new <timeline>><lane>` | Give a timeline a video lane of its own. |
+| `picture lane rename` / `picture lane delete` | Rename or delete a video lane — also on its right-click, which offers what an audio lane's does wherever a video lane has the same act. |
 | `timeline play [timeline]` | Hear one alone; bare, the song again. |
 
 To put a timeline on a lane, **drag its tab onto the lane**: it lands where you drop it, snapped to

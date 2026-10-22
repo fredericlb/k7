@@ -328,23 +328,52 @@ describe("a picture lane", () => {
       help: "solo a lane",
       args: [a("lane", "file", "pictureLanes")],
     },
+    {
+      command: "picture lane delete",
+      help: "delete a lane",
+      args: [a("lane", "file", "pictureLanes")],
+      menu: ["picture" as const],
+      confirm: true,
+    },
   ];
 
-  it("asks where to copy the song's lane, and toggles it", () => {
+  it("offers a song lane an audio lane's rows, in their order, where picture has the act", () => {
     const menu = contextMenu({ kind: "picture-lane", lane: "cam" }, catalogue);
     expect(lines(menu)).toEqual([
+      "picture lane order cam ",
+      "timeline lane copy cam main",
+      "picture lane rename cam ",
       "timeline lane copy cam ",
       "picture mute cam",
       "picture solo cam",
+      "picture lane delete cam",
+      "picture add cam ",
+      "ui picture arm cam",
+      "ui file video_tracks/cam.k7x",
     ]);
+    // The duplicate is the copy into Main, named for what it does beside the copy that asks where.
+    expect(labels(menu)[1]).toBe("duplicate");
   });
 
-  it("offers a timeline's lane the copy alone — its frame and visibility are the song lane's", () => {
+  it("offers a timeline's lane none of the song lane's own — frame, visibility, order, camera", () => {
     const menu = contextMenu(
       { kind: "picture-lane", lane: "verse>cam" },
       catalogue,
     );
-    expect(lines(menu)).toEqual(["timeline lane copy verse>cam "]);
+    expect(lines(menu)).toEqual([
+      "picture lane rename verse>cam ",
+      "timeline lane copy verse>cam ",
+      "picture lane delete verse>cam",
+      "picture add verse>cam ",
+      "ui file timelines/verse.k7x",
+    ]);
+  });
+
+  it("asks before a delete, as a track's does", () => {
+    const menu = contextMenu({ kind: "picture-lane", lane: "cam" }, catalogue);
+    expect(menu.find((i) => i.verb === "picture lane delete")?.confirm).toBe(
+      true,
+    );
   });
 });
 

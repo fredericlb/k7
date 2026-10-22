@@ -178,7 +178,7 @@ than the command name.
 
 ## What is still written by hand, and why
 
-Six things the catalogue genuinely cannot say. Each is a row the derivation does not produce, and
+Seven things the catalogue genuinely cannot say. Each is a row the derivation does not produce, and
 `menu:` is no help with any of them: it can only take rows AWAY. They are worth listing, because each is a
 question about a HANDLER, and the catalogue only describes arguments.
 
@@ -206,6 +206,16 @@ question about a HANDLER, and the catalogue only describes arguments.
   ("Loop selection" / "Clear loop") rather than offered as a toggle that might do nothing. The
   ruler's own press ignores a macOS Ctrl+click: that is the menu's gesture, and answered as a
   click it would clear the very selection the menu is about to loop.
+
+- **A picture lane.** It is an audio lane's menu in picture's words, written out because the two
+  families do not line up argument for argument: every `picture` verb about a SHOT also takes the
+  lane first, so deriving on the lane would offer `move`, `head` and `split` with no shot in hand.
+  Each audio row is matched by the picture verb doing the same act — order, rename, copy, mute, solo,
+  delete, add, arm, the file — and `duplicate` is the copy into Main. What has no picture act is left
+  out rather than offered to fail: highlight, input, process, automation, the MIDI takes, hide (a
+  picture lane's mute IS hidden). A timeline's lane keeps only what is its own: rename, copy, delete,
+  add and its timeline's file, since order, visibility and the camera belong to the song lane it
+  draws on. The rows still pass through `menu:` (the `picture` entity).
 
 One more derivation worth knowing is not an exception: an **engine module** gets `module own`
 because its `@engine/…` id genuinely IS a base-module ref.

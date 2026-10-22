@@ -34,6 +34,7 @@ import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PICTURE_IMPORT_VERBS } from "./verbs/pictureImport.ts";
 import { PICTURE_INTERCHANGE_VERBS } from "./verbs/pictureInterchange.ts";
 import { PICTURE_KEY_VERBS } from "./verbs/pictureKeys.ts";
+import { PICTURE_LANE_VERBS } from "./verbs/pictureLane.ts";
 import { PICTURE_MEDIA_VERBS } from "./verbs/pictureMedia.ts";
 import { PICTURE_RENDER_VERBS } from "./verbs/pictureRender.ts";
 import { PICTURE_SOUND_VERBS } from "./verbs/pictureSound.ts";
@@ -158,6 +159,7 @@ export const VERB_TABLES: readonly Record<string, SidHandler>[] = [
   PLAYLIST_VERBS,
   LIBRARY_VERBS,
   PICTURE_VERBS,
+  PICTURE_LANE_VERBS,
   PICTURE_SOUND_VERBS,
   PICTURE_KEY_VERBS,
   PICTURE_SPEED_VERBS,

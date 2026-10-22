@@ -134,6 +134,22 @@ lanes are files, not something the song's own document holds.
 It refuses a name a lane, a track or a module already has: the graph draws a song's lanes and its
 picture lanes in one name space.
 
+## `picture lane rename` and `delete` follow the name into six places
+
+A picture lane is named by its file, `project.layers`, `soloed:`, the graph (`graph.k7x`, or its
+item in `chains/`), the `video_source` of a lane sounding it, and every timeline lane of its name,
+which draws on it. A rename that missed one would leave that one naming nothing, which the compile
+refuses or, worse, draws as nothing. So `rename` rewrites all six, and a timeline lane keeps the old
+name only where the new one is taken in its timeline, saying so.
+
+`delete` is a track's: it asks first (`confirm:`), takes the lane out of the graph rejoining around
+it, and leaves its clips on disk. It refuses while a lane plays its sound, since that lane would
+then be refused by the compile; it does not delete the sounding lane for you, that being a
+track with a fader and a chain. A timeline lane drawing on a deleted one is left, and named in the
+log: it is the timeline's content, and `picture lane new` brings a lane for it back. Both refuse a
+lane a surface maps, as `track rename` and `track delete` do. On `<timeline>><lane>` they act on
+that timeline's file alone.
+
 ## `picture add` reports rather than refuses
 
 The `ref` names a `clips/` entry, and only the compiler reads those. A ref with no file is

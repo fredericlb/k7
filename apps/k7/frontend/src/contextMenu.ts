@@ -562,16 +562,49 @@ export function contextMenu(
       ]);
     }
     case "picture-lane": {
-      /** Written out, as a shot's are: the copy asks where to, and the toggles are the song lane's alone (docs/picture.md). */
+      /** An audio lane's rows, in its order, where a picture lane has the same act — docs/contextMenu.md. */
       const lane = quoteArg(ctx.lane);
-      return offer([
+      const tl = timelineLaneOf(ctx.lane);
+      const shared: Entry[] = [
+        { verb: "picture lane rename", arg: `${lane} `, needsMore: true },
         { verb: "timeline lane copy", arg: `${lane} `, needsMore: true },
-        ...(timelineLaneOf(ctx.lane)
-          ? []
-          : [
-              { verb: "picture mute", arg: lane },
-              { verb: "picture solo", arg: lane },
-            ]),
+      ];
+      const shot: Entry = {
+        verb: "picture add",
+        arg: `${lane} `,
+        needsMore: true,
+      };
+      // A timeline's lane: its frame, visibility, order and camera are the song lane's it draws on.
+      if (tl)
+        return offer([
+          ...shared,
+          { verb: "picture lane delete", arg: lane },
+          shot,
+          {
+            verb: "ui file",
+            arg: `timelines/${tl.timeline}.k7x`,
+            help: "open the timeline's file, which holds this lane",
+          },
+        ]);
+      return offer([
+        { verb: "picture lane order", arg: `${lane} `, needsMore: true },
+        {
+          verb: "timeline lane copy",
+          arg: `${lane} main`,
+          name: "duplicate",
+          help: "copy this lane within the song — its shots and its frame",
+        },
+        ...shared,
+        { verb: "picture mute", arg: lane },
+        { verb: "picture solo", arg: lane },
+        { verb: "picture lane delete", arg: lane },
+        shot,
+        { verb: "ui picture arm", arg: lane },
+        {
+          verb: "ui file",
+          arg: `video_tracks/${ctx.lane}.k7x`,
+          help: "open the lane's own file, video_tracks/<id>.k7x",
+        },
       ]);
     }
     case "pad": {

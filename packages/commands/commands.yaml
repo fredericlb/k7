@@ -1530,6 +1530,32 @@
       { name: lane, complete: pictureLanes },
       { name: position, hint: "1-based in `layers`, bottom first" },
     ]
+# A picture lane's `track rename` and `track delete`: the lane is named in its file, `layers:`,
+# `soloed:`, the graph, a sounding lane's `video_source` and the timelines drawing on it, and both
+# follow it everywhere (src/verbs/pictureLane.ts).
+- command: "picture lane rename"
+  sid: picture.laneRename
+  readable:
+    en: "Rename a picture lane and its file"
+    fr: "Renommer une piste vidéo et son fichier"
+  help: "rename a video lane, and every place that names it (e.g. picture lane rename layer-1 broll)"
+  surfaces: [cli]
+  menu: [picture]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: name, hint: "the new name, which is its filename" },
+    ]
+- command: "picture lane delete"
+  sid: picture.laneDelete
+  readable:
+    en: "Delete a picture lane"
+    fr: "Supprimer une piste vidéo"
+  help: "delete a video lane — its file, its layer and its wiring; its clips stay on disk (e.g. picture lane delete broll)"
+  surfaces: [cli]
+  menu: [picture]
+  confirm: true
+  args: [{ name: lane, complete: pictureLanes }]
 # WHERE in the frame a lane draws, in viewport px — the one picture verb about geometry rather
 # than about time. A lane stating no rect fills the frame, so this is what a viewport drag writes
 # the moment you move or resize one. See apps/k7/frontend/docs/picture.md.
