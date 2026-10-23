@@ -65,7 +65,7 @@ Behind the session, under `/api/engines` (`ownershipRoutes.ts`):
 | `GET /engines/:id/shares` | the owner, an admin | `{ owner, shared, everyone, since }` |
 | `PUT /engines/:id/shares` `{ emails, everyone? }` | the owner | replaces the list (at most `MAX_SHARED`), and the flag when given; a removed account's claims end now |
 | `DELETE /engines/:id/owner` | the owner, an admin | the record goes; the next proven heartbeat assigns it again |
-| `GET /engines/owners` | an admin | every record |
+| `GET /engines/owners` | an admin | every record, with its machine's `hostname` and whether it is `online` |
 
 Anyone else gets `404 not-yours` from the first three — the same answer as for an engine nobody
 owns, so a stranger cannot probe which ids are owned. An admin is `isAdmin` as the host defines it;

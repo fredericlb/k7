@@ -121,8 +121,8 @@ if (!LOCAL_USER) {
 // The root domain and www.: one page, before the session and everything else (./sitePage.ts).
 app.use(sitePage(siteHostsFromEnv()));
 
-// Empty stays undefined, not []: setupAuth falls back on nullish only, and [] asks for NO scopes.
-const scopes = (process.env.OIDC_SCOPES ?? "")
+// Empty means k7's own default, not the package's: without `groups` every session is no admin.
+const scopes = (process.env.OIDC_SCOPES || "openid profile email groups")
   .split(/[\s,]+/)
   .filter((s) => s !== "");
 
@@ -134,7 +134,7 @@ const auth = await setupAuth(app, {
   // The env.yaml section, which is the PACKAGE name here as everywhere else.
   service: "k7-backend",
   // Dropping `groups` would 403 every admin surface — see ../../AGENTS.md, § The backend in detail.
-  ...(scopes.length > 0 ? { scopes } : {}),
+  scopes,
 });
 const { requireAuth } = auth;
 // Under the tray: the machine's supervisor, run by this backend, for k7's pages and the tray (./localEngine/).

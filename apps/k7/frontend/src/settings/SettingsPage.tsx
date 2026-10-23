@@ -3,7 +3,11 @@
 // engines, and on the phone this phone's engine) and Media (the hunt's slskd access, the rehearsal pages' token).
 // A page and not a panel: it is visited on purpose and rarely. See ../../docs/settings.md.
 
-import { EnginesSettings, SlskdSettings } from "@studio/ui-library/settings";
+import {
+  EngineOwnersSettings,
+  EnginesSettings,
+  SlskdSettings,
+} from "@studio/ui-library/settings";
 import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { useLocalApp } from "../localApp";
@@ -76,6 +80,8 @@ export function SettingsPage() {
         {/* The media library's card, which reads its labels and its configured API. */}
         <MediaHost>
           <EnginesSettings />
+          {/* Admins only: a 403 draws nothing. */}
+          <EngineOwnersSettings />
         </MediaHost>
       </>
     ),

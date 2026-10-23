@@ -34,7 +34,7 @@ The keys you need in dev:
 | `STUDIO_FILES_ROOT` | `k7-backend` | **Required.** Where the accounts' workspaces live; the backend exits without it. |
 | `STUDIO_MEDIATEK` | `k7-backend` | The media library folder. Defaults to `~/.k7/mediatek`. |
 | `SESSION_SECRET` | `common` | Signs the session cookie. |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SCOPES` | `common` | Leave empty to sign in as the "Dev User" stub. `OIDC_SCOPES` must include `groups` for admin checks to work. |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SCOPES` | `common` | Leave empty to sign in as the "Dev User" stub. `OIDC_SCOPES` empty is `openid profile email groups`; a value set must include `groups` for admin checks to work. |
 | `AUTH_ADMIN_GROUPS` | `k7-backend` | OIDC groups whose members edit the shared libraries. |
 | `API_TOKEN_SECRET` | `k7-backend` | Written by `npm run tokens`; falls back to a value derived from `SESSION_SECRET`. |
 | `COOKIE_DOMAIN` | `common` | Leave empty for local http: setting it forces `Secure` and `SameSite=None`. |

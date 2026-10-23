@@ -58,7 +58,11 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     signal: AbortSignal.timeout(10_000),
   });
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(body.error ?? `engines ${res.status}`);
+  // The status rides along: a 403 from the admins' route is a card to hide, not an error to show.
+  if (!res.ok)
+    throw Object.assign(new Error(body.error ?? `engines ${res.status}`), {
+      status: res.status,
+    });
   return body;
 }
 
@@ -74,4 +78,17 @@ export const engineShares = {
     call<{ ok: true }>(`${encodeURIComponent(id)}/owner`, {
       method: "DELETE",
     }),
+};
+
+/** One owned engine as an admin reads it: the record, its machine's name, whether it beats now. */
+export interface EngineOwnerRecord extends EngineShares {
+  id: string;
+  hostname: string | null;
+  online: boolean;
+}
+
+/** The admins' two calls; anyone else is answered 403 on the list. */
+export const engineOwners = {
+  list: () => call<EngineOwnerRecord[]>("owners"),
+  reset: (id: string) => engineShares.giveUp(id),
 };

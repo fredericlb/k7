@@ -32,7 +32,13 @@ export function ownershipRouter(
     "/engines/owners",
     wrap((req, res) => {
       if (!isAdmin(req)) return res.status(403).json(notYours);
-      res.json(owners.all().map(([id, o]) => ({ id, ...o })));
+      // The machine's name and whether it beats now: an admin sees no other account's engine in the listing.
+      res.json(
+        owners.all().map(([id, o]) => {
+          const e = reg.get(id);
+          return { id, ...o, hostname: e?.hostname ?? null, online: !!e };
+        }),
+      );
     }),
   );
 

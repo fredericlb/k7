@@ -300,10 +300,10 @@ Two traps in `server.ts` that read as ordinary lines:
 **`OIDC_SCOPES` must keep `groups`.** The library admins, and the deletion of a public rehearsal
 song, are gated on group membership (`AUTH_ADMIN_GROUPS`). `@frediverse/oidc` defaults to
 `openid profile email`, which puts an **empty** groups array in every session and 403s every admin
-surface with nothing to explain it. The value comes from `env.yaml`'s `common`, which already reads
-`openid profile email groups`. Note also that the code passes `scopes` only when non-empty: the
-package falls back on nullish only, so an empty array asks the IdP for *no* scopes rather than for
-its defaults.
+surface with nothing to explain it. So an empty or unset `OIDC_SCOPES` does not mean the package's
+default here: `server.ts` falls back on `openid profile email groups`, which is what a deployment
+whose `.env` leaves the variable blank gets. A value that is set replaces it whole, and must name
+`groups` itself.
 
 **The prefs zod schema is the GATE, not a description.** A zod object strips what it does not
 declare, so a field the frontend saves and `prefsSchema` does not name would be accepted, answered
