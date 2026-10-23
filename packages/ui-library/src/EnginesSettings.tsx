@@ -63,6 +63,7 @@ function EngineRow({
               {access}
             </Badge>
           )}
+          {e.server && e.access === "owner" && <Badge>{l.server}</Badge>}
           {remembered && <Badge>{l.chosen}</Badge>}
         </div>
         <div className="text-xs text-muted-foreground">
@@ -80,7 +81,8 @@ function EngineRow({
           {e.sameSourceIp && ` · ${l.sameNetwork}`}
           {held && ` · ${held}`}
         </div>
-        {e.access === "owner" && (
+        {/* The server's engine is every account's to use: its admins own it with nothing to share or give up. */}
+        {e.access === "owner" && !e.server && (
           <EngineShareEditor id={e.id} onGivenUp={onChanged} />
         )}
       </div>

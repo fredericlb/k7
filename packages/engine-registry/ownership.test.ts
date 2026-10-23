@@ -273,6 +273,25 @@ describe("select, listing and the share routes", () => {
     expect(fresh?.addresses.lanIps).toEqual([]);
   });
 
+  it("lists the server's engine as its admins' own, still taken unasked, and everyone else's to use", async () => {
+    const list = async (user: string) =>
+      (
+        (await r.call(user, "GET", "/engines")).body as {
+          id: string;
+          access: string;
+          server?: boolean;
+        }[]
+      ).find((e) => e.id === "srv");
+    expect(await list("root@x")).toMatchObject({
+      access: "owner",
+      server: true,
+    });
+    expect(await list("eve@x")).toMatchObject({
+      access: "server",
+      server: true,
+    });
+  });
+
   it("names the owner to a shared account", async () => {
     r.reg.owners.assign("e1", "ann@x");
     r.reg.owners.share("e1", ["bob@x"]);

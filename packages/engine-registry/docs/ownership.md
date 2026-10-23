@@ -11,11 +11,21 @@ owner **shared** it with them, by email or with **everyone** on this server. Two
 owner at all: the server's own — `server`, its tunnel proved by the render key
 (`packages/engine-tunnel/docs/jobs.md`) — and an engine on this backend's own machine.
 
+## The server's engine is its admins'
+
+The server's own engine has no record and no heartbeat that proves an account, yet it is the
+server's: an **admin** — `isAdmin` as the host defines it — is its `owner`, and every other account
+lists it as `server`. Both may use it, so the relay and the claims do not tell them apart; what
+differs is what the Engines card says. The listing's `server` flag stays on for an admin too, since
+it is what lets a browser take the engine unasked, and it is about the machine, not the account.
+Its owners share nothing and give nothing up: every account already uses it, and the admins are
+whoever `AUTH_ADMIN_GROUPS` names, which no route here changes.
+
 | role (`PublicEngine.access`) | listed | relay ticket, token through the relay | `select` |
 |---|---|---|---|
 | `owner` | yes | yes | yes |
 | `shared` | yes, with `ownedBy` | yes | yes |
-| `server` | yes | yes | yes |
+| `server` (`owner` to an admin) | yes | yes | yes |
 | `unowned` | yes, LAN addresses only to its own network (`sameSourceIp`) | no | **403** `unowned` |
 | anyone else | **no** — no name, no address | no | **403** `not-yours` |
 
