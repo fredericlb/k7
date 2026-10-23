@@ -4,15 +4,19 @@ Don't create Pull Request, only use branches and woktress
 
 **Every worktree checks out `commons` first**, before any other step and even for a docs-only change:
 an empty `commons/` breaks biome (`biome.json` extends `commons/biome.base.json`), the `@frediverse/*`
-imports and the build. In a WSL worktree: `git -c protocol.file.allow=always submodule update --init commons`
-(the submodule URL is a local path); in a session isolated by EnterWorktree, which refuses that flag,
-copy the clone's `commons/` in and delete the copied submodule's git link. On Windows: `git submodule update --init commons`.
+imports and the build. In a WSL worktree, `node scripts/agent/worktree-init.mjs` does it and builds the
+`node_modules` (a hook runs it once `scripts/agent/claude-settings.json` is installed as `.claude/settings.json`).
+On Windows: `git submodule update --init commons`. The tooling and the guard's limits: `docs/agents.md`.
+
+**Before committing, run `npm run check:changed`**: biome on the changed files, the blocking lints, and
+typecheck + test of the workspaces the branch touches (`--dependents` for the ones importing them).
 
 # Building and testing on Windows from the WSL clone
 
 AGENTS.md's rule stands: nothing is built IN WSL, and Tilt's checkout `C:\Users\flb\Src\k7` is never
 built by hand nor switched to another branch (Tilt watches it and would rebuild the running session).
-What an agent may do is run a Windows build ON Windows, through WSL interop, in a worktree of its own:
+What an agent may do is run a Windows build ON Windows, through WSL interop, in a worktree of its own.
+`scripts/agent/win-verify.sh <branch> <command...>` does the steps below in one call, from the main session:
 
 - **The verify worktree is `C:\Users\flb\Src\k7-verify`**, outside Tilt's tree. A branch reaches it by
   `git push win <branch>`; create it once with `git worktree add --detach C:/Users/flb/Src/k7-verify <branch>`
