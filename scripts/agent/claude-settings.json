@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git rev-parse *)",
+      "Bash(git merge-base *)",
+      "Bash(git ls-files *)",
+      "Bash(npx biome check *)",
+      "Bash(npx vitest run *)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npm run check:changed *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run lint:docs *)",
+      "Bash(npm run lint:bytes *)",
+      "Bash(npm run lint:comments *)",
+      "Bash(npm run test *)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm query *)",
+      "Bash(tilt.exe get *)",
+      "Bash(tilt.exe logs *)",
+      "Bash(tilt.exe describe *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agent/worktree-init.mjs\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "EnterWorktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agent/worktree-init.mjs\"",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agent/biome-on-edit.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

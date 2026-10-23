@@ -40,9 +40,10 @@ dev-dist/
 # stays tracked.
 env.yaml*
 
-# Claude Code's workspace: agent settings, granted permissions, scratch
-# worktrees. Local to each machine and regenerated on demand — never committed.
-.claude/
+# Claude Code's workspace: granted permissions, scratch worktrees — local to each machine.
+# Only the shared settings (hooks, read-only allowlist) are committed: docs/agents.md.
+.claude/*
+!.claude/settings.json
 
 # Per-machine Tilt overrides (e.g. CLAUDE_CONFIG_DIR) — a personal path, not shared config.
 tilt.local.yaml

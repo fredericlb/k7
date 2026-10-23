@@ -2,11 +2,36 @@
 
 Don't create Pull Request, only use branches and woktress
 
+**Every worktree checks out `commons` first**, before any other step and even for a docs-only change:
+an empty `commons/` breaks biome (`biome.json` extends `commons/biome.base.json`), the `@frediverse/*`
+imports and the build. In a WSL worktree, `node scripts/agent/worktree-init.mjs` does it and builds the
+`node_modules` (a hook runs it once `scripts/agent/claude-settings.json` is installed as `.claude/settings.json`).
+On Windows: `git submodule update --init commons`. The tooling and the guard's limits: `docs/agents.md`.
+
+**Before committing, run `npm run check:changed`**: biome on the changed files, the blocking lints, and
+typecheck + test of the workspaces the branch touches (`--dependents` for the ones importing them).
+
+# Merging a branch
+
+A finished branch is merged by the agent, always the same way, without looking for another one:
+
+1. **Commit, `git push win <branch>`, then leave the worktree** (ExitWorktree, `keep`): an isolated
+   session cannot run the Windows git below.
+2. **Merge in the Windows checkout**, with its own git, never WSL's git on `/mnt/c` (it rewrites the
+   index over 9p): `git.exe -C 'C:\Users\flb\Src\k7' merge --no-ff <branch> -m "Merge branch '<branch>': <summary>"`,
+   the summary being the branch's commit subject without its `k7: ` prefix. Leave the checkout's own
+   uncommitted files alone; on a conflict, abort (`merge --abort`), rebase the branch on `win/main` in WSL, push, retry.
+3. **Fast-forward WSL**: `git fetch win && git merge --ff-only win/main` in `~/Src/k7`.
+4. **Restart the backend and frontend in Tilt**: `tilt.exe trigger k7-backend --port 10350` and
+   `tilt.exe trigger k7-frontend --port 10350` (plus any other resource the change touches, and
+   `"(Tiltfile)"` when a `dev` script was added or removed), then check `tilt.exe logs <resource> --port 10350`.
+
 # Building and testing on Windows from the WSL clone
 
 AGENTS.md's rule stands: nothing is built IN WSL, and Tilt's checkout `C:\Users\flb\Src\k7` is never
 built by hand nor switched to another branch (Tilt watches it and would rebuild the running session).
-What an agent may do is run a Windows build ON Windows, through WSL interop, in a worktree of its own:
+What an agent may do is run a Windows build ON Windows, through WSL interop, in a worktree of its own.
+`scripts/agent/win-verify.sh <branch> <command...>` does the steps below in one call, from the main session:
 
 - **The verify worktree is `C:\Users\flb\Src\k7-verify`**, outside Tilt's tree. A branch reaches it by
   `git push win <branch>`; create it once with `git worktree add --detach C:/Users/flb/Src/k7-verify <branch>`

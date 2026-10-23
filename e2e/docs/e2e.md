@@ -113,7 +113,18 @@ and presses it once: a Play that is lost again is a failure, not something to pr
 - **An engine listed at the instance.** On a project, the picker lists only what the registry knows,
   so the supervisor must name the instance in its config — `~/.k7/engine-host.json`:
   `{ "registryUrls": ["https://app.priv.k7.rocks"] }`. Without it every project spec stops at
-  "No engines found". `node e2e/scripts/engines.ts` prints what the e2e account sees.
+  "No engines found". `node e2e/scripts/engines.ts` prints what the e2e account sees. Against the
+  dev session's own registry, that is `{"registryUrls": ["http://localhost:8789"]}`.
+- **A dev `env.yaml`** at the root, with `STUDIO_DEV_AUTH: "1"`, a `SESSION_SECRET`, an
+  `AUTH_ADMIN_GROUPS`, a `STUDIO_FILES_ROOT` and `STUDIO_LIBRARY_SEED: "k7-core=<checkout>/k7-core"`.
+  The files root sits under the engine's state (`~/.k7`) or in `$STUDIO_ENGINE_ROOTS`: the engine
+  refuses every clip and preset path outside its roots.
+- **A library**, created once by an admin session (`PUT /account/libraries` through `/api/files-hub`).
+- **`E2E_BASE_URL=http://localhost:5223`** when the private instance's proxy does not answer.
+
+What fails on a dev session whatever the code: Vite's HMR socket dials `ws://localhost:443` (it is
+configured for the TLS proxy) and a page reports "WebSocket closed without opened"; and Tilt's
+`native` build fails with LNK1168 while another run still holds `k7-supervisor.exe`.
 - **Sound is real**, on either target. The transport spec plays a few seconds of `synth-demo` through
   the engine's output device.
 - **No camera and no microphone.** Chromium runs with fake media devices, granted without a prompt
