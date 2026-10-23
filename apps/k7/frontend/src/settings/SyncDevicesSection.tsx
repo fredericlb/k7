@@ -1,12 +1,13 @@
 // SyncDevicesSection.tsx — live sync's pairings, from both ends: on the tray's backend or the phone, whether this
 // machine syncs the account with an origin and the Unpair that stops it; on the origin, the account's
-// devices, each removable. Both are session routes of the hub this page is served by. See ../../docs/settings.md.
+// devices, each removable, and a token minted for one that pairs by no browser. Both are session routes of the hub this page is served by. See ../../docs/settings.md.
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { onAndroid } from "./androidEngine";
+import { NewDeviceToken } from "./NewDeviceToken";
 import { Action, Row, Section } from "./Section";
 
 interface Remote {
@@ -142,6 +143,7 @@ export function SyncDevicesSection() {
               </Row>
             ))
           )}
+          {!local && <NewDeviceToken onCreated={load} />}
         </>
       )}
       {error && <Row label={m["syncdev.failed"]({ error })} />}
