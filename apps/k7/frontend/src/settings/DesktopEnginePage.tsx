@@ -1,7 +1,7 @@
-// DesktopEnginePage.tsx — `/settings/engine`, this machine's engine as the tray runs it: whether it runs, which audio
-// interface it takes first, whether its network may use it unpaired, its plugins, the servers it is listed at, and the
-// instruments it downloads. What the command-line engine reads from its config file; the tray hands its user no such file.
-// See ../../docs/settings.md.
+// DesktopEnginePage.tsx — `/settings/engine`, this machine's engine as the tray runs it, under four tabs: Engine
+// (whether it runs, which audio interface it takes first, whether its network may use it unpaired), Servers (where
+// it is listed), Instruments (what it downloads) and Plugins. What the command-line engine reads from its config file;
+// the tray hands its user no such file. See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
@@ -22,6 +22,7 @@ import {
 } from "./desktopEngine";
 import { InstrumentsSection } from "./InstrumentsSection";
 import { Action, Row, Section } from "./Section";
+import { SettingsTabs } from "./SettingsTabs";
 import { StudiosSection } from "./StudiosSection";
 
 /** U+001F joins the names `audio.priority` takes (engine/k7-supervisor/docs/hostProtocol.md). */
@@ -85,6 +86,160 @@ export function DesktopEnginePage() {
       .catch(() => setSignedIn(false));
   }, []);
 
+  const engineTab = (
+    <>
+      <Section title={m["engine.title"]()} hint={m["engine.hint"]()}>
+        <Row
+          label={statusLine(s, state?.down ?? null)}
+          detail={s?.engineId ? m["engine.id"]({ id: s.engineId }) : undefined}
+        >
+          {running ? (
+            <>
+              <Action onClick={() => engineCommand("engine.restart")}>
+                {m["engine.restart"]()}
+              </Action>
+              <Action danger onClick={() => engineCommand("engine.stop")}>
+                {m["engine.stop"]()}
+              </Action>
+            </>
+          ) : (
+            <Action disabled={!s} onClick={() => engineCommand("engine.start")}>
+              {m["engine.start"]()}
+            </Action>
+          )}
+        </Row>
+      </Section>
+
+      <Section title={m["engine.audioTitle"]()} hint={m["engine.audioHint"]()}>
+        {/* The engine on Windows' shared endpoint while the interface has its own driver: two channels a side, and the mixer's latency. */}
+        {asio && (
+          <Row
+            label={
+              <span className="text-amber-500">
+                {m["engine.asioHint"]({ driver: asio })}
+              </span>
+            }
+          >
+            <Action onClick={() => move(names.indexOf(asio), 0)}>
+              {m["engine.asioUse"]()}
+            </Action>
+          </Row>
+        )}
+        {devices.length === 0 ? (
+          <Row label={m["engine.noDevices"]()} />
+        ) : (
+          devices.map((d, i) => (
+            <Row
+              key={d.name}
+              label={
+                <span className="flex items-center gap-2">
+                  <span className="truncate">{d.name}</span>
+                  {d.current && (
+                    <DeviceBadge
+                      text={m["engine.inUse"]()}
+                      inputs={d.currentInput ? d.inputs : 0}
+                      outputs={d.outputs}
+                    />
+                  )}
+                  {d.currentInput && !d.current && (
+                    <DeviceBadge
+                      text={m["engine.inputs"]()}
+                      inputs={d.inputs}
+                      outputs={0}
+                    />
+                  )}
+                </span>
+              }
+              detail={[d.deviceType, !d.present && m["engine.unplugged"]()]
+                .filter(Boolean)
+                .join(" · ")}
+            >
+              <Action
+                disabled={i === 0}
+                onClick={() => move(i, i - 1)}
+                title={m["engine.up"]()}
+              >
+                <ArrowUp className="size-3.5" />
+              </Action>
+              <Action
+                disabled={i === devices.length - 1}
+                onClick={() => move(i, i + 1)}
+                title={m["engine.down"]()}
+              >
+                <ArrowDown className="size-3.5" />
+              </Action>
+            </Row>
+          ))
+        )}
+      </Section>
+
+      <Section title={m["engine.lanTitle"]()} hint={m["engine.lanHint"]()}>
+        <Row
+          label={m["engine.lanOpen"]()}
+          detail={lanOpen ? m["engine.lanOpenOn"]() : m["engine.lanOpenOff"]()}
+        >
+          <Switch
+            checked={lanOpen}
+            disabled={!s}
+            onCheckedChange={(on) => engineCommand("lan.open", on ? "1" : "0")}
+            aria-label={m["engine.lanOpen"]()}
+          />
+        </Row>
+      </Section>
+    </>
+  );
+
+  const serversTab = (
+    <>
+      <StudiosSection
+        rows={(s?.instances ?? []).map((row) => ({
+          ...row,
+          // This backend's own row comes back at every start (backend/src/localEngine/settings.ts).
+          removable:
+            row.removable && new URL(row.url).origin !== location.origin,
+        }))}
+        check={s?.instanceCheck ?? undefined}
+        // Paired through the browser: the account syncs there, and the engine is listed with its token (docs/settings.md).
+        add={
+          signedIn ? (url) => void accountBridge()?.addServer?.(url) : undefined
+        }
+        addHint={signedIn === false ? m["engine.serversSignIn"]() : null}
+        // The engine leaves that server; the account keeps syncing with it.
+        remove={(url) => engineCommand("weburi.remove", url)}
+      />
+      <AccountStatusNote />
+    </>
+  );
+
+  const pluginsTab = (
+    <Section
+      title={m["engine.pluginsTitle"]()}
+      hint={m["engine.pluginsHint"]()}
+    >
+      <Row
+        label={
+          s?.pluginCount === undefined
+            ? m["engine.scanning"]()
+            : m["engine.pluginCount"]({ n: String(s.pluginCount) })
+        }
+      >
+        <Action
+          disabled={!running}
+          onClick={() => engineCommand("plugins.rescan")}
+        >
+          {m["engine.rescan"]()}
+        </Action>
+      </Row>
+      {(s?.plugins ?? []).map((p) => (
+        <Row
+          key={`${p.format}:${p.name}`}
+          label={p.name}
+          detail={[p.manufacturer, p.format].filter(Boolean).join(" · ")}
+        />
+      ))}
+    </Section>
+  );
+
   return (
     <HomeShell>
       <PageFrame title={m["engine.title"]()} narrow>
@@ -93,174 +248,32 @@ export function DesktopEnginePage() {
             {m["engine.notHere"]()}
           </p>
         ) : (
-          <>
-            <Section title={m["engine.title"]()} hint={m["engine.hint"]()}>
-              <Row
-                label={statusLine(s, state?.down ?? null)}
-                detail={
-                  s?.engineId ? m["engine.id"]({ id: s.engineId }) : undefined
-                }
-              >
-                {running ? (
-                  <>
-                    <Action onClick={() => engineCommand("engine.restart")}>
-                      {m["engine.restart"]()}
-                    </Action>
-                    <Action danger onClick={() => engineCommand("engine.stop")}>
-                      {m["engine.stop"]()}
-                    </Action>
-                  </>
-                ) : (
-                  <Action
-                    disabled={!s}
-                    onClick={() => engineCommand("engine.start")}
-                  >
-                    {m["engine.start"]()}
-                  </Action>
-                )}
-              </Row>
-            </Section>
-
-            <Section
-              title={m["engine.audioTitle"]()}
-              hint={m["engine.audioHint"]()}
-            >
-              {/* The engine on Windows' shared endpoint while the interface has its own driver: two channels a side, and the mixer's latency. */}
-              {asio && (
-                <Row
-                  label={
-                    <span className="text-amber-500">
-                      {m["engine.asioHint"]({ driver: asio })}
-                    </span>
-                  }
-                >
-                  <Action onClick={() => move(names.indexOf(asio), 0)}>
-                    {m["engine.asioUse"]()}
-                  </Action>
-                </Row>
-              )}
-              {devices.length === 0 ? (
-                <Row label={m["engine.noDevices"]()} />
-              ) : (
-                devices.map((d, i) => (
-                  <Row
-                    key={d.name}
-                    label={
-                      <span className="flex items-center gap-2">
-                        <span className="truncate">{d.name}</span>
-                        {d.current && (
-                          <DeviceBadge
-                            text={m["engine.inUse"]()}
-                            inputs={d.currentInput ? d.inputs : 0}
-                            outputs={d.outputs}
-                          />
-                        )}
-                        {d.currentInput && !d.current && (
-                          <DeviceBadge
-                            text={m["engine.inputs"]()}
-                            inputs={d.inputs}
-                            outputs={0}
-                          />
-                        )}
-                      </span>
-                    }
-                    detail={[
-                      d.deviceType,
-                      !d.present && m["engine.unplugged"](),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  >
-                    <Action
-                      disabled={i === 0}
-                      onClick={() => move(i, i - 1)}
-                      title={m["engine.up"]()}
-                    >
-                      <ArrowUp className="size-3.5" />
-                    </Action>
-                    <Action
-                      disabled={i === devices.length - 1}
-                      onClick={() => move(i, i + 1)}
-                      title={m["engine.down"]()}
-                    >
-                      <ArrowDown className="size-3.5" />
-                    </Action>
-                  </Row>
-                ))
-              )}
-            </Section>
-
-            <Section
-              title={m["engine.lanTitle"]()}
-              hint={m["engine.lanHint"]()}
-            >
-              <Row
-                label={m["engine.lanOpen"]()}
-                detail={
-                  lanOpen ? m["engine.lanOpenOn"]() : m["engine.lanOpenOff"]()
-                }
-              >
-                <Switch
-                  checked={lanOpen}
-                  disabled={!s}
-                  onCheckedChange={(on) =>
-                    engineCommand("lan.open", on ? "1" : "0")
-                  }
-                  aria-label={m["engine.lanOpen"]()}
-                />
-              </Row>
-            </Section>
-
-            <StudiosSection
-              rows={(s?.instances ?? []).map((row) => ({
-                ...row,
-                // This backend's own row comes back at every start (backend/src/localEngine/settings.ts).
-                removable:
-                  row.removable && new URL(row.url).origin !== location.origin,
-              }))}
-              check={s?.instanceCheck ?? undefined}
-              // Paired through the browser: the account syncs there, and the engine is listed with its token (docs/settings.md).
-              add={
-                signedIn
-                  ? (url) => void accountBridge()?.addServer?.(url)
-                  : undefined
-              }
-              addHint={signedIn === false ? m["engine.serversSignIn"]() : null}
-              // The engine leaves that server; the account keeps syncing with it.
-              remove={(url) => engineCommand("weburi.remove", url)}
-            />
-            <AccountStatusNote />
-            <InstrumentsSection snapshot={s} send={engineCommand} />
-
-            <Section
-              title={m["engine.pluginsTitle"]()}
-              hint={m["engine.pluginsHint"]()}
-            >
-              <Row
-                label={
-                  s?.pluginCount === undefined
-                    ? m["engine.scanning"]()
-                    : m["engine.pluginCount"]({ n: String(s.pluginCount) })
-                }
-              >
-                <Action
-                  disabled={!running}
-                  onClick={() => engineCommand("plugins.rescan")}
-                >
-                  {m["engine.rescan"]()}
-                </Action>
-              </Row>
-              {(s?.plugins ?? []).map((p) => (
-                <Row
-                  key={`${p.format}:${p.name}`}
-                  label={p.name}
-                  detail={[p.manufacturer, p.format]
-                    .filter(Boolean)
-                    .join(" · ")}
-                />
-              ))}
-            </Section>
-          </>
+          <SettingsTabs
+            tabs={[
+              {
+                key: "engine",
+                label: m["engine.tabEngine"](),
+                content: engineTab,
+              },
+              {
+                key: "servers",
+                label: m["engine.tabServers"](),
+                content: serversTab,
+              },
+              {
+                key: "instruments",
+                label: m["engine.tabInstruments"](),
+                content: (
+                  <InstrumentsSection snapshot={s} send={engineCommand} />
+                ),
+              },
+              {
+                key: "plugins",
+                label: m["engine.tabPlugins"](),
+                content: pluginsTab,
+              },
+            ]}
+          />
         )}
       </PageFrame>
     </HomeShell>

@@ -19,7 +19,7 @@ sit at the other: they are the machine's, read from the account's file service.
 
 Inside the Android app (`engine/k7-runtime/docs/android.md`) the line above moves, and for the
 reason it was drawn: the process on the machine is the app k7 is running in, and the phone has no
-config file to hand its user. So the page's first sections are **this phone's engine** —
+config file to hand its user. So the page's first tab, Engines, opens on **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
 which one the apps open, the instruments it downloads, the private CA. The Downloads section is the
 computer's engine page's own (`settings/InstrumentsSection.tsx`), since what a phone keeps is chosen the same
@@ -35,6 +35,19 @@ Everything here is set once and left: the language, the separation chains, the A
 purpose and rarely — the reasoning that made the libraries a page — it does not earn a column
 beside the workspaces, and a page gives it an ADDRESS. The sentence in `RepoList.tsx` that points
 at the account's settings is therefore a link to `/settings`.
+
+## Tabs, and the one in the address
+
+Both settings pages group their sections under tabs (`settings/SettingsTabs.tsx`): `/settings` under
+General, Devices, Engines and Media; `/settings/engine` under Engine, Servers, Instruments and
+Plugins. Every section in one column runs past what one screen shows, and the sections fall into
+groups nobody needs at once.
+
+- **The tab is in the address**, as `?tab=`, so a reload or a link given to someone lands on it. It
+  is replaced, not pushed: Back leaves the page rather than replaying every tab looked at.
+- **Only the shown tab is mounted.** Each section fetches what it shows on mount, so a hidden tab
+  costs no request; going back to one fetches it again, which is what a settings page should show.
+- **On the phone, Engines comes first**, since the phone's engine is what its user opens the page for.
 
 ## The language
 
@@ -192,7 +205,7 @@ changed.
 
 ## The computer's engine is a page of its own
 
-Served by the tray's backend, this page links to `/settings/engine` (`settings/DesktopEnginePage.tsx`):
+Served by the tray's backend, this page's Engines tab links to `/settings/engine` (`settings/DesktopEnginePage.tsx`):
 the machine's engine's state, its audio interface ranking, its plugins and its instruments, reached
 through the backend that runs the supervisor (`apps/k7/backend/docs/localEngine.md`), since the
 supervisor opens no socket. The link is drawn only when `GET /api/local` says this backend runs the
