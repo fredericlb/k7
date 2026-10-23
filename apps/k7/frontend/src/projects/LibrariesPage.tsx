@@ -8,7 +8,7 @@ import { Toaster } from "@studio/project-shell/toast";
 import { useEffect, useState } from "react";
 import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
-import { findAccountFiles } from "../settings/accountFiles";
+import { findLibraryFiles } from "../settings/accountFiles";
 import { HomeShell } from "./HomeSidebar";
 import { LibrariesCard } from "./LibrariesCard";
 import { PageFrame } from "./PageFrame";
@@ -21,7 +21,7 @@ export function LibrariesPage() {
   >(undefined);
   useEffect(() => {
     let live = true;
-    void findAccountFiles(false).then((f) => live && setFileService(f));
+    void findLibraryFiles().then((f) => live && setFileService(f));
     return () => {
       live = false;
     };

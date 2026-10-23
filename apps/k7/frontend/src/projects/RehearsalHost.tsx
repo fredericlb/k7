@@ -8,11 +8,13 @@ import {
   RehearsalHostProvider,
 } from "@studio/ui-rehearsal";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { api, BASE } from "../api";
+import { api } from "../api";
 import { useLocale } from "../i18n";
+import "../serverChoice";
 import { REHEARSAL_ROUTE, SETTINGS_ROUTE } from "./api";
 
-configureRehearsal({ apiBase: BASE, pagesPrefix: REHEARSAL_ROUTE });
+// The API base is the server picker's (../serverChoice.ts), set when that module loads.
+configureRehearsal({ pagesPrefix: REHEARSAL_ROUTE });
 
 /** Who is signed in, as the chain source's engine session names them; "" until known. */
 function useSignedIn(): string {

@@ -5,6 +5,7 @@
 import { RehearsalRecording } from "@studio/ui-rehearsal";
 import { lazy, type ReactNode, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
+import { useServerChoice } from "../serverChoice";
 import {
   ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
@@ -51,12 +52,14 @@ const AboutPage = lazy(() =>
 );
 
 export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
+  const serverChoice = useServerChoice();
   return (
     <RehearsalHost>
       <RehearsalRecording>
         {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
         <Suspense fallback={fallback}>
-          <Routes>
+          {/* Keyed by the server picker: a page read from one server keeps nothing of it on the other. */}
+          <Routes key={serverChoice}>
             <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
             <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
             <Route

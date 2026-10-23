@@ -3,7 +3,7 @@
 // server's `cleanShares`, which stays the one that decides: this only says it before a round trip.
 
 import type { PublicEngine } from "@studio/web-protocol";
-import { apiBase } from "./config";
+import { hostBase } from "./config";
 import type { LibraryLabels } from "./labels";
 
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
@@ -51,7 +51,7 @@ export interface EngineShares {
 }
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${apiBase()}/api/engines/${path}`, {
+  const res = await fetch(`${hostBase()}/api/engines/${path}`, {
     credentials: "include",
     ...init,
     headers: { "content-type": "application/json", ...init.headers },

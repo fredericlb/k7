@@ -100,6 +100,7 @@ matches before changing it:
 | `shared.md` | the OTHER shared: `/@shares/<token>.k7` — this app opened on a project at a checkpoint, played by the server's engine in the visitor's own session, with no account and no source |
 | `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
 | `pairing.md` | a LAN device asking an engine to trust it — the card on the device, the prompt and the settings section on the machine |
+| `serverPicker.md` | on the tray, which server the Libraries, Media and Rehearsal pages read: this computer or the paired one |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |

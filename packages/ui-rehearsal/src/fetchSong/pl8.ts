@@ -14,12 +14,12 @@ import type {
   HuntTags,
 } from "@studio/web-protocol/hunt";
 import { ApiError } from "../api";
-import { apiBase } from "../config";
+import { hostBase } from "../config";
 import { m } from "../paraglide/messages.js";
 
-// The media library answers on the same origin as the rehearsal API, so its base is the configured one.
+// The media library answers on this machine's backend, which a hunt and an engine need too.
 export function pl8Base(): Promise<string> {
-  return Promise.resolve(apiBase());
+  return Promise.resolve(hostBase());
 }
 
 /** Where the browser streams a médiathèque file from pl8 itself, with Range; a FLAC comes as its MP3. */

@@ -4,7 +4,6 @@
 // See docs/fileHub.md.
 
 import { createHmac, randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { join, resolve } from "node:path";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
@@ -26,6 +25,7 @@ import {
   unbindAll,
 } from "./binding.ts";
 import { IDLE_MS } from "./capacity.ts";
+import { deviceEmail, deviceUser } from "./deviceIdentity.ts";
 import { DeviceTokens } from "./deviceTokens.ts";
 import { Instances, type InstancesOptions, Unavailable } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
@@ -127,17 +127,14 @@ export class FileHub {
 
   /** The email of the account a device token was minted for, or null: the engine registry's owner of a heartbeat. */
   deviceEmail(token: string): string | null {
-    const slug = this.devices.verify(token)?.slug;
-    if (!slug) return null;
-    // The slug is one-way; the account's file service recorded its email on its first start.
-    try {
-      const file = join(this.sync.accountDir(slug), "owner.json");
-      const owner = JSON.parse(readFileSync(file, "utf8")).owner;
-      return typeof owner === "string" && owner ? owner : null;
-    } catch {
-      return null;
-    }
+    return deviceEmail(this.devices, (s) => this.sync.accountDir(s), token);
   }
+
+  /** Who a device token signs in as, by the door a paired machine reaches this server through; null when it names nobody. */
+  deviceUser(token: string): { email: string; person: string } | null {
+    return deviceUser(this.devices, (s) => this.sync.accountDir(s), token);
+  }
+
   /** The live-sync routes beside the relay: devices, pairing, rooms, blobs, history — syncRoutes.ts. */
   readonly sync: SyncRoutes;
 
