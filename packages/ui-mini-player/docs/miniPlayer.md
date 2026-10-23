@@ -59,8 +59,11 @@ is the muted text colour, faded, which stays visible on both themes. Both come f
 system's `--color-*` tokens, which are whole colours: a token wrapped in `hsl()` is invalid and draws
 nothing.
 
-**The position row is centred, at most 800 px wide.** Stretched across a wide window the two clocks
-end up far from the bar they read, and a long drag is a longer one for nothing.
+**The bar's content is centred, at most 800 px wide**: the play button, the title, the position row
+and the host's own controls. Stretched across a wide window they end up at opposite edges, the
+clocks far from the bar they read, and a long drag is a longer one for nothing. The bar itself — its
+background, its border — still spans the window, and the close stays in its corner, where a bar's
+close is looked for.
 
 ## The close is the only thing that takes the bar away
 
