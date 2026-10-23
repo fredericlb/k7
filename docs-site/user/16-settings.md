@@ -89,7 +89,7 @@ The rehearsal pages' settings, under the Media tab, are described in the Rehears
 
 ## The Engine page
 
-**Engine** in the user menu opens `/settings/engine`. Everywhere it lists the engines your account may use: your own, those shared with you and the server's, each measured from this browser, with **Share…** under the ones you own. On a computer running the tray it opens on this computer's engine, with that list as its last tab (see [k7 on your computer](./82-desktop-app.md#the-engine-page)); in the phone app it opens on the phone's engine.
+**Engine** in the user menu opens `/settings/engine`. Everywhere it lists the engines your account may use: your own, those shared with you and the server's, each measured from this browser, with **Share…** under the ones you own. To the server's admins, the server's own engine reads *yours* as well as *server*; every account still uses it, so it has nothing to share. On a computer running the tray it opens on this computer's engine, with that list as its last tab (see [k7 on your computer](./82-desktop-app.md#the-engine-page)); in the phone app it opens on the phone's engine.
 
 ## The Server page
 

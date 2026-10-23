@@ -96,7 +96,7 @@ const safeEqual = (a: string, b: string): boolean => {
 
 /** What the host tells the routes about an account beyond its name. */
 export interface RouterOptions {
-  /** Whether the request's account administers this origin: it may reset an engine's owner. */
+  /** Whether the request's account administers this origin: it owns the server's engine and may reset an engine's owner. */
   isAdmin?: (req: Request) => boolean;
   /** Who may list an engine, and whose it is; absent, anyone lists one and nobody owns one — docs/heartbeat.md. */
   heartbeat?: HeartbeatGate;
@@ -115,6 +115,9 @@ export function engineRegistryRouter(
   /** What the request's account is to engine `id` — docs/ownership.md. */
   const roleFor = (id: string, holder: string): EngineRole =>
     engineRole(reg, id, holder, !!tunnels?.isRenderer(id));
+  /** The same as the request's account sees it: the server's engine is its admins' own. */
+  const roleOfRequest = (req: Request, base: EngineRole): EngineRole =>
+    base === "server" && opts.isAdmin?.(req) ? "owner" : base;
   // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
   const complain = throttledLog(log);
   /** Who a refusal is about, as the log should name it. */
@@ -219,7 +222,8 @@ export function engineRegistryRouter(
       const viewer = claimHolder(req);
       res.json(
         reg.list(req.ip, viewer).flatMap((e): PublicEngine[] => {
-          const access = roleFor(e.id, viewer);
+          const base = roleFor(e.id, viewer);
+          const access = roleOfRequest(req, base);
           if (access === "none") return [];
           // Unowned: probed from this browser alone, and its LAN addresses only to its own network.
           if (access === "unowned")
@@ -244,7 +248,7 @@ export function engineRegistryRouter(
               // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
               rtc: tunnels?.has(e.id) || undefined,
               // Proved by the render key, so a browser may take it unasked — packages/engine-browser/docs/access.md.
-              server: access === "server" || undefined,
+              server: base === "server" || undefined,
             },
           ];
         }),
