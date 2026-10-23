@@ -1,8 +1,9 @@
-# The two settings cards
+# The settings cards
 
-The package exports two cards from `@studio/ui-library/settings`, and k7's `/settings` page carries
+The package exports three cards from `@studio/ui-library/settings`, and k7's `/settings` page carries
 them as sections of its own, beside the account's other settings: **Engines** — the engines
-registered with this origin — and **slskd** — what "Find songs" ([hunt.md](hunt.md)) spends. The
+registered with this origin — **Engine owners**, for admins, and **slskd** — what "Find songs"
+([hunt.md](hunt.md)) spends. The
 library has no settings page of its own: one account, one page.
 
 ## Engines — the registry this origin holds
@@ -26,6 +27,23 @@ The one thing it edits is ownership (`packages/engine-registry/docs/ownership.md
 this account owns, `src/EngineShareEditor.tsx` holds the emails it is shared with, as one list typed
 freely and checked before it is sent, and the way to give the engine up — two clicks, inline, since
 the settings page mounts no confirmation dialog.
+
+## Engine owners — the admins' card
+
+`src/EngineOwnersSettings.tsx` lists every ownership record (`GET /api/engines/owners`): the
+machine's name, whether it beats now, its owner, how widely it is shared, and since when. It is a
+card of its own because the Engines card cannot hold it: the registry lists an owned engine only to
+the accounts that may use it, an admin's included, so another account's engine appears nowhere else.
+
+The one action is **reset**, the owner's give-up done by an admin, which is what the registry lets
+an admin do. The shares stay the owner's to edit: an admin who needs an engine shared differently
+resets it, and the machine's next heartbeat signed in as an account makes that account its owner.
+
+The server's own engine is not in it, having no owner, and nothing here configures it: its
+device, its instruments and its server are the container's environment (`docs/server-engine.md`),
+and no route reaches a remote supervisor's settings.
+
+Like slskd, a non-admin is answered 403 and the card draws nothing.
 
 ## slskd — a form whose secrets never come back
 

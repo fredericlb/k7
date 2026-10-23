@@ -349,7 +349,14 @@ describe("select, listing and the share routes", () => {
     );
     expect((await r.call("eve@x", "GET", "/engines/owners")).status).toBe(403);
     const all = await r.call("root@x", "GET", "/engines/owners");
-    expect(all.body).toEqual([expect.objectContaining({ id: "e1" })]);
+    expect(all.body).toEqual([
+      expect.objectContaining({
+        id: "e1",
+        owner: "ann@x",
+        hostname: "host-e1",
+        online: true,
+      }),
+    ]);
     expect((await r.call("root@x", "DELETE", "/engines/e1/owner")).status).toBe(
       200,
     );

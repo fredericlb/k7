@@ -202,6 +202,16 @@ export interface LibraryLabels {
     close: string;
     giveUp: string;
     giveUpConfirm: string;
+    /** The admins' card of every owned engine — packages/engine-registry/docs/ownership.md. */
+    ownersTitle: string;
+    ownersHint: string;
+    ownersNone: string;
+    ownedBy: (owner: string) => string;
+    sharedWith: (n: number) => string;
+    offline: string;
+    since: (date: string) => string;
+    reset: string;
+    resetConfirm: string;
   };
   slskd: {
     hint: string;
