@@ -65,7 +65,11 @@ export function stemsRouter(
           error: `no engine '${engineId}' is registered — is its machine running?`,
         });
       // Anyone may register an engine, so the caller must be driving it: a cut shares the account's files with that machine.
-      if (!engines.registry.holds(engine.id, claimHolder(req)))
+      // The server's own engine is exempt: it is every account's, and the files already live beside it.
+      if (
+        !engines.tunnels.isRenderer(engine.id) &&
+        !engines.registry.holds(engine.id, claimHolder(req))
+      )
         return res.status(403).json({
           error: `you hold no claim on engine '${engineId}' — open it first`,
         });

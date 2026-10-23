@@ -151,7 +151,16 @@ export async function fetchSong(
   return steps.copyTrack(masterPath(entry));
 }
 
-/** Wait for pl8 to hold the instrumental of `master`, cutting it on the first engine online.
+/** The engine a cut asks first: the server's own, which needs no claim, else the first this account may use. */
+export function cuttingEngine<
+  E extends { id: string; server?: boolean; access?: string },
+>(engines: E[]): E | undefined {
+  return (
+    engines.find((e) => e.server) ?? engines.find((e) => e.access !== "unowned")
+  );
+}
+
+/** Wait for pl8 to hold the instrumental of `master`, cutting it on the server's engine or the first usable one.
  * `resumeJobId` skips straight to polling an already-running separation. */
 async function instrumentalReady(
   steps: Common,
@@ -163,11 +172,11 @@ async function instrumentalReady(
   steps.onStatus?.({ phase: "stemming" });
   let id = resumeJobId;
   if (!id) {
-    const engines = await steps.pl8.engines();
-    if (engines.length === 0) return false;
+    const engine = cuttingEngine(await steps.pl8.engines());
+    if (!engine) return false;
     const reply = await steps.pl8.prepareStems(
       master,
-      engines[0].id,
+      engine.id,
       "instrumental",
     );
     if (reply.ready) return true;

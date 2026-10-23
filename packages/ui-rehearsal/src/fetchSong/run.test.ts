@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Song } from "../types";
 import type { Pl8Client } from "./pl8";
 import {
+  cuttingEngine,
   fetchSong,
   heldInLibrary,
   makeInstrumental,
@@ -233,6 +234,18 @@ describe("a page that goes", () => {
     );
     await expect(run).rejects.toMatchObject({ name: "AbortError" });
     expect(hunts).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("cuttingEngine", () => {
+  it("asks the server's engine first, never an unowned one, and an older registry's row as usable", () => {
+    const mine = { id: "mine", access: "owner" };
+    const srv = { id: "srv", access: "server", server: true };
+    const stray = { id: "stray", access: "unowned" };
+    expect(cuttingEngine([stray, mine, srv])?.id).toBe("srv");
+    expect(cuttingEngine([stray, mine])?.id).toBe("mine");
+    expect(cuttingEngine([stray])).toBeUndefined();
+    expect(cuttingEngine([{ id: "old" }])?.id).toBe("old");
   });
 });
 

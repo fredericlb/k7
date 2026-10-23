@@ -36,7 +36,10 @@ has no opinion about which machine is yours. It is reached through **its tunnel*
 (`packages/engine-tunnel/docs/jobs.md`) — so a cut works wherever the engine is, not only on this
 server's network. The caller must hold a claim on that engine, or the cut is a **403**: anyone may register an
 engine, and a cut shares the song and the account's models with its machine
-(`packages/engine-registry/docs/claim.md`). An engine with no tunnel here is refused by name. A registry **miss** is a 409
+(`packages/engine-registry/docs/claim.md`). The server's own engine is the exception, recognised by its
+render key (`docs/server-engine.md`): every account may use it, and the files it would be lent are
+already on its server, so a page that drives no engine — the songbook's "Make instrumental" — cuts on
+it with no claim. An engine with no tunnel here is refused by name. A registry **miss** is a 409
 rather than a 404: the engine existed when the browser picked it, and the remedy is to bring the
 machine back up.
 
