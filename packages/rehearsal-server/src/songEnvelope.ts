@@ -21,12 +21,28 @@ export function downsample(rms: number[], perBucket: number): number[] {
   return out;
 }
 
-/** Normalised so the loudest bucket fills the canvas. Three decimals: more is below one pixel. */
-export function normalise(values: number[]): number[] {
-  const peak = values.reduce((m, v) => (v > m ? v : m), 0);
+/** Group by MAX, as the waveform's own columns do: averaging would flatten a kick into its neighbours. */
+export function downsampleMax(values: number[], perBucket: number): number[] {
+  const out: number[] = [];
+  for (let at = 0; at < values.length; at += perBucket) {
+    let m = 0;
+    for (let i = at; i < Math.min(at + perBucket, values.length); i++)
+      if (values[i] > m) m = values[i];
+    out.push(m);
+  }
+  return out;
+}
+
+/** Normalised so the loudest bucket fills the canvas, or by `by` when given. Three decimals: more is below one pixel. */
+export function normalise(values: number[], by?: number): number[] {
+  const peak = by ?? values.reduce((m, v) => (v > m ? v : m), 0);
   if (peak <= 0) return values;
   return values.map((v) => Math.round((v / peak) * 1000) / 1000);
 }
+
+/** Whether a stored shape is one the spectrum waveform can draw tall, rather than an RMS-only one to measure again. */
+export const hasPeak = (e: { peak?: number[] } | null | undefined): boolean =>
+  !!e?.peak?.length;
 
 /** pl8's measurement of `path`, shaped into what the waveform canvas draws. */
 export async function envelopeOf(path: string): Promise<SongEnvelope> {
@@ -36,9 +52,24 @@ export async function envelopeOf(path: string): Promise<SongEnvelope> {
   // correct even if pl8's own resolution changes.
   const bucketSeconds =
     env.rms.length > 0 ? (env.seconds / env.rms.length) * perBucket : 0;
+  const same = (a?: number[]) =>
+    a?.length === env.rms.length ? downsampleMax(a, perBucket) : undefined;
+  const peak = same(env.peak);
+  const top = peak?.reduce((m, v) => (v > m ? v : m), 0) ?? 0;
+  // The three bands share one scale, the peak's: their colour is a ratio between them (packages/ui-waveform/docs/spectrum.md).
+  const bands = [same(env.low), same(env.mid), same(env.high)];
+  const banded = bands.every((b) => b !== undefined);
   return {
     intervalMs: Math.round(bucketSeconds * 1000),
     samples: normalise(downsample(env.rms, perBucket)),
+    ...(peak ? { peak: normalise(peak) } : {}),
+    ...(banded && top > 0
+      ? {
+          low: normalise(bands[0] ?? [], top),
+          mid: normalise(bands[1] ?? [], top),
+          high: normalise(bands[2] ?? [], top),
+        }
+      : {}),
     seconds: env.seconds,
     onsets: env.transients,
   };

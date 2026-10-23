@@ -1,6 +1,6 @@
-// Waveform.tsx — the shared dB-scale waveform canvas: one clip's envelope, its grid, markers and
-// playhead, rasterised once into layers and blitted, with seek and select on the canvas and the
-// grab handles over it (overlays.tsx). See docs/layers.md.
+// Waveform.tsx — k7's one waveform canvas, in the spectrum look: one clip's envelope, its grid,
+// markers and playhead, rasterised once into layers and blitted, with seek and select on the
+// canvas and the grab handles over it (overlays.tsx). See docs/layers.md and docs/spectrum.md.
 
 import {
   labelled,
@@ -20,7 +20,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { ampToDb, contourYs, dbToYIn, envelopeLayer } from "./envelope";
 import { MarkerPins, WarpHandles, WindowEdges } from "./overlays";
 import { playheadPlacement } from "./playhead";
 import { columnsOf, mirroredYs, spectrumLayer } from "./spectrum";
@@ -35,8 +34,6 @@ import type {
 
 interface Props {
   envelope: Envelope;
-  /** `contour` is the dB curve; `spectrum` the DJ desk's band-coloured columns — docs/spectrum.md. */
-  look?: "contour" | "spectrum";
   duration: number;
   threshold?: number; // absence hides the threshold line
   events?: DetectedEvent[];
@@ -82,17 +79,12 @@ interface Props {
 }
 
 const DEFAULT_HEIGHT = 160; // canvas height when no `height` prop is given
-const DB_GRID = [0, -20, -40, -60, -80, -100];
 const HANDLE_HIT = 9; // px from an edge that counts as grabbing its handle
 const MIN_DUR = 0.1; // shortest allowed moment (s)
 const GRID_DASH = [3, 4]; // the bar/beat rule's dash: on 3px, off 4px
 /** How high the warp arrow's shaft sits, and how long its head is. */
 const WARP_ARROW_Y = 12;
 const WARP_ARROW_PX = 6;
-const ENV_UNPLAYED = "150, 150, 163"; // grey — the material as a whole
-const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
-/** How much of the contour's ink the PEAK curve behind it gets — see docs/envelopes.md. */
-const PEAK_ALPHA = 0.45;
 /** What is left of a spectrum column once the playhead has passed it — the played part dims. */
 const PLAYED_ALPHA = 0.4;
 
@@ -125,7 +117,6 @@ export interface WaveformHandle {
 
 function WaveformInner({
   envelope,
-  look = "contour",
   duration,
   threshold,
   events = NO_EVENTS,
@@ -220,72 +211,25 @@ function WaveformInner({
       ),
     [gridLines, width, span],
   );
-  const dbToY = (db: number) => dbToYIn(db, HEIGHT);
 
   // Taken apart from the object so an unstable `envelope` literal cannot invalidate the work below.
-  const samples = envelope.samples;
-  const intervalMs = envelope.intervalMs;
+  const { intervalMs, samples, peak, low, mid, high } = envelope;
 
-  /** One y per pixel column, memoised because neither of its two passes depends on the transport — see docs/layers.md. */
-  const ys = useMemo(
-    () =>
-      look === "spectrum"
-        ? []
-        : contourYs(samples, intervalMs, width, v0, span, HEIGHT),
-    [look, samples, intervalMs, width, v0, span, HEIGHT],
-  );
-  /** …and the same again for the PEAK when the host has one, null otherwise — see docs/envelopes.md. */
-  const peakYs = useMemo(
-    () =>
-      envelope.peak?.length && look !== "spectrum"
-        ? contourYs(envelope.peak, intervalMs, width, v0, span, HEIGHT)
-        : null,
-    [look, envelope.peak, intervalMs, width, v0, span, HEIGHT],
-  );
-
-  /** The spectrum look's columns, null under the contour — the same memo boundary as `ys`. */
-  const { low, mid, high, peak } = envelope;
+  /** One column per pixel, memoised because none of it depends on the transport — see docs/layers.md. */
   const cols = useMemo(
     () =>
-      look === "spectrum"
-        ? columnsOf(
-            { intervalMs, samples, peak, low, mid, high },
-            width,
-            v0,
-            span,
-          )
-        : null,
-    [look, intervalMs, samples, peak, low, mid, high, width, v0, span],
+      columnsOf({ intervalMs, samples, peak, low, mid, high }, width, v0, span),
+    [intervalMs, samples, peak, low, mid, high, width, v0, span],
   );
 
-  // The two contours, rasterised once each; the DPR is read here rather than tracked, which is the cheap trade.
+  // Rasterised once each, bright and played; the DPR is read here rather than tracked, which is the cheap trade.
   const layers = useMemo(() => {
     const dpr = window.devicePixelRatio || 1;
-    if (cols)
-      return {
-        spectrum: spectrumLayer(cols, width, HEIGHT, dpr),
-        spectrumPlayed: spectrumLayer(cols, width, HEIGHT, dpr, PLAYED_ALPHA),
-        unplayed: null,
-        played: null,
-        peakUnplayed: null,
-        peakPlayed: null,
-      };
     return {
-      spectrum: null,
-      spectrumPlayed: null,
-      unplayed: envelopeLayer(ys, width, HEIGHT, dpr, ENV_UNPLAYED),
-      played: envelopeLayer(ys, width, HEIGHT, dpr, ENV_PLAYED),
-      // The peak behind it, in the same two colours so the progress fill still reads as one picture.
-      peakUnplayed: peakYs
-        ? envelopeLayer(peakYs, width, HEIGHT, dpr, ENV_UNPLAYED, PEAK_ALPHA)
-        : null,
-      peakPlayed: peakYs
-        ? envelopeLayer(peakYs, width, HEIGHT, dpr, ENV_PLAYED, PEAK_ALPHA)
-        : null,
+      spectrum: spectrumLayer(cols, width, HEIGHT, dpr),
+      spectrumPlayed: spectrumLayer(cols, width, HEIGHT, dpr, PLAYED_ALPHA),
     };
-  }, [cols, ys, peakYs, width, HEIGHT]);
-  // The dB axis means nothing on the spectrum's linear, mirrored scale, so that look draws none.
-  const dbAxis = cols ? [] : DB_GRID;
+  }, [cols, width, HEIGHT]);
 
   useEffect(() => {
     if (!canvasRef.current || !baseRef.current || !playedRef.current) return;
@@ -309,17 +253,6 @@ function WaveformInner({
       // Background
       ctx.fillStyle = "#1b1c22";
       ctx.fillRect(0, 0, width, HEIGHT);
-
-      // dB grid lines (labels drawn last, on top)
-      ctx.lineWidth = 1;
-      for (const db of dbAxis) {
-        const y = Math.round(dbToY(db)) + 0.5;
-        ctx.strokeStyle = "rgba(255,255,255,0.07)";
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
 
       // Bar/beat gridlines behind everything else: bars brighter, beats fainter, both DASHED — see docs/marks.md.
       ctx.setLineDash(GRID_DASH);
@@ -387,33 +320,19 @@ function WaveformInner({
     ground(baseCtx);
     ground(playedCtx);
 
-    // Unplayed grey, played purple, pre-rasterised and blitted; the PLAYED canvas is clipped by CSS per frame — see docs/layers.md.
+    // Pre-rasterised and blitted, ONE layer per side: the dim one over the bright would still read bright; the PLAYED canvas is clipped by CSS per frame — see docs/layers.md.
     const blit = (c: CanvasRenderingContext2D, l: HTMLCanvasElement | null) => {
       if (l) c.drawImage(l, 0, 0, width, HEIGHT);
     };
-    // Each side of the playhead gets ONE spectrum layer: the dim one over the bright would still read bright.
     blit(baseCtx, layers.spectrum);
     blit(playedCtx, layers.spectrumPlayed);
-    // The PEAK goes down first so the RMS sits inside it; the played side keeps the whole contour under its purple, as one canvas did.
-    blit(baseCtx, layers.peakUnplayed);
-    blit(baseCtx, layers.unplayed);
-    if (layers.peakUnplayed) {
-      blit(playedCtx, layers.peakUnplayed);
-      blit(playedCtx, layers.peakPlayed);
-    }
-    if (layers.unplayed) {
-      blit(playedCtx, layers.unplayed);
-      blit(playedCtx, layers.played);
-    }
 
     // Everything drawn over the envelope lives on the interactive canvas, transparent, above the played clip and the line.
     const ctx = open(canvasRef.current);
 
-    // Threshold line (horizontal, at its dB level) — only when a threshold is set.
+    // The threshold as two lines, at plus and minus its amplitude on the mirrored scale — only when one is set.
     if (threshold != null) {
-      const tys = layers.spectrum
-        ? mirroredYs(threshold, HEIGHT)
-        : [dbToY(ampToDb(threshold))];
+      const tys = mirroredYs(threshold, HEIGHT);
       ctx.strokeStyle = "rgba(255,90,90,0.7)";
       ctx.setLineDash([4, 4]);
       for (const y of tys) {
@@ -520,16 +439,8 @@ function WaveformInner({
       }
     }
 
-    // dB axis labels (on top of everything)
-    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    for (const db of dbAxis) {
-      const y = Math.round(dbToY(db));
-      if (y > 10) ctx.fillText(`${db} dB`, 3, y - 1);
-    }
-
     // Bar-number labels on top of the gridlines they belong to, thinned by powers of two once they crowd (ui-timeline's ticks.ts).
+    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textBaseline = "top";
     ctx.fillStyle = "rgba(160,200,255,0.85)";
 
@@ -576,7 +487,6 @@ function WaveformInner({
     width,
     height,
     layers,
-    dbAxis,
     threshold,
     events,
     annotations,

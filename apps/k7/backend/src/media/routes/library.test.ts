@@ -500,7 +500,11 @@ describe("cache validators", () => {
     const url = `${base}/api/mediatek/envelope?path=${encodeURIComponent(SONG)}`;
     const first = await fetch(url);
     expect(first.status).toBe(200);
-    expect(((await first.json()) as { rms: number[] }).rms).toEqual([0.1, 0.2]);
+    // The peak rides along: the spectrum waveform's height (packages/ui-waveform/docs/spectrum.md).
+    expect(await first.json()).toMatchObject({
+      rms: [0.1, 0.2],
+      peak: [0.1, 0.2],
+    });
     const etag = first.headers.get("etag") as string;
     expect(etag).toBeTruthy();
     expect(

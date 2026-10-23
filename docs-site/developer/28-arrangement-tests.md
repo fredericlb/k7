@@ -65,7 +65,7 @@ property the whole write path is built to keep.
 | Package | Tests |
 |---|---|
 | `packages/ui-timeline/src/` | `panZoom.test.ts` (which wheel zooms, the factor, the ceiling), `ticks.test.ts`, `drag.test.ts` |
-| `packages/ui-waveform/src/` | `ticks.test.ts`, `spectrum.test.ts`, `spectrumColour.test.ts`, `contour.test.ts` |
+| `packages/ui-waveform/src/` | `ticks.test.ts`, `spectrum.test.ts`, `spectrumColour.test.ts` |
 | `packages/audio-probe/src/` | `trimGate.test.ts`, `waveform.test.ts`, `key.test.ts` |
 | `packages/take-render/src/` | `recordTake.test.ts`, `materialRender.test.ts` |
 | `packages/audio-passes/src/` | `processChain.test.ts`, `peakPass.test.ts`, `coldPass.test.ts` |

@@ -772,7 +772,6 @@ export function AudioClipPanel({
                 act={act}
                 tempo={tempo}
                 // k7's one waveform, the desk's: the PEAK as height and the three bands as colour (packages/ui-waveform/docs/spectrum.md).
-                look="spectrum"
                 envelope={{
                   intervalMs: wf.intervalMs,
                   samples: wf.rms,

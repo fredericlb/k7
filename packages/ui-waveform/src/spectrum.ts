@@ -169,7 +169,7 @@ export function columnsOf(
   return out;
 }
 
-/** The columns rasterised onto a canvas of their own, drawn once and blitted like the contour — docs/layers.md. */
+/** The columns rasterised onto a canvas of their own, drawn once and blitted — docs/layers.md. */
 export function spectrumLayer(
   cols: (Column | null)[],
   width: number,
