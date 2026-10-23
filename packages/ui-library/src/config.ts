@@ -27,3 +27,6 @@ export const libraryConfig = (): Readonly<LibraryConfig> => config;
 export const apiBase = (): string => config.apiBase;
 
 export const hostBase = (): string => config.hostBase ?? config.apiBase;
+
+/** Whether the pages read this machine's own backend: its server settings are then the ones a page may open. */
+export const readsThisMachine = (): boolean => hostBase() === config.apiBase;

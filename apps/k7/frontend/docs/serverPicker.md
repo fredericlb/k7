@@ -15,8 +15,12 @@ How the tray's backend reaches the server is `apps/k7/backend/docs/serverPicker.
 - **Kept per browser** (`serverChoice.ts`, in `localStorage`). It is how this machine is used, not
   a fact about the account. With no paired server it falls back to This computer.
 - **One switch, two bases.** Each UI package takes `apiBase`, which follows the choice, and
-  `hostBase`, which stays this backend: the engine registry, the hunt and the copies placed against
-  the server are this machine's whatever is browsed.
+  `hostBase`, which stays this backend: the engine registry, the slskd settings and the copies placed
+  against the server are this machine's whatever is browsed.
+- **Songs are found on the chosen server.** The hunt files what it finds into a library, so it runs
+  on the server whose library the page shows: Find songs and the songbook's fetch call `apiBase`.
+  Where that server is unreachable or has no slskd set up, the page says so; it offers the settings
+  only when that server is this machine, since the server's are its admins', on its own page.
 - **The pages remount on a switch** (`HomeRoutes` is keyed by the choice): nothing read from one
   server is shown as the other's. No page is loaded.
 - **Libraries follow too**, through the server's file hub. Editing the origin's list of libraries

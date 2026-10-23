@@ -433,7 +433,8 @@ minutes; forty at once would be a good way to get the account banned. MusicBrain
 
 The route is **session-only**, unlike the médiathèque and the projects which accept a machine token:
 this one spends an account's bandwidth and reputation on a third-party network, which is not
-something a service token should be able to trigger.
+something a service token should be able to trigger. A paired machine's device door is a session in
+that sense: it names the person, and only their own page uses it (`../serverPicker.md`).
 
 A song already in the médiathèque is recognised **before** the download. `addSong` would refuse it at
 the end anyway, and learning that after forty megabytes is a worse way to learn it.

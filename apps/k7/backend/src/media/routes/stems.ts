@@ -11,13 +11,14 @@ import { Router } from "express";
 import { z } from "zod";
 import { emailOf } from "../../who.ts";
 import { type CutDeps, cutStems, heldFor } from "../stems/cut.ts";
+import { bestCutter, mayCut } from "../stems/engine.ts";
 import { jobIdFor, runningJob, startJob, stemsJob } from "../stems/jobs.ts";
 
 const body = z.object({
   /** Volume-relative, the string every other route here takes; `safePath` confines it. */
   song: z.string().min(1),
-  /** Which registered engine lends its model — named by the caller, who is already on one. */
-  engineId: z.string().min(1),
+  /** Which registered engine lends its model; absent, the best-rated one the caller may cut on. */
+  engineId: z.string().min(1).optional(),
   /** Optional: absent, the engine's own `system stems` answers, one per machine. */
   chain: z.string().optional(),
   /** What to bring back: the four stems, or the record without its voice. */
@@ -58,20 +59,21 @@ export function stemsRouter(
       }
       if (done) return res.json({ ready: true, job: null } as StemsReply);
 
-      const engine = engines.registry.get(engineId);
-      // A registry miss is a 409, not a 404: the engine existed when the browser picked it.
+      const holder = claimHolder(req);
+      const chosen = engineId ?? bestCutter(engines, holder);
+      const engine = chosen ? engines.registry.get(chosen) : undefined;
+      // A miss is a 409, not a 404: the remedy is to bring a machine back up.
       if (!engine)
         return res.status(409).json({
-          error: `no engine '${engineId}' is registered — is its machine running?`,
+          error: engineId
+            ? `no engine '${engineId}' is registered — is its machine running?`
+            : "no engine is online to cut it — start k7 on one of your machines, or ask this server's admins for its engine",
+          reason: "no-engine",
         });
-      // Anyone may register an engine, so the caller must be driving it: a cut shares the account's files with that machine.
-      // The server's own engine is exempt: it is every account's, and the files already live beside it.
-      if (
-        !engines.tunnels.isRenderer(engine.id) &&
-        !engines.registry.holds(engine.id, claimHolder(req))
-      )
+      // A cut shares the account's files with that machine: its own, the server's, or one it is driving (../stems/engine.ts).
+      if (!mayCut(engines, engine.id, holder))
         return res.status(403).json({
-          error: `you hold no claim on engine '${engineId}' — open it first`,
+          error: `you hold no claim on engine '${engine.id}' — open it first`,
         });
 
       const id = jobIdFor(userEmail, song, `${chain ?? ""}\0${asked}`);

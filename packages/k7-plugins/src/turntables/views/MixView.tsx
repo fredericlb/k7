@@ -195,7 +195,7 @@ export function MixView({
     };
 
     try {
-      const first = await service.prepareStems(library, song, engine.id);
+      const first = await service.prepareStems(library, song);
       if (!mine()) return;
       // Already on disk: `meta.stems` is only a scan snapshot, so the machine is the one asked.
       if (first.ready) return landed();
@@ -209,7 +209,7 @@ export function MixView({
           job = await service.separation(library, job.id);
         } catch {
           // Usually a swept job: the other route answers "are the stems on disk" directly, so ask it.
-          const again = await service.prepareStems(library, song, engine.id);
+          const again = await service.prepareStems(library, song);
           if (!mine()) return;
           if (again.ready) return landed();
           job = again.job;

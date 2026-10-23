@@ -31,7 +31,6 @@ import {
   songRef,
 } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { cfg } from "@studio/project-shell/fileApi";
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mediatek } from "../api";
@@ -218,7 +217,7 @@ export function PlaylistPane({
       if (stopRef.current) break;
       say(t.label, null);
       try {
-        const first = await mediatek.prepareStems(t.path, cfg().engineId);
+        const first = await mediatek.prepareStems(t.path);
         if (first.ready) {
           skipped += 1;
           done += 1;
@@ -233,7 +232,7 @@ export function PlaylistPane({
             job = await mediatek.separation(job.id);
           } catch {
             // The registry sweeps a finished job after five minutes, so a poll that 404s is usually a run that landed.
-            const again = await mediatek.prepareStems(t.path, cfg().engineId);
+            const again = await mediatek.prepareStems(t.path);
             if (again.ready) break;
             job = again.job;
           }

@@ -89,9 +89,9 @@ export const service = {
   envelope: (s: FileLink, path: string) =>
     get<Envelope>(s, `/mediatek/envelope?path=${encodeURIComponent(path)}`),
 
-  /** Separate one song, on the LIBRARY: pl8 holds the masters, so pl8 owns the cut — ../docs/stems.md. */
-  prepareStems: (l: LibraryLink, song: string, engineId: string) =>
-    libraryPost<StemsReply>(l, "/stems", { song, engineId }),
+  /** Separate one song, on the LIBRARY: pl8 holds the masters, so pl8 owns the cut, on the best-rated engine it finds — ../docs/stems.md. */
+  prepareStems: (l: LibraryLink, song: string) =>
+    libraryPost<StemsReply>(l, "/stems", { song }),
 
   /** Correct what pl8 knows about a RECORD — its tempo and its key, which do not change by set.
    *

@@ -20,6 +20,7 @@ import {
 } from "@studio/web-protocol/hunt";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
+import { readsThisMachine } from "./config";
 import { useLabels } from "./host";
 import type { LibraryLabels } from "./labels";
 import { poll } from "./poll";
@@ -249,9 +250,12 @@ export function FindSongs({
         {reason && (
           <div className="mx-auto mt-3 flex max-w-4xl items-center justify-between gap-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             <span>{reason}</span>
-            <Button variant="outline" size="sm" onClick={onOpenSettings}>
-              {l.settings}
-            </Button>
+            {/* Another server's slskd is its admins', set on that server's own page. */}
+            {readsThisMachine() && (
+              <Button variant="outline" size="sm" onClick={onOpenSettings}>
+                {l.settings}
+              </Button>
+            )}
           </div>
         )}
         {error && (

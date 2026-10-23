@@ -4,7 +4,9 @@
 
 import { hasTimecodes, timeLyrics } from "@studio/lyrics";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import type { StemsReply } from "@studio/web-protocol";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
+import { ApiError } from "../api";
 import { m } from "../paraglide/messages.js";
 import type { FetchStatus, LrcCandidate, Song } from "../types";
 import {
@@ -151,16 +153,7 @@ export async function fetchSong(
   return steps.copyTrack(masterPath(entry));
 }
 
-/** The engine a cut asks first: the server's own, which needs no claim, else the first this account may use. */
-export function cuttingEngine<
-  E extends { id: string; server?: boolean; access?: string },
->(engines: E[]): E | undefined {
-  return (
-    engines.find((e) => e.server) ?? engines.find((e) => e.access !== "unowned")
-  );
-}
-
-/** Wait for pl8 to hold the instrumental of `master`, cutting it on the server's engine or the first usable one.
+/** Wait for pl8 to hold the instrumental of `master`, cut on the best-rated engine the server finds.
  * `resumeJobId` skips straight to polling an already-running separation. */
 async function instrumentalReady(
   steps: Common,
@@ -172,13 +165,14 @@ async function instrumentalReady(
   steps.onStatus?.({ phase: "stemming" });
   let id = resumeJobId;
   if (!id) {
-    const engine = cuttingEngine(await steps.pl8.engines());
-    if (!engine) return false;
-    const reply = await steps.pl8.prepareStems(
-      master,
-      engine.id,
-      "instrumental",
-    );
+    let reply: StemsReply;
+    try {
+      reply = await steps.pl8.prepareStems(master, "instrumental");
+    } catch (e) {
+      // 409: no engine online the account may cut on — said as such, not as a failure of the cut.
+      if (e instanceof ApiError && e.status === 409) return false;
+      throw e;
+    }
     if (reply.ready) return true;
     id = reply.job?.id;
     if (!id) throw new Error(m["fetch.noSeparation"]());
