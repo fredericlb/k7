@@ -221,9 +221,13 @@ often than a track to play along to, so it is asked for rather than ridden along
   track… » only to a song that has none.
 - **Relinking never deletes a file.** A new link, or a dropped instrumental, only forgets the old
   path: every path a song holds is the library's.
-- **Any engine online makes it.** Separation needs a machine running an engine that k7's backend
-  can reach; the hosted image carries neither the model nor its runtime. When none is online, "Make
-  instrumental" says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **The server's engine makes it, else one of yours.** Separation needs a machine running an engine
+  that k7's backend can reach; k7's own image carries neither the model nor its runtime. The cut asks
+  the server's engine first (`cuttingEngine`, `src/fetchSong/run.ts`): every account may use it and
+  this page drives no engine, so it is the one cut that needs no claim
+  (`apps/k7/backend/docs/media/stems.md`). Without it, the first engine this account may use, which
+  the editor must be holding. When none is online, "Make instrumental" says so and changes nothing,
+  so pressing it again once one is up is the whole retry.
 - **The library song is found by artist and title** (`src/fetchSong/match.ts`): equal once accents,
   case and punctuation are dropped, else every typed word in the entry, else the same title by an
   artist a typo away (Gonzales / González). That is how a song FINDS its track; its stems are then
