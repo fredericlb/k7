@@ -160,12 +160,27 @@ in one click. An artist cannot: an artist is a tag the scan deduced, and starrin
 every album it will ever hold. A song shows under **Favorites** when it or any folder above it is
 starred, so an album starred today still covers the song added to it tomorrow.
 
-Favorites are the ACCOUNT's, in its preferences (`favorites`, library paths), not the volume's: the
-library is one folder every account shares, and one person's favorites are nobody else's. They are
-written read-merge-write against the server's copy, one write at a time, so another preference set
-elsewhere in the page survives — and no star is offered before the list has been read, or the first
-click would replace a list the screen never saw. A star names a path, so a song moved or renamed
-loses it.
+Favorites are the ACCOUNT's, not the volume's: the library is one folder every account shares, and
+one person's favorites are nobody else's. They follow the account from one device to the next, so
+they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
+
+- **The page asks its own backend**, `/api/favorites`. A backend paired with a server (the tray,
+  the phones) keeps no list: it asks the server's device door, `/api/sync/favorites`, with the
+  pairing's token, which names the person. An unpaired backend, the server among them, answers
+  from its own store. A server out of reach is an error on the star, not a local list that would
+  drift from the others.
+- **A store of their own, not the preferences file.** The page rewrites the preferences wholesale
+  from the copy it read at load, so a list kept there would be put back as it was by any other
+  setting changed in the same page. The preferences' old `favorites` field only seeds an account
+  that has no list yet.
+- **A click sends a state, not a toggle**: star or unstar these paths. Two devices clicking the
+  same row agree on the result instead of undoing each other.
+- **Stars made on a machine before it was paired go up once**, merged into the server's list, and
+  the machine keeps none from then on.
+- The page reads the list again whenever its tab comes back into view, which is when a star made
+  on another device matters. No star is offered before the first read.
+
+A star names a path, so a song moved or renamed loses it.
 
 Which of the two lists the tree shows is the BROWSER's choice, kept in `localStorage`: it is a view
 of the moment, not something to follow the account to another machine. The middle pane is not

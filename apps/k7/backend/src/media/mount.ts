@@ -25,6 +25,12 @@ import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
+import {
+  DEVICE_FAVORITES_ROUTE,
+  type FavoriteStores,
+  favoritesDeviceRouter,
+  favoritesRouter,
+} from "./routes/favorites.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
@@ -71,6 +77,8 @@ export function mountMedia(
     tokens: ReturnType<typeof mediaTokens>;
     /** Under the tray: what the machine's engine does as a pairing is stored or let go. */
     onRemote?: Parameters<typeof mountFileHub>[6];
+    /** Where each account's médiathèque favorites are kept (./routes/favorites.ts). */
+    favorites: FavoriteStores;
   },
 ): MediaMount {
   const { requireAuth, port, tokens } = opts;
@@ -145,6 +153,16 @@ export function mountMedia(
 
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.
   mountServerCopy(app, fileHub, requireAuth);
+  // The account's favorites: a paired machine's are its server's, read through the device door.
+  app.use(
+    DEVICE_FAVORITES_ROUTE,
+    favoritesDeviceRouter(fileHub.sync.deviceGate(), opts.favorites),
+  );
+  app.use(
+    "/api/favorites",
+    requireAuth,
+    favoritesRouter(opts.favorites, (req) => serverOf(fileHub, req)),
+  );
 
   // Play on THIS host's outputs under a dot-directory no family scan sees — packages/mpv-player/docs/mpvPlayer.md.
   configureMpv({

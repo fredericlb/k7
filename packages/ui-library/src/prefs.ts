@@ -11,8 +11,6 @@ export interface Pl8Prefs extends EnginePrefs {
   engineId?: string;
   /** Where playback happens, typed `string` because the backend stores whatever it is given. */
   playbackTarget?: string;
-  /** The songs and albums starred, as library paths — see favorites.ts. */
-  favorites?: string[];
 }
 
 /** The last known whole object, at module level because two hooks share a DOCUMENT, not a subtree. */
