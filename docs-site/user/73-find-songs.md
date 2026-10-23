@@ -4,6 +4,13 @@
 song you do not have yet: you type an artist and a title, and the server identifies the song,
 searches the Soulseek network for it, downloads it from a peer and files it in **Songs** by itself.
 
+## Which server searches
+
+The search runs on the server whose library you are browsing, and the song lands there. On a
+computer running the tray, that is the server chosen in the sidebar's server picker: **This
+computer**, or the server you are paired with. If that server cannot be reached, or has no slskd
+set up, the Find songs page says so and searches nothing.
+
 ## Before the first search
 
 The search needs an [slskd](https://github.com/slskd/slskd) daemon (a Soulseek client with an

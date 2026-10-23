@@ -136,9 +136,9 @@ export function engines(): Engines {
 
 // `/api/projects` and `/api/shares` are this service's routes, called from k7 (../docs/api.md).
 
-/** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
+/** `/api/hunt`, on the server the pages read: what it finds lands in that server's library (../docs/hunt.md). */
 const hget = async <T>(path: string, what: string): Promise<T> =>
-  json(await request(`${hostBase()}/api/hunt${path}`), what);
+  json(await request(`${apiBase()}/api/hunt${path}`), what);
 
 /** Finding a song on Soulseek. Starting one ANSWERS AT ONCE with the row — see ../docs/hunt.md. */
 export const hunt = {
@@ -147,7 +147,7 @@ export const hunt = {
   /** A hunt files the song into the media library and stops there; a playlist is out of its reach. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
-      await request(`${hostBase()}/api/hunt`, {
+      await request(`${apiBase()}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query }),
@@ -158,19 +158,16 @@ export const hunt = {
   /** The fallback on a failed row: retry THAT hunt through YouTube, so the tags file it in the same place. */
   youtube: async (id: string): Promise<HuntRecord> =>
     json(
-      await request(
-        `${hostBase()}/api/hunt/${encodeURIComponent(id)}/youtube`,
-        {
-          method: "POST",
-        },
-      ),
+      await request(`${apiBase()}/api/hunt/${encodeURIComponent(id)}/youtube`, {
+        method: "POST",
+      }),
       "youtube",
     ),
 
   /** Cancels it if it is still running, and takes the row off the list either way. */
   forget: async (id: string): Promise<void> => {
     await json(
-      await request(`${hostBase()}/api/hunt/${encodeURIComponent(id)}`, {
+      await request(`${apiBase()}/api/hunt/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
       "hunt",

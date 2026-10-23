@@ -106,7 +106,7 @@ stems(true)              // this desk catches an unprepared record
 It turns "this song has no stems" from a dead end into a job: the record goes onto the deck
 **immediately** and the separation starts behind it, `POST /api/stems` on **the media library** then a poll
 every two seconds. On the media library and not on the file service: it holds the masters, so it
-leads the split, borrowing the named engine's model (`apps/k7/backend/docs/media/stems.md`). `library` is this package's
+leads the split, borrowing the model of the best-rated engine it finds for the account (`apps/k7/backend/docs/media/stems.md`). `library` is this package's
 second seam for that one reason.
 
 The percentage is drawn **over** the dead knobs, not above them: the block borrows the strip's

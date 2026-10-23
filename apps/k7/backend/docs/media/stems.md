@@ -31,17 +31,24 @@ instrumental: each is a sentence with a remedy, reported verbatim.
 
 ## Which engine, and how it is reached
 
-Named by the caller (`engineId`), because it is the engine that browser is already on: this backend
-has no opinion about which machine is yours. It is reached through **its tunnel** — a jobs channel
-(`packages/engine-tunnel/docs/jobs.md`) — so a cut works wherever the engine is, not only on this
-server's network. The caller must hold a claim on that engine, or the cut is a **403**: anyone may register an
-engine, and a cut shares the song and the account's models with its machine
-(`packages/engine-registry/docs/claim.md`). The server's own engine is the exception, recognised by its
-render key (`docs/server-engine.md`): every account may use it, and the files it would be lent are
-already on its server, so a page that drives no engine — the songbook's "Make instrumental" — cuts on
-it with no claim. An engine with no tunnel here is refused by name. A registry **miss** is a 409
-rather than a 404: the engine existed when the browser picked it, and the remedy is to bring the
-machine back up.
+**The best-rated engine the account may cut on**, chosen here (`src/media/stems/engine.ts`). A cut is a
+batch job, so the machine that matters is the fastest one, not the one a page happens to play on: the
+rating is the machine's performance score (`packages/web-protocol/docs/performance.md`), an engine
+that could not rate itself counting last. Every page that cuts — the songbook, the desk, the editor's
+playlist — names none and gets that one. A caller may still name one (`engineId`); it passes the same
+rule.
+
+The rule is whose machine it is, since a cut shares the song and the account's models with it:
+**the account's own engine** (`owner`, `packages/engine-registry/docs/ownership.md`), **the server's**,
+recognised by its render key (`docs/server-engine.md`) — every account's, and the files are already
+on its server — or **one the caller holds a claim on**, being the one it drives. An engine merely
+shared with the account is someone else's machine: it is chosen only while the caller drives it, and
+named otherwise it is a **403**.
+
+It is reached through **its tunnel** — a jobs channel (`packages/engine-tunnel/docs/jobs.md`) — so a
+cut works wherever the engine is, not only on this server's network, and an engine with no tunnel
+here is never chosen. No engine to cut on is a **409** with `reason: "no-engine"`, rather than a 404:
+the remedy is to bring a machine up, and a page says so instead of failing.
 
 ## The files travel as the tunnel moves them
 

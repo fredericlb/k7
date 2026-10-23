@@ -3,10 +3,10 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { describe, expect, it, vi } from "vitest";
+import { ApiError } from "../api";
 import type { Song } from "../types";
 import type { Pl8Client } from "./pl8";
 import {
-  cuttingEngine,
   fetchSong,
   heldInLibrary,
   makeInstrumental,
@@ -57,6 +57,11 @@ const hunt = (over: Partial<HuntRecord> = {}): HuntRecord =>
     ...over,
   }) as HuntRecord;
 
+/** What the server answers a cut when no engine is online for the account. */
+const noEngine = async (): Promise<never> => {
+  throw new ApiError("no engine is online to cut it", 409);
+};
+
 /** A pl8 whose answers are given per test; everything unused throws if it is reached. */
 function fakePl8(over: Partial<Pl8Client> = {}): Pl8Client {
   const refuse = (name: string) => () => {
@@ -73,8 +78,7 @@ function fakePl8(over: Partial<Pl8Client> = {}): Pl8Client {
     }),
     startHunt: refuse("startHunt"),
     hunts: refuse("hunts"),
-    engines: async () => [],
-    prepareStems: refuse("prepareStems"),
+    prepareStems: noEngine,
     separation: refuse("separation"),
     stemsHeld: refuse("stemsHeld"),
     ...over,
@@ -237,18 +241,6 @@ describe("a page that goes", () => {
   });
 });
 
-describe("cuttingEngine", () => {
-  it("asks the server's engine first, never an unowned one, and an older registry's row as usable", () => {
-    const mine = { id: "mine", access: "owner" };
-    const srv = { id: "srv", access: "server", server: true };
-    const stray = { id: "stray", access: "unowned" };
-    expect(cuttingEngine([stray, mine, srv])?.id).toBe("srv");
-    expect(cuttingEngine([stray, mine])?.id).toBe("mine");
-    expect(cuttingEngine([stray])).toBeUndefined();
-    expect(cuttingEngine([{ id: "old" }])?.id).toBe("old");
-  });
-});
-
 describe("makeInstrumental", () => {
   const found = fakePl8();
   // A song links a track of pl8's library: that recording is what its stems are cut from.
@@ -287,7 +279,6 @@ describe("makeInstrumental", () => {
     const mixInstrumental = vi.fn(async () => song());
     const pl8 = fakePl8({
       listSongs: found.listSongs,
-      engines: async () => [{ id: "e1" } as never],
       prepareStems: async () => ({ ready: true, job: null }),
     });
     const outcome = await makeInstrumental(
@@ -305,7 +296,10 @@ describe("makeInstrumental", () => {
     const pl8 = fakePl8({
       listSongs: found.listSongs,
       separation: async () => ({ failed: false, done: true }) as never,
-      // prepareStems is left at fakePl8's default (throws) — resuming must never call it.
+      // Resuming must never start a new cut.
+      prepareStems: async () => {
+        throw new Error("unexpected call: prepareStems");
+      },
     });
     const outcome = await makeInstrumental(
       linked(),
@@ -327,14 +321,13 @@ describe("makeInstrumental", () => {
       steps(
         fakePl8({
           listSongs,
-          engines: async () => [{ id: "e1" } as never],
           prepareStems,
         }),
         { mixInstrumental },
       ) as never,
     );
     expect(listSongs).not.toHaveBeenCalled();
-    expect(prepareStems).toHaveBeenCalledWith(linked, "e1", expect.anything());
+    expect(prepareStems).toHaveBeenCalledWith(linked, expect.anything());
     expect(mixInstrumental).toHaveBeenCalledWith(
       "songs/Nina Simone/Pastel Blues/Sinnerman",
     );
@@ -343,7 +336,6 @@ describe("makeInstrumental", () => {
   it("waits for a running separation, and passes its failure on", async () => {
     const pl8 = fakePl8({
       listSongs: found.listSongs,
-      engines: async () => [{ id: "e1" } as never],
       prepareStems: async () => ({
         ready: false,
         job: { id: "j1", percent: null } as never,
@@ -424,12 +416,12 @@ describe("runPipeline", () => {
   });
 
   it("makes no stems for a song LRCLIB lists as instrumental", async () => {
-    const engines = vi.fn(async () => []);
+    const engines = vi.fn(noEngine);
     const onStatus = vi.fn();
     const found = await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ engines }), {
+      steps(fakePl8({ prepareStems: engines }), {
         findLrc: async () => [lrc({ instrumental: true, syncedLyrics: "" })],
         onLrc: async () => noStems,
         onStatus,
@@ -437,7 +429,7 @@ describe("runPipeline", () => {
     );
     expect(found.lyricsMatch).toBe("instrumental");
     expect(onStatus).toHaveBeenCalledWith({ lyricsMatch: "instrumental" });
-    // The stems step starts by asking pl8 for an engine: it never got there.
+    // The stems step starts by asking pl8 for a cut: it never got there.
     expect(engines).not.toHaveBeenCalled();
   });
 
@@ -448,9 +440,9 @@ describe("runPipeline", () => {
       "continue",
       steps(
         fakePl8({
-          engines: async () => {
+          prepareStems: async () => {
             order.push("stems");
-            return [];
+            return noEngine();
           },
         }),
         {
@@ -466,11 +458,11 @@ describe("runPipeline", () => {
   });
 
   it("still makes stems when LRCLIB cannot be reached", async () => {
-    const engines = vi.fn(async () => []);
+    const engines = vi.fn(noEngine);
     await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ engines }), {
+      steps(fakePl8({ prepareStems: engines }), {
         findLrc: async () => {
           throw new Error("LRCLIB is down");
         },
@@ -571,7 +563,6 @@ describe("runPipeline", () => {
     const findLrc = vi.fn(async () => []);
     const pl8 = fakePl8({
       listSongs: async () => [entry("Nina Simone", "Sinnerman")],
-      engines: async () => [],
     });
     await runPipeline(
       song({ ...withTrack, instrumental: null }),
@@ -647,11 +638,11 @@ describe("runPipeline", () => {
 
   it("skips the lyrics the upload popin turned down, and still makes stems", async () => {
     const findLrc = vi.fn(async () => [lrc()]);
-    const engines = vi.fn(async () => []);
+    const engines = vi.fn(noEngine);
     await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ engines }), {
+      steps(fakePl8({ prepareStems: engines }), {
         findLrc,
         onLrc: async () => noStems,
       }) as never,
@@ -663,11 +654,11 @@ describe("runPipeline", () => {
 
   it("makes no stems when the upload popin turned the instrumental down", async () => {
     const findLrc = vi.fn(async () => []);
-    const engines = vi.fn(async () => []);
+    const engines = vi.fn(noEngine);
     await runPipeline(
       noStems,
       "continue",
-      steps(fakePl8({ engines }), {
+      steps(fakePl8({ prepareStems: engines }), {
         findLrc,
         onLrc: async () => noStems,
       }) as never,
@@ -685,7 +676,7 @@ describe("runPipeline", () => {
         fetchStatus: { ...noStems.fetchStatus, phase: "stemming" },
       }),
       "continue",
-      steps(fakePl8({ engines: async () => [] }), {
+      steps(fakePl8(), {
         findLrc,
         onLrc: async () => noStems,
       }) as never,

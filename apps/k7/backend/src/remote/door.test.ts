@@ -40,10 +40,16 @@ describe("allowedPath", () => {
     expect(allowedPath("/api/files/account/libraries")).toBe(true);
   });
 
-  it("refuses what mints, pairs or spends", () => {
+  it("lets the hunt through, but not the slskd settings it spends", () => {
+    expect(allowedPath("/api/hunt")).toBe(true);
+    expect(allowedPath("/api/hunt/identify?q=x")).toBe(true);
+    expect(allowedPath("/api/settings/slskd")).toBe(false);
+    expect(allowedPath("/api/settings/admin")).toBe(false);
+  });
+
+  it("refuses what mints, pairs or spends a stored secret", () => {
     expect(allowedPath("/api/sync/devices")).toBe(false);
     expect(allowedPath("/api/token")).toBe(false);
-    expect(allowedPath("/api/hunt")).toBe(false);
     expect(allowedPath("/api/mediatek-other")).toBe(false);
   });
 

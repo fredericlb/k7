@@ -3,23 +3,19 @@
 // What reads wrong: the hunt refuses k7's service token on purpose, which is why this runs in the browser.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import type {
-  PublicEngine,
-  SeparateJob,
-  StemsReply,
-} from "@studio/web-protocol";
+import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import type {
   HuntIdentity,
   HuntRecord,
   HuntTags,
 } from "@studio/web-protocol/hunt";
 import { ApiError } from "../api";
-import { hostBase } from "../config";
+import { apiBase } from "../config";
 import { m } from "../paraglide/messages.js";
 
-// The media library answers on this machine's backend, which a hunt and an engine need too.
+// The server the pages read: a hunt files into its library, and the cut runs where those bytes are.
 export function pl8Base(): Promise<string> {
-  return Promise.resolve(hostBase());
+  return Promise.resolve(apiBase());
 }
 
 /** Where the browser streams a médiathèque file from pl8 itself, with Range; a FLAC comes as its MP3. */
@@ -52,12 +48,8 @@ export interface Pl8Client {
   /** A hunt of `tags` when given, as checked, rather than of whatever pl8 would identify. */
   startHunt(query: string, tags?: HuntTags): Promise<HuntRecord>;
   hunts(): Promise<HuntRecord[]>;
-  engines(): Promise<PublicEngine[]>;
-  prepareStems(
-    song: string,
-    engineId: string,
-    want?: CutWant,
-  ): Promise<StemsReply>;
+  /** A cut on the best-rated engine the server finds for this account; a 409 when none is online. */
+  prepareStems(song: string, want?: CutWant): Promise<StemsReply>;
   /** Null once pl8 has swept a finished job: the disk is then the one to ask. */
   separation(id: string): Promise<SeparateJob | null>;
   stemsHeld(song: string, want?: CutWant): Promise<boolean>;
@@ -79,11 +71,10 @@ export const pl8: Pl8Client = {
       body: JSON.stringify({ query, tags }),
     }),
   hunts: async () => (await call<{ hunts: HuntRecord[] }>("/hunt")).hunts,
-  engines: () => call<PublicEngine[]>("/engines"),
-  prepareStems: (song, engineId, want = "stems") =>
+  prepareStems: (song, want = "stems") =>
     call<StemsReply>("/stems", {
       method: "POST",
-      body: JSON.stringify({ song, engineId, want }),
+      body: JSON.stringify({ song, want }),
     }),
   separation: async (id) => {
     try {

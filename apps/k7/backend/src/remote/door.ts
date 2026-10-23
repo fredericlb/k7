@@ -11,9 +11,11 @@ export const DOOR_PATH = "/api/device-door";
 /** The device token, apart from `Authorization`, which carries the page's own file ticket or library bearer through. */
 export const DEVICE_HEADER = "x-k7-device";
 
-/** What a device may reach: the médiathèque, the rehearsal recorder and the account's files — nothing that mints or pairs. */
+/** What a device may reach: the médiathèque, its hunt, the rehearsal recorder and the account's files — nothing that mints or pairs. */
 export const ALLOWED = [
   "/api/mediatek",
+  // Its person finding songs from their own page; the slskd settings it spends stay behind a session.
+  "/api/hunt",
   "/api/shares",
   "/api/stems",
   "/api/favorites",

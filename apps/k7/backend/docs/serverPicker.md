@@ -29,13 +29,18 @@ the ordinary routes. No route is written twice, and each answers as it would in 
 
 ## Only what the pages need passes
 
-The door lets through the médiathèque, the rehearsal recorder and the account's files (`ALLOWED`).
-What mints or pairs — tokens, devices, pairings — and what spends a stored secret — the hunt and the
-slskd settings, session-only by design (`media/hunt.md`) — stays behind a real session. A dot segment
-in the path is refused, so a path cannot climb out of an allowed prefix.
+The door lets through the médiathèque, its hunt, the rehearsal recorder and the account's files
+(`ALLOWED`). What mints or pairs — tokens, devices, pairings — and the slskd settings, which hold the
+daemon's key, stay behind a real session (`media/settings.md`). A dot segment in the path is
+refused, so a path cannot climb out of an allowed prefix.
+
+The hunt crosses because songs are found on the server whose library they land in, and the door's
+request is the person's own, from their page on their machine: it is the headless SERVICE token the
+hunt refuses (`media/hunt.md`), and a device token names a person. It spends the server's Soulseek
+access exactly as that person's browser on the server would.
 
 ## What does not cross
 
 - **The rehearsal recorder's live link** (`/rtc`) is a WebSocket, which the forward does not carry.
 - **This machine's own routes** stay on this backend whatever the choice: the engine registry, the
-  hunt, the slskd settings and the copies placed against the server (`hostBase` in each UI package).
+  slskd settings and the copies placed against the server (`hostBase` in each UI package).

@@ -258,7 +258,7 @@ with a reason of its own. The verb exists and does the same work — it is what 
 palette or the CLI. But a command returns its lines **when it has finished**, and finishing, for
 thirty songs, is an hour of blank screen. So the button does one `POST /api/stems` to the media library per line
 and polls the job in between, which is the only shape that has a bar. On **the media library**: it holds the masters,
-so it leads the split and keeps the stems, borrowing the engine's model (`apps/k7/backend/docs/media/stems.md`).
+so it leads the split and keeps the stems, borrowing the model of the best-rated engine it finds (`apps/k7/backend/docs/media/stems.md`).
 What the rule demands stays true: the ACT is reachable from the command bar.
 
 ## The transport is ours, and it is tiny

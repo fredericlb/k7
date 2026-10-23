@@ -221,13 +221,14 @@ often than a track to play along to, so it is asked for rather than ridden along
   track… » only to a song that has none.
 - **Relinking never deletes a file.** A new link, or a dropped instrumental, only forgets the old
   path: every path a song holds is the library's.
-- **The server's engine makes it, else one of yours.** Separation needs a machine running an engine
-  that k7's backend can reach; k7's own image carries neither the model nor its runtime. The cut asks
-  the server's engine first (`cuttingEngine`, `src/fetchSong/run.ts`): every account may use it and
-  this page drives no engine, so it is the one cut that needs no claim
-  (`apps/k7/backend/docs/media/stems.md`). Without it, the first engine this account may use, which
-  the editor must be holding. When none is online, "Make instrumental" says so and changes nothing,
-  so pressing it again once one is up is the whole retry.
+- **The best-rated engine makes it.** Separation needs a machine running an engine that k7's backend
+  can reach; k7's own image carries neither the model nor its runtime. The page names none: the server
+  picks the best-rated one this account may cut on — its own, or the server's
+  (`apps/k7/backend/docs/media/stems.md`). When none is online, the cut answers 409 and "Make
+  instrumental" says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **Songs are fetched from the server the pages read** (`pl8Base`, `src/fetchSong/pl8.ts`): the hunt
+  files into that server's library, the track is copied from it and the cut runs where it is. On the
+  tray that is the server picker's choice (`apps/k7/frontend/docs/serverPicker.md`).
 - **The library song is found by artist and title** (`src/fetchSong/match.ts`): equal once accents,
   case and punctuation are dropped, else every typed word in the entry, else the same title by an
   artist a typo away (Gonzales / González). That is how a song FINDS its track; its stems are then
