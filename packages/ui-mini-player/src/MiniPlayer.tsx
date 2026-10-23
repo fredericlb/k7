@@ -107,7 +107,8 @@ export function MiniPlayer({
           {status}
         </div>
 
-        <div className="mt-1 flex items-center gap-2">
+        {/* Centred and capped: on a wide screen the clocks stay near the bar they read. */}
+        <div className="mx-auto mt-1 flex w-full max-w-[800px] items-center gap-2">
           <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
             {clock(shown)}
           </span>
@@ -117,7 +118,8 @@ export function MiniPlayer({
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 h-1 rounded"
               style={{
-                background: `linear-gradient(to right, hsl(var(--foreground)) ${pct}%, hsl(var(--muted)) ${pct}%)`,
+                // The design system's tokens are whole colours; the rest of the track is the muted text, faded.
+                background: `linear-gradient(to right, var(--color-foreground) ${pct}%, color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) ${pct}%)`,
               }}
             />
             {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
