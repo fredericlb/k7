@@ -2,6 +2,12 @@
 
 Don't create Pull Request, only use branches and woktress
 
+**Every worktree checks out `commons` first**, before any other step and even for a docs-only change:
+an empty `commons/` breaks biome (`biome.json` extends `commons/biome.base.json`), the `@frediverse/*`
+imports and the build. In a WSL worktree: `git -c protocol.file.allow=always submodule update --init commons`
+(the submodule URL is a local path); in a session isolated by EnterWorktree, which refuses that flag,
+copy the clone's `commons/` in and delete the copied submodule's git link. On Windows: `git submodule update --init commons`.
+
 # Building and testing on Windows from the WSL clone
 
 AGENTS.md's rule stands: nothing is built IN WSL, and Tilt's checkout `C:\Users\flb\Src\k7` is never
