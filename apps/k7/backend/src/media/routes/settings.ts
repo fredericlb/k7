@@ -1,6 +1,6 @@
-// settings.ts — the settings screen's three calls: read the slskd settings, save them, and test
-// what is saved. Admins only, and every secret goes in and never comes back out — not even as an
-// error's text. See ../../../docs/media/settings.md.
+// settings.ts — the server page's calls: whether the session is an admin, which anyone signed in may
+// ask, then reading, saving and testing the slskd settings, admins only. Every secret goes in and
+// never comes back out — not even as an error's text. See ../../../docs/media/settings.md.
 
 import { wrap } from "@frediverse/http/route";
 import type { CheckResult, SlskdCheck } from "@studio/web-protocol/settings";
@@ -52,6 +52,15 @@ export const settingsRouter: Router = Router();
 settingsRouter.use((req, res, next) => {
   if (!subjectOf(req))
     return res.status(401).json({ error: "no user on the session" });
+  next();
+});
+
+// What the user menu asks before it offers the server page: the session's own standing, nothing more.
+settingsRouter.get("/admin", (req, res) => {
+  res.json({ admin: isAdminRequest(req) });
+});
+
+settingsRouter.use((req, res, next) => {
   if (!isAdminRequest(req))
     return res.status(403).json({ error: "admins only" });
   next();

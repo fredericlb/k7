@@ -6,7 +6,9 @@ k7 has three places for settings, depending on what they belong to:
 |---|---|---|
 | **Settings panel** in the editor | the cog at the right of the footer, or `ui settings` | Editor, I/O, project and account |
 | **Commands page** | the ⌘ button at the top of the settings panel, or `ui settings commands` | Your names, icons, keys and menus for commands |
-| **Settings page** on the home page | `/settings`, from the home page's sidebar | What a browser may change: language, separation chains, AI key, paired devices, sync, engines, the rehearsal pages |
+| **Settings page** on the home page | `/settings`, from the user menu | What a browser may change for your account: language, separation chains, AI key, paired devices, sync, the rehearsal pages |
+| **Engine page** on the home page | `/settings/engine`, from the user menu | The engines your account may use; on the tray, this computer's engine; in the phone app, the phone's |
+| **Server page** on the home page | `/settings/server`, from the user menu, for the server's admins | Who owns each engine, and the song hunt's Soulseek access |
 
 Where each setting is **kept** matters:
 
@@ -59,7 +61,7 @@ The page edits a draft: **Save** writes it to your account; leaving with unsaved
 
 ## The home page's Settings page
 
-Reached from the home page's sidebar. It holds what a browser can change; the engine, the audio interface and the machine's own settings are set on that machine, on the tray's engine page or in the command-line engine's config file. On the Android app, this page is also where the phone's engine is set.
+Reached from the user menu at the foot of the home page's sidebar. It holds what a browser can change for your account, under three tabs: General, Devices and Media. The engine, the audio interface and the machine's own settings are set on that machine, on the tray's engine page or in the command-line engine's config file; the phone's engine is on the Engine page.
 
 ### Language
 
@@ -81,6 +83,19 @@ Phones, tablets and other computers on your local network allowed to drive this 
 
 On a computer running the tray or in the phone app: whether this machine syncs your account's workspaces with a server, and **Unpair** to stop it (signing out does not stop it). On the server: the devices syncing your account, each removable. See [Sync, history and conflicts](./19-sync-and-history.md).
 
-### Engines, Soulseek and rehearsal pages
+### Rehearsal pages
 
-The media library's engine registry and Soulseek (slskd) access, and the rehearsal pages' settings, are described in the Media library section.
+The rehearsal pages' settings, under the Media tab, are described in the Rehearsal section.
+
+## The Engine page
+
+**Engine** in the user menu opens `/settings/engine`. Everywhere it lists the engines your account may use: your own, those shared with you and the server's, each measured from this browser, with **Share…** under the ones you own. On a computer running the tray it opens on this computer's engine, with that list as its last tab (see [k7 on your computer](./82-desktop-app.md#the-engine-page)); in the phone app it opens on the phone's engine.
+
+## The Server page
+
+**Server** appears in the user menu for the server's admins only, and opens `/settings/server`:
+
+- **Engine owners**: every engine an account owns on this server, yours or not, with its machine's name, whether it is online, its owner, how widely it is shared and since when. **Reset owner** (click twice) leaves the engine unowned until its machine next checks in signed in as an account, which then owns it.
+- **slskd**: the song hunt's Soulseek access, described in [Find songs](./73-find-songs.md).
+
+Anyone else who opens the address is told the page is the admins'. Who is an admin is set on the server (`AUTH_ADMIN_GROUPS`).

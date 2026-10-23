@@ -45,8 +45,9 @@ Frontend, in `apps/k7/frontend/src/appMain.tsx` and `apps/k7/frontend/src/projec
   lazy-loads `RehearsalRoutes`.
 - `/rehearsal/@<nametag>` (a public page) is read **before** the sign-in gate, and
   `/rehearsal/remote` (the phone microphone) is its own route outside the frame.
-- `apps/k7/frontend/src/settings/SettingsPage.tsx` mounts `EnginesSettings`, `SlskdSettings` and
-  the lazy `RehearsalSettings`.
+- `apps/k7/frontend/src/settings/SettingsPage.tsx` mounts the lazy `RehearsalSettings`;
+  `RegisteredEngines.tsx`, on the engine page, mounts `EnginesSettings`; `ServerPage.tsx` mounts
+  `EngineOwnersSettings` and `SlskdSettings`.
 
 ## Where data lives
 

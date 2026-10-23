@@ -41,7 +41,7 @@ no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_
 ## What else changes behaviour
 
 - `MUSICBRAINZ_USER_AGENT` — how "Find songs" names itself to MusicBrainz ([hunt.md](hunt.md)).
-  slskd itself is configured on the settings page, not here ([settings.md](settings.md)).
+  slskd itself is configured on the server page, `/settings/server`, not here ([settings.md](settings.md)).
 - `SESSION_SECRET` — besides the session, the key the settings' secrets are sealed under, and the
   seed of the API token secret when `API_TOKEN_SECRET` is not set ([gate.md](gate.md)).
 - `FFMPEG_BIN`, `YTDLP_BIN` — the two tools, when they are not on the `PATH`.

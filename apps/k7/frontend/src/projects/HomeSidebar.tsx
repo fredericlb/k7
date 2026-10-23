@@ -13,6 +13,7 @@ import {
   ListChecks,
   type LucideIcon,
   RefreshCw,
+  ServerCog,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { projectsUrl } from "@studio/project-shell/launch";
@@ -35,7 +36,7 @@ import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 import { setServerChoice } from "../serverChoice";
-import { useOnDesktopEngine } from "../settings/desktopEngine";
+import { useIsAdmin } from "../settings/useIsAdmin";
 import { VERSION } from "../version";
 import {
   ABOUT_ROUTE,
@@ -43,6 +44,7 @@ import {
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
+  SERVER_SETTINGS_ROUTE,
   SETTINGS_ROUTE,
   TASKS_ROUTE,
 } from "./api";
@@ -209,8 +211,9 @@ function HomeSidebar({
   const pathname = useLocation().pathname;
   const here = (route: string) => !away && pathname === route;
 
+  // The server page is offered to its admins only; its routes still decide (../settings/useIsAdmin.ts).
+  const admin = useIsAdmin();
   // Null off the tray's backend; on it, the SERVER is whose apps the menu lists (../desktop.ts).
-  const engineHere = useOnDesktopEngine();
   const [isDesktop, setIsDesktop] = useState(false);
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
@@ -325,8 +328,24 @@ function HomeSidebar({
           settingsLabel={m["home.settings"]()}
           label={m["home.account"]()}
           logoutLabel={m["home.signOut"]()}
-          // Beside Settings, in an app that updates itself; this machine's engine page, on the tray's backend; About (../../docs/about.md).
+          // Beside Settings: the engines, the server's admin page to its admins, updates in an app that updates itself, About (../../docs/settings.md).
           items={[
+            {
+              id: "engine",
+              label: m["home.engine"](),
+              icon: AudioLines,
+              onSelect: () => navigate(ENGINE_SETTINGS_ROUTE),
+            },
+            ...(admin
+              ? [
+                  {
+                    id: "server",
+                    label: m["home.server"](),
+                    icon: ServerCog,
+                    onSelect: () => navigate(SERVER_SETTINGS_ROUTE),
+                  },
+                ]
+              : []),
             ...(canCheckForUpdates()
               ? [
                   {
@@ -334,16 +353,6 @@ function HomeSidebar({
                     label: m["home.checkUpdates"](),
                     icon: RefreshCw,
                     onSelect: checkForUpdates,
-                  },
-                ]
-              : []),
-            ...(engineHere
-              ? [
-                  {
-                    id: "engine",
-                    label: m["home.engine"](),
-                    icon: AudioLines,
-                    onSelect: () => navigate(ENGINE_SETTINGS_ROUTE),
                   },
                 ]
               : []),

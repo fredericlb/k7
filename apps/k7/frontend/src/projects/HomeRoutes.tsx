@@ -12,6 +12,7 @@ import {
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
+  SERVER_SETTINGS_ROUTE,
   SETTINGS_ROUTE,
   TASKS_ROUTE,
 } from "./api";
@@ -37,9 +38,14 @@ const MediaPage = lazy(() =>
 const TasksPage = lazy(() =>
   import("./TasksPage").then((m) => ({ default: m.TasksPage })),
 );
-const DesktopEnginePage = lazy(() =>
-  import("../settings/DesktopEnginePage").then((m) => ({
-    default: m.DesktopEnginePage,
+const EnginePage = lazy(() =>
+  import("../settings/EnginePage").then((m) => ({
+    default: m.EnginePage,
+  })),
+);
+const ServerPage = lazy(() =>
+  import("../settings/ServerPage").then((m) => ({
+    default: m.ServerPage,
   })),
 );
 const SettingsPage = lazy(() =>
@@ -62,10 +68,8 @@ export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
           <Routes key={serverChoice}>
             <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
             <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
-            <Route
-              path={ENGINE_SETTINGS_ROUTE}
-              element={<DesktopEnginePage />}
-            />
+            <Route path={ENGINE_SETTINGS_ROUTE} element={<EnginePage />} />
+            <Route path={SERVER_SETTINGS_ROUTE} element={<ServerPage />} />
             <Route path={ABOUT_ROUTE} element={<AboutPage />} />
             <Route path={TASKS_ROUTE} element={<TasksPage />} />
             <Route path={`${MEDIA_ROUTE}/*`} element={<MediaPage />} />

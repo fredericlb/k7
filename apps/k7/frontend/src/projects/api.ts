@@ -78,8 +78,11 @@ export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
 /** …and the ABOUT page: k7's version, its licence, its source and the third-party notices. */
 export const ABOUT_ROUTE = `/${ABOUT_PAGE}`;
 
-/** …and the desktop app's built-in ENGINE, a page under the settings. */
+/** …and the ENGINE page beside the settings: this machine's on the tray, the engines this account may use everywhere. */
 export const ENGINE_SETTINGS_ROUTE = `/${SETTINGS_PAGE}/engine`;
+
+/** …and the SERVER page, its admins' own, under the same prefix so no workspace name is taken. */
+export const SERVER_SETTINGS_ROUTE = `/${SETTINGS_PAGE}/server`;
 
 /** …and the TASKS page, the same way. */
 export const TASKS_ROUTE = `/${TASKS_PAGE}`;

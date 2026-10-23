@@ -19,7 +19,7 @@ sit at the other: they are the machine's, read from the account's file service.
 
 Inside the Android app (`engine/k7-runtime/docs/android.md`) the line above moves, and for the
 reason it was drawn: the process on the machine is the app k7 is running in, and the phone has no
-config file to hand its user. So the page's first tab, Engines, opens on **this phone's engine** —
+config file to hand its user. So the Engine page (below) opens on **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
 which one the apps open, the instruments it downloads, the private CA. The Downloads section is the
 computer's engine page's own (`settings/InstrumentsSection.tsx`), since what a phone keeps is chosen the same
@@ -38,16 +38,15 @@ at the account's settings is therefore a link to `/settings`.
 
 ## Tabs, and the one in the address
 
-Both settings pages group their sections under tabs (`settings/SettingsTabs.tsx`): `/settings` under
-General, Devices, Engines and Media; `/settings/engine` under Engine, Servers, Instruments and
-Plugins. Every section in one column runs past what one screen shows, and the sections fall into
-groups nobody needs at once.
+`/settings` and the tray's engine page group their sections under tabs (`settings/SettingsTabs.tsx`):
+`/settings` under General, Devices and Media; `/settings/engine`, on the tray, under Engine, Servers,
+Instruments, Plugins and Engines. Every section in one column runs past what one screen shows, and
+the sections fall into groups nobody needs at once.
 
 - **The tab is in the address**, as `?tab=`, so a reload or a link given to someone lands on it. It
   is replaced, not pushed: Back leaves the page rather than replaying every tab looked at.
 - **Only the shown tab is mounted.** Each section fetches what it shows on mount, so a hidden tab
   costs no request; going back to one fetches it again, which is what a settings page should show.
-- **On the phone, Engines comes first**, since the phone's engine is what its user opens the page for.
 
 ## The language
 
@@ -203,13 +202,29 @@ process on the machine can apply them: the command-line engine's config file, or
 the backend running the engine (below). A second screen for one setting is two that disagree the day one is
 changed.
 
-## The computer's engine is a page of its own
+## The engines and the server are pages beside it
 
-Served by the tray's backend, this page's Engines tab links to `/settings/engine` (`settings/DesktopEnginePage.tsx`):
-the machine's engine's state, its audio interface ranking, its plugins and its instruments, reached
-through the backend that runs the supervisor (`apps/k7/backend/docs/localEngine.md`), since the
-supervisor opens no socket. The link is drawn only when `GET /api/local` says this backend runs the
-engine (`localApp.md`); anywhere else the page says the engine's settings are on the engine's machine.
+The user menu offers **Engine** and, to admins, **Server** right after Settings, and neither is a tab
+of this page. What this page holds is the account's; an engine is a machine's, and the server's
+settings are every account's. Under one roof, a person changing their language scrolls past what
+only an admin may touch, and a phone's engine — the reason its user opens the menu — sits behind a
+tab. Both stay under the `settings/` prefix, so neither takes a workspace name
+(`packages/web-protocol/docs/addresses.md`).
+
+**Engine**, `/settings/engine` (`settings/EnginePage.tsx`), is the same entry everywhere, and what it
+holds follows the machine. Served by the tray's backend — `GET /api/local` says this backend runs the
+engine (`localApp.md`) — it is this machine's engine: its state, its audio interface ranking, its
+plugins and its instruments, reached through the backend that runs the supervisor
+(`apps/k7/backend/docs/localEngine.md`), since the supervisor opens no socket, with the engines this
+account may use as its last tab. Inside the Android app it opens on the phone's engine. Anywhere else
+it is the engines this account may use (`settings/RegisteredEngines.tsx`), with the sentence saying a
+computer's engine is set on that computer.
+
+**Server**, `/settings/server` (`settings/ServerPage.tsx`), is the admins' — who owns which engine
+and the hunt's slskd access (`packages/ui-library/docs/settings.md`). The menu asks
+`GET /api/settings/admin` once per page (`settings/useIsAdmin.ts`) and offers it to admins alone.
+That answer only hides an entry: each card asks its own admin-only route and draws nothing on a 403,
+and the page reached by its address without being an admin says whose it is.
 
 Its list of servers has no address form of its own: **Add** pairs the signed-in account with the
 server through the browser, as the home page's "Add a server" does, because the engine is the

@@ -73,6 +73,17 @@ describe("settings routes", () => {
     expect(slskdOf()).toBeNull();
   });
 
+  it("tell any signed-in user whether they are an admin", async () => {
+    groups = ["users"];
+    expect(await (await fetch(`${base}/admin`)).json()).toEqual({
+      admin: false,
+    });
+    groups = ["Admins"];
+    expect(await (await fetch(`${base}/admin`)).json()).toEqual({
+      admin: true,
+    });
+  });
+
   it("let an admin save, and the check answers no raw error text", async () => {
     groups = ["admins"];
     expect((await put({ ...FORM, apiKey: "K" })).status).toBe(200);

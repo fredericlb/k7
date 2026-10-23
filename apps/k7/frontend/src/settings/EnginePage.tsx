@@ -1,7 +1,8 @@
-// DesktopEnginePage.tsx — `/settings/engine`, this machine's engine as the tray runs it, under four tabs: Engine
-// (whether it runs, which audio interface it takes first, whether its network may use it unpaired), Servers (where
-// it is listed), Instruments (what it downloads) and Plugins. What the command-line engine reads from its config file;
-// the tray hands its user no such file. See ../../docs/settings.md.
+// EnginePage.tsx — `/settings/engine`, the user menu's Engine. On the tray, this machine's engine under five tabs:
+// Engine (whether it runs, which audio interface it takes first, whether its network may use it unpaired), Servers
+// (where it is listed), Instruments, Plugins, and the engines this account may use. What the command-line engine
+// reads from its config file; the tray hands its user no such file. Anywhere else, those engines alone, and the
+// phone's own first. See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
@@ -21,6 +22,7 @@ import {
   useOnDesktopEngine,
 } from "./desktopEngine";
 import { InstrumentsSection } from "./InstrumentsSection";
+import { RegisteredEngines } from "./RegisteredEngines";
 import { Action, Row, Section } from "./Section";
 import { SettingsTabs } from "./SettingsTabs";
 import { StudiosSection } from "./StudiosSection";
@@ -63,7 +65,7 @@ function statusLine(
   return s.userStopped ? m["engine.stoppedByYou"]() : m["engine.stopped"]();
 }
 
-export function DesktopEnginePage() {
+export function EnginePage() {
   const here = useOnDesktopEngine();
   const state = useDesktopEngine();
   const s = state?.snapshot ?? null;
@@ -242,11 +244,14 @@ export function DesktopEnginePage() {
 
   return (
     <HomeShell>
-      <PageFrame title={m["engine.title"]()} narrow>
+      <PageFrame
+        title={here ? m["engine.title"]() : m["engine.titleEngines"]()}
+        narrow
+      >
         {here === undefined ? null : !here ? (
-          <p className="text-muted-foreground text-xs">
-            {m["engine.notHere"]()}
-          </p>
+          <div className="flex min-w-0 flex-col gap-4">
+            <RegisteredEngines onTray={false} />
+          </div>
         ) : (
           <SettingsTabs
             tabs={[
@@ -271,6 +276,11 @@ export function DesktopEnginePage() {
                 key: "plugins",
                 label: m["engine.tabPlugins"](),
                 content: pluginsTab,
+              },
+              {
+                key: "engines",
+                label: m["engine.tabEngines"](),
+                content: <RegisteredEngines onTray />,
               },
             ]}
           />

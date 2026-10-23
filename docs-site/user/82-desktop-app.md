@@ -66,7 +66,7 @@ If that tab is signed in to the server as another person, the bar says so: sign 
 
 ## The engine page
 
-**Engine Settings…** in the tray menu, or **Engine** in the user menu at the bottom of the home page's sidebar, opens `/settings/engine`, the page that controls this computer's engine. Opened anywhere other than the tray's address, the page says it belongs to a machine running the k7 tray.
+**Engine Settings…** in the tray menu, or **Engine** in the user menu at the bottom of the home page's sidebar, opens `/settings/engine`, the page that controls this computer's engine. Its last tab, **Engines**, lists the engines your account may use. Opened anywhere other than the tray's address, the page lists only those engines.
 
 ### This machine's engine
 

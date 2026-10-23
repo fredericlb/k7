@@ -10,7 +10,7 @@ import {
 } from "@studio/ui-library";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SETTINGS_ROUTE } from "./api";
+import { SERVER_SETTINGS_ROUTE } from "./api";
 import { HomeShell } from "./HomeSidebar";
 import { MediaHost } from "./MediaHost";
 
@@ -25,7 +25,7 @@ export function MediaPage() {
         <HomeShell actions={<PlaybackPicker />} mediaCounts={counts}>
           <div className="flex min-h-0 flex-1 flex-col">
             <MediaLibrary
-              onOpenSettings={() => navigate(SETTINGS_ROUTE)}
+              onOpenSettings={() => navigate(SERVER_SETTINGS_ROUTE)}
               onCounts={setCounts}
             />
           </div>
