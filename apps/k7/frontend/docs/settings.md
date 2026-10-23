@@ -164,7 +164,11 @@ serves this page:
   sign-out would stop a phone syncing every time someone handed it over. Unpaired, it says that
   pairing follows a sign-in, which is where it happens.
 - **On the origin**, the account's devices, each with Remove: a lost phone is stopped from the
-  machine you still have.
+  machine you still have. A device is also created here by name, for a machine that pairs through
+  no browser — a command-line engine, a server's container — which takes the token as
+  `$STUDIO_DEVICE_TOKEN` and is then listed as the account's engine
+  (`packages/engine-registry/docs/heartbeat.md`). The token is signed, not stored, so it is shown
+  once.
 
 Which end this page is on is not a route's answer, since every hub answers both routes: it is the
 backend's own probe (`GET /api/local`, `localApp.md`) or the Android bridge (`tabs/bridge.ts`). A local backend lists its devices too, and the list is shown there only when
