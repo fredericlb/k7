@@ -53,6 +53,15 @@ tall — 32 px on a device without hover — so a finger finds it without the ba
 button grows to 40 px on such a device too, centred at the right with room made for it, while a
 mouse keeps the small corner button.
 
+**The track is always drawn**, the part not yet played included: a bar whose unplayed half is the
+card's own colour reads as no bar at all until something plays. Played is the foreground; the rest
+is the muted text colour, faded, which stays visible on both themes. Both come from the design
+system's `--color-*` tokens, which are whole colours: a token wrapped in `hsl()` is invalid and draws
+nothing.
+
+**The position row is centred, at most 800 px wide.** Stretched across a wide window the two clocks
+end up far from the bar they read, and a long drag is a longer one for nothing.
+
 ## The close is the only thing that takes the bar away
 
 The component never hides itself: the host decides whether there is a bar at all. That is what
