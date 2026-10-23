@@ -50,10 +50,13 @@ The media library and the rehearsal recorder have their own sections in this gui
 The round button at the foot of the sidebar opens the user menu:
 
 - your email, as the heading;
-- **Settings**, which opens `/settings` (language, chains, AI key, paired devices, sync pairings,
-  registered engines and other account settings, described in the editor shell section);
-- on a computer running the [tray](./82-desktop-app.md), **Engine**, which opens `/settings/engine`,
-  the settings of this computer's engine;
+- **Settings**, which opens `/settings` (language, chains, AI key, paired devices, sync pairings and
+  the rehearsal pages, described in [Settings](./16-settings.md));
+- **Engine**, which opens `/settings/engine`: the engines your account may use, and on a computer
+  running the [tray](./82-desktop-app.md) the settings of this computer's engine, or in the phone app
+  the phone's engine;
+- for the server's admins, **Server**, which opens `/settings/server`: who owns each engine, and the
+  song hunt's Soulseek access;
 - a link to each other app of the site, if there is one. On a computer running the tray these
   links point at the server you are paired with. If it is not paired with a server, the menu says
   "Other apps — pair a server in Settings to open them" instead;

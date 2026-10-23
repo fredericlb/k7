@@ -13,7 +13,7 @@ instance that has not been set up says so on the Find songs page, with a **Setti
 These settings are an administrator's: only a member of the instance's admin groups sees the card,
 and anyone else is refused. If the search says it is not set up, ask an administrator.
 
-On the home **Settings** page, the slskd card has these fields:
+On the **Server** page (`/settings/server`, in the user menu of the server's admins), the slskd card has these fields:
 
 | Field | What to enter |
 |---|---|

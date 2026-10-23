@@ -95,6 +95,7 @@ the last 100 kept).
 | `POST /api/hunt` `{query, tags?}` | Start a hunt. 503 unconfigured, 400 empty or over 200 characters, 429 past 4 running per person |
 | `POST /api/hunt/:id/youtube` | The yt-dlp fallback, only for a row that failed because Soulseek was exhausted (`canFallBackToYoutube` in `@studio/web-protocol/hunt`, shared with the button) |
 | `DELETE /api/hunt/:id` | Cancel if running, and remove the row |
+| `GET /api/settings/admin` | Whether the session is an admin, for any signed-in user |
 | `GET/PUT /api/settings/slskd`, `POST /api/settings/slskd/check` | The instance's slskd and SFTP settings |
 
 The pipeline: `musicbrainz.ts` identifies the song (`deezer.ts` only when MusicBrainz throws);

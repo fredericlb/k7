@@ -2,8 +2,8 @@
 
 What "Find songs" ([hunt.md](hunt.md)) needs to reach the slskd daemon and bring the bytes back:
 its address, its API key, and the SFTP access to the machine it downloads onto. The form is a card
-of k7's `/settings` page (`packages/ui-library/docs/settings.md`); this page is what the backend
-does with it, under `/api/settings`.
+of k7's server page, `/settings/server` (`packages/ui-library/docs/settings.md`); this page is what
+the backend does with it, under `/api/settings`.
 
 ## One for the instance, not one per person
 
@@ -58,6 +58,8 @@ A failed half answers a fixed sentence and the cause goes to the server's log. T
 address the form names.
 
 The routes are **session only**, like `/api/hunt`: a machine token must not read or replace the
-credentials a hunt spends.
+credentials a hunt spends. One of them answers anyone signed in: `GET /api/settings/admin`, whether
+the session is an admin, which k7's user menu asks before it offers the server page. It says
+nothing about the settings, and every other route still checks for itself.
 
 A hunt reads the settings **once, when it starts**: saving mid-hunt changes the next one.

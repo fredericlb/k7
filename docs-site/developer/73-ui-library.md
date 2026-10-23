@@ -24,7 +24,7 @@ paraglide catalogue (`apps/k7/frontend/src/projects/mediaLabels.ts`, messages `m
 
 Exports (`src/index.ts`): `configureLibrary`, `LibraryHostProvider`, `MediaLibrary`,
 `MediaPlayback`, `PlaybackPicker`, `LIBRARY_SECTIONS`, `sectionAt`, `sectionLabel`, `sectionPath`,
-`SECTION_IDS`. `./settings` exports `EnginesSettings` and `SlskdSettings`.
+`SECTION_IDS`. `./settings` exports `EnginesSettings`, `EngineOwnersSettings` and `SlskdSettings`.
 
 ## Routing
 
@@ -55,7 +55,7 @@ summary counts them, which the host's sidebar draws.
 | `src/Playlists.tsx`, `src/PlaylistRows.tsx` | The playlist zone; every graphical edit goes through the TEXT (`@studio/song-schema/playlist`) |
 | `src/FindSongs.tsx` | The hunt page, polled every 2 s |
 | `src/ServerCopy.tsx`, `src/serverSets.ts` | A paired device's placement and downloads |
-| `src/EnginesSettings.tsx`, `src/SlskdSettings.tsx` | The two settings cards |
+| `src/EnginesSettings.tsx`, `src/EngineOwnersSettings.tsx`, `src/SlskdSettings.tsx` | The three settings cards |
 | `src/prefs.ts` | The account's media preferences, read once and patched whole (the route replaces wholesale) |
 
 Songs refuse ordinary tree writes: a file joins songs only as a variant of one, and songs are

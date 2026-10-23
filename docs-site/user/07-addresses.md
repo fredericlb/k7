@@ -16,7 +16,7 @@ what each form means, for when you type or share one yourself.
 | `/@banc/<chain>/live.k7` | The bench: a live rig seeded with a library chain. See [Opening and playing a project](./08-opening-a-project.md#the-bench). |
 | `/@shares/<token>.k7` | A shared, read-only copy of a project. Anyone with the link can open it, without an account. See [Sharing a project](./09-sharing.md). |
 | `/external` | The menu of surfaces a second device can drive. |
-| `/libraries`, `/tasks`, `/settings`, `/settings/engine` | Pages of the home (see [The home page](./03-home-page.md)). |
+| `/libraries`, `/tasks`, `/settings`, `/settings/engine`, `/settings/server` | Pages of the home (see [The home page](./03-home-page.md)). |
 | `/media/…` | The media library. |
 | `/rehearsal/…` | The rehearsal recorder. `/rehearsal/@<nametag>` is a public page, open without signing in. |
 

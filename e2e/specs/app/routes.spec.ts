@@ -1,5 +1,5 @@
 // routes.spec.ts — the home's side pages and the two hosts no other spec opens: each draws its own content, not just no error.
-// `/external`, `/settings`, `/settings/engine`, `/libraries`, `/about`, `/tasks`, and the documentation host.
+// `/external`, `/settings`, `/settings/engine`, `/settings/server`, `/libraries`, `/about`, `/tasks`, and the docs host.
 import type { Page } from "@playwright/test";
 import { FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { expect, TARGET, test } from "../../src/target.ts";
@@ -62,9 +62,6 @@ test("/settings draws every section with its controls", async ({ k7 }) => {
     await expect(
       page.getByRole("heading", { level: 2, name, exact: true }),
     ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Engines", exact: true }),
-  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Français" })).toBeEnabled();
   await expect(
     page.getByRole("combobox", {
@@ -83,7 +80,7 @@ test("/settings draws every section with its controls", async ({ k7 }) => {
   watch.assertClean();
 });
 
-test("/settings/engine says on a server that it is the tray's page", async ({
+test("/settings/engine lists the engines this account may use, off the tray", async ({
   k7,
 }) => {
   const page = await k7.open("/settings");
@@ -94,22 +91,34 @@ test("/settings/engine says on a server that it is the tray's page", async ({
   // Reached the way the account menu reaches it: a route change, not a load.
   await routeTo(page, "/settings/engine");
   await expect(
-    page.getByRole("heading", { level: 1, name: "This machine's engine" }),
+    page.getByRole("heading", { level: 1, name: "Engines" }),
   ).toBeVisible();
-  if (TARGET === "web")
-    await expect(
-      page.getByText(
-        "This page is for a machine running the k7 tray: open k7 from the tray to set its engine.",
-      ),
-    ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "Engines" }),
+  ).toBeVisible();
   watch.assertClean();
 });
 
 test("/settings/engine opens when loaded by its address", async ({ k7 }) => {
   const page = await k7.open("/settings/engine");
   await expect(
-    page.getByRole("heading", { level: 1, name: "This machine's engine" }),
+    page.getByRole("heading", { level: 1, name: "Engines" }),
   ).toBeVisible({ timeout: 10_000 });
+});
+
+test("/settings/server draws the admins' cards, or says it is theirs", async ({
+  k7,
+}) => {
+  const page = await k7.open("/settings/server");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "This server" }),
+  ).toBeVisible({ timeout: 10_000 });
+  // The dev stub carries no groups, so which of the two a run sees depends on its sign-in.
+  await expect(
+    page
+      .getByRole("heading", { level: 3, name: "Engine owners" })
+      .or(page.getByText(/Only this server's admins/)),
+  ).toBeVisible();
 });
 
 test("/libraries lists the origin's libraries", async ({ k7 }) => {
