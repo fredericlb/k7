@@ -15,7 +15,9 @@ context cannot reach them. Every navigation goes through `useRehearsalNav`, and 
 
 The API answers on the same origin as the pages — `/api/*` and `/rtc`, served by k7's backend
 (`packages/rehearsal-server`) — so every call is relative to `apiBase`, which k7 sets to its own
-`BASE`. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
+backend or, on the tray, to its forward to the paired server (`apps/k7/frontend/docs/serverPicker.md`).
+`hostBase` stays the machine's: "Fetch song" searches its library and hunt, and the bench its
+engines. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
 k7's, on the same origin; the pages draw no login screen of their own.
 
 URLs handed to the browser — an `<audio src>`, an `<img src>`, a download link — spell `apiBase`

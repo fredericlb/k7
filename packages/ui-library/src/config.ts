@@ -6,6 +6,8 @@
 export interface LibraryConfig {
   /** Where the media library's `/api/*` answers — "" for the host's own origin root. */
   apiBase: string;
+  /** Where THIS machine's own routes answer when `apiBase` is another server's: the engines, the hunt, the copies; unset is `apiBase`. */
+  hostBase?: string;
   /** The sentence a call that timed out throws, read at call time so it follows the locale. */
   noAnswer: (seconds: number) => string;
 }
@@ -23,3 +25,5 @@ export function configureLibrary(patch: Partial<LibraryConfig>): void {
 export const libraryConfig = (): Readonly<LibraryConfig> => config;
 
 export const apiBase = (): string => config.apiBase;
+
+export const hostBase = (): string => config.hostBase ?? config.apiBase;

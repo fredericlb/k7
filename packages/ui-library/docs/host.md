@@ -9,16 +9,19 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
 ## Two seams, because two kinds of code read them
 
 - **`configureLibrary`** (`src/config.ts`) — the fetch layer's settings: `apiBase`, where the
-  library's `/api/*` answers, and `noAnswer`, the sentence a timed-out call throws. Module state,
-  set once before the first render, because `api.ts` and `enginePlayback.ts` are not components and
-  a React context cannot reach them.
+  library's `/api/*` answers; `hostBase`, where the MACHINE's own routes answer when `apiBase` is
+  another server's — the engine registry, the hunt, the slskd settings, the copies placed against a
+  server — unset meaning `apiBase`; and `noAnswer`, the sentence a timed-out call throws. Module
+  state, read at call time, because `api.ts` and `enginePlayback.ts` are not components and a React
+  context cannot reach them.
 - **`LibraryHostProvider`** (`src/host.tsx`) — what the COMPONENTS read: the labels, the route
   `prefix` the screens live under, and who is signed in, since an engine session is per service and
   per person ([engine.md](engine.md)).
 
-k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`. Its `apiBase` is its own `BASE`:
-the routes are its backend's (`apps/k7/backend/docs/media/`), on the same origin, so nothing
-here needs CORS or a second credential.
+k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases through its server
+picker (`apps/k7/frontend/docs/serverPicker.md`). Either base is its own backend, on the same
+origin — the paired server is reached through that backend — so nothing here needs CORS or a
+second credential.
 
 ## Every sentence is the host's
 

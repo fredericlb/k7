@@ -30,9 +30,11 @@ import {
   SidebarEngine,
   type SidebarEngineProps,
 } from "../components/SidebarEngine";
+import { SidebarServer } from "../components/SidebarServer";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
+import { setServerChoice } from "../serverChoice";
 import { useOnDesktopEngine } from "../settings/desktopEngine";
 import { VERSION } from "../version";
 import {
@@ -215,6 +217,8 @@ function HomeSidebar({
     void desktop.state().then((d) => {
       setIsDesktop(d !== null);
       setServer(d?.server ?? null);
+      // A choice left from a pairing since undone would point every page at no server.
+      if (!d?.server) setServerChoice("local");
     });
   }, []);
 
@@ -296,6 +300,9 @@ function HomeSidebar({
           away={away}
         />
       </div>
+
+      {/* The server the pages read, on the tray once paired: a server's own page has no other to offer. */}
+      {isDesktop && server && <SidebarServer server={server} folds={!away} />}
 
       {/* The one engine selector, above the user menu: the project's live engine in the drawer, the account's elsewhere. */}
       {engine ? <SidebarEngine {...engine} /> : <HomeEngine />}

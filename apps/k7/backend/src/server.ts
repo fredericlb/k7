@@ -48,6 +48,8 @@ import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
+import { deviceDoor } from "./remote/door.ts";
+import { forwardToPairedServer, SERVER_PATH } from "./remote/forward.ts";
 import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
 import { BUILD, VERSION } from "./version.ts";
 
@@ -162,6 +164,21 @@ mountHandoff(app, {
 // Under the home directory so a dev run needs no volume (packages/user-prefs/docs/store.md).
 const PREFS_DIR =
   process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "k7");
+// Ahead of every route they reach: a paired machine browsing this server, and on that machine its page reaching it (../docs/serverPicker.md).
+if (LOCAL_USER)
+  app.use(
+    SERVER_PATH,
+    requireAuth,
+    forwardToPairedServer((req) => media.pairedServer(req)),
+  );
+else
+  app.use(
+    deviceDoor({
+      deviceUser: (token) => media.deviceUser(token),
+      startSession: auth.startSession,
+    }),
+  );
+
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.
 const tokens = mediaTokens();
 // Before the library: its public pages are unguarded and its releases take k7's own bearer.

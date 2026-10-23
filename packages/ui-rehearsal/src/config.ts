@@ -5,6 +5,8 @@
 export interface RehearsalConfig {
   /** Where the rehearsal `/api/*` and `/rtc` answer — "" for the host's own origin root. */
   apiBase: string;
+  /** Where THIS machine's routes answer when `apiBase` is another server's: its library, hunt and engines; unset is `apiBase`. */
+  hostBase?: string;
   /** The path the pages live under, for the links handed to someone else — a public page. */
   pagesPrefix: string;
 }
@@ -17,5 +19,7 @@ export function configureRehearsal(patch: Partial<RehearsalConfig>): void {
 }
 
 export const apiBase = (): string => config.apiBase;
+
+export const hostBase = (): string => config.hostBase ?? config.apiBase;
 
 export const pagesPrefix = (): string => config.pagesPrefix;

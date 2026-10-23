@@ -19,7 +19,7 @@ import type {
   SlskdSettings,
   SlskdSettingsInput,
 } from "@studio/web-protocol/settings";
-import { apiBase, libraryConfig } from "./config";
+import { apiBase, hostBase, libraryConfig } from "./config";
 // Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
 
@@ -123,9 +123,9 @@ export const player = {
 type Engines = EngineAccess<PublicEngine, Pl8Prefs>;
 let access: { base: string; engines: Engines } | null = null;
 
-/** THE engine registry, bound to the CURRENT base and rebuilt only when the host moves it (../docs/api.md). */
+/** THE engine registry, this machine's, bound to the CURRENT base and rebuilt only when the host moves it (../docs/api.md). */
 export function engines(): Engines {
-  const base = apiBase();
+  const base = hostBase();
   if (access?.base !== base)
     access = {
       base,
@@ -138,7 +138,7 @@ export function engines(): Engines {
 
 /** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>
-  json(await request(`${apiBase()}/api/hunt${path}`), what);
+  json(await request(`${hostBase()}/api/hunt${path}`), what);
 
 /** Finding a song on Soulseek. Starting one ANSWERS AT ONCE with the row — see ../docs/hunt.md. */
 export const hunt = {
@@ -147,7 +147,7 @@ export const hunt = {
   /** A hunt files the song into the media library and stops there; a playlist is out of its reach. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
-      await request(`${apiBase()}/api/hunt`, {
+      await request(`${hostBase()}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query }),
@@ -158,16 +158,19 @@ export const hunt = {
   /** The fallback on a failed row: retry THAT hunt through YouTube, so the tags file it in the same place. */
   youtube: async (id: string): Promise<HuntRecord> =>
     json(
-      await request(`${apiBase()}/api/hunt/${encodeURIComponent(id)}/youtube`, {
-        method: "POST",
-      }),
+      await request(
+        `${hostBase()}/api/hunt/${encodeURIComponent(id)}/youtube`,
+        {
+          method: "POST",
+        },
+      ),
       "youtube",
     ),
 
   /** Cancels it if it is still running, and takes the row off the list either way. */
   forget: async (id: string): Promise<void> => {
     await json(
-      await request(`${apiBase()}/api/hunt/${encodeURIComponent(id)}`, {
+      await request(`${hostBase()}/api/hunt/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
       "hunt",
@@ -178,11 +181,11 @@ export const hunt = {
 /** The instance's slskd settings — the secrets go in and never come back (../docs/settings.md). */
 export const settings = {
   slskd: async (): Promise<SlskdSettings> =>
-    json(await request(`${apiBase()}/api/settings/slskd`), "settings"),
+    json(await request(`${hostBase()}/api/settings/slskd`), "settings"),
 
   saveSlskd: async (input: SlskdSettingsInput): Promise<SlskdSettings> =>
     json(
-      await request(`${apiBase()}/api/settings/slskd`, {
+      await request(`${hostBase()}/api/settings/slskd`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
@@ -194,7 +197,7 @@ export const settings = {
   checkSlskd: async (): Promise<SlskdCheck> =>
     json(
       await request(
-        `${apiBase()}/api/settings/slskd/check`,
+        `${hostBase()}/api/settings/slskd/check`,
         { method: "POST" },
         2 * TIMEOUT_MS,
       ),
@@ -223,7 +226,7 @@ export const library = {
   placement: async (family: string): Promise<LibraryPlacement> =>
     json(
       await request(
-        `${apiBase()}/api/sync/library?family=${encodeURIComponent(family)}`,
+        `${hostBase()}/api/sync/library?family=${encodeURIComponent(family)}`,
       ),
       "placement",
     ),
@@ -232,7 +235,7 @@ export const library = {
   download: async (family: string, paths: string[]): Promise<void> => {
     await json(
       await request(
-        `${apiBase()}/api/sync/library/download`,
+        `${hostBase()}/api/sync/library/download`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
