@@ -13,6 +13,11 @@ interface SongEnvelope {
   seconds: number;
   /** Per-bucket RMS, 0..1 linear — exactly what Envelope.samples wants. */
   rms: number[];
+  /** Per-bucket peak, the height of a spectrum column, and the three band peaks it is coloured by. */
+  peak?: number[];
+  low?: number[];
+  mid?: number[];
+  high?: number[];
   /** Onsets in file seconds. Drawn as pins, so a verse is findable without listening for it. */
   transients?: number[];
   /** The engine's tempo estimate, 0 for "none found". */
@@ -32,8 +37,18 @@ function shapeOf(raw: unknown): SongShape | null {
   const e = raw as SongEnvelope | null;
   if (!e || !Array.isArray(e.rms) || !e.rms.length) return null;
   if (!(e.seconds > 0)) return null;
+  // A field of another length is not the same buckets: dropped, and the waveform draws without it.
+  const same = (a?: number[]) =>
+    Array.isArray(a) && a.length === e.rms.length ? a : undefined;
   return {
-    envelope: { intervalMs: (e.seconds * 1000) / e.rms.length, samples: e.rms },
+    envelope: {
+      intervalMs: (e.seconds * 1000) / e.rms.length,
+      samples: e.rms,
+      peak: same(e.peak),
+      low: same(e.low),
+      mid: same(e.mid),
+      high: same(e.high),
+    },
     duration: e.seconds,
     transients: Array.isArray(e.transients) ? e.transients : [],
     bpm: typeof e.bpm === "number" ? e.bpm : 0,

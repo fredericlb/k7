@@ -11,7 +11,7 @@ import { cachePath } from "@studio/audio-analysis/sidecar";
 const ENVELOPE_MEMO_MAX = 16;
 
 /** Bumped when the answer's SHAPE changes, so a browser's copy from an older build never matches. */
-const SHAPE = "e1";
+const SHAPE = "e2";
 
 interface Held {
   version: string;

@@ -225,6 +225,11 @@ export interface Envelope {
 /** A song's envelope and the length its buckets cover — a waveform needs both. */
 export interface SongEnvelope extends Envelope {
   seconds: number;
+  /** Per-bucket peak, the height of a spectrum column, and the three band peaks it is coloured by. */
+  peak?: number[];
+  low?: number[];
+  mid?: number[];
+  high?: number[];
   /** Onsets pl8 detected, in file seconds — drawn as backdrop rules, same as ui-waveform's own. */
   onsets?: number[];
 }

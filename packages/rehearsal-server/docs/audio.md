@@ -261,8 +261,11 @@ here. Measured lazily, the first time a page asks for it, rather than in a migra
 decode every song in the songbook at once.
 
 **The médiathèque's bucketing is far finer than a waveform panel needs, so `songEnvelope.ts`
-downsamples it — RMS-of-RMS, not a second decode — to at most 800 buckets, rounded to three
-decimals.** A fixed 100 ms bucket gives 3113 values for a five-minute track — 61 kB of JSON in a
+downsamples it — RMS-of-RMS for the samples, the max for the peak and the three bands, not a
+second decode — to at most 800 buckets, rounded to three decimals.** The peak and the bands are
+what k7's one waveform is drawn from (`packages/ui-waveform/docs/spectrum.md`), so a shape stored
+without a peak is measured again the next time a page asks for it. The bands share the peak's
+scale, never their own: their colour is the ratio between them. A fixed 100 ms bucket gives 3113 values for a five-minute track — 61 kB of JSON in a
 cell the songbook listing reads whole, for a panel 272 px wide where that is eleven buckets per
 pixel. The cap is what keeps a stored shape a few kilobytes.
 

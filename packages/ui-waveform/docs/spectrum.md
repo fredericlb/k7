@@ -1,16 +1,34 @@
 # The spectrum look
 
-`<Waveform look="spectrum">` draws the DJ desk's waveform: one column per pixel, mirrored about
-the middle, as tall as its **linear peak** and coloured by **what is in it**: red for bass, green
-for mids, blue for highs. **It is the look k7 uses everywhere**: the clip editor, the audio clip
-panel, the blocks on the timeline and the desk's scrolling band. The médiathèque and the rehearsal pages keep the default
-`contour`, the dB curve [envelopes.md](envelopes.md) argues for: there the question is how loud a
-take is, and a dB axis answers it.
+k7 has ONE waveform: one column per pixel, mirrored about the middle, as tall as its **linear
+peak** and coloured by **what is in it**: red for bass, green for mids, blue for highs. The blocks
+on the timeline, the clip editor, the audio clip panel, the desk's scrolling band, the
+médiathèque's song player, the rehearsal pages and the recorder's live take all draw it.
+`<Waveform>` has no other look: a song reads the same on every screen, and a second look would
+make the same file look like two different ones from one page to the next.
 
-There is one painter, `spectrumColumns` in [spectrum.ts](../src/spectrum.ts), and every surface
-goes through it. The desk asks it for a playhead-centric window and the shared canvas asks it for
-a whole region, but a column comes out the same in both. A second painter would let the two
+There is one painter, `spectrumColumns` and the `paintColumns` under it in
+[spectrum.ts](../src/spectrum.ts), and every surface goes through it. The desk asks it for a
+playhead-centric window, the shared canvas for a whole region and the recorder for the trailing
+seconds of a take, but a column comes out the same in all three. A second painter would let them
 drift apart in colour or proportion without anyone noticing.
+
+## What each surface feeds it
+
+The look reads the peak for a column's height and the three bands for its colour; it falls back
+on the RMS `samples` for the height when there is no peak.
+
+- **Anything the engine analysed** — a clip, a library song, a rehearsal song or version — has
+  both, from its `.cache` sidecar (`packages/audio-probe/docs/waveform.md`). The library's
+  `/api/mediatek/envelope` hands them on, and the rehearsal server keeps them in its stored shapes,
+  measuring again a shape stored without a peak.
+- **A take being recorded** has only the RMS the browser or the engine measures as it rolls, so it
+  is drawn in grey (`PLAIN`, below) at its RMS height. So are a rehearsal session and its moments,
+  whose envelope is that live RMS, stored.
+
+The cost of one look is the dB axis: nobody reads a level off a k7 waveform. The trim gate and the
+recorder's silence threshold still measure RMS, and their line is drawn at ±that amplitude on the
+same linear axis, which on an analysed file sits under a peak-height picture.
 
 ## The colour is a blend, not a lookup table
 

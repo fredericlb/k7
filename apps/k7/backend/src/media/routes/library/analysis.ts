@@ -99,6 +99,11 @@ analysisRoutes.get(
           seconds: env.seconds,
           rms: env.rms,
           transients: env.transients,
+          // The spectrum waveform's height and colour, the bands absent from a file analysed without them.
+          peak: env.peak,
+          low: env.low,
+          mid: env.mid,
+          high: env.high,
         };
       });
       res.setHeader("ETag", etag);

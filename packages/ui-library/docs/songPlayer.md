@@ -24,12 +24,13 @@ thing to learn.
 The waveform does not come from a `decodeAudioData`: it comes from the `.cache` sidecar the engine
 writes **beside** the master (`packages/file-service/src/routes/mediatek.ts`, and
 `packages/file-service/docs/waveformCache.md` for what it holds). `songWaveform.ts` reads it through
-the ordinary file route — to that service a `.cache` is a file like any other — and keeps three
+the ordinary file route — to that service a `.cache` is a file like any other — and keeps these
 fields:
 
 | field | what it becomes |
 |---|---|
 | `rms[]` | `Envelope`'s samples, already linear 0..1 |
+| `peak[]`, `low[]`, `mid[]`, `high[]` | the height and colour of k7's one waveform (`packages/ui-waveform/docs/spectrum.md`); one of another length than `rms` is dropped |
 | `seconds` | the duration, hence `intervalMs = seconds × 1000 / rms.length` |
 | `transients`, `bpm` | two numbers at the foot of the panel |
 

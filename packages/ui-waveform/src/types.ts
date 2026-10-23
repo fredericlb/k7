@@ -5,9 +5,9 @@
 /** A level envelope: linear RMS samples (1.0 == full scale) every intervalMs. */
 export interface Envelope {
   intervalMs: number;
-  /** Per-bucket RMS, 0..1 linear where 1.0 is full scale. The contour drawn solid. */
+  /** Per-bucket RMS, 0..1 linear where 1.0 is full scale: a column's height when there is no `peak`. */
   samples: number[];
-  /** Per-bucket PEAK on the same axis, drawn faintly behind `samples`; optional, and why there are two — docs/envelopes.md. */
+  /** Per-bucket PEAK on the same axis, a column's height when present — docs/spectrum.md. */
   peak?: number[];
   /** The three band peaks in the same buckets, which the `spectrum` look colours by; optional — docs/spectrum.md. */
   low?: number[];

@@ -7,7 +7,7 @@ import * as db from "../db.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import { audioExtOf } from "../serve.ts";
-import { envelopeOf } from "../songEnvelope.ts";
+import { envelopeOf, hasPeak } from "../songEnvelope.ts";
 import {
   getSong,
   getSongRecord,
@@ -194,7 +194,8 @@ export async function songEnvelope(uid: string): Promise<SongEnvelope | null> {
   if (stored) {
     try {
       const parsed = JSON.parse(stored) as SongEnvelope;
-      if (parsed?.samples?.length) return parsed;
+      // An RMS-only shape is measured again, so every waveform is drawn the same way.
+      if (parsed?.samples?.length && hasPeak(parsed)) return parsed;
     } catch {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }

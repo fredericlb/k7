@@ -35,6 +35,11 @@ export interface RemoteEnvelope {
   seconds: number;
   rms: number[];
   transients: number[];
+  /** Per-bucket peak and the three band peaks, in the same buckets; absent from an older server. */
+  peak?: number[];
+  low?: number[];
+  mid?: number[];
+  high?: number[];
 }
 
 /** The hosted service: a `LibrarySource`, plus what only a browser-facing host asks of it. */

@@ -1,3 +1,9 @@
+import {
+  columnsOf,
+  mirroredYs,
+  paintColumns,
+  smoothColumns,
+} from "@studio/ui-waveform/spectrum";
 import { useEffect, useRef, useState } from "react";
 import type { DetectedEvent, Envelope, Metronome } from "./types";
 
@@ -28,11 +34,12 @@ interface Props {
 
 const HEIGHT = 160;
 const WINDOW_SEC = 12; // seconds of history visible at once
-const EDGE_MARGIN = 4; // px kept clear at top/bottom so peaks don't touch the edge
+/** How much of the waveform's ink a paused take keeps. */
+const PAUSED_ALPHA = 0.5;
 const BEATS_PER_BAR = 4;
 const BEAT_TICK_HEIGHT = 24; // light beat ticks are short; bar lines run full height
 
-/** An oscilloscope scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history. */
+/** k7's spectrum waveform scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history — ui-waveform's docs/spectrum.md. */
 export function LiveWaveform({
   envelope,
   elapsed = 0,
@@ -124,42 +131,12 @@ export function LiveWaveform({
     ctx.fillStyle = "#1b1c22";
     ctx.fillRect(0, 0, width, height);
 
-    const centerY = height / 2;
-    const halfHeight = height / 2 - EDGE_MARGIN;
     // Snap to the trailing window, unless the zoom animation owns viewRef right now.
     if (!animating.current && !focus) viewRef.current = computeTarget();
     const view = viewRef.current;
     const windowSec = Math.max(0.1, view.end - view.start);
     const pxPerSec = width / windowSec;
     const timeToX = (t: number) => (t - view.start) * pxPerSec;
-    const xToTime = (x: number) => view.start + x / pxPerSec;
-
-    const n = envelope.samples.length;
-    const dt = envelope.intervalMs / 1000;
-
-    // Light smoothing to take the edge off single-sample spikes — computed per sample READ, so a frame costs the window's width, not the take's length.
-    const R = 1;
-    const smoothed = (i: number): number => {
-      let sum = 0;
-      let cnt = 0;
-      for (let k = i - R; k <= i + R; k++) {
-        if (k >= 0 && k < n) {
-          sum += envelope.samples[k];
-          cnt++;
-        }
-      }
-      return cnt ? sum / cnt : 0;
-    };
-
-    const ampAt = (t: number): number => {
-      if (n === 0 || t < 0) return 0;
-      const c = t / dt;
-      const i = Math.floor(c);
-      const f = c - i;
-      if (i >= n - 1) return smoothed(n - 1);
-      const a = smoothed(Math.max(0, i));
-      return a + (smoothed(i + 1) - a) * f;
-    };
 
     // The beat grid, anchored where the metronome started; only visible beats are walked.
     if (metronome && metronome.bpm > 0) {
@@ -199,61 +176,27 @@ export function LiveWaveform({
       ctx.fillRect(cx0, 0, Math.max(1, cx1 - cx0), height);
     }
 
-    // Center (zero) line.
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, Math.round(centerY) + 0.5);
-    ctx.lineTo(width, Math.round(centerY) + 0.5);
-    ctx.stroke();
-
-    // Mirrored threshold lines (silence floor), above and below center.
-    const threshY = Math.max(0, Math.min(1, threshold)) * halfHeight;
+    // Mirrored threshold lines (silence floor), on the same axis the columns are drawn on.
     ctx.strokeStyle = "rgba(255,90,90,0.6)";
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(0, centerY - threshY);
-    ctx.lineTo(width, centerY - threshY);
-    ctx.moveTo(0, centerY + threshY);
-    ctx.lineTo(width, centerY + threshY);
+    for (const y of mirroredYs(Math.max(0, Math.min(1, threshold)), height)) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Oscilloscope trace: mirrored above/below center, scrolling with `elapsed`.
-    const rgb = paused ? "165, 165, 178" : "139, 92, 246";
-    const top = new Array<number>(width);
-    const bottom = new Array<number>(width);
-    for (let x = 0; x < width; x++) {
-      const amp = Math.max(0, Math.min(1, ampAt(xToTime(x))));
-      const h = amp * halfHeight;
-      top[x] = centerY - h;
-      bottom[x] = centerY + h;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(0, top[0]);
-    for (let x = 1; x < width; x++) ctx.lineTo(x, top[x]);
-    for (let x = width - 1; x >= 0; x--) ctx.lineTo(x, bottom[x]);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, `rgba(${rgb}, 0)`);
-    grad.addColorStop(0.5, `rgba(${rgb}, 0.28)`);
-    grad.addColorStop(1, `rgba(${rgb}, 0)`);
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    ctx.lineWidth = 1.5;
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
-    ctx.beginPath();
-    ctx.moveTo(0, top[0]);
-    for (let x = 1; x < width; x++) ctx.lineTo(x, top[x]);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, bottom[0]);
-    for (let x = 1; x < width; x++) ctx.lineTo(x, bottom[x]);
-    ctx.stroke();
+    // The take through the shared painter, one column per pixel of the window, so it reads like every other waveform.
+    ctx.globalAlpha = paused ? PAUSED_ALPHA : 1;
+    paintColumns(
+      ctx,
+      smoothColumns(columnsOf(envelope, width, view.start, windowSec)),
+      0,
+      width,
+      height,
+    );
+    ctx.globalAlpha = 1;
 
     // The "now" marker, at the right edge while recording and off-canvas once review zooms out.
     const nowX = timeToX(nowRef.current());

@@ -9,7 +9,7 @@ import type { SongEnvelope } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import * as db from "../db.ts";
 import * as mediatek from "../mediatek.ts";
-import { envelopeOf } from "../songEnvelope.ts";
+import { envelopeOf, hasPeak } from "../songEnvelope.ts";
 import { dirOf, fetching, safeRemote, safeUnlink } from "./helpers.ts";
 import {
   getReleaseRecord,
@@ -239,7 +239,8 @@ async function measureVersionEnvelope(
   if (stored) {
     try {
       const parsed = JSON.parse(stored) as SongEnvelope;
-      if (parsed?.samples?.length) return parsed;
+      // An RMS-only shape is measured again, so every waveform is drawn the same way.
+      if (parsed?.samples?.length && hasPeak(parsed)) return parsed;
     } catch {
       // Unreadable is the same as absent: measure it again rather than refuse to draw.
     }

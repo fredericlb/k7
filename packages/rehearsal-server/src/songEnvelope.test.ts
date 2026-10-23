@@ -8,7 +8,9 @@ vi.mock("./mediatek.ts", () => ({ getFileEnvelope: vi.fn() }));
 import { getFileEnvelope } from "./mediatek.ts";
 import {
   downsample,
+  downsampleMax,
   envelopeOf,
+  hasPeak,
   MAX_BUCKETS,
   normalise,
 } from "./songEnvelope.ts";
@@ -24,6 +26,14 @@ describe("downsample", () => {
 
   it("is the identity when perBucket is 1", () => {
     expect(downsample([0.1, 0.4, 0.9], 1)).toEqual([0.1, 0.4, 0.9]);
+  });
+});
+
+describe("downsampleMax", () => {
+  it("keeps the loudest bucket of each group, so a kick is not averaged away", () => {
+    expect(downsampleMax([0.1, 0.9, 0.2, 0.3, 0.5], 2)).toEqual([
+      0.9, 0.3, 0.5,
+    ]);
   });
 });
 
@@ -64,5 +74,37 @@ describe("envelopeOf", () => {
     });
     const env = await envelopeOf("recordings/songbook/uid.flac");
     expect(env.samples.length).toBeLessThanOrEqual(MAX_BUCKETS);
+  });
+
+  it("carries the peak and the three bands, the bands on the peak's scale", async () => {
+    vi.mocked(getFileEnvelope).mockResolvedValue({
+      sampleRate: 8000,
+      seconds: 2,
+      rms: [0.1, 0.2, 0.1, 0.2],
+      transients: [],
+      peak: [0.2, 0.5, 0.25, 0.4],
+      low: [0.1, 0.5, 0, 0],
+      mid: [0, 0.25, 0.25, 0],
+      high: [0, 0, 0, 0.4],
+    });
+    const env = await envelopeOf("recordings/songbook/uid.flac");
+    expect(env.peak).toEqual([0.4, 1, 0.5, 0.8]);
+    expect(env.low).toEqual([0.2, 1, 0, 0]);
+    expect(env.mid).toEqual([0, 0.5, 0.5, 0]);
+    expect(env.high).toEqual([0, 0, 0, 0.8]);
+    expect(hasPeak(env)).toBe(true);
+  });
+
+  it("leaves the bands out of a file analysed without them, and the shape reads as one to measure again", async () => {
+    vi.mocked(getFileEnvelope).mockResolvedValue({
+      sampleRate: 8000,
+      seconds: 2,
+      rms: [0.1, 0.2],
+      transients: [],
+    });
+    const env = await envelopeOf("recordings/songbook/uid.flac");
+    expect(env.peak).toBeUndefined();
+    expect(env.low).toBeUndefined();
+    expect(hasPeak(env)).toBe(false);
   });
 });

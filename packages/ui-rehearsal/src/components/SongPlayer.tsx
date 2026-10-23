@@ -156,7 +156,7 @@ export function SongPlayer({
       {/* The instrumental is the same performance at the same timing, so it wears the track's shape. */}
       {shape && (
         <Waveform
-          envelope={{ intervalMs: shape.intervalMs, samples: shape.samples }}
+          envelope={shape}
           duration={shape.seconds}
           currentTime={time}
           height={64}

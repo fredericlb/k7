@@ -123,7 +123,7 @@ export function WaveformPlayer({ src, shapeOf }: Props) {
       )}
       {shape && (
         <Waveform
-          envelope={{ intervalMs: shape.intervalMs, samples: shape.samples }}
+          envelope={shape}
           duration={shape.seconds}
           currentTime={time}
           height={64}

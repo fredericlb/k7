@@ -56,7 +56,6 @@ export function LiveTakeWave({
   const seconds = (samples.length * live.intervalMs) / 1000;
   return (
     <Waveform
-      look="spectrum"
       envelope={envelope}
       duration={seconds}
       height={height}

@@ -556,7 +556,6 @@ function ClipWaveform({
   return (
     <Waveform
       ref={wave}
-      look="spectrum"
       envelope={envelope}
       duration={duration}
       height={height}

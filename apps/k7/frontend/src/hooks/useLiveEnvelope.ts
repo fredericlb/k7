@@ -19,7 +19,7 @@ const LIVE_FRAME_MS = 50;
 // Ten minutes at 20 Hz: a take that outruns it scrolls, where an unbounded envelope would redraw more slowly the longer you played.
 const MAX_FRAMES = 12000;
 
-// Every other frame reaches the drawing leaves: the engine's rate is the meters', and each update re-rasterises the whole contour.
+// Every other frame reaches the drawing leaves: the engine's rate is the meters', and each update re-rasterises the whole waveform.
 const KEEP_EVERY = 2;
 
 // One input dB reading mapped to 0..1, through the same range as the meters.
