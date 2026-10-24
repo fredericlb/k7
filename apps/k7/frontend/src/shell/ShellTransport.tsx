@@ -1,6 +1,6 @@
-// ShellTransport.tsx — the transport centred over the header: play/pause, stop, the clock and
-// record, each dropping focus on click so the keys stay the shell's (docs/shell.md). A set
-// draws only the first two: it has no bars to count and no lane to arm.
+// ShellTransport.tsx — the project bar's buttons: play/pause, stop, loop and record, each
+// dropping focus on click so the keys stay the shell's (docs/shell.md). A set draws only the
+// first two: it has no bars to count and no lane to arm. The clock is the bar's, by the minimap.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -15,10 +15,8 @@ import type { EngineClient } from "@studio/engine-browser";
 import type { TransportAction } from "@studio/engine-protocol";
 import type { RefObject } from "react";
 import type { SetStatus } from "../hooks/useLogs";
-import type { RecInfo } from "../hooks/useProjectDoc";
 import { blurOnClick } from "../keys";
 import { m } from "../paraglide/messages.js";
-import { TransportClock } from "../shellMeta";
 
 export function ShellTransport({
   toolSize,
@@ -27,14 +25,11 @@ export function ShellTransport({
   recordWithoutArm,
   transport,
   noArrangement,
-  recInfo,
   recordEnabled,
   midiArmed,
   openMidiInputs,
   setStatus,
   engineRef,
-  centred,
-  rootRef,
   armForRecord,
   loopOn = false,
   onLoop,
@@ -46,30 +41,18 @@ export function ShellTransport({
   recordWithoutArm: boolean;
   transport: (a: TransportAction) => void;
   noArrangement: boolean;
-  recInfo: RecInfo;
   recordEnabled: boolean;
   midiArmed: string | null;
   openMidiInputs: () => Promise<boolean>;
   setStatus: SetStatus;
   engineRef: RefObject<EngineClient | undefined>;
-  /** Centred on the bar while that clears its neighbours, at the row's end otherwise (useCentredFits.ts). */
-  centred: boolean;
-  /** The cluster's own box, which the fit is measured from. */
-  rootRef: RefObject<HTMLDivElement | null>;
   /** Arm a track when Record is turned on with none armed; false when there was none to arm. */
   armForRecord?: () => boolean;
   loopOn?: boolean;
   onLoop?: () => void;
 }) {
   return (
-    <div
-      ref={rootRef}
-      className={
-        centred
-          ? "-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex items-center gap-1"
-          : "ml-auto flex shrink-0 items-center gap-1"
-      }
-    >
+    <>
       <Button
         size={toolSize}
         variant={playing ? "default" : "secondary"}
@@ -118,14 +101,10 @@ export function ShellTransport({
       >
         <Square className="h-4 w-4" />
       </Button>
-      {/* The clock and record are the ARRANGEMENT's half: a set has no bars to count and no lane to arm. */}
+      {/* Loop and record are the ARRANGEMENT's half: a set has no bars to count and no lane to arm. */}
       {!noArrangement && (
         <>
-          <TransportClock
-            tempo={recInfo.tempo}
-            beatsPerBar={recInfo.beatsPerBar}
-          />
-          {/* Loop, beside the clock: what every transport has, and the one way in that needs no selection first. */}
+          {/* Loop, after stop: what every transport has, and the one way in that needs no selection first. */}
           {onLoop && (
             <Button
               size={toolSize}
@@ -168,6 +147,6 @@ export function ShellTransport({
           </Button>
         </>
       )}
-    </div>
+    </>
   );
 }

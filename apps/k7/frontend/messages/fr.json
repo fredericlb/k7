@@ -149,6 +149,7 @@
   "filesGate.downBody": "Aucune réponse à {base}. Le service de fichiers du moteur est probablement arrêté : démarrez-le depuis l'icône de la barre de menus.",
   "midi.unavailable": "Pas de MIDI — Web MIDI refusé ou indisponible ici",
   "midi.noMidiIn": "Aucun MIDI ne s'enregistre dans {track} : reliez-y un nœud MIDI",
+  "transport.region": "Transport",
   "transport.play": "Lecture",
   "transport.pause": "Pause",
   "transport.stop": "Stop",

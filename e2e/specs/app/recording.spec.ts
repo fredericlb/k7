@@ -3,7 +3,7 @@
 import type { Page } from "@playwright/test";
 import type { FileService, TreeNode } from "../../src/files.ts";
 import { expect, type K7, test } from "../../src/target.ts";
-import { clockOf } from "../../src/transport.ts";
+import { clockOf, transportBar } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
 
 const WORKSPACE = "E2E-recording";
@@ -72,7 +72,7 @@ async function openProject(k7: K7, project: string): Promise<Page> {
   return page;
 }
 
-/** Arms `lane`, turns record on, rolls a few seconds and stops, all from the header. */
+/** Arms `lane`, turns record on, rolls a few seconds and stops, all from the transport bar. */
 async function recordTake(page: Page, lane: string) {
   const arm = button(page, `arm ${lane}`);
   await arm.click();
@@ -89,8 +89,7 @@ async function recordTake(page: Page, lane: string) {
   // The count-in comes first; a clock past it is a take being written.
   await expect(clockOf(page)).not.toHaveText(before, { timeout: 10_000 });
   await page.waitForTimeout(3_000);
-  await page
-    .getByRole("banner")
+  await transportBar(page)
     .getByRole("button", { name: "Stop", exact: true })
     .click();
 }

@@ -43,6 +43,9 @@ export function MiniPlayer({
   onSeek,
   onClose,
   onNext,
+  transport,
+  track,
+  mediaSession = true,
   children,
 }: {
   /** The glyph before the title — a record, a headphone: what KIND of thing this is. */
@@ -62,9 +65,16 @@ export function MiniPlayer({
   labels: MiniPlayerLabels;
   onToggle: () => void;
   onSeek: (seconds: number) => void;
-  onClose: () => void;
+  /** Absent, the bar has no close: a host whose transport is always there. */
+  onClose?: () => void;
   /** The system's skip button; the bar draws none, the host's queue button being its own. */
   onNext?: () => void;
+  /** In place of the play/pause button, for a host whose transport is more than one. */
+  transport?: ReactNode;
+  /** In place of the clocks and the scrubber — null for no position row at all. */
+  track?: ReactNode;
+  /** False for a host whose sound is not this page's, so the system's controls are left to one that is. */
+  mediaSession?: boolean;
   /** Controls of the host's own, right of the transport and left of the close. */
   children?: ReactNode;
 }) {
@@ -79,6 +89,7 @@ export function MiniPlayer({
     onSeek,
     onClose,
     onNext,
+    enabled: mediaSession,
   });
   // While dragging, the bar shows where the thumb is and seeks once, on release.
   const scrub = useScrub(onSeek);
@@ -87,23 +98,27 @@ export function MiniPlayer({
   return (
     <section
       aria-label={labels.region}
-      className="relative flex shrink-0 border-t bg-card px-3 py-2 [@media(hover:none)]:pr-12"
+      className={`relative flex shrink-0 border-t bg-card px-3 py-2${onClose ? " [@media(hover:none)]:pr-12" : ""}`}
     >
       {/* Centred and capped: on a wide screen the transport, the title and the clocks stay together. */}
       <div className="mx-auto flex w-full min-w-0 max-w-[800px] items-center gap-3">
-        <Button
-          size="icon"
-          variant="secondary"
-          className="shrink-0"
-          onClick={onToggle}
-          aria-label={playing ? labels.pause : labels.play}
-        >
-          {playing ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
+        {transport !== undefined ? (
+          <div className="flex shrink-0 items-center gap-1">{transport}</div>
+        ) : (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="shrink-0"
+            onClick={onToggle}
+            aria-label={playing ? labels.pause : labels.play}
+          >
+            {playing ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </Button>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-2">
@@ -115,56 +130,62 @@ export function MiniPlayer({
             {status}
           </div>
 
-          <div className="mt-1 flex items-center gap-2">
-            <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-              {clock(shown)}
-            </span>
-            {/* The track is drawn thin behind a taller range, so a finger finds it without the bar growing. */}
-            <div className="relative flex h-5 min-w-0 flex-1 items-center [@media(hover:none)]:h-8">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 h-1 rounded"
-                style={{
-                  // The design system's tokens are whole colours; the rest of the track is the muted text, faded.
-                  background: `linear-gradient(to right, var(--color-foreground) ${pct}%, color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) ${pct}%)`,
-                }}
-              />
-              {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
-              <input
-                ref={scrub.ref}
-                type="range"
-                min={0}
-                max={duration || 0}
-                step={0.1}
-                value={Math.min(shown, duration || 0)}
-                disabled={!duration}
-                onChange={(e) => scrub.preview(Number(e.currentTarget.value))}
-                onPointerDown={scrub.begin}
-                onKeyUp={scrub.commit}
-                onBlur={scrub.commit}
-                aria-label={labels.position}
-                className="relative h-full w-full min-w-0 cursor-pointer appearance-none bg-transparent accent-foreground"
-              />
+          {track !== undefined ? (
+            <div className="mt-1 flex min-w-0 items-center gap-2">{track}</div>
+          ) : (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                {clock(shown)}
+              </span>
+              {/* The track is drawn thin behind a taller range, so a finger finds it without the bar growing. */}
+              <div className="relative flex h-5 min-w-0 flex-1 items-center [@media(hover:none)]:h-8">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 h-1 rounded"
+                  style={{
+                    // The design system's tokens are whole colours; the rest of the track is the muted text, faded.
+                    background: `linear-gradient(to right, var(--color-foreground) ${pct}%, color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) ${pct}%)`,
+                  }}
+                />
+                {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
+                <input
+                  ref={scrub.ref}
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  step={0.1}
+                  value={Math.min(shown, duration || 0)}
+                  disabled={!duration}
+                  onChange={(e) => scrub.preview(Number(e.currentTarget.value))}
+                  onPointerDown={scrub.begin}
+                  onKeyUp={scrub.commit}
+                  onBlur={scrub.commit}
+                  aria-label={labels.position}
+                  className="relative h-full w-full min-w-0 cursor-pointer appearance-none bg-transparent accent-foreground"
+                />
+              </div>
+              <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+                {clock(duration)}
+              </span>
             </div>
-            <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
-              {clock(duration)}
-            </span>
-          </div>
+          )}
         </div>
 
         {children}
       </div>
 
       {/* Top right, and the only thing that takes the bar away: what ENDS does not remove it. */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={onClose}
-        aria-label={labels.close}
-        className="absolute top-1 right-1 h-6 w-6 [@media(hover:none)]:top-1/2 [@media(hover:none)]:h-10 [@media(hover:none)]:w-10 [@media(hover:none)]:-translate-y-1/2"
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
+      {onClose && (
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onClose}
+          aria-label={labels.close}
+          className="absolute top-1 right-1 h-6 w-6 [@media(hover:none)]:top-1/2 [@media(hover:none)]:h-10 [@media(hover:none)]:w-10 [@media(hover:none)]:-translate-y-1/2"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </section>
   );
 }

@@ -149,6 +149,7 @@
   "filesGate.downBody": "Nothing answered at {base}. The engine's file service is probably stopped — start it from the menu-bar icon.",
   "midi.unavailable": "No MIDI — Web MIDI was refused or is unavailable here",
   "midi.noMidiIn": "Nothing records MIDI into {track}: wire a MIDI node to it",
+  "transport.region": "Transport",
   "transport.play": "Play",
   "transport.pause": "Pause",
   "transport.stop": "Stop",

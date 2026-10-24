@@ -246,8 +246,8 @@ The engine has **one** transport, and **none of the music is on it**: each deck 
 carrying its own position (`engine/k7-runtime/docs/turntable.md`), and this timeline's only inhabitant
 is the metronome clip ([metronome.md](metronome.md)).
 
-Hence: **the desk has no transport button.** Neither at the bottom nor in k7's header, which is
-hidden while the Mix surface is alone on screen. They would command only the click while presenting
+Hence: **the desk has no transport button.** Not in k7's project bar either, which drops its
+buttons while the Mix surface is alone on screen. They would command only the click while presenting
 themselves as playback — and a button that looks like it starts the music without starting it is
 worse than no button.
 

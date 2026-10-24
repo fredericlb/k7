@@ -225,8 +225,8 @@ not.
 ## The layout (`App.tsx`)
 
 `App` is the k7 web editor itself: **one page at a time, full width** — the timeline, the graph, the
-desk, the frame, the master strip or the editor — with the transport controls and the page buttons in
-the header. Two pages are never split side by side; the one way to see a second view under the page is
+desk, the frame, the master strip or the editor — with the page buttons in the header and the transport
+in the project bar at the foot. Two pages are never split side by side; the one way to see a second view under the page is
 the footer's bottom panel (`event`, `graph`, `mix`, `logs`), which opens on half the main column's height
 until its divider is dragged. It is the wiring and the layout; almost nothing else.
 
@@ -237,7 +237,7 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 | slot | what k7 puts there |
 |---|---|
 | `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the project's name, the engine playing it, the workspace warning, and the **transport** centred over them |
+| `children` | the project's name, the engine playing it and the workspace warning |
 | `items` | **empty** — see below |
 | `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
 
@@ -246,9 +246,7 @@ the home page says — repeating it over a song names the tool rather than the w
 goes with it, being the tooltip of that name on the home page (`../../../docs/versioning.md`).
 
 **The master meter is at the RIGHT end, first in `actions`.** The bar and the fader under it are a
-control rather than a caption, so they belong on the side the bar keeps its controls; and the meter
-being the widest thing in the row, leaving it on the left made the transport's `mx-auto` centre it
-over what was left rather than over the pane. It stays ahead of the icon row because it is read
+control rather than a caption, so they belong on the side the bar keeps its controls. It stays ahead of the icon row because it is read
 while playing, not clicked, and the divider after it is what says so.
 
 The **way back to the home page** is a hamburger just left of the project's name: it opens the home
@@ -342,23 +340,22 @@ button is `h-6` for that reason, and the badges are `text-xs py-0.5`.
 into, and a 24-pixel target under a thumb is a miss; the pixels are cheaper than the tap. That is
 the only reason `toolSize` reads the breakpoint instead of being a constant.
 
-#### The transport in the middle, and what a SET drops from it
+#### The project bar, and what a SET drops from it
 
-**Centred on the BAR, not between its neighbours.** The cluster is taken out of the flow —
-`absolute left-1/2 top-1/2` with the two translates — against the shared bar's inner box, which k7
-makes the containing block with `[&>div]:relative`. Centred as a flex item it would sit in the
-middle of whatever the project name on one side and the icon row on the other left over, so it
-moved every time a name got longer or a surface added a button: a control you reach for without
-looking must not be somewhere else on the next project.
+**The transport is the app's mini player** (`shell/ProjectBar.tsx` over `@studio/ui-mini-player`), the
+bar the médiathèque, the reference tracks and the songbook already wear: one shape for "what plays,
+and where in it", wherever k7 is. It sits under the panes and above the footer, full width.
 
-Nothing reserves its width, so the shell MEASURES whether it has the room (`shell/useCentredFits.ts`):
-would a cluster centred on the bar clear the last thing in the left group and the first of the
-actions, by 12 px? While it would, it is centred; when it would not — a narrow window, a long engine
-name — it joins the row at the left group's end instead of drawing over its neighbours. The test
-reads where the bar's centre is, never where the transport sits now, so the answer cannot flip back
-the moment it moves.
+- **The buttons stand where the bar keeps its play/pause**, all of them: a project's transport is more
+  than one button, and a cluster split between the header and the bar would be two places to look.
+- **The progress row is the clock and the minimap**, in place of the scrubber: a project's "where" is
+  bars and lanes, not a fraction of a file. See "The minimap is the bar's progress" below.
+- **No close.** A project's transport is not something you dismiss; the bar goes only where it would
+  address nothing, by the same rules as the cluster below.
+- **It leaves the system's media session alone.** The sound is the engine's, rarely this page's, and
+  the reference bar is the one whose sound the lock screen should drive.
 
-Play/pause, stop, the clock, then the record button, and each **drops focus on click**
+Play/pause, stop, loop, then the record button, and each **drops focus on click**
 (`blurOnClick`). These are the buttons a mouse is most likely to land on right before reaching for
 Space, and a focused one eats the keypress. On play/pause the theft is invisible, because the button
 does what Space would; on stop and on record it is not.
@@ -368,7 +365,7 @@ does what Space would; on stop and on record it is not.
 never heard of arming reads that as a broken button; a track with no input still refuses on the
 status line, which then says why.
 
-**Loop sits beside the clock.** On, it turns the loop off; off, it loops the timeline's selection
+**Loop sits after stop.** On, it turns the loop off; off, it loops the timeline's selection
 when there is one, and otherwise four bars from the playhead — so the one gesture needs nothing
 selected first. The region is the engine's session state, as Shift+L's is.
 
@@ -938,7 +935,7 @@ The key listener draws a line between two groups rather than standing aside for 
 mouse click, which the listener lets a focused control keep.
 
 Space takes the **direct route when it can**. `transport play|stop|toggle|rewind` (`BARE_TRANSPORT` in
-`src/ui/commands/transport.ts`) are answered by the shell over the engine WebSocket — the same socket the header's
+`src/ui/commands/transport.ts`) are answered by the shell over the engine WebSocket — the same socket the project bar's
 play button uses. The file service route is a real cost, not a theoretical one: it sends this very
 message, but only after an HTTP round trip, after the undo journal has walked the whole project twice to
 find that a transport verb changed no file (**62 ms warm, 215 ms cold**, on a real song), and behind
@@ -1153,29 +1150,24 @@ clip element:
 
 What it draws is `ClipView`, so audio and MIDI are told apart in one place.
 
-## The minimap is not always there
+## The minimap is the bar's progress
 
-It is a **second view of the timeline**, and that decides where it may appear.
+It is a **second view of the timeline**, drawn in the project bar where a player keeps its scrubber, for
+every project with an arrangement — over the timeline too, where it is the one reading of the whole song
+the timeline's scrolled window cannot give.
 
-| what is on screen | the minimap |
-|---|---|
-| the timeline (the default layout, and `full timeline`) | none — it would say what the timeline already says |
-| another pane fullscreened | docked at the foot of the window |
-| the editor **popin** | floating, pinned to the bottom of the window, with the mini transport |
+**Folded, it is a scrubber's height; under the pointer it grows upward** to a row per lane, over the
+panes, and folds again when the pointer leaves — a drag holds it open. The bar's own height never moves,
+so peeking reflows nothing. A finger has no hover: on a phone it stays folded and a tap still seeks.
 
-The popin is the case the docked strip cannot serve. It covers the layout, so the minimap has to come
-**over** it or not at all — and there it stops being a convenience: a screen with no visible timeline is
-one where you have lost the song. That is why the floating one carries a **mini transport** (play/pause
-and the clock) and the docked one does not — over a popin, seeing where you are is worth nothing if you
-cannot start the tape. Only the editor popin: the builder, the docs and the settings are **pages** about
-something other than this song, and the builder's overlay holds no engine link at all, so a transport
-over it would be a row of dead buttons.
+**Over the editor popin the whole bar floats**, pinned to the bottom of the window: a screen with no
+visible timeline is one where you have lost the song, and seeing where you are is worth nothing if you
+cannot start the tape. The popin's bottom edge is pushed up by the bar's MEASURED height. Only the editor
+popin: the builder, the docs and the settings are **pages** about something other than this song, and
+the builder's overlay holds no engine link at all, so a transport over it would be a row of dead buttons.
 
-The floating strip sits outside the popin's backdrop, so scrubbing it is not the click-outside that
-dismisses the popin. It is **full width**: the minimap maps the whole song to the width it is given, so a
-centred card would squeeze the arrangement into a strip less legible than the timeline it stands in for.
-The popin's bottom edge is pushed up by the strip's MEASURED height — the minimap sizes itself to the
-track count, so any fixed number would be wrong for most songs.
+The floating bar sits outside the popin's backdrop, so scrubbing it is not the click-outside that
+dismisses the popin.
 
 ## What a click in the timeline does to the event panel
 
@@ -1291,7 +1283,7 @@ screen (`shownSlot`).
 
 ## The command bar
 
-It is the last row of the shell, under the minimap when there is one, full width — always there, not
+It is the last row of the shell, under the project bar when there is one, full width — always there, not
 summoned. It runs the brain's shared commands — the same ones `k7 cmd` runs on the CLI — so the UI adds
 no command vocabulary of its own. The catalogue and the argument completers live in
 [`../src/palette.ts`](../src/palette.ts); why it is docked rather than opened is in
@@ -1802,7 +1794,7 @@ something you could *ask for*, and none of these is:
 - **Typing into the open buffer.** The video readers' *Set From* / *Set To* look like actions and are not:
   they write a number into the file the editor is showing, which autosave then saves like any keystroke.
 
-The two transport buttons in the header are the clearest place a button does NOT dispatch its command, and
+The two transport buttons in the project bar are the clearest place a button does NOT dispatch its command, and
 the reason is latency: `transport toggle` is a CLI verb, so it travels to the file service and back, while
 the button already holds an open socket to the engine.
 
@@ -1926,7 +1918,7 @@ be revisited when the edge's path table moves is a manifest written wrong.
 | the palette catalogue and argument completion | `src/palette.ts` |
 | the shell's own commands — row and handler, one entry each | `src/ui/commands/` |
 | every popin, dialog and menu drawn over the panes | `src/shell/ShellOverlays.tsx` |
-| the bar under the panes, and the transport centred over the header | `src/shell/ShellFooter.tsx`, `src/shell/ShellTransport.tsx` |
+| the bar under the panes, and the project bar above it | `src/shell/ShellFooter.tsx`, `src/shell/ProjectBar.tsx`, `src/shell/ShellTransport.tsx` |
 | what the graph's gestures run — the module picker, the asset browser, a tap's edit | `src/shell/useGraphActions.ts` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
 

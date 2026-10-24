@@ -102,7 +102,7 @@ drop the mark.
 ## Play is pressed once, when it is offered
 
 "engine connected" shows before the project has reached the engine: the files still cross the tunnel,
-and the engine replaces its edit when they land, which drops a transport already rolling. The header
+and the engine replaces its edit when they land, which drops a transport already rolling. The project bar
 therefore names the button "loading the project", disabled, until the file service says the project
 is playable (`apps/k7/frontend/docs/shell.md`). `src/transport.ts` waits for the button called Play
 and presses it once: a Play that is lost again is a failure, not something to press through.
