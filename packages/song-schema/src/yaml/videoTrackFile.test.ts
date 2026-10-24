@@ -8,9 +8,8 @@ import {
   addVideoPlacement,
   listVideoPlacements,
   renameFadeChains,
-  setVideoLaneMute,
+  setVideoLaneRect,
   shiftVideoAnimationAt,
-  spliceVideoTime,
   splitVideoPlacementAt,
 } from "./videoTrackFile";
 
@@ -23,8 +22,9 @@ const events = (text: string) =>
   parse(text).events as Record<string, unknown>[];
 
 const LANE = `// the A-roll
+extends("@meta/picture-track")
 events([
-  ref("a").start(2).length(6).source_from(1).fade_in(0.5).fade_out({ over: 1, with: "wipe" }),
+  ref("a").start(2).length(6).from(1).fadeIn(0.5).fadeOut({ over: 1, with: "wipe" }),
   ref("b").start(10).length(0),
 ])
 `;
@@ -37,13 +37,13 @@ describe("splitVideoPlacementAt", () => {
     const out = split(LANE, 0, 5);
     expect(out.result).toBe(true);
     expect(events(out.text)).toEqual([
-      { ref: "a", start: 2, length: 3, source_from: 1, fade_in: 0.5 },
+      { ref: "a", start: 2, length: 3, from: 1, fadeIn: 0.5 },
       {
         ref: "a",
         start: 5,
         length: 3,
-        source_from: 4,
-        fade_out: { over: 1, with: "wipe" },
+        from: 4,
+        fadeOut: { over: 1, with: "wipe" },
       },
       { ref: "b", start: 10, length: 0 },
     ]);
@@ -141,15 +141,9 @@ describe("the lane's other edits", () => {
     });
   });
 
-  it("shifts what follows an inserted gap and drops what a deletion covers", () => {
-    const out = edit(LANE, (d) => spliceVideoTime(d, 3, 4, "delete"));
-    expect(out.result).toEqual({ moved: 1, removed: 0 });
-    expect(events(out.text)[1]).toEqual({ ref: "b", start: 6, length: 0 });
-  });
-
   it("renames a fade's chain, and only a fade's", () => {
     const text =
-      'events([ref("a").start(0).fade_in({ over: 1, chain: "iris" })])\n';
+      'events([ref("a").start(0).fadeIn({ over: 1, chain: "iris" })])\n';
     const out = edit(text, (d) => renameFadeChains(d, { iris: "wipe" }));
     expect(out.result).toBe(true);
     expect(out.text).toContain('chain: "wipe"');
@@ -158,10 +152,12 @@ describe("the lane's other edits", () => {
     );
   });
 
-  it("mutes by writing the key, and unmutes by removing it", () => {
-    const muted = edit(LANE, (d) => setVideoLaneMute(d, true)).text;
-    expect(parse(muted).mute).toBe(true);
-    expect(edit(muted, (d) => setVideoLaneMute(d, false)).text).toBe(LANE);
+  it("writes the lane's rect as `frame`, all four values, rounded to whole pixels", () => {
+    const out = edit(LANE, (d) =>
+      setVideoLaneRect(d, { x: 10.4, y: 20, w: 320, h: 180.6 }),
+    );
+    expect(parse(out.text).frame).toEqual([10, 20, 320, 181]);
+    expect(out.text).toContain("// the A-roll");
   });
 
   it("reads nothing from a half-typed buffer, and edits nothing in it", () => {

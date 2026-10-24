@@ -349,7 +349,7 @@ describe("a picture lane", () => {
       "picture lane delete cam",
       "picture add cam ",
       "ui picture arm cam",
-      "ui file video_tracks/cam.k7x",
+      "ui file cam",
     ]);
     // The duplicate is the copy into Main, named for what it does beside the copy that asks where.
     expect(labels(menu)[1]).toBe("duplicate");

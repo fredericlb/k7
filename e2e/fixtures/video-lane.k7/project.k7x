@@ -4,6 +4,7 @@ project({
   sampleRate: 48000,
   timeSignature: "4/4",
   viewport: [1280, 720, 30],
-  layers: ["main"],
 })
 markers({})
+trackOrder(["drums", "main"])
+format(3)

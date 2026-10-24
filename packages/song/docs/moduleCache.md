@@ -115,7 +115,7 @@ rather than 133. The rest of this page is what is left in those 96 ms.
 `readYamlEntities` is what remains, ~40% of a compile: 183 files read and parsed on every
 command, of which one has changed.
 
-**The audit the "two rules" section demands, for clips, sequences, curves and video tracks.**
+**The audit the "two rules" section demands, for clips, sequences and curves.**
 What is cached is the RAW parse; the entity schema then runs on every call, and zod **rebuilds
 the whole structure** — measured, down to the tuples inside `warp.markers`: no nested object,
 array or tuple in `r.data` is ever the raw's. So the caller's result is fresh by construction

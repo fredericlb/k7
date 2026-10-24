@@ -1,4 +1,4 @@
-// videoDoc.ts — the PICTURE document: what a song's `video_tracks/` compile to. Every time in
+// videoDoc.ts — the PICTURE document: what a song's picture lanes compile to. Every time in
 // it is a decimal second, because a shot is cut against the wall clock and not a bar line.
 // Its own document rather than a section of ProjectDoc, which is what keeps the frame out of
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
@@ -167,7 +167,7 @@ export interface VideoProjectDoc {
   name: string;
   viewport: [number, number]; // px the lanes draw into
   fps: number; // frame-by-frame export only — realtime follows the transport's own clock
-  videoTracks: VideoTrackDoc[]; // ALREADY in project.layers draw order — no consumer re-sorts
+  videoTracks: VideoTrackDoc[]; // ALREADY in draw order, the rows' reversed — no consumer re-sorts
   markers: VideoMarker[]; // sorted by second
   /** The `RENDER -> VIDEO_OUT` run — the picture's `masterPlugins`, always present; docs/shaders.md. */
   framePlugins: VideoPluginDoc[];

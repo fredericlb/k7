@@ -16,6 +16,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { K7Document } from "@studio/k7x/document";
 import { isDocFile } from "@studio/song-schema/docExt";
+import { PICTURE_LANE_LEVEL } from "@studio/song-schema/formatLevel";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { writeFileAtomic } from "./atomicWrite";
@@ -40,21 +41,16 @@ const SAMPLE_VIDEO = resolve(
   "sample.mp4",
 ); // packages/song/samples/video/sample.mp4
 
-/** The two header fields a lane of picture needs, written by the `video` archetype alone — docs/scaffold.md. */
+/** The header field a lane of picture needs, written by the `video` archetype alone — docs/scaffold.md. */
 const PICTURE_HEADER =
   `\n` +
-  `  // PICTURE. A song carries its own, and these two fields are what a lane of it needs.\n` +
+  `  // PICTURE. A song carries its own, and this field is what a lane of it needs.\n` +
   `  //\n` +
   `  // \`viewport\` is the frame every lane draws into: [width, height, fps]. There is no\n` +
   `  // default — a frame invented by the loader would silently letterbox every shot, and you\n` +
   `  // would find out at the export. The fps is used by EXPORT only; playing back follows\n` +
   `  // the transport.\n` +
-  `  viewport: [1280, 720, 30],\n` +
-  `\n` +
-  `  // Draw order, bottom first. It is the ORDER and the membership at once: a name with no\n` +
-  `  // file is an error, and a lane no name lists is an error too — otherwise it would\n` +
-  `  // compile perfectly and simply never appear.\n` +
-  `  layers: ["main"],\n`;
+  `  viewport: [1280, 720, 30],\n`;
 
 /** The project header. Its picture half is the only field the two archetypes disagree about. */
 function projectText(name: string, picture: boolean): string {
@@ -65,7 +61,9 @@ function projectText(name: string, picture: boolean): string {
     `  sampleRate: 48000,\n` +
     `  timeSignature: "4/4",\n` +
     (picture ? PICTURE_HEADER : "") +
-    `})\n`
+    `})\n` +
+    // A picture lane is a format an older k7 cannot read, so it is told to update (song-schema docs/formatLevel.md).
+    (picture ? `format(${PICTURE_LANE_LEVEL})\n` : "")
   );
 }
 
@@ -227,12 +225,12 @@ export function videoProjectFiles(name: string): Record<string, string> {
       `layout("floating")\n`,
 
     "clips/sample.k7x":
-      `// A SOURCE, not a placement: this says which file, and video_tracks/ says where it goes.\n` +
+      `// A SOURCE, not a placement: this says which file, and a picture lane says where it goes.\n` +
       `// One clip file can be placed any number of times, on any number of lanes.\n` +
       `source("clips/sample.mp4")\n`,
 
-    // The full-frame picture lane. x/y/w/h place it in viewport px; omit them for the full frame.
-    "video_tracks/main.k7x":
+    // The full-frame picture lane. `frame` places it in viewport px; omit it for the full frame.
+    "nodes/main.k7x":
       `// A lane of picture. Every time here is DECIMAL SECONDS — picture is cut against the\n` +
       `// wall clock, where the lanes above are placed in bars against the tempo. Both are drawn\n` +
       `// on the one timeline, whose ruler reads either (the clock button in its header).\n` +
@@ -240,11 +238,11 @@ export function videoProjectFiles(name: string): Record<string, string> {
       `// Re-typing \`tempo\` therefore slides the GRID under this shot rather than moving it:\n` +
       `// the file says seconds, and seconds is what it keeps saying.\n` +
       `//\n` +
-      `// \`length(0)\` runs to the end of the source; \`source_from\` trims the head. \`mute\`\n` +
-      `// means HIDDEN — there is no sound on a lane.\n` +
-      `// name("A-roll") // the lane's label; the FILENAME is still its id\n` +
-      `x(0)\ny(0)\nw(1280)\nh(720)\n` +
-      `events([ref("sample").start(0).length(6).source_from(0)])\n`,
+      `// \`length(0)\` runs to the end of the source; \`from\` trims the head. Muting it\n` +
+      `// HIDES it — there is no sound on a picture lane.\n` +
+      `extends("@meta/picture-track")\n` +
+      `frame([0, 0, 1280, 720])\n` +
+      `events([ref("sample").start(0).length(6).from(0)])\n`,
   };
 }
 

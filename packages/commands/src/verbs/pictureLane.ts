@@ -1,10 +1,10 @@
 // pictureLane.ts — `picture lane rename` and `picture lane delete`, a picture lane's `track rename` and
-// `track delete`. What a reader gets wrong: a picture lane is named in six places — its file, `layers:`,
+// `track delete`. What a reader gets wrong: a picture lane is named in six places — its file, `trackOrder`,
 // `soloed:`, the graph, a sounding lane's `video_source`, and every timeline lane drawing on it — and a
 // rename that missed one would leave that one pointing at nothing (packages/song-video/docs/picture.md).
 
-import { readdirSync, renameSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   dropNodeFromAssemblies,
   renameNodeInAssemblies,
@@ -66,13 +66,13 @@ function followInGraph(dir: string, lane: string, to: string | null): string[] {
   return [GRAPH_FILE];
 }
 
-/** `layers:` and `soloed:` with `lane` renamed to `to`, or dropped when `to` is null. */
+/** `trackOrder` and `soloed:` with `lane` renamed to `to`, or dropped when `to` is null. */
 function followInProject(dir: string, lane: string, to: string | null): void {
   const file = entityFileFor(dir, "", "project");
   if (!file) return;
   const root = loadProjectRoot(dir);
   const lists: [string[], unknown][] = [
-    [["project", "layers"], root.project?.layers],
+    [["trackOrder"], root.trackOrder],
     [["soloed"], root.soloed],
   ];
   for (const [path, list] of lists) {
@@ -121,8 +121,6 @@ function timelineLanesNamed(
 function nameRefusal(dir: string, to: string): string | null {
   if (!NAME.test(to))
     return `invalid lane name '${to}' — letters, digits, '.', '_' and '-' only`;
-  if (wsExists(join(dir, "video_tracks", `${to}.k7x`)))
-    return `picture lane '${to}' already exists`;
   // The graph draws song lanes and picture lanes in ONE name space.
   if (
     laneFileFor(dir, to) ||
@@ -167,7 +165,8 @@ export const PICTURE_LANE_VERBS: Record<string, SidHandler> = {
       ]);
     if (timelineLaneOf(lane)) return renameTimelineLane(h, lane, to);
     const dir = h.songPath;
-    if (!laneFile(lane, h)) return;
+    const found = laneFile(lane, h);
+    if (!found) return;
     if (to === lane) return h.refuse([`'${lane}' is already called that`]);
     const refusal = nameRefusal(dir, to);
     if (refusal) return h.refuse([refusal]);
@@ -181,10 +180,9 @@ export const PICTURE_LANE_VERBS: Record<string, SidHandler> = {
       const notes = followInGraph(dir, lane, to);
       if (renameNodeInAssemblies(dir, lane, to).length)
         notes.push("assemblies");
-      renameSync(
-        join(dir, "video_tracks", `${lane}.k7x`),
-        join(dir, "video_tracks", `${to}.k7x`),
-      );
+      // A chain project's rename moved the file with its item; a node project's is moved here.
+      if (existsSync(found.abs))
+        renameSync(found.abs, join(dirname(found.abs), `${to}.k7x`));
       followInProject(dir, lane, to);
       for (const sound of soundingLanes(dir, lane)) {
         const file = laneFileFor(dir, sound);

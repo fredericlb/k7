@@ -51,11 +51,11 @@ function shotsOf(events: readonly RawVideoPlacement[]): Shot[] {
       ref: String(p.ref ?? ""),
       start,
       end,
-      sourceFrom: Number(p.source_from ?? 0),
+      sourceFrom: Number(p.from ?? 0),
       speed: Number.isFinite(Number(p.speed ?? 1)) ? Number(p.speed ?? 1) : 1,
       // A fade is clamped to its own shot, as the picture clamps it.
-      fadeIn: Math.min(fadeOver(p.fade_in), span),
-      fadeOut: Number.isFinite(end) ? Math.min(fadeOver(p.fade_out), span) : 0,
+      fadeIn: Math.min(fadeOver(p.fadeIn), span),
+      fadeOut: Number.isFinite(end) ? Math.min(fadeOver(p.fadeOut), span) : 0,
       silent: p.silent === true,
     };
   });
@@ -111,7 +111,7 @@ export function videoSoundPieces(
     const sound = clipsMap[s.ref]?.sound;
     // A freeze holds one frame and a reverse runs a clip backwards, which the engine cannot: both are silent (docs/videoSound.md).
     if (!sound || !(s.speed > 0) || s.silent) return;
-    // A LATER shot covers this one once its own fade_in is done; during that fade the two cross.
+    // A LATER shot covers this one once its own fadeIn is done; during that fade the two cross.
     let spans: [number, number][] = [[s.start, s.end]];
     const crossAt = new Map<number, number>();
     for (const later of shots.slice(i + 1)) {
@@ -123,7 +123,7 @@ export function videoSoundPieces(
       if (!(b > a)) continue;
       const open = !Number.isFinite(b);
       const fadeIn = a === s.start ? s.fadeIn : 0;
-      // Ending where a later shot finishes fading in is that crossfade's outgoing half, as the incoming fade_in IS the transition.
+      // Ending where a later shot finishes fading in is that crossfade's outgoing half, as the incoming fadeIn IS the transition.
       const fadeOut = crossAt.get(b) ?? (b === s.end ? s.fadeOut : 0);
       const sourceFrom = s.sourceFrom + (a - s.start) * s.speed;
       const clip: ClipDoc = {
@@ -183,7 +183,7 @@ export function videoSoundLanes(
     const picture = videoLanes[from];
     if (!picture) {
       errs.push(
-        `lane '${id}': video_source names '${from}', which is not a video track (video_tracks/${from}.k7x)`,
+        `lane '${id}': video_source names '${from}', which is not a picture lane (a \`@meta/picture-track\` node)`,
       );
       continue;
     }

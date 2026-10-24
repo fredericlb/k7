@@ -6,7 +6,6 @@
 
 import { z } from "zod";
 import { PlacementSchema, TIMECODE } from "./placementSchema";
-import { VideoPlacementSchema } from "./videoPlacementSchema";
 
 const LANE_NAME = z
   .string()
@@ -27,7 +26,7 @@ export const TimelineLaneSchema = z
 export const TimelinePictureSchema = z
   .object({
     lane: LANE_NAME,
-    events: z.array(VideoPlacementSchema).optional(),
+    events: z.array(PlacementSchema).optional(),
     // Hides the whole lane wherever the timeline is placed.
     disabled: z.boolean().optional(),
     color: z.string().optional(),

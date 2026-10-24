@@ -73,7 +73,7 @@ Written by NAME and not by a device id on purpose: an id is different in every b
 
 The card on the chains graph lists the cameras your browser can see, so the ordinary way to set this is to pick one there rather than to type it.
 
-A camera needs **no picture lane at all**. On its own it draws a layer of its own, filling the frame, and nothing has to be listed in `layers:` — the document authors no lane, which is the point. Give it a `frame:` to place it instead: `[x, y, w, h]` in viewport pixels, so two cameras can sit side by side. Wire it to a picture lane instead and that lane draws the lens, keeping its own rectangle and its effects.
+A camera needs **no picture lane at all**. On its own it draws a layer of its own, filling the frame, and no lane has to exist for it — the document authors none, which is the point. Give it a `frame:` to place it instead: `[x, y, w, h]` in viewport pixels, so two cameras can sit side by side. Wire it to a picture lane instead and that lane draws the lens, keeping its own rectangle and its effects.
 
 ```k7x schema=Module
 // nodes/cam.k7x — a webcam. Put it in graph.k7x and it draws itself.

@@ -904,7 +904,7 @@ They are **not dimmed** either — dim means bypassed here, and an unrouted trac
 muted.
 
 Video lanes are in the same list for the same reason: one that no chain mentions still draws
-(`project.layers` composites it), so leaving it out would understate the song exactly as it does for
+(the picture compile composites every picture lane), so leaving it out would understate the song exactly as it does for
 audio.
 
 ### A lane is a lane at BOTH ends of a cable

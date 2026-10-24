@@ -1,13 +1,12 @@
 // entitySchemas.ts — the remaining per-entity shapes, in Zod: clips, sequences, curves,
-// video tracks. Each is a FLAT file keyed by its own filename (clips/kick.k7x has no
-// `id:` — the name is the id), which also rules out one file declaring several ids.
+// timelines. Each is a FLAT file keyed by its own filename (clips/kick.k7x has no `id:` —
+// the name is the id), which also rules out one file declaring several ids.
 
 import { z } from "zod";
 import { TIMECODE } from "./placementSchema";
 import { TimelineSchema } from "./timelineSchema";
-import { VideoPlacementSchema } from "./videoPlacementSchema";
 
-export { FadeSchema, VideoPlacementSchema } from "./videoPlacementSchema";
+export { FadeSchema } from "./placementSchema";
 
 /** A stretch map from the DAW a clip was imported from. */
 export const WarpSchema = z
@@ -257,39 +256,10 @@ export const CurveSchema = z.discriminatedUnion("type", [
   OnOffCurveSchema,
 ]);
 
-const Px = z.number();
-
-export const VideoTrackSchema = z
-  .object({
-    name: z.string().optional(),
-    color: z.string().optional(),
-    mute: z.boolean().optional(), // "mute" == hidden; no sound on a video lane
-    x: Px.optional(),
-    y: Px.optional(),
-    w: Px.optional(),
-    h: Px.optional(),
-    events: z.array(VideoPlacementSchema).optional(), // the shots it places — see #Module's `events:`
-  })
-  .strict()
-  // A fade_out needs an END: only the LAST length-0 shot has none, since an earlier one ends where the next starts.
-  .superRefine((t, ctx) => {
-    const ev = t.events;
-    if (!ev?.length) return;
-    const i = ev.length - 1;
-    if (ev[i].fade_out && !ev[i].length)
-      ctx.addIssue({
-        code: "custom",
-        message:
-          "fade_out needs an end, and this shot has `length: 0` with nothing after it — give it a length, or put a shot after it",
-        path: ["events", i, "fade_out"],
-      });
-  });
-
 /** The kinds this file covers, by their folder name — what a loader looks up. */
 export const ENTITY_SCHEMAS = {
   clips: ClipSchema,
   sequences: SequenceSchema,
   curves: CurveSchema,
-  video_tracks: VideoTrackSchema,
   timelines: TimelineSchema,
 } as const;

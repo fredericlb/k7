@@ -34,7 +34,7 @@ export type ArgProvider =
   | "moduleEngines"
   // One of this project's USES of a module, which is what the `node …` verbs address — packages/song/docs/nodes.md.
   | "nodes"
-  // A PICTURE lane of this song — video_tracks/<id>.k7x, read off the folder rather than the compile.
+  // A PICTURE lane of this song — a `@meta/picture-track` node, read off the lane files rather than the compile.
   | "pictureLanes"
   // A set list of the REPOSITORY — with `libraries`, a provider that reads nothing of the open project.
   | "playlists"

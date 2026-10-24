@@ -9,6 +9,7 @@ import type { CommandHost } from "@studio/commands/commands";
 import { laneFolder } from "@studio/song/chainItemEdit";
 import { confineToProject } from "@studio/song/confine";
 import { createTrackFile, isVideoSource } from "@studio/song/loader";
+import { pictureLaneFile } from "@studio/song/pictureLanes";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
@@ -31,22 +32,22 @@ export async function transcribeTrack(
     return;
   }
   const [trackIn, trackOut] = parts;
-  // <track_in> is a PICTURE lane: video_tracks/<id>.k7x, the id being the stem, so the name is
-  // checked before it reaches a path (docs/picture.md).
+  // <track_in> is a PICTURE lane, a node whose id is its file's stem, so the name is checked
+  // before it reaches a path (docs/picture.md).
   if (!/^[A-Za-z0-9_.-]+$/.test(trackIn)) {
     h.refuse([
       `'${trackIn}' is not a lane name — letters, digits, '.', '_' and '-' only`,
     ]);
     return;
   }
-  const laneFile = join(h.songPath, "video_tracks", `${trackIn}.k7x`);
-  if (!existsSync(laneFile)) {
-    h.refuse([`no picture lane "${trackIn}" (video_tracks/${trackIn}.k7x)`]);
+  const laneFile = pictureLaneFile(h.songPath, trackIn);
+  if (!laneFile) {
+    h.refuse([`no picture lane "${trackIn}" in this song`]);
     return;
   }
   // The FIRST shot decides what is listened to: one video, timed in its own seconds. A lane that
   // cuts between sources would need the segments re-timed onto the timeline to say anything.
-  const shot = listVideoPlacements(wsText(laneFile)).find((p) => p.ref);
+  const shot = listVideoPlacements(wsText(laneFile.path)).find((p) => p.ref);
   if (!shot?.ref) {
     h.refuse([`'${trackIn}' places no shot — there is no video to transcribe`]);
     return;

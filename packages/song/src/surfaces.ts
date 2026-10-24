@@ -22,6 +22,7 @@ import {
 import type { SurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
 import { isChainProject, readChainProject } from "./chainProject";
 import { type Diagnostic, NODES_DIR } from "./loader";
+import { pictureLaneIds } from "./pictureLanes";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
 import { wsData, wsText, wsWriteText } from "./yaml/workspaceDoc";
@@ -113,9 +114,9 @@ function mappingSkeleton(known: SurfaceTypeContribution): string {
     .join("")}})\n`;
 }
 
-/** Whether `dir` authors video LANES — a folder probe, kept out of song-video, docs/surfaces.md. */
+/** Whether `dir` authors picture LANES — kept out of song-video, docs/surfaces.md. */
 export function isVideoProject(dir: string): boolean {
-  return existsSync(resolve(dir, "video_tracks"));
+  return pictureLaneIds(dir).length > 0;
 }
 
 /** Whether `dir` declares a LENS, which needs no lane — a camera is a plain node (docs/moduleTypes.md). */

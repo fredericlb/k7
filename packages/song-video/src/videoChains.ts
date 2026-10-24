@@ -48,7 +48,7 @@ export interface VideoChainDocs {
   warnings: string[];
 }
 
-/** A camera drawn as its own layer — no `video_tracks/` file behind it, and none needed. */
+/** A camera drawn as its own layer — no picture lane behind it, and none needed. */
 interface CameraLayer {
   /** The node's name, which is the layer's id. */
   node: string;

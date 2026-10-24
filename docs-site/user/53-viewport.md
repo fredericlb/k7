@@ -23,7 +23,7 @@ amber; playback is not affected.
 
 A lane draws when it is not hidden:
 
-- `mute: true` hides it;
+- muting the lane hides it (its bypass in the graph, as for an audio lane);
 - when any picture lane is soloed, every lane that is not soloed is hidden;
 - a lane fed by a camera draws nothing while its lens is shut (see
   [Webcam and live video](./56-webcam-and-live-video.md)).
@@ -41,7 +41,7 @@ In the viewport window:
   one;
 - **Escape** drops the selection.
 
-Each drag writes the lane's `x`, `y`, `w`, `h` in viewport pixels, exactly what
+Each drag writes the lane's `frame([x, y, w, h])` in viewport pixels, exactly what
 `picture rect <lane> <x> <y> <w> <h>` writes. A lane cannot be resized below 16 pixels a side.
 Hidden lanes cannot be clicked, and lanes drawing shapes have no rectangle to grab (each shape
 carries its own position).
@@ -50,7 +50,7 @@ A picture fills its lane's rectangle without being stretched.
 
 ## Transitions
 
-A shot arrives with `fade_in` and leaves with `fade_out`. Without them it cuts.
+A shot arrives with `fadeIn` and leaves with `fadeOut`. Without them it cuts.
 
 ### The dissolve
 
@@ -59,15 +59,15 @@ A number of seconds is the built-in dissolve:
 ```js
 events([
   ref("a").start(0).length(5),
-  ref("b").start(4).length(5).fade_in(1),   // b dissolves in over a, from 4 s to 5 s
+  ref("b").start(4).length(5).fadeIn(1),   // b dissolves in over a, from 4 s to 5 s
 ])
 ```
 
 The incoming shot fades in over whatever is under it: the earlier shot on the same lane while it
-still runs, or nothing (the lanes below) when there is none. A `fade_out` fades the shot to what is
+still runs, or nothing (the lanes below) when there is none. A `fadeOut` fades the shot to what is
 under it. A fade is never longer than its own shot.
 
-`fade_out` measures back from the shot's end, so the last shot of a lane cannot have a `fade_out`
+`fadeOut` measures back from the shot's end, so the last shot of a lane cannot have a `fadeOut`
 with `length: 0`: give it a length, or put a shot after it.
 
 ### The full form
@@ -81,7 +81,7 @@ The map form says more:
 | `chain` | a **stretch**: a run of shaders the shot goes through for the length of the fade |
 
 ```js
-ref("bars").start(3).length(5).source_from(1.5).fade_in({ over: 1, chain: "iris" })
+ref("bars").start(3).length(5).from(1.5).fadeIn({ over: 1, chain: "iris" })
 ```
 
 A fade with a `chain` and no `with` lays the stretched shot over what is under it by its own
@@ -94,7 +94,7 @@ that lands on this lane:
 ```js
 // chains/main.k7x
 start(true)
-steps([id("main-lane").video_track("main"), to([chain("glow")])])
+steps([id("main-lane").track("main"), to([chain("glow")])])
 subchains([
   id("iris").steps([id("iris-shader").extends("@workspace/shaders/iris")]),
 ])
@@ -113,7 +113,7 @@ built-in one. See [Effects and shaders](./54-effects-and-shaders.md) for what su
 receives.
 
 ```js
-ref("b").start(4).length(5).fade_in({ over: 0.8, with: "wipe" })
+ref("b").start(4).length(5).fadeIn({ over: 0.8, with: "wipe" })
 ```
 
 A `with` naming no transition module plays as a dissolve rather than as a cut, so the

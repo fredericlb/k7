@@ -43,6 +43,7 @@ import {
 } from "@studio/song/moduleCatalogue";
 import type { ForkedModule } from "@studio/song/moduleFork";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
+import { migratePictureLanes } from "@studio/song/pictureLanesMigrate";
 import {
   formatAudioDevice,
   formatChannels,
@@ -397,11 +398,28 @@ export class Workspace {
     this.opened = abs;
     this.activeProject = abs;
     this.writeActiveMarker(abs);
+    this.migratePictureLanes(abs);
     this.repairVideoOutputs(abs);
     stampFormatForSeconds(abs);
     this.invalidateProjectDoc();
     guard("waveform prewarm", this.prewarmWaveforms());
     return abs;
+  }
+
+  /** A project still holding `video_tracks/` has its picture lanes made lane nodes on open — docs/picture-lanes-plan.md. */
+  private migratePictureLanes(abs: string): void {
+    try {
+      const done = migratePictureLanes(abs);
+      if (done?.warnings.length)
+        console.warn(
+          `picture lanes of ${this.toRel(abs)}:\n  ${done.warnings.join("\n  ")}`,
+        );
+    } catch (e) {
+      // Left as it was: a lane that will not read is reported by the compile, which names its file.
+      console.warn(
+        `picture lanes of ${this.toRel(abs)} not migrated: ${(e as Error).message}`,
+      );
+    }
   }
 
   /** A project declaring a viewport gains its VIDEO_OUT run on open — packages/song/docs/videoOutputs.md. */

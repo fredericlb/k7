@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGraph, validate } from "@studio/song/graph";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
 import { loadVideoProject } from "./videoProject";
@@ -22,14 +22,11 @@ beforeEach(() => {
       name: "t",
       tempo: 120,
       viewport: [640, 360, 30],
-      layers: ["main"],
     },
+    trackOrder: ["main"],
   });
-  writeDoc(join(dir, "video_tracks", "main.k7x"), {
-    x: 0,
-    y: 0,
-    w: 640,
-    h: 360,
+  writeLane(dir, "main", "picture-track", {
+    frame: [0, 0, 640, 360],
     events: [],
   });
 });

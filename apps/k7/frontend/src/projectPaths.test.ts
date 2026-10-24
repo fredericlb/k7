@@ -46,7 +46,10 @@ describe("which kind of file a path is", () => {
     expect(isTrackFile("tracks/melody.k7x")).toBe(true);
     expect(isTrackFile("video_tracks/melody.k7x")).toBe(false);
     expect(isTrackFile("chains/melody.k7x")).toBe(false);
-    expect(isVideoTrackFile("video_tracks/cam.k7x")).toBe(true);
+    // A picture lane is a lane file too, told apart by its name being one of the song's picture lanes.
+    expect(isVideoTrackFile("nodes/cam.k7x", ["cam"])).toBe(true);
+    expect(isVideoTrackFile("tracks/cam.k7x", ["cam"])).toBe(true);
+    expect(isVideoTrackFile("nodes/melody.k7x", ["cam"])).toBe(false);
   });
 
   it("says no to a folder that merely looks similar", () => {

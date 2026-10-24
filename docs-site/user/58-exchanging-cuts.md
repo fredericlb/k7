@@ -26,7 +26,7 @@ What is written:
 | shots | clips naming the source file, relative to `exports/` | events with source and record timecodes; the file name in a `* FROM CLIP NAME:` comment |
 | empty time | gaps | skipped by the record timecodes |
 | overlapping shots | flattened: the shot later in the file covers the earlier, as in the viewport | the same |
-| `fade_in` | a dissolve | a dissolve pair |
+| `fadeIn` | a dissolve | a dissolve pair |
 | `speed` | a linear time warp; `0` a freeze frame | an `M2` speed line |
 
 Times are rounded to whole frames at the project's export frame rate. EDL record timecodes start at
@@ -66,7 +66,7 @@ What happens:
 
 Both the older `Clip.1` media references and the newer `Clip.2` media-reference maps are read.
 Gaps advance the time; a `LinearTimeWarp` becomes the shot's `speed`, a `FreezeFrame` speed `0`.
-A transition centred on a cut becomes this app's `fade_in`: the incoming shot starts at the
+A transition centred on a cut becomes this app's `fadeIn`: the incoming shot starts at the
 transition's first half and fades over its whole length, the outgoing one runs through the second
 half. Nested stacks or tracks are not carried and are listed: flatten them in the other editor
 first. The frame rate is read from the first clip.
@@ -75,6 +75,6 @@ first. The frame rate is read from the first clip.
 
 An EDL does not state its frame rate, so it is read at the project's export frame rate (25 when the
 project has no viewport yet). Record times are measured from the first event, so a cut conformed at
-`01:00:00:00` lands at 0. Dissolve pairs become `fade_in`, `M2` lines become speeds, `FROM CLIP
+`01:00:00:00` lands at 0. Dissolve pairs become `fadeIn`, `M2` lines become speeds, `FROM CLIP
 NAME` / `TO CLIP NAME` comments give the media's name. Wipes are read as cuts, events on audio
 tracks are skipped, and both are listed.

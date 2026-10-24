@@ -1,0 +1,3 @@
+extends("@meta/picture-track")
+events([ref("bars").start(0).length(8).from(0)])
+frame([960, 540, 320, 180])

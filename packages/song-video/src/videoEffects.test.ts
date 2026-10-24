@@ -7,8 +7,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setLibraryOverlays } from "@studio/song/sharedFolders";
-import { writeDoc } from "@studio/song/testSupport";
-import { VideoPlacementSchema } from "@studio/song-schema/yaml/entitySchemas";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
+import { PlacementSchema } from "@studio/song-schema/yaml/placementSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject } from "./videoProject";
 
@@ -21,19 +21,19 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "video-effects-"));
   dir = join(root, "film.k7");
   mkdirSync(join(dir, "clips"), { recursive: true });
-  mkdirSync(join(dir, "video_tracks"), { recursive: true });
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeDoc(join(dir, "project.k7x"), {
     project: {
       name: "t",
       tempo: 120,
       viewport: [640, 360, 30],
-      layers: ["main", "pip"],
     },
+    trackOrder: ["pip", "main"],
   });
   writeDoc(join(dir, "clips", "a.k7x"), { source: "a.mp4" });
   writeFileSync(join(dir, "clips", "a.mp4"), "");
-  writeDoc(join(dir, "video_tracks", "pip.k7x"), { events: [] });
+  writeLane(dir, "pip", "picture-track", { events: [] });
+  writeLane(dir, "main", "picture-track", { events: [] });
   // The library's grade, through a node of the song's own — the shape every library module is used in.
   writeDoc(join(dir, "nodes", "warm.k7x"), {
     extends: "@k7-core/shaders/grade",
@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 const events = (list: Record<string, unknown>[]) =>
-  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: list });
+  writeLane(dir, "main", "picture-track", { events: list });
 
 describe("a shot's effect", () => {
   it("carries the run under its head node, the library's grade GLSL in it", () => {
@@ -88,7 +88,7 @@ describe("a shot's effect", () => {
   });
 
   it("refuses an effect on an activation, which has no picture to grade", () => {
-    const r = VideoPlacementSchema.safeParse({
+    const r = PlacementSchema.safeParse({
       start: 0,
       length: 2,
       effect: "warm",

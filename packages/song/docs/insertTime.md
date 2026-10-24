@@ -14,11 +14,11 @@ column is a field that silently drifts out of step with the rest of the song.
 
 | moves | where | unit |
 |---|---|---|
-| a lane's events | `nodes/<id>.k7x` `events[].start` | timecode |
+| a lane's events | `nodes/<id>.k7x` `events[].start` | timecode, or seconds as written |
 | …and every alternative's own events | `alternatives[].events[].start` | timecode |
 | markers | `project.k7x` `markers` **keys** | timecode |
 | a drawn curve's points | `curves/<id>.k7x` `points[].time` | timecode |
-| picture | `video_tracks/<id>.k7x` `events[].start` | **seconds** |
+| picture | a picture lane's `events[].start`, in the same lane pass | **seconds** |
 
 | stays | why |
 |---|---|
@@ -45,7 +45,7 @@ events — rather than asking where one edit belongs.
 
 ## All the files, or none
 
-A splice rewrites every lane, curve and video lane and `project.k7x`'s markers. Every new text is
+A splice rewrites every lane (picture lanes included), curve and `project.k7x`'s markers. Every new text is
 made first and only then written, so a file that cannot be transformed (its k7x broken) throws
 before anything reaches the disk. Written one by one, a throw on the fifth file would leave the first
 four shifted and the rest not: a song whose lanes disagree about where bar 9 is, which no undo knows
@@ -100,12 +100,12 @@ its sound drift apart the moment a bar is inserted.
 
 Two details it costs:
 
-- Picture is **decimal seconds**. The conversion is `beats × 60 / tempo`, exact because there is
-  one tempo and no tempo map — the one place that absence is a simplification rather than a limit.
-- `setVideoPlacementField` addresses **by ref**, which is right for the editor's per-placement
-  readers (they found the placement by its source in the first place) and wrong here: a ref may
-  appear twice on a lane, and both must move. So `spliceVideoTime` addresses by index, as the
-  timeline's own drag does.
+- Picture is **decimal seconds**, and a picture lane is a lane: `spliceTime` moves its shots in
+  the one lane pass, keeping a start written in seconds in seconds. The conversion is
+  `beats × 60 / tempo`, exact because there is one tempo and no tempo map — the one place that
+  absence is a simplification rather than a limit.
+- It addresses every event **by index**, never by ref: a ref may appear twice on a lane, and both
+  must move.
 
 ## Placing a point
 

@@ -1,0 +1,11 @@
+// The FRAME — this song's three video lanes composited with WebGL, drawn against the
+// engine's playhead.
+//
+// `floating` is the only layout it draws in: a window over whichever page is on screen,
+// moved by its title bar and sized by its corner. `ui viewport` shows or hides it; hidden,
+// it keeps its GL context and its <video> per layer, so showing it again costs nothing.
+//
+// Take this file away and the lanes still compile and still draw on the timeline — nothing
+// composites them, and `surfaceIssues` says so. See packages/song/docs/surfaces.md.
+type("viewport")
+layout("floating")

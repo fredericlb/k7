@@ -44,10 +44,10 @@ beforeEach(() => {
   refusals.length = 0;
   song = mkdtempSync(join(tmpdir(), "td-pmedia-"));
   mkdirSync(join(song, "clips"), { recursive: true });
-  mkdirSync(join(song, "video_tracks"), { recursive: true });
+  mkdirSync(join(song, "nodes"), { recursive: true });
   writeFileSync(
-    join(song, "video_tracks", "main.k7x"),
-    'events([ref("pro").start(0).length(1)])\n',
+    join(song, "nodes", "main.k7x"),
+    'extends("@meta/picture-track")\nevents([ref("pro").start(0).length(1)])\n',
   );
   writeFileSync(join(song, "clips", "pro.k7x"), 'source("clips/pro.mov")\n');
 });

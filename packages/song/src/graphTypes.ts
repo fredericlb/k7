@@ -204,7 +204,7 @@ export interface GraphDoc {
   chains: Record<string, Chain>;
   // The tracks the song actually plays: a DISABLED track is absent, and so is any chain sourced from one.
   tracks: Record<string, Track>;
-  // Video tracks (video_tracks/<id>.k7x), kept SEPARATE from `tracks` — see docs/graphModel.md.
+  // The picture lanes, kept SEPARATE from `tracks`, which the song compile plays — see docs/graphModel.md.
   videoTracks: Record<string, VideoTrack>;
   // The ids left out for being disabled, so validate() can tell "you disabled this" from "this doesn't exist".
   disabledTracks: string[];

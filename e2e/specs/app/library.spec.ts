@@ -111,7 +111,7 @@ function expectedType(c: Case): string | undefined {
 const label = (c: Case) => (c.engine ? `${c.ref} engine ${c.engine}` : c.ref);
 
 const projectFile = (name: string) =>
-  `project({ name: "${name}", tempo: 120, sampleRate: 48000, timeSignature: "4/4", video: false, layers: [] })\nmarkers({})\n`;
+  `project({ name: "${name}", tempo: 120, sampleRate: 48000, timeSignature: "4/4", video: false })\nmarkers({})\n`;
 const NOTES =
   "notes([t(0).d(4).k(48).v(0.8), t(0).d(4).k(55), t(0).d(4).k(60)])\n";
 const SOURCE = `extends("@k7-core/instruments/k7-4osc")\n`;

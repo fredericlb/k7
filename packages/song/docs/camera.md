@@ -16,7 +16,7 @@ modules({
 })
 ```
 
-There is no `video_tracks/` file and no `layers:` line. The compiler **synthesises a layer** for a
+There is no picture lane and no row to order. The compiler **synthesises a layer** for a
 camera that feeds no lane: the whole frame unless the node says otherwise, drawn on top of whatever
 lanes the project does author, in the order the graph declares the cameras.
 

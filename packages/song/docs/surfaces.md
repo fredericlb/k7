@@ -173,11 +173,11 @@ says it wants a desk.
 still on disk, its lanes still compile, nothing draws them. That absence is worth a sentence, so
 `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the editor
 you would add the file in is inside it). A bare rig is silent — it has no arrangement to draw.
-`hasMaterial` is what makes it silent: a folder with no `clips/`, no `sequences/` and no
-`video_tracks/` holds nothing a timeline would draw.
+`hasMaterial` is what makes it silent: a folder with no `clips/`, no `sequences/` and no picture
+lane holds nothing a timeline would draw.
 
-`hasMaterial` is cheap on purpose, like `isVideoProject` beside it: three `existsSync` calls and no
-parse. A folder is asked what it HOLDS rather than what it calls itself — a root key answering the
+`hasMaterial` is cheap on purpose: two `existsSync` calls and `isVideoProject`, which asks the
+module map for a `@meta/picture-track` lane. A folder is asked what it HOLDS rather than what it calls itself — a root key answering the
 same question is a second declaration free to disagree with the folder it describes. Material and
 not placement, deliberately: reading every lane for an `events:` key would be the exact answer and
 would cost a load of the whole `nodes/` folder on a path running beside the other diagnostics. The
@@ -185,7 +185,7 @@ two answers differ only for a project somebody emptied out — which warns about
 delete rather than staying silent about one they need.
 
 `isVideoProject` lives in `@studio/song` rather than beside the compiler it guards
-(`@studio/song-video`) because it is a folder probe and nothing more: asking it must not cost the
+(`@studio/song-video`) because it is a question about lanes and nothing more: asking it must not cost the
 reader the video document model, and that is also what keeps this package from depending on the one
 that compiles a picture.
 
@@ -197,10 +197,10 @@ about to check — for a file whose whole content is derivable from the word `ti
 
 `type: viewport` is the picture: a song asks for it exactly as it asks for its arrangement.
 
-It gets the **same warning from the other side**: a folder holding `video_tracks/` and declaring no
+It gets the **same warning from the other side**: a folder holding a picture lane and declaring no
 viewport compiles its lanes, draws them on the timeline, and composites them nowhere — worth saying
 precisely because the lanes are visible, so the project looks like it is working. A song with no
-`video_tracks/` is silent, the way a rig is about its timeline.
+picture lane is silent, the way a rig is about its timeline.
 
 And it is the only surface that **writes into the graph**: declaring a viewport adds the run
 `RENDER: [ VIDEO_OUT ]` to `graph.k7x`, the picture's two outputs, which `createSurfaceFile` lays

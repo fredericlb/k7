@@ -1,18 +1,20 @@
 # Video
 
-A song holds picture as well as sound. Two lines in `project.k7x` and a folder of lanes:
+A song holds picture as well as sound. One line in `project.k7x`, and lanes of picture beside the
+lanes of sound:
 
 ```k7x schema=ProjectFile
 project({
   viewport: [1280, 720, 30], // the frame every lane draws into: width, height, EXPORT fps
-  layers: ["main", "pip"], // draw order, bottom first — and the membership
 })
 ```
 
 `viewport` has no default: a frame invented for you would silently letterbox every shot, and
-you would find out at the export. `layers` is enforced both ways — a name with no file is an
-error, and a lane no name lists is an error too, because it would compile perfectly and simply
-never appear.
+you would find out at the export.
+
+The lanes draw in the order of their rows: the **top** picture row is in front. Drag a row to
+restack it, or `picture lane order pip 1` to send `pip` to the back. Both write `trackOrder`, the
+one order every lane of the song shares.
 
 Add a `surfaces/viewport.k7x` to see it (see the Surfaces page); without one the lanes still
 draw on the timeline and nothing composites them.
@@ -26,21 +28,23 @@ the bar grid under your cut rather than moving the cut.
 Both are on the one timeline. Its ruler reads bars or minutes-and-seconds — the clock button in
 its header — and what a drag snaps to is whichever ticks are showing.
 
-## video_tracks/&lt;id&gt;.k7x — footage
+## A picture lane — footage
 
-A lane of picture. `length: 0` runs to the end of the source; `source_from` trims the head of
-the source, while `start` says where on the timeline the shot sits. `mute` here means **hidden**
-— a picture lane plays no sound (see A shot's sound, below).
+A lane of picture is a lane like any other, in `nodes/<id>.k7x`, that extends
+`@meta/picture-track`. Its events are SHOTS. `length(0)` runs to the end of the source; `from`
+trims the head of the source, while `start` says where on the timeline the shot sits. Muting it
+(**M**, or `picture mute`) **hides** it — a picture lane plays no sound (see A shot's sound, below).
 
-```k7x schema=VideoTrack
-// name("A-roll")     — the lane's label; the FILENAME is still its id
-// color("#c8a97e")   — …and its colour in the timeline
-events([ref("shot_a").start(0).length(4), ref("shot_b").start(4).length(0).source_from(2.5)])
-// x/y/w/h place the lane inside the viewport; omit for full frame.
+```k7x schema=Module
+// nodes/main.k7x
+extends("@meta/picture-track")
+color("#c8a97e") // its colour in the timeline
+frame([0, 0, 1280, 720]) // where it draws in the viewport, x y w h; omit for the whole frame
+events([ref("shot_a").start(0).length(4), ref("shot_b").start(4).length(0).from(2.5)])
 ```
 
 Drag a shot's **body** to move it, its **left edge** to trim the head (which moves
-`source_from` by the same amount, so the frame under the new edge is the one that was there),
+`from` by the same amount, so the frame under the new edge is the one that was there),
 or its **right edge** to set its extent. Opening a lane file in the editor also gives you a
 reader per placement, with Set From / Set To.
 
@@ -57,7 +61,8 @@ forward: a frame, once you are zoomed in.
 
 A shot can pan, zoom, turn and fade inside its lane, with keys written on the placement:
 
-```k7x schema=VideoTrack
+```k7x schema=Module
+extends("@meta/picture-track")
 events([
   ref("shot_a")
     .start(4)
@@ -105,16 +110,17 @@ five seconds, held still. Give it `scale` and `x` keys for a slow push across a 
 
 ## Speed, freeze and reverse
 
-```k7x schema=VideoTrack
+```k7x schema=Module
+extends("@meta/picture-track")
 events([
   ref("run").start(0).length(4).speed(0.5), // slow motion
   ref("face").start(4).length(3).speed(0), // held on its first frame
-  ref("glass").start(7).length(2).source_from(5).speed(-1), // backwards from 5 s
+  ref("glass").start(7).length(2).from(5).speed(-1), // backwards from 5 s
 ])
 ```
 
 `speed` is how fast the source runs under the shot: `2` is double, `0.5` half, `0` freezes on
-`source_from`, and a negative speed runs **backwards from** `source_from`. The shot keeps its place
+`from`, and a negative speed runs **backwards from** `from`. The shot keeps its place
 and its length; what changes is how much of the source it uses. The timeline labels a retimed
 shot `×0.5`, or `freeze`. From the command bar: `picture speed main 0 0.5`.
 
@@ -171,7 +177,8 @@ lut("looks/film.cube") // a LUT from your colourist, in the project
 modules({ warm: ["main"], film: ["main"] })
 ```
 
-```k7x schema=VideoTrack
+```k7x schema=Module
+extends("@meta/picture-track")
 events([
   ref("interview").start(0).length(6).effect("warm"),
   ref("street").start(6).length(4).effect("film"),
@@ -194,7 +201,7 @@ video_source("main") // this lane's events ARE main's shots
 ```
 
 The lane has no `events:` of its own. Each shot on `main` is heard exactly where it is seen:
-from its `source_from`, cut where a later shot covers it, and cross-faded under a `fade_in`.
+from its `from`, cut where a later shot covers it, and cross-faded under a `fadeIn`.
 Move or trim a shot and its sound moves with it. Everything else is an audio lane like any other:
 a fader, a chain, a mute, a solo.
 
@@ -253,12 +260,13 @@ The lane says so, with the same `events:` a lane of footage uses — **an event 
 activation**: a span with no picture in it, saying the lane is on. `length: 0` runs to the next
 one, and the last one runs on to the end.
 
-```k7x schema=VideoTrack
-// video_tracks/titles.k7x
+```k7x schema=Module
+// nodes/titles.k7x
+extends("@meta/picture-track")
 events([start(4).length(4)])
 ```
 
-A lane stating no event at all shows its shapes throughout. `source_from` and the two fades are
+A lane stating no event at all shows its shapes throughout. `from` and the two fades are
 refused here — there is no source to trim and no picture to cross into.
 
 ### Titles: several lines, a box, a shadow

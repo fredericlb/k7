@@ -63,7 +63,7 @@ in source seconds:
 | `source` | text ending in a video extension, required | — | The video file. |
 | `sound` | text, an audio file | none | The video's sound, extracted once to an audio file the engine can read. Written by k7. |
 
-A video clip takes no window: the trim of a shot is on the picture lane's event (`source_from`).
+A video clip takes no window: the trim of a shot is on the picture lane's event (`from`).
 
 ## Sequences
 

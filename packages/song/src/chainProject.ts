@@ -44,7 +44,7 @@ export interface ChainNode {
   step: number;
   /** Its index in a parallel step; null for a step holding one item. */
   item: number | null;
-  /** The lane it IS, of either kind — an audio lane's file is in `tracks/`, a picture lane's in `video_tracks/`. */
+  /** The lane it IS, of either kind — both a sound lane's file and a picture lane's are in `tracks/`. */
   track?: string;
   /** Set on a PICTURE lane: it holds no module, and its placements are not in `tracks/`. */
   picture?: true;

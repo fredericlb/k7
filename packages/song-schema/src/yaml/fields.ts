@@ -20,8 +20,6 @@ import {
   NoteSchema,
   SequenceSchema,
   VideoClipSchema,
-  VideoPlacementSchema,
-  VideoTrackSchema,
   WarpSchema,
 } from "./entitySchemas";
 import { GraphFileSchema } from "./graphSchema";
@@ -70,7 +68,6 @@ export type FileKind =
   | "clip"
   | "sequence"
   | "curve"
-  | "video_track"
   | "project";
 
 /** Which kind a project-relative path is, or null — by FOLDER and not by extension, see docs/fields.md. */
@@ -87,7 +84,6 @@ export function fileKindFor(path?: string): FileKind | null {
   if (/(^|\/)clips\//.test(p)) return "clip";
   if (/(^|\/)sequences\//.test(p)) return "sequence";
   if (/(^|\/)curves\//.test(p)) return "curve";
-  if (/(^|\/)video_tracks\//.test(p)) return "video_track";
   if (/(^|\/)chains\.k7x$/i.test(p)) return "chains";
   if (/(^|\/)project\.k7x$/i.test(p)) return "project";
   return null;
@@ -101,8 +97,7 @@ export function fieldsAt(kind: FileKind, path: string[]): string[] {
   if (kind === "project") return projectFields(path);
   if (kind === "clip") return clipFields(path);
   if (kind === "sequence") return sequenceFields(path);
-  if (kind === "curve") return curveFields(path);
-  return videoTrackFields(path);
+  return curveFields(path);
 }
 
 /** project.k7x has TWO tiers, and mixing them up put `libraries_from` at the top level doing nothing (docs/fields.md). */
@@ -141,33 +136,12 @@ function curveFields(path: string[]): string[] {
   return [];
 }
 
-function videoTrackFields(path: string[]): string[] {
-  if (path.length === 0) return keys(VideoTrackSchema);
-  // Inside a fade's map, which is a placement field but not a placement — its own two words.
-  if (path[0] === "events" && (path[1] === "fade_in" || path[1] === "fade_out"))
-    return keys(FadeSchema);
-  if (path[0] === "events") return keys(VideoPlacementSchema);
-  // A shape's fields depend on its `type`; offer every kind's, as the top level does.
-  if (path[0] === "shapes")
-    return [
-      ...new Set([
-        "type",
-        "x",
-        "y",
-        "w",
-        "h",
-        "r",
-        "background_color",
-        "content",
-        "font",
-      ]),
-    ];
-  return [];
-}
-
 function moduleFields(path: string[]): string[] {
   if (path.length === 0) return keys(ModuleSchema);
   const [head, ...rest] = path;
+  // Inside a shot's fade map, which is a placement field but not a placement — its own words.
+  if (head === "events" && (rest[0] === "fadeIn" || rest[0] === "fadeOut"))
+    return keys(FadeSchema);
   // A lane's placements: `events:` is a module field, so no track vocabulary of its own (docs/fields.md).
   if (head === "events") return keys(PlacementSchema);
   // One of the module's other attribute SETS: the same fields it has itself, plus a name (docs/alternatives.md).
@@ -270,6 +244,5 @@ export function valuesAt(
       return valuesAt("module", path.slice(2), field);
     return [];
   }
-  if (kind === "video_track") return [];
   return [];
 }

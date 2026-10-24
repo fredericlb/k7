@@ -1,92 +1,71 @@
-// A video lane's schema: the two spellings of a fade, the located error a typo produces, and the
-// one shape with no answer — a `fade_out` on the LAST length-0 shot, which has no end to measure
-// back from. See packages/song-video/docs/transitions.md.
+// A picture lane's schema — a lane node's, its shots `PlacementSchema` events: the two spellings of a
+// fade, the located error a typo produces, and the activation. A `fadeOut` on the LAST length-0 shot
+// is the picture compile's to refuse, since only it knows the lane is picture (song-video videoProject.test.ts).
+// See packages/song-video/docs/transitions.md.
 
 import { K7Document } from "@studio/k7x/document";
 import { describe, expect, it } from "vitest";
-import { VideoTrackSchema } from "./entitySchemas";
+import { ModuleSchema } from "./moduleSchema";
 import {
   listVideoPlacements,
   setVideoPlacementFieldAt,
 } from "./videoTrackFile";
 
-const lane = (events: unknown[]) => VideoTrackSchema.safeParse({ events });
+const lane = (events: unknown[]) =>
+  ModuleSchema.safeParse({ extends: "@meta/picture-track", events });
 
 const issuesOf = (r: ReturnType<typeof lane>) =>
   r.success ? [] : r.error.issues;
 
 describe("a fade on a placement", () => {
   it("takes a bare number, and widens it to the map form", () => {
-    const r = lane([{ ref: "a", start: 0, length: 5, fade_in: 1 }]);
+    const r = lane([{ ref: "a", start: 0, length: 5, fadeIn: 1 }]);
     expect(r.success).toBe(true);
-    expect(r.data?.events?.[0].fade_in).toEqual({ over: 1 });
+    expect(r.data?.events?.[0].fadeIn).toEqual({ over: 1 });
   });
 
   it("takes the map form, with the kind it names", () => {
     const r = lane([
-      { ref: "a", start: 0, length: 5, fade_in: { over: 1.5, with: "wipe" } },
+      { ref: "a", start: 0, length: 5, fadeIn: { over: 1.5, with: "wipe" } },
     ]);
     expect(r.success).toBe(true);
-    expect(r.data?.events?.[0].fade_in).toEqual({ over: 1.5, with: "wipe" });
+    expect(r.data?.events?.[0].fadeIn).toEqual({ over: 1.5, with: "wipe" });
   });
 
   it("takes a `chain` — the stretch the shot runs through — with or without a kind", () => {
     const r = lane([
-      { ref: "a", start: 0, length: 5, fade_out: { over: 1, chain: "iris" } },
+      { ref: "a", start: 0, length: 5, fadeOut: { over: 1, chain: "iris" } },
     ]);
     expect(r.success).toBe(true);
-    expect(r.data?.events?.[0].fade_out).toEqual({ over: 1, chain: "iris" });
+    expect(r.data?.events?.[0].fadeOut).toEqual({ over: 1, chain: "iris" });
     const bad = issuesOf(
       lane([
-        { ref: "a", start: 0, length: 5, fade_in: { over: 1, chian: "iris" } },
+        { ref: "a", start: 0, length: 5, fadeIn: { over: 1, chian: "iris" } },
       ]),
     );
     expect(bad.find((i) => i.code === "unrecognized_keys")?.path).toEqual([
       "events",
       0,
-      "fade_in",
+      "fadeIn",
     ]);
   });
 
   it("reports a typo'd key AT the key, so the editor can find the line", () => {
     // The reason this is a preprocess and not a union: a union answers "Invalid input" with no path.
     const bad = issuesOf(
-      lane([{ ref: "a", start: 0, length: 5, fade_in: { ovr: 1 } }]),
+      lane([{ ref: "a", start: 0, length: 5, fadeIn: { ovr: 1 } }]),
     );
     const unknown = bad.find((i) => i.code === "unrecognized_keys");
     expect((unknown as { keys?: string[] })?.keys).toEqual(["ovr"]);
-    expect(unknown?.path).toEqual(["events", 0, "fade_in"]);
+    expect(unknown?.path).toEqual(["events", 0, "fadeIn"]);
   });
 
   it("still refuses an unknown key on the placement itself", () => {
     expect(lane([{ ref: "a", fade: 1 }]).success).toBe(false);
   });
-});
 
-describe("fade_out needs an end", () => {
-  it("refuses one on the LAST length-0 shot, naming the event", () => {
-    const bad = issuesOf(lane([{ ref: "a", start: 0, fade_out: 2 }]));
-    expect(bad).toHaveLength(1);
-    expect(bad[0].path).toEqual(["events", 0, "fade_out"]);
-    expect(bad[0].message).toContain("give it a length");
-  });
-
-  it("accepts one on a length-0 shot that something FOLLOWS — its end is that shot's start", () => {
-    const r = lane([
-      { ref: "a", start: 0, fade_out: 2 },
-      { ref: "b", start: 8, length: 4 },
-    ]);
-    expect(r.success).toBe(true);
-  });
-
-  it("accepts one on the last shot when it has a length", () => {
-    expect(lane([{ ref: "a", start: 0, length: 5, fade_out: 2 }]).success).toBe(
-      true,
-    );
-  });
-
-  it("leaves a fade_in on a length-0 shot alone — it is anchored to `start`", () => {
-    expect(lane([{ ref: "a", start: 4, fade_in: 1 }]).success).toBe(true);
+  it("leaves a fadeOut on the last length-0 shot to the picture compile, which alone knows the lane is picture", () => {
+    expect(lane([{ ref: "a", start: 0, fadeOut: 2 }]).success).toBe(true);
   });
 });
 
@@ -96,7 +75,7 @@ describe("an event with no `ref` — an ACTIVATION", () => {
   });
 
   it("refuses the three keys that need a source, AT the key", () => {
-    for (const key of ["source_from", "fade_in", "fade_out"]) {
+    for (const key of ["from", "fadeIn", "fadeOut"]) {
       const bad = issuesOf(lane([{ start: 0, length: 2, [key]: 1 }]));
       expect(bad.map((i) => i.path)).toEqual([["events", 0, key]]);
       expect(bad[0].message).toContain("ACTIVATION");
@@ -104,7 +83,8 @@ describe("an event with no `ref` — an ACTIVATION", () => {
   });
 
   it("is still LISTED, so an index addresses the same line in the file", () => {
-    const text = 'events([start(0).length(2), ref("a").start(4)])\n';
+    const text =
+      'extends("@meta/picture-track")\nevents([start(0).length(2), ref("a").start(4)])\n';
     expect(listVideoPlacements(text).map((p) => p.ref)).toEqual(["", "a"]);
     // Index 1 is the shot, whatever precedes it — the verbs and the drag both write this way.
     const doc = new K7Document(text);

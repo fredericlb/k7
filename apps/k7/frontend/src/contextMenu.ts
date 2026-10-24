@@ -602,8 +602,8 @@ export function contextMenu(
         { verb: "ui picture arm", arg: lane },
         {
           verb: "ui file",
-          arg: `video_tracks/${ctx.lane}.k7x`,
-          help: "open the lane's own file, video_tracks/<id>.k7x",
+          arg: ctx.lane,
+          help: "open the lane's own file, its node",
         },
       ]);
     }

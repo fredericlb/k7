@@ -3,14 +3,14 @@
 // and a timeline's picture lane has no frame of its own — it draws on the song's lane of its name.
 // See @studio/song docs/timelines.md.
 
-import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
-import { createVideoTrackFile } from "@studio/song/loader";
+import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
+import { createPictureLaneFile } from "@studio/song/loader";
+import { pictureLaneIds } from "@studio/song/pictureLanes";
+import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
-import { stripDocExt } from "@studio/song-schema/docExt";
-import { splitPort } from "@studio/song-schema/moduleTypes";
 import { SONG_TARGET, timelineLaneOf } from "@studio/song-schema/timelineLane";
 import type { CommandHost } from "../commands.ts";
 import { laneFile } from "./picture.ts";
@@ -18,7 +18,7 @@ import { laneFile } from "./picture.ts";
 const NAME = /^[A-Za-z0-9_.-]+$/;
 
 /** The song's own frame and colour, which a copy within the song keeps; a timeline's lane has neither. */
-const LAYER_KEYS = ["color", "x", "y", "w", "h"] as const;
+const LAYER_KEYS = ["color", "frame"] as const;
 
 /** `base`, or `base-2`, `base-3`… — the first that `taken` does not hold. */
 export function freeName(base: string, taken: Set<string>): string {
@@ -31,11 +31,7 @@ export function freeName(base: string, taken: Set<string>): string {
 /** Whether `lane` names a picture lane — the song's, or a timeline's — without refusing anything. */
 export function isPictureLane(h: CommandHost, lane: string): boolean {
   const tl = timelineLaneOf(lane);
-  if (!tl)
-    return (
-      NAME.test(lane) &&
-      wsExists(join(h.songPath, "video_tracks", `${lane}.k7x`))
-    );
+  if (!tl) return NAME.test(lane) && pictureLaneIds(h.songPath).includes(lane);
   const file = join(h.songPath, "timelines", `${tl.timeline}.k7x`);
   if (!NAME.test(tl.timeline) || !wsExists(file)) return false;
   const pictures = wsData(file).pictures;
@@ -62,12 +58,11 @@ export async function copyPictureLane(
   const label = timelineLaneOf(laneArg)?.lane ?? laneArg;
 
   if (to === SONG_TARGET) {
-    const dir = join(h.songPath, "video_tracks");
-    // Song lanes and picture lanes share one name space, the graph drawing both.
-    const taken = new Set([
-      ...h.project().tracks.map((t) => splitPort(t.id).node),
-      ...(wsExists(dir) ? readdirSync(dir).map(stripDocExt) : []),
-    ]);
+    // Song lanes and picture lanes share one name space: one folder of lane files.
+    const sub = laneFolder(h.songPath);
+    const taken = new Set(
+      entityFiles(join(h.songPath, sub), sub).map((e) => e.id),
+    );
     const id = name ?? freeName(label, taken);
     // The song's lane keeps its frame when it is copied within the song; a timeline's has none to give.
     const keep = from.timeline
@@ -79,8 +74,10 @@ export async function copyPictureLane(
           ]),
         );
     try {
-      const written = createVideoTrackFile(h.songPath, id);
-      wsEdit(join(h.songPath, "video_tracks", `${id}.k7x`), (doc) => {
+      const written = createPictureLaneFile(h.songPath, id);
+      const lane = laneFileFor(h.songPath, id);
+      if (!lane) throw new Error(`lane '${id}' has no file`);
+      wsEdit(lane.path, (doc) => {
         for (const [k, v] of Object.entries(keep)) doc.setIn([k], v);
         if (events.length) doc.setIn(["events"], events);
       });

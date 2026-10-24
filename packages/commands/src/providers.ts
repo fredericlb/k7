@@ -16,6 +16,7 @@ import {
   MODULE_TYPES,
   readYamlEntities,
 } from "@studio/song/loader";
+import { pictureLaneIds } from "@studio/song/pictureLanes";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { isDocName } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
@@ -149,7 +150,7 @@ export const PROVIDERS = {
       .map(stripDocExt)
       .sort();
   },
-  /** This song's picture LANES, off the folder — a lane the compiler refuses still has a file to name. */
+  /** This song's picture LANES, off the lane files unvalidated — a lane the compiler refuses still has a file to name. */
   pictureLanes: (h) => {
     if (!h.songPath) return [];
     // A timeline's own, addressed `<timeline>><lane>` (@studio/song docs/timelines.md).
@@ -157,17 +158,9 @@ export const PROVIDERS = {
       timelineLaneId(p.timeline, p.lane),
     );
     try {
-      return [
-        ...readdirSync(join(h.songPath, "video_tracks"), {
-          withFileTypes: true,
-        })
-          .filter((e) => e.isFile() && isDocName(e.name))
-          .map((e) => stripDocExt(e.name))
-          .sort(),
-        ...nested,
-      ];
+      return [...pictureLaneIds(h.songPath).sort(), ...nested];
     } catch {
-      return nested; // a song with no picture lane of its own may still have a timeline's
+      return nested; // a song whose modules will not read may still have a timeline's
     }
   },
   // What `clip process` accepts — clips then audio files, and no track. See docs/completions.md.
@@ -297,7 +290,7 @@ export const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   playlists: "file",
   // A library is a name from the origin's list, not a path.
   libraries: "choice",
-  // A lane IS its file too, the same way — video_tracks/<id>.k7x, and the id is the stem.
+  // A lane IS its file too, the same way — its node file, and the id is the stem.
   pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
@@ -341,7 +334,7 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
   playlists: "a set list of this repository (_playlists/<name>.k7x)",
   libraries:
     "one of the origin's libraries, as its refs name it (@<library>/…)",
-  pictureLanes: "a picture lane of this song (video_tracks/<id>.k7x)",
+  pictureLanes: "a picture lane of this song (a @meta/picture-track node)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",
 };

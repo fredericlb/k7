@@ -61,7 +61,7 @@ describe("picture import", () => {
     expect(refusals).toEqual([]);
     expect(logs).toContain("+ picture lane back-1: 2 shot(s) from main");
     const shots = listVideoPlacements(
-      readFileSync(join(song, "video_tracks", "back-1.k7x"), "utf8"),
+      readFileSync(join(song, "tracks", "back-1.k7x"), "utf8"),
     );
     // The demo's own clips, not copies of them: the source paths matched.
     expect(shots.map((s) => s.ref)).toEqual(["counter", "bars"]);
@@ -80,12 +80,9 @@ describe("picture import", () => {
     ).toEqual({ source: "clips/close.mov" });
     expect(logs.join("\n")).toMatch(/copy into clips\/: wide\.mov/);
     expect(logs.join("\n")).toMatch(/left out — A1: an audio track/);
-    const text = readFileSync(
-      join(song, "video_tracks", "import-1.k7x"),
-      "utf8",
-    );
+    const text = readFileSync(join(song, "tracks", "import-1.k7x"), "utf8");
     expect(text).toContain(
-      'ref("close").start(4.5).length(3.5).source_from(1.75).speed(0.5).fade_in(1)',
+      'ref("close").start(4.5).length(3.5).from(1.75).speed(0.5).fadeIn(1)',
     );
   });
 
@@ -107,7 +104,7 @@ describe("picture import", () => {
         }
       ).viewport,
     ).toEqual([1920, 1080, 25]);
-    expect(existsSync(join(bare, "video_tracks", "import-1.k7x"))).toBe(true);
+    expect(existsSync(join(bare, "nodes", "import-1.k7x"))).toBe(true);
     expect(loadVideoProject(bare).videoTracks.map((t) => t.id)).toEqual([
       "import-1",
     ]);

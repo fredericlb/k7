@@ -5,43 +5,44 @@ either one program that reads both shots (`with:`), or a run of ordinary shader 
 goes through on its own (`chain:`, a **stretch**).
 
 ```k7x
-// video_tracks/main.k7x
+// nodes/main.k7x
+extends("@meta/picture-track")
 events([
   ref("plan_a").start(0).length(5),
-  ref("plan_b").start(4).length(5).fade_in(1), // 1 s dissolve over plan_a
-  ref("plan_c").start(9).length(5).fade_in({ over: 1.5, with: "wipe" }),
-  ref("plan_d").start(14).length(5).fade_out(2), // leaves towards whatever is below
-  ref("plan_e").start(18).length(5).fade_in({ over: 1, chain: "iris" }), // through the `iris` stretch
+  ref("plan_b").start(4).length(5).fadeIn(1), // 1 s dissolve over plan_a
+  ref("plan_c").start(9).length(5).fadeIn({ over: 1.5, with: "wipe" }),
+  ref("plan_d").start(14).length(5).fadeOut(2), // leaves towards whatever is below
+  ref("plan_e").start(18).length(5).fadeIn({ over: 1, chain: "iris" }), // through the `iris` stretch
 ])
 ```
 
 ## A bare number, or a map
 
-`fade_in: 1` **is** `fade_in: { over: 1, with: dissolve }`. The `dissolve` is built into the
+`fadeIn(1)` **is** `fadeIn({ over: 1, with: "dissolve" })`. The `dissolve` is built into the
 renderer, so an ordinary fade needs no file: a song with no `modules/` folder can fade.
 
 A map naming a `chain:` and no `with:` is `with: over` — the second kind the renderer owns, which
 lays the shot over what is under it by the alpha its stretch left (below). A map naming both runs
 the stretch first and then blends with the named program.
 
-It is **not a union** but a widening (`z.preprocess`), and the reason is measurable: on a union a
+The bare number is **not a union branch** but a widening (`z.preprocess`), and the reason is measurable: on a union a
 mistyped key surfaces as `Invalid input` with the real errors buried in the branches, so
 `validate.ts` cannot find the line. Widened, `{ ovr: 1 }` answers `unrecognized_keys` on
-`events.0.fade_in`, and the editor underlines the right place.
+`events.0.fadeIn`, and the editor underlines the right place.
 
 ## The ARRIVING shot carries the transition
 
-A transition is **one program and one progression**. If A's `fade_out` and B's `fade_in` could both
+A transition is **one program and one progression**. If A's `fadeOut` and B's `fadeIn` could both
 govern the same overlap, two programs would want the same pair and nothing would decide.
 
-> In an overlap, the incoming shot's `fade_in` IS the transition.
+> In an overlap, the incoming shot's `fadeIn` IS the transition.
 
 That is a rule about the **blend**, the one program that reads both shots. A stretch is not one:
-it runs on a single shot, so the outgoing shot's `fade_out: { chain: … }` still runs under an
+it runs on a single shot, so the outgoing shot's `fadeOut({ chain: … })` still runs under an
 overlap — over its own window, measured back from its own end — while the incoming shot's
-`fade_in` decides how the two are mixed. Only the outgoing shot's `with:` goes unread there.
+`fadeIn` decides how the two are mixed. Only the outgoing shot's `with:` goes unread there.
 
-A `fade_out`'s blend is therefore exactly the case where there is no incoming shot: the picture leaves
+A `fadeOut`'s blend is therefore exactly the case where there is no incoming shot: the picture leaves
 towards nothing, and what appears is the **layer below** (or the viewport's background for the
 bottom layer). Cross-dissolve and fade-to-black are one code path; all that differs is whether a
 second shot is active.
@@ -55,16 +56,17 @@ transition: that would be cascade editing, and no drag here does it.
 [`activeAt`](../../ui-eyes/src/timeline.ts) resolves it as "to the next shot's `start`", `Infinity`
 if there is none.
 
-| shape | what `fade_out` does |
+| shape | what `fadeOut` does |
 |---|---|
 | `length: 0`, another event follows | works: the end is the next `start` |
 | `length: 0`, **last in the list** | the end is `Infinity`: **refused**, on the line |
 
-The refusal lives on `VideoTrackSchema` and not on the placement, because a placement alone cannot
-know whether it is last. "The last shot runs to the end of its source" and "the last shot fades
+The refusal lives in the lane compile (`compileVideoTracks`) and not on the placement, because a
+placement alone cannot know whether it is last — and not on the lane's schema either, since the
+module schema does not know a lane is picture. "The last shot runs to the end of its source" and "the last shot fades
 out" are incompatible; give it a length and the second becomes possible again.
 
-A `fade_in` never has this problem: it is anchored on `start`, which is always known.
+A `fadeIn` never has this problem: it is anchored on `start`, which is always known.
 
 A less visible corollary: a `length: 0` shot cannot be the **outgoing** half of a cross-dissolve,
 since its end is by construction the next shot's start — the overlap is zero.
@@ -103,7 +105,7 @@ effect.
 | uniform | what it is |
 |---|---|
 | `uFrom` | the picture LEAVING — a transparent texel when there is none |
-| `uTo` | the picture ARRIVING — transparent for a `fade_out` |
+| `uTo` | the picture ARRIVING — transparent for a `fadeOut` |
 | `uProgress` | `float` 0..1 — 0 is `uFrom` alone, 1 is `uTo` alone |
 | `uTime` | `float` seconds — the **transport**'s position |
 | `uResolution` | `vec2` px — the viewport |
@@ -123,9 +125,9 @@ in a stretch, whose nodes ARE wired and take `#audio` like any shader.
 ```k7x
 // chains/main.k7x — a chain project
 start(true)
-steps([id("7d14…").video_track("main"), to([chain("RENDER")])])
+steps([id("7d14…").track("main"), to([chain("RENDER")])])
 subchains([
-  id("iris") // `fade_in: { over: 1, chain: iris }`
+  id("iris") // `fadeIn({ over: 1, chain: "iris" })`
     .steps([id("8a82…").extends("@workspace/shaders/iris")]),
 ])
 ```
@@ -159,7 +161,7 @@ feeds — that is then a lane's run, and the head would have two signals.
 ### `uPresence` — one number for both directions
 
 A pass in a stretch is handed **`uPresence`**: how much of the shot is on screen. It rises 0 → 1 over
-a `fade_in` and falls 1 → 0 over a `fade_out`, and it is **1 everywhere else** — so a stretch's
+a `fadeIn` and falls 1 → 0 over a `fadeOut`, and it is **1 everywhere else** — so a stretch's
 module, wired as an ordinary lane effect, is the identity. One number rather than a progress and a
 direction is what lets the same `iris` open a shot in and close one out: `alpha *= step(d, uPresence)`
 is right both ways.
@@ -236,12 +238,11 @@ An unreadable `graph.k7x` costs no transition either: transitions are read off t
 (`loadModuleRefs`) and not off the graph, outside the `try/catch` that makes chain compilation
 best-effort.
 
-## A video track's schema is a guard
+## A picture lane's schema is a guard
 
-`loadVideoTracks` goes through `readYamlEntities`, like `clips/`, so the refusal above exists for
-real and a track carrying an unknown key fails saying so. Without it `ENTITY_SCHEMAS.video_tracks`
-would be declared and dead on the compilation path, and a mistyped key in a `video_tracks/*.k7x`
-silently ignored.
+A picture lane is a module, so `loadVideoTracks` reads it through the module schema, whose
+`events:` are `PlacementSchema`: a shot carrying an unknown key fails saying so, on its line,
+rather than being silently ignored.
 
 ## The render, in one function
 
@@ -257,22 +258,22 @@ two, the last is the incoming one".
 The rest is in [compositor.md](../../ui-eyes/docs/compositor.md) (premultiplied alpha and the
 transparent texel), [passes.md](../../ui-eyes/docs/passes.md) (the second uniform contract) and
 [realtime.md](../../ui-eyes/docs/realtime.md) (the second `<video>`, and why it exists only where a
-`fade_in` asks for it).
+`fadeIn` asks for it).
 
 ## Fade to black, and to which black
 
 The preview clears to the `--sh-background` token and the **render to true black**. The asymmetry
 is deliberate: an empty frame already shows the application's background, so the preview stays
 consistent with itself, whereas an exported file that had baked the chrome's grey into its frames
-would be wrong for everybody. A `fade_out` on an upper layer does not descend to black anyway but
+would be wrong for everybody. A `fadeOut` on an upper layer does not descend to black anyway but
 to **the layer below**.
 
 ## What is not there
 
 - **Three overlapping shots.** A track has two decoders; three simultaneous shots are not
   renderable, and the top two win.
-- **A `fade_out` revealing the shot below on the SAME track.** A reveal belongs to the incoming
-  shot, and its `fade_in` is at its own `start`.
+- **A `fadeOut` revealing the shot below on the SAME track.** A reveal belongs to the incoming
+  shot, and its `fadeIn` is at its own `start`.
 - **Per-placement parameters.** `P1..P4` belong to the module, and a stretch's knobs to its nodes:
   two placements naming one stretch share its knobs. Two wipe directions are two modules, one of
   which `extends` the other, or two stretches.
@@ -281,10 +282,10 @@ to **the layer below**.
 
 | | |
 |---|---|
-| written | `fade_in:` / `fade_out:` on an event of `video_tracks/<lane>.k7x`, `modules/video_transitions/<name>/`, and a stretch's run in `graph.k7x` |
+| written | `fadeIn` / `fadeOut` on an event of a picture lane (`nodes/<lane>.k7x`, `tracks/` in a chain project), `modules/video_transitions/<name>/`, and a stretch's run in `graph.k7x` |
 | declared | `packages/song-schema/src/moduleTypes.ts` — `TRANSITION_CATEGORY`, `DISSOLVE`, `OVER`, `isPicturePass` |
-| validated | `packages/song-schema/src/yaml/entitySchemas.ts` — the widening, and the refusal of an endless `fade_out` |
-| guarded | `packages/song/src/loader.ts` — `loadVideoTracks` goes through the schema; `packages/song/src/graph.ts` — `isStretch`, and a stretch's head counted as fed in `checkChainInputs` |
+| validated | `packages/song-schema/src/yaml/placementSchema.ts` — `FadeSchema` and the widening; `src/videoTracks.ts` — the refusal of an endless `fadeOut` |
+| guarded | `packages/song/src/entities.ts` — `loadVideoTracks` goes through the module schema; `packages/song/src/graph.ts` — `isStretch`, and a stretch's head counted as fed in `checkChainInputs` |
 | read | `src/videoTransitions.ts` — the ancestry from `src/shaders.ts`, and `resolveStretches`; `src/videoChains.ts` — the stretches |
 | compiled | `src/videoTracks.ts` -> `VideoClipDoc.fadeIn`, and `src/videoProject.ts` -> `VideoProjectDoc.transitions` and `.stretches`, the GLSL **inline** |
 | on the wire | `packages/web-protocol/timelineTypes.ts` — `WebVideoFade`, `WebVideoTransition`, `WebVideoProject.stretches` |
@@ -307,11 +308,11 @@ The first proves the folder read, the ancestry, the two refusals and the knob cl
 graph takes a stretch, that the sound's compile ignores it, which stretches the picture carries and
 how a fade naming nothing falls back; the second,
 the two spellings of a fade, the **located** error of a mistyped key, and the refusal of an endless
-`fade_out`; the third, the frame rule — each side's stretch and presence included — and the order
+`fadeOut`; the third, the frame rule — each side's stretch and presence included — and the order
 of GL calls: which blend function is in force for which draw, which texture on which unit, that the
 blend reads a STRETCHED picture rather than its slot, and what is allocated.
 
 **None of them proves a pixel changed**: there is no WebGL2 in the runner, and
 `compositor.test.ts` says so itself. The remaining check is done with the eyes — open
-`demos/video-demo.k7`, overlap two shots, give the second a `fade_in`, and watch the cut become a
+`demos/video-demo.k7`, overlap two shots, give the second a `fadeIn`, and watch the cut become a
 fade. The demo's second shot on `main` already arrives through the `iris` stretch.

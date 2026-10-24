@@ -38,30 +38,33 @@ Create a lane with `picture lane new`:
 picture lane new broll
 ```
 
-This writes `video_tracks/broll.k7x` and adds `broll` to the end of `layers`, so it draws on
-top. A picture lane cannot share a name with an audio lane.
+A picture lane is a lane like an audio one: a file in `nodes/` (in `tracks/` in a project with
+chains), its name being the lane's name. What makes it a picture lane is its first line,
+`extends("@meta/picture-track")`. The command above writes `nodes/broll.k7x` and lists `broll` in the
+project's `trackOrder` above the other picture lanes, so it draws on top. A picture lane cannot
+share a name with an audio lane.
 
 A lane file's fields:
 
 | field | meaning |
 |---|---|
-| `name` | the label drawn on the timeline; the file name stays the lane's id |
 | `color` | the lane's colour |
-| `mute` | `true` hides the lane (there is no sound on a picture lane, so "mute" means hidden) |
-| `x` `y` `w` `h` | where the lane draws in the frame, in viewport pixels; leave them all out to fill the frame |
+| `frame` | `[x, y, w, h]`: where the lane draws in the frame, in viewport pixels; leave it out to fill the frame |
 | `events` | the shots, in order |
 
 ```js
-// video_tracks/pip.k7x — a picture-in-picture in the bottom-right corner
-x(960)
-y(540)
-w(320)
-h(180)
-events([ref("bars").start(0).length(8).source_from(0)])
+// nodes/pip.k7x — a picture-in-picture in the bottom-right corner
+extends("@meta/picture-track")
+frame([960, 540, 320, 180])
+events([ref("bars").start(0).length(8).from(0)])
 ```
 
 `picture rect pip 960 540 320 180` writes the same four numbers, and so does dragging the lane
 in the viewport (see [The viewport and transitions](./53-viewport.md)).
+
+Muting a picture lane hides it (there is no sound on a picture lane). Like an audio lane's mute,
+it is the lane's bypass in the graph, not a field of the lane file. The lanes draw in the order
+of their rows: a picture row above another draws in front of it.
 
 Solo is not stored in the lane file: soloed lanes are listed in the project's `soloed` list, the
 same list audio lanes use. Soloing a picture lane silences no sound, and soloing an audio lane
@@ -76,17 +79,18 @@ Each entry of `events` is one shot:
 | `ref` | the clip id. An entry with no `ref` is an **activation**, used on lanes of shapes (see [Titles, shapes and subtitles](./55-titles-and-subtitles.md)) |
 | `start` | where on the timeline the shot starts, in seconds |
 | `length` | how long it lasts, in seconds; `0` (or absent) means "to the end of the source", or to the next shot's start when one follows |
-| `source_from` | how far into the source the shot starts, in seconds |
-| `fade_in` `fade_out` | how the shot arrives and leaves — see [The viewport and transitions](./53-viewport.md) |
+| `from` | how far into the source the shot starts, in seconds |
+| `fadeIn` `fadeOut` | how the shot arrives and leaves — see [The viewport and transitions](./53-viewport.md) |
 | `speed` | how fast the source runs under the shot — see [Speed and animation](./52-speed-and-animation.md) |
 | `animate` | keyframes moving the shot inside its lane — see [Speed and animation](./52-speed-and-animation.md) |
 | `effect` | a shader run applied to this shot alone — see [Effects and shaders](./54-effects-and-shaders.md) |
 
 ```js
-// video_tracks/main.k7x
+// nodes/main.k7x
+extends("@meta/picture-track")
 events([
-  ref("counter").start(0).length(4).source_from(0),
-  ref("bars").start(3).length(5).source_from(1.5).fade_in(1),
+  ref("counter").start(0).length(4).from(0),
+  ref("bars").start(3).length(5).from(1.5).fadeIn(1),
 ])
 ```
 
@@ -118,7 +122,7 @@ picture add main shot_a 1:02 0 3.5
 ```
 
 The arguments are the lane, the clip id, where it lands, then optionally the length (left out,
-it runs to the end of its source) and the `source_from`. A clip id with no `clips/` file is
+it runs to the end of its source) and the `from`. A clip id with no `clips/` file is
 reported rather than refused: the shot is written and draws nothing until the clip exists.
 
 ## Editing shots on the timeline
@@ -127,7 +131,7 @@ reported rather than refused: the shot is written and draws nothing until the cl
 |---|---|
 | drag a shot's body | `start` |
 | drag its right edge | `length` |
-| drag its left edge | `start`, `source_from` and `length` together, so the tail stays put and the frame under the edge does not change |
+| drag its left edge | `start`, `from` and `length` together, so the tail stays put and the frame under the edge does not change |
 
 Drags snap to the ruler's ticks. Hold Ctrl to move by whole steps of the ruler's unit while
 keeping the shot's own offset; hold Shift to move freely. A drag that ends where it started
@@ -162,7 +166,7 @@ head back past the source's first frame, and refuses a `length: 0` shot (whose e
 has measured yet).
 
 `picture split` makes two placements of one clip: the first keeps how the shot arrives
-(`fade_in`), the second keeps how it leaves (`fade_out`), and the animation is cut so each half
+(`fadeIn`), the second keeps how it leaves (`fadeOut`), and the animation is cut so each half
 plays exactly what the whole shot played over its span.
 
 Two shots starting at the same instant on one lane cannot be addressed by these commands: move
@@ -170,11 +174,11 @@ one of them in the file first.
 
 ## Setting in and out points with the readers
 
-When a `video_tracks/` file is open in the text editor, a strip of small video readers appears,
+When a picture lane's file is open in the text editor, a strip of small video readers appears,
 one per shot. Play or scrub a reader to the frame you want, then:
 
-- **Set From** writes the reader's current time into that shot's `source_from`;
-- **Set To** writes its `length` (the reader's time minus `source_from`).
+- **Set From** writes the reader's current time into that shot's `from`;
+- **Set To** writes its `length` (the reader's time minus `from`).
 
 ## Hearing a shot's sound
 

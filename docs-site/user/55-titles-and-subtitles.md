@@ -68,7 +68,7 @@ lane's chain the shape comes first, then the lane:
 start(true)
 steps([
   id("title").extends("@workspace/shapes/title"),
-  id("title-lane").video_track("title_layer"),
+  id("title-lane").track("title_layer"),
 ])
 ```
 
@@ -81,12 +81,13 @@ On a lane of shapes, an event with no `ref` is an **activation**: it says *when*
 screen. A lane with no events draws its shapes throughout.
 
 ```js
-// video_tracks/title_layer.k7x — the title is on from 4 s to 8 s
+// tracks/title_layer.k7x — the title is on from 4 s to 8 s
+extends("@meta/picture-track")
 events([start(4).length(4)])
 ```
 
 An activation takes `start`, `length` (0 runs to the next activation) and `animate`; it has no
-source, so `source_from`, `speed`, `effect`, `fade_in` and `fade_out` are refused on it.
+source, so `from`, `speed`, `effect`, `fadeIn` and `fadeOut` are refused on it.
 Activations are dragged on the timeline like shots and show as **on**.
 
 A lane that has shapes wired to it draws only its shapes: a shot placed on it would never be seen,
@@ -96,7 +97,7 @@ and the picture's warnings say so.
 
 A subtitle file is a **clip**. Put an `.srt` or WebVTT `.vtt` file in `clips/` (dropping it on a
 picture lane does that for you), and place it on a picture lane like a shot. Its cues keep their
-times relative to the file's start, so moving the shot moves every cue, and `source_from` and
+times relative to the file's start, so moving the shot moves every cue, and `from` and
 `length` trim the file as they trim a video.
 
 ```js
@@ -108,7 +109,8 @@ position("bottom")
 ```
 
 ```js
-// video_tracks/captions.k7x
+// nodes/captions.k7x
+extends("@meta/picture-track")
 events([ref("subs-en").start(0)])
 ```
 

@@ -3,5 +3,5 @@
 start(true)
 steps([
   id("c3abff25-19a8-49b0-9dd2-d7661d118d3e").extends("@workspace/shapes/box"),
-  id("a2584b21-cbe4-479a-9e6b-4b041d6b002e").video_track("box_layer"),
+  id("a2584b21-cbe4-479a-9e6b-4b041d6b002e").track("box_layer"),
 ])

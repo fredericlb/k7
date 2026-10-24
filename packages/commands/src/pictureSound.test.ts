@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@studio/k7x/document";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
@@ -54,7 +54,7 @@ beforeEach(() => {
   refusals.length = 0;
   song = mkdtempSync(join(tmpdir(), "td-psound-"));
   cpSync(SONG, song, { recursive: true });
-  writeDoc(join(song, "video_tracks", "main.k7x"), {
+  writeLane(song, "main", "picture-track", {
     events: [{ ref: "shot", start: 0, length: 2 }],
   });
 });
@@ -96,7 +96,7 @@ describe("picture sound", () => {
   });
 
   it("silences the shot when its sound clip is removed, and `picture silence` brings it back", async () => {
-    writeDoc(join(song, "video_tracks", "main.k7x"), {
+    writeLane(song, "main", "picture-track", {
       events: [
         { ref: "shot", start: 0, length: 2 },
         { ref: "shot", start: 4, length: 2 },
@@ -124,9 +124,7 @@ describe("picture sound", () => {
     expect(refusals).toEqual([]);
     expect(heard()).toEqual([0]);
     // The picture keeps both shots: only the second one's sound went.
-    const shots = listVideoPlacements(
-      wsRead(join(song, "video_tracks", "main.k7x")),
-    );
+    const shots = listVideoPlacements(wsRead(join(song, "nodes", "main.k7x")));
     expect(shots.map((x) => [x.start, x.silent])).toEqual([
       [0, undefined],
       [4, true],

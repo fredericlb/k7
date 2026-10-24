@@ -98,8 +98,8 @@ nodes/<name>.k7x       one USE of a module, flat, named by its file — the LANE
   names. That's all a group is.
 - **Mute is the lane's BYPASS**, one name in `graph.k7x`'s `bypassed:`; solo is derived by
   the surface and written nowhere.
-- **A song holds picture too.** `video_tracks/<id>.k7x` places shots in SECONDS against the
-  wall clock, where lanes are placed in bars against the tempo. Both are drawn on the one
+- **A song holds picture too.** A picture lane, a lane extending `@meta/picture-track`, places
+  shots in SECONDS against the wall clock, where sound is placed in bars against the tempo. Both are drawn on the one
   timeline, whose ruler reads either unit, and a `surfaces/viewport.k7x` composites the
   frame. It is a second COMPILE of the same folder, so the document the engine is handed
   carries no picture at all. See

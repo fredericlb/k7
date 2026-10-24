@@ -35,7 +35,7 @@ ignored".
 - `modules_from` / `libraries_from`: a project sees the workspace's `_modules` and the account's
   libraries because of where they are (`sharedFolders.ts`), so nothing reads these.
 - `video`: what draws the frame is a `surfaces/` file, and what says a song HAS picture is
-  `video_tracks/` existing — a boolean agreeing with neither would just be a third answer.
+  its picture lanes — a boolean agreeing with neither would just be a third answer.
 - `type`: it names the DIALECT for the one case the folder name cannot — a repository that IS the
   project, with no suffix to read. There is ONE dialect compiled, so a folder saying nothing is it
   and nothing branches on the answer. Not an enum, and not dropped.
@@ -43,11 +43,14 @@ ignored".
   an enum either, deliberately: refusing a typo in a field nobody consults would be a compile error
   about nothing.
 
-## `viewport` and `layers`
+## `viewport`
 
-PICTURE's, and read only by the picture compile — the frame its lanes draw into and their draw
-order, bottom first. They sit in the SHARED settings tier because one schema validates every dialect
-(the loader has no type to branch on when it reads the header), and a song is where they belong:
+PICTURE's, and read only by the picture compile — the frame its lanes draw into. The draw order is
+not a field: it is the picture lanes' order in `trackOrder`, the top row in front, so the rows and
+the frame cannot disagree. `layers` is refused by name, telling the reader to open the project in
+k7, which moves its picture lanes (`formatLevel.md`). `viewport` sits in the SHARED settings tier
+because one schema validates every dialect (the loader has no type to branch on when it reads the
+header), and a song is where it belongs:
 `loadVideoProject` is a second compile of the same folder, not a second kind of project
 (`packages/song-video/docs/picture.md`).
 

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { scaffold } from "@studio/song/scaffold";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject, parseWallClock } from "./videoProject";
 
@@ -29,14 +29,14 @@ function project(
 }
 
 function lane(id: string, value: Record<string, unknown>): void {
-  writeDoc(join(dir, "video_tracks", `${id}.k7x`), value);
+  writeLane(dir, id, "picture-track", value);
 }
 
 /** One shot of clip `a`, at the start. */
 const SHOT_A = { events: [{ ref: "a", start: 0, length: 1 }] };
 
-/** The frame every case below composites into, with `main` as its one layer. */
-const FRAME = { viewport: [640, 360], layers: ["main"] };
+/** The frame every case below composites into. */
+const FRAME = { viewport: [640, 360] };
 
 function clip(id: string, source: string): void {
   writeDoc(join(dir, "clips", `${id}.k7x`), { source });
@@ -53,7 +53,7 @@ describe("a scaffolded `video` project", () => {
     expect(doc.name).toBe("demo");
     expect(doc.viewport).toEqual([1280, 720]);
     expect(doc.fps).toBe(30);
-    // ORDER, not membership: `layers:` is what stacks them, and a sort here would hide it.
+    // ORDER, not membership: `trackOrder` is what stacks them, and a sort here would hide it.
     expect(doc.videoTracks.map((t) => t.id)).toEqual(["main"]);
     // Absolute, like a ClipDoc's: whoever renders knows nothing about where the folder sits.
     expect(doc.videoTracks[0].clips[0].source).toContain("clips");
@@ -76,14 +76,24 @@ describe("a scaffolded `video` project", () => {
 });
 
 describe("layers", () => {
-  it("refuses a lane no layer names — it would compile and never draw", () => {
-    project(FRAME);
-    clip("a", "a.mp4");
-    lane("main", SHOT_A);
-    lane("ghost", { events: [] });
+  it("refuses a `layers:` line, pointing at `trackOrder` instead", () => {
+    project({ ...FRAME, layers: ["main"] });
+    lane("main", { events: [] });
     expect(() => loadVideoProject(dir)).toThrow(
-      /ghost.*missing from project.layers/s,
+      /`layers` is gone.*trackOrder/s,
     );
+  });
+
+  it("draws the rows' order with the TOP row in front, sound lanes left out", () => {
+    project(FRAME, { trackOrder: ["drums", "front", "back"] });
+    writeLane(dir, "drums", "track", { events: [] });
+    lane("back", { events: [] });
+    lane("front", { events: [] });
+    // Bottom first: the last one drawn is the one in front.
+    expect(loadVideoProject(dir).videoTracks.map((t) => t.id)).toEqual([
+      "back",
+      "front",
+    ]);
   });
 
   // The bug: a rect-less lane compiled to 0x0 and drew nothing, in FRONT of the full-frame one.
@@ -98,7 +108,7 @@ describe("layers", () => {
   it("keeps a rect the lane DOES state", () => {
     project(FRAME);
     clip("a", "a.mp4");
-    lane("main", { x: 320, y: 180, w: 320, h: 180, ...SHOT_A });
+    lane("main", { frame: [320, 180, 320, 180], ...SHOT_A });
     const [t] = loadVideoProject(dir).videoTracks;
     expect([t.x, t.y, t.w, t.h]).toEqual([320, 180, 320, 180]);
   });
@@ -116,17 +126,32 @@ describe("layers", () => {
     expect(doc.videoTracks[0].clips[0].source).toBe("");
   });
 
+  it("refuses a fadeOut on the LAST length-0 shot, which has no end to fade back from", () => {
+    project(FRAME);
+    clip("a", "a.mp4");
+    lane("main", { events: [{ ref: "a", start: 0, fadeOut: 2 }] });
+    expect(() => loadVideoProject(dir)).toThrow(
+      /main: its last shot fades out.*give it a length/s,
+    );
+  });
+
+  it("accepts that fadeOut on a length-0 shot something FOLLOWS, or on a last shot with a length", () => {
+    project(FRAME);
+    clip("a", "a.mp4");
+    lane("main", {
+      events: [
+        { ref: "a", start: 0, fadeOut: 2 },
+        { ref: "a", start: 8, length: 4, fadeOut: 1 },
+      ],
+    });
+    expect(loadVideoProject(dir).videoTracks[0].clips).toHaveLength(2);
+  });
+
   it("says nothing about a picture that is simply right", () => {
     project(FRAME);
     clip("a", "a.mp4");
     lane("main", SHOT_A);
     expect(loadVideoProject(dir).warnings).toEqual([]);
-  });
-
-  it("refuses a layer naming no lane", () => {
-    project({ viewport: [640, 360], layers: ["main", "nope"] });
-    lane("main", { events: [] });
-    expect(() => loadVideoProject(dir)).toThrow(/nope.*not a video track/s);
   });
 
   it("refuses a project with no viewport — a frame invented here letterboxes everything", () => {
@@ -148,10 +173,9 @@ describe("markers are wall-clock, not bars", () => {
 
   it("sorts them and keeps the key as written, which is the delete key", () => {
     project(
-      { viewport: [640, 360], layers: [] },
+      { viewport: [640, 360] },
       { markers: { "1:30.5": "the cut", "0": "cold open" } },
     );
-    mkdirSync(join(dir, "video_tracks"), { recursive: true });
     const doc = loadVideoProject(dir);
     expect(doc.markers.map((m) => [m.sec, m.name, m.tc])).toEqual([
       [0, "cold open", "0"],

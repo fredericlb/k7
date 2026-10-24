@@ -23,7 +23,7 @@ for a run it feeds, a module's name for a run that starts at it (see chainsGraph
 **`channels`** — input-channel labels from the MACHINE's preferences, not the project. An io `in`
 module's `channel` names one of these (`preferences.resolveInput`).
 
-**`videoTracks`** — `video_tracks/<id>.k7x` ids, what an audio track's `video_source` may name to
+**`videoTracks`** — the picture lanes' ids (`@meta/picture-track` nodes), what an audio track's `video_source` may name to
 inherit that track's placements and play their audio. Read schema-free like everything else here:
 a project with a broken video track should still complete its audio ones.
 

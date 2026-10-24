@@ -1,12 +1,13 @@
 # A shot's speed — one signed number
 
 ```k7x
-// video_tracks/main.k7x
+// nodes/main.k7x
+extends("@meta/picture-track")
 events([
   ref("run").start(0).length(4).speed(0.5), // slow motion
   ref("crowd").start(4).length(2).speed(3), // fast
   ref("face").start(6).length(3).speed(0), // held on its first frame
-  ref("glass").start(9).length(2).source_from(5).speed(-1), // backwards from 5 s
+  ref("glass").start(9).length(2).from(5).speed(-1), // backwards from 5 s
 ])
 ```
 
@@ -14,19 +15,19 @@ events([
 
 The frame a shot shows at timeline time `t` is
 
-> `source_from + (t − start) × speed`
+> `from + (t − start) × speed`
 
-so `2` spends two seconds of source per second of song, `0` holds `source_from`, and `−1` runs
-backwards FROM `source_from`. Freeze and reverse are not separate fields. A `reverse: true` beside
+so `2` spends two seconds of source per second of song, `0` holds `from`, and `−1` runs
+backwards FROM `from`. Freeze and reverse are not separate fields. A `reverse: true` beside
 `speed` would need its own rule in every edit, and the split and the head trim would each have to
 ask which end of the window the shot starts from. Signed, the edits are one line each, with speed
 as a factor:
 
 - **a split's tail** starts `head × speed` further into the source than the shot did;
-- **a head trim** moves `source_from` by `delta × speed`, so the frame under the edge stays. A
+- **a head trim** moves `from` by `delta × speed`, so the frame under the edge stays. A
   reversed shot whose head moves later starts EARLIER in its source.
 
-A reverse anchored on `source_from` is also what an editor reads: the shot starts on that frame,
+A reverse anchored on `from` is also what an editor reads: the shot starts on that frame,
 whichever way it then runs.
 
 ## The length stays, the source spent changes

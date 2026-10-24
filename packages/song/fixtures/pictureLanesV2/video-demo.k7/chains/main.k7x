@@ -1,0 +1,11 @@
+// The picture lane `main`: a `video_track` item heads its chain, and its placements live in
+// video_tracks/main. Its run goes through the `glow` shader on its way to RENDER.
+//
+// `iris` is a SUBCHAIN that nothing links and that links nowhere: a fade's STRETCH. The second shot
+// on main names it (`fade_in: { over: 1, chain: iris }`) and runs through it on its way in.
+// See packages/song-video/docs/transitions.md and packages/song/docs/chainFiles.md.
+start(true)
+steps([id("e236ac58-39aa-4710-8afd-dd3e145f5514").video_track("main"), to([chain("glow")])])
+subchains([
+  id("iris").steps([id("3663c123-f41a-40d0-9a42-27b538d4faf8").extends("@workspace/shaders/iris")]),
+])

@@ -18,7 +18,6 @@ import { isDocName, wsExists } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { spliceCurveTime } from "@studio/song-schema/yaml/curveFile";
 import { spliceTime } from "@studio/song-schema/yaml/trackFile";
-import { spliceVideoTime } from "@studio/song-schema/yaml/videoTrackFile";
 
 /** The project's root file, where the markers are. */
 const PROJECT_FILE = "project.k7x";
@@ -146,19 +145,7 @@ export function spliceProjectTime(
       pending,
     );
 
-  // 3. The VIDEO lanes, in SECONDS, and exact because there is one tempo and no tempo map.
-  const atSec = (atBeats * 60) / tempo;
-  const lenSec = (lenBeats * 60) / tempo;
-  for (const f of docsIn(dir, "video_tracks"))
-    edit(
-      dir,
-      `video_tracks/${f}`,
-      (doc) => spliceVideoTime(doc.at([]), atSec, lenSec, mode),
-      report,
-      pending,
-    );
-
-  // 4. The MARKERS, one map at project.k7x's root, rewritten whole as `project marker new` writes it.
+  // 3. The MARKERS, one map at project.k7x's root, rewritten whole as `project marker new` writes it.
   const markers = parseMarkers(root.markers, num, den);
   if (markers.length) {
     const kept = markers.filter(

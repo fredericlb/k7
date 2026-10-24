@@ -38,9 +38,13 @@ beforeEach(() => {
   writeFileSync(join(dir, "clips/a.mp4"), "");
   doc("clips/a.k7x", { source: "clips/a.mp4" });
   doc("project.k7x", {
-    project: { name: "t", tempo: 120, viewport: [640, 360], layers: ["cam"] },
+    project: { name: "t", tempo: 120, viewport: [640, 360] },
   });
-  doc("video_tracks/cam.k7x", { x: 10, y: 20, w: 320, h: 180, events: shots });
+  doc("nodes/cam.k7x", {
+    extends: "@meta/picture-track",
+    frame: [10, 20, 320, 180],
+    events: shots,
+  });
   doc("timelines/verse.k7x", {
     length: "2:0",
     lanes: [{ lane: "drums", events: [] }],
@@ -77,21 +81,18 @@ describe("timeline lane copy, a picture lane", () => {
     await run("timeline lane copy cam verse");
     const h = await run("timeline lane copy verse>cam main");
     expect(h.lines.refuse).toEqual([]);
-    const made = wsData(join(dir, "video_tracks/cam-2.k7x"));
-    expect(made).toEqual({ events: shots });
-    const root = wsData(join(dir, "project.k7x")) as {
-      project: { layers: string[] };
-    };
-    expect(root.project.layers).toEqual(["cam", "cam-2"]);
+    const made = wsData(join(dir, "nodes/cam-2.k7x"));
+    expect(made).toEqual({ extends: "@meta/picture-track", events: shots });
+    // The new lane is the top row, so it draws in front.
+    const root = wsData(join(dir, "project.k7x")) as { trackOrder: string[] };
+    expect(root.trackOrder).toEqual(["cam-2", "cam"]);
   });
 
   it("copies the song's picture lane within the song with its frame", async () => {
     await run("timeline lane copy cam main wide");
-    expect(wsData(join(dir, "video_tracks/wide.k7x"))).toEqual({
-      x: 10,
-      y: 20,
-      w: 320,
-      h: 180,
+    expect(wsData(join(dir, "nodes/wide.k7x"))).toEqual({
+      extends: "@meta/picture-track",
+      frame: [10, 20, 320, 180],
       events: shots,
     });
   });
@@ -108,9 +109,9 @@ describe("the picture verbs on a timeline's lane", () => {
     expect(pictures("verse")[0].events.map((e) => e.start)).toEqual([0, 3]);
     // The song's lane it was copied from is untouched.
     expect(
-      (
-        wsData(join(dir, "video_tracks/cam.k7x")).events as { start: number }[]
-      ).map((e) => e.start),
+      (wsData(join(dir, "nodes/cam.k7x")).events as { start: number }[]).map(
+        (e) => e.start,
+      ),
     ).toEqual([0, 2.5]);
   });
 

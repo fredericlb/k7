@@ -52,7 +52,7 @@ describe("trimming the head of a retimed shot", () => {
     const v = full({ ...head({ speed: 2 }), start: 5, length: 5 });
     expect(videoDragEdits(v)).toContainEqual({
       index: 2,
-      field: "source_from",
+      field: "from",
       value: 4,
     });
   });
@@ -67,7 +67,7 @@ describe("trimming the head", () => {
   const head = (over = {}) => shot({ mode: "in" as const, ...over });
 
   it("keeps the TAIL where it is", () => {
-    // Writing start and source_from alone would slide the whole shot later instead of shortening it, and move the cut after it.
+    // Writing start and from alone would slide the whole shot later instead of shortening it, and move the cut after it.
     const next = videoDragTo(head(), 2, free);
     expect(next.start).toBe(6);
     expect(next.length).toBe(4);
@@ -79,18 +79,18 @@ describe("trimming the head", () => {
     const v = full({ ...head(), start: 6, length: 4 });
     expect(videoDragEdits(v)).toEqual([
       { index: 2, field: "start", value: 6 },
-      { index: 2, field: "source_from", value: 4 }, // 2 + 2
+      { index: 2, field: "from", value: 4 }, // 2 + 2
       { index: 2, field: "length", value: 4 },
     ]);
   });
 
   it("refuses to ask for a frame before the file starts", () => {
-    // `source_from` is 2, so the head may come back 2s and no further.
+    // `from` is 2, so the head may come back 2s and no further.
     expect(videoDragTo(head(), -10, free).start).toBe(2);
     const v = full({ ...head(), start: 2, length: 8 });
-    expect(videoDragEdits(v).find((e) => e.field === "source_from")).toEqual({
+    expect(videoDragEdits(v).find((e) => e.field === "from")).toEqual({
       index: 2,
-      field: "source_from",
+      field: "from",
       value: 0,
     });
   });
@@ -107,11 +107,7 @@ describe("trimming the head", () => {
     const next = videoDragTo(v0, 1, free);
     expect(next).toEqual({ start: 5, length: 3 }); // the 4s placeholder, less the trim
     const edits = videoDragEdits(full({ ...v0, start: 5, length: 3 }));
-    expect(edits.map((e) => e.field)).toEqual([
-      "start",
-      "source_from",
-      "length",
-    ]);
+    expect(edits.map((e) => e.field)).toEqual(["start", "from", "length"]);
   });
 });
 

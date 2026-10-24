@@ -39,8 +39,8 @@ A video project is a folder like any song. The picture adds these files:
 
 | file | what it says |
 |---|---|
-| `project.k7x` | `viewport` (the frame's size and export frame rate) and `layers` (the picture lanes, in draw order) |
-| `video_tracks/<lane>.k7x` | one picture lane: where it draws in the frame and the shots it places, in seconds |
+| `project.k7x` | `viewport` (the frame's size and export frame rate), and `trackOrder`, whose order of the picture lanes is their draw order |
+| `nodes/<lane>.k7x` (`tracks/` with chains) | one picture lane, `extends("@meta/picture-track")`: where it draws in the frame and the shots it places, in seconds |
 | `clips/<id>.k7x` | a source file — a video, a still image or a subtitle file — that shots name by id |
 | `surfaces/viewport.k7x` | asks for the viewport window; without it the lanes still compile and still show on the timeline, but nothing composites them |
 | the graph or chain files | `RENDER` (where every picture lane arrives) and `VIDEO_OUT` (the frame that leaves); shader runs on lanes |
@@ -53,8 +53,8 @@ project({
   sampleRate: 48000,
   timeSignature: "4/4",
   viewport: [1280, 720, 30],
-  layers: ["main", "pip", "title_layer"],
 })
+trackOrder(["drums", "title_layer", "pip", "main"])
 ```
 
 ### The frame: `viewport`
@@ -73,12 +73,13 @@ project aspect 9:16
 The two shapes are `16:9` and `9:16`. The long edge is kept, so a 1280×720 project asked for
 9:16 becomes 720×1280; a stated export fps is kept too.
 
-### Draw order: `layers`
+### Draw order: the rows
 
-`layers` lists the picture lanes **bottom first**: the first one draws underneath, the last one
-on top. It is also the list of which lanes exist. A name with no lane file is an error, a lane
-file no name lists is an error, and a name listed twice is an error. `picture lane new` and
-`picture lane order` keep it right for you.
+The picture lanes draw in the order of their rows on the timeline, which is the project's
+`trackOrder`: a picture row above another draws **in front** of it, so the top picture row is
+on top of the frame. Audio and picture lanes share the one list, in whatever order you place
+them. `picture lane new` puts a new lane above the other picture lanes, and dragging a row or
+`picture lane order` restacks it.
 
 ## Seconds, not bars
 
@@ -116,7 +117,7 @@ addressed by its lane and **where it starts**.
 | `picture mute <lane>` | hide or show a lane (`m` with the caret on the lane) |
 | `picture solo <lane>` | solo a lane: soloed lanes hide the rest of the picture (`s` with the caret on the lane) |
 | `picture rect <lane> <x> <y> <w> <h>` | place and size a lane in the frame, in viewport pixels |
-| `picture add <lane> <clip> <at> [length] [source_from]` | place a clip on a lane |
+| `picture add <lane> <clip> <at> [length] [from]` | place a clip on a lane |
 | `picture move <lane> <at> <to>` | move a shot |
 | `picture length <lane> <at> <seconds>` | set how long a shot lasts; `0` runs to the end of the source |
 | `picture head <lane> <at> <to>` | trim a shot's head, its tail staying where it is |

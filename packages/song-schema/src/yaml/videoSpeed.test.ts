@@ -2,10 +2,10 @@
 // has no source to run, and on a reverse that reaches the source's first frame before it ends.
 
 import { describe, expect, it } from "vitest";
-import { VideoPlacementSchema } from "./entitySchemas";
+import { PlacementSchema } from "./placementSchema";
 
 const issues = (p: Record<string, unknown>) => {
-  const r = VideoPlacementSchema.safeParse(p);
+  const r = PlacementSchema.safeParse(p);
   return r.success ? [] : r.error.issues.map((i) => i.path.join("."));
 };
 
@@ -14,13 +14,13 @@ describe("speed on a placement", () => {
     expect(issues({ ref: "a", start: 0, length: 2, speed: 0.5 })).toEqual([]);
     expect(issues({ ref: "a", start: 0, length: 2, speed: 0 })).toEqual([]);
     expect(
-      issues({ ref: "a", start: 0, length: 2, source_from: 3, speed: -1 }),
+      issues({ ref: "a", start: 0, length: 2, from: 3, speed: -1 }),
     ).toEqual([]);
   });
 
   it("refuses a reverse that runs out of source, on its length", () => {
     expect(
-      issues({ ref: "a", start: 0, length: 4, source_from: 3, speed: -1 }),
+      issues({ ref: "a", start: 0, length: 4, from: 3, speed: -1 }),
     ).toEqual(["length"]);
   });
 

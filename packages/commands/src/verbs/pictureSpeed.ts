@@ -1,5 +1,5 @@
 // pictureSpeed.ts — `picture speed <lane> <at> <factor>`: how fast a shot's source runs under it.
-// Signed: 2 is double speed, 0.5 slow motion, 0 a freeze on `source_from`, −1 backwards from it.
+// Signed: 2 is double speed, 0.5 slow motion, 0 a freeze on `from`, −1 backwards from it.
 // The shot keeps its place and its length on the timeline; what changes is how much source it
 // spends. See packages/song-video/docs/speed.md.
 

@@ -5,6 +5,7 @@ project({
   timeSignature: "4/4",
   video: true,
   viewport: [1280, 720, 30],
-  layers: ["main", "pip", "box_layer", "dot_layer", "title_layer"],
 })
 markers({})
+trackOrder(["drums", "title_layer", "dot_layer", "box_layer", "pip", "main"])
+format(3)

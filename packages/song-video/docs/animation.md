@@ -1,7 +1,8 @@
 # A shot's animation — keys on the placement
 
 ```k7x
-// video_tracks/main.k7x
+// nodes/main.k7x
+extends("@meta/picture-track")
 events([
   ref("shot_a")
     .start(4)
@@ -51,7 +52,7 @@ an eased segment exact (below).
   same keys shifted by the head's length, rather than resampled at the cut, so an eased segment
   running across the cut plays on unchanged. Each half then keeps only the keys that still shape
   it, plus the nearest one beyond each edge.
-- **A head trim** (the left-edge drag, `picture head`) moves `source_from`, and the keys move
+- **A head trim** (the left-edge drag, `picture head`) moves `from`, and the keys move
   with it, so they stay on the same frames of the source.
 - **A move** changes nothing, since the keys never named a timeline time.
 

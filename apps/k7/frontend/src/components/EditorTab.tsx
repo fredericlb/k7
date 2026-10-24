@@ -1140,7 +1140,7 @@ function EditorTabView({
       !strip ||
       !readFile ||
       readFile.binary ||
-      !isVideoTrackFile(readFile.path)
+      !isVideoTrackFile(readFile.path, hints.videoTracks)
     )
       return [];
     return placementsIn(readFile.content).flatMap((p) => {
@@ -1149,11 +1149,11 @@ function EditorTabView({
         ? [{ ref: p.ref, src, sourceFrom: p.sourceFrom, length: p.length }]
         : [];
     });
-  }, [strip, readFile, videoSources]);
+  }, [strip, readFile, videoSources, hints.videoTracks]);
 
   // A reader's button edits the same buffer a keystroke does, so autosave writes it the same way.
   const setPlacement = useCallback(
-    (ref: string, field: "source_from" | "length", value: number) =>
+    (ref: string, field: "from" | "length", value: number) =>
       setFile((f) =>
         f && !f.binary
           ? {
@@ -1269,6 +1269,7 @@ function EditorTabView({
               tree={tree}
               activePath={file?.path ?? null}
               activeProject={activeProject}
+              pictureLanes={hints.videoTracks}
               projectName={projectName}
               rootDir={activeProject ?? "."}
               onOpen={(path) => {
@@ -1428,7 +1429,7 @@ function EditorTabView({
             <div className="h-52 shrink-0 border-t border-border">
               <VideoReadersStrip
                 readers={readers}
-                onSetFrom={(ref, t) => setPlacement(ref, "source_from", t)}
+                onSetFrom={(ref, t) => setPlacement(ref, "from", t)}
                 // 'To' is an END and the file stores an EXTENT — the subtraction belongs beside the only place that knows both numbers.
                 onSetTo={(ref, t) => {
                   const p = placementsIn(

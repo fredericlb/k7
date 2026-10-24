@@ -38,8 +38,8 @@ Video lanes are kept SEPARATE from `tracks` rather than mixed in: nearly everyth
 `tracks` is audio logic (groups, placements, the mixer, chain input typing) and a video lane
 satisfies none of it. They are on the model so the graph and the timeline can show them, and so
 a chain sourced from one resolves instead of reading as a dangling reference. There is no
-`disabled` counterpart either: a video track is switched off with `mute` (== hidden), and every
-one has to be listed in `project.layers`, so there is no "left out" state to model.
+`disabled` counterpart either: a picture lane is switched off with its bypass (its mute, == hidden), and it exists by its lane
+file alone, so there is no "left out" state to model.
 
 ## `Out` is `WebOut`
 
@@ -105,8 +105,8 @@ A VIDEO track types as "video", which is what lets a chain run one through `vide
 `VIDEO_OUT` and be checked like any other. Without it a video source types as nothing and the
 whole video-chain half of the model cannot be reached from a real song.
 
-`buildGraph` tells the derivation which nodes are lanes, and a video lane counts: it lives in
-`video_tracks/` rather than in `modules`, so nothing else recognises it and `main: [ glow ]` would
+`buildGraph` tells the derivation which nodes are lanes, and a picture lane counts: `lanesOf`
+answers sound lanes only, so nothing else recognises it and `main: [ glow ]` would
 read as a run whose first STEP is a module called `main` — reporting the lane as "not a module or
 module node", about a file sitting right there. One map, one name space, both kinds of lane.
 

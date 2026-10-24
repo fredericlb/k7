@@ -22,7 +22,8 @@ line of text straight onto the viewport, in px.
 ## WHEN it is on — an event that names nothing
 
 ```k7x
-// video_tracks/title_layer.k7x — the lane the `title` module is wired to
+// nodes/title_layer.k7x — the lane the `title` module is wired to
+extends("@meta/picture-track")
 events([
   start(4).length(4), // …and this is when it shows
 ])
@@ -41,7 +42,7 @@ Two consequences worth having on purpose:
 
 - **A lane of shapes is drawn like any other lane**, not hatched. It has events; they simply carry
   no material, and a row of spans is exactly what its timing is.
-- **`source_from`, `fade_in` and `fade_out` are refused on one**, by the schema and at the key, so
+- **`from`, `fadeIn` and `fadeOut` are refused on one**, by the schema and at the key, so
   the editor puts the message on the line. Each needs a source to trim or a picture to cross into,
   and an activation has neither — silently ignoring them is the failure this format keeps avoiding.
 

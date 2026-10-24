@@ -57,12 +57,13 @@ project({
   // `modules_from` and `libraries_from` are accepted, so a song carrying them
   // opens, and read by nothing — k7 says so, and the lines can be deleted.
 
-  // `viewport` and `layers` are the song's PICTURE — the frame its video lanes
-  // draw into, and their draw order. See the Video page.
+  // `viewport` is the song's PICTURE — the frame its picture lanes draw into.
+  // See the Video page.
   // `video: true` is accepted and read by nothing: a `surfaces/viewport.k7x`
-  // is what draws the frame, and `video_tracks/` is what says there is one.
+  // is what draws the frame, and a picture lane is what says there is one.
 
-  // Lane order in the timeline, top first. Absent = the order tracks/ is read in.
+  // Lane order in the timeline, top first — sound and picture lanes alike, the top picture
+  // row drawn in front. Absent = the order tracks/ is read in.
 })
 trackOrder(["drums", "bass", "melody"])
 

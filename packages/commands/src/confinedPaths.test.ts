@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileNodeProject } from "@studio/song/nodeProject";
-import { setDoc, writeDoc } from "@studio/song/testSupport";
+import { setDoc, writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost";
@@ -59,7 +59,7 @@ describe("node freeze", () => {
 
 describe("picture sound", () => {
   it("decodes no video a clip names outside the project", async () => {
-    writeDoc(join(song, "video_tracks", "main.k7x"), {
+    writeLane(song, "main", "picture-track", {
       events: [{ ref: "shot", start: 0, length: 2 }],
     });
     writeDoc(join(song, "clips", "shot.k7x"), { source: "/etc/passwd.mp4" });

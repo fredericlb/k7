@@ -26,7 +26,7 @@ translation between the two, so OTIO and the EDL cannot read a lane two ways. A 
 its middle becomes two segments of the same clip, the second picking its source up where the
 cover ended.
 
-A dissolve is the incoming shot's `fade_in`, so the cut sits at the incoming shot's START and the
+A dissolve is the incoming shot's `fadeIn`, so the cut sits at the incoming shot's START and the
 outgoing shot runs on under it. In OTIO that is a transition with `in_offset` 0 and `out_offset`
 the fade's length; in an EDL, the standard two-line pair. Both assume the outgoing source has the
 handle the fade already plays, which it does, since it is playing it here.

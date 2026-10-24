@@ -108,5 +108,17 @@ and `track rename` gain the collision refusal `createVideoTrackFile` already mak
    when no `layers:` is stated, mute from the graph's bypass, and a chain project's `track` item
    marked picture by its lane file. Proven by compiling each fixture before and after the migration,
    muted and not, to identical picture and song documents.
-3. Verbs and edits; then the frontend and the graph view.
-4. Fixtures, demos and docs; the e2e suite against the running instance.
+3. **Done, with 4:** every writer in the lane's words — the `picture …` verbs, import, copy,
+   transcription, the editor's drags and readers, the scaffold, the conversion to chain files —
+   and ONE reader: `loadVideoTracks` reads `@meta/picture-track` nodes only. The migration runs at
+   open, unjournaled: the journal records asynchronously and would race the first compile, and
+   undoing it would leave a project this build cannot read. `layers:` is refused when it names a
+   lane and accepted empty, as most songs carry it. The fixtures and demos are migrated, the old
+   layout kept as test data in `packages/song/fixtures/pictureLanesV2`, and the docs describe the
+   new one.
+4. **Left:** the e2e suite against the running instance; the timeline drawing picture rows where
+   `trackOrder` puts them among the sound rows — it draws them below, in their own order, today.
+
+Two decisions changed on the way. A timeline keeps its own `pictures:` list: a timeline lane has
+no meta ref to say what it holds, and folding pictures into `lanes:` would turn a sound lane named
+like a song picture lane into picture without a word. And an empty `layers: []` is accepted.

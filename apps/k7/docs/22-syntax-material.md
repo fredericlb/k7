@@ -261,7 +261,7 @@ apart while you write it. A `disabled` lane is silent wherever the timeline is p
 **Its picture draws on the song's lane of the same name.** A timeline may hold picture lanes too, under
 `pictures`: shots in seconds, counted from the timeline's start, written like a picture lane's own. Wherever
 the timeline is placed, those shots appear on the song's picture lane named like theirs — `cam` above draws on
-`video_tracks/cam.k7x`, in its frame, under its effects — from the second the timeline starts, cut where it
+the picture lane `cam`, in its frame, under its effects — from the second the timeline starts, cut where it
 ends. The song lane's own shots stay on top of them. Main's timeline shows them dashed: they are edited in the
 timeline, which a double-click opens. A picture lane of a timeline with no song lane of its name draws nothing,
 and the picture says so.

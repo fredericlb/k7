@@ -1,4 +1,4 @@
-// `track order` and `picture lane order` — the two lists a reorder writes. Both would be wrong
+// `track order` and `picture lane order` — the two verbs that rewrite `trackOrder`. Both would be wrong
 // silently: a lane wired on two ports compiles to two engine tracks and must move as ONE, and a
 // stated order that names only what moved would drop every lane it left out.
 
@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -82,31 +82,41 @@ describe("track order", () => {
 });
 
 describe("picture lane order", () => {
-  const lane = (id: string): void =>
-    writeDoc(join(song, "video_tracks", `${id}.k7x`), { events: [] });
+  const lane = (id: string): void => {
+    writeLane(song, id, "picture-track", { events: [] });
+  };
 
-  it("rewrites project.layers, which IS the draw order", async () => {
-    project({ viewport: [1280, 720], layers: ["main", "pip"] });
+  it("rewrites trackOrder, whose picture rows ARE the draw order", async () => {
+    writeDoc(join(song, "project.k7x"), {
+      project: { name: "t", viewport: [1280, 720] },
+      trackOrder: ["pip", "main"],
+    });
     lane("main");
     lane("pip");
     const h = testHost({ songPath: song });
     await runCommand("picture lane order pip 1", h, "cli");
-    expect(root().project.layers).toEqual(["pip", "main"]);
+    expect(root().trackOrder).toEqual(["main", "pip"]);
   });
 
   it("takes a lane's place by name here too", async () => {
-    project({ viewport: [1280, 720], layers: ["a", "b", "c"] });
+    writeDoc(join(song, "project.k7x"), {
+      project: { name: "t", viewport: [1280, 720] },
+      trackOrder: ["c", "b", "a"],
+    });
+    for (const id of ["a", "b", "c"]) lane(id);
     const h = testHost({ songPath: song });
     await runCommand("picture lane order c a", h, "cli");
-    expect(root().project.layers).toEqual(["c", "a", "b"]);
+    // Bottom first c, a, b: b is the top row.
+    expect(root().trackOrder).toEqual(["b", "a", "c"]);
   });
 
-  it("names the lanes `layers` holds when the argument is not one", async () => {
-    project({ viewport: [1280, 720], layers: ["main"] });
+  it("names the picture lanes there are when the argument is not one", async () => {
+    project({ viewport: [1280, 720] });
+    lane("main");
     const h = testHost({ songPath: song });
     await runCommand("picture lane order pip 1", h, "cli");
     expect(h.lines.refuse.join(" ")).toMatch(
-      /no picture lane 'pip'.*names main/,
+      /no picture lane 'pip'.*this song's are main/,
     );
   });
 });

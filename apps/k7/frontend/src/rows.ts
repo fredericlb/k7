@@ -67,7 +67,7 @@ export function projectRows(
       withAutomation(m.track, m.index, true);
   });
 
-  // Video lanes last, and REVERSED: `layers:` is bottom-first, and a row above another means IN FRONT of it (docs/picture.md).
+  // Video lanes last, and REVERSED: the picture document is bottom-first, and a row above another means IN FRONT of it (docs/picture.md).
   for (let i = videoTracks.length - 1; i >= 0; i--)
     rows.push({ kind: "video", track: videoTracks[i] });
 
@@ -130,7 +130,7 @@ export function stepRow(
   return key;
 }
 
-/** The two lists a reorder can write: a song's lanes (`trackOrder`), and its picture's (`layers`). */
+/** The two verbs a reorder can send: `track order` among the sound lanes, `picture lane order` among the picture lanes — both write `trackOrder`. */
 export type LaneFamily = "track" | "video";
 
 /** The lane a row's header can DRAG, or null — a group, and a live pattern lane, each state no order. */

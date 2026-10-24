@@ -38,9 +38,10 @@ steps([
   so an insert renames nothing downstream; completion shows the module and the position instead.
 - **A lane** is `{ id, track, bypass? }` exactly — an input node's own `track:` field is not one.
   Its bypass is its mute. Only a chain with `start: true` holds one.
-- **A picture lane** is `{ id, video_track, bypass? }`, by the same rule. Its placements stay in
-  `video_tracks/<name>`, read by the picture compile, and it holds no module: it is a lane to the
-  graph and nothing to the engine, as it is in a graph project. A camera or a SHAPE before it
+- **A picture lane** is the same `{ id, track, bypass? }` item: its `tracks/<name>.k7x` extends
+  `@meta/picture-track`, and that is what marks the item picture. Its shots are read by the picture
+  compile, and it is a lane to the graph and nothing to the engine, as it is in a graph project. A
+  picture lane exists in a chain project only through its item. A camera or a SHAPE before it
   starts its chain, the way an input starts an audio lane's.
 - **`start`** is an attribute, not a step: `true` when the chain begins at its own first node (a
   lane, an input), `MIX` or `RENDER` when it begins at that sum. A chain without one is fed by
@@ -122,7 +123,7 @@ subchain's nodes name the parent's run, not the subchain, so a run never takes a
 ```k7x
 // chains/main.k7x
 start(true)
-steps([id("7d14…").video_track("main"), to([chain("RENDER")])])
+steps([id("7d14…").track("main"), to([chain("RENDER")])])
 subchains([
   id("iris") // a fade on `main` names it: `chain: iris`
     .steps([id("8a82…").extends("@workspace/shaders/iris")]),

@@ -92,13 +92,6 @@ export function loadLanes(dir: string, validate = false): Record<string, Lane> {
   );
 }
 
-/** The shot keys a lane event spells like an audio event's, back in the picture compile's words. */
-const SHOT_WORDS: Record<string, string> = {
-  from: "source_from",
-  fadeIn: "fade_in",
-  fadeOut: "fade_out",
-};
-
 /** A `@meta/picture-track` node as the picture compile reads a lane: its rect, its mute off the graph's bypass. */
 function pictureLaneTrack(
   id: string,
@@ -111,36 +104,26 @@ function pictureLaneTrack(
     ...(lane.color ? { color: lane.color } : {}),
     ...(muted || lane.disabled ? { mute: true } : {}),
     ...(lane.frame ? { x, y, w, h } : {}),
-    events: lane.events.map(
-      (p) =>
-        Object.fromEntries(
-          Object.entries(p).map(([k, v]) => [SHOT_WORDS[k] ?? k, v]),
-        ) as RawVideoPlacement,
-    ),
+    events: lane.events as RawVideoPlacement[],
   };
 }
 
-// The PICTURE lanes: `@meta/picture-track` nodes, and a project's `video_tracks/` files until its open migrates them (docs/picture-lanes-plan.md).
+// The PICTURE lanes: the `@meta/picture-track` nodes, mute read off the graph's bypass (docs/trackModules.md).
 export function loadVideoTracks(
   dir: string,
   validate = false,
 ): Record<string, RawVideoTrack> {
-  const { values, issues } = readYamlEntities(dir, "video_tracks");
-  if (validate && issues.length)
-    throw new Error(`invalid video track(s):\n  ${issues.join("\n  ")}`);
   const lanes = pictureLanesOf(
     resolveModuleMap(loadModules(dir, validate), loadModuleRefs(dir)),
   );
-  if (!Object.keys(lanes).length)
-    return values as Record<string, RawVideoTrack>;
+  if (!Object.keys(lanes).length) return {};
   const bypassed = bypassedOf(loadChains(dir, loadProjectRoot(dir)));
-  const nodes = Object.fromEntries(
+  return Object.fromEntries(
     Object.entries(lanes).map(([id, lane]) => [
       id,
       pictureLaneTrack(id, lane, bypassed.has(id)),
     ]),
   );
-  return { ...(values as Record<string, RawVideoTrack>), ...nodes };
 }
 
 // Project settings (settings.k7x), a flat struct; {} when absent, coerced and defaulted by parseSettings.

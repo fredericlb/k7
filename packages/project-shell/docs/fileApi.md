@@ -174,7 +174,7 @@ waveforms, video; an app that needs no more uses it as it stands.
   do: poll THAT, not these.
 - **`videoDoc`** is the same folder read as PICTURE. Two compilers over one folder, not one route
   with a flag: a song has a tempo and its picture has a viewport, and neither document has a field
-  for the other's. A song with no `video_tracks/` answers with an EMPTY document rather than an
+  for the other's. A song with no picture lane answers with an EMPTY document rather than an
   error, so "no picture" and "broken picture" stay distinguishable at the call site.
 - **`write`** on a file in the shared `_modules` library does not write there. It copies the module
   into the project and repoints the chains at the copy, and `forked` says where the edit actually

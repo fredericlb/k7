@@ -5,8 +5,8 @@ built-in lane module it extends, and what it plays. Where its signal goes is sai
 graph that names it (see [Chains and the graph](./36-chains-graph.md)).
 
 In the chain layout, a lane's file is `tracks/<lane>.k7x`. In the graph layout, it is
-`nodes/<lane>.k7x`. The file's name is the lane's name. Picture lanes are different files, in
-`video_tracks/` (see [Picture, surfaces and other files](./37-picture-surfaces.md#video-lanes)).
+`nodes/<lane>.k7x`. The file's name is the lane's name. A picture lane is a lane file too, extending
+`@meta/picture-track`, with shots in seconds for events (see [Picture, surfaces and other files](./37-picture-surfaces.md#video-lanes)).
 
 ```k7x
 // tracks/drums.k7x
