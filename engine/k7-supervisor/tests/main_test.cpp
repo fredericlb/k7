@@ -11,6 +11,7 @@ void runPerformanceTests();
 void runMachineJobsTests();
 void runRtcFramesTests();
 void runSeparationAudioTests();
+void runSeparationDecodeTests();
 void runHostLockTests();
 void runRegistryTests();
 void runTlsTests();
@@ -34,6 +35,7 @@ int main()
     runMachineJobsTests();
     runRtcFramesTests();
     runSeparationAudioTests();
+    runSeparationDecodeTests();
     runHostLockTests();
     runRegistryTests();
     runTlsTests();

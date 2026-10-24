@@ -7,6 +7,9 @@
 # Build from the repo root, on an arm64 machine (an Apple Silicon Mac, not the Pi itself):
 #   docker build --platform linux/arm64 -f engine/docker/Dockerfile.pi -t k7-runtime-pi .
 
+# The Rust toolchain the supervisor's audio decoder is built with (engine/k7-supervisor/rust), pinned by its tag.
+FROM --platform=linux/arm64 rust:1.97.1-slim-bookworm AS rust
+
 # ---- build: the two CMake projects and the script that stages them, nothing else of the repo ----
 FROM --platform=linux/arm64 node:24-bookworm AS build
 # Dockerfile's set, minus JACK: JUCE_JACK is off, and the Pi image has nothing to link it against.
@@ -18,10 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
       libcurl4-openssl-dev ladspa-sdk \
  && rm -rf /var/lib/apt/lists/*
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
 WORKDIR /src
 COPY engine/k7-runtime engine/k7-runtime
 COPY engine/k7-supervisor engine/k7-supervisor
 COPY packages/supervisor-host/scripts packages/supervisor-host/scripts
+COPY packages/audio-analysis/rust packages/audio-analysis/rust
 # Empty is cores − 2: a JUCE or Tracktion unity file takes a gigabyte to compile (engine/k7-runtime/docs/build.md).
 ARG BUILD_JOBS=
 # Scheduled for the Pi 3's in-order A53; the code stays plain ARMv8.0 and runs on a Pi 4 or 5 as well.
@@ -30,6 +37,7 @@ ENV STUDIO_COMPILER_LAUNCHER=ccache CCACHE_DIR=/root/.ccache
 # Cache ids of their own, so a builder that also makes the server image never links its objects into this one.
 RUN --mount=type=cache,id=k7-pi-runtime-build,target=/src/engine/k7-runtime/build,sharing=locked \
     --mount=type=cache,id=k7-pi-supervisor-build,target=/src/engine/k7-supervisor/build,sharing=locked \
+    --mount=type=cache,id=k7-pi-cargo,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=k7-pi-ccache,target=/root/.ccache,sharing=locked \
     set -eu; \
     export CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS:-$(( $(nproc) > 2 ? $(nproc) - 2 : 1 ))}"; \

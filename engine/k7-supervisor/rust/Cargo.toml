@@ -1,0 +1,19 @@
+[package]
+name = "k7-audio"
+version = "0.1.0"
+edition = "2024"
+description = "The media library's decoder and resampler (packages/audio-analysis/rust) behind a C ABI, for the supervisor's stem cut: no ffmpeg on the engine's machine."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+# Unwinding, never abort: a panic on a corrupt file is caught at the C boundary rather than killing the supervisor.
+panic = "unwind"
+
+[dependencies]
+waveform = { path = "../../../packages/audio-analysis/rust", features = ["encode"] }

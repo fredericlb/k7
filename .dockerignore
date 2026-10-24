@@ -24,5 +24,6 @@ env.yaml
 # context.
 engine/k7-runtime/build
 engine/k7-supervisor/build
+**/rust/target
 # A local in-tree server bundle: the image builds its own.
 server-dist
