@@ -45,23 +45,22 @@ test("/external lists the surfaces of the project the engine holds", async ({
   watch.assertClean();
 });
 
-test("/settings draws every section with its controls", async ({ k7 }) => {
+test("/settings draws every section with its controls, a tab at a time", async ({
+  k7,
+}) => {
   const page = await k7.open("/settings");
   const watch = watchPage(page);
   await expect(
     page.getByRole("heading", { level: 1, name: "Settings" }),
   ).toBeVisible();
-  for (const name of [
-    "Language",
-    "Separation chains",
-    "AI",
-    "Paired devices",
-    "Sync",
-    "Rehearsal",
-  ])
-    await expect(
-      page.getByRole("heading", { level: 2, name, exact: true }),
-    ).toBeVisible();
+  const sections = async (names: string[]) => {
+    for (const name of names)
+      await expect(
+        page.getByRole("heading", { level: 2, name, exact: true }),
+      ).toBeVisible();
+  };
+  // General opens first: the language, the chains, the AI key (apps/k7/frontend/docs/settings.md).
+  await sections(["Language", "Separation chains", "AI"]);
   await expect(page.getByRole("button", { name: "Français" })).toBeEnabled();
   await expect(
     page.getByRole("combobox", {
@@ -74,9 +73,22 @@ test("/settings draws every section with its controls", async ({ k7 }) => {
     }),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "sk-ant-…" })).toBeVisible();
+  // Devices: the paired devices and live sync's pairings — and the tab lands in the address.
+  await page.getByRole("tab", { name: "Devices" }).click();
+  await sections(["Paired devices", "Sync"]);
+  await expect(page).toHaveURL(/[?&]tab=devices/);
+  // Media: the rehearsal pages' token, and a link straight to it opens on it.
+  await page.getByRole("tab", { name: "Media" }).click();
+  await sections(["Rehearsal"]);
   await expect(
     page.getByRole("button", { name: "Generate token" }),
   ).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Media" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await sections(["Rehearsal"]);
   watch.assertClean();
 });
 
