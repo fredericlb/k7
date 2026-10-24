@@ -330,6 +330,7 @@ function TimelineTabView({
   midiTake = null,
   tasks = NO_TASKS,
   videoTracks: songVideoTracks,
+  videoRowOrder,
   timelineVideoTracks,
   fps,
   onVideoEdit,
@@ -372,6 +373,8 @@ function TimelineTabView({
   midiTake?: { lane: string; from: number } | null;
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
+  /** …and where the rows put them among the sound lanes: `trackOrder` as stated (WebVideoProject.rowOrder). */
+  videoRowOrder?: string[];
   /** …and each timeline's own, drawn in place of those while it is open (`WebVideoProject.timelines`). */
   timelineVideoTracks?: Record<string, WebVideoTrack[]>;
   /** The picture's frame rate, absent when the song has none — it puts the seconds ruler's fine ticks on frames (docs/picture.md). */
@@ -620,12 +623,15 @@ function TimelineTabView({
             showAutomation && !shownTimeline
               ? laneNodes?.automation
               : undefined,
+            // A timeline's own lanes have no order of the song's to follow.
+            shownTimeline ? undefined : videoRowOrder,
           )
         : [],
     [
       proj,
       allTracks,
       videoTracks,
+      videoRowOrder,
       laneNodes?.automation,
       showAutomation,
       shownTimeline,

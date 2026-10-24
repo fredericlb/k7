@@ -168,6 +168,9 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
 
   return {
     ...(typeof proj.uuid === "string" ? { uuid: proj.uuid } : {}),
+    ...(Array.isArray(root.trackOrder)
+      ? { rowOrder: root.trackOrder.map(String) }
+      : {}),
     name: String(proj.name ?? "untitled"),
     viewport,
     fps,

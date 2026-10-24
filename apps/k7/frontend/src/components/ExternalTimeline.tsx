@@ -271,6 +271,7 @@ export function ExternalTimeline({
             takeStartBeat={takeStart}
             takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
             videoTracks={videoTracks}
+            videoRowOrder={videoDoc?.rowOrder}
             timelineVideoTracks={videoDoc?.timelines}
             onVideoEdit={applyVideoEdit}
             // The shell's other panes asking to be pointed somewhere; not mounted here, so the caret simply moves.

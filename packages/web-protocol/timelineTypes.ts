@@ -348,6 +348,8 @@ export interface WebVideoMarker {
 
 export interface WebVideoProject {
   name: string;
+  /** `trackOrder` as stated, every lane — where the timeline draws each picture row among the sound rows. */
+  rowOrder?: string[];
   /** The frame the lanes draw into, in px. */
   viewport: [number, number];
   /** Frames per second. Authoritative for EXPORT; realtime follows the transport's own clock. */
