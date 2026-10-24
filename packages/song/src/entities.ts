@@ -30,11 +30,16 @@ import {
   readLayout,
   toSegments,
 } from "./chainProject";
+import { bypassedOf } from "./chainsGraph";
 import { loadModuleRefs } from "./moduleRefs";
 import { resolveModuleMap } from "./moduleResolve";
 import { loadModules } from "./moduleTree";
-import type { RawProjectRoot, RawVideoTrack } from "./rawDoc";
-import { type Lane, lanesOf } from "./trackModule";
+import type {
+  RawProjectRoot,
+  RawVideoPlacement,
+  RawVideoTrack,
+} from "./rawDoc";
+import { type Lane, lanesOf, pictureLanesOf } from "./trackModule";
 import { entityFileFor, entityFiles } from "./yaml/moduleIO";
 import { wsData, wsText } from "./yaml/workspaceDoc";
 import { wsExists } from "./yaml/workspaceFile";
@@ -87,7 +92,35 @@ export function loadLanes(dir: string, validate = false): Record<string, Lane> {
   );
 }
 
-// Video lanes are entities of their own, read like clips/ so VideoTrackSchema gates the compile — docs/loader.md.
+/** The shot keys a lane event spells like an audio event's, back in the picture compile's words. */
+const SHOT_WORDS: Record<string, string> = {
+  from: "source_from",
+  fadeIn: "fade_in",
+  fadeOut: "fade_out",
+};
+
+/** A `@meta/picture-track` node as the picture compile reads a lane: its rect, its mute off the graph's bypass. */
+function pictureLaneTrack(
+  id: string,
+  lane: Lane,
+  muted: boolean,
+): RawVideoTrack {
+  const [x, y, w, h] = lane.frame ?? [];
+  return {
+    name: id,
+    ...(lane.color ? { color: lane.color } : {}),
+    ...(muted || lane.disabled ? { mute: true } : {}),
+    ...(lane.frame ? { x, y, w, h } : {}),
+    events: lane.events.map(
+      (p) =>
+        Object.fromEntries(
+          Object.entries(p).map(([k, v]) => [SHOT_WORDS[k] ?? k, v]),
+        ) as RawVideoPlacement,
+    ),
+  };
+}
+
+// The PICTURE lanes: `@meta/picture-track` nodes, and a project's `video_tracks/` files until its open migrates them (docs/picture-lanes-plan.md).
 export function loadVideoTracks(
   dir: string,
   validate = false,
@@ -95,7 +128,19 @@ export function loadVideoTracks(
   const { values, issues } = readYamlEntities(dir, "video_tracks");
   if (validate && issues.length)
     throw new Error(`invalid video track(s):\n  ${issues.join("\n  ")}`);
-  return values as Record<string, RawVideoTrack>;
+  const lanes = pictureLanesOf(
+    resolveModuleMap(loadModules(dir, validate), loadModuleRefs(dir)),
+  );
+  if (!Object.keys(lanes).length)
+    return values as Record<string, RawVideoTrack>;
+  const bypassed = bypassedOf(loadChains(dir, loadProjectRoot(dir)));
+  const nodes = Object.fromEntries(
+    Object.entries(lanes).map(([id, lane]) => [
+      id,
+      pictureLaneTrack(id, lane, bypassed.has(id)),
+    ]),
+  );
+  return { ...(values as Record<string, RawVideoTrack>), ...nodes };
 }
 
 // Project settings (settings.k7x), a flat struct; {} when absent, coerced and defaulted by parseSettings.

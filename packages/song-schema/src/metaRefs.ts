@@ -35,15 +35,18 @@ export const NOT_SUPPORTED_CATEGORY = "misc";
 
 // --- the track modules (see docs/trackModules.md) --------------------------------
 
-/** The three modules a LANE is a node of — three and not five, since a lane is not typed by its signal (docs/trackModules.md). */
+/** The modules a LANE is a node of — a sound lane is not typed by its signal, a picture lane is (docs/trackModules.md). */
 export const TRACK_REF = `${META_NS}/track`;
 export const STRUDEL_TRACK_REF = `${META_NS}/strudel-track`;
 export const GROUP_TRACK_REF = `${META_NS}/group-track`;
+/** A lane of SHOTS, composited rather than heard: stated, since an empty one would otherwise read as sound. */
+export const PICTURE_TRACK_REF = `${META_NS}/picture-track`;
 
 export const TRACK_REFS = [
   TRACK_REF,
   STRUDEL_TRACK_REF,
   GROUP_TRACK_REF,
+  PICTURE_TRACK_REF,
 ] as const;
 
 /** The two output ports every non-group lane offers, from `@studio/graph-model` so the renderer cannot disagree (docs/moduleTypes.md). */

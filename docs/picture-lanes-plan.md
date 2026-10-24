@@ -9,11 +9,11 @@ Step 1 of the series is done: an event's `start` takes seconds (`song-schema/doc
 
 ## Decisions
 
-### 1. A picture lane is a `@meta/track` node whose events name video clips
+### 1. A picture lane is a `@meta/picture-track` node
 
 ```k7x
 // nodes/main.k7x
-extends("@meta/track")
+extends("@meta/picture-track")
 frame([0, 0, 1280, 720]) // where it draws; absent is the whole frame
 events([
   ref("shot_a").start(0).length(4),
@@ -21,15 +21,19 @@ events([
 ])
 ```
 
-No new meta ref: what a lane carries is what its events name (`song/docs/trackModules.md`). A clip
-whose `source:` is a video is PICTURE material, and a lane leaves by the port its material fits —
-`#video` beside `#audio` and `#midi`. The song compile skips picture material entirely; the
-picture compile reads only it. That is the split `song-video/docs/picture.md` already makes
-between the two documents, moved from "which folder" to "which material".
+A fourth meta ref beside `track`, `strudel-track` and `group-track`, offering one `video` output.
+A sound lane is not typed by what it carries (`song/docs/trackModules.md`), but a picture lane must
+be: an EMPTY one — what `picture lane new` makes — would otherwise read as an empty sound lane, and
+the rows, the graph card and both compiles need its kind before its first shot. It is still a lane
+node, muted, ordered and renamed with the others.
 
-**For now a lane holds ONE kind of material**: a lane mixing shots and audio events is refused by
-name. Mixing them — a shot's sound leaving by `#audio` on its own lane, replacing `video_source` —
-is the next step, and needs its own design (the sound of a retimed shot).
+`lanesOf` answers sound lanes only, so every reader the song compile has stays as it is;
+`pictureLanesOf` answers the rest, and `loadVideoTracks` hands them to the picture compile in the
+shape it reads. That is the split `song-video/docs/picture.md` already makes between the two
+documents, moved from "which folder" to "which meta ref".
+
+Mixing shots and sound on ONE lane — a shot's sound leaving by `#audio`, replacing `video_source` —
+is a later step, and needs its own design (the sound of a retimed shot).
 
 ### 2. The shot's fields, spelled like the audio event's where they mean the same thing
 
@@ -99,6 +103,10 @@ and `track rename` gain the collision refusal `createVideoTrackFile` already mak
 1. **Done:** the union placement (`ref` optional, the shot's keys), the audio compile refusing a
    shot's keys by name, `PICTURE_LANE_LEVEL`, and `migratePictureLanes` — not yet run at open —
    tested over copies of `demos/video-demo.k7` and the e2e fixture.
-2. Both compiles reading nodes, with the migration run in their tests.
+2. **Done:** both compiles reading `@meta/picture-track` nodes — through `loadVideoTracks`, which
+   still reads `video_tracks/` too, until phase 4 moves the fixtures — draw order from `trackOrder`
+   when no `layers:` is stated, mute from the graph's bypass, and a chain project's `track` item
+   marked picture by its lane file. Proven by compiling each fixture before and after the migration,
+   muted and not, to identical picture and song documents.
 3. Verbs and edits; then the frontend and the graph view.
 4. Fixtures, demos and docs; the e2e suite against the running instance.

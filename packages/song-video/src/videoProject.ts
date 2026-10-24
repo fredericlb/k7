@@ -17,6 +17,7 @@ import {
   type PlacedShots,
   withTimelineShots,
 } from "@studio/song/timelinePictures";
+import { orderTracks } from "@studio/song-schema/trackKind";
 import { compileVideoChains, type VideoChainDocs } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc, VideoTrackDoc } from "./videoDoc";
 import {
@@ -79,9 +80,15 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
       return { timelines: {}, placed: new Map() as PlacedShots };
     }
   })();
+  // Draw order: `layers:` while a project states it, else the rows' order with the TOP row in front.
+  const layers =
+    proj.layers ??
+    orderTracks(Object.keys(videoTracksMap), (id) => id, root.trackOrder)
+      .slice()
+      .reverse();
   const tracks = compileVideoTracks(
     abs,
-    proj.layers,
+    layers,
     withTimelineShots(videoTracksMap, placed),
     clipsMap,
     viewport,

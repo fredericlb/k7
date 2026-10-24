@@ -10,6 +10,7 @@ import {
   expandCalls,
   type Item,
   isEndStep,
+  isTrackItem,
   isVideoTrackItem,
   itemsOf,
   type Link,
@@ -31,8 +32,17 @@ import {
 const SINKS = new Set<string>(CHAIN_SINKS);
 
 /** The picture lane a chain file's own steps hold, if any — its subchains may be fade STRETCHES. */
-export const pictureLaneOf = (c: ChainFile | undefined): string | undefined =>
-  c?.steps.flatMap(itemsOf).find(isVideoTrackItem)?.video_track;
+export function pictureLaneOf(
+  c: ChainFile | undefined,
+  /** Whether a `track` item's lane is a PICTURE lane — its file says so (chainProject.ts `picture`). */
+  isPicture: (lane: string) => boolean = () => false,
+): string | undefined {
+  for (const i of c?.steps.flatMap(itemsOf) ?? []) {
+    if (isVideoTrackItem(i)) return i.video_track;
+    if (isTrackItem(i) && isPicture(i.track)) return i.track;
+  }
+  return undefined;
+}
 
 const endOf = (c: ChainFile): EndStep | undefined => {
   const s = c.steps[c.steps.length - 1];
@@ -114,7 +124,7 @@ export function toSegments(
     // A picture lane's subchain that nothing links and that links nowhere is a fade's STRETCH: it lands on the lane.
     const stretchTo =
       u.sub && !linked.has(u.key) && !endOf(c)
-        ? pictureLaneOf(cp.chains[u.parent])
+        ? pictureLaneOf(cp.chains[u.parent], (l) => !!cp.nodes[l]?.picture)
         : undefined;
     const visible =
       c.start !== undefined ||
@@ -175,6 +185,8 @@ export interface FromSegmentsOptions {
   reserved?: string[];
   /** Whether a node is a PASS over a picture — what a fade's stretch is made of; absent, no run is one. */
   isPicturePass?: (name: string) => boolean;
+  /** Whether a lane is a PICTURE lane, a `track` item's file saying so — where a stretch may land. */
+  isPictureLane?: (name: string) => boolean;
 }
 
 const bare = (d: string) => d.split("#")[0];
@@ -442,7 +454,10 @@ function stretchRuns(
       const ds = modules[cur] ?? [];
       if (ds.length !== 1 || portOf(ds[0])) break;
       const d = ds[0];
-      if (!SINKS.has(d) && isVideoTrackItem(itemOf(d))) {
+      if (
+        !SINKS.has(d) &&
+        (isVideoTrackItem(itemOf(d)) || o.isPictureLane?.(d) === true)
+      ) {
         out.push({ lane: d, nodes });
         break;
       }
