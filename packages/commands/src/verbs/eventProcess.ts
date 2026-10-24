@@ -9,6 +9,7 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { laneEventsAt } from "@studio/song/chainItemEdit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsCopy, wsExists, wsRemove } from "@studio/song/yaml/workspaceFile";
+import { songTempo } from "@studio/song-edit/songTempo";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
 import { materialRefOf } from "@studio/song-schema/placementId";
 import { parsePosition } from "@studio/song-schema/timecode";
@@ -60,11 +61,12 @@ export function ownMaterial(
   const to = join(dirname(src.file.path), `${id}.k7x`);
   wsCopy(src.file.path, to);
   let hit = false;
+  const tempo = songTempo(dir);
   editTrackStruct(
     dir,
     track,
     (doc) => {
-      const at = findPlacementAt(doc, atBeats, num, den);
+      const at = findPlacementAt(doc, atBeats, num, den, tempo);
       if (at < 0) return;
       hit = true;
       setPlacementField(doc, at, "ref", id);
@@ -153,7 +155,7 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
       h.songPath,
       track.id,
       (doc) => {
-        const at = findPlacementAt(doc, atBeats, num, den);
+        const at = findPlacementAt(doc, atBeats, num, den, p.tempo);
         if (at >= 0) setPlacementField(doc, at, "ref", ref);
       },
       "restore an event's clip",

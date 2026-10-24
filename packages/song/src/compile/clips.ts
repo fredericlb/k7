@@ -4,7 +4,7 @@
 
 import { resolve } from "node:path";
 import { placementId } from "@studio/song-schema/placementId";
-import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { parseDuration, startBeats } from "@studio/song-schema/timecode";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { confineTo } from "../confine";
 import type { ClipDoc, EventDoc, NoteDoc } from "../project";
@@ -22,8 +22,8 @@ export function placementToClip(
   roots: readonly string[],
 ): ClipDoc {
   const ref = String(p.ref ?? "");
-  const pos = (tc: unknown) =>
-    tc != null && tc !== "" ? parsePosition(String(tc), num, den) : 0;
+  // A position as the file says it: a number is seconds, a timecode musical (song-schema docs/timecode.md).
+  const pos = (tc: unknown) => startBeats(tc, num, den, tempo);
   const dur = (tc: unknown) =>
     tc != null && tc !== "" ? parseDuration(String(tc), num, den) : 0;
   // A clip's window edge, always as SECONDS, and a timecode edge is a POSITION rather than a duration (docs/graphModel.md).

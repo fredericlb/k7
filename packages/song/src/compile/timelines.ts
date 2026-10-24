@@ -44,7 +44,7 @@ export interface Leaf {
 
 export interface TimelineCtx {
   timelines: Record<string, RawTimeline>;
-  pos: (tc: unknown) => number; // a 1-based position, in beats
+  pos: (tc: unknown) => number; // a position in beats: seconds when a number, else 1-based musical
   dur: (tc: unknown) => number; // a 0-based duration, in beats
   bar: number; // beats in a bar
   beatsPerSec: number; // the one tempo, which places a timeline's picture shots

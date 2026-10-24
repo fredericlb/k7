@@ -155,14 +155,14 @@ alternatives([name("quiet")])
 describe("the song's clock", () => {
   it("moves what follows inserted time, and drops what deleted time covers", () => {
     const doc = new K7Document(AUTHORED);
-    expect(spliceTime(doc.at([]), 100, 4, "insert", 4, 4)).toEqual({
+    expect(spliceTime(doc.at([]), 100, 4, "insert", 4, 4, 120)).toEqual({
       moved: 1,
       removed: 0,
     });
     expect((parse(doc.toString()).events as { start: string }[])[1].start).toBe(
       "55:1",
     );
-    expect(spliceTime(doc.at([]), 96, 8, "delete", 4, 4)).toEqual({
+    expect(spliceTime(doc.at([]), 96, 8, "delete", 4, 4, 120)).toEqual({
       moved: 1,
       removed: 1,
     });

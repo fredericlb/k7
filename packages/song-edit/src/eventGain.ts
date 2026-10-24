@@ -6,6 +6,7 @@ import {
   findPlacementAt,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
+import { songTempo } from "./songTempo";
 import { editTrackStruct } from "./trackMix";
 
 /** The trim an event may carry, either way: a balance between takes, not a fader. */
@@ -28,11 +29,12 @@ export function setTrackPlacementGain(
   db: number,
 ): boolean {
   let hit = false;
+  const tempo = songTempo(dir);
   editTrackStruct(
     dir,
     id,
     (doc) => {
-      const i = findPlacementAt(doc, fromBeats, num, den);
+      const i = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (i < 0) return;
       hit = true;
       setPlacementField(doc, i, "gain", eventGainValue(db));

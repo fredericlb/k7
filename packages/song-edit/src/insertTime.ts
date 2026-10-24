@@ -128,7 +128,7 @@ export function spliceProjectTime(
 
   // 1. The LANES — what is playing, every take of it, and every alternative's own two lists.
   const lanes = (doc: K7Scope) =>
-    spliceTime(doc, atBeats, lenBeats, mode, num, den);
+    spliceTime(doc, atBeats, lenBeats, mode, num, den, tempo);
   const folder = laneFolder(dir);
   for (const f of docsIn(dir, folder))
     edit(dir, `${folder}/${f}`, (doc) => lanes(doc.at([])), report, pending);

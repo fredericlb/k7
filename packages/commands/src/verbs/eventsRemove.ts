@@ -4,7 +4,12 @@
 // One on a lane sounding a picture is not removed but its shot SILENCED (packages/song/docs/videoSound.md).
 
 import { removeTrackPlacement } from "@studio/song-edit/trackMix";
-import { parsePosition } from "@studio/song-schema/timecode";
+import {
+  type EventStart,
+  startBeats,
+  startText,
+  startTolerance,
+} from "@studio/song-schema/timecode";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import {
   shotSoundingAt,
@@ -20,13 +25,14 @@ const USAGE =
   'usage: events remove [{"track":"drums","start":"2:1:1"}, …] — the events to take off, by track and start';
 
 async function removeEvents(arg: string, h: CommandHost): Promise<void> {
-  let wanted: { track: string; start: string }[];
+  let wanted: { track: string; start: EventStart }[];
   try {
     const raw = JSON.parse(arg.trim());
     if (!Array.isArray(raw) || !raw.length) throw new Error("an empty list");
+    // A start is said as the file says it: a timecode, or a number of seconds.
     wanted = raw.map((e) => ({
       track: String(e.track),
-      start: String(e.start),
+      start: typeof e.start === "number" ? e.start : String(e.start),
     }));
   } catch {
     h.refuse([USAGE]);
@@ -46,13 +52,15 @@ async function removeEvents(arg: string, h: CommandHost): Promise<void> {
     }
     let at: number;
     try {
-      at = parsePosition(w.start, num, den);
+      at = startBeats(w.start, num, den, p.tempo);
     } catch (e) {
       h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
-    if (!t.clips.some((c) => Math.abs(c.start - at) < 1e-6)) {
-      h.refuse([`no event on '${t.id}' at ${w.start}`]);
+    if (
+      !t.clips.some((c) => Math.abs(c.start - at) < startTolerance(w.start))
+    ) {
+      h.refuse([`no event on '${t.id}' at ${startText(w.start)}`]);
       return;
     }
     const picture = soundingPicture(h.songPath, t.id);
@@ -60,7 +68,7 @@ async function removeEvents(arg: string, h: CommandHost): Promise<void> {
       const shot = shotSoundingAt(h, picture, at);
       if (typeof shot === "string") return h.refuse([shot]);
       silenced.push(shot);
-    } else hits.push({ track: t.id, at, tc: w.start });
+    } else hits.push({ track: t.id, at, tc: startText(w.start) });
   }
   try {
     let removed = 0;

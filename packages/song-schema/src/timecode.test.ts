@@ -5,8 +5,55 @@ import {
   parseDuration,
   parsePosition,
   roundBeat,
+  startAs,
+  startBeats,
+  startText,
+  startTolerance,
   TICKS_PER_QUARTER,
 } from "./timecode";
+import { PlacementSchema } from "./yaml/placementSchema";
+
+// An event's start: a NUMBER is seconds, a string a position (docs/timecode.md).
+describe("an event start", () => {
+  it("reads seconds through the tempo and a timecode through the bar", () => {
+    expect(startBeats(4.5, 4, 4, 120)).toBe(9);
+    expect(startBeats(4.5, 4, 4, 60)).toBe(4.5);
+    expect(startBeats("3:1", 4, 4, 120)).toBe(8);
+    expect(startBeats(undefined, 4, 4, 120)).toBe(0);
+    expect(startBeats(0, 4, 4, 120)).toBe(0);
+  });
+
+  it("writes back in the unit it was written in", () => {
+    expect(startAs(4.5, 10, 4, 4, 120)).toBe(5);
+    expect(startAs("3:1", 10, 4, 4, 120)).toBe("3:3");
+    expect(startAs(undefined, 4, 4, 4, 120)).toBe("2:1");
+    // Seconds to the millisecond, and never before the song's start.
+    expect(startAs(1, 1 / 3, 4, 4, 120)).toBe(0.167);
+    expect(startAs(1, -2, 4, 4, 120)).toBe(0);
+  });
+
+  it("is addressed exactly on the grid and within half a tick off it", () => {
+    expect(startTolerance("3:1")).toBe(1e-6);
+    expect(startTolerance(4.5)).toBe(0.5 / TICKS_PER_QUARTER);
+    expect(startText(4.5)).toBe("4.5s");
+    expect(startText("3:1")).toBe("3:1");
+  });
+
+  it("is a timecode or a non-negative number to the schema", () => {
+    expect(PlacementSchema.safeParse({ ref: "a", start: 4.5 }).success).toBe(
+      true,
+    );
+    expect(PlacementSchema.safeParse({ ref: "a", start: "3:1" }).success).toBe(
+      true,
+    );
+    expect(PlacementSchema.safeParse({ ref: "a", start: -1 }).success).toBe(
+      false,
+    );
+    expect(PlacementSchema.safeParse({ ref: "a", start: "4.5s" }).success).toBe(
+      false,
+    );
+  });
+});
 
 // Time is beats = quarter notes; positions are 1-based and durations 0-based (docs/timecode.md).
 

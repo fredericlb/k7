@@ -13,7 +13,8 @@ import { wsExists } from "@studio/song/yaml/workspaceFile";
 import {
   beatsToDuration,
   beatsToPosition,
-  parsePosition,
+  startAs,
+  startBeats,
 } from "@studio/song-schema/timecode";
 import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { shiftTakes } from "@studio/song-schema/yaml/takeFile";
@@ -22,6 +23,7 @@ import {
   placementValues,
   removePlacementAt,
 } from "@studio/song-schema/yaml/trackFile";
+import { songTempo } from "./songTempo";
 import { editTrackStruct } from "./trackMix";
 
 /** Move lane `laneId`'s events starting in `[from, end)` (beats) into timeline `name`; how many moved, 0 writing nothing. */
@@ -38,9 +40,10 @@ export function timelineFromRange(
   if (wsExists(file)) throw new Error(`timeline '${name}' already exists`);
   const at = laneEventsAt(dir, laneId);
   if (!at) throw new Error(`track "${laneId}" has no file`);
+  const tempo = songTempo(dir);
   const startOf = (p: Record<string, unknown>): number | null => {
     try {
-      return parsePosition(String(p.start ?? "1:1"), num, den);
+      return startBeats(p.start, num, den, tempo);
     } catch {
       return null;
     }
@@ -62,7 +65,8 @@ export function timelineFromRange(
     const s = startOf(p) as number;
     return {
       ...shiftTakes(p, -from, num, den),
-      start: beatsToPosition(s - from, num, den),
+      // In the unit it was written in, now counted from the timeline's own start.
+      start: startAs(p.start, s - from, num, den, tempo),
     };
   });
   mkdirSync(join(dir, "timelines"), { recursive: true });

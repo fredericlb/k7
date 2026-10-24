@@ -4,7 +4,10 @@
 // newer file may use syntax this build cannot parse. No `node:fs`. Rationale: docs/formatLevel.md.
 
 /** The project format this k7 reads and writes: a project root above it is refused, never half-read. */
-export const FORMAT_LEVEL = 1;
+export const FORMAT_LEVEL = 2;
+
+/** The level an event `start` written in SECONDS needs: a level-1 build refuses the number (docs/formatLevel.md). */
+export const SECONDS_START_LEVEL = 2;
 
 /** The project root's key that carries the level, a sibling of `project:`. */
 export const FORMAT_KEY = "format";

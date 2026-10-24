@@ -3,7 +3,7 @@
 // its end. What a reader gets wrong: the host is found by NAME, not by the lane the timeline is
 // placed on — that one is a sound lane, with no frame. See docs/timelines.md.
 
-import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { parseDuration, startBeats } from "@studio/song-schema/timecode";
 import { placementToClip } from "./compile/clips";
 import {
   type RawTimeline,
@@ -137,8 +137,7 @@ export function loadTimelinePictures(dir: string): {
   // The same context the song compile builds, so a timeline is exactly as long in the picture as in the sound.
   const ctx: TimelineCtx = {
     timelines,
-    pos: (tc) =>
-      tc != null && tc !== "" ? parsePosition(String(tc), num, den) : 0,
+    pos: (tc) => startBeats(tc, num, den, tempo),
     dur: (tc) =>
       tc != null && tc !== "" ? parseDuration(String(tc), num, den) : 0,
     bar: (num * 4) / den,

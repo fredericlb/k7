@@ -9,10 +9,27 @@ written by a newer k7 (format N); this k7 reads format M — update k7 to open i
 
 Any change an older build would reject or misread bumps `FORMAT_LEVEL`, in the same commit: a new
 key, a new enum value, a narrowed meaning of an existing value, a k7x syntax the older parser does
-not know. From that commit on, the writers stamp the new level into the root file they write.
+not know.
 
-Absent means level 1. Every project that exists is level 1, and a new project is written without
-the key, so an old file and a new one read the same until the first bump.
+**A project is stamped with a level when it starts USING what needs it, never before.** A project
+that holds nothing a level-1 build refuses stays at level 1 and opens everywhere, so an installed
+tray or phone app keeps opening every song that does not need the update. Stamping every project a
+new build writes would lock those builds out of songs they read perfectly.
+
+Absent means level 1, and a new project is written without the key.
+
+## The levels
+
+| level | what needs it | stamped by |
+|---|---|---|
+| 1 | — | — |
+| 2 | an event `start` written in SECONDS, a number where level 1 takes only a timecode ([timecode.md](timecode.md)) | `@studio/song`'s `formatStamp.ts`: a lane or timeline written through the file service, `events add`, and every project open |
+
+The stamp is best-effort, like the video run a viewport gains at open: a root that will not read
+is left alone, and the next write or open tries again. The open is what catches a file that arrived
+another way — by the sync relay, or edited outside k7. A level is never lowered: removing the last
+seconds start leaves `format(2)`, since a level says what the file MAY hold, and lowering it would
+need every lane read on every write.
 
 ## Where the level lives: the project root file
 

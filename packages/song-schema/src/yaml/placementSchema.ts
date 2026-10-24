@@ -1,6 +1,6 @@
 // placementSchema.ts — one placed clip or sequence, in Zod, and the timecode rule that governs
 // it. Its own file because a lane is a module (docs/trackModules.md), so moduleSchema is what
-// carries `events:` and this is what it imports. A timecode ("25:1") is a STRING, never a number.
+// carries `events:` and this is what it imports. A timecode ("25:1") is a STRING; a number is seconds.
 
 import { z } from "zod";
 
@@ -20,7 +20,8 @@ const WindowEdge = z.union([
 export const PlacementSchema = z
   .object({
     ref: z.string().min(1),
-    start: Timecode.optional(),
+    // Seconds or a musical position, as a window edge is: a shot stays where the clock says when the tempo changes.
+    start: WindowEdge.optional(),
     from: WindowEdge.optional(),
     to: WindowEdge.optional(),
     fadeIn: Timecode.optional(),

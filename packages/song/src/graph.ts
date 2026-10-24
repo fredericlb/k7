@@ -9,7 +9,7 @@ import {
 } from "@studio/song-schema/alternatives";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { curveIdFromRef } from "@studio/song-schema/moduleTypes";
-import { parsePosition } from "@studio/song-schema/timecode";
+import { startBeats } from "@studio/song-schema/timecode";
 import { type Assembly, resolveAssemblies } from "./assemblies";
 import { loadLinkLevels } from "./chainProject";
 import { bypassedOf, deriveChains } from "./chainsGraph";
@@ -159,8 +159,8 @@ export function buildGraph(
 ): GraphDoc {
   const ts = String(root?.project?.timeSignature ?? "4/4");
   const [num, den] = ts.split("/").map((n) => parseInt(n, 10));
-  const pos = (tc: unknown) =>
-    tc != null && tc !== "" ? parsePosition(String(tc), num || 4, den || 4) : 0;
+  const tempo = Number(root?.project?.tempo ?? 120) || 120;
+  const pos = (tc: unknown) => startBeats(tc, num || 4, den || 4, tempo);
 
   // The authored instrument type, if one of the known values, else undefined so it falls back to "plugin".
   const normType = (v: unknown): InstrumentType | undefined =>

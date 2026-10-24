@@ -64,7 +64,7 @@ function placed(
   const own = laneEventsAt(dir, id);
   if (!own) throw new Error(`track "${id}" has no lane file`);
   const lane = new K7Document(wsText(own.path)).at(own.base);
-  const at = findPlacementAt(lane, fromBeats, num, den);
+  const at = findPlacementAt(lane, fromBeats, num, den, tempo);
   if (at < 0) return null;
   const p = placementValues(lane)[at] ?? {};
   const ref = String(p.ref ?? "");
@@ -112,6 +112,7 @@ function write(
   fromBeats: number,
   num: number,
   den: number,
+  tempo: number,
   fields: Record<string, WindowValue | undefined>,
   what: string,
 ): void {
@@ -119,7 +120,7 @@ function write(
     dir,
     id,
     (doc) => {
-      const i = findPlacementAt(doc, fromBeats, num, den);
+      const i = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (i < 0) return;
       for (const [k, v] of Object.entries(fields))
         setPlacementField(doc, i, k, v);
@@ -152,6 +153,7 @@ export function setTrackPlacementLoop(
       fromBeats,
       num,
       den,
+      tempo,
       { loop: undefined },
       "stop an event looping",
     );
@@ -167,7 +169,7 @@ export function setTrackPlacementLoop(
       );
     fields.to = tidySeconds(fileSeconds);
   }
-  write(dir, id, fromBeats, num, den, fields, "loop an event");
+  write(dir, id, fromBeats, num, den, tempo, fields, "loop an event");
   return { loops: FIRST_LOOP, changed: true };
 }
 
@@ -208,6 +210,7 @@ export function setTrackPlacementLoopPoints(
     fromBeats,
     num,
     den,
+    tempo,
     {
       from: f > p.matFrom + EDGE_EPS ? fmt(f) : undefined,
       // Cleared on the material's own end, but kept when the material states none: a loop needs one.

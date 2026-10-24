@@ -8,7 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "@studio/k7x/document";
-import { parsePosition } from "@studio/song-schema/timecode";
+import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import { describe, expect, it } from "vitest";
 import { moveTrackPlacement, moveTrackPlacementsInRange } from "./trackMix";
 
@@ -176,6 +176,32 @@ events([
       ),
     ).toBe(0);
     expect(read(dir)).toBe(body); // byte-identical, not merely equivalent
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// A start in SECONDS (song-schema docs/timecode.md): addressed in beats like any other, and moved in seconds.
+describe("a placement started in seconds", () => {
+  it("is found by the tick-rounded position the timeline sends, and stays in seconds", () => {
+    const dir = trackDir('events([ref("a").start(4.123)])\n');
+    // 4.123 s at the default 120 bpm is 8.246 beats, which no tick lands on exactly.
+    const sent = parsePosition(beatsToPosition(8.246, NUM, DEN), NUM, DEN);
+    expect(moveTrackPlacement(dir, "drums", sent, "5:1", NUM, DEN)).toBe(true);
+    expect(events(dir)).toEqual([{ ref: "a", start: 8 }]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("moves in seconds with a range, beside a musical start that stays musical", () => {
+    const dir = trackDir(
+      'events([ref("a").start(2), ref("b").start("9:1")])\n',
+    );
+    expect(moveTrackPlacementsInRange(dir, "drums", 0, 100, 4, NUM, DEN)).toBe(
+      2,
+    );
+    expect(events(dir)).toEqual([
+      { ref: "a", start: 4 },
+      { ref: "b", start: "10:1" },
+    ]);
     rmSync(dir, { recursive: true, force: true });
   });
 });
