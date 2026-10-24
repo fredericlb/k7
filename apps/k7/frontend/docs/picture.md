@@ -32,6 +32,26 @@ The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile h
 `videoTracks` bottom-first and the compositor draws them in that order
 (`packages/ui-eyes/src/compositor.ts`), so the frame is unaffected by how the timeline lists them.
 
+## Frames on an expanded lane
+
+Expanded, a picture lane is exactly as tall as an audio lane, and each shot draws its source as a
+filmstrip under its name: frames edge to edge across the whole shot, each the source at the time
+its left edge stands for (`sourceFrom` plus the elapsed time times `speed`, so a freeze repeats one
+frame and a reversed shot runs backwards). Folded, the shot is its name alone, as an audio clip is.
+
+The frames are grabbed in the browser (`timeline/shotFrames.ts`), from the same file the
+viewport reads — the proxy, else the optimized copy, else the source — because there is no
+thumbnail route and a frame the browser cannot decode is one the viewport cannot show either. So
+a shot still converting draws no frames, and neither does an activation or a subtitle clip.
+
+- **One hidden `<video>` per source, seeks in series.** A seek interrupts the one before it, so
+  parallel requests on one element would all land on the last time asked. At most four sources
+  stay open; the coldest is released.
+- **Times are rounded to 0.1 s** and kept as 72-pixel-high bitmaps, 600 at most, so zooming or
+  nudging a shot reuses the frames already held instead of seeking again.
+- **Only the tiles inside the visible window are mounted** — the same window that culls clips
+  off screen — so an hour-long shot at a deep zoom costs what the screen shows.
+
 ## The ruler reads either unit
 
 The ruler opens in `seconds` when the song carries a picture and in `bars` when it does not: someone

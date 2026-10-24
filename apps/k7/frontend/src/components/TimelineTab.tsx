@@ -56,6 +56,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { mediaUrl } from "../api";
 import {
   type Clipboard,
   copyEvents,
@@ -151,6 +152,7 @@ import { LaneVstFreeze } from "./timeline/LaneVstFreeze";
 import { ownShots, PlacedShot } from "./timeline/PlacedShot";
 import { Playhead } from "./timeline/Playhead";
 import { RecordingClip } from "./timeline/RecordingClip";
+import { ShotFrames } from "./timeline/ShotFrames";
 import { TimelineSwitch } from "./timeline/TimelineSwitch";
 import { UploadProgress } from "./UploadProgress";
 
@@ -165,6 +167,8 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
+// The name row an expanded shot keeps above its frames.
+const SHOT_LABEL_H = 14;
 // Expand's movement, shared by the lanes and every line spanning them, so they travel as one.
 const NATURAL = 4;
 /** Sources a browser does not decode as they are, shown as converting until an `optimized:` copy lands (song-video/docs/media.md). */
@@ -2650,7 +2654,7 @@ function TimelineTabView({
                         rowDrag.lane !== vt.id &&
                         DROP_ROW,
                     )}
-                    style={{ height: ROW_H }}
+                    style={{ height: rowH }}
                   >
                     <div
                       style={{ width: GUTTER }}
@@ -2813,9 +2817,19 @@ function TimelineTabView({
                         // Off screen and not in hand: nothing to draw — see ClipWindow.
                         if (
                           !live &&
-                          !(rowNear(ri, ROW_H) && xNear(x(toBeats(start)), w))
+                          !(rowNear(ri, rowH) && xNear(x(toBeats(start)), w))
                         )
                           return null;
+                        // A head trim moves the source in-point with the shot's start, so the strip follows the hand.
+                        const from =
+                          live?.mode === "in"
+                            ? c.sourceFrom +
+                              (live.start - c.start) * (c.speed ?? 1)
+                            : c.sourceFrom;
+                        const frames =
+                          expanded && !activation && !converting && !c.captions
+                            ? mediaUrl(c.proxy ?? c.optimized ?? c.src)
+                            : null;
                         return (
                           <div
                             // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
@@ -2842,7 +2856,9 @@ function TimelineTabView({
                               );
                             }}
                             className={cn(
-                              "absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
+                              "absolute inset-y-0.5 flex gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
+                              // Expanded: the name on top and the frames under it, as an audio clip's waveform sits.
+                              frames ? "items-start" : "items-center",
                               onVideoEdit ? "cursor-grab" : "",
                               provisional
                                 ? "border border-dashed border-amber-400 bg-amber-600/50"
@@ -2866,6 +2882,24 @@ function TimelineTabView({
                               className="h-2.5 w-2.5 shrink-0 opacity-80"
                             />
                             <span className="truncate">{label}</span>
+                            {frames && (
+                              <div
+                                className="absolute inset-x-0 bottom-0"
+                                style={{ top: SHOT_LABEL_H }}
+                              >
+                                <ShotFrames
+                                  url={frames}
+                                  still={!!c.still}
+                                  sourceFrom={from}
+                                  speed={c.speed}
+                                  pxPerSec={bps * ppb}
+                                  width={w}
+                                  height={rowH - 4 - SHOT_LABEL_H}
+                                  winLeft={clipWin.x0 - x(toBeats(start))}
+                                  winRight={clipWin.x1 - x(toBeats(start))}
+                                />
+                              </div>
+                            )}
                             {/* The two trim handles, wider than they look: a 6px target is a miss, and a miss lands on the body's own drag. */}
                             {onVideoEdit && (
                               <>
