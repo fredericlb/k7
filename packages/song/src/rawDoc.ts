@@ -9,8 +9,9 @@ import type { ModuleKind } from "@studio/song-schema/moduleTypes";
 export interface RawPlacement {
   ref?: string;
   start?: string | number;
-  fadeIn?: string | number;
-  fadeOut?: string | number;
+  // A timecode duration on audio; seconds or a transition map on a shot (PlacementSchema).
+  fadeIn?: unknown;
+  fadeOut?: unknown;
   loop?: number; // how many times the material's window is played (see PlacementSchema)
   gain?: number; // an audio event's own trim in dB, ±6 (see PlacementSchema)
   // The EVENT's own window, intersected with the material's — most restrictive edge wins (PlacementSchema).
@@ -23,6 +24,12 @@ export interface RawPlacement {
   takes?: { ref?: string; start?: string }[];
   comp?: { take?: string; from?: string; to?: string }[];
   crossfades?: { at?: string; length?: string }[];
+  // A SHOT's own, in seconds — read by the picture compile alone (PlacementSchema's SHOT_KEYS).
+  length?: number;
+  speed?: number;
+  animate?: unknown;
+  effect?: string;
+  silent?: boolean;
 }
 
 /** A track file's struct (tracks/<id>.k7x), any of the three kinds. */

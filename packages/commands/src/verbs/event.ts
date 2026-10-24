@@ -383,7 +383,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       // The two timecodes the schema can only check the SHAPE of: `1:0` matches the pattern and is no position.
       for (const k of ["fadeIn", "fadeOut"] as const) {
         const v = parsed.data[k];
-        if (v === undefined) continue;
+        if (typeof v !== "string") continue;
         try {
           parsePosition(v, num, den);
         } catch (e) {
