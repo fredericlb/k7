@@ -5,7 +5,7 @@
 
 import { MASTER_OWNER } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
-import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { parseDuration, startBeats } from "@studio/song-schema/timecode";
 import { autoColors } from "@studio/song-schema/trackColor";
 import { orderTracks, trackCategory } from "@studio/song-schema/trackKind";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
@@ -181,8 +181,7 @@ function compileNodeProjectIn(
   // A timeline event stands for the events it holds, expanded before any of them is routed to a half (docs/timelines.md).
   const timelineCtx: TimelineCtx = {
     timelines: timelinesMap,
-    pos: (tc) =>
-      tc != null && tc !== "" ? parsePosition(String(tc), num, den) : 0,
+    pos: (tc) => startBeats(tc, num, den, tempo),
     dur: (tc) =>
       tc != null && tc !== "" ? parseDuration(String(tc), num, den) : 0,
     bar: (num * 4) / den,

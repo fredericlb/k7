@@ -96,6 +96,7 @@ describe("the take writers", () => {
         { from: "5:3", to: "7:1" },
         4,
         4,
+        120,
       ),
     );
     expect(first(one).takes).toEqual([{ ref: "gtr_t2", start: "5:3" }]);
@@ -104,7 +105,7 @@ describe("the take writers", () => {
     ]);
 
     const back = edit(one, (d) =>
-      setCompAt(d, 0, { take: "gtr", from: "6:1", to: "7:1" }, 4, 4),
+      setCompAt(d, 0, { take: "gtr", from: "6:1", to: "7:1" }, 4, 4, 120),
     );
     expect(first(back).comp).toEqual([
       { take: "gtr_t2", from: "5:3", to: "6:1" },
@@ -117,7 +118,7 @@ describe("the take writers", () => {
   it("refuses a take the event does not have", () => {
     expect(() =>
       edit(lane, (d) =>
-        setCompAt(d, 0, { take: "nope", from: "5:1", to: "6:1" }, 4, 4),
+        setCompAt(d, 0, { take: "nope", from: "5:1", to: "6:1" }, 4, 4, 120),
       ),
     ).toThrow(/no take/);
   });
@@ -131,6 +132,7 @@ describe("the take writers", () => {
         { from: "5:3", to: "6:1" },
         4,
         4,
+        120,
       );
       setCrossfadeAt(d, 0, "5:3", "0:0:2", 4, 4);
     });

@@ -2,6 +2,7 @@
 // writes WHERE it goes and only the fields listed in EVENT_FIELDS. See docs/verbs.md.
 
 import { join } from "node:path";
+import { stampFormatLevel } from "@studio/song/formatStamp";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import {
   addTrackPlacement,
@@ -11,6 +12,7 @@ import {
   moveTrackPlacementsInRange,
   removeTrackPlacement,
 } from "@studio/song-edit/trackMix";
+import { SECONDS_START_LEVEL } from "@studio/song-schema/formatLevel";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { FIXED_FIELDS } from "@studio/song-schema/timelineLane";
 import {
@@ -304,12 +306,16 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       const lane = it.track;
       const ref = it.ref;
       const start = it.start;
+      // A start is a timecode, or a number of SECONDS — the file's two spellings (song-schema docs/timecode.md).
       if (
         typeof lane !== "string" ||
         typeof ref !== "string" ||
-        typeof start !== "string"
+        (typeof start !== "string" &&
+          !(typeof start === "number" && Number.isFinite(start) && start >= 0))
       ) {
-        h.refuse([`${where}: needs a string track, ref and start`]);
+        h.refuse([
+          `${where}: needs a string track and ref, and a start that is a timecode or seconds`,
+        ]);
         return;
       }
       const track = trackOf(p, lane);
@@ -325,7 +331,7 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
       }
       // A timecode this cannot read would be written verbatim and break the next load.
       try {
-        parsePosition(start, num, den);
+        if (typeof start === "string") parsePosition(start, num, den);
       } catch (e) {
         h.refuse([`${where}: bad timecode — ${(e as Error).message}`]);
         return;
@@ -392,6 +398,9 @@ export const EVENT_VERBS: Record<string, SidHandler> = {
     try {
       for (const [id, list] of byTrack)
         addTrackPlacements(h.songPath, id, list);
+      // An event placed in seconds is a format a level-1 build refuses (song-schema docs/formatLevel.md).
+      if (items.some((it) => typeof it.start === "number"))
+        stampFormatLevel(h.songPath, SECONDS_START_LEVEL);
       const n = items.length;
       h.log([
         `added ${n} event${n === 1 ? "" : "s"} on ${[...byTrack.keys()].join(", ")}`,

@@ -11,6 +11,7 @@
     "./rackTaps": "./src/rackTaps.ts",
     "./insertTime": "./src/insertTime.ts",
     "./sequenceLoops": "./src/sequenceLoops.ts",
+    "./songTempo": "./src/songTempo.ts",
     "./tapChain": "./src/tapChain.ts",
     "./materialCut": "./src/materialCut.ts",
     "./materialWindow": "./src/materialWindow.ts",

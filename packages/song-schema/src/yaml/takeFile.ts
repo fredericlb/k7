@@ -5,7 +5,7 @@
 import type { K7Path } from "@studio/k7x/ast";
 import type { K7Scope } from "@studio/k7x/document";
 import { type CompSpan, setCompSpan } from "../takes";
-import { beatsToPosition, parsePosition } from "../timecode";
+import { beatsToPosition, parsePosition, startBeats } from "../timecode";
 import { eventsToEdit } from "./trackFile";
 
 type Data = Record<string, unknown>;
@@ -25,7 +25,8 @@ function takesOf(
   den: number,
 ): {
   ref: string;
-  start: number;
+  /** The event's own `start` as written, seconds or a position — only the comp clamp reads it, with the tempo. */
+  start: unknown;
   takes: { ref: string; start: string }[];
   comp: CompSpan[];
 } {
@@ -42,7 +43,7 @@ function takesOf(
   );
   return {
     ref: String(p.ref ?? ""),
-    start: parsePosition(String(p.start ?? "1"), num, den),
+    start: p.start,
     takes,
     comp,
   };
@@ -79,9 +80,11 @@ export function setCompAt(
   span: { take: string; from: string; to: string },
   num: number,
   den: number,
+  tempo: number,
 ): void {
   const at = [...eventsToEdit(doc), index];
-  const { ref, start, takes, comp } = takesOf(doc, at, num, den);
+  const { ref, start: written, takes, comp } = takesOf(doc, at, num, den);
+  const start = startBeats(written, num, den, tempo, "1");
   if (span.take !== ref && !takes.some((t) => t.ref === span.take))
     throw new Error(`no take "${span.take}" on this event`);
   // Never before the event's own start: a comped event begins where its placement does (song docs/takes.md).
@@ -105,12 +108,13 @@ export function addTakeAt(
   span: { from: string; to: string } | null,
   num: number,
   den: number,
+  tempo: number,
 ): void {
   const at = [...eventsToEdit(doc), index];
   const path = [...at, "takes"];
   if (Array.isArray(doc.getIn(path))) doc.addIn(path, take, { inline: true });
   else doc.setIn(path, [take]);
-  if (span) setCompAt(doc, index, { take: take.ref, ...span }, num, den);
+  if (span) setCompAt(doc, index, { take: take.ref, ...span }, num, den, tempo);
 }
 
 /** Drop a take from the placement at `index`, and every span of the comp it played. */

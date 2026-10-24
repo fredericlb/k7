@@ -15,6 +15,8 @@ import {
   beatsToDuration,
   beatsToPosition,
   parsePosition,
+  startAs,
+  startBeats,
 } from "@studio/song-schema/timecode";
 import type { Placement } from "@studio/song-schema/yaml/placementSchema";
 import { shiftTakes, shiftTakesAt } from "@studio/song-schema/yaml/takeFile";
@@ -28,6 +30,7 @@ import {
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
+import { songTempo } from "./songTempo";
 
 // --- gain / pan conversions: a track's `volume` is a LINEAR GAIN, not dB (1.0 == unity) ----
 
@@ -85,11 +88,13 @@ export function movePlacementToTrack(
   den: number,
 ): boolean {
   let cut: Record<string, unknown> | null = null;
+  const tempo = songTempo(dir);
+  const toBeats = parsePosition(toTc, num, den);
   editTrackStruct(
     dir,
     fromId,
     (doc) => {
-      const at = findPlacementAt(doc, fromBeats, num, den);
+      const at = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (at < 0) return;
       cut = placementAt(doc, at);
       if (cut) removePlacementAt(doc, at);
@@ -106,11 +111,21 @@ export function movePlacementToTrack(
         // Its takes were played where the event was: they travel with it (song docs/takes.md).
         ...shiftTakes(
           cut as Record<string, unknown>,
-          parsePosition(toTc, num, den) - fromBeats,
+          toBeats - fromBeats,
           num,
           den,
         ),
-        start: toTc,
+        // In the unit it was written in: a shot placed in seconds stays in seconds on its new lane.
+        start:
+          typeof (cut as Record<string, unknown>).start === "number"
+            ? startAs(
+                (cut as Record<string, unknown>).start,
+                toBeats,
+                num,
+                den,
+                tempo,
+              )
+            : toTc,
       } as never),
     `move a placement onto track "${toId}"`,
   );
@@ -127,22 +142,18 @@ export function moveTrackPlacement(
   den: number,
 ): boolean {
   let moved = false;
+  const tempo = songTempo(dir);
+  const toBeats = parsePosition(toTc, num, den);
   editTrackStruct(
     dir,
     id,
     (doc) => {
-      const at = findPlacementAt(doc, fromBeats, num, den);
+      const at = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (at < 0) return;
       moved = true;
-      movePlacementAt(doc, at, toTc);
+      movePlacementAt(doc, at, toBeats, num, den, tempo, toTc);
       // Its takes, comp and crossfades move with it — they are song positions (song docs/takes.md).
-      shiftTakesAt(
-        doc,
-        at,
-        parsePosition(toTc, num, den) - fromBeats,
-        num,
-        den,
-      );
+      shiftTakesAt(doc, at, toBeats - fromBeats, num, den);
     },
     "move a clip",
   );
@@ -160,13 +171,14 @@ export function moveTrackPlacementsInRange(
   den: number,
 ): number {
   let moved = 0;
+  const tempo = songTempo(dir);
   editTrackStruct(
     dir,
     id,
     (doc) => {
       const starts = placementValues(doc).map((p) => {
         try {
-          return parsePosition(String(p.start ?? "1:1:1"), num, den);
+          return startBeats(p.start, num, den, tempo);
         } catch {
           return null; // an unparseable start can't fall in any range
         }
@@ -174,7 +186,7 @@ export function moveTrackPlacementsInRange(
       starts.forEach((s, i) => {
         if (s === null || s < fromBeats - 1e-6 || s > toBeats + 1e-6) return;
         // By index, not by position: indices are stable under a start rewrite.
-        movePlacementAt(doc, i, beatsToPosition(s + deltaBeats, num, den));
+        movePlacementAt(doc, i, s + deltaBeats, num, den, tempo);
         shiftTakesAt(doc, i, deltaBeats, num, den);
         moved++;
       });
@@ -197,11 +209,12 @@ function setPlacementFieldAt(
   what: string,
 ): boolean {
   let hit = false;
+  const tempo = songTempo(dir);
   editTrackStruct(
     dir,
     id,
     (doc) => {
-      const at = findPlacementAt(doc, fromBeats, num, den);
+      const at = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (at < 0) return;
       hit = true;
       setPlacementField(doc, at, key, value);
@@ -330,7 +343,7 @@ export function resizeTrackPlacement(
   const own = laneEventsAt(dir, id);
   if (!own) throw new Error(`track "${id}" has no file in ${laneFolder(dir)}/`);
   const lane = new K7Document(wsText(own.path)).at(own.base);
-  const at = findPlacementAt(lane, fromBeats, num, den);
+  const at = findPlacementAt(lane, fromBeats, num, den, tempo);
   if (at < 0) return null;
   const placement = placementValues(lane)[at] ?? {};
   const ref = String(placement.ref ?? "");
@@ -377,15 +390,10 @@ export function resizeTrackPlacement(
     dir,
     id,
     (doc) => {
-      const i = findPlacementAt(doc, fromBeats, num, den);
+      const i = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (i < 0) return;
       if (Math.abs(next.startBeats - fromBeats) > 1e-6)
-        setPlacementField(
-          doc,
-          i,
-          "start",
-          beatsToPosition(next.startBeats, num, den),
-        );
+        movePlacementAt(doc, i, next.startBeats, num, den, tempo);
       // `loop: 1` is the default and is cleared rather than written, like every other absent field.
       setPlacementField(
         doc,
@@ -470,11 +478,12 @@ export function removeTrackPlacement(
   den: number,
 ): boolean {
   let removed = false;
+  const tempo = songTempo(dir);
   editTrackStruct(
     dir,
     id,
     (doc) => {
-      const at = findPlacementAt(doc, fromBeats, num, den);
+      const at = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (at < 0) return;
       removed = true;
       removePlacementAt(doc, at);

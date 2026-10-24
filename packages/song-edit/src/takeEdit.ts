@@ -15,6 +15,7 @@ import {
   setCrossfadeAt,
 } from "@studio/song-schema/yaml/takeFile";
 import { findPlacementAt } from "@studio/song-schema/yaml/trackFile";
+import { songTempo } from "./songTempo";
 import { editTrackStruct } from "./trackMix";
 
 /** One edit on the event of `track` starting at `eventBeats`, refused when there is none there. */
@@ -24,19 +25,20 @@ function atEvent(
   eventBeats: number,
   num: number,
   den: number,
-  edit: (doc: K7Scope, index: number) => void,
+  edit: (doc: K7Scope, index: number, tempo: number) => void,
   what: string,
 ): string {
+  const tempo = songTempo(dir);
   return editTrackStruct(
     dir,
     track,
     (doc) => {
-      const i = findPlacementAt(doc, eventBeats, num, den);
+      const i = findPlacementAt(doc, eventBeats, num, den, tempo);
       if (i < 0)
         throw new Error(
           `no event at ${beatsToPosition(eventBeats, num, den)} on ${track}`,
         );
-      edit(doc, i);
+      edit(doc, i, tempo);
     },
     what,
   );
@@ -57,7 +59,7 @@ export function setEventComp(
     eventBeats,
     num,
     den,
-    (doc, i) => setCompAt(doc, i, span, num, den),
+    (doc, i, tempo) => setCompAt(doc, i, span, num, den, tempo),
     "comp a take",
   );
 }
@@ -119,7 +121,7 @@ export function addEventTake(
     eventBeats,
     num,
     den,
-    (doc, i) => addTakeAt(doc, i, take, span, num, den),
+    (doc, i, tempo) => addTakeAt(doc, i, take, span, num, den, tempo),
     "add a take",
   );
 }

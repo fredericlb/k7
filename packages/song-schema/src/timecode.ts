@@ -116,6 +116,41 @@ export function beatsToDuration(
   return fromBeats(beats, num, den, false);
 }
 
+/** An event's `start` as a file holds it: a NUMBER is seconds, a string a 1-based position (docs/timecode.md). */
+export type EventStart = string | number;
+
+/** An event's `start` in beats, whichever unit it is written in; `dflt` stands for an absent one. */
+export function startBeats(
+  v: unknown,
+  num: number,
+  den: number,
+  tempo: number,
+  dflt = "1:1:1",
+): number {
+  if (typeof v === "number") return (v * tempo) / 60;
+  return parsePosition(v == null || v === "" ? dflt : String(v), num, den);
+}
+
+/** `beats` written in the unit `like` is: seconds stay seconds, to the millisecond, anything else a position. */
+export function startAs(
+  like: unknown,
+  beats: number,
+  num: number,
+  den: number,
+  tempo: number,
+): EventStart {
+  if (typeof like !== "number") return beatsToPosition(beats, num, den);
+  return Math.max(0, Math.round(((beats * 60) / tempo) * 1000) / 1000);
+}
+
+/** How near a position must be to an event's start to address it: exact on the grid, half a tick off it. */
+export const startTolerance = (v: unknown): number =>
+  typeof v === "number" ? 0.5 / TICKS_PER_QUARTER : 1e-6;
+
+/** An event's `start` as a message prints it — `4.5s` for seconds, the timecode as written otherwise. */
+export const startText = (v: unknown, dflt = "1:1:1"): string =>
+  typeof v === "number" ? `${v}s` : String(v ?? dflt);
+
 /** A beat rounded to six decimals, so a float's tail never reaches a file or a key. */
 export const roundBeat = (beats: number): number =>
   Math.round(beats * 1e6) / 1e6;

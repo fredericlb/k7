@@ -5,7 +5,12 @@
 import type { K7Path } from "@studio/k7x/ast";
 import type { K7Scope } from "@studio/k7x/document";
 import { currentAlternative } from "../alternatives";
-import { beatsToPosition, parsePosition } from "../timecode";
+import {
+  type EventStart,
+  startAs,
+  startBeats,
+  startTolerance,
+} from "../timecode";
 import type { Placement } from "./placementSchema";
 import { spliceList, type TimeSplice } from "./timeSplice";
 
@@ -105,20 +110,21 @@ export function addPlacement(
 
 // --- addressing a placement by POSITION (beats, not strings: "1:1:1", "1:1" and "1" are one position) ---
 
-/** The index of the placement whose `start` parses to `beats`, or -1. */
+/** The index of the placement whose `start` reads as `beats`, in either unit, or -1. */
 export function findPlacementAt(
   doc: K7Scope,
   beats: number,
   num: number,
   den: number,
+  tempo: number,
 ): number {
   const events = listAt(doc, eventsIn(doc)) ?? [];
   return events.findIndex((p) => {
     const start = isRecord(p) ? p.start : undefined;
     try {
       return (
-        Math.abs(parsePosition(String(start ?? "1:1:1"), num, den) - beats) <
-        1e-6
+        Math.abs(startBeats(start, num, den, tempo) - beats) <
+        startTolerance(start)
       );
     } catch {
       return false; // an unparseable start can't match a real position
@@ -170,9 +176,25 @@ export function copyPlacementAt(
   appendPlacement(doc, path, merged);
 }
 
-/** Rewrite the `start` of the placement at `index`. Everything else it carries stays. */
-export function movePlacementAt(doc: K7Scope, index: number, to: string): void {
-  doc.setIn([...eventsToEdit(doc), index, "start"], to);
+/** Rewrite the `start` of the placement at `index`, in the unit it is written in. Everything else it carries stays. */
+export function movePlacementAt(
+  doc: K7Scope,
+  index: number,
+  toBeats: number,
+  num: number,
+  den: number,
+  tempo: number,
+  /** The caller's own timecode for `toBeats`, written as given when the event is musical. */
+  spelled?: string,
+): void {
+  const path = eventsToEdit(doc);
+  const was = (listAt(doc, path) ?? [])[index];
+  const like = isRecord(was) ? was.start : undefined;
+  const to =
+    typeof like !== "number" && spelled !== undefined
+      ? spelled
+      : startAs(like, toBeats, num, den, tempo);
+  doc.setIn([...path, index, "start"], to);
 }
 
 /** Every list of placements this file holds — what a change to the song's CLOCK must reach, docs/laneEdits.md. */
@@ -188,7 +210,7 @@ function everyEventList(doc: K7Scope): K7Path[] {
 
 /** A placement this lane places `ref` with, and why a loop halving passed it by — docs/laneEdits.md. */
 export interface KeptLoop {
-  start: string;
+  start: EventStart;
   loop: number;
   /** `odd`: it plays an odd number of times. `windowed`: it states a window of its own, which did not double. */
   why: "odd" | "windowed";
@@ -206,7 +228,7 @@ export function halveSequenceLoops(
       if (!isRecord(item) || String(item.ref ?? "") !== ref) return;
       const loop = Number(item.loop ?? 1);
       if (!Number.isInteger(loop) || loop < 2) return;
-      const start = String(item.start ?? "1:1:1");
+      const start = (item.start ?? "1:1:1") as EventStart;
       // A window of its own did not grow with the material's, so halving would halve what plays.
       if (item.from != null || item.to != null) {
         kept.push({ start, loop, why: "windowed" });
@@ -233,6 +255,7 @@ export function spliceTime(
   mode: "insert" | "delete",
   num: number,
   den: number,
+  tempo: number,
 ): TimeSplice {
   const splice: TimeSplice = { moved: 0, removed: 0 };
   if (!(lenBeats > 0)) return splice;
@@ -242,7 +265,7 @@ export function spliceTime(
       const item = items[i];
       if (!isRecord(item)) return null;
       try {
-        return parsePosition(String(item.start ?? "1:1:1"), num, den);
+        return startBeats(item.start, num, den, tempo);
       } catch {
         return null; // an unreadable start is one placement left alone, not a failed splice
       }
@@ -252,8 +275,11 @@ export function spliceTime(
         count: items.length,
         positionOf: startOf,
         remove: (i) => doc.deleteIn([...path, i]),
-        move: (i, to) =>
-          doc.setIn([...path, i, "start"], beatsToPosition(to, num, den)),
+        move: (i, to) => {
+          const item = items[i];
+          const like = isRecord(item) ? item.start : undefined;
+          doc.setIn([...path, i, "start"], startAs(like, to, num, den, tempo));
+        },
       },
       atBeats,
       lenBeats,

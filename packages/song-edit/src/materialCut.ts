@@ -13,16 +13,23 @@ import {
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { wsData, wsText, wsWriteData } from "@studio/song/yaml/workspaceDoc";
-import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
+import {
+  beatsToPosition,
+  parsePosition,
+  startAs,
+  startBeats,
+} from "@studio/song-schema/timecode";
 import type { NoteIn } from "@studio/song-schema/yaml/sequenceFile";
 import {
   addPlacement,
   copyPlacementAt,
   findPlacementAt,
+  placementAt,
   placementValues,
   removePlacementAt,
   setPlacementField,
 } from "@studio/song-schema/yaml/trackFile";
+import { songTempo } from "./songTempo";
 import { editTrackStruct } from "./trackMix";
 
 /** Two placements at the same beat are the same placement, so this is what "the same" means. */
@@ -166,8 +173,9 @@ export function splitSequenceMaterial(
   const own = laneEventsAt(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
+  const tempo = songTempo(dir);
   const lane = new K7Document(wsText(own.path)).at(own.base);
-  const index = findPlacementAt(lane, fromBeats, num, den);
+  const index = findPlacementAt(lane, fromBeats, num, den, tempo);
   if (index < 0) return null;
   const placement = placementValues(lane)[index] ?? {};
   const ref = String(placement.ref ?? "");
@@ -214,7 +222,7 @@ export function splitSequenceMaterial(
     dir,
     trackId,
     (doc) => {
-      const i = findPlacementAt(doc, fromBeats, num, den);
+      const i = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (i < 0) return;
       // Every window on the placement is cleared: both halves are whole materials.
       setPlacementField(doc, i, "ref", head.ref);
@@ -222,7 +230,7 @@ export function splitSequenceMaterial(
       setPlacementField(doc, i, "to", undefined);
       copyPlacementAt(doc, i, {
         ref: tail.ref,
-        start: beatsToPosition(atBeats, num, den),
+        start: startAs(placementAt(doc, i)?.start, atBeats, num, den, tempo),
         from: undefined,
         to: undefined,
       });
@@ -245,10 +253,11 @@ export function consolidateSequenceMaterial(
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
   const lane = new K7Document(wsText(own.path)).at(own.base);
+  const tempo = songTempo(dir);
 
   const startOf = (p: Record<string, unknown>): number | null => {
     try {
-      return parsePosition(String(p.start ?? "1:1:1"), num, den);
+      return startBeats(p.start, num, den, tempo);
     } catch {
       return null;
     }
@@ -308,7 +317,7 @@ export function consolidateSequenceMaterial(
     trackId,
     (doc) => {
       for (const { start } of [...picked].reverse()) {
-        const i = findPlacementAt(doc, start, num, den);
+        const i = findPlacementAt(doc, start, num, den, tempo);
         if (i >= 0) removePlacementAt(doc, i);
       }
       addPlacement(doc, {
@@ -338,17 +347,18 @@ export function splitAudioPlacement(
 ): PlacementSplitReport | null {
   // Four decimals, as a resize writes a window: a split must not leave a hair of float noise in the file.
   const at = Math.round(cut * 10000) / 10000;
+  const tempo = songTempo(dir);
   let found = false;
   editTrackStruct(
     dir,
     trackId,
     (doc) => {
-      const i = findPlacementAt(doc, fromBeats, num, den);
+      const i = findPlacementAt(doc, fromBeats, num, den, tempo);
       if (i < 0) return;
       found = true;
-      // The tail: the same placement from the cut on, keeping the end and the fade-out, losing the fade-in.
+      // The tail: the same placement from the cut on, in its unit, keeping the end and the fade-out, losing the fade-in.
       copyPlacementAt(doc, i, {
-        start: beatsToPosition(atBeats, num, den),
+        start: startAs(placementAt(doc, i)?.start, atBeats, num, den, tempo),
         from: at,
         fadeIn: undefined,
       });

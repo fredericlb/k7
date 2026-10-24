@@ -22,6 +22,11 @@ import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { confineTo } from "@studio/song/confine";
 import type { ConsoleSystem } from "@studio/song/console";
 import { enginesBeside } from "@studio/song/engines";
+import {
+  holdsSecondsStarts,
+  stampFormatForSeconds,
+  stampFormatLevel,
+} from "@studio/song/formatStamp";
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
@@ -55,6 +60,8 @@ import {
 } from "@studio/song/sharedFolders";
 import { hasPicture, projectSurfaces } from "@studio/song/surfaces";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
+import { SECONDS_START_LEVEL } from "@studio/song-schema/formatLevel";
 import { ACCOUNT_LIBRARY } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -391,6 +398,7 @@ export class Workspace {
     this.activeProject = abs;
     this.writeActiveMarker(abs);
     this.repairVideoOutputs(abs);
+    stampFormatForSeconds(abs);
     this.invalidateProjectDoc();
     guard("waveform prewarm", this.prewarmWaveforms());
     return abs;
@@ -854,8 +862,24 @@ export class Workspace {
     refuseYamlName(rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileAtomic(abs, content);
+    this.stampFormatFor(abs);
     this.invalidateProjectDoc();
     return {};
+  }
+
+  /** A written lane placing an event in SECONDS raises its project's format level — song/src/formatStamp.ts. */
+  private stampFormatFor(abs: string): void {
+    if (!abs.endsWith(".k7x")) return;
+    let dir = dirname(abs);
+    while (!isProjectDir(dir) && dir !== this.root && dirname(dir) !== dir)
+      dir = dirname(dir);
+    if (!isProjectDir(dir)) return;
+    try {
+      if (holdsSecondsStarts(wsData(abs)))
+        stampFormatLevel(dir, SECONDS_START_LEVEL);
+    } catch {
+      /* best-effort — a file that will not read is the compile's to report */
+    }
   }
 
   /** Drop a file into `dir` under `name`, which may carry FOLDERS. Binary-safe, EEXIST rather than clobber. */

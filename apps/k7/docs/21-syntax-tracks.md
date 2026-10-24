@@ -86,9 +86,17 @@ events([
   ref("snare").start("2:1:1").loop(4), // four passes of the snare's window, back to back
   ref("kick").start("6:1:1").fadeIn("0:1:0").fadeOut("0:1:0"),
   ref("kick").start("8:1:1").gain(-2), // this event alone, 2 dB down
+  ref("kick").start(12.5), // a NUMBER is seconds: 12.5 s in, whatever the tempo
 ])
 // Timecodes are strings, so they are QUOTED: a bare 1:1:1 is no k7x value.
 ```
+
+A `start` is either a **timecode** — a place in the music, which moves when you change the tempo — or
+a **number of seconds**, which does not: re-typing `tempo:` slides the grid under it and leaves the
+event where the clock says. Use seconds for what has to land on a moment of a picture or a
+recording rather than on a beat. Moving the event, on the timeline or with `event move`, keeps it
+in the unit it was written in. A song holding one is written at format level 2, which an older k7
+asks to be updated to open.
 
 `fadeIn` and `fadeOut` are **lengths**, not positions: `"0:1"` is one beat. That matters because
 both spellings are legal timecodes and nothing downstream can tell them apart — the same beat
