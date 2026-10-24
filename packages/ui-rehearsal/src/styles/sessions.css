@@ -234,35 +234,31 @@
     margin-top: 1px;
   }
   /* Quick links to a song's Lyrics / Tab / Sheet; disabled when that field is empty. */
-  /* The reference track, above the tabs: the player full width, its buttons under it. */
-  .song-player {
-    margin: 10px 0 14px;
+  /* The reference track's mini player, at the foot of the content column and above any other bar there. */
+  .song-detail {
+    --song-bar-h: 0px;
+    --rail-bar-h: 0px;
   }
-  /* In the rail the player IS the panel's body, so the page margin would be a gap inside a box. */
-  .rail-panel .song-player {
-    margin: 0;
-    padding: 8px;
-    overflow: auto;
+  .song-detail.has-song-bar {
+    --song-bar-h: 64px;
+    padding-bottom: var(--song-bar-h);
   }
-  .song-player-audio {
-    width: 100%;
+  .main-inner.has-rec-bar .song-detail {
+    --rec-bar-h: 64px;
   }
-  /* Full width under the shape: the one control a click on the waveform cannot express. */
-  .song-player-play {
-    width: 100%;
-    margin-top: 6px;
+  .song-bar {
+    position: fixed;
+    right: 0;
+    bottom: calc(var(--rail-bar-h) + var(--rec-bar-h, 0px));
+    left: var(--rehearsal-inset-left);
+    z-index: 24;
   }
   /* The version toggle: the switch and the word it turns on, kept on one line. */
-  .song-player-version {
+  .song-bar-version {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 6px;
-  }
-  .song-player-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
   }
 
   /* A list page's round +, floating at the bottom right over whatever scrolls under it. */

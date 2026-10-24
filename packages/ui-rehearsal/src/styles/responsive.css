@@ -11,6 +11,10 @@
     .session-del {
       opacity: 0.6;
     }
+    /* The mini player's scrubber is taller under a finger, and so is the bar. */
+    .song-detail.has-song-bar {
+      --song-bar-h: 76px;
+    }
   }
 
   /* On narrow screens the songbook folds its links and the rail becomes a bar at the foot. */
@@ -26,6 +30,10 @@
     .songbook-table td {
       padding-left: 6px;
       padding-right: 6px;
+    }
+    /* The song's bar sits on the panel bar, which is fixed over the foot of the page. */
+    .song-detail {
+      --rail-bar-h: 45px;
     }
     .main {
       /* Room for the panel bar, which is fixed over the foot of the page. */
@@ -80,11 +88,10 @@
     }
     /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
     .rail-panel-body,
-    .chords-panel-list,
-    .rail-panel .song-player {
+    .chords-panel-list {
       position: fixed;
       right: 0;
-      bottom: 45px;
+      bottom: calc(45px + var(--song-bar-h, 0px));
       left: var(--rehearsal-inset-left);
       max-height: 52vh;
       background: var(--surface);

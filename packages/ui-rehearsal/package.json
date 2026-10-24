@@ -27,6 +27,7 @@
     "@studio/score": "*",
     "@studio/rehearsal-shared": "*",
     "@studio/tablature": "*",
+    "@studio/ui-mini-player": "*",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
     "@studio/mediatek": "*",
