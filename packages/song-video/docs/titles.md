@@ -44,7 +44,8 @@ background("rgba(0, 0, 0, 0.6)") // absent, the text carries a shadow instead
 position("bottom") // bottom | top | middle
 margin(40) // px from that edge
 
-// video_tracks/subtitles.k7x
+// nodes/subtitles.k7x
+extends("@meta/picture-track")
 events([
   ref("subs").start(0), // the file's 00:00:00 at the song's 0 s
 ])
@@ -52,7 +53,7 @@ events([
 
 A subtitle file is a clip and not a lane's setting, for the reason a video file is. Its cue
 times are in seconds OF THE FILE, and the placement puts that file on the timeline: moving the
-placement moves every cue, `source_from` trims the head, and two placements of one file are two
+placement moves every cue, `from` trims the head, and two placements of one file are two
 runs of it. That is what a translator's file needs. It was timed against the cut it was made for,
 and the cut moves.
 

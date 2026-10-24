@@ -4,7 +4,6 @@
 // being told apart by a rule nobody wrote.
 
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -32,19 +31,21 @@ const host = () =>
     reload: () => {},
   }) as never;
 
+// A picture lane is a lane node: `nodes/<id>.k7x`, extending the picture track.
+const PIC = 'extends("@meta/picture-track")\n';
 const lane = (body: string, id = "main"): void => {
-  mkdirSync(join(song, "video_tracks"), { recursive: true });
-  writeFileSync(join(song, "video_tracks", `${id}.k7x`), body, "utf8");
+  mkdirSync(join(song, "nodes"), { recursive: true });
+  writeFileSync(join(song, "nodes", `${id}.k7x`), PIC + body, "utf8");
 };
 const read = (id = "main"): string =>
-  readFileSync(join(song, "video_tracks", `${id}.k7x`), "utf8");
+  readFileSync(join(song, "nodes", `${id}.k7x`), "utf8");
 const shots = (id = "main") => listVideoPlacements(read(id));
 
 // Two shots, the second trimmed into its source — the shape docs/picture.md uses as its example.
 const TWO = `// the camera
 events([
   ref("shot_a").start(0).length(4),
-  ref("shot_b").start(4).length(6).source_from(2.5),
+  ref("shot_b").start(4).length(6).from(2.5),
 ])
 `;
 
@@ -73,7 +74,7 @@ describe("picture move", () => {
     lane(TWO);
     await runCommand("picture move main 7 9", host(), "cli");
     expect(refusals.join(" ")).toMatch(/nothing starts at 7s.*shots at 0, 4/);
-    expect(read()).toBe(TWO);
+    expect(read()).toBe(PIC + TWO);
   });
 
   it("refuses a bar:beat:tick, which is the other dialect", async () => {
@@ -106,7 +107,7 @@ describe("picture head", () => {
     lane(TWO);
     await runCommand("picture head main 4 0", host(), "cli");
     expect(refusals.join(" ")).toMatch(/cannot move back more than that/);
-    expect(read()).toBe(TWO);
+    expect(read()).toBe(PIC + TWO);
   });
 
   it("refuses a trim that would leave nothing", async () => {
@@ -116,7 +117,7 @@ describe("picture head", () => {
   });
 
   it("leaves a length-0 shot's length alone — the compiler owns that number", async () => {
-    lane('events([ref("a").start(2).length(0).source_from(1)])\n');
+    lane('events([ref("a").start(2).length(0).from(1)])\n');
     await runCommand("picture head main 2 3", host(), "cli");
     expect(shots()[0]).toMatchObject({ start: 3, length: 0, sourceFrom: 2 });
   });
@@ -150,7 +151,7 @@ describe("picture length / delete / add", () => {
   });
 
   it("creates events: on a lane that has none", async () => {
-    lane("x(0)\n");
+    lane("frame([0, 0, 640, 360])\n");
     await runCommand("picture add main shot_a 0 4", host(), "cli");
     expect(shots()).toHaveLength(1);
   });
@@ -165,7 +166,7 @@ describe("two shots at one instant", () => {
     expect(refusals.join(" ")).toMatch(
       /2 shots start at 4s.*cannot be told apart/,
     );
-    expect(read()).toBe(same);
+    expect(read()).toBe(PIC + same);
   });
 
   it("but a ref placed TWICE is two shots, addressed by where each starts", async () => {
@@ -179,42 +180,42 @@ describe("two shots at one instant", () => {
 });
 
 describe("picture lane new", () => {
-  // The lane file alone is not a lane: `layers:` is what says one exists, and the compile refuses without it.
+  // The rows' order is the draw order, so a new lane is stated in `trackOrder`, above the picture lanes there are.
   const project = (body: string): void =>
     writeFileSync(join(song, "project.k7x"), body, "utf8");
+  const trackOrder = () =>
+    (
+      parse(readFileSync(join(song, "project.k7x"), "utf8")) as {
+        trackOrder?: string[];
+      }
+    ).trackOrder;
 
-  it("writes the lane AND lists it in project.layers", async () => {
+  it("writes the lane AND states it in trackOrder, in front of the others", async () => {
     project(
-      'project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n',
+      'project({ name: "t", viewport: [1280, 720] })\ntrackOrder(["main"])\n',
     );
     lane("events([])\n");
     await runCommand("picture lane new broll", host(), "cli");
+    expect(refusals).toEqual([]);
     expect(read("broll")).toContain("events([])");
-    expect(
-      (
-        parse(readFileSync(join(song, "project.k7x"), "utf8")).project as {
-          layers?: string[];
-        }
-      ).layers,
-    ).toEqual(["main", "broll"]);
+    expect(read("broll")).toContain("@meta/picture-track");
+    expect(trackOrder()).toEqual(["broll", "main"]);
   });
 
-  it("creates layers: on a project that names none", async () => {
+  it("states trackOrder on a project that names none", async () => {
     project('project({ name: "t", viewport: [1280, 720] })\n');
     await runCommand("picture lane new broll", host(), "cli");
-    expect(readFileSync(join(song, "project.k7x"), "utf8")).toMatch(/broll/);
+    expect(trackOrder()).toEqual(["broll"]);
   });
 
   it("picks layer-N when you don't name one", async () => {
-    project('project({ name: "t", viewport: [1280, 720], layers: [] })\n');
+    project('project({ name: "t", viewport: [1280, 720] })\n');
     await runCommand("picture lane new", host(), "cli");
     expect(read("layer-1")).toContain("events([])");
   });
 
   it("refuses a name a lane already has, and writes nothing", async () => {
-    project(
-      'project({ name: "t", viewport: [1280, 720], layers: ["main"] })\n',
-    );
+    project('project({ name: "t", viewport: [1280, 720] })\n');
     lane("// the camera\nevents([])\n");
     await runCommand("picture lane new main", host(), "cli");
     expect(refusals.join(" ")).toMatch(/already exists/);
@@ -222,37 +223,31 @@ describe("picture lane new", () => {
   });
 
   it("states no rect, which the compile reads as the whole frame", async () => {
-    project('project({ name: "t", viewport: [1280, 720], layers: [] })\n');
+    project('project({ name: "t", viewport: [1280, 720] })\n');
     await runCommand("picture lane new broll", host(), "cli");
-    expect(read("broll")).not.toMatch(/^[wh]:/m);
-  });
-
-  it("refuses before writing when there is no project.k7x to list it in", async () => {
-    await runCommand("picture lane new broll", host(), "cli");
-    expect(refusals.join(" ")).toMatch(/nowhere to be listed/);
-    expect(existsSync(join(song, "video_tracks", "broll.k7x"))).toBe(false);
+    expect(read("broll")).not.toMatch(/frame/);
   });
 });
 
 describe("picture rect", () => {
-  it("writes all four keys and keeps the comments", async () => {
+  it("writes the frame and keeps the comments", async () => {
     lane("// the camera\nevents([])\n");
     await runCommand("picture rect main 960 540 320 180", host(), "cli");
     expect(read()).toContain("// the camera");
-    expect(parse(read())).toMatchObject({ x: 960, y: 540, w: 320, h: 180 });
+    expect(parse(read())).toMatchObject({ frame: [960, 540, 320, 180] });
   });
 
   it("replaces a rect the lane already had", async () => {
-    lane("x(0)\ny(0)\nw(1280)\nh(720)\nevents([])\n");
+    lane("frame([0, 0, 1280, 720])\nevents([])\n");
     await runCommand("picture rect main 10 20 30 40", host(), "cli");
-    expect(read().match(/^w\(.*$/m)?.[0]).toBe("w(30)");
-    expect(read().split("w(").length).toBe(2); // one key, not a second one appended
+    expect(parse(read())).toMatchObject({ frame: [10, 20, 30, 40] });
+    expect(read().split("frame(").length).toBe(2); // one key, not a second one appended
   });
 
   it("rounds to whole pixels — a frame is measured in them", async () => {
     lane("events([])\n");
     await runCommand("picture rect main 0.4 0.6 320.5 180", host(), "cli");
-    expect(parse(read())).toMatchObject({ x: 0, y: 1, w: 321 });
+    expect(parse(read())).toMatchObject({ frame: [0, 1, 321, 180] });
   });
 
   it("refuses a zero side, which is a lane that draws nothing", async () => {
@@ -260,7 +255,7 @@ describe("picture rect", () => {
     lane(before);
     await runCommand("picture rect main 0 0 0 720", host(), "cli");
     expect(refusals.join(" ")).toMatch(/draws nothing/);
-    expect(read()).toBe(before);
+    expect(read()).toBe(PIC + before);
   });
 
   it("refuses four arguments that are not four numbers", async () => {

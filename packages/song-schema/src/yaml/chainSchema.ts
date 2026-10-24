@@ -38,7 +38,7 @@ const TrackItemSchema = z
   .object({ id: Id, track: z.string().min(1), bypass: z.boolean().optional() })
   .strict();
 
-/** A PICTURE lane: its placements live in `video_tracks/<video_track>.k7x`, and it holds no module. */
+/** A PICTURE lane as an unmigrated chain project holds it, its shots in `video_tracks/` until its open moves them (docs/formatLevel.md). */
 const VideoTrackItemSchema = z
   .object({
     id: Id,

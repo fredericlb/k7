@@ -560,7 +560,7 @@ screen — is a reserved destination, which is why no timeline may be named `mai
 gets `track new`'s file and strip and no chain. Main to Main is refused for `track duplicate`, which
 copies the chain too. A PICTURE lane — the song's, or a timeline's `<timeline>><lane>` — is copied
 by the same verb (`timelinePictureCopy.ts`): its shots, in seconds as written, onto a timeline's
-`pictures:` or into a new `video_tracks/` file. Main to Main is allowed there and keeps the frame,
+`pictures:` or into a new picture lane of the song (`createPictureLaneFile`). Main to Main is allowed there and keeps the frame,
 picture having no duplicate verb of its own. The `picture` verbs take `<timeline>><lane>` wherever
 they take a lane, by resolving it to the timeline's file and the lane's map inside it (`laneFile`);
 `mute`, `solo`, `rect` and `sound` refuse it (`layerFile`), being about the song lane it draws on.

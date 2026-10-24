@@ -8,7 +8,7 @@ track transcribe <track_in> <track_out>
 
 | Argument | Meaning |
 |---|---|
-| `track_in` | A **picture lane** of the project (a file `video_tracks/<name>.k7x`). The command completes it from the project's picture lanes. |
+| `track_in` | A **picture lane** of the project (a lane extending `@meta/picture-track`). The command completes it from the project's picture lanes. |
 | `track_out` | The track that receives the transcript. Created if it does not exist; if it exists, its `content:` is **replaced**. |
 
 Example:
@@ -54,7 +54,7 @@ Transcription runs where the project's files are handled, and it needs, on that 
 
 | Message | Cause |
 |---|---|
-| `no picture lane "cam"` | No `video_tracks/cam.k7x`. |
+| `no picture lane "cam" in this song` | The song has no picture lane named `cam`. |
 | `'cam' places no shot` | The lane has no shot, so there is nothing to listen to. |
 | `clip '…' says no source` | The shot's clip has no `source:`. |
 | `clip '…' is not a video` | The source is an audio file; transcription listens to picture lanes only. |

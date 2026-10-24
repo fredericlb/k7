@@ -3,7 +3,7 @@
 // arithmetic, kept out of the component because it is the half that ends up in a file and the
 // half a test can reach — a GL context draws none of it. See docs/picture.md.
 
-/** A layer's rect in VIEWPORT px, which is exactly what `video_tracks/<id>.k7x` states. */
+/** A layer's rect in VIEWPORT px, which is exactly what a picture lane's `frame` states. */
 export interface Rect {
   x: number;
   y: number;

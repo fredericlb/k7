@@ -67,6 +67,7 @@
     "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoOutputs": "./src/videoOutputs.ts",
     "./formatStamp": "./src/formatStamp.ts",
+    "./pictureLanes": "./src/pictureLanes.ts",
     "./pictureLanesMigrate": "./src/pictureLanesMigrate.ts",
     "./videoSound": "./src/videoSound.ts",
     "./rawDoc": "./src/rawDoc.ts",

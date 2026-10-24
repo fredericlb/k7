@@ -81,15 +81,15 @@ export interface RawSequence {
   [key: string]: unknown;
 }
 
-/** One video placement (seconds, not timecodes — picture cuts against the clock). */
+/** One SHOT on a picture lane (seconds, not timecodes — picture cuts against the clock). */
 export interface RawVideoPlacement {
   ref?: unknown;
   start?: unknown;
   length?: unknown;
-  source_from?: unknown;
+  from?: unknown;
   // A number, or `{ over, with }` naming the module that draws it (song-video/docs/transitions.md).
-  fade_in?: unknown;
-  fade_out?: unknown;
+  fadeIn?: unknown;
+  fadeOut?: unknown;
   animate?: unknown; // the shot's keyframes (song-video docs/animation.md)
   speed?: unknown; // how fast its source runs, signed (song-video docs/speed.md)
   effect?: unknown; // the run this shot alone goes through (song-video docs/effects.md)
@@ -97,7 +97,7 @@ export interface RawVideoPlacement {
   timeline?: string; // never written: the timeline whose placement put this shot here (docs/timelines.md)
 }
 
-/** A video track file's struct (video_tracks/<id>.k7x). */
+/** A picture lane as the picture compile reads it — a `@meta/picture-track` node, its rect unpacked. */
 export interface RawVideoTrack {
   name?: unknown;
   color?: unknown;

@@ -141,7 +141,7 @@ export interface Hints {
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
   clips: string[];
-  // Video track ids (video_tracks/<id>.k7x) — the song's picture lanes, and what `layers:` may name.
+  // The song's picture lanes, by id — the `@meta/picture-track` nodes, which a sounding lane's `video_source` may name.
   videoTracks: string[];
   sequences: string[];
   chains: string[];

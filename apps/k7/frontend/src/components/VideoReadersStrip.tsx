@@ -1,6 +1,6 @@
-// VideoReadersStrip.tsx — the per-placement dock for an open video_tracks/*.k7x: one
+// VideoReadersStrip.tsx — the per-placement dock for an open picture lane's file: one
 // small <video> reader per `events:` entry, with Set From / Set To writing the reader's
-// current timecode into that placement's `source_from` / `length`. Both are surgical text
+// current timecode into that placement's `from` / `length`. Both are surgical text
 // rewrites of the open file (@studio/song/yaml/videoTrackFile); autosave writes it.
 
 import { Button } from "@frediverse/ui/button";
@@ -36,7 +36,7 @@ function ReaderCard({
   const [t, setT] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Park the playhead at the placement's source_from, so opening a reader shows the in-point, not the file start.
+  // Park the playhead at the placement's `from`, so opening a reader shows the in-point, not the file start.
   useEffect(() => {
     const v = ref.current;
     if (!v) return;

@@ -62,7 +62,7 @@ compiler could read `text` at `path`:
 2. k7x syntax first (`k7xSyntaxIssue`); a syntax error makes the result `malformed`.
 3. `parserFor(path)` chooses the parser by folder and basename: presets, then `modules`/`_modules`
    (`ui`, `controller`, `config`, else `parseModule`), `nodes/`, `tracks/`, `chains/` (a library
-   chain folder's `graph` is `parseGraph`), `clips/`, `sequences/`, `curves/`, `video_tracks/`,
+   chain folder's `graph` is `parseGraph`), `clips/`, `sequences/`, `curves/`,
    `views/mix`, root `chains`, `project`, `mix`. Unknown paths get `depth: "syntax"`.
 
 The result is `{ ok, issues, depth, malformed }`, each issue `{ path, message, line?, col? }`.

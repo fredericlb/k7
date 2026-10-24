@@ -53,7 +53,7 @@ shot that must land on a frame of a picture, or a hit on a moment of a recording
 clock; a part that follows the music is placed in bars. One lane holds both, the unit belonging to
 each event rather than to the lane.
 
-The spelling is the one a clip window's `from`/`to` already uses, and the one `video_tracks/`
+The spelling is the one a clip window's `from`/`to` already uses, and the one a picture lane
 places shots in: a number is seconds, a string a timecode. A `"4.5s"` suffix would have been a
 third spelling of the same fact. The conversion is exact because there is one tempo and no tempo
 map.

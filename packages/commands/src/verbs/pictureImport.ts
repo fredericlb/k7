@@ -6,8 +6,9 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
+import { laneFileFor } from "@studio/song/chainItemEdit";
 import {
-  createVideoTrackFile,
+  createPictureLaneFile,
   loadProjectRoot,
   readYamlEntities,
 } from "@studio/song/loader";
@@ -15,7 +16,7 @@ import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { wsWriteData } from "@studio/song/yaml/workspaceDoc";
-import { wsExists } from "@studio/song/yaml/workspaceFile";
+import { PICTURE_TRACK_REF } from "@studio/song-schema/moduleTypes";
 import { fromEdl } from "@studio/song-video/interchange/fromEdl";
 import { fromOtio } from "@studio/song-video/interchange/fromOtio";
 import type { ImportedShot } from "@studio/song-video/interchange/imported";
@@ -95,9 +96,9 @@ const entry = (ref: string, s: ImportedShot): Record<string, unknown> => {
     start: ms(s.start),
     length: ms(s.length),
   };
-  if (s.sourceFrom > 1e-6) f.source_from = ms(s.sourceFrom);
+  if (s.sourceFrom > 1e-6) f.from = ms(s.sourceFrom);
   if (s.speed !== undefined && s.speed !== 1) f.speed = ms(s.speed);
-  if (s.fadeIn) f.fade_in = ms(s.fadeIn);
+  if (s.fadeIn) f.fadeIn = ms(s.fadeIn);
   return f;
 };
 
@@ -164,20 +165,24 @@ export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
     const prefix = prefixArg || "import-";
     let n = 1;
     for (const track of tracks) {
-      while (wsExists(resolve(h.songPath, "video_tracks", `${prefix}${n}.k7x`)))
-        n++;
+      while (laneFileFor(h.songPath, `${prefix}${n}`)) n++;
       const id = `${prefix}${n}`;
       try {
-        createVideoTrackFile(h.songPath, id);
+        createPictureLaneFile(h.songPath, id);
       } catch (e) {
         h.refuse([...lines, `picture import: ${(e as Error).message}`]);
         return;
       }
       const events = track.shots.map((s) => entry(media.clipFor(s), s));
       const from = `imported from ${basename(abs)}${track.name ? `, track ${track.name}` : ""}`;
+      const lane = laneFileFor(h.songPath, id);
+      if (!lane) {
+        h.refuse([...lines, `picture import: lane '${id}' has no file`]);
+        return;
+      }
       wsWriteData(
-        resolve(h.songPath, "video_tracks", `${id}.k7x`),
-        { events },
+        lane.path,
+        { extends: PICTURE_TRACK_REF, events },
         { header: [from], inline: shotLine },
       );
       lines.push(

@@ -48,7 +48,7 @@ fading layer changes function, and an ordinary pass keeps its straight alpha (th
 `pulse` says so in its fragment).
 
 The far side of a transition is a **1×1 transparent texel**, allocated once, rather than a branch
-in the GLSL: a `fade_out` has no incoming picture, and handing it an empty one is what saves it
+in the GLSL: a `fadeOut` has no incoming picture, and handing it an empty one is what saves it
 from being a special case. What appears then is the **layer beneath**, not black — black is only
 what you see when there is no layer left.
 

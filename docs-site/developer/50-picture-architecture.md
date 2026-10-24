@@ -17,7 +17,7 @@ the map; the following pages go package by package.
 ## Data flow
 
 ```text
-project folder (project, video_tracks/, clips/, graph or chains/, modules)
+project folder (project, picture lanes in nodes/ or tracks/, clips/, graph or chains/, modules)
    │  loadVideoProject()                 packages/song-video/src/videoProject.ts
    ▼
 VideoProjectDoc   (seconds, absolute paths, GLSL inlined, warnings)
@@ -73,8 +73,10 @@ bytes.
 
 | path | role |
 |---|---|
-| `packages/song-schema/src/yaml/entitySchemas.ts` | `VideoClipSchema`, `CaptionClipSchema`, `VideoPlacementSchema`, `VideoTrackSchema`, `TransitionSchema` |
-| `packages/song-schema/src/yaml/projectSchema.ts` | `viewport`, `layers`, the `video` and `live-video` archetypes |
+| `packages/song-schema/src/yaml/entitySchemas.ts` | `VideoClipSchema`, `CaptionClipSchema` |
+| `packages/song-schema/src/yaml/placementSchema.ts` | `PlacementSchema` (one event, a sound event or a shot), `FadeSchema`, `SHOT_KEYS` |
+| `packages/song/src/pictureLanes.ts` | which lanes are picture lanes (`@meta/picture-track`), and each one's file |
+| `packages/song-schema/src/yaml/projectSchema.ts` | `viewport` (draw order is `trackOrder`'s picture rows, top in front), the `video` and `live-video` archetypes |
 | `packages/song-schema/src/yaml/moduleSchema.ts` | the picture module fields: `shader`, `shape`, `font`, `align`, `background`, `shadow`, `camera`, `frame`, `lut`, `video_source` |
 | `packages/song-schema/src/moduleTypes.ts` | `RENDER`, `VIDEO_OUT`, `CAM`, the `shaders` / `shapes` / `video_transitions` / `video_effects` categories, `SHADER_PARAMS`, `DISSOLVE`, `OVER` |
 | `packages/song-schema/src/keyframes.ts` | the `animate` schema and its evaluation |

@@ -1,4 +1,4 @@
-// transitions.ts — the TWO transitions this renderer owns. `fade_in: 1` names the dissolve, so a
+// transitions.ts — the TWO transitions this renderer owns. `fadeIn(1)` names the dissolve, so a
 // song that only ever dissolves needs no `modules/` folder and the document carries no GLSL for it;
 // `over` is what a fade naming a `chain:` and no `with:` blends by — the stretch's own alpha.
 // A module of the same name on disk overrides either, which is the loader's rule everywhere else.
@@ -6,7 +6,7 @@
 
 import type { SceneTransition } from "./scene";
 
-/** The name a bare `fade_in: 1` compiles to — mirrored in @studio/song-schema's `DISSOLVE`. */
+/** The name a bare `fadeIn(1)` compiles to — mirrored in @studio/song-schema's `DISSOLVE`. */
 export const DISSOLVE = "dissolve";
 
 /** …and the one a stretch with no `with:` compiles to — mirrored in @studio/song-schema's `OVER`. */

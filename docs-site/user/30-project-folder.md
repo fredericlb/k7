@@ -97,7 +97,7 @@ first-song.k7/
 | `settings.k7x` | Metronome, its level, count-in | [Project and settings files](./32-project-settings.md#settingsk7x) |
 | `chains/<name>.k7x` | One chain: its steps and where its signal goes | [Chains and the graph](./36-chains-graph.md) |
 | `tracks/<lane>.k7x` | An audio/MIDI lane: what it extends, its events | [Lanes and events](./34-lanes-events.md) |
-| `video_tracks/<lane>.k7x` | A picture lane: its rectangle and shots | [Picture, surfaces and other files](./37-picture-surfaces.md#video-lanes) |
+| `nodes/<lane>.k7x`, `tracks/<lane>.k7x` | A picture lane (`extends("@meta/picture-track")`): its frame and shots | [Picture, surfaces and other files](./37-picture-surfaces.md#video-lanes) |
 | `clips/<id>.k7x` | An audio or video clip: which file, which window | [Clips, sequences and curves](./33-material.md#clips) |
 | `sequences/<id>.k7x` | A MIDI sequence: its notes | [Clips, sequences and curves](./33-material.md#sequences) |
 | `curves/<id>.k7x` | An automation curve | [Clips, sequences and curves](./33-material.md#curves) |

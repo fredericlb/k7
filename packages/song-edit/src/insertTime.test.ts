@@ -38,8 +38,9 @@ points([time("1:1:1").value(0), time("5:1:1").value(1)])
 shape("sine")
 frequency(1)
 `,
-  // Picture, in decimal seconds. At 120bpm one bar is 2s, so 8s is bar 5.
-  "video_tracks/cam.k7x": `events([
+  // A picture lane, in decimal seconds, named to sort AFTER `gtr`. At 120bpm one bar is 2s, so 8s is bar 5.
+  "nodes/vid.k7x": `extends("@meta/picture-track")
+events([
   ref("shot").start(0).length(4),
   ref("shot").start(8).length(4),
 ])
@@ -80,11 +81,11 @@ describe("inserting time", () => {
       "6:1",
     ]);
     // And picture, in seconds: one bar at 120bpm is 2s, so 8 becomes 10.
-    expect(starts(data("video_tracks/cam.k7x").events)).toEqual([0, 10]);
+    expect(starts(data("nodes/vid.k7x").events)).toEqual([0, 10]);
     expect(r.files).toEqual([
       "nodes/gtr.k7x",
+      "nodes/vid.k7x",
       "curves/sweep.k7x",
-      "video_tracks/cam.k7x",
       "project.k7x",
     ]);
   });
@@ -94,7 +95,7 @@ describe("inserting time", () => {
     // A fade is a DURATION spelled as a timecode — the easiest field to shift by mistake.
     expect(data("nodes/gtr.k7x").events[1].fadeIn).toBe("0:1");
     // A video placement's `length` is a duration too, and its `start` before the point holds.
-    expect(data("video_tracks/cam.k7x").events).toEqual([
+    expect(data("nodes/vid.k7x").events).toEqual([
       { ref: "shot", start: 0, length: 4 },
       { ref: "shot", start: 10, length: 4 },
     ]);
@@ -156,8 +157,11 @@ describe("the round trip", () => {
 
 describe("a splice that fails partway", () => {
   it("writes nothing: the lanes before the broken file are not left shifted", () => {
-    // A lane is transformed before the video, so a throw on the video would otherwise leave it moved alone.
-    write("video_tracks/cam.k7x", 'events([ref("shot").start(8)\n');
+    // `gtr` is transformed before `vid`, the lanes in name order, so a throw on `vid` would otherwise leave it moved alone.
+    write(
+      "nodes/vid.k7x",
+      'extends("@meta/picture-track")\nevents([ref("shot").start(8)\n',
+    );
     const before = snapshot();
     expect(() => spliceProjectTime(dir, BAR, BAR, "insert")).toThrow();
     expect(snapshot()).toEqual(before);

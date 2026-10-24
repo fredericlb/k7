@@ -115,7 +115,7 @@ test("a picture lane records the browser's camera onto itself", async ({
 /** A song whose one lane is fed by the machine's first input channel. */
 const INPUT_LANE: Record<string, string> = {
   "project.k7x":
-    'project({\n  name: "input-lane",\n  tempo: 120,\n  sampleRate: 48000,\n  timeSignature: "4/4",\n  video: false,\n  layers: [],\n})\nmarkers({})\n',
+    'project({\n  name: "input-lane",\n  tempo: 120,\n  sampleRate: 48000,\n  timeSignature: "4/4",\n  video: false,\n})\nmarkers({})\n',
   "graph.k7x": 'modules({ IN: ["vox"], vox: ["MIX"], MIX: ["OUT"] })\n',
   "nodes/IN.k7x": 'io("in")\nchannel([1])\nmonitor("off")\ngain(0)\n',
   "nodes/vox.k7x": 'extends("@meta/track")\nevents([])\n',

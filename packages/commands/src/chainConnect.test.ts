@@ -55,7 +55,7 @@ function song(): { root: string; dir: string } {
     writeNode(d, m, { extends: `@workspace/audio/${m}` });
   }
   // A PICTURE lane, which is a card on the graph and takes a cable from a lens (packages/song/docs/camera.md).
-  writeDoc(join(d, "video_tracks", "main.k7x"), { events: [] });
+  writeLane(d, "main", "picture-track", { events: [] });
   return { root: r, dir: d };
 }
 

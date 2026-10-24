@@ -29,7 +29,7 @@ By folder and basename, the way `fileKindFor` reads one:
 | `_modules/config.k7x` | a library's namespace |
 | `modules/**/*.k7x` — anything else | a module, generic or node (`ModuleSchema`) |
 | `nodes/*.k7x` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
-| `clips/`, `sequences/`, `curves/`, `video_tracks/` | that kind's schema |
+| `clips/`, `sequences/`, `curves/` | that kind's schema |
 | `graph.k7x`, `project.k7x`, `mix.k7x`, `views/mix.k7x` | the root files — the last two share a base and are told apart by FOLDER, `views/` first |
 | any other `.k7x` | parsed, not judged |
 | anything not k7x | not this module's business |

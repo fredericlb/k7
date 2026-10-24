@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGraph, validate } from "@studio/song/graph";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
 import { loadVideoProject } from "./videoProject";
@@ -49,9 +49,10 @@ const TITLE = {
 /** A project with one picture lane, and whatever graph the case is about. */
 function project(graph: Record<string, unknown>) {
   writeDoc(join(dir, "project.k7x"), {
-    project: { name: "film", viewport: [1280, 720, 30], layers: ["main"] },
+    project: { name: "film", viewport: [1280, 720, 30] },
+    trackOrder: ["main"],
   });
-  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: [] });
+  writeLane(dir, "main", "picture-track", { events: [] });
   module("box", BOX);
   module("title", TITLE);
   writeDoc(join(dir, "graph.k7x"), graph);
@@ -127,7 +128,7 @@ describe("a shape wired to a picture lane", () => {
 describe("what an event on a lane of shapes is", () => {
   it("compiles a ref-less one to a span with no picture, and says nothing about it", () => {
     project(WIRED);
-    writeDoc(join(dir, "video_tracks", "main.k7x"), {
+    writeLane(dir, "main", "picture-track", {
       events: [
         { start: 2, length: 3 },
         { start: 8, length: 0 },
@@ -151,7 +152,7 @@ describe("what an event on a lane of shapes is", () => {
       source: "shot.mp4",
       kind: "video",
     });
-    writeDoc(join(dir, "video_tracks", "main.k7x"), {
+    writeLane(dir, "main", "picture-track", {
       events: [{ ref: "shot", start: 0, length: 4 }],
     });
 

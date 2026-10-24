@@ -8,12 +8,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGraph, validate } from "@studio/song/graph";
 import { loadProject } from "@studio/song/project";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadVideoProject } from "./videoProject";
 
 let root: string;
 let dir: string;
+/** Where the lanes' files live: `nodes/`, or `tracks/` once a test makes it a chain project. */
+let laneDir: "nodes" | "tracks";
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "video-stretches-"));
   dir = join(root, "film.st0");
@@ -23,14 +25,14 @@ beforeEach(() => {
       name: "t",
       tempo: 120,
       viewport: [640, 360, 30],
-      layers: ["main", "pip"],
     },
+    trackOrder: ["pip", "main"],
   });
   writeDoc(join(dir, "clips", "a.k7x"), { source: "a.mp4" });
   writeFileSync(join(dir, "clips", "a.mp4"), "");
-  mkdirSync(join(dir, "video_tracks"), { recursive: true });
-  writeDoc(join(dir, "video_tracks", "pip.k7x"), { events: [] });
-  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: [] });
+  laneDir = "nodes";
+  writeLane(dir, "pip", "picture-track", { events: [] });
+  writeLane(dir, "main", "picture-track", { events: [] });
   for (const name of ["iris", "zoom", "dim"]) shaderModule(name);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -51,7 +53,8 @@ const graph = (value: Record<string, unknown>) =>
   writeDoc(join(dir, "graph.k7x"), value);
 /** Lane `main` holding one shot of clip `a`, four long, with the fade given. */
 const shot = (fade: Record<string, unknown>) =>
-  writeDoc(join(dir, "video_tracks", "main.k7x"), {
+  writeDoc(join(dir, laneDir, "main.k7x"), {
+    extends: "@meta/picture-track",
     events: [{ ref: "a", start: 0, length: 4, ...fade }],
   });
 
@@ -94,7 +97,7 @@ describe("a run of shaders nothing feeds, landing on a lane", () => {
       modules: { pip: ["iris"], iris: ["main"], RENDER: ["VIDEO_OUT"] },
     });
     expect(validate(loadGraph(dir))).not.toEqual([]);
-    shot({ fade_in: { over: 1, chain: "iris" } });
+    shot({ fadeIn: { over: 1, chain: "iris" } });
     expect(loadVideoProject(dir).stretches).toEqual({});
   });
 });
@@ -102,7 +105,7 @@ describe("a run of shaders nothing feeds, landing on a lane", () => {
 describe("a fade naming a stretch", () => {
   it("carries the run under its HEAD node, in order, with its GLSL read in", () => {
     graph({ modules: { zoom: ["dim"], dim: ["main"], RENDER: ["VIDEO_OUT"] } });
-    shot({ fade_in: { over: 1, chain: "zoom" } });
+    shot({ fadeIn: { over: 1, chain: "zoom" } });
     const doc = loadVideoProject(dir);
     expect(doc.warnings).toEqual([]);
     expect(doc.stretches.zoom.map((p) => [p.id, p.name])).toEqual([
@@ -116,7 +119,7 @@ describe("a fade naming a stretch", () => {
 
   it("blends `over` when it names no kind — the stretch's own alpha is the mix", () => {
     graph({ modules: { iris: ["main"], RENDER: ["VIDEO_OUT"] } });
-    shot({ fade_in: { over: 1, chain: "iris" } });
+    shot({ fadeIn: { over: 1, chain: "iris" } });
     expect(loadVideoProject(dir).videoTracks[0].clips[0].fadeIn).toEqual({
       over: 1,
       with: "over",
@@ -126,7 +129,7 @@ describe("a fade naming a stretch", () => {
 
   it("keeps a kind it DOES name, which then blends what the stretch left", () => {
     graph({ modules: { iris: ["main"], RENDER: ["VIDEO_OUT"] } });
-    shot({ fade_out: { over: 1, chain: "iris", with: "dissolve" } });
+    shot({ fadeOut: { over: 1, chain: "iris", with: "dissolve" } });
     expect(loadVideoProject(dir).videoTracks[0].clips[0].fadeOut).toEqual({
       over: 1,
       with: "dissolve",
@@ -138,7 +141,7 @@ describe("a fade naming a stretch", () => {
     graph({
       modules: { iris: ["main"], zoom: ["main"], RENDER: ["VIDEO_OUT"] },
     });
-    shot({ fade_in: { over: 1, chain: "iris" } });
+    shot({ fadeIn: { over: 1, chain: "iris" } });
     expect(Object.keys(loadVideoProject(dir).stretches)).toEqual(["iris"]);
   });
 });
@@ -146,7 +149,7 @@ describe("a fade naming a stretch", () => {
 describe("a fade naming no stretch of its lane", () => {
   it("fades as a DISSOLVE and says so — a cut would move the arrangement", () => {
     graph({ modules: { iris: ["pip"], RENDER: ["VIDEO_OUT"] } });
-    shot({ fade_in: { over: 1, chain: "iris" } });
+    shot({ fadeIn: { over: 1, chain: "iris" } });
     const doc = loadVideoProject(dir);
     expect(doc.videoTracks[0].clips[0].fadeIn).toEqual({
       over: 1,
@@ -167,10 +170,7 @@ describe("in a CHAIN project, a stretch is a subchain of its lane's chain", () =
   const lane = (id: string, subs: Record<string, unknown>[]) =>
     chain(id, {
       start: true,
-      steps: [
-        { id: `lane-${id}`, video_track: id },
-        { to: [{ chain: "RENDER" }] },
-      ],
+      steps: [{ id: `lane-${id}`, track: id }, { to: [{ chain: "RENDER" }] }],
       subchains: subs,
     });
   const sub = (id: string, node: string) => [
@@ -178,6 +178,12 @@ describe("in a CHAIN project, a stretch is a subchain of its lane's chain", () =
   ];
   beforeEach(() => {
     rmSync(join(dir, "nodes"), { recursive: true, force: true });
+    laneDir = "tracks";
+    for (const id of ["pip", "main"])
+      writeDoc(join(dir, "tracks", `${id}.k7x`), {
+        extends: "@meta/picture-track",
+        events: [],
+      });
     chain("picture", {
       start: "RENDER",
       steps: [{ to: [{ chain: "VIDEO_OUT" }] }],
@@ -186,7 +192,7 @@ describe("in a CHAIN project, a stretch is a subchain of its lane's chain", () =
 
   it("is named by its id, and runs from its first node", () => {
     lane("main", sub("opening", "iris-1"));
-    shot({ fade_in: { over: 1, chain: "opening" } });
+    shot({ fadeIn: { over: 1, chain: "opening" } });
     const doc = loadVideoProject(dir);
     expect(doc.warnings).toEqual([]);
     expect(doc.videoTracks[0].clips[0].fadeIn?.chain).toBe("iris-1");
@@ -198,7 +204,7 @@ describe("in a CHAIN project, a stretch is a subchain of its lane's chain", () =
   it("is the LANE's own: another lane's subchain of the same id is not reached", () => {
     lane("main", sub("other", "iris-1"));
     lane("pip", sub("opening", "iris-2"));
-    shot({ fade_in: { over: 1, chain: "opening" } });
+    shot({ fadeIn: { over: 1, chain: "opening" } });
     const doc = loadVideoProject(dir);
     expect(doc.videoTracks[0].clips[0].fadeIn).toEqual({
       over: 1,

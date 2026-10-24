@@ -44,7 +44,6 @@ import {
 import { forgetModuleReads } from "./moduleCache";
 import { resolveModuleMap } from "./moduleResolve";
 import { lanesOf } from "./trackModule";
-import { entityFiles } from "./yaml/moduleIO";
 import { wsData, wsEdit } from "./yaml/workspaceDoc";
 
 export interface FilesMigration {
@@ -95,11 +94,12 @@ function renameStretches(
   dir: string,
   chains: Record<string, ChainFile>,
   ids: Record<string, string>,
+  pictures: ReadonlySet<string>,
 ): void {
   const byId = new Map(Object.entries(ids).map(([n, id]) => [id, n]));
   const renames: Record<string, string> = {};
   for (const c of Object.values(chains)) {
-    if (!pictureLaneOf(c)) continue;
+    if (!pictureLaneOf(c, (l) => pictures.has(l))) continue;
     for (const sc of c.subchains ?? []) {
       const head = sc.steps.flatMap(itemsOf)[0];
       const was = head && byId.get(head.id);
@@ -107,8 +107,12 @@ function renameStretches(
     }
   }
   if (!Object.keys(renames).length) return;
-  for (const { file } of entityFiles(join(dir, "video_tracks"), "video_tracks"))
-    wsEdit(file.path, (doc) => renameFadeChains(doc.at([]), renames));
+  // Still in `nodes/`: the lane files move after this, with the sound lanes'.
+  for (const lane of pictures) {
+    const f = join(dir, "nodes", `${lane}.k7x`);
+    if (existsSync(f))
+      wsEdit(f, (doc) => renameFadeChains(doc.at([]), renames));
+  }
 }
 
 /** Rewrite `dir` in place; `dryRun` returns what would happen and touches nothing. */
@@ -129,7 +133,7 @@ export function migrateToChainFiles(
   const moduleOf = (n: string) =>
     resolved[n] ?? (modules[n] ? undefined : refs[n]);
   const lanes = new Set(Object.keys(lanesOf(resolved)));
-  // PICTURE lanes keep their `video_tracks/` file; only their item moves into a chain.
+  // PICTURE lanes are lanes too: a `track` item, their file moved to `tracks/` beside the sound lanes'.
   const pictures = new Set(Object.keys(loadVideoTracks(dir)));
   const nodesDir = join(dir, "nodes");
   const ids: Record<string, string> = {};
@@ -143,7 +147,7 @@ export function migrateToChainFiles(
 
   const itemOf = (n: string): Item => {
     if (lanes.has(n)) return { id: idOf(n), track: n };
-    if (pictures.has(n)) return { id: idOf(n), video_track: n };
+    if (pictures.has(n)) return { id: idOf(n), track: n };
     const p = presetOf(n);
     const own = raw(n);
     // …written as an item extending that ref, which is what the graph meant by naming it.
@@ -187,6 +191,7 @@ export function migrateToChainFiles(
     isSource,
     loose,
     isPicturePass,
+    isPictureLane: (n: string) => pictures.has(n),
     nameFor,
   });
   // In memory a non-lane node is its id now, so the layout follows it there.
@@ -201,9 +206,9 @@ export function migrateToChainFiles(
 
   writeChainProject(dir, chains);
   writeLayout(dir, positions);
-  renameStretches(dir, chains, ids);
+  renameStretches(dir, chains, ids, pictures);
   mkdirSync(join(dir, TRACKS_DIR), { recursive: true });
-  for (const n of lanes)
+  for (const n of [...lanes, ...pictures])
     if (existsSync(join(nodesDir, `${n}.k7x`)))
       renameSync(join(nodesDir, `${n}.k7x`), join(dir, TRACKS_DIR, `${n}.k7x`));
   for (const f of existsSync(nodesDir) ? readdirSync(nodesDir) : []) {

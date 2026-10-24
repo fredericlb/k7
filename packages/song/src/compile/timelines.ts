@@ -82,7 +82,7 @@ export function timelineLength(
       for (const s of lane.events ?? [])
         end = Math.max(
           end,
-          ((s.start ?? 0) + (s.length ?? 0)) * ctx.beatsPerSec,
+          ctx.pos(s.start) + (s.length ?? 0) * ctx.beatsPerSec,
         );
     len = Math.max(1, Math.ceil(end / ctx.bar - 1e-9)) * ctx.bar;
   }

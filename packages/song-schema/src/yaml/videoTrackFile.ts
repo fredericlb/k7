@@ -1,5 +1,5 @@
-// videoTrackFile.ts — read and edit a video track's `events:` list, each placement `{ref, start, length, source_from}` in DECIMAL SECONDS.
-// Every writer edits a K7Scope at the file's root, value by value, so the comments that document the format stay. Browser-safe.
+// videoTrackFile.ts — read and edit a PICTURE lane's `events:` list, each shot `{ref, start, length, from}` in DECIMAL SECONDS.
+// Every writer edits a K7Scope at the lane's root, value by value, so the comments that document the format stay. Browser-safe.
 // A reader would get wrong that a refused edit throws: it answers false and leaves the file alone, as does an unreadable buffer.
 // Two ways in: by INDEX, which the drag and the verbs use, and by REF for the editor's readers.
 
@@ -12,7 +12,6 @@ import {
   keysOf,
   splitAnimate,
 } from "../keyframes";
-import { spliceList } from "./timeSplice";
 
 export interface VideoPlacement {
   /** The `ref:` value — a clips/ id whose source is a video file; EMPTY on an ACTIVATION (song-video/docs/shapes.md). */
@@ -70,37 +69,32 @@ export function listVideoPlacements(
       ref: typeof p.ref === "string" ? p.ref : "",
       start: num(p.start),
       length: num(p.length),
-      sourceFrom: num(p.source_from),
+      sourceFrom: num(p.from),
       ...(p.speed != null ? { speed: num(p.speed, 1) } : {}),
       ...(p.silent === true ? { silent: true as const } : {}),
     };
   });
 }
 
-/** Set (or clear) the lane's `mute:` — HIDDEN, there being no sound on a picture lane. */
-export function setVideoLaneMute(doc: K7Scope, mute: boolean): void {
-  if (!dataOf(doc)) return;
-  // Removed rather than written `false`: absent already means audible, and a file says what is unusual.
-  if (mute) doc.setIn(["mute"], true);
-  else doc.deleteIn(["mute"]);
-}
-
-/** Set the LANE's own rect — x/y/w/h, top-level keys, in viewport px (packages/song-video/docs/picture.md). */
+/** Set the LANE's own rect — `frame([x, y, w, h])`, in viewport px, the camera module's spelling (packages/song-video/docs/picture.md). */
 export function setVideoLaneRect(
   doc: K7Scope,
   rect: { x: number; y: number; w: number; h: number },
 ): void {
   if (!dataOf(doc)) return;
-  // All four, always: a lane stating three of them and inheriting the fourth is a rect nobody can read.
-  for (const k of ["x", "y", "w", "h"] as const)
-    doc.setIn([k], Math.round(rect[k]));
+  // All four, always: a rect stating three and inheriting the fourth is one nobody can read.
+  doc.setIn(
+    ["frame"],
+    [rect.x, rect.y, rect.w, rect.h].map((v) => Math.round(v)),
+    { inline: true },
+  );
 }
 
 /** Set one numeric field of the placement whose `ref` is `ref` — by REF, since a drag grabbed a strip; false with no such placement. */
 export function setVideoPlacementField(
   doc: K7Scope,
   ref: string,
-  field: "source_from" | "length" | "start",
+  field: "from" | "length" | "start",
   value: number,
 ): boolean {
   const at = (eventsOf(doc) ?? []).findIndex((e) => e?.ref === ref);
@@ -114,7 +108,7 @@ export function setVideoPlacementField(
 export function setVideoPlacementFieldAt(
   doc: K7Scope,
   index: number,
-  field: "source_from" | "length" | "start",
+  field: "from" | "length" | "start",
   value: number,
 ): boolean {
   if (!hasIndex(eventsOf(doc), index)) return false;
@@ -183,13 +177,13 @@ export function splitVideoPlacementAt(
   );
   // The head keeps how the shot ARRIVES, the tail how it LEAVES; a cut between them is a plain cut.
   doc.setIn(["events", index, "length"], ms(head));
-  doc.deleteIn(["events", index, "fade_out"]);
+  doc.deleteIn(["events", index, "fadeOut"]);
   doc.setIn(["events", index + 1, "start"], ms(cut));
   doc.setIn(
     ["events", index + 1, "length"],
     length > 0 ? ms(length - head) : 0,
   );
-  doc.deleteIn(["events", index + 1, "fade_in"]);
+  doc.deleteIn(["events", index + 1, "fadeIn"]);
   // The animation is cut EXACTLY, each half playing what the shot played over its span (keyframes.ts).
   const animate = AnimateSchema.safeParse(shot.animate);
   if (animate.success) {
@@ -200,9 +194,9 @@ export function splitVideoPlacementAt(
   // An ACTIVATION has no source to trim into, and its schema refuses the key.
   if (typeof shot.ref === "string")
     doc.setIn(
-      ["events", index + 1, "source_from"],
+      ["events", index + 1, "from"],
       // The source runs at the shot's SPEED, so the head consumed head × speed of it (song-video docs/speed.md).
-      ms(num(shot.source_from) + head * num(shot.speed, 1)),
+      ms(num(shot.from) + head * num(shot.speed, 1)),
     );
   return true;
 }
@@ -216,7 +210,7 @@ export function addVideoPlacement(doc: K7Scope, p: VideoPlacement): boolean {
     start: ms(p.start),
     length: ms(p.length),
   };
-  if (p.sourceFrom) entry.source_from = ms(p.sourceFrom);
+  if (p.sourceFrom) entry.from = ms(p.sourceFrom);
   const events = data.events;
   if (Array.isArray(events)) {
     doc.addIn(["events"], entry, { inline: true });
@@ -226,29 +220,6 @@ export function addVideoPlacement(doc: K7Scope, p: VideoPlacement): boolean {
   if (events !== undefined && events !== null) return false;
   doc.setIn(["events"], [entry]);
   return true;
-}
-
-/** Insert or delete seconds on a video lane, by INDEX since a ref may be placed twice — the lanes' rule otherwise. */
-export function spliceVideoTime(
-  doc: K7Scope,
-  atSeconds: number,
-  lenSeconds: number,
-  mode: "insert" | "delete",
-): { moved: number; removed: number } {
-  const events = eventsOf(doc);
-  if (!events) return { moved: 0, removed: 0 };
-  return spliceList(
-    {
-      count: events.length,
-      positionOf: (i) => num(events[i]?.start),
-      remove: (i) => doc.deleteIn(["events", i]),
-      // Milliseconds, the same rounding a drag writes, so a round trip compares byte for byte.
-      move: (i, to) => doc.setIn(["events", i, "start"], ms(to)),
-    },
-    atSeconds,
-    lenSeconds,
-    mode,
-  );
 }
 
 /** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation; false when it has none. */
@@ -288,7 +259,7 @@ export function renameFadeChains(
 ): boolean {
   let changed = false;
   (eventsOf(doc) ?? []).forEach((e, i) => {
-    for (const fade of ["fade_in", "fade_out"]) {
+    for (const fade of ["fadeIn", "fadeOut"]) {
       const f = e?.[fade];
       const was =
         f !== null && typeof f === "object" ? (f as Data).chain : undefined;

@@ -12,8 +12,8 @@ retimes its source, `animate` moves it inside its lane's frame.
 | absent or `1` | the source's own pace |
 | `2` | double speed |
 | `0.5` | slow motion |
-| `0` | a freeze on the frame at `source_from` |
-| `-1` | backwards from `source_from` |
+| `0` | a freeze on the frame at `from` |
+| `-1` | backwards from `from` |
 
 The shot keeps its place and its length on the timeline; what changes is how much source it
 spends. A shot of 4 seconds at speed 2 plays 8 seconds of its source.
@@ -24,10 +24,10 @@ picture speed main 4 1       # back to normal (the key is removed from the file)
 ```
 
 ```js
-events([ref("run").start(4).length(3).source_from(10).speed(-1)])
+events([ref("run").start(4).length(3).from(10).speed(-1)])
 ```
 
-A backwards shot runs out of source after `source_from / |speed|` seconds. A shot whose length is
+A backwards shot runs out of source after `from / |speed|` seconds. A shot whose length is
 longer than that is refused with a message saying how long it may be: shorten it, or start it
 later in its source.
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { runCommand } from "@studio/commands/commandSpec";
 import { installServerSide } from "@studio/k7-sdk/install";
 import { loadModules } from "@studio/song/loader";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { transcriptionPlugin } from "./index";
@@ -60,7 +60,7 @@ const makeVideo = (at: string): void => {
 };
 
 const stage = (): void => {
-  writeDoc(join(song, "video_tracks", "cam.k7x"), {
+  writeLane(song, "cam", "picture-track", {
     events: [{ ref: "intro", start: 0, length: 0 }],
   });
   writeDoc(join(song, "clips", "intro.k7x"), { source: "clips/intro.mp4" });
@@ -98,7 +98,7 @@ afterEach(() => {
 
 describe("track transcribe", () => {
   it("refuses a video a clip names outside the project", async () => {
-    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+    writeLane(song, "cam", "picture-track", {
       events: [{ ref: "intro", start: 0, length: 0 }],
     });
     writeDoc(join(song, "clips", "intro.k7x"), {
@@ -146,7 +146,7 @@ describe("track transcribe", () => {
     await runCommand("track transcribe nope lyrics", host(), "cli");
     expect(refusals.join(" ")).toMatch(/no picture lane "nope"/);
     // An ACTIVATION: no ref, no video.
-    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+    writeLane(song, "cam", "picture-track", {
       events: [{ start: 0, length: 4 }],
     });
     await runCommand("track transcribe cam lyrics", host(), "cli");
@@ -154,7 +154,7 @@ describe("track transcribe", () => {
   });
 
   it("refuses a clip with no video on disk before whisper runs", async () => {
-    writeDoc(join(song, "video_tracks", "cam.k7x"), {
+    writeLane(song, "cam", "picture-track", {
       events: [{ ref: "intro", start: 0, length: 0 }],
     });
     writeDoc(join(song, "clips", "intro.k7x"), { source: "clips/intro.mp4" });

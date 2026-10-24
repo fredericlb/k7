@@ -23,16 +23,20 @@ Rules every picture verb shares (`verbs/picture.ts`):
 - **Addressing.** A shot is named by its lane and its start, in the lane file's own dialect:
   seconds or `m:ss`, parsed by `parseWallClock`. A musical spelling would be a second dialect for
   the same number. Two shots within half a millisecond of one start are refused, not guessed between.
-- **Containment.** `laneFile` accepts one path segment and resolves inside `video_tracks/`.
+- **Containment.** `laneFile` accepts one path segment and resolves it to a picture lane's own file
+  (`pictureLaneFile` in `packages/song/src/pictureLanes.ts`): `nodes/`, or a chain project's `tracks/`.
 - **Undo.** `put` calls `h.snapshot(abs)` before writing, so every verb is one journal entry.
 - **Writers.** All edits go through `packages/song-schema/src/yaml/videoTrackFile.ts` and
   `packages/song-schema/src/yaml/videoKeys.ts`: surgical, by placement **index** (a ref may be
   placed twice; an activation has no ref), millisecond rounding. `splitVideoPlacementAt` inserts
-  the tail right after the head (file order decides covering), keeps `fade_in` on the head and
-  `fade_out` on the tail, cuts `animate` exactly (`splitAnimate`), and advances the tail's
-  `source_from` by `head × speed`. `spliceVideoTime` serves `project add` / `project remove`.
-- **Two-file act.** `picture lane new` (`createVideoTrackFile` in `packages/song/src/loader.ts`)
-  writes the lane and appends it to `layers` together, refusing a name an audio lane already has.
+  the tail right after the head (file order decides covering), keeps `fadeIn` on the head and
+  `fadeOut` on the tail, cuts `animate` exactly (`splitAnimate`), and advances the tail's
+  `from` by `head × speed`. `project add` / `project remove` move shots in the ordinary lane pass,
+  which keeps a seconds `start` in seconds.
+- **Two-file act.** `picture lane new` (`createPictureLaneFile` in `packages/song/src/projectFiles.ts`)
+  writes the lane and states `trackOrder` with it above the other picture lanes, refusing a name an
+  audio lane already has. `picture mute` writes the lane's bypass (`setLaneBypass`), and
+  `picture lane order` rewrites `trackOrder`, counting the picture lanes bottom first.
 - **Report, not refuse.** `picture add` with a ref that has no clip is written and reported: only
   the compiler reads `clips/`.
 

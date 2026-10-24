@@ -20,16 +20,15 @@ readable.
 
 ## The picture rows are drawn FRONT FIRST
 
-`layers:` is **bottom-first** — the last name draws last, so it is the one in front. The timeline
-lists its picture rows the other way round, topmost layer at the top, which is the ordering every
-compositing tool uses and the only one under which "drag this lane to the top" can mean what it
-looks like. Ordered the other way, a lane dragged to the top row becomes the FIRST layer, goes
-behind the full-frame lane it was over, and disappears — nothing broken, the row order simply
+The draw order is the rows' order (`trackOrder`), the TOP picture row in front — the ordering
+every compositing tool uses and the only one under which "drag this lane to the top" can mean what
+it looks like. Read the other way, a lane dragged to the top row would become the FIRST layer, go
+behind the full-frame lane it was over, and disappear — nothing broken, the row order simply
 meaning the opposite of the gesture. `rows.test.ts` pins the round trip, from the top row to the
-resulting `layers:`.
+resulting draw order.
 
-The reversal is `projectRows`' alone. Nothing downstream re-sorts: the compile hands out
-`videoTracks` bottom-first and the compositor draws them in that order
+The compile hands out `videoTracks` bottom-first, and turning them back into rows top-first is
+`projectRows`' alone. Nothing downstream re-sorts: the compositor draws them in the compile's order
 (`packages/ui-eyes/src/compositor.ts`), so the frame is unaffected by how the timeline lists them.
 
 ## Frames on an expanded lane
@@ -196,12 +195,12 @@ A picture placement is dragged with one pointer capture, told apart by where the
 | grab | writes | why |
 |---|---|---|
 | the body | `start` | move the shot |
-| the left edge | `start`, `source_from` **and** `length` | trim the head |
+| the left edge | `start`, `from` **and** `length` | trim the head |
 | the right edge | `length` | set the extent |
 
 The left edge writing **three** fields is the interesting one, and each is load-bearing:
 
-- `source_from` moves by the same delta as the head, or the frame under the new edge is not the
+- `from` moves by the same delta as the head, or the frame under the new edge is not the
   frame that was there before the trim;
 - `length` moves by that delta the other way, or the **tail slides** and the gesture is a move
   wearing a trim's clothes.
@@ -308,8 +307,9 @@ seeded rather than reached.
 
 ## The readers strip
 
-For an open `video_tracks/*.k7x`, the editor grows a dock of small `<video>` readers, one per
-placement, with **Set From** / **Set To** writing that placement's `source_from` / `length`. The
+For an open picture lane's file (`isVideoTrackFile`: a lane file named after a picture lane), the
+editor grows a dock of small `<video>` readers, one per placement, with **Set From** / **Set To**
+writing that placement's `from` / `length`. The
 in-point of a shot is a frame you recognise, not a number you type.
 
 Two sources, deliberately: the **times** come from the BUFFER, since a trim typed a second ago has

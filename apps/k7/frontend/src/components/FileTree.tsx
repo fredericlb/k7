@@ -115,6 +115,7 @@ export function FileTree({
   tree,
   activePath,
   activeProject,
+  pictureLanes = [],
   projectName,
   rootDir,
   onOpen,
@@ -143,6 +144,8 @@ export function FileTree({
   tree: FileNode[];
   activePath: string | null;
   activeProject: string | null;
+  // The song's picture lanes, by name, so their files wear the camcorder.
+  pictureLanes?: readonly string[];
   // The song's name, part of the pins' localStorage key: activeProject is "." for a lone project, too ambiguous.
   projectName?: string | null;
   // Where a drop onto empty space lands — the active project, or the workspace root when none is open.
@@ -678,7 +681,7 @@ export function FileTree({
             isModule(node.path) ? (
               <Boxes className="h-4 w-4 shrink-0" />
             ) : // A picture lane wears the camcorder here too: a lane is a lane whichever surface is drawing it.
-            isVideoTrackFile(node.path) ? (
+            isVideoTrackFile(node.path, pictureLanes) ? (
               <TrackIcon name="" video className="h-4 w-4 shrink-0" />
             ) : node.dir ? (
               open ? (

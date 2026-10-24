@@ -69,7 +69,7 @@ the song it becomes a lane with a fresh strip, since a song lane is a module nod
 ## Its picture draws on the song's lane of the same NAME
 
 A timeline holds picture lanes too, under `pictures:` — shots in SECONDS from its start, the shape of a
-`video_tracks/` lane's `events:` (`TimelinePictureSchema`). They are a list of their own rather than a
+picture lane's `events:` (`TimelinePictureSchema`, its shots in `PlacementSchema`). They are a list of their own rather than a
 kind of lane because the two count time differently: one lane name per timeline still, across both.
 
 Where a placed timeline's shots draw cannot be the lane it is placed on, as its sound does: that is a

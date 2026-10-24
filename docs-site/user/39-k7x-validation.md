@@ -33,7 +33,7 @@ markers({ "1:1": "Intro", "9:1": "Verse" })
 |---|---|
 | a number | `tempo(120)` |
 | a string | `name("Lead")` |
-| a list | `layers(["main", "pip"])` |
+| a list | `trackOrder(["main", "pip"])` |
 | a map | `project({ name: "x" })` |
 | a list of maps | `[ref("kick").start("1:1")]` |
 | true | `video(true)` — or just `video()` |

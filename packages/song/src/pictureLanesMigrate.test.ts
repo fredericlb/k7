@@ -3,7 +3,6 @@
 // already has, a timeline's picture lane, and a lane that will not read. See pictureLanesMigrate.ts.
 
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -18,15 +17,16 @@ import { parse } from "@studio/k7x/document";
 import { validateFile } from "@studio/song-schema/yaml/validate";
 import { afterEach, describe, expect, it } from "vitest";
 import { migratePictureLanes } from "./pictureLanesMigrate";
+import { copyOldPictureFixture } from "./testSupport";
 
-const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const _REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 /** A copy of a repository fixture, migrated in a temp folder. */
 function copyOf(rel: string): string {
   dir = mkdtempSync(join(tmpdir(), "td-picmig-"));
-  cpSync(join(REPO, rel), dir, { recursive: true });
+  copyOldPictureFixture(rel, dir);
   return dir;
 }
 const read = (rel: string) => readFileSync(join(dir, rel), "utf8");
@@ -88,7 +88,7 @@ describe("a node project", () => {
     ]);
   });
 
-  it("joins a timeline's picture lanes to its lanes, in the lane's words", () => {
+  it("keeps a timeline's picture lanes apart, in the lane's words", () => {
     copyOf("e2e/fixtures/video-lane.k7");
     const tl = join(dir, "timelines", "intro.k7x");
     mkdirSync(dirname(tl));
@@ -99,8 +99,8 @@ describe("a node project", () => {
     migratePictureLanes(dir);
     valid("timelines/intro.k7x");
     expect(data("timelines/intro.k7x")).toEqual({
-      lanes: [
-        { lane: "beat", events: [] },
+      lanes: [{ lane: "beat", events: [] }],
+      pictures: [
         { lane: "main", events: [{ ref: "sample", start: 0, from: 2 }] },
       ],
     });

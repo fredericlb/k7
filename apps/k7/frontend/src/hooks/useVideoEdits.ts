@@ -15,6 +15,12 @@ import { projectDir } from "../projectPaths";
 import type { VideoEdit } from "../videoDrag";
 import type { SetStatus } from "./useLogs";
 
+/** A file and the path it was read at, kept together so the write lands where the read came from. */
+const readAt = async (path: string) => ({
+  path,
+  content: (await api.read(path)).content,
+});
+
 /** Apply a finished picture drag to the lane's own file: values set by INDEX in one document, written once, and not a COMMAND. */
 export function useVideoEdits(
   project: string,
@@ -26,12 +32,14 @@ export function useVideoEdits(
       const dir = projectDir(project);
       // A timeline's lane, `<timeline>><lane>`, is a map in that timeline's file (song/docs/timelines.md).
       const tl = timelineLaneOf(trackId);
-      const file = tl
-        ? `timelines/${tl.timeline}.k7x`
-        : `video_tracks/${trackId}.k7x`;
-      const path = `${dir ? `${dir}/` : ""}${file}`;
+      const inProject = (file: string) => `${dir ? `${dir}/` : ""}${file}`;
       try {
-        const { content } = await api.read(path);
+        // A lane's file is `nodes/`, or a chain project's `tracks/` (packages/song/docs/chainFiles.md).
+        const { path, content } = tl
+          ? await readAt(inProject(`timelines/${tl.timeline}.k7x`))
+          : await readAt(inProject(`nodes/${trackId}.k7x`)).catch(() =>
+              readAt(inProject(`tracks/${trackId}.k7x`)),
+            );
         const doc = new K7Document(content);
         const pictures = tl ? doc.at([]).toJS() : null;
         const at = tl
@@ -47,7 +55,7 @@ export function useVideoEdits(
           setVideoPlacementFieldAt(lane(), e.index, e.field, e.value);
           // A head trim moves the in-point, and the keys go with it so they stay on their frames (song-video docs/animation.md).
           const was = before[e.index];
-          if (e.field === "source_from" && was)
+          if (e.field === "from" && was)
             shiftVideoAnimationAt(lane(), e.index, e.value - was.sourceFrom);
         }
         const next = doc.toString();

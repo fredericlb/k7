@@ -17,12 +17,7 @@ import {
 } from "../presets";
 import { parseChain } from "./chainFile";
 import { CHAINS_DIR, TRACKS_DIR } from "./chainSchema";
-import {
-  ClipSchema,
-  CurveSchema,
-  SequenceSchema,
-  VideoTrackSchema,
-} from "./entitySchemas";
+import { ClipSchema, CurveSchema, SequenceSchema } from "./entitySchemas";
 import { parseGraph } from "./graphFile";
 import { GRAPH_BASE } from "./graphSchema";
 import { k7xSyntaxIssue, parseK7xWith } from "./k7xIssues";
@@ -103,7 +98,6 @@ export function parserFor(path: string): Parse | null {
   if (inFolder("clips")) return against(ClipSchema);
   if (inFolder("sequences")) return against(SequenceSchema, path);
   if (inFolder("curves")) return against(CurveSchema);
-  if (inFolder("video_tracks")) return against(VideoTrackSchema);
   if (inFolder("timelines")) return against(TimelineSchema);
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
   // A root `chains.k7x` is the segments file under its older name; a chain FILE was routed above.

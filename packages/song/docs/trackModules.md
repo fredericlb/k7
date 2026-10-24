@@ -40,6 +40,13 @@ and a convention saying the two belong together.
 Nothing carries a `contentType`. The one axis that is genuinely about the lane and not about its
 material is **where the events come from** — written down, or streamed while the transport rolls.
 
+A PICTURE lane is a fourth, `@meta/picture-track`, offering one `video` output, and the one lane
+that IS typed: an empty one — what `picture lane new` makes — would otherwise read as an empty
+sound lane, and the rows, the graph card and both compiles need its kind before its first shot.
+It is still a lane node, muted by its bypass, soloed, ordered and renamed with the others.
+`lanesOf` answers the sound lanes only, `pictureLanesOf` the picture ones
+(`packages/song-video/docs/picture.md`).
+
 ## Two outputs
 
 A lane offers `audio` and `midi`, and nothing else. An event leaves by the one its material fits.

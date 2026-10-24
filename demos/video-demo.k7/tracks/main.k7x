@@ -1,0 +1,10 @@
+extends("@meta/picture-track")
+events([
+  ref("counter").start(0).length(4).from(0),
+  ref("bars")
+    .start(3)
+    .length(5)
+    .from(1.5)
+    .fadeIn({ over: 1, chain: "iris" }),
+])
+frame([0, 0, 1280, 720])

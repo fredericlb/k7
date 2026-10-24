@@ -23,11 +23,11 @@ in the frame; before them, both took a text editor.
 |---|---|---|
 | `picture move <lane> <at> <to>` | `start` | the body drag |
 | `picture length <lane> <at> <seconds>` | `length` | the right-edge drag |
-| `picture head <lane> <at> <to>` | `start`, `source_from` **and** `length` | the left-edge drag |
+| `picture head <lane> <at> <to>` | `start`, `from` **and** `length` | the left-edge drag |
 | `picture delete <lane> <at>` | — | (none — the drag has no delete) |
 | `picture add <lane> <ref> <at> …` | a new entry | dropping a video file on a picture lane (`apps/k7/frontend/docs/timeline.md`) |
-| `picture lane new [name]` | a new LANE, and `project.layers` | the timeline's `＋ piste` menu |
-| `picture rect <lane> <x> <y> <w> <h>` | `x`, `y`, `w`, `h` | selecting a layer in the VIEWPORT and dragging it |
+| `picture lane new [name]` | a new LANE, and `trackOrder` | the timeline's `＋ piste` menu |
+| `picture rect <lane> <x> <y> <w> <h>` | `frame([x, y, w, h])` | selecting a layer in the VIEWPORT and dragging it |
 | `picture split <lane> <at> <where>` | a second placement of the same clip, right after the first | the cut tool on a shot, and `Ctrl+B` at the playhead |
 | `picture sound <lane> [track]` | each clip's `sound:`, and a lane saying `video_source:` | run by the timeline after a video drop |
 | `picture speed <lane> <at> <factor>` | `speed` — dropped again at 1 | (none — a retime has no gesture yet) |
@@ -38,12 +38,12 @@ in the frame; before them, both took a text editor.
 | `picture key` / `picture unkey <lane> <at> <prop> <when> …` | one key of `animate:` | (none — keys are set at the playhead) |
 
 `picture split` is VIRTUAL, as an audio `event split` is: two placements of one clip, the head
-ending at the cut and the tail starting there with `source_from` moved on by the head's length,
+ending at the cut and the tail starting there with `from` moved on by the head's length,
 so the frames played do not change (`packages/song/docs/materialCut.md` says why a sequence is the
 other way). The tail is inserted RIGHT AFTER the head and not appended, because file order
 decides which shot covers which (`packages/song-video/docs/transitions.md`), and an appended tail
-would cover every shot placed between the two. The head keeps the `fade_in` and the tail takes
-the `fade_out`, so a shot still arrives and leaves the way it did, with a plain cut between the
+would cover every shot placed between the two. The head keeps the `fadeIn` and the tail takes
+the `fadeOut`, so a shot still arrives and leaves the way it did, with a plain cut between the
 halves.
 
 `picture sound` is the one that is not a gesture's twin: it makes the shots audible through the
@@ -74,7 +74,7 @@ Seconds (`12.5`) or `m:ss` (`1:30.5`) — `parseWallClock` from `@studio/song-vi
 parser `markers:` uses on the picture side. A `bar:beat:tick` is refused **by name** rather than
 mis-parsed.
 
-That is not a limitation, it is the file: `video_tracks/*.k7x` is in decimal seconds, and there is
+That is not a limitation, it is the file: a picture lane is in decimal seconds, and there is
 one `tempo:` and no tempo map. Accepting a musical spelling would mean two dialects for one number,
 with a conversion in between that the file never performs.
 
@@ -83,14 +83,14 @@ with a conversion in between that the file never performs.
 The other four write one field. The head trim writes three, and each is load-bearing — the page
 states it, and the verb now enforces it:
 
-- **`source_from` moves by the same delta as the head**, or the frame under the new edge is not the
+- **`from` moves by the same delta as the head**, or the frame under the new edge is not the
   frame that was there;
 - **`length` moves by that delta the other way**, or the tail slides and the trim is a move wearing
   a trim's clothes.
 
 Two refusals guard it, because a command can be typed where a drag could only be dropped:
 
-- a head that would walk back **past the source's own first frame** — `source_from` cannot go
+- a head that would walk back **past the source's own first frame** — `from` cannot go
   negative;
 - a trim that would leave the shot **zero or less** long, which says "trim the tail instead".
 
@@ -103,40 +103,39 @@ Every other one is about time — where a shot starts, how long it runs, which l
 one says where in the frame a lane draws, in viewport px, and it is what the viewport's selection
 box writes on release (`apps/k7/frontend/docs/picture.md`).
 
-It writes **all four** keys, always. A lane stating three of them and inheriting the fourth is a
+It writes **all four** numbers of `frame`, always. A lane stating three of them and inheriting the fourth is a
 rect nobody can read, and the fourth would come from the viewport default that exists precisely so
 a lane can state NO rect and fill the frame. Either say the whole rect or say none of it.
 
 A zero side is refused by name rather than written: a lane `0` wide draws nothing while looking
 exactly like a lane, which is the failure this format has already paid for once.
 
-## `picture lane order` counts in `layers`, which is bottom-first
+## `picture lane order` counts layers bottom-first, and writes `trackOrder`
 
-Position 1 draws FIRST, which puts the lane at the BACK. That is the file's own direction and the
-verb keeps it rather than inventing a friendlier one — `layers:` is read by the compiler, and a
-verb that counted the other way would disagree with the list it writes.
+Position 1 draws FIRST, which puts the lane at the BACK: the verb counts layers, as a compositor
+does. What it writes is the rows' order, `trackOrder`, where the TOP picture row draws in front, so
+it refills the picture rows' own slots in the reverse of its count; the sound rows between them do
+not move.
 
-The timeline lists its picture rows the other way round (front layer at the top), so its drag never
-sends a number: it names the lane whose place is being taken, and this verb does the counting.
-`apps/k7/frontend/docs/picture.md` has the reason that reversal exists.
+The timeline's drag never sends a number: it names the lane whose place is being taken, and this
+verb does the counting.
 
-## `picture lane new` writes TWO files, and looks the second up first
+## `picture lane new` writes the lane, and states `trackOrder`
 
-Every other verb here rewrites one lane. This one writes `video_tracks/<id>.k7x` **and** appends
-the id to `project.layers` — because `layers` is the membership, not just the order: a lane absent
-from it fails the picture compile by name. Two writes, one act.
-
-So `project.k7x` is found *before* either write happens. A song with none is refused with
-`no project.k7x — a picture lane has nowhere to be listed`, rather than left holding a lane file
-that would have to be listed by hand. Named nothing, it picks `layer-N` off the directory — the
-lanes are files, not something the song's own document holds.
+Every other verb here rewrites one lane. This one writes the lane file — `nodes/<id>.k7x`, or
+`tracks/<id>.k7x` in a chain project, extending `@meta/picture-track` — **and** states
+`trackOrder` with the new lane above the picture lanes there are, so it draws in front, where you
+can see what you just made (`createPictureLaneFile`, `packages/song/src/projectFiles.ts`). The
+other rows keep the order they drew in. A song with no `project.k7x` gets the lane alone: the file
+is what makes a lane exist, the order only places it. Named nothing, it picks `layer-N` off the
+lane folder.
 
 It refuses a name a lane, a track or a module already has: the graph draws a song's lanes and its
 picture lanes in one name space.
 
 ## `picture lane rename` and `delete` follow the name into six places
 
-A picture lane is named by its file, `project.layers`, `soloed:`, the graph (`graph.k7x`, or its
+A picture lane is named by its file, `trackOrder`, `soloed:`, the graph (`graph.k7x`, or its
 item in `chains/`), the `video_source` of a lane sounding it, and every timeline lane of its name,
 which draws on it. A rename that missed one would leave that one naming nothing, which the compile
 refuses or, worse, draws as nothing. So `rename` rewrites all six, and a timeline lane keeps the old
@@ -166,8 +165,7 @@ A lane whose `events:` is in a shape the text edit cannot extend is refused with
 - **No cross-lane move.** `event move` takes an optional destination track; this does not. Moving a
   shot between lanes is a delete and an add, and the two lanes may have different geometry —
   nothing here would know what to do about that.
-- **No split.** For picture it is two placements sharing a source with a computed `source_from`,
+- **No split.** For picture it is two placements sharing a source with a computed `from`,
   which is a real feature and not a variation on these five — `picture split`, above.
-- **They do not touch `layers:`.** Which lanes exist and in what order is `project.k7x`'s, and a
-  verb that placed a shot on a lane the song does not draw would be writing into a file nobody
-  reads.
+- **They do not create lanes.** A shot verb names a picture lane that exists, and refuses one
+  that does not: placing a shot is not how a lane is made.

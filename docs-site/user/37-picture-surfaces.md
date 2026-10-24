@@ -6,9 +6,11 @@ Chains sections; this is their field reference.
 
 ## Video lanes
 
-A picture lane is `video_tracks/<lane>.k7x`: its rectangle in the viewport (`x`, `y`, `w`, `h`), its
-`name`, `color` and `mute` (hidden), and its shots under `events:`. Every time in it is in **decimal
-seconds**, not bars, and every lane must be listed in `project.k7x`'s `layers`. The full field
+A picture lane is a lane file (`nodes/<lane>.k7x`, or `tracks/<lane>.k7x` with chains) that
+extends `@meta/picture-track`: its rectangle in the viewport (`frame([x, y, w, h])`), its `color`,
+and its shots under `events:`. Every time in it is in **decimal seconds**, not bars. Its mute
+(hidden) is its bypass in the graph, as for any lane, and the lanes draw in the order of their
+rows in `project.k7x`'s `trackOrder`, the top picture row in front. The full field
 reference — shots, transitions, animation, titles — is in the Picture section.
 
 ## Surfaces

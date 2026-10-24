@@ -1,0 +1,4 @@
+// A video clip (kind read from the .mp4 extension). testsrc burns the frame number
+// into the picture, so sync and source_from are checkable by eye.
+
+source("clips/counter.mp4")

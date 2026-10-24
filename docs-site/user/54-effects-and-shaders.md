@@ -11,7 +11,7 @@ them on the GPU in real time; an export runs the very same programs.
 | a lane's run | the lane's chain passes through it on its way to `RENDER` | that lane's picture, before it is composited |
 | the frame's run | between `RENDER` and `VIDEO_OUT` | the whole composited frame |
 | a shot's `effect` | a stretch (a run nothing feeds, landing on the lane), named by the shot | that one shot, for as long as it is on |
-| a fade's `chain` | a stretch, named by a `fade_in` or `fade_out` | the shot, over the fade (see [The viewport and transitions](./53-viewport.md)) |
+| a fade's `chain` | a stretch, named by a `fadeIn` or `fadeOut` | the shot, over the fade (see [The viewport and transitions](./53-viewport.md)) |
 
 `RENDER` is where every picture lane arrives, as every audio lane arrives at `MIX`; `VIDEO_OUT` is
 the frame that leaves. A project with a viewport always has a `RENDER → VIDEO_OUT` run; one is
@@ -20,7 +20,7 @@ written into the graph when it is missing.
 ```js
 // chains/main.k7x — the lane `main` goes through the `glow` chain before RENDER
 start(true)
-steps([id("main-lane").video_track("main"), to([chain("glow")])])
+steps([id("main-lane").track("main"), to([chain("glow")])])
 
 // chains/glow.k7x
 ports(["audio"])
@@ -47,7 +47,8 @@ subchains([
   id("warm").steps([id("warm-grade").extends("@k7-core/shaders/grade").params({ P4: 0.7 })]),
 ])
 
-// video_tracks/main.k7x
+// tracks/main.k7x
+extends("@meta/picture-track")
 events([ref("interview").start(0).length(12).effect("warm")])
 ```
 

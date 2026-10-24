@@ -1,4 +1,4 @@
-// PICTURE in a chain project (docs/chainFiles.md): a picture lane is a `video_track` item heading a
+// PICTURE in a chain project (docs/chainFiles.md): a picture lane is a `track` item heading a
 // chain of its own, a shape starts the chain of the lane it draws on, and a fade's STRETCH is a
 // subchain of its lane's chain. The migration carries all three over, the segments read back the
 // same graph, and the sound the engine is handed does not change by a byte.
@@ -48,15 +48,15 @@ beforeEach(() => {
   );
   write(
     "project.k7x",
-    'project({ name: "film", tempo: 120, viewport: [640, 360, 30], layers: ["main", "boxes"] })\n',
+    'project({ name: "film", tempo: 120, viewport: [640, 360, 30] })\ntrackOrder(["boxes", "main"])\n',
   );
   write("clips/a.k7x", 'source("a.mp4")\n');
   write("clips/a.mp4", "");
   write(
-    "video_tracks/main.k7x",
-    'events([\n  ref("a").start(0).length(4),\n  ref("a").start(3).length(4).fade_in({ over: 1, chain: "iris" }),\n])\n',
+    "nodes/main.k7x",
+    'extends("@meta/picture-track")\nevents([\n  ref("a").start(0).length(4),\n  ref("a").start(3).length(4).fadeIn({ over: 1, chain: "iris" }),\n])\n',
   );
-  write("video_tracks/boxes.k7x", "events([])\n");
+  write("nodes/boxes.k7x", 'extends("@meta/picture-track")\nevents([])\n');
   write("nodes/glow.k7x", 'extends("@workspace/shaders/glow")\n');
   write("nodes/iris.k7x", 'extends("@workspace/shaders/iris")\n');
   // The shape is named by its REF, with no node file: the graph may say a module outright.
@@ -74,7 +74,7 @@ describe("migrating a project with picture", () => {
     migrateToChainFiles(dir);
     const main = readChainProject(dir).chains.main;
     expect(main.start).toBe(true);
-    expect(main.steps[0]).toMatchObject({ video_track: "main" });
+    expect(main.steps[0]).toMatchObject({ track: "main" });
   });
 
   it("makes the stretch a SUBCHAIN of the lane's chain, with no way out of its own", () => {
@@ -98,15 +98,16 @@ describe("migrating a project with picture", () => {
       'modules({ main: ["glow"], glow: ["RENDER"], opening: ["main"], RENDER: ["VIDEO_OUT"] })\n',
     );
     write(
-      "video_tracks/main.k7x",
-      'events([ref("a").start(3).length(4).fade_in({ over: 1, chain: "opening" })])\n',
+      "nodes/main.k7x",
+      'extends("@meta/picture-track")\nevents([ref("a").start(3).length(4).fadeIn({ over: 1, chain: "opening" })])\n',
     );
     rmSync(join(dir, "nodes", "iris.k7x"));
     migrateToChainFiles(dir);
-    const events = wsData(join(dir, "video_tracks", "main.k7x")).events as {
-      fade_in?: { chain?: string };
+    // The lane's file has moved to `tracks/`, with the sound lanes'.
+    const events = wsData(join(dir, "tracks", "main.k7x")).events as {
+      fadeIn?: { chain?: string };
     }[];
-    expect(events[0].fade_in?.chain).toBe("iris");
+    expect(events[0].fadeIn?.chain).toBe("iris");
   });
 
   it("starts a SHAPE's chain, the lane it draws on following it", () => {
@@ -114,7 +115,7 @@ describe("migrating a project with picture", () => {
     const boxes = readChainProject(dir).chains.boxes;
     expect(boxes.start).toBe(true);
     expect(boxes.steps[0]).toMatchObject({ extends: "@workspace/shapes/box" });
-    expect(boxes.steps[1]).toMatchObject({ video_track: "boxes" });
+    expect(boxes.steps[1]).toMatchObject({ track: "boxes" });
   });
 
   it("reads back the same graph, the stretch landing on its lane", () => {

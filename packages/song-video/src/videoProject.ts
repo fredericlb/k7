@@ -80,12 +80,14 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
       return { timelines: {}, placed: new Map() as PlacedShots };
     }
   })();
-  // Draw order: `layers:` while a project states it, else the rows' order with the TOP row in front.
-  const layers =
-    proj.layers ??
-    orderTracks(Object.keys(videoTracksMap), (id) => id, root.trackOrder)
-      .slice()
-      .reverse();
+  // Draw order: the rows' order, the TOP row in front (docs/picture.md).
+  const layers = orderTracks(
+    Object.keys(videoTracksMap),
+    (id) => id,
+    root.trackOrder,
+  )
+    .slice()
+    .reverse();
   const tracks = compileVideoTracks(
     abs,
     layers,
@@ -172,7 +174,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     videoTracks: [
       ...drawn,
       // …and the cameras that feed no lane, each a layer of its own, ON TOP of the authored ones
-      // and in the order the graph declares them. Nothing in `layers:` names these: the document
+      // and in the order the graph declares them. No row names these: the document
       // authored no lane, which is the whole point of the shape (docs/camera.md).
       ...chains.cameras.map(
         (cam): VideoTrackDoc => ({

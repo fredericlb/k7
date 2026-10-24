@@ -60,7 +60,7 @@ Each tool stands on **one verb**, so a press stays one command and one Ctrl+Z:
 
 **The tools are the same on both kinds of lane**, so the blade means the same thing wherever it
 lands. Both splits write two placements of one source and render nothing — audio by its window,
-picture by `source_from` (`packages/commands/docs/picture.md`). The picture
+picture by `from` (`packages/commands/docs/picture.md`). The picture
 column is `pictureToolLine`, beside `toolLine`, and a press on a shot goes through the same guard
 at the top of its own drag.
 
@@ -874,8 +874,8 @@ outlined: that is the slot the lane in hand would take. Release and the lane tak
 one journal entry and one Ctrl+Z. Below the 4px slop the press is still the click it always was,
 and `rowMoved` is what keeps one gesture from also selecting the row.
 
-**A picture row above another means IN FRONT of it.** `layers:` is bottom-first and the rows are
-drawn reversed, so dragging a lane to the top row puts it in front — see
+**A picture row above another means IN FRONT of it.** The draw order is the rows' order, top in
+front, so dragging a lane to the top row puts it in front — see
 [picture.md](picture.md), which records what happened when the two read the same way round.
 
 **The drop names a LANE, never a slot.** `onReorder` sends the id of the lane whose place is being
@@ -889,8 +889,9 @@ Three rows are deliberately not draggable and not droppable:
 - a **group header** — moving it would move every member, which is a different act;
 - a **live pattern lane**, because the row cannot tell one apart from a lane the project declares:
   the live ones are appended from their own endpoint (`rows.ts`), and no list on disk holds them;
-- **across the two families**. A song's lanes and its picture's are two lists in two files, so a
-  drop from one onto the other resolves to nothing rather than to a guess.
+- **across the two families**. The picture rows are drawn apart from the sound rows, and the two
+  verbs count in different spaces — `track order` over the lanes, `picture lane order` over the
+  layers — so a drop from one onto the other resolves to nothing rather than to a guess.
 
 An automation row DOES answer, with the lane it belongs to: it is drawn as part of it, and a drop
 that landed on it plainly meant it.
@@ -912,15 +913,14 @@ with a single answer, so the shape follows what the project declares: `onNewVide
 only when `hasViewport`, and the component branches on the handler's own presence — the idiom the
 picture drag already uses.
 
-Making a picture lane is **two writes**, and that is the interesting part: the lane file, and
-`project.layers`, which is what says a lane exists and in which order it draws. A lane missing from
-that list compiles perfectly and never appears, so the verb owns both
+Making a picture lane is **two writes**: the lane file, and `trackOrder`, stated with the new lane
+above the other picture lanes so it draws in front, where you can see what you just made
 ([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
 
 ### The camcorder is the picture lane's mark
 
 One glyph — `TrackIcon`'s `video-16` — wherever a picture lane is named: its gutter row here, its
-clips on it, its node on the chains graph, its `video_tracks/*.k7x` row in the file tree, and the
+clips on it, its node on the chains graph, its lane file's row in the file tree, and the
 menu entry that makes one. A second drawing for the same thing is how a reader learns that two
 pictures mean two things.
 

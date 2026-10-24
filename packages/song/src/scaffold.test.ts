@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "@studio/k7x/document";
+import { PICTURE_LANE_LEVEL } from "@studio/song-schema/formatLevel";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
@@ -100,7 +101,7 @@ describe("arrangement vs video", () => {
     for (const f of [
       "surfaces/timeline.k7x",
       "surfaces/viewport.k7x",
-      "video_tracks/main.k7x",
+      "tracks/main.k7x", // a chain project, its lanes in tracks/
       "clips/sample.k7x",
       "clips/sample.mp4", // COPIED, not referenced where the package sits
     ])
@@ -129,8 +130,8 @@ describe("arrangement vs video", () => {
       project: {
         ...(a.project as object),
         viewport: [1280, 720, 30],
-        layers: ["main"],
       },
+      format: PICTURE_LANE_LEVEL,
     });
     // The graph differs by the run the picture adds; every song segment stays, in order.
     const kept = parse(audio[GRAPH_FILE]).modules as Record<string, string[]>;

@@ -56,8 +56,7 @@ A chain without a start that nothing links to is treated as hidden, unless somet
 | A step is… | Written | Meaning |
 |---|---|---|
 | a node | `{ id, extends?, params?, … }` | One module use; its fields are those of [Node and module fields](./35-node-fields.md). |
-| a lane | `{ id, track: <lane> }` | An audio lane, whose events are in `tracks/<lane>.k7x`. A source: only a chain with `start: true` may hold one. `bypass: true` mutes it. |
-| a picture lane | `{ id, video_track: <lane> }` | A picture lane, whose shots are in `video_tracks/<lane>.k7x`. |
+| a lane | `{ id, track: <lane> }` | A lane, whose events are in `tracks/<lane>.k7x` — an audio lane, or a picture lane when that file extends `@meta/picture-track`. A source: only a chain with `start: true` may hold one. `bypass: true` mutes it (hides a picture lane). |
 | parallel nodes | a list of two or more items | Nodes side by side, all fed the same signal. |
 | a subchain run | `{ sub: <id> }` | Runs one of this file's subchains in place, its output returning to the next step. |
 | links | `{ to: [ … ] }` | The last step: where the signal goes. |

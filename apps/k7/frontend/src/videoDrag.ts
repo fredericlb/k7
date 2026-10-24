@@ -5,7 +5,7 @@
 /** One field of a picture placement, in seconds, by INDEX in `events:` — the only unique address (song-video/docs/shapes.md). */
 export interface VideoEdit {
   index: number;
-  field: "start" | "source_from" | "length";
+  field: "start" | "from" | "length";
   value: number;
 }
 
@@ -91,7 +91,7 @@ export function videoDragEdits(v: VDrag): VideoEdit[] {
     if (!v.activation)
       edits.push({
         index: v.index,
-        field: "source_from",
+        field: "from",
         value: Math.max(0, v.origFrom + delta * (v.speed ?? 1)),
       });
     edits.push({

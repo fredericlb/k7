@@ -98,7 +98,7 @@ scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are
 
 `PROJECT_SUFFIXES` has one entry, `.k7`, because one app opens a project. Everything an k7 project
 can BE is a shape *inside* `.k7` rather than a folder kind of its own: a song carries
-`video_tracks/` and a `viewport` surface, a set carries `songs.k7x` and a `turntables` surface
+picture lanes and a `viewport` surface, a set carries `songs.k7x` and a `turntables` surface
 (`PROJECT_SHAPES` in `@studio/song`). See `packages/song-video/docs/picture.md` and
 `packages/song/docs/setProject.md`. It stays a `Record<ProjectApp, string>`, so an app added to
 `ProjectApp` fails to compile until its suffix is stated.

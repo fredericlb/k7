@@ -55,7 +55,8 @@ describe("fileKindFor", () => {
   it("names a chain file, a lane file and the older segments files", () => {
     expect(fileKindFor("chains/gtr.k7x")).toBe("chain");
     expect(fileKindFor("tracks/gtr.k7x")).toBe("module");
-    expect(fileKindFor("video_tracks/cam.k7x")).toBe("video_track");
+    // A picture lane is a lane node, its fields the module's.
+    expect(fileKindFor("nodes/cam.k7x")).toBe("module");
     expect(fileKindFor("chains.k7x")).toBe("chains");
     expect(fileKindFor("chains/verb/graph.k7x")).toBe("chains");
     expect(fileKindFor("chains/gtr.yaml")).toBeNull();

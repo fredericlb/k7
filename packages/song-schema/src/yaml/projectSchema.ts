@@ -34,7 +34,7 @@ export const ProjectSettingsSchema = z
     // DEAD and still accepted, since `.strict()` would turn a refusal into a project that will not open.
     modules_from: z.array(z.string()).optional(),
     libraries_from: z.array(z.string()).optional(),
-    // DEAD in the same sense: `surfaces/` draws the frame and `video_tracks/` says a song HAS picture.
+    // DEAD in the same sense: `surfaces/` draws the frame and a picture lane says a song HAS picture.
     video: z.boolean().optional(),
     // PICTURE's, in the SHARED settings tier since one schema validates every dialect (docs/projectFile.md).
     viewport: z
@@ -47,7 +47,14 @@ export const ProjectSettingsSchema = z
         ]),
       ])
       .optional(),
-    layers: z.array(z.string()).optional(),
+    // Empty is accepted and read by nothing, as most songs carry it; naming a lane means one its open did not migrate (docs/formatLevel.md).
+    layers: z
+      .array(z.string())
+      .max(0, {
+        message:
+          "`layers` is gone — the picture draws in the rows' order (`trackOrder`); open the project in k7 to move its picture lanes",
+      })
+      .optional(),
     // The words the home page files this song under, written by `project tag` (src/projectTags.ts).
     tags: z.array(z.string().min(1)).optional(),
   })

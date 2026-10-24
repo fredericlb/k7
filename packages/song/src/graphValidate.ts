@@ -45,7 +45,7 @@ export function checkChainInputs(
   lanes: Record<string, Lane>,
   clips: Record<string, RawClip>,
   seqs: Record<string, RawSequence>,
-  // Video tracks (video_tracks/<id>.k7x): a chain sourced from one types as "video".
+  // The picture lanes (`@meta/picture-track` nodes): a chain sourced from one types as "video".
   videoTracks: Record<string, RawVideoTrack> = {},
   // The first nodes of runs a rack's TAP feeds: fed with audio, though no edge says so (docs/racks.md).
   tapFed: ReadonlySet<string> = new Set(),
@@ -190,7 +190,7 @@ export function validate(g: GraphDoc): string[] {
       // A transition is named by a cut, never wired; its empty `inputs` means unconstrained — song-video/docs/transitions.md.
       else if (module.category === TRANSITION_CATEGORY)
         w.push(
-          `chain '${name}': '${s.module}' is a transition, and a transition is not wired — a cut names it (\`fade_in: { over: 1, with: ${s.module} }\` on a placement in video_tracks/<lane>.k7x)`,
+          `chain '${name}': '${s.module}' is a transition, and a transition is not wired — a cut names it (\`fadeIn({ over: 1, with: "${s.module}" })\` on a shot of a picture lane)`,
         );
     }
     for (const o of c.out) {

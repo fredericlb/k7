@@ -6,7 +6,6 @@
 
 import { z } from "zod";
 import { AnimateSchema } from "../keyframes";
-import { FadeSchema } from "./videoPlacementSchema";
 
 /** The shape a position/duration has — see docs/moduleFile.md. */
 export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
@@ -20,10 +19,27 @@ const WindowEdge = z.union([
   z.string().regex(TIMECODE, "expected seconds (0.25) or a timecode like 2:1"),
 ]);
 
+/** A shot's transition, in its map form; bare seconds are widened into it before parsing. */
+export const FadeSchema = z
+  .object({
+    over: z.number().min(0), // seconds
+    // A module in modules/video_transitions/, by its bare name; absent is the built-in dissolve, or `over` beside a `chain`.
+    with: z.string().min(1).optional(),
+    // The head node of a run fed by nothing that lands on this lane: it runs on THIS shot over the fade.
+    chain: z.string().min(1).optional(),
+  })
+  .strict();
+
 // A fade: a timecode DURATION on audio, seconds or a transition map on a shot (song-video docs/transitions.md).
+// Checked by its shape rather than as a union: a union reports a typo'd key as a bare "Invalid input" with no path.
 const Fade = z.preprocess(
   (v) => (typeof v === "number" ? { over: v } : v),
-  z.union([Timecode, FadeSchema]),
+  z.custom<string | z.infer<typeof FadeSchema>>().superRefine((v, ctx) => {
+    const r = (typeof v === "string" ? Timecode : FadeSchema).safeParse(v);
+    if (!r.success)
+      for (const issue of r.error.issues)
+        ctx.addIssue(issue as Parameters<typeof ctx.addIssue>[0]);
+  }),
 );
 
 /** The keys only a SHOT reads — what an event on audio or MIDI material is refused for carrying. */

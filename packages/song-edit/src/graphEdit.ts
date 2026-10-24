@@ -75,6 +75,24 @@ export function setModuleBypass(
   return editGraph(dir, (doc) => setModuleEnabled(doc, node, !bypassed));
 }
 
+/** Mute (or unmute) a LANE through its bypass, giving the graph an entry for a lane it does not name yet — a picture lane often has none. */
+export function setLaneBypass(
+  dir: string,
+  lane: string,
+  bypassed: boolean,
+): string {
+  const node = nodeArg(dir, lane);
+  return editGraph(dir, (doc) => {
+    if (bypassed) addNode(doc, node);
+    else {
+      const listed = doc.getIn(["bypassed"]);
+      // Unmuting a lane nothing bypasses is already done; the graph would refuse a name it does not hold.
+      if (!Array.isArray(listed) || !listed.includes(node)) return;
+    }
+    setModuleEnabled(doc, node, !bypassed);
+  });
+}
+
 /** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */
 export function unlinkChainNode(
   dir: string,

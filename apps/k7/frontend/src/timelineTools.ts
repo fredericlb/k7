@@ -99,7 +99,7 @@ export function pictureToolLine(tool: Tool, s: ShotTarget): ToolAct {
   switch (tool) {
     case "pointer":
     case "crossfade":
-      // A shot's crossfade is its `fade_in`, which its corner handle already draws.
+      // A shot's crossfade is its `fadeIn`, which its corner handle already draws.
       return null;
     case "cut":
       if (s.at <= s.start + 1e-3)

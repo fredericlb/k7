@@ -4,9 +4,10 @@
 
 ### A new field on a shot
 
-1. Add it to `VideoPlacementSchema` in `packages/song-schema/src/yaml/entitySchemas.ts`. The schema
-   is `.strict()`, so an unknown key is refused on its line; if the field needs a source, add it to
-   the list the `superRefine` refuses on an activation.
+1. Add it to `PlacementSchema` in `packages/song-schema/src/yaml/placementSchema.ts`, the one event
+   schema sound and shots share. The schema is `.strict()`, so an unknown key is refused on its
+   line; a shot-only field goes in `SHOT_KEYS` (refused on sound), and a field that needs a source
+   in the list the `superRefine` refuses on an activation.
 2. Carry it in `VideoClipDoc` (`packages/song-video/src/videoDoc.ts`) and read it in
    `videoPlacementToClip` (`packages/song-video/src/videoTracks.ts`). Keep "absent stays absent".
 3. Mirror it in `WebVideoProject` (`packages/web-protocol/timelineTypes.ts`), in `SceneClip`
@@ -82,6 +83,6 @@ timeline and the frame draw. When you change a rule in `ui-eyes/src/timeline.ts`
 
 The demo project `demos/video-demo.k7` exercises lanes, a picture-in-picture, shapes, a title, a
 stretch fade (`iris`) and an audio-reactive shader (`glow`); its `counter.mp4` burns the frame
-number into the picture, so sync and `source_from` can be checked by eye.
+number into the picture, so sync and `from` can be checked by eye.
 
 Every edited `.ts` file must pass biome's lint (`npm run lint` at the root).

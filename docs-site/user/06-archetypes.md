@@ -71,7 +71,8 @@ then load songs onto the decks. The DJ section of this guide covers the desk in 
 Everything the `arrangement` archetype writes, plus picture:
 
 - `project.k7x` adds `viewport: [1280, 720, 30]` (the frame's width, height and frames per second;
-  the fps is used by export) and `layers: [main]` (the draw order of the picture lanes).
+  the fps is used by export), and the file is stamped `format(3)`, the level that reads picture
+  lanes as lanes.
 - A sample video, `clips/sample.mp4`, copied into the project. Each frame shows its frame number, so
   a sync problem is easy to see.
 - A picture lane, **main**, which places six seconds of that clip full-frame at the start. Picture

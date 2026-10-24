@@ -1,7 +1,7 @@
-// videoTracks.ts — video_tracks/ + project.layers -> VideoTrackDoc[], in draw order, with the
-// three checks the schema cannot make (a layer naming nothing, a layer named twice, a lane no
-// layer names). Its own file rather than a section of nodeProject.ts because the two are two
-// compiles of one folder, and only this one's output ever draws. See docs/picture.md.
+// videoTracks.ts — the picture lanes -> VideoTrackDoc[], in draw order, with the check the module
+// schema cannot make since it does not know a lane is picture: a last open-ended shot fading out.
+// Its own file rather than a section of nodeProject.ts because the two are two compiles of one
+// folder, and only this one's output ever draws. See docs/picture.md.
 
 import { readFileSync } from "node:fs";
 import { confineToProject } from "@studio/song/confine";
@@ -100,8 +100,8 @@ export function videoPlacementToClip(
   // A derived copy outside the roots is dropped, and the shot falls back to its source.
   const optimized = confineToProject(dir, clipsMap[ref]?.optimized);
   const proxy = confineToProject(dir, clipsMap[ref]?.proxy);
-  const fadeIn = readFade(p.fade_in);
-  const fadeOut = readFade(p.fade_out);
+  const fadeIn = readFade(p.fadeIn);
+  const fadeOut = readFade(p.fadeOut);
   // Absent stays absent: a shot at its source's own pace says nothing about speed.
   const speed = Number(p.speed ?? 1);
   return {
@@ -115,7 +115,7 @@ export function videoPlacementToClip(
       : {}),
     start: Number(p.start ?? 0),
     length: Number(p.length ?? 0),
-    sourceFrom: Number(p.source_from ?? 0),
+    sourceFrom: Number(p.from ?? 0),
     // Absent stays absent, the way a lane with no chain carries no `plugins`.
     ...(fadeIn ? { fadeIn } : {}),
     ...(fadeOut ? { fadeOut } : {}),
@@ -185,7 +185,7 @@ export function readViewport(proj: Record<string, unknown>): {
   };
 }
 
-/** The lanes a project draws, bottom first — `layers:` is the ORDER and the membership at once. */
+/** The lanes a project draws, in `order` — bottom first, the rows' order reversed by the caller. */
 export function compileVideoTracks(
   dir: string,
   layersRaw: unknown,
@@ -198,27 +198,17 @@ export function compileVideoTracks(
   /** Non-fatal problems, pushed as they are found: a blank lane has to be able to say why. */
   warnings?: string[],
 ): VideoTrackDoc[] {
-  const ids = Object.keys(videoTracksMap);
   const layers = (Array.isArray(layersRaw) ? layersRaw : []).map(String);
+  // A fadeOut needs an END: only the LAST length-0 shot has none, since an earlier one ends where the next starts.
   const errs: string[] = [];
-
-  const known = new Set(ids);
-  const listed = new Set<string>();
   for (const id of layers) {
-    if (!known.has(id))
+    const ev = videoTracksMap[id]?.events ?? [];
+    const last = ev[ev.length - 1];
+    if (last?.fadeOut && !Number(last.length ?? 0))
       errs.push(
-        `project.layers names '${id}', which is not a video track (add video_tracks/${id}.k7x, or remove it from layers)`,
+        `${id}: its last shot fades out but has \`length(0)\` with nothing after it — give it a length, or put a shot after it`,
       );
-    if (listed.has(id))
-      errs.push(`project.layers lists '${id}' more than once`);
-    listed.add(id);
   }
-  for (const id of ids)
-    if (!listed.has(id))
-      errs.push(
-        `video track '${id}' is missing from project.layers (add it — layers decides draw order, bottom first)`,
-      );
-
   if (errs.length)
     throw new Error(`video config invalid:\n  - ${errs.join("\n  - ")}`);
 

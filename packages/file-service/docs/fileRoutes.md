@@ -222,7 +222,7 @@ draws. A route of its own rather than a shape `/project-doc` might also return: 
 different documents from different compilers (a song has a tempo, its picture has a viewport),
 and one route answering either would make "which did I get" a runtime question at every call
 site. BOTH answer for the same folder — a song carries its own picture — and a project with
-no `video_tracks/` gets an empty document rather than an error, so "no picture" and "broken
+no picture lane gets an empty document rather than an error, so "no picture" and "broken
 picture" stay two different answers.
 
 ## `/surfaces` is derived here, not walked in the browser

@@ -48,7 +48,7 @@ function song(): { root: string; dir: string } {
   // A curve, so the CURVE node case has something to pin — it is not a chains node.
   writeDoc(join(d, "curves", "wob.k7x"), { type: "lfo", frequency: 2 });
   // …and a PICTURE lane, which is a card on the graph and is no key of `modules:` either.
-  writeDoc(join(d, "video_tracks", "main.k7x"), { events: [] });
+  writeLane(d, "main", "picture-track", { events: [] });
   return { root: r, dir: d };
 }
 

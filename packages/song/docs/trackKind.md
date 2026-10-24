@@ -63,6 +63,7 @@ The target may be a **lane** rather than a number, and the timeline's drag alway
 that clusters its rows — a group's members follow its header — cannot count slots the file would
 agree with, so it names the lane whose place is being taken and lets the verb do the counting.
 
-A picture lane's order is `project.layers` and `picture lane order` writes it, bottom first: the
-same gesture on the other list ([packages/song-video/docs/picture.md](../../song-video/docs/picture.md)).
-The timeline lists those rows front-first, which is why its drag names a lane and never a number.
+A picture lane is a row of the same `trackOrder`, and its row order is its draw order, the top
+picture row in front ([packages/song-video/docs/picture.md](../../song-video/docs/picture.md)).
+`picture lane order` writes `trackOrder` too, counting the picture lanes as layers, bottom first;
+the timeline's drag names a lane and never a number.

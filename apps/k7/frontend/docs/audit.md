@@ -32,8 +32,8 @@ one by one, each is a `parseDocument` of its own on every keystroke of every fil
 the keys a read looks for (`rack_type`, the word `io`, `extends`) — gates that are exact, since a
 key the parser would find is spelled in the text. The reads run on a `useDeferredValue` of the open
 file, so they trail the keystroke rather than delay it; the picture lane's placements read the same
-deferred file, and only on a `video_tracks/` path. The slice colouring that runs inside CodeMirror
-on every project file takes the same `rack_type` gate (`sliceSymbols.ts`).
+deferred file, and only on a picture lane's file (`isVideoTrackFile`). The slice colouring that runs
+inside CodeMirror on every project file takes the same `rack_type` gate (`sliceSymbols.ts`).
 
 A poll that answers what it answered before keeps the old object (`keepIfSame`,
 `src/shellEquality.ts`): the editor's `hints`, from which every CodeMirror extension is rebuilt, its

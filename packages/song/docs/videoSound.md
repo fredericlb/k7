@@ -10,7 +10,7 @@ source("clips/shot_a.mp4")
 sound("clips/shot_a.sound.wav") // extracted once, by `picture sound`
 ```
 
-`src/videoSound.ts` turns the shots of `video_tracks/main.k7x` into this lane's clips at compile
+`src/videoSound.ts` turns the shots of the picture lane `main` into this lane's clips at compile
 time. The verb that sets it up is `picture sound` (`packages/commands/src/verbs/pictureSound.ts`).
 
 ## The ENGINE plays it, not the `<video>`
@@ -78,7 +78,7 @@ audio rule:
 - A shot ends at its `length`, else at the next shot's `start`, else at the end of its file.
 - The shot later in the file covers the ones before it. An earlier shot is cut where a later one
   covers it and is heard again after it, exactly as it shows again.
-- The incoming shot's `fade_in` IS the transition. The outgoing sound runs through it and fades
+- The incoming shot's `fadeIn` IS the transition. The outgoing sound runs through it and fades
   out over the same span, and that pair is what `markCrossfades` marks equal-power.
 - An ACTIVATION, an event with no `ref`, covers nothing and sounds nothing.
 

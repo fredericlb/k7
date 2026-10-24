@@ -6,7 +6,7 @@ are named after what they **are** — nothing is arranged, and there is no lane 
 
 ```
 rig.k7/
-  project.k7x             no layers — a name, a tempo, a rate (+ a viewport in live-video)
+  project.k7x             no lanes — a name, a tempo, a rate (+ a viewport in live-video)
   settings.k7x            metronome off
   graph.k7x               four lines, six in live-video
   nodes/IN.k7x            the live input — OUT is a built-in sink, no file needed
@@ -21,7 +21,7 @@ That is the file MAP. A new rig is then converted to chain files, the main layou
 by an id, and the track the input materialises is labelled by its chain, `IN`, rather than by that
 id. The bench keeps the map as it is, a graph, because it splices into it by node name.
 
-No `clips/`, no `sequences/`, no `video_tracks/`, and — bar that one viewport — no `surfaces/`. It opens on its graph and nothing
+No `clips/`, no `sequences/`, no picture lane, and — bar that one viewport — no `surfaces/`. It opens on its graph and nothing
 else, and it is silent about it: `surfaceIssues` warns that an arrangement is undrawn only when the
 folder **holds material**, and this one holds none. *A bare rig is silent — it has no arrangement to
 draw* ([surfaces.md](surfaces.md)) was already a state the model had a word for; what it had no way
@@ -188,10 +188,10 @@ comes with the shape, and `project.k7x` gains the one size a rig has:
 viewport([1280, 720, 30])
 ```
 
-### A picture is not the same question as `video_tracks/`
+### A picture is not the same question as picture lanes
 
 The file service's gate on compiling a picture is `hasPicture(dir)`: *lanes of it, or a lens that
-needs none*. `isVideoProject(dir)` — does the folder have `video_tracks/` — cannot be that gate: a
+needs none*. `isVideoProject(dir)` — does the folder author a picture lane — cannot be that gate: a
 `live-video` project has no lanes, so its viewport would draw **nothing**, with no error to explain
 it. `isVideoProject` answers the other question — whether a project is an arrangement owing a
 timeline, and whether missing a viewport is worth a warning. The camera is what makes the two

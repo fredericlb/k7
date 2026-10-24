@@ -1,12 +1,12 @@
 // `picture lane rename` and `picture lane delete`, through the dispatcher on real files: every place
-// that names a picture lane follows it — its file, `layers:`, `soloed:`, the graph, a sounding lane and
+// that names a picture lane follows it — its file, `trackOrder`, `soloed:`, the graph, a sounding lane and
 // the timelines drawing on it (src/verbs/pictureLane.ts).
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -32,12 +32,12 @@ beforeEach(() => {
       name: "t",
       tempo: 120,
       viewport: [640, 360],
-      layers: ["cam", "pip"],
     },
+    trackOrder: ["pip", "cam"],
     soloed: ["cam"],
   });
-  doc("video_tracks/cam.k7x", { events: [] });
-  doc("video_tracks/pip.k7x", { events: [] });
+  writeLane(dir, "cam", "picture-track", { events: [] });
+  writeLane(dir, "pip", "picture-track", { events: [] });
   doc("timelines/verse.k7x", {
     lanes: [{ lane: "x", events: [] }],
     pictures: [{ lane: "cam", events: [] }],
@@ -50,10 +50,10 @@ describe("picture lane rename", () => {
     wsWriteText(join(dir, "graph.k7x"), 'modules({ cam: ["pip"] })\n');
     const h = await run("picture lane rename cam wide");
     expect(h.lines.refuse).toEqual([]);
-    expect(wsExists(join(dir, "video_tracks/wide.k7x"))).toBe(true);
-    expect(wsExists(join(dir, "video_tracks/cam.k7x"))).toBe(false);
+    expect(wsExists(join(dir, "nodes/wide.k7x"))).toBe(true);
+    expect(wsExists(join(dir, "nodes/cam.k7x"))).toBe(false);
     const p = data("project.k7x");
-    expect(p.project.layers).toEqual(["wide", "pip"]);
+    expect(p.trackOrder).toEqual(["pip", "wide"]);
     expect(p.soloed).toEqual(["wide"]);
     expect(Object.keys(data("graph.k7x").modules)).toEqual(["wide"]);
     // The timeline's lane drew on `cam`, so it follows.
@@ -68,24 +68,24 @@ describe("picture lane rename", () => {
 
   it("refuses a name another lane has", async () => {
     const h = await run("picture lane rename cam pip");
-    expect(h.lines.refuse.join(" ")).toMatch(/already exists/);
+    expect(h.lines.refuse.join(" ")).toMatch(/already a track/);
   });
 
   it("renames a timeline's lane inside its file alone", async () => {
     const h = await run("picture lane rename verse>cam broll");
     expect(h.lines.refuse).toEqual([]);
     expect(data("timelines/verse.k7x").pictures[0].lane).toBe("broll");
-    expect(wsExists(join(dir, "video_tracks/cam.k7x"))).toBe(true);
+    expect(wsExists(join(dir, "nodes/cam.k7x"))).toBe(true);
   });
 });
 
 describe("picture lane delete", () => {
-  it("removes the file and the lane from `layers:` and `soloed:`", async () => {
+  it("removes the file and the lane from `trackOrder` and `soloed:`", async () => {
     const h = await run("picture lane delete cam");
     expect(h.lines.refuse).toEqual([]);
-    expect(wsExists(join(dir, "video_tracks/cam.k7x"))).toBe(false);
+    expect(wsExists(join(dir, "nodes/cam.k7x"))).toBe(false);
     const p = data("project.k7x");
-    expect(p.project.layers).toEqual(["pip"]);
+    expect(p.trackOrder).toEqual(["pip"]);
     expect(p.soloed).toBeUndefined();
     // A timeline lane drawing on it is left, and said to draw nowhere.
     expect(h.lines.log.join(" ")).toMatch(/verse>cam now draw/);
@@ -95,7 +95,7 @@ describe("picture lane delete", () => {
     doc("nodes/dialog.k7x", { extends: "@meta/track", video_source: "cam" });
     const h = await run("picture lane delete cam");
     expect(h.lines.refuse.join(" ")).toMatch(/dialog plays 'cam''s sound/);
-    expect(wsExists(join(dir, "video_tracks/cam.k7x"))).toBe(true);
+    expect(wsExists(join(dir, "nodes/cam.k7x"))).toBe(true);
   });
 
   it("removes a timeline's lane from its file", async () => {

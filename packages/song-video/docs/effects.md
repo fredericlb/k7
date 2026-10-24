@@ -7,7 +7,8 @@ modules({
   film: ["main"], // nodes/film.k7x  extends "@k7-core/shaders/look", lut: looks/film.cube
 })
 
-// video_tracks/main.k7x
+// nodes/main.k7x
+extends("@meta/picture-track")
 events([
   ref("interview").start(0).length(6).effect("warm"),
   ref("street").start(6).length(4).effect("film"),

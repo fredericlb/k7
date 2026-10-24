@@ -1,6 +1,6 @@
 // pictureLanesMigrate.ts — a project still holding `video_tracks/` rewritten so each picture lane is
 // a lane node: its file moved beside the audio lanes, `layers:` folded into `trackOrder`, its mute
-// into the graph's bypass, its rect into `frame`, each timeline's `pictures:` into its `lanes:`.
+// into the graph's bypass, its rect into `frame`, and every shot into the lane event's words.
 // What a reader gets wrong: every new text is computed BEFORE anything is written, so a lane that
 // will not read leaves the project exactly as it was. See docs/picture-lanes-plan.md.
 
@@ -16,6 +16,7 @@ import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { laneFolder } from "./chainItemEdit";
 import { isChainProject, newNodeId } from "./chainProject";
+import { forgetModuleReads } from "./moduleCache";
 import { loadModuleRefs } from "./moduleRefs";
 import { resolveModuleMap } from "./moduleResolve";
 import { loadModules } from "./moduleTree";
@@ -253,33 +254,18 @@ export function migratePictureLanes(
     }
   }
 
-  // 5. Each timeline's picture lanes join its lanes, renamed as the song lane they draw on.
-  for (const { id, file } of entityFiles(join(dir, "timelines"), "timelines")) {
+  // 5. Each timeline's picture lanes keep their own list — a timeline lane has no ref saying what it holds — in the lane's words.
+  for (const { file } of entityFiles(join(dir, "timelines"), "timelines")) {
     const doc = new K7Document(wsText(file.path));
-    const data = doc.toJS();
-    const pics = listOf(data.pictures);
+    const pics = listOf(doc.toJS().pictures);
     if (!pics.length) continue;
     const s = doc.at([]);
-    const names = new Set(
-      listOf(data.lanes).map((l) => (isRecord(l) ? l.lane : null)),
-    );
     pics.forEach((p, i) => {
       if (!isRecord(p)) return;
-      const lane = renamed(String(p.lane));
-      if (names.has(lane))
-        throw new Error(
-          `timelines/${id}.k7x: its picture lane '${lane}' would land on a lane of the same name — rename one first`,
-        );
-      names.add(lane);
       renameShotKeys(s, ["pictures", i, "events"]);
+      const lane = renamed(String(p.lane));
       if (lane !== p.lane) s.setIn(["pictures", i, "lane"], lane);
     });
-    const lanesNow = listOf(data.lanes).length;
-    pics.forEach((_, i) => {
-      const src = s.getSource(["pictures", i]);
-      if (src) s.insertSourceIn(["lanes"], lanesNow + i, src);
-    });
-    s.deleteIn(["pictures"]);
     writes.set(file.path, doc.toString());
   }
 
@@ -288,6 +274,8 @@ export function migratePictureLanes(
   for (const [abs, text] of writes) wsWriteText(abs, text);
   for (const abs of removes) rmSync(abs);
   if (!readdirSync(videoDir).length) rmSync(videoDir, { recursive: true });
+  // Its lanes are new nodes now: what was read of the old layout must not answer for this one (docs/moduleCache.md).
+  forgetModuleReads(dir);
   report.files = [...writes.keys(), ...removes];
   return report;
 }

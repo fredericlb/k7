@@ -2,8 +2,9 @@
 // thing about it. A k7x file is a document, so these edit it as one — the value is found by PATH, not by matching
 // source text, and a path that isn't there throws instead of quietly doing nothing.
 
-import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { cpSync, mkdirSync, readdirSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { K7Document } from "@studio/k7x/document";
 import {
   insertBetween,
@@ -12,6 +13,23 @@ import {
 } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { wsText, wsWriteData, wsWriteText } from "./yaml/workspaceDoc";
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+
+/** A repository fixture as it was BEFORE its picture lanes were nodes — `fixtures/pictureLanesV2`, its media borrowed from the fixture today. */
+export function copyOldPictureFixture(rel: string, to: string): void {
+  const name = basename(rel);
+  cpSync(
+    join(REPO, "packages", "song", "fixtures", "pictureLanesV2", name),
+    to,
+    {
+      recursive: true,
+    },
+  );
+  const clips = join(REPO, rel, "clips");
+  for (const f of readdirSync(clips))
+    if (!f.endsWith(".k7x")) cpSync(join(clips, f), join(to, "clips", f));
+}
 
 /** The BENCH fixture, re-exported here rather than published as a subpath nobody outside imports. */
 export {
@@ -51,7 +69,7 @@ export function writeModule(
 export function writeLane(
   dir: string,
   name: string,
-  extend: "track" | "strudel-track" | "group-track" = "track",
+  extend: "track" | "strudel-track" | "group-track" | "picture-track" = "track",
   value: Record<string, unknown> = {},
 ): string {
   return writeNode(dir, name, { extends: `@meta/${extend}`, ...value });

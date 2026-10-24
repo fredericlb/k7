@@ -14,7 +14,7 @@ same code.
 
 What the conversion costs is the comments of the files it generates. A chain file is written from
 data, so the notes the graph and the node files carried are not in it; every file that is MOVED
-rather than generated — `project.k7x`, a lane's `tracks/` file, `surfaces/`, `video_tracks/` —
+rather than generated — `project.k7x`, a lane's `tracks/` file (a picture lane's included), `surfaces/` —
 keeps its own.
 
 Two shapes stay graphs:
@@ -47,9 +47,10 @@ example to edit.
 ## `video` is `arrangement` plus picture, by construction
 
 `videoProjectFiles` spreads `projectFiles` and adds four things: a `surfaces/viewport.k7x`, a
-clip, a `video_tracks/main.k7x`, and the bundled `clips/sample.mp4` — plus the two header lines
-`viewport:` and `layers:`, which live inside `project.k7x` rather than in a file of their own and
-are therefore the one entry re-derived instead of shared.
+clip, a picture lane `nodes/main.k7x` (`@meta/picture-track`), and the bundled
+`clips/sample.mp4` — plus the header line `viewport:` and the stamp `format(3)`, which live inside
+`project.k7x` rather than in a file of their own and are therefore the one entry re-derived instead
+of shared. The stamp is there because a picture lane is a format an older k7 cannot read.
 
 Built by **adding** rather than by restating, so the graph, the synth and the settings cannot
 drift between the two. `scaffold.test.ts` pins that entry for entry: the day someone rewrites a

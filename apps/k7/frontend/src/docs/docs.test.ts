@@ -9,7 +9,6 @@ import {
   ClipSchema,
   CurveSchema,
   SequenceSchema,
-  VideoTrackSchema,
 } from "@studio/song-schema/yaml/entitySchemas";
 import { GraphFileSchema } from "@studio/song-schema/yaml/graphSchema";
 import {
@@ -36,7 +35,6 @@ const SCHEMAS: Record<string, z.ZodType> = {
   Clip: ClipSchema,
   Sequence: SequenceSchema,
   Curve: CurveSchema,
-  VideoTrack: VideoTrackSchema,
   Timeline: TimelineSchema,
   GraphFile: GraphFileSchema,
   Module: ModuleSchema,

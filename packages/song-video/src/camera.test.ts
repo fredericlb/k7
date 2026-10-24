@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGraph, validate } from "@studio/song/graph";
-import { writeDoc } from "@studio/song/testSupport";
+import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
 import { loadVideoProject } from "./videoProject";
@@ -29,9 +29,10 @@ function project(
   },
 ) {
   writeDoc(join(dir, "project.k7x"), {
-    project: { name: "film", viewport: [1280, 720, 30], layers: ["main"] },
+    project: { name: "film", viewport: [1280, 720, 30] },
+    trackOrder: ["main"],
   });
-  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: [] });
+  writeLane(dir, "main", "picture-track", { events: [] });
   writeDoc(join(dir, "nodes", "cam.k7x"), camNode);
   writeDoc(join(dir, "graph.k7x"), graph);
   return dir;
@@ -102,7 +103,7 @@ describe("what validate() refuses", () => {
 
 describe("a camera with no lane at all", () => {
   it("draws a layer of its own, the whole frame, out of nothing but the node", () => {
-    // No `video_tracks/` file and no `layers:` line: the document authors no lane, which is the
+    // No lane file and no `trackOrder` entry for `cam`: the document authors no lane of it, which is the
     // whole point of the shape. See packages/song/docs/camera.md.
     const dir2 = project({ modules: { cam: [], RENDER: ["VIDEO_OUT"] } });
     const layers = loadVideoProject(dir2).videoTracks;
@@ -124,7 +125,7 @@ describe("a camera with no lane at all", () => {
   it("draws ON TOP of the lanes the project does author", () => {
     const dir2 = project({ modules: { cam: [], RENDER: ["VIDEO_OUT"] } });
     const ids = loadVideoProject(dir2).videoTracks.map((t) => t.id);
-    // `layers:` decides the order of the authored ones; a synthesised lens comes after them all.
+    // `trackOrder` decides the order of the authored ones; a synthesised lens comes after them all.
     expect(ids[ids.length - 1]).toBe("cam");
     expect(ids).toContain("main");
   });

@@ -1,4 +1,4 @@
-// projectFiles.ts — the writers that CREATE a project's files: a lane, a video lane, a sequence,
+// projectFiles.ts — the writers that CREATE a project's files: a lane, a picture lane, a sequence,
 // a module, an io node, a node, a module clone. What a reader gets wrong: a lane in a chain
 // project is a chain file, not a `nodes/` file. See docs/loader.md.
 
@@ -11,16 +11,20 @@ import {
   isIoSource,
   MODULE_TYPES,
   moduleRefOf,
+  PICTURE_TRACK_REF,
   TRACK_REF,
 } from "@studio/song-schema/moduleTypes";
+import { orderTracks } from "@studio/song-schema/trackKind";
 import { chainTaken, createChainLane, createChainNode } from "./chainCreate";
 import { isChainProject } from "./chainProject";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { loadProjectRoot } from "./entities";
-import { projectModules } from "./moduleRefs";
+import { loadModuleRefs, projectModules } from "./moduleRefs";
+import { resolveModuleMap } from "./moduleResolve";
 import { loadModules, NODES_DIR } from "./moduleTree";
 import type { LoadedModule } from "./rawDoc";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
+import { lanesOf, pictureLanesOf } from "./trackModule";
 import { setFileValue } from "./yaml/edit";
 import { entityFileFor, isProjectFolder, moduleFileFor } from "./yaml/moduleIO";
 import { wsEdit, wsWriteText } from "./yaml/workspaceDoc";
@@ -30,13 +34,17 @@ const nodeText = (header: string[], body: Record<string, unknown>): string =>
   stringify(body, { header });
 
 // Create a LANE's file (`nodes/`, or `tracks/` and its chain in a chain project), appending to `trackOrder` when there is one.
-export function createTrackFile(dir: string, id: string): string[] {
+export function createTrackFile(
+  dir: string,
+  id: string,
+  ref: string = TRACK_REF,
+): string[] {
   // The filename is the id, and the id is what a chain's key names.
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
       `invalid track name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
-  const body = stringify({ extends: TRACK_REF, events: [] });
+  const body = stringify({ extends: ref, events: [] });
   // A chain project keeps a lane in `tracks/`, played by a chain of its own (docs/chainFiles.md).
   const written = isChainProject(dir) ? createChainLane(dir, id, body) : null;
   const rel = `nodes/${id}.k7x`;
@@ -58,57 +66,38 @@ export function createTrackFile(dir: string, id: string): string[] {
   return written ?? [rel];
 }
 
-/** State a lane order in `project.k7x` — the song's lanes, or its picture's, which are two lists (docs/trackKind.md). */
+/** State the lanes' order in `project.k7x` — sound and picture rows in one list (docs/trackKind.md). */
 export function setLaneOrder(
   dir: string,
-  which: "trackOrder" | "layers",
+  which: "trackOrder",
   order: string[],
 ): string {
   const projectFile = entityFileFor(dir, "", "project");
   if (!projectFile)
     throw new Error("no project.k7x — there is nowhere to state a lane order");
-  setFileValue(
-    projectFile.path,
-    which === "layers" ? ["project", "layers"] : ["trackOrder"],
-    order,
-  );
+  setFileValue(projectFile.path, [which], order);
   // `rel` carries a leading slash, its "sub" being the root; a log line is a path a reader retypes.
   return projectFile.rel.replace(/^\//, "");
 }
 
-/** Create `video_tracks/<id>.k7x` AND list `<id>` in `project.layers` — two writes and ONE act (packages/song-video/docs/picture.md). */
-export function createVideoTrackFile(dir: string, id: string): string[] {
-  if (!/^[A-Za-z0-9_.-]+$/.test(id))
-    throw new Error(
-      `invalid lane name '${id}' — letters, digits, '.', '_' and '-' only`,
-    );
-  const rel = `video_tracks/${id}.k7x`;
-  if (existsSync(join(dir, rel)))
-    throw new Error(`picture lane '${id}' already exists (${rel})`);
-  // The graph draws a song's lanes and its picture lanes in ONE name space, so the two cannot share a name.
-  if (
-    existsSync(join(dir, "nodes", `${id}.k7x`)) ||
-    existsSync(join(dir, "tracks", `${id}.k7x`)) ||
-    id in loadModules(dir)
-  )
-    throw new Error(`'${id}' is already a track or a module in this project`);
-  // Looked up BEFORE either write: an orphan lane file would fail the compile until somebody listed it by hand.
+/** Create a PICTURE lane, listed in `trackOrder` above the picture lanes there are — so it draws in front, where you can see what you just made. */
+export function createPictureLaneFile(dir: string, id: string): string[] {
+  const written = createTrackFile(dir, id, PICTURE_TRACK_REF);
   const projectFile = entityFileFor(dir, "", "project");
-  if (!projectFile)
-    throw new Error("no project.k7x — a picture lane has nowhere to be listed");
-  const layers = loadProjectRoot(dir, true).project?.layers;
-
-  mkdirSync(join(dir, "video_tracks"), { recursive: true });
-  // No x/y/w/h: a lane stating no rect fills the frame, which is what a new one should do (song-video/docs/picture.md).
-  wsWriteText(join(dir, rel), stringify({ events: [] }));
-  // Appended, so the new lane draws LAST — on top, where you can see what you just made.
-  setFileValue(
-    projectFile.path,
-    ["project", "layers"],
-    [...(Array.isArray(layers) ? layers.map(String) : []), id],
+  if (!projectFile) return written;
+  const modules = resolveModuleMap(loadModules(dir), loadModuleRefs(dir));
+  const pictures = new Set(Object.keys(pictureLanesOf(modules)));
+  const stated = loadProjectRoot(dir, true).trackOrder;
+  // The rows as they draw now, so stating the order for the first time moves nothing else.
+  const rows = orderTracks(
+    [...Object.keys(lanesOf(modules)), ...pictures].filter((l) => l !== id),
+    (l) => l,
+    Array.isArray(stated) ? stated.map(String) : undefined,
   );
-  // The project file's rel carries a leading slash, its "sub" being the root; the log line is a path a reader retypes.
-  return [rel, projectFile.rel.replace(/^\//, "")];
+  const at = rows.findIndex((l) => pictures.has(l));
+  rows.splice(at < 0 ? rows.length : at, 0, id);
+  setFileValue(projectFile.path, ["trackOrder"], rows);
+  return [...written, projectFile.rel.replace(/^\//, "")];
 }
 
 // Create `sequences/<id>.k7x` — four empty bars said as the sequence's own window, since no notes means nothing to measure.

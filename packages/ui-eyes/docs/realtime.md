@@ -7,10 +7,10 @@ decoders for a lane that displays one picture. A cut swaps the element's `src`, 
 costs a visible hitch.
 
 A **transition** is the one thing that needs two pictures at once, so a lane gets a second
-element exactly when one of its clips declares a `fade_in`
+element exactly when one of its clips declares a `fadeIn`
 ([transitions.md](../../song-video/docs/transitions.md)). Three notes on that condition:
 
-- it is `fade_in` and not "has a fade": a `fade_out` goes to a transparent texel, so it needs
+- it is `fadeIn` and not "has a fade": a `fadeOut` goes to a transparent texel, so it needs
   no second decoder — which halves the lanes that pay;
 - it is settled per scene, off the layer's clips: a song that gains its first dissolve gets its
   second element at the next `setScene`, like any other edit;
@@ -97,7 +97,7 @@ thrashing the decoder toward a frame that does not exist. Export skips a layer w
 there for the same reason, and preview must agree with it.
 
 The fourth case is **per ELEMENT rather than per lane**, and that is load-bearing rather than
-tidy: a `fade_out` on a shot that runs to the end of its material is the commonest fade there is,
+tidy: a `fadeOut` on a shot that runs to the end of its material is the commonest fade there is,
 and parking the whole lane for it would drop the lane's entire composite for the length of the
 fade. One element going quiet leaves the other's picture — and the blend says which slots carry
 one, so a side that has nothing this frame is simply the transparent texel.

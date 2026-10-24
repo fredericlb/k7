@@ -462,6 +462,7 @@ export {
   replugChainNodes,
   setChainNodePosition,
   setChainNodePositions,
+  setLaneBypass,
   setModuleBypass,
   unlinkChainNode,
 } from "./graphEdit";

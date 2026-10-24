@@ -80,7 +80,7 @@ file or a picture rather than the music:
 | A clip's `from` / `to` | seconds into the source file (a number), or a timecode |
 | An event's `from` / `to` | seconds (a number) or a timecode — see [Lanes and events](./34-lanes-events.md#the-window-from-and-to) |
 | A sequence's `from` / `to` | timecodes only, positions inside the sequence |
-| Everything in a picture lane (`video_tracks/`) | decimal seconds |
+| Everything in a picture lane (`@meta/picture-track`) | decimal seconds |
 | A clip's `onsets` corrections | seconds into the source |
 | An ADSR curve's stages | milliseconds |
 

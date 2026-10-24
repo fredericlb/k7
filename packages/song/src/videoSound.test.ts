@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
-import { writeDoc } from "./testSupport";
+import { writeDoc, writeLane } from "./testSupport";
 import { videoSoundClips } from "./videoSound";
 
 // A lane naming a picture lane plays its shots' sound exactly where the picture shows them — docs/videoSound.md.
@@ -31,9 +31,7 @@ const sound = (events: Record<string, unknown>[]) =>
 
 describe("a shot's sound, where the picture shows it", () => {
   it("places a shot in beats, its trim as the window into the sound file", () => {
-    expect(
-      sound([{ ref: "a", start: 1, length: 2, source_from: 0.5 }]),
-    ).toEqual([
+    expect(sound([{ ref: "a", start: 1, length: 2, from: 0.5 }])).toEqual([
       {
         name: "a",
         start: 2,
@@ -78,10 +76,10 @@ describe("a shot's sound, where the picture shows it", () => {
     ]);
   });
 
-  it("crosses the two sounds over the incoming shot's fade_in", () => {
+  it("crosses the two sounds over the incoming shot's fadeIn", () => {
     const out = sound([
       { ref: "a", start: 0, length: 5 },
-      { ref: "b", start: 4, length: 5, fade_in: { over: 1, with: "wipe" } },
+      { ref: "b", start: 4, length: 5, fadeIn: { over: 1, with: "wipe" } },
     ]);
     // The outgoing sound runs on through the fade and leaves over it — the pair markCrossfades makes equal-power.
     expect(out).toEqual([
@@ -130,8 +128,8 @@ describe("a shot's sound, where the picture shows it", () => {
     // What `picture split main 0 1.5` writes: two placements of one clip, the tail trimmed into it by the head's length.
     expect(
       sound([
-        { ref: "a", start: 0, length: 1.5, source_from: 0.5 },
-        { ref: "a", start: 1.5, length: 2.5, source_from: 2 },
+        { ref: "a", start: 0, length: 1.5, from: 0.5 },
+        { ref: "a", start: 1.5, length: 2.5, from: 2 },
       ]),
     ).toEqual([
       {
@@ -160,9 +158,9 @@ describe("a shot's sound, where the picture shows it", () => {
       "/p",
       {
         events: [
-          { ref: "a", start: 0, length: 2, source_from: 1, speed: 2 },
+          { ref: "a", start: 0, length: 2, from: 1, speed: 2 },
           { ref: "b", start: 2, length: 2, speed: 0 },
-          { ref: "a", start: 4, length: 2, source_from: 5, speed: -1 },
+          { ref: "a", start: 4, length: 2, from: 5, speed: -1 },
         ],
       },
       clips,
@@ -188,7 +186,7 @@ describe("a shot's sound, where the picture shows it", () => {
   it("keeps a shot's own fades, and is silent for a clip with no sound and for an activation", () => {
     expect(
       sound([
-        { ref: "a", start: 0, length: 4, fade_in: 1, fade_out: 0.5 },
+        { ref: "a", start: 0, length: 4, fadeIn: 1, fadeOut: 0.5 },
         { ref: "mute", start: 4, length: 2 },
         { start: 6, length: 2 },
       ]),
@@ -207,10 +205,10 @@ describe("compiled into the engine's document", () => {
     writeDoc(join(dir, "clips", "b.k7x"), clips.b);
     for (const f of ["a.mp4", "a.wav", "b.mp4", "b.wav"])
       writeFileSync(join(dir, "clips", f), "");
-    writeDoc(join(dir, "video_tracks", "main.k7x"), {
+    writeLane(dir, "main", "picture-track", {
       events: [
         { ref: "a", start: 0, length: 5 },
-        { ref: "b", start: 4, length: 5, fade_in: 1 },
+        { ref: "b", start: 4, length: 5, fadeIn: 1 },
       ],
     });
   });

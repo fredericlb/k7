@@ -47,9 +47,8 @@ soloed(["vocals"])
 | `masterVolume` | number, −100 to 12 | `0` (unity) | The song's output level in dB: the fader under the header meter. |
 | `console` | text `@<library>/console/<name>` | none | A summing console placed over the whole mix, chosen from a library's `console/` folder (for example `@k7-core/console/console-5`). |
 | `viewport` | `[width, height]` or `[width, height, fps]` | none | The picture frame in pixels, for a project with video lanes. The fps is used by export only. There is no default frame. |
-| `layers` | list of names | none | The picture lanes in draw order, bottom first. Every `video_tracks/` file must be listed, and every name must have a file. |
 | `tags` | list of text | none | Words the home page files the song under. Compared without case; written by the `project tag` command. |
-| `video` | true/false | — | Accepted and ignored. Whether a song has picture is decided by its `video_tracks/` folder and its surfaces. |
+| `video` | true/false | — | Accepted and ignored. Whether a song has picture is decided by its picture lanes and its surfaces. |
 | `modules_from`, `libraries_from` | lists | — | Accepted and ignored. |
 
 ### Root fields
@@ -89,7 +88,7 @@ files are then yours to change.
 | Archetype | What it opens on | Files it writes |
 |---|---|---|
 | `arrangement` | A timeline | `project`, `settings`, a melody lane playing `sequences/melody` through a synth, two Strudel lanes (`pad`, `kit`) on `algo/pattern.strudel`, a group lane `live` holding them, an empty `curves/`, and `surfaces/timeline`. Written in the chain layout. |
-| `video` | A timeline and a viewport | Everything `arrangement` writes, plus `viewport: [1280, 720, 30]` and `layers: [main]` in `project`, a sample video in `clips/`, `video_tracks/main`, the `RENDER → VIDEO_OUT` run, and `surfaces/viewport`. |
+| `video` | A timeline and a viewport | Everything `arrangement` writes, plus `viewport: [1280, 720, 30]` and `format(3)` in `project`, a sample video in `clips/`, the picture lane `main`, the `RENDER → VIDEO_OUT` run, and `surfaces/viewport`. |
 | `mix` | A DJ desk | A set: `project` with only a name and a sample rate (a set has no bars), `mix.k7x` (the cue sheet), two decks with their strips, one turntable assembly per deck (`assemblies/`), and `surfaces/desk` of type `turntables`. Written in the graph layout. See the DJ & sets section. |
 | `live` | A rig you play through | An input `IN`, a `fader` (the shared mixer strip), a recorder `rec` on the master run, `settings`. No lane, no timeline. Chain layout. |
 | `live-video` | A rig with a camera | `live` plus a camera node `CAM`, the picture run, `viewport: [1280, 720, 30]` in `project`, and `surfaces/viewport`. |

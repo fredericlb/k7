@@ -236,7 +236,7 @@ export function checkReferences(dir: string, inp: CompileInputs): void {
         `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
       );
 
-  // `video_tracks/` is deliberately unchecked here — the picture compiles separately (packages/song-video/docs/picture.md).
+  // The picture lanes are deliberately unchecked here — the picture compiles separately (packages/song-video/docs/picture.md).
 
   if (refErrs.length)
     throw new Error(

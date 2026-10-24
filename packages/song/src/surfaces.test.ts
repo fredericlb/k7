@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { parseSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSurfaceFile, projectSurfaces, surfaceIssues } from "./surfaces";
-import { writeDoc } from "./testSupport";
+import { writeDoc, writeLane } from "./testSupport";
 import { wsData, wsText } from "./yaml/workspaceDoc";
 
 let root: string;
@@ -239,7 +239,7 @@ describe("a song with video lanes and no viewport", () => {
   /** `withSurface`'s folder, plus a video lane on disk. */
   function withPicture(name: string, body: string): string {
     const dir = withSurface(name, body);
-    writeDoc(join(dir, "video_tracks", "main.k7x"), { events: [] });
+    writeLane(dir, "main", "picture-track", { events: [] });
     return dir;
   }
 
@@ -261,7 +261,7 @@ describe("a song with video lanes and no viewport", () => {
   });
 
   it("says nothing about picture to a song that has none", () => {
-    // The check is on `video_tracks/`, or every song in the médiathèque grows a warning.
+    // The check is on a picture lane, or every song in the médiathèque grows a warning.
     expect(surfaceIssues(withSurface("timeline", TIMELINE))).toEqual([]);
   });
 

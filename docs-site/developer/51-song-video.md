@@ -22,7 +22,7 @@ is Node-only (it reads files) and depends on `@studio/song` (the loader, the gra
 | field | content |
 |---|---|
 | `viewport`, `fps` | from `project.viewport: [w, h, fps?]`; fps defaults to 30 and is used by export only |
-| `videoTracks` | `VideoTrackDoc[]`, already in `layers` draw order, then the lane-less camera layers on top |
+| `videoTracks` | `VideoTrackDoc[]`, already in draw order (the picture rows of `trackOrder`, bottom first), then the lane-less camera layers on top |
 | `markers` | project markers read as wall-clock points, sorted |
 | `framePlugins` | the `RENDER → VIDEO_OUT` run |
 | `transitions` | every transition a fade names, by name, GLSL inline; the built-in dissolve is absent |
@@ -30,7 +30,7 @@ is Node-only (it reads files) and depends on `@studio/song` (the loader, the gra
 | `warnings` | what compiled but will draw nothing |
 
 The split between **throw** and **warning** is deliberate: a throw is a picture that cannot be
-built (no `viewport`; `layers` naming a missing lane, naming one twice, or missing one), a warning
+built (no `viewport`; a lane's last open-ended shot fading out), a warning
 is a picture that builds and then draws less than asked (a ref with no clip, a shape wired to no
 lane, shots on a lane of shapes, an unknown stretch, an unreadable subtitle block). A blank lane
 must be able to say why.
@@ -42,7 +42,9 @@ source, `fadeIn` / `fadeOut` normalised to `{ over, with, chain? }`, `animate` a
 
 ## The lane compile — `videoTracks.ts`
 
-`compileVideoTracks` checks `layers` against `video_tracks/` (the three errors above), resolves
+`compileVideoTracks` takes the picture lanes (`@meta/picture-track` nodes, through `loadVideoTracks`,
+mute read off the graph's bypass) in the draw order `loadVideoProject` derives from `trackOrder`,
+refuses a last open-ended shot that fades out, resolves
 solo from the project's `soloed` list (the same list audio reads; each compile keeps its own lanes),
 fills a lane with no rect to the whole frame, and maps each placement through
 `videoPlacementToClip`:
@@ -99,7 +101,7 @@ project, `chainStretchHead` maps a subchain id of the lane's chain file to its f
 | `flatten.ts` | one lane as sequential, non-overlapping segments plus dissolves, by the lane's own covering rule; drops activations and captions; reports an open-ended last shot with unknown length. Both writers start here |
 | `otio.ts` | `toOtio`: one video track per lane, OTIO 1 schemas (`Timeline.1`, `Clip.1`, `Gap.1`, `Transition.1`, `LinearTimeWarp.1`, `FreezeFrame.1`), times rounded to frames |
 | `edl.ts` | `toEdl`: one lane as CMX 3600, record timecodes from `01:00:00:00`, dissolve pairs, `M2` speed lines, `FROM CLIP NAME` comments |
-| `imported.ts` | the `ImportedCut` both readers produce, and `dissolveIntoFadeIn` (a centred transition turned into the incoming shot's `fade_in`) |
+| `imported.ts` | the `ImportedCut` both readers produce, and `dissolveIntoFadeIn` (a centred transition turned into the incoming shot's `fadeIn`) |
 | `fromOtio.ts` | reads video tracks, `Clip.1` and `Clip.2` media references, gaps, time warps; skips audio and nested items, listing them |
 | `fromEdl.ts` | reads `V` events at a caller-given fps, dissolve pairs, `M2`, clip-name comments; measures record time from the first event |
 

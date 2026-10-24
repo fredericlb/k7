@@ -294,7 +294,7 @@ function loadChainNodes(
   fileIssues.push(...cp.issues);
   const presets = join(dir, VSTPRESETS_DIR);
   for (const n of Object.values(cp.nodes)) {
-    // A `video_track` item is no module: its placements are video_tracks/; a picture lane's `track` item has its file.
+    // An unmigrated `video_track` item is no module; a picture lane's `track` item has its file in `tracks/`.
     if (isVideoTrackItem(n.value)) continue;
     let value: Record<string, unknown> | null;
     let rel: string;

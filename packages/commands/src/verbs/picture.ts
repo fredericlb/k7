@@ -5,26 +5,34 @@
 // palette, no CLI, and no entry in the undo journal. Sound had `event move` and picture had a
 // mouse. See docs/picture.md for the three that mirror the three drags.
 
-import { readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { K7Path } from "@studio/k7x/ast";
 import { K7Document, type K7Scope } from "@studio/k7x/document";
+import { laneFolder } from "@studio/song/chainItemEdit";
 import {
-  createVideoTrackFile,
+  createPictureLaneFile,
+  loadLanes,
   loadProjectRoot,
+  loadVideoTracks,
   setLaneOrder,
 } from "@studio/song/loader";
+import { pictureLaneFile, pictureLaneIds } from "@studio/song/pictureLanes";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
+import { setLaneBypass } from "@studio/song-edit/projectEdit";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import { timelineLaneOf } from "@studio/song-schema/timelineLane";
-import { orderPosition, reorderTracks } from "@studio/song-schema/trackKind";
+import {
+  orderPosition,
+  orderTracks,
+  reorderTracks,
+} from "@studio/song-schema/trackKind";
 import {
   addVideoPlacement,
   listVideoPlacements,
   removeVideoPlacementAt,
-  setVideoLaneMute,
   setVideoLaneRect,
   setVideoPlacementFieldAt,
   shiftVideoAnimationAt,
@@ -34,9 +42,6 @@ import {
 import { parseWallClock } from "@studio/song-video/videoProject";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
-
-/** Where a song keeps its picture lanes — one file per lane, `packages/song-video/docs/picture.md`. */
-const LANES_DIR = "video_tracks";
 
 /** How close two starts have to be to be the same one — the file is written to the millisecond. */
 const SAME = 5e-4;
@@ -94,28 +99,23 @@ export function laneFile(lane: string, h: CommandHost): PictureLaneAt | null {
   const tl = timelineLaneOf(lane.trim());
   if (tl) return timelinePictureLane(tl, h);
   const name = stripDocExt(lane.trim());
-  const dir = resolve(h.songPath, LANES_DIR);
-  const abs = join(dir, `${name}.k7x`);
-  // Containment, as every path-taking verb does: a lane name is one segment, never a way out.
-  if (
-    !name ||
-    name.includes("/") ||
-    name.includes("\\") ||
-    !abs.startsWith(dir)
-  ) {
+  // A lane name is one segment, never a way out — and never a path the lookup below would try.
+  if (!ID.test(name)) {
     h.refuse([`'${lane}' is not a lane name`]);
     return null;
   }
-  if (!wsExists(abs)) {
+  const file = pictureLaneFile(h.songPath, name);
+  if (!file) {
+    const ids = pictureLaneIds(h.songPath);
     h.refuse([
-      `no picture lane '${name}' — this song's lanes are in ${LANES_DIR}/`,
+      `no picture lane '${name}'${ids.length ? ` — this song's are ${ids.join(", ")}` : " — this song has none"}`,
     ]);
     return null;
   }
   return {
-    rel: `${LANES_DIR}/${name}.k7x`,
-    abs,
-    text: wsText(abs),
+    rel: file.rel.replace(/^\//, ""),
+    abs: file.path,
+    text: wsText(file.path),
     path: [],
   };
 }
@@ -230,10 +230,17 @@ export function target(
   return { ...found, list, at, index, rest };
 }
 
-/** `layer-N`, the first free one — the lanes are a DIRECTORY, not something the song's own doc holds. */
+/** The SOUND lanes of the rows — what `trackOrder` lists beside the picture lanes. */
+function rowLanes(dir: string): string[] {
+  return Object.keys(loadLanes(dir));
+}
+
+/** `layer-N`, the first free one beside every lane there is — one name space for sound and picture. */
 function nextLaneId(h: CommandHost): string {
-  const dir = resolve(h.songPath, LANES_DIR);
-  const taken = new Set(wsExists(dir) ? readdirSync(dir).map(stripDocExt) : []);
+  const sub = laneFolder(h.songPath);
+  const taken = new Set(
+    entityFiles(join(h.songPath, sub), sub).map((e) => e.id),
+  );
   let n = 1;
   while (taken.has(`layer-${n}`)) n++;
   return `layer-${n}`;
@@ -269,7 +276,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       return h.reload();
     }
     try {
-      const written = createVideoTrackFile(h.songPath, id);
+      const written = createPictureLaneFile(h.songPath, id);
       h.log([`+ picture lane ${id} (${written.join(", ")})`]);
     } catch (e) {
       h.refuse([`picture lane new: ${(e as Error).message}`]);
@@ -278,7 +285,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     return h.reload();
   },
 
-  /** `picture lane order <lane> <position>` — `layers` IS the draw order, so reordering is one list write. */
+  /** `picture lane order <lane> <position>` — the draw order is the picture rows' order, so reordering is one `trackOrder` write. */
   "picture.laneOrder": async (a, h) => {
     const [laneArg, whereArg] = splitWords(a);
     if (!laneArg || !whereArg) {
@@ -287,11 +294,18 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const stated = loadProjectRoot(h.songPath, true).project?.layers;
-    const layers = Array.isArray(stated) ? stated.map(String) : [];
+    // The rows as they draw, and the picture lanes among them bottom first — layer 1 is the back.
+    const root = loadProjectRoot(h.songPath, true);
+    const pictures = pictureLaneIds(h.songPath);
+    const rows = orderTracks(
+      [...rowLanes(h.songPath), ...pictures],
+      (l) => l,
+      Array.isArray(root.trackOrder) ? root.trackOrder.map(String) : undefined,
+    );
+    const layers = rows.filter((l) => pictures.includes(l)).reverse();
     if (!layers.includes(laneArg)) {
       h.refuse([
-        `no picture lane '${laneArg}'${layers.length ? ` — project.layers names ${layers.join(", ")}` : " — this song lists none"}`,
+        `no picture lane '${laneArg}'${layers.length ? ` — this song's are ${layers.join(", ")}, bottom first` : " — this song has none"}`,
       ]);
       return;
     }
@@ -302,12 +316,12 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
+    // The picture rows' own slots, refilled top first; the sound rows between them do not move.
+    const restacked = reorderTracks(layers, laneArg, pos).reverse();
+    let k = 0;
+    const order = rows.map((l) => (pictures.includes(l) ? restacked[k++] : l));
     try {
-      const file = setLaneOrder(
-        h.songPath,
-        "layers",
-        reorderTracks(layers, laneArg, pos),
-      );
+      const file = setLaneOrder(h.songPath, "trackOrder", order);
       h.log([
         `${laneArg} is now layer ${Math.min(Math.max(pos, 1), layers.length)} of ${layers.length}, bottom first (${file})`,
       ]);
@@ -318,7 +332,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     return h.reload();
   },
 
-  /** `picture mute <lane>` — HIDDEN, there being no sound on a lane; the lane's own file carries it. */
+  /** `picture mute <lane>` — HIDDEN, there being no sound on a lane: its bypass, as every lane's mute is. */
   "picture.mute": async (a, h) => {
     const lane = splitWords(a)[0];
     if (!lane) {
@@ -327,10 +341,16 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     }
     const found = layerFile(lane, h, "mute");
     if (!found) return;
-    // Read back rather than assumed: a toggle has to start from what the file says right now.
-    const on = wsData(found.abs).mute !== true;
-    if (!put(found, (doc) => setVideoLaneMute(doc, on), h, "mute")) return;
-    h.log([`${found.rel}: ${on ? "hidden" : "shown"}`]);
+    // Read back rather than assumed: a toggle has to start from what the graph says right now.
+    const name = stripDocExt(lane.trim());
+    const on = loadVideoTracks(h.songPath)[name]?.mute !== true;
+    try {
+      const file = setLaneBypass(h.songPath, name, on);
+      h.log([`${name}: ${on ? "hidden" : "shown"} (${file})`]);
+    } catch (e) {
+      h.refuse([`picture mute: ${(e as Error).message}`]);
+      return;
+    }
     return h.reload();
   },
 
@@ -447,10 +467,10 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    // Three fields, together: source_from follows the head or the frame changes, and length the other way or the TAIL slides.
+    // Three fields, together: from follows the head or the frame changes, and length the other way or the TAIL slides.
     const head = (doc: K7Scope) => {
       setVideoPlacementFieldAt(doc, t.index, "start", to);
-      setVideoPlacementFieldAt(doc, t.index, "source_from", from);
+      setVideoPlacementFieldAt(doc, t.index, "from", from);
       if (shot.length > 0)
         setVideoPlacementFieldAt(doc, t.index, "length", shot.length - delta);
       // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
@@ -514,7 +534,7 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
     const sourceFrom = fromArg === undefined ? 0 : seconds(fromArg, h);
     if (sourceFrom === null) return;
     // The ref names a `clips/` entry, and only the compiler reads those — so this reports rather than refuses.
-    const clip = resolve(h.songPath, "clips", `${ref}.k7x`);
+    const clip = join(h.songPath, "clips", `${ref}.k7x`);
     const unknown = !wsExists(clip);
     const shot = { ref, start: at, length, sourceFrom };
     const add = (doc: K7Scope) => addVideoPlacement(doc, shot);

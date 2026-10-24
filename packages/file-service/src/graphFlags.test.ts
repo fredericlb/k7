@@ -15,9 +15,12 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "flags-"));
   dir = join(root, "song.k7");
   writeDoc(join(dir, "project.k7x"), {
-    project: { name: "f", viewport: [1280, 720, 30], layers: ["main"] },
+    project: { name: "f", viewport: [1280, 720, 30] },
   });
-  writeDoc(join(dir, "video_tracks", "main.k7x"), { events: [] });
+  writeDoc(join(dir, "nodes", "main.k7x"), {
+    extends: "@meta/picture-track",
+    events: [],
+  });
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

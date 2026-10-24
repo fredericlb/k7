@@ -39,13 +39,12 @@ beforeEach(() => {
   writeFileSync(join(dir, "clips/a.mp4"), "");
   doc("clips/a.k7x", { source: "clips/a.mp4" });
   doc("project.k7x", {
-    project: { name: "t", tempo: 120, viewport: [640, 360], layers: ["cam"] },
+    project: { name: "t", tempo: 120, viewport: [640, 360] },
+    trackOrder: ["gtr", "cam"],
   });
-  doc("video_tracks/cam.k7x", {
-    x: 10,
-    y: 20,
-    w: 320,
-    h: 180,
+  doc("nodes/cam.k7x", {
+    extends: "@meta/picture-track",
+    frame: [10, 20, 320, 180],
     events: [{ ref: "a", start: 0, length: 1 }],
   });
 });
