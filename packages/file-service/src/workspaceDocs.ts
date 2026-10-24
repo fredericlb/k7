@@ -134,6 +134,7 @@ export function webVideoProjectOf(
 ): WebVideoProject {
   return {
     name: p.name,
+    ...(p.rowOrder ? { rowOrder: [...p.rowOrder] } : {}),
     viewport: p.viewport,
     fps: p.fps,
     duration: videoDuration(p.videoTracks),

@@ -37,6 +37,8 @@ export function projectRows(
   videoTracks: WebVideoTrack[] = [],
   // Each lane's automation, by track id, from the graph — absent for a project that automates nothing, and for a caller with no graph.
   automation: Record<string, WebAutomationLane[]> = {},
+  // `trackOrder` as stated, every lane — where each picture row goes among the sound rows (docs/picture.md).
+  order?: readonly string[],
 ): Row[] {
   const byId = new Map(project.groups.map((g) => [g.id, g]));
   const members = new Map<string, { track: WebTrack; index: number }[]>();
@@ -47,31 +49,66 @@ export function projectRows(
     else members.set(track.group, [{ track, index }]);
   });
 
-  const rows: Row[] = [];
+  // The sound rows in UNITS — a lane with its automation, or a group with its members — since a picture row never splits one.
+  const units: { lanes: string[]; rows: Row[] }[] = [];
   const done = new Set<string>();
-  const withAutomation = (track: WebTrack, index: number, grouped: boolean) => {
-    rows.push({ kind: "track", track, index, grouped });
-    for (const lane of automation[track.id] ?? [])
-      rows.push({ kind: "automation", track, lane });
-  };
+  const laneRows = (track: WebTrack, index: number, grouped: boolean) => [
+    { kind: "track" as const, track, index, grouped },
+    ...(automation[track.id] ?? []).map((lane) => ({
+      kind: "automation" as const,
+      track,
+      lane,
+    })),
+  ];
   tracks.forEach((track, index) => {
     const group = byId.get(track.group);
     if (!group) {
-      withAutomation(track, index, false);
+      units.push({
+        lanes: [laneOf(track.id)],
+        rows: laneRows(track, index, false),
+      });
       return;
     }
     if (done.has(group.id)) return; // already emitted with its header
     done.add(group.id);
-    rows.push({ kind: "group", group });
-    for (const m of members.get(group.id) ?? [])
-      withAutomation(m.track, m.index, true);
+    const list = members.get(group.id) ?? [];
+    units.push({
+      lanes: [group.id, ...list.map((m) => laneOf(m.track.id))],
+      rows: [
+        { kind: "group", group },
+        ...list.flatMap((m) => laneRows(m.track, m.index, true)),
+      ],
+    });
   });
 
-  // Video lanes last, and REVERSED: the picture document is bottom-first, and a row above another means IN FRONT of it (docs/picture.md).
-  for (let i = videoTracks.length - 1; i >= 0; i--)
-    rows.push({ kind: "video", track: videoTracks[i] });
-
-  return rows;
+  // Picture rows top first — the document is bottom-first, and a row above another is IN FRONT of it (docs/picture.md).
+  const pictures: Row[] = [...videoTracks]
+    .reverse()
+    .map((track) => ({ kind: "video", track }));
+  // Each picture row after the last sound lane `trackOrder` lists before it; before them all, on top; unlisted, at the bottom.
+  const at = new Map((order ?? []).map((id, i) => [id, i]));
+  const sound = new Set(units.flatMap((u) => u.lanes));
+  const anchorOf = (id: string): string | null | undefined => {
+    const i = at.get(id);
+    if (i === undefined || !order) return undefined;
+    for (let k = i - 1; k >= 0; k--) if (sound.has(order[k])) return order[k];
+    return null;
+  };
+  const anchored = new Map<string | null, Row[]>();
+  const unlisted: Row[] = [];
+  for (const r of pictures) {
+    const a = r.kind === "video" ? anchorOf(r.track.id) : undefined;
+    if (a === undefined) unlisted.push(r);
+    else anchored.set(a, [...(anchored.get(a) ?? []), r]);
+  }
+  return [
+    ...(anchored.get(null) ?? []),
+    ...units.flatMap((u) => [
+      ...u.rows,
+      ...u.lanes.flatMap((l) => anchored.get(l) ?? []),
+    ]),
+    ...unlisted,
+  ];
 }
 
 // A row's identity, never its index, and PREFIXED by kind: a song may name an audio lane and a video lane the same thing.

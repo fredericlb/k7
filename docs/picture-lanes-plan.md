@@ -116,8 +116,8 @@ and `track rename` gain the collision refusal `createVideoTrackFile` already mak
    lane and accepted empty, as most songs carry it. The fixtures and demos are migrated, the old
    layout kept as test data in `packages/song/fixtures/pictureLanesV2`, and the docs describe the
    new one.
-4. **Left:** the e2e suite against the running instance; the timeline drawing picture rows where
-   `trackOrder` puts them among the sound rows — it draws them below, in their own order, today.
+4. **Done:** the timeline draws each picture row where `trackOrder` puts it among the sound rows.
+   **Left:** the e2e suite against the running instance.
 
 Two decisions changed on the way. A timeline keeps its own `pictures:` list: a timeline lane has
 no meta ref to say what it holds, and folding pictures into `lanes:` would turn a sound lane named

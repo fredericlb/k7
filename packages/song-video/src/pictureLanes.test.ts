@@ -59,6 +59,9 @@ describe.each([
     expect(migrated.song).toEqual(committed.song);
     expect(migrated.soundLanes).toEqual(committed.soundLanes);
     expect(migrated.pictureLanes).toEqual(committed.pictureLanes);
+    // The rows follow `trackOrder`, which the picture document hands the timeline whole.
+    expect(migrated.picture.rowOrder).toEqual(committed.picture.rowOrder);
+    expect(migrated.picture.rowOrder).toContain("main");
   });
 
   it("carries a lane's mute into its bypass", () => {

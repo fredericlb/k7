@@ -31,6 +31,13 @@ The compile hands out `videoTracks` bottom-first, and turning them back into row
 `projectRows`' alone. Nothing downstream re-sorts: the compositor draws them in the compile's order
 (`packages/ui-eyes/src/compositor.ts`), so the frame is unaffected by how the timeline lists them.
 
+A picture row stands where `trackOrder` puts it among the sound rows: the picture document carries
+the stated order whole (`rowOrder`), since the song document lists sound lanes only. A picture row
+goes after the last sound lane listed before it, and never inside a group or between a lane and its
+automation rows — a unit of rows is never split. One listed before every sound lane goes on top, and
+one `trackOrder` does not name goes at the bottom, which is where every picture row goes in a song
+that states no order.
+
 ## Frames on an expanded lane
 
 Expanded, a picture lane is exactly as tall as an audio lane, and each shot draws its source as a

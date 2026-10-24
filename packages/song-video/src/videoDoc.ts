@@ -164,6 +164,8 @@ export interface VideoMarker {
 /** A song's compiled PICTURE — deliberately not a section of `ProjectDoc`, see docs/picture.md. */
 export interface VideoProjectDoc {
   uuid?: string; // stable project id; absent until something writes one
+  /** `trackOrder` as stated, every lane: where the rows put each picture lane among the sound lanes (docs/picture.md). */
+  rowOrder?: string[];
   name: string;
   viewport: [number, number]; // px the lanes draw into
   fps: number; // frame-by-frame export only — realtime follows the transport's own clock

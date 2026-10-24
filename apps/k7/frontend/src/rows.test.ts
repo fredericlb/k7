@@ -122,13 +122,52 @@ describe("rowTarget", () => {
 
 describe("a song that carries picture", () => {
   it("puts the video lanes last, front layer FIRST", () => {
-    // `layers:` is bottom-first, so the rows reverse it: a row above another means IN FRONT of it.
+    // The picture document is bottom-first, so the rows reverse it: a row above another means IN FRONT of it.
     const rows = projectRows(
       { groups: [] },
       [track({ id: "bass" })],
       [videoTrack("main"), videoTrack("pip")], // compiled bottom-first: main is behind pip
     );
     expect(rows.map(rowKey)).toEqual(["track:bass", "video:pip", "video:main"]);
+  });
+
+  it("puts each picture row where `trackOrder` puts it among the sound rows", () => {
+    const rows = projectRows(
+      { groups: [] },
+      [track({ id: "drums" }), track({ id: "bass" })],
+      [videoTrack("main"), videoTrack("pip")],
+      {},
+      ["pip", "drums", "main", "bass"],
+    );
+    expect(rows.map(rowKey)).toEqual([
+      "video:pip",
+      "track:drums",
+      "video:main",
+      "track:bass",
+    ]);
+  });
+
+  it("never splits a group or a lane from its automation, and keeps an unlisted picture last", () => {
+    const rows = projectRows(
+      { groups: [group("kit")] },
+      [
+        track({ id: "kick", group: "kit" }),
+        track({ id: "snare#audio", group: "kit" }),
+        track({ id: "bass" }),
+      ],
+      [videoTrack("main"), videoTrack("loose")],
+      { bass: [{ param: "gain" } as never] },
+      ["kick", "main", "snare", "bass"],
+    );
+    expect(rows.map(rowKey)).toEqual([
+      "group:kit",
+      "track:kick",
+      "track:snare#audio",
+      "video:main",
+      "track:bass",
+      "auto:bass:gain",
+      "video:loose",
+    ]);
   });
 
   it("tells a video lane from an audio lane of the same name", () => {
