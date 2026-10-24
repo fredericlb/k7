@@ -43,6 +43,7 @@ export function MiniPlayer({
   onSeek,
   onClose,
   onNext,
+  lead,
   transport,
   track,
   mediaSession = true,
@@ -69,6 +70,8 @@ export function MiniPlayer({
   onClose?: () => void;
   /** The system's skip button; the bar draws none, the host's queue button being its own. */
   onNext?: () => void;
+  /** At the bar's left edge, outside its centred part: a host's name for what it is, and its way out. */
+  lead?: ReactNode;
   /** In place of the play/pause button, for a host whose transport is more than one. */
   transport?: ReactNode;
   /** In place of the clocks and the scrubber — null for no position row at all. */
@@ -95,11 +98,18 @@ export function MiniPlayer({
   const scrub = useScrub(onSeek);
   const shown = scrub.value ?? position;
   const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0;
+  // A host whose name stands in `lead` passes an empty title, and the line goes with it.
+  const titled = !!title || !!meta || !!status;
   return (
     <section
       aria-label={labels.region}
-      className={`relative flex shrink-0 border-t bg-card px-3 py-2${onClose ? " [@media(hover:none)]:pr-12" : ""}`}
+      className={`relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2${onClose ? " [@media(hover:none)]:pr-12" : ""}`}
     >
+      {lead && (
+        <div className="flex min-w-0 max-w-[16rem] shrink-0 items-center gap-1.5">
+          {lead}
+        </div>
+      )}
       {/* Centred and capped: on a wide screen the transport, the title and the clocks stay together. */}
       <div className="mx-auto flex w-full min-w-0 max-w-[800px] items-center gap-3">
         {transport !== undefined ? (
@@ -121,19 +131,21 @@ export function MiniPlayer({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
-            <span className="min-w-0 truncate font-medium text-sm">
-              {title}
-            </span>
-            {meta}
-            {status}
-          </div>
+          {titled && (
+            <div className="mb-1 flex min-w-0 items-baseline gap-2">
+              <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
+              <span className="min-w-0 truncate font-medium text-sm">
+                {title}
+              </span>
+              {meta}
+              {status}
+            </div>
+          )}
 
           {track !== undefined ? (
-            <div className="mt-1 flex min-w-0 items-center gap-2">{track}</div>
+            <div className="flex min-w-0 items-center gap-2">{track}</div>
           ) : (
-            <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
                 {clock(shown)}
               </span>

@@ -237,27 +237,27 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 | slot | what k7 puts there |
 |---|---|
 | `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the project's name, the engine playing it and the workspace warning |
+| `children` | the engine playing the project, the share's read-only badge and the workspace warning |
 | `items` | **empty** — see below |
 | `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
 
-**No brand name and no build stamp: the project's name has the left of the bar.** The brand is what
-the home page says — repeating it over a song names the tool rather than the work — and the stamp
-goes with it, being the tooltip of that name on the home page (`../../../docs/versioning.md`).
+**No brand name and no build stamp in the header.** The brand is what the home page says — repeating
+it over a song names the tool rather than the work — and the stamp goes with it, being the tooltip of
+that name on the home page (`../../../docs/versioning.md`). The project's name is the project bar's.
 
 **The master meter is at the RIGHT end, first in `actions`.** The bar and the fader under it are a
 control rather than a caption, so they belong on the side the bar keeps its controls. It stays ahead of the icon row because it is read
 while playing, not clicked, and the divider after it is what says so.
 
-The **way back to the home page** is a hamburger just left of the project's name: it opens the home
-page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
+The **way back to the home page** is a hamburger at the left edge of the project bar, before the k7
+logo and the project's name: it opens the home page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
 home too. Projects open in the home page's tab rather than a new one, so a drawer entry is the
 gesture that ends a session, drawn in place like any crossing (see above). The drawer is loaded on first open, since it
 carries the media library's and the rehearsal pages' sections. On a frozen share there is no
 hamburger and the name is plain text (`docs/shared.md`).
 
 **There is ONE engine selector, at the foot of the sidebar** (`components/SidebarEngine.tsx`), above
-the user menu — on the home pages, and in the drawer the header's hamburger opens over a project. Two
+the user menu — on the home pages, and in the drawer the project bar's hamburger opens over a project. Two
 selectors were two answers to "which machine plays", and the sidebar is the one place every screen
 reaches. It says WHERE THE SOUND COMES OUT — "Sound on <machine>", or "Sound in this browser" when the
 engine streams to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at
@@ -344,14 +344,18 @@ the only reason `toolSize` reads the breakpoint instead of being a constant.
 
 **The transport is the app's mini player** (`shell/ProjectBar.tsx` over `@studio/ui-mini-player`), the
 bar the médiathèque, the reference tracks and the songbook already wear: one shape for "what plays,
-and where in it", wherever k7 is. It sits under the panes and above the footer, full width.
+and where in it", wherever k7 is. It sits under the panes and above the footer, full width, in every project.
 
+- **Its left slot is the project's**: the hamburger, the k7 logo and the name, aligned to the bar's
+  edge rather than in its centred part. The name is what the transport is playing, so it stands with
+  it, and the way home goes with the name it shares a link with. A phone keeps the hamburger alone
+  there, the name being in the header's info icon.
 - **The buttons stand where the bar keeps its play/pause**, all of them: a project's transport is more
   than one button, and a cluster split between the header and the bar would be two places to look.
 - **The progress row is the clock and the minimap**, in place of the scrubber: a project's "where" is
   bars and lanes, not a fraction of a file. See "The minimap is the bar's progress" below.
-- **No close.** A project's transport is not something you dismiss; the bar goes only where it would
-  address nothing, by the same rules as the cluster below.
+- **No close.** A project's transport is not something you dismiss, and the bar is the way home: it
+  stays, and only its buttons and its minimap go where they would address nothing (below).
 - **It leaves the system's media session alone.** The sound is the engine's, rarely this page's, and
   the reference bar is the one whose sound the lock screen should drive.
 
@@ -428,7 +432,7 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The **engine's health** sits in the header, after the project's name (`components/EngineLink.tsx`):
+The **engine's health** sits at the left of the header (`components/EngineLink.tsx`):
 the connection light, the Q badge and the engine process's memory — and again under the sidebar's
 engine selector, beside the engine they describe. The header keeps them because a dropped link is
 what to see while playing, without opening anything. Q1/Q2/Q3
@@ -460,8 +464,8 @@ else.
 A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
 means "show me that page", and the current row is where you are, not a switch left on.
 
-**The project's name and the engine's health fold into one info icon** on the
-left (`MobileInfo`), beside the hamburger. Their labels and figures would take the width the
+**The project's name and the engine's health fold into one info icon** at the
+left of the header (`MobileInfo`); the bar keeps the hamburger alone. Their labels and figures would take the width the
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure

@@ -1022,9 +1022,8 @@ export default function App({
   const deskOnly = visible("turntables") && !timelineVisible && !viewportOpen;
   // The bar's buttons, absent where there is nothing to address; its minimap, only for an ARRANGEMENT (docs/shell.md, "The project bar").
   const showTransport = (!noArrangement || hasTurntables) && !deskOnly;
-  const showBar = showTransport || !noArrangement;
-  // Over the editor popin the bar floats above it, the one road back to the song while the layout is covered.
-  const barFloating = showBar && editorPopin;
+  // The bar itself is always there, its left slot being the way home; over the editor popin it floats above it.
+  const barFloating = editorPopin;
 
   /** How tall the floating bar is, so the popin can stop ABOVE it — measured, since the bar's row depends on what it holds. */
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -2870,10 +2869,37 @@ export default function App({
     liveTake,
   });
 
+  // The project bar's left slot: the way back, a full address since the project is the router's BASENAME (appNav.ts); a share has none (docs/shared.md).
+  const barLead = snapshot ? (
+    <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
+      {snapshot.manifest.name || "…"}
+    </span>
+  ) : (
+    <span className="flex min-w-0 items-center gap-1">
+      {/* The hamburger, first in the bar: it opens the home page's sidebar over the project. */}
+      <button
+        type="button"
+        onClick={() => setHomeDrawer(true)}
+        title={m["common.menu"]()}
+        aria-label={m["common.menu"]()}
+        aria-expanded={homeDrawer}
+        className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <Menu className="h-4 w-4" />
+      </button>
+      {!isMobile && (
+        <>
+          <img src={k7Logo} alt="" className="ml-1 h-4 w-auto shrink-0" />
+          {projectLink}
+        </>
+      )}
+    </span>
+  );
+
   // The project bar, built once: it is drawn under the panes, or over the editor popin (docs/shell.md, "The project bar").
   const projectBar = (
     <ProjectBar
-      title={snapshot?.manifest.name || project?.name || ""}
+      lead={barLead}
       recInfo={recInfo}
       transport={
         showTransport
@@ -2933,38 +2959,8 @@ export default function App({
               items={[]}
               actions={headerActions}
             >
-              {/* Between the two: what you are looking AT; the transport is the project bar's, at the foot (docs/shell.md). */}
+              {/* Between the two: the engine and the project's state; its name, the way home and the transport are the project bar's (docs/shell.md). */}
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                {/* The way back, a full address since the project is the router's BASENAME (appNav.ts); a share has none (docs/shared.md). */}
-                {snapshot ? (
-                  <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
-                    {snapshot.manifest.name || "…"}
-                  </span>
-                ) : (
-                  <span className="flex min-w-0 items-center gap-1">
-                    {/* The hamburger, first in the bar: it opens the home page's sidebar over the project. */}
-                    <button
-                      type="button"
-                      onClick={() => setHomeDrawer(true)}
-                      title={m["common.menu"]()}
-                      aria-label={m["common.menu"]()}
-                      aria-expanded={homeDrawer}
-                      className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    >
-                      <Menu className="h-4 w-4" />
-                    </button>
-                    {!isMobile && (
-                      <>
-                        <img
-                          src={k7Logo}
-                          alt=""
-                          className="ml-1 h-4 w-auto shrink-0"
-                        />
-                        {projectLink}
-                      </>
-                    )}
-                  </span>
-                )}
                 {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
                 {isMobile && !snapshot ? (
                   <MobileInfo
@@ -3598,7 +3594,7 @@ export default function App({
             )}
 
             {/* The transport and the song's map, under every pane and above the status line (shell/ProjectBar.tsx). */}
-            {showBar && !barFloating && projectBar}
+            {!barFloating && projectBar}
 
             {/* The status line on the left, the tempo, the metronome and the panels' buttons on the right (shell/ShellFooter.tsx). */}
             <ShellFooter

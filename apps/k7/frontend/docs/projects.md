@@ -43,7 +43,7 @@ If the first thing you want at a front door is your own work, then the page list
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
 **The user menu — the account, the settings, the logout — is in THIS page's
-sidebar**, never in the editor's header. Inside a project the header's hamburger opens the same
+sidebar**, never in the editor's header. Inside a project the project bar's hamburger opens the same
 sidebar as a drawer (`HomeDrawer`), so everything this page links to is one click away from any
 project without the header carrying it. The router's basename is the project there, so the drawer's
 entries are full addresses resolved against `projectsUrl` — drawn in place, no page load
@@ -326,7 +326,7 @@ or delete a rig that is thrown away anyway. `workspaceNames` drops it with the h
 Every departure — the indented row under the workspace, the tree's button, the empty workspace's
 link, the import's **Open** — opens in the same tab. Opening a project is the main reason to be on
 this page, and a new tab for each one stacks tabs nobody closes, each one an editor holding a
-session. The way back is the **hamburger** at the left of the editor's header, which opens this
+session. The way back is the **hamburger** at the left of the editor's project bar, which opens this
 page's sidebar over the project, and the project's name, which links here too (`projectsUrl`, the same address both gates use when they send
 you back). The browser's own Back works as well: each crossing is a history entry. On a
 **share** there is neither: the visitor has no account, so no home page to go to (`shared.md`).
@@ -808,7 +808,7 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
 - unfold a workspace, reload → the same one unfolded, `?ws=` in the address;
 - create a project → the row appears **with no refresh**, in five seconds at worst. Longer means
   the list is not coming from the machine;
-- open a project → it opens in THIS tab; the hamburger at the left of the header opens this
+- open a project → it opens in THIS tab; the hamburger at the left of the project bar opens this
   sidebar over it, its Projects entry (and the project's name) comes back here, and ctrl-click still
   opens a new tab;
 - leave a project from the editor, and lose its engine to somebody else → both come back here;
