@@ -57,7 +57,7 @@ Each provider also declares a **display class** (`PROVIDER_CLASS`: track, module
 1. picks the spec by longest prefix; none is a refusal `unknown command`;
 2. finds the handler in `SID_HANDLERS`;
 3. validates typed arguments positionally (`validateArgs`) — a malformed timecode is refused with what it should look like;
-4. refuses an event verb aimed at a lane that only plays a picture's sound (`soundingLaneRefusal`);
+4. refuses an event verb aimed at a picture lane's sound — its `#audio` row, or a chain project's `video_source:` lane — except remove (`soundingLaneRefusal`);
 5. calls the handler with the raw argument string and the host.
 
 A handler **refuses** through `host.refuse(lines)` and returns: a refusal is not an error, nothing is written, and the web shows it in amber. It reports through `host.log(lines)`.

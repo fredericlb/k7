@@ -25,7 +25,7 @@ import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { stripDocExt } from "@studio/song-schema/docExt";
-import { splitPort } from "@studio/song-schema/moduleTypes";
+import { portRef, splitPort } from "@studio/song-schema/moduleTypes";
 import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import {
   parseGraph,
@@ -53,20 +53,28 @@ function followInGraph(dir: string, lane: string, to: string | null): string[] {
   }
   const abs = join(dir, GRAPH_FILE);
   if (!wsExists(abs)) return [];
-  // Named as a key, or only as where something goes (`blur: [cam]`).
-  const modules = parseGraph(wsText(abs)).value?.modules ?? {};
-  const named = Object.entries(modules).some(
-    ([k, dests]) => k === lane || dests.some((d) => splitPort(d).node === lane),
-  );
+  // Named as a key, through a port too (`main#audio`, its sound), as where something goes (`blur: [cam]`), or bypassed.
+  const value = parseGraph(wsText(abs)).value;
+  const sound = `${lane}#audio`;
+  const named =
+    Object.entries(value?.modules ?? {}).some(
+      ([k, dests]) =>
+        splitPort(k).node === lane ||
+        dests.some((d) => splitPort(d).node === lane),
+    ) || (value?.bypassed ?? []).some((b) => splitPort(b).node === lane);
   if (!named) return [];
   wsEdit(abs, (doc) => {
     if (to) renameNode(doc.at([]), lane, to);
-    else removeNode(doc.at([]), lane);
+    else {
+      removeNode(doc.at([]), lane);
+      // Its sound half goes with it: a chain or a bypass left on a name nothing holds plays nothing.
+      removeNode(doc.at([]), sound);
+    }
   });
   return [GRAPH_FILE];
 }
 
-/** `trackOrder` and `soloed:` with `lane` renamed to `to`, or dropped when `to` is null. */
+/** `trackOrder`, `soloed:` and `highlighted:` with `lane` — and its `#audio` half — renamed to `to`, or dropped when `to` is null. */
 function followInProject(dir: string, lane: string, to: string | null): void {
   const file = entityFileFor(dir, "", "project");
   if (!file) return;
@@ -74,12 +82,14 @@ function followInProject(dir: string, lane: string, to: string | null): void {
   const lists: [string[], unknown][] = [
     [["trackOrder"], root.trackOrder],
     [["soloed"], root.soloed],
+    [["highlighted"], root.highlighted],
   ];
+  const ours = (x: unknown) => splitPort(String(x)).node === lane;
   for (const [path, list] of lists) {
-    if (!Array.isArray(list) || !list.includes(lane)) continue;
+    if (!Array.isArray(list) || !list.some(ours)) continue;
     const next = to
-      ? list.map((x) => (x === lane ? to : x))
-      : list.filter((x) => x !== lane);
+      ? list.map((x) => (ours(x) ? portRef(to, splitPort(String(x)).port) : x))
+      : list.filter((x) => !ours(x));
     if (next.length) setFileValue(file.path, path, next);
     else deleteFileValue(file.path, path);
   }

@@ -167,8 +167,13 @@ function laneCard(b: Build, lane: string, withClips: boolean) {
     label: lane,
     kind: "track" as const,
     video,
-    // The two outputs a lane offers, audio first — a video lane keeps its single picture one.
-    ...(video ? {} : { outputs: TRACK_OUTPUTS.map((o) => ({ ...o })) }),
+    // The two outputs a lane offers, audio first — a picture lane's are its picture and its shots' sound.
+    outputs: video
+      ? [
+          { name: "video", type: "video" as const },
+          { name: "audio", type: "audio" as const },
+        ]
+      : TRACK_OUTPUTS.map((o) => ({ ...o })),
     color: graph.trackColors?.[lane],
     // A lane is a module node, so it is addressable like one — packages/song/docs/alternatives.md.
     module: lane,

@@ -62,9 +62,9 @@ between the ones that remain, and a cut whose timing moved is a different cut.
 
 An EDL states no frame rate, so it is read at the project's, or at 25. A song with no picture yet
 is given a 1920×1080 frame at the cut's rate, since a lane cannot compile without one. Audio
-tracks are left out and said to be: a shot's sound here is its own lane's
-([../../song/docs/videoSound.md](../../song/docs/videoSound.md)), and `picture sound` makes that
-lane from the shots just imported. Nested stacks and wipes are read as nothing and as cuts, each
+tracks are left out and said to be: a shot's sound here is its picture lane's own `#audio` half
+([../../song/docs/videoSound.md](../../song/docs/videoSound.md)), and `picture sound` extracts it
+for the shots just imported. Nested stacks and wipes are read as nothing and as cuts, each
 named.
 
 Both directions are pinned by round trips through this app's own writers, and the OTIO reader by
@@ -88,5 +88,5 @@ them only as opaque metadata nobody reads back. Handed over as something approxi
 arrive WRONG rather than absent, and a wrong position is harder to notice than a missing one. A
 named transition goes over as a plain dissolve of the same length.
 
-The sound is not handed over either. A shot's sound lane is the engine's ([../../song/docs/videoSound.md](../../song/docs/videoSound.md)),
+The sound is not handed over either. A shot's sound is the engine's ([../../song/docs/videoSound.md](../../song/docs/videoSound.md)),
 and the editor receiving the cut reads each original's own sound.

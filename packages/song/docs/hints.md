@@ -24,7 +24,7 @@ for a run it feeds, a module's name for a run that starts at it (see chainsGraph
 module's `channel` names one of these (`preferences.resolveInput`).
 
 **`videoTracks`** — the picture lanes' ids (`@meta/picture-track` nodes), what an audio track's `video_source` may name to
-inherit that track's placements and play their audio. Read schema-free like everything else here:
+inherit that track's placements and play their audio (a chain project's way of sounding a picture lane). Read schema-free like everything else here:
 a project with a broken video track should still complete its audio ones.
 
 **`audioClips` / `videoClips`** — the clips split by kind so the generated overlays can keep the

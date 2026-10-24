@@ -29,7 +29,7 @@ in the frame; before them, both took a text editor.
 | `picture lane new [name]` | a new LANE, and `trackOrder` | the timeline's `＋ piste` menu |
 | `picture rect <lane> <x> <y> <w> <h>` | `frame([x, y, w, h])` | selecting a layer in the VIEWPORT and dragging it |
 | `picture split <lane> <at> <where>` | a second placement of the same clip, right after the first | the cut tool on a shot, and `Ctrl+B` at the playhead |
-| `picture sound <lane> [track]` | each clip's `sound:`, and a lane saying `video_source:` | run by the timeline after a video drop |
+| `picture sound <lane> [track]` | each clip's `sound:` — and, in a chain project only, a lane saying `video_source:` | run by the timeline after a video drop |
 | `picture speed <lane> <at> <factor>` | `speed` — dropped again at 1 | (none — a retime has no gesture yet) |
 | `picture prepare <lane>` | each clip's `optimized:` / `proxy:`, once its copy is written | run by the timeline after a video drop, beside `picture sound` |
 | `picture interchange <otio\|edl> [lane]` | `exports/cut.<ext>` — the cut, for another editor | `project export timeline`, which downloads it |
@@ -47,8 +47,10 @@ the `fadeOut`, so a shot still arrives and leaves the way it did, with a plain c
 halves.
 
 `picture sound` is the one that is not a gesture's twin: it makes the shots audible through the
-engine, extracting what is missing and reusing the lane that already plays them, so running it
-twice changes nothing (`packages/song/docs/videoSound.md`). It lives in `src/verbs/pictureSound.ts`,
+engine, extracting what is missing, so running it twice changes nothing
+(`packages/song/docs/videoSound.md`). In a node project it makes no lane, the picture lane's own
+`#audio` half playing the sound; in a chain project, which spells no port, it makes the
+`video_source:` lane once, or reuses the one already there. It lives in `src/verbs/pictureSound.ts`,
 beside the verbs it borrows `laneFile` from.
 
 ## A shot is addressed by WHERE IT STARTS
@@ -136,7 +138,7 @@ picture lanes in one name space.
 ## `picture lane rename` and `delete` follow the name into six places
 
 A picture lane is named by its file, `trackOrder`, `soloed:`, the graph (`graph.k7x`, or its
-item in `chains/`), the `video_source` of a lane sounding it, and every timeline lane of its name,
+item in `chains/`), the `video_source` of a chain project's lane sounding it, and every timeline lane of its name,
 which draws on it. A rename that missed one would leave that one naming nothing, which the compile
 refuses or, worse, draws as nothing. So `rename` rewrites all six, and a timeline lane keeps the old
 name only where the new one is taken in its timeline, saying so.

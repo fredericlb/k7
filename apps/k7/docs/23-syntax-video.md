@@ -124,8 +124,9 @@ events([
 and its length; what changes is how much of the source it uses. The timeline labels a retimed
 shot `×0.5`, or `freeze`. From the command bar: `picture speed main 0 0.5`.
 
-Its sound follows at the same speed, with the pitch moving like a tape's. A reversed or frozen
-shot is silent. The preview steps a reversed shot frame by frame, so it plays choppier there than
+Its sound follows at the same speed, with the pitch moving like a tape's — or, with
+`pitch("keep")` on the shot, stretched at its own pitch, so a voice in slow motion stays a voice.
+A reversed or frozen shot is silent. The preview steps a reversed shot frame by frame, so it plays choppier there than
 in the export.
 
 ## Exporting
@@ -191,19 +192,25 @@ together.
 
 ## A shot's sound
 
-The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names
-the picture lane it follows:
+A picture lane carries its shots' sound too, played by the **engine** as its second half,
+`main#audio`, with its own row, fader, mute and solo: hiding the picture keeps the sound, and
+muting the sound keeps the picture. Wired to nothing it plays straight to the mix; wire it like
+any lane to put an EQ on the dialogue:
+
+```k7x schema=GraphFile
+modules({ "main#audio": ["dialog-eq"], "dialog-eq": ["MIX"] })
+```
+
+Each shot is heard exactly where it is seen: from its `from`, cut where a later shot covers it,
+and cross-faded under a `fadeIn`. Move or trim a shot and its sound moves with it. In a project
+kept as chain files, which name no port, the sound is an audio lane naming the picture lane
+instead, whose events are main's shots:
 
 ```k7x schema=Module
-// nodes/dialog.k7x
+// tracks/dialog.k7x — in a chain project only
 extends("@meta/track")
 video_source("main") // this lane's events ARE main's shots
 ```
-
-The lane has no `events:` of its own. Each shot on `main` is heard exactly where it is seen:
-from its `from`, cut where a later shot covers it, and cross-faded under a `fadeIn`.
-Move or trim a shot and its sound moves with it. Everything else is an audio lane like any other:
-a fader, a chain, a mute, a solo.
 
 What it plays is the clip's `sound:`, an audio file extracted from the video once, because the
 engine cannot open every video container on every machine:
@@ -215,11 +222,10 @@ sound("clips/shot_a.sound.wav")
 ```
 
 You never write either by hand. Dropping a video on a picture lane runs `picture sound <lane>`,
-which extracts each shot's sound and makes the lane the first time. Run it yourself for footage
-placed some other way. A shot whose file has no sound stays silent, and a lane with no sound at
-all gets no audio lane.
+which extracts each shot's sound. Run it yourself for footage placed some other way. A shot whose
+file has no sound stays silent, and a lane with no sound at all gets no sound row.
 
-To take one shot's sound away and keep its picture, delete its clip on the sound lane, or run
+To take one shot's sound away and keep its picture, delete its clip on the sound row, or run
 `picture silence main 4` on the shot starting at 4 s. Either writes `silent: true` on the shot;
 the same command again brings the sound back. A silent shot still cuts the sound of the shots
 under it, as it hides their picture.

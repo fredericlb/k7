@@ -49,6 +49,7 @@ export const SHOT_KEYS = [
   "speed",
   "effect",
   "silent",
+  "pitch",
 ] as const;
 
 /** The keys that need a SOURCE — what an event with no `ref`, an activation, is refused for carrying. */
@@ -60,6 +61,7 @@ const SOURCED_KEYS = [
   "speed",
   "effect",
   "silent",
+  "pitch",
 ] as const;
 
 /** One event: WHERE, HOW MANY TIMES, and WHICH PART — a shot also says how LONG (docs/moduleFile.md). */
@@ -107,6 +109,8 @@ export const PlacementSchema = z
     effect: z.string().min(1).optional(),
     // …and its SOUND is not played, its picture still is — packages/song/docs/videoSound.md.
     silent: z.boolean().optional(),
+    // …and how its sound follows a `speed`: resampled like `tape` (the default), or stretched to `keep` its pitch.
+    pitch: z.enum(["tape", "keep"]).optional(),
   })
   .strict()
   .superRefine((p, ctx) => {

@@ -62,7 +62,8 @@ events([ref("bars").start(0).length(8).from(0)])
 `picture rect pip 960 540 320 180` writes the same four numbers, and so does dragging the lane
 in the viewport (see [The viewport and transitions](./53-viewport.md)).
 
-Muting a picture lane hides it (there is no sound on a picture lane). Like an audio lane's mute,
+Muting a picture lane hides it; its shots' sound has a mute of its own (see
+[Hearing a shot's sound](#hearing-a-shots-sound)). Like an audio lane's mute,
 it is the lane's bypass in the graph, not a field of the lane file. The lanes draw in the order
 of their rows: a picture row above another draws in front of it.
 
@@ -82,6 +83,8 @@ Each entry of `events` is one shot:
 | `from` | how far into the source the shot starts, in seconds |
 | `fadeIn` `fadeOut` | how the shot arrives and leaves — see [The viewport and transitions](./53-viewport.md) |
 | `speed` | how fast the source runs under the shot — see [Speed and animation](./52-speed-and-animation.md) |
+| `pitch` | how a retimed shot's sound follows its `speed`: `"tape"` (the default, pitch moves with speed) or `"keep"` (stretched at its own pitch) |
+| `silent` | `true` takes the shot's sound away and keeps its picture |
 | `animate` | keyframes moving the shot inside its lane — see [Speed and animation](./52-speed-and-animation.md) |
 | `effect` | a shader run applied to this shot alone — see [Effects and shaders](./54-effects-and-shaders.md) |
 
@@ -182,20 +185,28 @@ one per shot. Play or scrub a reader to the frame you want, then:
 
 ## Hearing a shot's sound
 
-The engine plays sound; the picture lanes have none of their own. To hear the shots of a lane,
-run:
+A picture lane carries its shots' sound too, played by the engine as the lane's second half,
+`main#audio`. It has its own row, fader, mute and solo: muting the picture lane hides it and keeps
+the sound, and muting `main#audio` silences it and keeps the picture. Wired to nothing it plays
+straight to the mix; wire `"main#audio"` in `graph.k7x` like any lane to put an EQ on the dialogue.
+
+To get the sound, run:
 
 ```text
 picture sound main
-picture sound main dialog
 ```
 
 For each video clip on the lane, k7 extracts its sound once into a `.sound.wav` file beside the
-video and writes it as the clip's `sound`. It then makes an audio lane (named `<lane>-sound`
-unless you name it) whose `video_source` field names the picture lane. That audio lane takes its
-events from the shots: each shot is heard exactly where it is seen, a cut in the picture is a cut
-in the sound, and a dissolve is a crossfade. Running it again only does what is missing.
+video and writes it as the clip's `sound`. Each shot is then heard exactly where it is seen: a cut
+in the picture is a cut in the sound, and a dissolve is a crossfade. Running it again only does
+what is missing. A clip with no sound stays silent; a lane whose shots are all silent gets no sound
+row.
 
-A sounding lane cannot be edited with the `event …` commands: edit the shots instead, and the
-sound follows. A clip with no sound stays silent; a lane whose shots all are silent gets no audio
-lane.
+The sound row cannot be edited with the `event …` commands: edit the shots instead, and the sound
+follows. Deleting a clip on the sound row is the exception: it writes `silent: true` on that shot,
+which keeps its picture. `picture silence main 4` does the same for the shot starting at 4 s, and
+brings the sound back when run again.
+
+In a project kept as chain files, which name no port, the sound plays on an audio lane instead:
+`picture sound main dialog` makes it (named `<lane>-sound` unless you name it), with a
+`video_source` field naming the picture lane and its events taken from the shots.

@@ -164,6 +164,7 @@ describe("derived lane fields", () => {
       "speed",
       "effect",
       "silent",
+      "pitch",
     ]);
   });
 });

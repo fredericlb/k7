@@ -11,7 +11,7 @@ implemented in `packages/commands/src/verbs/`, spread into the handler table of
 | `verbs/picture.ts` | `picture.laneNew`, `picture.laneOrder`, `picture.mute`, `picture.solo`, `picture.rect`, `picture.move`, `picture.length`, `picture.head`, `picture.delete`, `picture.split`, `picture.add` |
 | `verbs/pictureKeys.ts` | `picture.key`, `picture.unkey` |
 | `verbs/pictureSpeed.ts` | `picture.speed` |
-| `verbs/pictureSound.ts` | `picture.sound`, and `soundingLaneRefusal`, which stops the `event …` verbs on a sounding lane |
+| `verbs/pictureSound.ts` | `picture.sound`, and `soundingLaneRefusal`, which stops the `event …` verbs (all but remove) on a picture lane's sound row |
 | `verbs/pictureMedia.ts` | `picture.prepare` |
 | `verbs/pictureInterchange.ts` | `picture.interchange` (writes `exports/cut.<otio\|edl>`, a fixed path so the shell fetches it unprompted) |
 | `verbs/pictureImport.ts` | `picture.import` |
@@ -67,10 +67,14 @@ relative to `exports/`, so a project folder copied whole relinks as it is.
 The engine plays sound and cannot read a video container on every platform, so each video clip
 gets its first audio stream extracted to `<name>.sound.wav` beside the video
 (`packages/audio-analysis/src/extract.ts`: ffmpeg, else the engine's `--decode`), recorded as the
-clip's `sound`. Then one audio lane is created with `video_source: <lane>` and no events of its own,
-plus its mixer strip. At compile, `packages/song/src/videoSound.ts` derives that lane's audio events
-from the picture lane's shots: each shot heard over its visible span minus what later shots cover,
-at its speed, with fades as crossfades. Rerunning does only what is missing.
+clip's `sound`. In a node project nothing else is made: the picture lane's own `#audio` half plays
+it, as the engine track `<lane>#audio` (`packages/song/src/nodeProject.ts`), straight to MIX unless
+`"<lane>#audio"` is wired in `graph.k7x`. A chain project spells no port, so there one audio lane is
+created with `video_source: <lane>` and no events of its own, plus its mixer strip. At compile,
+`packages/song/src/videoSound.ts` derives the sound clips from the picture lane's shots: each shot
+heard over its visible span minus what later shots cover, at its speed (`varispeed`, or the engine's
+stretcher for a shot saying `pitch("keep")`), with fades as crossfades. Rerunning does only what is
+missing. The `event …` verbs refuse the sound row, except remove, which sets `silent: true` on the shot.
 
 ## Media preparation — `packages/video-prep/`
 

@@ -84,7 +84,8 @@ bytes.
 | `packages/song-schema/src/aspect.ts` | the `16:9` / `9:16` shapes |
 | `packages/song-video/` | the picture compile and OTIO/EDL |
 | `packages/song/src/videoOutputs.ts` | writing the `RENDER → VIDEO_OUT` run into a project that lacks it |
-| `packages/song/src/videoSound.ts` | a sounding audio lane's events derived from a picture lane |
+| `packages/song/src/videoSound.ts` | a picture lane's sound clips derived from its shots — its own `#audio` half, or a chain project's `video_source:` lane |
+| `packages/song/src/pictureSoundMigrate.ts` | at a node project's open, folds a `video_source:` lane into its picture lane's `#audio` half (format level 4) |
 | `packages/song/src/surfaces.ts` | `isVideoProject`, `hasPicture` |
 | `packages/song/src/scaffold.ts`, `packages/song/src/scaffoldLive.ts` | the `video` and `live-video` archetypes' files |
 | `packages/ui-eyes/` | the WebGL compositor, realtime and export |

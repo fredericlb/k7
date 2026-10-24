@@ -35,6 +35,10 @@ Speed is carried everywhere the shot goes: the shot's sound (`picture sound`) is
 `picture head` and `picture split` move the in-point at the shot's speed, and a cut exported for
 another editor carries the speed as a time warp (a freeze as a freeze frame).
 
+The sound is retimed like tape: its pitch moves with the speed, half speed an octave down. Add
+`pitch("keep")` to a shot to stretch its sound at its own pitch instead, so a voice in slow motion
+stays a voice. A frozen or backwards shot is silent.
+
 ## Animation
 
 `animate` moves a shot inside its lane's rectangle. Five properties can be animated:

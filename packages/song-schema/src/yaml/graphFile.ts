@@ -312,9 +312,12 @@ export function renameNode(doc: K7Scope, from: string, to: string): string[] {
       Object.entries(now.modules as Data).map(([k, d]) => [k, names(d)]),
     );
   if (Array.isArray(now.runs)) next.runs = now.runs.map(names);
+  // …a port-qualified entry included: a picture lane's `#audio` half is bypassed by that name (song docs/videoSound.md).
   for (const list of ["bypassed", "bus_only"])
     if (Array.isArray(now[list]))
-      next[list] = (now[list] as unknown[]).map((x) => (x === from ? to : x));
+      next[list] = (now[list] as unknown[]).map((x) =>
+        typeof x === "string" ? follow(x) : x,
+      );
   doc.applyIn([], next);
   return rewired;
 }

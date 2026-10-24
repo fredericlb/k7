@@ -417,7 +417,8 @@ export function sourceType(
     return readsAsPicture(String(clips[id]?.source ?? "")) ? "video" : "audio";
   const { node, port } = splitPort(id);
   if (lanes?.[node]) return trackType(lanes[node], port, clips, seqs);
-  if (videoTracks?.[node]) return "video";
+  // A picture lane's `#audio` is its shots' sound; anything else it carries is picture.
+  if (videoTracks?.[node]) return port === "audio" ? "audio" : "video";
   return undefined;
 }
 

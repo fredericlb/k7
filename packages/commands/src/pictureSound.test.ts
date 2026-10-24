@@ -1,7 +1,6 @@
-// `picture sound` — a picture lane's shots made audible through an engine lane. What would go
-// wrong silently: a rerun making a second lane, a clip's existing `sound:` extracted over, and a
-// new lane keeping the `events: []` that a sounding lane may not state, and a removed sound clip
-// that takes its shot's picture with it.
+// `picture sound` — a picture lane's shots made audible on its own `#audio` half. What would go
+// wrong silently: a clip's existing `sound:` extracted over, a lane made beside the half (two
+// sounds), and a removed sound clip that takes its shot's picture with it.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -61,7 +60,7 @@ beforeEach(() => {
 afterEach(() => rmSync(song, { recursive: true, force: true }));
 
 describe("picture sound", () => {
-  it("reuses a clip's stated sound, and makes ONE lane however often it runs", async () => {
+  it("reuses a clip's stated sound, and plays it on `main#audio` with no lane made", async () => {
     writeDoc(join(song, "clips", "shot.k7x"), {
       source: "clips/shot.mp4",
       sound: "clips/shot-take.wav",
@@ -71,12 +70,10 @@ describe("picture sound", () => {
     await runCommand("picture sound main", host(), "cli");
     await runCommand("picture sound main", host(), "cli");
     expect(refusals).toEqual([]);
-    expect(logs).toContain("main-sound already plays main's sound");
-    const lane = wsRead(join(song, "nodes", "main-sound.k7x"));
-    expect(lane).toContain('video_source("main")');
-    expect(lane).not.toContain("events");
+    expect(existsSync(join(song, "nodes", "main-sound.k7x"))).toBe(false);
+    expect(logs.join("\n")).toMatch(/main#audio plays main's sound/);
     const t = compileNodeProject(song).tracks.find(
-      (x) => x.id === "main-sound",
+      (x) => x.id === "main#audio",
     );
     expect(t?.clips.map((c) => c.source)).toEqual([
       join(song, "clips", "shot-take.wav"),
@@ -91,7 +88,7 @@ describe("picture sound", () => {
     writeFileSync(join(song, "clips", "shot.mp4"), "");
     writeFileSync(join(song, "clips", "shot.wav"), "");
     await runCommand("picture sound main", host(), "cli");
-    await runCommand("event move main-sound 1:1 2:1", host(), "cli");
+    await runCommand("event move main#audio 1:1 2:1", host(), "cli");
     expect(refusals.join("\n")).toMatch(/plays main's sound — edit the shot/);
   });
 
@@ -111,7 +108,7 @@ describe("picture sound", () => {
     await runCommand("picture sound main", host(), "cli");
     const heard = () =>
       compileNodeProject(song)
-        .tracks.find((x) => x.id === "main-sound")
+        .tracks.find((x) => x.id === "main#audio")
         ?.clips.map((c) => c.start);
     const { tempo, timeSigNumerator, timeSigDenominator } =
       compileNodeProject(song);
@@ -120,7 +117,7 @@ describe("picture sound", () => {
       timeSigNumerator,
       timeSigDenominator,
     );
-    await runCommand(`event remove main-sound ${second}`, host(), "cli");
+    await runCommand(`event remove main#audio ${second}`, host(), "cli");
     expect(refusals).toEqual([]);
     expect(heard()).toEqual([0]);
     // The picture keeps both shots: only the second one's sound went.
@@ -132,7 +129,7 @@ describe("picture sound", () => {
     await runCommand("picture silence main 4", host(), "cli");
     expect(heard()).toEqual([0, (4 * tempo) / 60]);
     await runCommand(
-      'events remove [{"track":"main-sound","start":"1:1"}]',
+      'events remove [{"track":"main#audio","start":"1:1"}]',
       host(),
       "cli",
     );
@@ -140,11 +137,51 @@ describe("picture sound", () => {
     expect(heard()).toEqual([(4 * tempo) / 60]);
   });
 
-  it("makes no lane when no shot has a sound", async () => {
+  it("mutes the sound half on its own, and unmuting leaves the graph as it was", async () => {
+    writeDoc(join(song, "clips", "shot.k7x"), {
+      source: "clips/shot.mp4",
+      sound: "clips/shot.wav",
+    });
+    writeFileSync(join(song, "clips", "shot.wav"), "");
+    const before = readFileSync(join(song, "graph.k7x"), "utf8");
+    const sound = () =>
+      compileNodeProject(song).tracks.find((x) => x.id === "main#audio");
+    const h = { ...(host() as object), applyProject: async () => {} } as never;
+    await runCommand("track mute main#audio", h, "cli");
+    expect(refusals).toEqual([]);
+    expect(
+      parse(readFileSync(join(song, "graph.k7x"), "utf8")).bypassed,
+    ).toEqual(["main#audio"]);
+    expect(sound()?.mute).toBe(true);
+    await runCommand("track mute main#audio", h, "cli");
+    expect(readFileSync(join(song, "graph.k7x"), "utf8")).toBe(before);
+    expect(sound()?.mute).toBe(false);
+  });
+
+  it("makes no sound when no shot has one", async () => {
     writeDoc(join(song, "clips", "shot.k7x"), { source: "clips/shot.webm" });
     await runCommand("picture sound main", host(), "cli");
-    expect(logs).toContain("nothing on main has a sound — no lane made");
-    expect(existsSync(join(song, "nodes", "main-sound.k7x"))).toBe(false);
+    expect(logs).toContain("nothing on main has a sound");
+    expect(
+      compileNodeProject(song).tracks.some((t) => t.id === "main#audio"),
+    ).toBe(false);
+  });
+
+  it("still makes a sounding lane in a chain project, which spells no port", async () => {
+    rmSync(song, { recursive: true, force: true });
+    cpSync(join(here, "..", "..", "..", "demos", "video-demo.k7"), song, {
+      recursive: true,
+    });
+    writeDoc(join(song, "clips", "bars.k7x"), {
+      source: "clips/bars.mp4",
+      sound: "clips/bars.wav",
+    });
+    writeFileSync(join(song, "clips", "bars.wav"), "");
+    await runCommand("picture sound pip dialog", host(), "cli");
+    expect(refusals).toEqual([]);
+    expect(wsRead(join(song, "tracks", "dialog.k7x"))).toContain(
+      'video_source("pip")',
+    );
   });
 
   it("refuses a lane that is not there", async () => {
@@ -170,14 +207,14 @@ describe("picture sound", () => {
         join(song, "clips", "shot.mp4"),
       ]);
       writeDoc(join(song, "clips", "shot.k7x"), { source: "clips/shot.mp4" });
-      await runCommand("picture sound main dialog", host(), "cli");
+      await runCommand("picture sound main", host(), "cli");
       expect(refusals).toEqual([]);
       expect(existsSync(join(song, "clips", "shot.sound.wav"))).toBe(true);
       expect(
         parse(readFileSync(join(song, "clips", "shot.k7x"), "utf8")).sound,
       ).toBe("clips/shot.sound.wav");
       expect(
-        compileNodeProject(song).tracks.some((t) => t.id === "dialog"),
+        compileNodeProject(song).tracks.some((t) => t.id === "main#audio"),
       ).toBe(true);
     },
   );

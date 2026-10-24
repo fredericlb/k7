@@ -40,10 +40,12 @@ and a convention saying the two belong together.
 Nothing carries a `contentType`. The one axis that is genuinely about the lane and not about its
 material is **where the events come from** — written down, or streamed while the transport rolls.
 
-A PICTURE lane is a fourth, `@meta/picture-track`, offering one `video` output, and the one lane
-that IS typed: an empty one — what `picture lane new` makes — would otherwise read as an empty
+A PICTURE lane is a fourth, `@meta/picture-track`, offering a `video` output — what it draws — and
+an `audio` one, its shots' sound, which plays as the engine track `<lane>#audio`
+([videoSound.md](videoSound.md)). It is the one lane that IS typed: an empty one — what `picture lane new` makes — would otherwise read as an empty
 sound lane, and the rows, the graph card and both compiles need its kind before its first shot.
-It is still a lane node, muted by its bypass, soloed, ordered and renamed with the others.
+It is still a lane node, muted by its bypass, soloed, ordered and renamed with the others; that
+mute and solo are its picture's, and its `#audio` half has its own.
 `lanesOf` answers the sound lanes only, `pictureLanesOf` the picture ones
 (`packages/song-video/docs/picture.md`).
 
@@ -272,5 +274,6 @@ And for a project whose lanes are still files in `tracks/`:
   pan are a module, so where they sit relative to the freeze point already says whether they bake
   in.
 
-A lane may say `video_source:` instead of `events:`: it then plays a picture lane's shots, its
-clips derived from them at compile time ([videoSound.md](videoSound.md)).
+In a chain project, which spells no port, a lane may say `video_source:` instead of `events:`: it
+then plays a picture lane's shots, its clips derived from them at compile time. A node project plays
+them on the picture lane's own `#audio` half instead ([videoSound.md](videoSound.md)).
