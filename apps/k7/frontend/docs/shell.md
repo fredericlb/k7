@@ -17,7 +17,7 @@ server's file hub's, which answers with no engine bound, so EngineGate opens the
 hub's own ticket and looks for an engine beside it. Someone who has never heard of an engine must
 still see their song: a full-screen picker in front of it read as "k7 does not work". The editor's
 link asks for its URL on every dial and waits for the search's answer, so the engine picked by the
-search is reached without a reconnect delay; a pick made later — from the header, or the list drawn
+search is reached without a reconnect delay; a pick made later — from the sidebar, or the list drawn
 over the project — remounts the editor, as a switch always did. Once an engine is held, the files'
 ticket names it, and that is what binds it at the hub (`packages/file-hub/docs/fileHub.md`).
 
@@ -225,29 +225,43 @@ not.
 ## The layout (`App.tsx`)
 
 `App` is the k7 web editor itself: **one page at a time, full width** — the timeline, the graph, the
-desk, the frame, the master strip or the editor — with the page buttons in the header and the transport
-in the project bar at the foot. Two pages are never split side by side; the one way to see a second view under the page is
+desk, the frame, the master strip or the editor — with the project bar under it, holding the way home,
+the transport and the page buttons; there is no header. Two pages are never split side by side; the one way to see a second view under the page is
 the footer's bottom panel (`event`, `graph`, `mix`, `logs`), which opens on half the main column's height
 until its divider is dragged. It is the wiring and the layout; almost nothing else.
 
-### The header is the shared bar, with k7's contents in it
+### No header: the project bar is the one row above the footer
 
-`@frediverse/ui/app-header` draws it — the bar phare's apps use too — and k7 fills its four slots:
+Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall. So a
+project draws no header: its chrome is the project bar (`shell/ProjectBar.tsx`, the app's mini player)
+under the panes, and the footer under that. The bar fills the mini player's slots:
 
 | slot | what k7 puts there |
 |---|---|
-| `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the engine playing the project, the share's read-only badge and the workspace warning |
-| `items` | **empty** — see below |
-| `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
+| `lead`, at the left edge | the hamburger, the k7 logo and the project's name, then the engine's health, a share's read-only badge and the workspace warning — on a phone the hamburger and the info icon |
+| `transport` | play/pause, stop, loop and record |
+| `track` | the clock and the peekable minimap |
+| the host's controls | the **master meter**, right of the minimap |
+| `trail`, at the right edge | the pane row and the frame's toggle — or, on a phone, the one menu that also holds the side panels' buttons |
 
-**No brand name and no build stamp in the header.** The brand is what the home page says — repeating
-it over a song names the tool rather than the work — and the stamp goes with it, being the tooltip of
-that name on the home page (`../../../docs/versioning.md`). The project's name is the project bar's.
+**No brand name and no build stamp.** The brand is what the home page says — repeating it over a song
+names the tool rather than the work — and the stamp goes with it, being the tooltip of that name on the
+home page (`../../../docs/versioning.md`). The project's name has the bar's left edge.
 
-**The master meter is at the RIGHT end, first in `actions`.** The bar and the fader under it are a
-control rather than a caption, so they belong on the side the bar keeps its controls. It stays ahead of the icon row because it is read
-while playing, not clicked, and the divider after it is what says so.
+**The master meter is in the centre, beside what plays.** It is read while playing, not clicked, so it
+stands with the transport and the song's map rather than with the page buttons; the minimap's peek grows
+upward and leaves it in place. No phone has room for it, and a share has no engine to read.
+
+**The pages are at the right edge**, outside the centred part. A **pane** button shows a page that is
+already mounted, and exactly one of them is lit — the page on screen: `aria-current="page"`, not
+`aria-pressed`, since pressing the lit one changes nothing rather than switching it off. Each one
+carries its key in its tooltip, which is why the row stays icons rather than labelled entries that
+would drop the shortcut.
+
+**Its buttons are 24 px on the desktop** (`toolSize` is `icon-xs`). **A phone keeps `icon`**: the menu
+everything else collapses into is under a thumb, and a 24-pixel target there is a miss. That is the only
+reason `toolSize` reads the breakpoint instead of being a constant. Both phone popovers open upward,
+the bar being at the foot (`components/MobileChrome.tsx`).
 
 The **way back to the home page** is a hamburger at the left edge of the project bar, before the k7
 logo and the project's name: it opens the home page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
@@ -279,27 +293,6 @@ its compatibility under 100 — and its tooltip says the score and which plugins
 service beside the engine when they live on its machine (`/project-compat`). Nothing is drawn while either half is unknown: a warning that might
 be false is worse than none.
 
-The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
-control goes in `actions`*), and here it lands on a real distinction. A **pane** button shows a page
-that is already mounted, and exactly one of them is lit — the page on screen: `aria-current="page"`,
-not `aria-pressed`, since pressing the lit one changes nothing rather than switching it off. Each one
-carries its key in its tooltip, which is why the row stays icons rather than labelled entries that
-would drop the shortcut.
-
-`items` is **empty** while every surface is a pane, and the prop is still passed rather than dropped
-because it is the shared bar's slot for exactly that kind of page. Note the constraint if you use
-it: `AppHeader` folds `items` into a hamburger of its own below 640 px and k7's `actions` already
-collapse into one — two hamburgers side by side being two answers to "where do I go" — so anything
-put there must also be in k7's own menu.
-
-### The bar is `plain`, not the house tint
-
-k7 passes `variant="plain"` to the shared bar, the card surface with a hairline under it, where every
-phare app keeps the violet tint (`commons/packages/ui/docs/app-header.md`). A DAW lights things all
-the time — the page on screen, a selection, Play — and those are violet; a violet bar around them
-leaves the accent nothing to mark. The footer and the home page's sidebar take the same surface
-(`projects.md`).
-
 ### One colour per meaning, across every view
 
 k7 keeps its own values over the shared palette in `src/index.css`, and every surface that draws a
@@ -309,7 +302,7 @@ song reads them, canvases included (through the CSS variable, since a canvas can
 |---|---|---|
 | the playhead | `playhead` | the timeline, the roll, the step grid, the minimap, the takes view, the clip's waveform and the desk drew five different lines; an audition's line stays amber, being another clock |
 | mute, solo, arm | `mute`, `solo`, `arm` | the timeline's solo and the graph's were two yellows; a lit pad takes dark type, which reads on all three |
-| the meter's zones | `meter-ok`, `meter-hot`, `meter-clip` | the header, the desk and the graph's faders say the same thing about the same level |
+| the meter's zones | `meter-ok`, `meter-hot`, `meter-clip` | the project bar, the desk and the graph's faders say the same thing about the same level |
 | violet as text | `primary-text` | no one violet passes both as a fill under white type and as text on this ground (`primary` is the fill) |
 | text below muted | `faint` | it replaces `/50`–`/70` fades of the muted grey, which fell to 2.4:1 |
 
@@ -323,23 +316,6 @@ hovered row looked like a panel. A panel that is a surface (the home page's work
 sections, the libraries card) is its fill with no outline; a hairline is kept where it SEPARATES
 something, between a header and its rows.
 
-### The bar is 30 px, and its height is a rule rather than a number
-
-Every row of chrome is a row the panes don't get, and a phone in landscape is about 400 px tall.
-So k7 trims the shared bar's own `px-5 py-3` through its inner box — `py-[3px]` on the desktop —
-and sizes the controls to match: `toolSize` is `icon-xs` (24 px) and every button in the bar takes
-it, the transport included. The three pixels are what keeps a pressed button's own background off
-the bar's edge: below that the row reads as a strip of buttons rather than as a bar.
-
-**A bar's height IS its tallest child**, which is the rule to keep: padding alone buys nothing while
-a 36-pixel button is still in the row, and one control left at the default puts the whole bar back
-where it was. Anything added here is 24 px or under — the share's download
-button is `h-6` for that reason, and the badges are `text-xs py-0.5`.
-
-**A phone keeps `icon` and `py-1`.** The one button up there is the menu everything else collapses
-into, and a 24-pixel target under a thumb is a miss; the pixels are cheaper than the tap. That is
-the only reason `toolSize` reads the breakpoint instead of being a constant.
-
 #### The project bar, and what a SET drops from it
 
 **The transport is the app's mini player** (`shell/ProjectBar.tsx` over `@studio/ui-mini-player`), the
@@ -348,10 +324,10 @@ and where in it", wherever k7 is. It sits under the panes and above the footer, 
 
 - **Its left slot is the project's**: the hamburger, the k7 logo and the name, aligned to the bar's
   edge rather than in its centred part. The name is what the transport is playing, so it stands with
-  it, and the way home goes with the name it shares a link with. A phone keeps the hamburger alone
-  there, the name being in the header's info icon.
+  it, and the way home goes with the name it shares a link with. On a phone the name and the engine
+  fold into an info icon beside the hamburger.
 - **The buttons stand where the bar keeps its play/pause**, all of them: a project's transport is more
-  than one button, and a cluster split between the header and the bar would be two places to look.
+  than one button, and a cluster split across two rows would be two places to look.
 - **The progress row is the clock and the minimap**, in place of the scrubber: a project's "where" is
   bars and lanes, not a fraction of a file. See "The minimap is the bar's progress" below.
 - **No close.** A project's transport is not something you dismiss, and the bar is the way home: it
@@ -432,15 +408,15 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The **engine's health** sits at the left of the header (`components/EngineLink.tsx`):
+The **engine's health** sits in the project bar's left slot, after the name (`components/EngineLink.tsx`):
 the connection light, the Q badge and the engine process's memory — and again under the sidebar's
-engine selector, beside the engine they describe. The header keeps them because a dropped link is
+engine selector, beside the engine they describe. The bar keeps them because a dropped link is
 what to see while playing, without opening anything. Q1/Q2/Q3
 off the measured latency is a property of the SESSION rather than of a screen — it decides what you
 can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. The light changes SHAPE as well as colour — a dot when connected, an unplugged
 plug when not — so it reads for someone who cannot tell red from green.
 
-A link that stays down says so in words, on a strip under the header
+A link that stays down says so in words, on a strip at the top of the window
 (`components/EngineLostStrip.tsx`): a red dot is easy to miss while every gesture quietly does nothing.
 The strip is an OVERLAY on a zero-height anchor, not a row: arriving two seconds into an outage, a
 row would push every pane down under the pointer, mid-gesture. It covers the panes' top edge instead,
@@ -461,11 +437,11 @@ could only ever hold the panes, leaving anything else to a second hamburger besi
 tap dispatching `timeline` sets the status line to *"timeline" is a ui command* and changes nothing
 else.
 
-A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
+A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's pane row: picking one
 means "show me that page", and the current row is where you are, not a switch left on.
 
-**The project's name and the engine's health fold into one info icon** at the
-left of the header (`MobileInfo`); the bar keeps the hamburger alone. Their labels and figures would take the width the
+**The project's name and the engine's health fold into one info icon** in the
+bar's left slot, beside the hamburger (`MobileInfo`). Their labels and figures would take the width the
 transport needs, and they are read far less often than the transport is pressed. The icon carries a
 dot that keeps the link's state visible with the popover closed — green when up, red when down,
 amber with no engine at all — since a silent song with nothing on screen saying why is the failure
@@ -667,7 +643,7 @@ the file's picture has loaded, the panel keeps the take's live envelope on scree
 heard is a truer picture of it than a "reading" line. The shell does two things with it: `setWs`, which opens the review panel on the new
 clip, and a reload, which puts the clip on its lane. Both have to hang off that read and nothing else
 — the transport keys go straight to the engine socket (below), so no reply from the file service comes
-back to bump a reload, and a take stopped from the header's Stop button would otherwise be on disk, on
+back to bump a reload, and a take stopped from the project bar's Stop button would otherwise be on disk, on
 the lane, and off the screen.
 
 The first answer only SEEDS: `lastTake` is the service's memory of the newest take it ever wrote, not
@@ -838,14 +814,13 @@ is the whole point of that tab not being a dialog over the thing it meters.
 The right end of the FOOTER holds four buttons, after a separator, and each toggles a panel **docked at
 the right** of the pane row — pushing the panes rather than covering them. They sit at the bottom right
 because the footer is where every other panel button is, and that corner is the nearest one to the
-column they open; the header keeps the pages and the meter. A phone has no room in its footer and keeps
+column they open; the project bar keeps the pages and the meter. A phone has no room in its footer and keeps
 them in its menu.
 
 **Every button that opens a panel is a TAB** (`components/FooterTab.tsx`), the bottom panels' and these
-alike: the shared header's tabs upside down, hanging from the footer's top rule, the open one taking the
+alike: a tab row upside down, hanging from the footer's top rule, the open one taking the
 page's background and opening into the panel it shows. A lit button says a toggle is on; a tab says
-WHICH of several places you are looking at, which is what a panel row is. The footer wears the header's
-card surface for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
+WHICH of several places you are looking at, which is what a panel row is. The footer wears the card surface for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
 button stays a toggle: it opens nothing.
 
 The buttons:
@@ -1742,7 +1717,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the minimap's stack button, left of zoom fit | `ui stack` | `toggleStack` in `App` |
 | the footer's panel row | `ui panel <event\|graph\|mix\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
-| a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
+| a pane button in the project bar (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
 | the per-track view's curve button, in its left column (`ModeStrip`, the timeline's) | `ui curves` — shows or hides its curve cards | `App` |
 | the per-track view's *audio in* / *midi in*, above it — greyed while something already feeds the lane (`laneHasInput`) | `track input <track> audio\|midi` | `App` |
@@ -1751,7 +1726,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | a layer moved or resized in the VIEWPORT | `picture rect` | `App` — the selection box is `components/ViewportOverlay.tsx`, see [picture.md](picture.md) |
 | a picture lane's **A** button, and `r` on its row | `ui picture arm <lane>` | `App` — browser-side like `ui midi learn`, since the camera is the browser's ([picture.md](picture.md)) |
 | the cog | `ui settings` — toggles its panel | `App` |
-| the header's Playlists button, on a SET | `ui playlists` — toggles its panel | `App` |
+| the footer's Playlists tab, on a SET | `ui playlists` — toggles its panel | `App` |
 | the footer's Share button | `ui share` — toggles its panel | `App` |
 | the settings panel's tabs | `ui settings editor\|io\|account` | `App` |
 | the settings panel's *Commandes* | `ui settings commands` — the one that is still a page | `App` |
@@ -1833,12 +1808,12 @@ Some gestures need a second command the user did not type, and both are held as 
 
 ## Mobile
 
-A phone shows one page, as the desktop does, and the menu drives `full` where the desktop's header row
+A phone shows one page, as the desktop does, and the menu drives `full` where the desktop's pane row
 does. The home page is the same one, the timeline being the one pane that says what the song *is*: the
 editor needs a keyboard and the graph needs room.
 
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window is about 400px
-tall, so the header and footer are trimmed to what a touch target needs and no more. The one control that
+tall, so the project bar and the footer are trimmed to what a touch target needs and no more. The one control that
 could not simply move is the command bar's opener: a phone has neither Ctrl+Shift+P nor double-Shift, so the menu carries it.
 
 **The shell's root clips its overflow** (`overflow-hidden` on `App.tsx`'s outer box). A pane

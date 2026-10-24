@@ -90,7 +90,7 @@ matches before changing it:
 | `playhead.md` | why the playhead is steered by the engine's frames rather than drawn from them |
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `clipEditors.md` | the piano roll and the waveform over one event — and the loop marks they share |
-| `masterMeter.md` | the header's meter, what it holds across a pass, and the Fix button's trim |
+| `masterMeter.md` | the project bar's meter, what it holds across a pass, and the Fix button's trim |
 | `mastering.md` | the `mastering` surface — one quick-master node as three appliances, and why nothing on it normalises |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `curveEditor.md` | `ui curve` — the popin that creates and edits an automation curve |
@@ -125,7 +125,7 @@ matches before changing it:
 `App.tsx` shows **one pane at a time, as a full page** — the timeline, the desk, the strip, the
 graph or the editor, with the frame floating over them — and **never splits two of them**. `full` is that page, and it is
 never empty: with nothing chosen it is the project's home page, the timeline when declared and
-otherwise the first pane the project does declare. The header's pane buttons pick the page and
+otherwise the first pane the project does declare. The project bar's pane buttons pick the page and
 light the one on screen; the one way to see a second view at the same time is the footer's bottom
 panel (`event`, `graph`, `mix`, `logs`). The EDITOR is never the home page — it is shown deliberately (`ui editor`)
 or arrives as a popin when a command sends it to a file (`frontend/docs/shell.md`). Every pane is
@@ -173,7 +173,7 @@ Read `packages/song/docs/surfaces.md`.
 
 **There is ONE layout, and nobody chooses it either.** Which panes it holds is what the open
 project DECLARES: `viewPanes` in `src/routes.ts` takes the surface flags and answers with the
-pane ring and the fullscreen list, and that one list closes the header buttons, the number keys,
+pane ring and the fullscreen list, and that one list closes the project bar's pane buttons, the number keys,
 `ui <pane>` and the mobile tabs together. A project with no `surfaces/timeline.k7x` draws no
 timeline, and the transport and the minimap go with it.
 

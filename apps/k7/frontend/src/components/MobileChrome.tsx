@@ -1,10 +1,8 @@
-// MobileChrome.tsx — the ONE piece of shell a phone gets: a hamburger holding the header's right
-// side and every screen to go to. There is no global view on a phone (`full` is never null), so
-// the menu is what drives it. `MobileInfo` is its twin on the LEFT, holding the project's name
-// and the engine, whose labels and figures leave the bar no room otherwise.
-//
-// No bottom tab bar: it spends a row of a ~400px-tall landscape screen on a control used a few
-// times a session. A plain popover, not a DropdownMenu, since what each holds is itself menus.
+// MobileChrome.tsx — the ONE piece of shell a phone gets: a menu at the project bar's right end
+// holding every screen to go to. There is no global view on a phone (`full` is never null), so the
+// menu is what drives it. `MobileInfo` is its twin on the LEFT, holding the project's name and the
+// engine, whose labels and figures leave the bar no room otherwise. Both open UPWARD: the bar is
+// at the foot of the window. A plain popover, not a DropdownMenu, since what each holds is menus.
 
 import { Button } from "@frediverse/ui/button";
 import { Info, Menu, X } from "@frediverse/ui/icons";
@@ -70,7 +68,7 @@ export function MobileMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1 flex min-w-[13rem] flex-col gap-2 rounded-md border border-border bg-popover p-2 shadow-lg"
+          className="absolute right-0 bottom-full z-50 mb-1 flex min-w-[13rem] flex-col gap-2 rounded-md border border-border bg-popover p-2 shadow-lg"
         >
           {children}
         </div>
@@ -165,7 +163,7 @@ export function MobileInfo({
         <div
           role="dialog"
           aria-label={m["engineSwitch.info"]()}
-          className="absolute left-0 top-full z-50 mt-1 flex min-w-[16rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-md border border-border bg-popover p-2 shadow-lg"
+          className="absolute left-0 bottom-full z-50 mb-1 flex min-w-[16rem] max-w-[calc(100vw-1.5rem)] flex-col gap-2 rounded-md border border-border bg-popover p-2 shadow-lg"
         >
           {children}
         </div>

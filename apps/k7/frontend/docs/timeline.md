@@ -1159,12 +1159,11 @@ Two details carry it:
   the ruler.
 
 …and the scroller carries **`isolate`**, which is what keeps those four numbers a private
-conversation. Without it they compete with the SHELL's: the ruler's 40 beats the header's 20 and
-draws straight over the **cog menu**, which is a plain absolute dropdown inside the header rather
-than a portalled one, so it cannot escape the header's stacking context to get away from it.
-Isolated, the whole pane takes part outside at `auto` and the header sits above it — while the
-full-screen overlays (the settings screens at `z-40`, the module builder at `z-30`, every popin at
-`z-50`) still sit above the header, which is the order the shell needs. The rule to keep: a pane's
+conversation. Without it they compete with the SHELL's: the ruler's 40 beats the project bar's
+minimap (`z-30`), which grows upward over the panes when peeked at, and would draw straight over it.
+Isolated, the whole pane takes part outside at `auto` and the peeked minimap sits above it — while
+the full-screen overlays (the settings screens at `z-40`, every popin at `z-50`) still sit above the
+panes, which is the order the shell needs. The rule to keep: a pane's
 layers are the pane's own, and the moment one of them is tuned against something outside the pane,
 the number is in the wrong place.
 

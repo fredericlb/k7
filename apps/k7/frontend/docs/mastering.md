@@ -134,7 +134,7 @@ you flip to mid-take.
 
 ## What it does NOT do
 
-- **No meter.** The header already has one (`masterMeter.md`), it reads the master bus, and a
+- **No meter.** The project bar already has one (`masterMeter.md`), it reads the master bus, and a
   second one inside this pane would be the same number twice with two chances to disagree.
 - **No gain reduction display.** The engine's state frame carries transport and levels, not a
   plugin's internal detector, so drawing one would mean a new message on the hottest path there

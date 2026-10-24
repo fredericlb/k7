@@ -356,7 +356,7 @@ briefly parse for every ordinary song.
 ### Where the desk goes in the ring
 
 The shell shows one pane at a time, and the ring is their order — arrangement, desk, master,
-chains — which is the order Tab walks and the header lists. A set declares no timeline, so its desk
+chains — which is the order Tab walks and the project bar lists. A set declares no timeline, so its desk
 comes first among what it declares and is the page it opens on. A fader on the desk is a param on a
 module in the graph; the bottom panel's `graph` is how both are read at once.
 

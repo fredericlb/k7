@@ -44,6 +44,7 @@ export function MiniPlayer({
   onClose,
   onNext,
   lead,
+  trail,
   transport,
   track,
   mediaSession = true,
@@ -72,6 +73,8 @@ export function MiniPlayer({
   onNext?: () => void;
   /** At the bar's left edge, outside its centred part: a host's name for what it is, and its way out. */
   lead?: ReactNode;
+  /** At the bar's right edge, outside its centred part and before the close: where a host's way elsewhere goes. */
+  trail?: ReactNode;
   /** In place of the play/pause button, for a host whose transport is more than one. */
   transport?: ReactNode;
   /** In place of the clocks and the scrubber — null for no position row at all. */
@@ -106,7 +109,7 @@ export function MiniPlayer({
       className={`relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2${onClose ? " [@media(hover:none)]:pr-12" : ""}`}
     >
       {lead && (
-        <div className="flex min-w-0 max-w-[16rem] shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 max-w-[24rem] shrink items-center gap-1.5">
           {lead}
         </div>
       )}
@@ -185,6 +188,12 @@ export function MiniPlayer({
 
         {children}
       </div>
+
+      {trail && (
+        <div className="flex shrink-0 items-center justify-end gap-1">
+          {trail}
+        </div>
+      )}
 
       {/* Top right, and the only thing that takes the bar away: what ENDS does not remove it. */}
       {onClose && (

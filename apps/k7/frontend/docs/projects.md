@@ -45,7 +45,7 @@ the front door, and putting it behind a prefix you have to know how to type woul
 **The user menu — the account, the settings, the logout — is in THIS page's
 sidebar**, never in the editor's header. Inside a project the project bar's hamburger opens the same
 sidebar as a drawer (`HomeDrawer`), so everything this page links to is one click away from any
-project without the header carrying it. The router's basename is the project there, so the drawer's
+project without the project bar carrying it. The router's basename is the project there, so the drawer's
 entries are full addresses resolved against `projectsUrl` — drawn in place, no page load
 (`shell.md`) — and none is lit. It is the menu every app of the origin carries —
 `@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab (`packages/ui-user-menu/docs/userMenu.md`).

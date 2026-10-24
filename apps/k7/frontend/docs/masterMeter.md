@@ -1,6 +1,6 @@
-# The header meter, and the Fix button beside it
+# The master meter, and the Fix button beside it
 
-The header carries the mix as it leaves for the interface, at the right end of the bar: one lane
+The project bar carries the mix as it leaves for the interface, right of the minimap in its centre: one lane
 holding the meter, the output fader's handle and the mark at unity, then a clip light, and — only
 after a pass that clipped — a **fix** button that takes the whole mix down until that pass would
 have peaked at **-6 dB**.
@@ -181,7 +181,7 @@ markup.
 
 **It is not the only fader on this number.** The chains graph draws an `OUT` card with the same
 param on it (`@studio/ui-chains`'s `MAIN_OUT_UI`), because the output is a node like any other and
-that is where a node's controls belong. This one is in the header for the reason the meter is: it
+that is where a node's controls belong. This one is in the project bar for the reason the meter is: it
 answers a question you ask while the transport is running, and the graph may not be the pane you
 are looking at.
 
@@ -208,7 +208,7 @@ something the clip light cannot see past.
 ## The engine's memory, beside its name
 
 `EngineLoad.tsx` shows the engine PROCESS's memory, and its tooltip adds the plugins' summed share
-of each audio block. It sits in the header's engine health, with the connection light and the
+of each audio block. It sits in the project bar's engine health, with the connection light and the
 latency (`EngineLink.tsx`), and not beside this meter: the figure is the engine's, not this
 project's — every session on that engine counts in it. Why memory is the process's and not a node's is
 `engine/k7-runtime/docs/load.md`; the node's own CPU is on its card. Rounded to whole megabytes

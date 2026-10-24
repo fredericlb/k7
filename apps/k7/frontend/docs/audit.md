@@ -53,7 +53,7 @@ and renders nothing. What holds it here:
 - **A take being recorded** grows in a ring buffer outside React (`src/ringBuffer.ts`,
   `hooks/useLiveEnvelope.ts`): an O(1) push per frame where `shift()` was O(n), published to the two
   leaves that draw it at 10 Hz, so the clip panel around them does not render for it.
-- **The header meter** is scaled rather than resized (`masterMeter.md`).
+- **The master meter** is scaled rather than resized (`masterMeter.md`).
 - **A hidden pane does no per-frame work**: the playhead loops and the lane meters read
   `PaneVisible` (`src/paneVisible.ts`) and stand down while CSS hides their pane, which stays
   mounted. The editor's pane is visible as a popin too.
