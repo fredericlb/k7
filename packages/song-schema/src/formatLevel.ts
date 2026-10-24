@@ -4,13 +4,16 @@
 // newer file may use syntax this build cannot parse. No `node:fs`. Rationale: docs/formatLevel.md.
 
 /** The project format this k7 reads and writes: a project root above it is refused, never half-read. */
-export const FORMAT_LEVEL = 3;
+export const FORMAT_LEVEL = 4;
 
 /** The level an event `start` written in SECONDS needs: a level-1 build refuses the number (docs/formatLevel.md). */
 export const SECONDS_START_LEVEL = 2;
 
 /** The level a picture lane as a lane node needs: a level-2 build looks for `video_tracks/` (docs/formatLevel.md). */
 export const PICTURE_LANE_LEVEL = 3;
+
+/** The level a picture lane SOUNDING on its own needs: a level-3 build plays its shots' sound only through a `video_source:` lane. */
+export const PICTURE_SOUND_LEVEL = 4;
 
 /** The project root's key that carries the level, a sibling of `project:`. */
 export const FORMAT_KEY = "format";

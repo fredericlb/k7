@@ -32,8 +32,7 @@ node, muted, ordered and renamed with the others.
 shape it reads. That is the split `song-video/docs/picture.md` already makes between the two
 documents, moved from "which folder" to "which meta ref".
 
-Mixing shots and sound on ONE lane — a shot's sound leaving by `#audio`, replacing `video_source` —
-is a later step, and needs its own design (the sound of a retimed shot).
+A picture lane also carries its shots' SOUND, as a second half (decision 6).
 
 ### 2. The shot's fields, spelled like the audio event's where they mean the same thing
 
@@ -116,8 +115,23 @@ and `track rename` gain the collision refusal `createVideoTrackFile` already mak
    lane and accepted empty, as most songs carry it. The fixtures and demos are migrated, the old
    layout kept as test data in `packages/song/fixtures/pictureLanesV2`, and the docs describe the
    new one.
-4. **Done:** the timeline draws each picture row where `trackOrder` puts it among the sound rows.
-   **Left:** the e2e suite against the running instance.
+4. **Done:** the timeline draws each picture row where `trackOrder` puts it among the sound rows,
+   and the e2e suite passes against the running instance.
+5. **Done:** the picture lane's own sound (decision 6), with the fold of `video_source:` lanes at
+   open and format level 4.
+
+### 6. The shot's sound is the picture lane's `#audio` half
+
+- **Two halves.** The lane's mute and solo are the picture's; the sound is `main#audio`, an engine
+  track with its own mute, solo and strip, written `bypassed: ["main#audio"]` — hiding a shot does
+  not silence it. A sound half is a track and not a node, so its bypass is an entry no node holds.
+- **Unwired, to the mix**, as a sound lane wired to nothing plays: a dropped video is heard at once.
+- **Retiming**: tape by default (`varispeed`), `pitch("keep")` on a shot for the engine's stretcher;
+  reverse and freeze stay silent, the engine playing nothing backwards.
+- **Folded at open**: a node project's `video_source:` lane becomes its picture lane's half — chain,
+  mute, solo and highlight follow, the lane goes, `format(4)`. A picture lane two lanes sound is
+  left alone and named. A CHAIN project spells no port, so it keeps its sounding lane, and
+  `picture sound` still makes one there.
 
 Two decisions changed on the way. A timeline keeps its own `pictures:` list: a timeline lane has
 no meta ref to say what it holds, and folding pictures into `lanes:` would turn a sound lane named

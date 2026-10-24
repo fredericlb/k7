@@ -1,8 +1,8 @@
-// pictureSound.ts — `picture sound <lane> [track]`: the shots' SOUND onto an audio lane the engine
-// plays. Each shot's clip gets its sound extracted once, beside the video, and named by `sound:`;
-// then one audio lane says `video_source: <lane>` and takes its events from the shots. Run again
-// it does only what is missing, which is why the timeline can run it after every drop.
-// Removing a clip from that lane SILENCES its shot, as `picture silence` does: the picture stays.
+// pictureSound.ts — `picture sound <lane> [track]`: the shots' SOUND, played by the engine. Each
+// shot's clip gets its sound extracted once, beside the video, and named by `sound:`; the picture
+// lane's own `#audio` half then plays it — in a chain project, which spells no port, an audio lane
+// saying `video_source: <lane>` does. Run again it does only what is missing.
+// Removing a clip from that sound SILENCES its shot, as `picture silence` does: the picture stays.
 // See packages/song/docs/videoSound.md.
 
 import { existsSync } from "node:fs";
@@ -10,19 +10,24 @@ import { resolve } from "node:path";
 import { extractSound } from "@studio/audio-analysis/extract";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type { K7Scope } from "@studio/k7x/document";
+import { isChainProject } from "@studio/song/chainProject";
 import {
   confineTo,
   confineToProject,
   workspaceDirOf,
 } from "@studio/song/confine";
+import { stampFormatLevel } from "@studio/song/formatStamp";
 import { loadGraph } from "@studio/song/graph";
 import { createTrackFile, readYamlEntities } from "@studio/song/loader";
+import { pictureLaneIds } from "@studio/song/pictureLanes";
 import type { RawClip, RawVideoTrack } from "@studio/song/rawDoc";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { videoSoundPieces } from "@studio/song/videoSound";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
+import { PICTURE_SOUND_LEVEL } from "@studio/song-schema/formatLevel";
+import { splitPort } from "@studio/song-schema/moduleTypes";
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import {
   listVideoPlacements,
@@ -106,12 +111,15 @@ function soundLane(lane: string, track: string, h: CommandHost): string[] {
   ];
 }
 
-/** The picture lane `track` plays the sound of, or null for an ordinary lane. */
+/** The picture lane `track` plays the sound of — its own `#audio` half, or a `video_source:` lane — or null for an ordinary lane. */
 export function soundingPicture(
   songPath: string,
   track: string,
 ): string | null {
   try {
+    const { node, port } = splitPort(track);
+    if (port === "audio" && pictureLaneIds(songPath).includes(node))
+      return node;
     return loadGraph(songPath).tracks[track]?.videoSource ?? null;
   } catch {
     return null; // a song that does not load is the caller's to report
@@ -205,7 +213,8 @@ export function soundingLaneRefusal(
     return null; // a song that does not load is the handler's to report
   }
   for (const name of (splitWords(userArgs)[0] ?? "").split(",")) {
-    const picture = tracks[name]?.videoSource;
+    const picture =
+      tracks[name]?.videoSource ?? soundingPicture(songPath, name);
     if (picture)
       return `'${name}' plays ${picture}'s sound — edit the shot instead (picture move | length | head | split ${picture} …)`;
   }
@@ -268,16 +277,24 @@ export const PICTURE_SOUND_VERBS: Record<string, SidHandler> = {
       if (done.line) lines.push(done.line);
       heard ||= done.heard;
     }
-    // A lane of silent shots gets no audio lane: one that plays nothing is a strip to delete by hand.
+    // A lane of silent shots plays nothing, so it gets no sound to mute or wire.
     if (!heard) {
-      h.log([...lines, `nothing on ${lane} has a sound — no lane made`]);
+      h.log([...lines, `nothing on ${lane} has a sound`]);
       return h.reload();
     }
-    try {
-      lines.push(...soundLane(lane, trackArg || `${lane}-sound`, h));
-    } catch (e) {
-      h.refuse([...lines, `picture sound: ${(e as Error).message}`]);
-      return;
+    // The picture lane's own half plays it; a chain project, which spells no port, still needs a lane that does.
+    if (isChainProject(h.songPath)) {
+      try {
+        lines.push(...soundLane(lane, trackArg || `${lane}-sound`, h));
+      } catch (e) {
+        h.refuse([...lines, `picture sound: ${(e as Error).message}`]);
+        return;
+      }
+    } else {
+      stampFormatLevel(h.songPath, PICTURE_SOUND_LEVEL);
+      lines.push(
+        `${lane}#audio plays ${lane}'s sound — to the mix, or wherever \`${lane}#audio\` is wired`,
+      );
     }
     h.log(lines);
     return h.reload();

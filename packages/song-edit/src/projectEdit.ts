@@ -460,6 +460,7 @@ export {
   placeChainNode,
   renameChainNode,
   replugChainNodes,
+  setBypassEntry,
   setChainNodePosition,
   setChainNodePositions,
   setLaneBypass,

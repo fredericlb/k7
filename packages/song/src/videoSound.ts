@@ -1,6 +1,6 @@
-// videoSound.ts — a picture lane's shots -> the audio clips of the lane that plays their sound
-// (`video_source:`). Each shot is heard exactly where it is SEEN: over its span, minus whatever a
-// later shot covers, so a cut in the picture is a cut in the sound and a dissolve a crossfade.
+// videoSound.ts — a picture lane's shots -> the audio clips of its sound: its own `#audio` half, or
+// a lane naming it in `video_source:` until its open folds that in. Each shot is heard exactly where it is SEEN:
+// over its span, minus whatever a later shot covers, so a cut in the picture is a cut in the sound.
 // The one thing a reader gets wrong: the sound is the clip file's `sound:`, never its `source:` —
 // the engine cannot read a video container everywhere. See docs/videoSound.md.
 
@@ -23,6 +23,8 @@ interface Shot {
   fadeIn: number;
   fadeOut: number;
   silent: boolean;
+  /** Its sound under a speed: resampled like tape, or stretched to keep its pitch. */
+  keepPitch: boolean;
 }
 
 // A fade's length in seconds, a bare number or a map's `over`; song-video's `readFade` would be a package cycle.
@@ -57,6 +59,7 @@ function shotsOf(events: readonly RawVideoPlacement[]): Shot[] {
       fadeIn: Math.min(fadeOver(p.fadeIn), span),
       fadeOut: Number.isFinite(end) ? Math.min(fadeOver(p.fadeOut), span) : 0,
       silent: p.silent === true,
+      keepPitch: p.pitch === "keep",
     };
   });
 }
@@ -137,11 +140,11 @@ export function videoSoundPieces(
         offset: 0,
         ...(sourceFrom > 0 ? { sourceFrom } : {}),
         ...(open ? {} : { sourceTo: sourceFrom + (b - a) * s.speed }),
-        // A retimed shot's sound is RESAMPLED, as a tape would be: one second of song takes `speed` seconds of source.
+        // A retimed shot's sound is RESAMPLED as a tape would be, or STRETCHED to its pitch: one second of song takes `speed` seconds of source.
         ...(s.speed !== 1
           ? {
               warp: {
-                algorithm: "varispeed",
+                algorithm: s.keepPitch ? "elastique" : "varispeed",
                 markers: [
                   [0, sourceFrom],
                   [bps, sourceFrom + s.speed],
@@ -158,6 +161,49 @@ export function videoSoundPieces(
       out.push({ shot: s.index, clip });
     }
   });
+  return out;
+}
+
+/** A sound file a shot names and the disk does not hold, refused as a missing audio clip is: the engine would play silence and say nothing. */
+function missingSounds(
+  dir: string,
+  clips: readonly ClipDoc[],
+  clipsMap: Record<string, RawClip>,
+  who: string,
+  lane: string,
+  errs: string[],
+): void {
+  for (const name of new Set(clips.map((c) => c.name))) {
+    const sound = String(clipsMap[name]?.sound);
+    if (!wsExists(resolve(dir, sound)))
+      errs.push(
+        `${who}: shot '${name}' sounds ${sound}, which is not there — 'picture sound ${lane}' extracts it again`,
+      );
+  }
+}
+
+/** Each picture lane's OWN sound, by lane: one whose shots sound or whose `#audio` is wired, and no `video_source:` lane plays. */
+export function pictureLaneSounds(
+  dir: string,
+  lanes: Record<string, { videoSource?: string }>,
+  videoLanes: Record<string, RawVideoTrack>,
+  clipsMap: Record<string, RawClip>,
+  tempo: number,
+  errs: string[],
+  wired: (lane: string) => boolean,
+): Map<string, ClipDoc[]> {
+  // A lane still naming one plays its sound, until the project's open folds that lane into the picture lane's half.
+  const sounded = new Set(
+    Object.values(lanes).flatMap((l) => (l.videoSource ? [l.videoSource] : [])),
+  );
+  const out = new Map<string, ClipDoc[]>();
+  for (const [id, picture] of Object.entries(videoLanes)) {
+    if (sounded.has(id)) continue;
+    const clips = videoSoundClips(dir, picture, clipsMap, tempo);
+    if (!clips.length && !wired(id)) continue;
+    missingSounds(dir, clips, clipsMap, `picture lane '${id}'`, id, errs);
+    out.set(id, clips);
+  }
   return out;
 }
 
@@ -188,14 +234,7 @@ export function videoSoundLanes(
       continue;
     }
     const clips = videoSoundClips(dir, picture, clipsMap, tempo);
-    // A missing sound file is refused as a missing audio clip is: the engine would play silence and say nothing.
-    for (const name of new Set(clips.map((c) => c.name))) {
-      const sound = String(clipsMap[name]?.sound);
-      if (!wsExists(resolve(dir, sound)))
-        errs.push(
-          `lane '${id}': shot '${name}' sounds ${sound}, which is not there — 'picture sound ${from}' extracts it again`,
-        );
-    }
+    missingSounds(dir, clips, clipsMap, `lane '${id}'`, from, errs);
     out.set(id, clips);
   }
   return out;

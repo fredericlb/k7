@@ -126,7 +126,7 @@ addressed by its lane and **where it starts**.
 | `picture speed <lane> <at> <factor>` | change a shot's speed: `2`, `0.5`, `0` (freeze), `-1` (backwards), `1` |
 | `picture key <lane> <at> <prop> <when> <value> [ease]` | set an animation keyframe |
 | `picture unkey <lane> <at> <prop> <when>` | remove an animation keyframe |
-| `picture sound <lane> [track]` | play the lane's shots' sound on an audio lane |
+| `picture sound <lane> [track]` | extract the lane's shots' sound, which the lane then plays (`track` names the audio lane a chain-file project needs) |
 | `picture prepare <lane>` | make optimized copies and proxies for the lane's footage |
 | `picture interchange <otio\|edl> [lane]` | write the cut for another editor into `exports/` |
 | `picture import <file> [prefix]` | read an `.otio` or `.edl` into new picture lanes |

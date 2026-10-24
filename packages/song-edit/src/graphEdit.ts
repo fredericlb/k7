@@ -93,6 +93,26 @@ export function setLaneBypass(
   });
 }
 
+/** Set (or clear) one `bypassed:` entry the graph need not hold as a node — a picture lane's `#audio` half (song docs/videoSound.md). */
+export function setBypassEntry(
+  dir: string,
+  name: string,
+  bypassed: boolean,
+): string {
+  return editGraph(dir, (doc) => {
+    const was = doc.getIn(["bypassed"]);
+    const list = Array.isArray(was) ? was.map(String) : [];
+    const next = bypassed
+      ? [...new Set([...list, name])]
+      : list.filter((x) => x !== name);
+    if (next.length === list.length && next.every((x, i) => x === list[i]))
+      return;
+    // The list disappears when it empties, so muting and unmuting leaves the file as it was.
+    if (next.length) doc.setIn(["bypassed"], next, { inline: true });
+    else doc.deleteIn(["bypassed"]);
+  });
+}
+
 /** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */
 export function unlinkChainNode(
   dir: string,

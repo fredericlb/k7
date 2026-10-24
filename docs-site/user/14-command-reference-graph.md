@@ -85,7 +85,7 @@ Positions on a picture lane are in **seconds** (or `m:ss`). A shot is addressed 
 | `picture key` | `<lane> <at> <prop> <when> <value> [ease]` | Sets a keyframe on `x`, `y`, `scale`, `opacity` or `rotate`; ease `linear`, `in`, `out`, `inout` or `hold`. |
 | `picture unkey` | `<lane> <at> <prop> <when>` | Removes a keyframe. |
 | `picture speed` | `<lane> <at> <factor>` | Retimes a shot: `2` double speed, `0.5` slow motion, `0` a freeze, `-1` backwards, `1` its own pace. |
-| `picture sound` | `<lane> [track]` | Plays a picture lane's sound on an audio lane (`<lane>-sound` by default), extracting what is missing. |
+| `picture sound` | `<lane> [track]` | Extracts what is missing of a picture lane's shots' sound, which the lane plays on its own `<lane>#audio` row. In a chain-file project it plays on an audio lane instead (`<lane>-sound` by default). |
 | `picture prepare` | `<lane>` | Makes each shot's video playable: an optimized copy for codecs a browser cannot decode, a proxy for footage above 1080p. |
 | `picture interchange` | `<format> [lane]` | Writes the picture's cut for another editor: `otio` carries every lane, `edl` one (the bottom lane unless named). |
 | `picture import` | `<file> [prefix]` | Reads an `.otio` or `.edl` file of the project into new picture lanes (`import-1`, `import-2`… unless a prefix is given). Media are found by path, then by name in `clips/`. |

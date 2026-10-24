@@ -9,10 +9,12 @@ import {
   loadProjectRoot,
   setLaneOrder,
 } from "@studio/song/loader";
+import { pictureLaneIds } from "@studio/song/pictureLanes";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import {
+  setBypassEntry,
   setModuleAutomationBinding,
   setModuleBypass,
 } from "@studio/song-edit/projectEdit";
@@ -97,6 +99,14 @@ async function orderTrack(arg: string, h: CommandHost): Promise<void> {
 // What a mute/solo can address; a group is a lane too, silenced the same way in `graph.k7x`'s `bypassed:`.
 type MixTarget = Pick<TrackDoc, "id" | "name" | "mute">;
 
+/** One track's bypass: a picture lane's `#audio` half is an entry of the graph's list, held by no node (song docs/videoSound.md). */
+function bypassTrack(dir: string, id: string, bypassed: boolean): void {
+  const { node, port } = splitPort(id);
+  if (port === "audio" && pictureLaneIds(dir).includes(node))
+    setBypassEntry(dir, id, bypassed);
+  else setModuleBypass(dir, id, bypassed);
+}
+
 /** Silence (or un-silence) a set of lanes and push the result — a lane's mute IS its module's bypass; docs/verbs.md. */
 async function setLaneBypass(
   h: CommandHost,
@@ -104,7 +114,7 @@ async function setLaneBypass(
   line: string,
 ): Promise<void> {
   const p = h.project();
-  for (const [id, bypassed] of want) setModuleBypass(h.songPath, id, bypassed);
+  for (const [id, bypassed] of want) bypassTrack(h.songPath, id, bypassed);
   await h.applyProject({
     ...p,
     tracks: p.tracks.map((x) =>
@@ -286,7 +296,7 @@ export const TRACK_LANE_VERBS: Record<string, SidHandler> = {
     if (next.length) setFileValue(file, ["soloed"], next);
     else deleteFileValue(file, ["soloed"]);
     const unmute = on && t.mute;
-    if (unmute) setModuleBypass(h.songPath, t.id, false);
+    if (unmute) bypassTrack(h.songPath, t.id, false);
     const soloSet = new Set(next);
     await h.applyProject({
       ...p,

@@ -209,8 +209,10 @@ linear knob maps straight onto the fader's range, and it stops at **+6, not +12*
 track fader clamps there, so a taller knob would promise gain it cannot deliver (see `MAX_GAIN_DB`
 in `@studio/song`).
 
-A **video lane** gets one control. For picture, "mute" means hidden, and there is no solo, record
-arm, gain or pan to offer — a full strip there would be four controls that do nothing.
+A **picture lane** gets the picture's mute and solo — mute means hidden — and no record arm, gain or
+pan: a full strip there would be controls that do nothing to a picture. Its card has two outputs, its
+picture and its shots' sound; the sound's fader, mute and solo are its `#audio` half's strip, which a
+cable leaving that output feeds (`packages/song/docs/videoSound.md`).
 
 ## A RACK carries one too — a grid of pads
 

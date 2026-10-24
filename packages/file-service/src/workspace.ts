@@ -44,6 +44,7 @@ import {
 import type { ForkedModule } from "@studio/song/moduleFork";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import { migratePictureLanes } from "@studio/song/pictureLanesMigrate";
+import { foldPictureSounds } from "@studio/song/pictureSoundMigrate";
 import {
   formatAudioDevice,
   formatChannels,
@@ -418,6 +419,18 @@ export class Workspace {
       // Left as it was: a lane that will not read is reported by the compile, which names its file.
       console.warn(
         `picture lanes of ${this.toRel(abs)} not migrated: ${(e as Error).message}`,
+      );
+    }
+    // …then each `video_source:` lane folded into its picture lane's `#audio` half (song docs/videoSound.md).
+    try {
+      const fold = foldPictureSounds(abs);
+      if (fold?.warnings.length)
+        console.warn(
+          `picture sound of ${this.toRel(abs)}:\n  ${fold.warnings.join("\n  ")}`,
+        );
+    } catch (e) {
+      console.warn(
+        `picture sound of ${this.toRel(abs)} not folded: ${(e as Error).message}`,
       );
     }
   }

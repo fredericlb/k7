@@ -29,8 +29,11 @@ const SHAPES: Record<string, TrackShape> = {
   [PICTURE_TRACK_REF]: { picture: true },
 };
 
-/** A picture lane's one output: what it draws, carried to RENDER like a sound lane's to MIX. */
-export const PICTURE_OUTPUTS = [{ name: "video", type: "video" }] as const;
+/** A picture lane's two outputs: what it draws, carried to RENDER, and what its shots SOUND, to MIX (docs/videoSound.md). */
+export const PICTURE_OUTPUTS = [
+  { name: "video", type: "video" },
+  { name: "audio", type: "audio" },
+] as const;
 
 /** One built-in as the ref map holds it: no input, two outputs, none for a group — docs/trackModules.md. */
 function trackModule(ref: string): LoadedModule {

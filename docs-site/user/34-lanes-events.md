@@ -44,7 +44,7 @@ the chain or graph names the port (`pad#midi`).
 | `tracks` | list of lane names | `@meta/group-track` | The group's members. |
 | `color` | text | all | The lane's colour on the timeline (for example `"#e0a030"`). Lanes without one get an automatic colour. |
 | `disabled` | true/false | all | Leave the lane out of the render entirely, chains and all. Different from muting it. |
-| `video_source` | name of a picture lane | `@meta/track` | Make this lane play the sound of a picture lane's shots; its events are derived from that lane. |
+| `video_source` | name of a picture lane | `@meta/track` | In a project kept as chain files, make this lane play the sound of a picture lane's shots; its events are derived from that lane. Elsewhere a picture lane plays its own sound, and opening the project folds such a lane into it. |
 | `frozen` | text | all | The lane is frozen at this point: a render stands in for everything upstream. Written by k7. |
 
 A lane's mute is not a field of its file: it is the lane's `bypass` in its chain (or its entry in

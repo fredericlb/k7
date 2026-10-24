@@ -45,6 +45,40 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
+describe("a picture lane's sound half", () => {
+  const SOUNDED =
+    'modules({ "cam#audio": ["MIX"], MIX: ["OUT"] })\nbypassed(["cam#audio"])\n';
+
+  it("follows a rename: its chain, its mute and its solo take the new name", async () => {
+    wsWriteText(join(dir, "graph.k7x"), SOUNDED);
+    doc("project.k7x", {
+      ...data("project.k7x"),
+      soloed: ["cam#audio"],
+    });
+    const h = await run("picture lane rename cam wide");
+    expect(h.lines.refuse).toEqual([]);
+    expect(data("graph.k7x").modules).toEqual({
+      "wide#audio": ["MIX"],
+      MIX: ["OUT"],
+    });
+    expect(data("graph.k7x").bypassed).toEqual(["wide#audio"]);
+    expect(data("project.k7x").soloed).toEqual(["wide#audio"]);
+  });
+
+  it("goes with a delete, leaving no chain or bypass on a name nothing holds", async () => {
+    wsWriteText(join(dir, "graph.k7x"), SOUNDED);
+    doc("project.k7x", {
+      ...data("project.k7x"),
+      soloed: ["cam#audio"],
+    });
+    const h = await run("picture lane delete cam");
+    expect(h.lines.refuse).toEqual([]);
+    expect(data("graph.k7x").modules).toEqual({ MIX: ["OUT"] });
+    expect(data("graph.k7x").bypassed).toBeUndefined();
+    expect(data("project.k7x").soloed).toBeUndefined();
+  });
+});
+
 describe("picture lane rename", () => {
   it("renames the file and every place that names the lane", async () => {
     wsWriteText(join(dir, "graph.k7x"), 'modules({ cam: ["pip"] })\n');

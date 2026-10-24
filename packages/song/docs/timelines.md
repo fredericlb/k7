@@ -86,8 +86,8 @@ its own lane — since on the song lane its "next shot" would be somebody else's
 that lane: a lane's own last shot with no length is open-ended, and a placed shot after it in file order
 would end it. So the lane's own shots cover a timeline's where both are on.
 
-Both compiles read the merged lane: the picture draws it, and a lane sounding that picture lane
-(`videoSound.md`) plays the placed shots' sound too, heard where they are seen. The picture document
+Both compiles read the merged lane: the picture draws it, and its sound — the lane's `#audio` half,
+or a chain project's `video_source:` lane (`videoSound.md`) — plays the placed shots' sound too, heard where they are seen. The picture document
 also carries each timeline's own lanes at its own positions (`VideoProjectDoc.timelines`), the view
 that edits them. A placed shot carries `timeline`, the one whose file holds it: the verbs and the drag
 address a lane's file by index, and must never be handed it.

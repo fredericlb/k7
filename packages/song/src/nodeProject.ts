@@ -52,8 +52,8 @@ import {
   timelineShots,
   withTimelineShots,
 } from "./timelinePictures";
-import type { Material } from "./trackModule";
-import { videoSoundLanes } from "./videoSound";
+import type { Material, SoundLane } from "./trackModule";
+import { pictureLaneSounds, videoSoundLanes } from "./videoSound";
 
 export { FROZEN_CLIP_SUFFIX, isFrozenClipId } from "./compile/freeze";
 export { timelineLaneTrack } from "./compile/timelines";
@@ -219,24 +219,72 @@ function compileNodeProjectIn(
   for (const t of Object.values(lanesMap))
     if (t.type !== "group" && !t.disabled)
       timelineShots(t.events, timelineCtx, placedShots);
+  const pictures = withTimelineShots(loadVideoTracks(dir), placedShots);
   const videoSounds = videoSoundLanes(
     dir,
     lanesMap,
-    withTimelineShots(loadVideoTracks(dir), placedShots),
+    pictures,
     clipsMap,
     tempo,
     laneErrs,
   );
+  // A picture lane's OWN sound: the chains leaving its `#audio`, else one half straight to MIX (docs/videoSound.md).
+  const audioChainsOf = (lane: string): Half[] =>
+    Object.entries(chains)
+      .filter(([, c]) => c.from === lane && c.fromPort === "audio")
+      .map(([name]) => ({ id: name, port: "audio" }));
+  const pictureSounds = pictureLaneSounds(
+    dir,
+    lanesMap,
+    pictures,
+    clipsMap,
+    tempo,
+    laneErrs,
+    (lane) => audioChainsOf(lane).length > 0,
+  );
+  const pictureSoundTracks = (lane: string): TrackDoc[] => {
+    const halves = audioChainsOf(lane);
+    const own = `${lane}#audio`;
+    return (halves.length ? halves : [{ id: own, port: "audio" }]).map(
+      (half, i): TrackDoc => ({
+        // `main#audio` whatever its chain is called, so the strip keeps its name when the graph changes shape.
+        id: i === 0 ? own : half.id,
+        name: i === 0 ? own : half.id,
+        role: "regular",
+        contentType: "audio",
+        group: "",
+        generated: false,
+        color: String(pictures[lane]?.color ?? ""),
+        // Its OWN bypass and solo, the lane's being the picture's: hiding a shot does not silence it (docs/videoSound.md).
+        mute: bypassed.has(own),
+        solo: soloed.has(own),
+        disabled: false,
+        inputChannels: [],
+        outputChannels: [],
+        monitor: "auto",
+        inputGain: 0,
+        clips: i === 0 ? markCrossfades(pictureSounds.get(lane) ?? []) : [],
+        plugins: trackPlugins[half.id] ?? [],
+        sends: trackSends[half.id] ?? [],
+        automation: [],
+      }),
+    );
+  };
   // How the pattern lanes share their files, and where their samples are looked for — once per compile.
   const shares = patternShares(dir, lanesMap);
   const banks = sampleBanks(dir);
-  const tracks: TrackDoc[] = orderTracks(
-    Object.entries(lanesMap).filter(
-      ([, t]) => t.type !== "group" && !t.disabled,
-    ),
+  const tracks: TrackDoc[] = orderTracks<[string, SoundLane | null]>(
+    [
+      ...Object.entries(lanesMap).filter(
+        ([, t]) => t.type !== "group" && !t.disabled,
+      ),
+      // …and each sounding picture lane, at its row in the order, its sound beside the sound lanes'.
+      ...[...pictureSounds.keys()].map((id): [string, null] => [id, null]),
+    ],
     ([id]) => id,
     root.trackOrder,
   ).flatMap(([lane, t]): TrackDoc[] => {
+    if (!t) return pictureSoundTracks(lane);
     const halves = halvesOf(lane);
     // A pattern lane is played by the ENGINE, from a plugin heading each half it has — see enginePattern.ts.
     const share = shares.get(lane);

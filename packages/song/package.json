@@ -69,6 +69,7 @@
     "./formatStamp": "./src/formatStamp.ts",
     "./pictureLanes": "./src/pictureLanes.ts",
     "./pictureLanesMigrate": "./src/pictureLanesMigrate.ts",
+    "./pictureSoundMigrate": "./src/pictureSoundMigrate.ts",
     "./videoSound": "./src/videoSound.ts",
     "./rawDoc": "./src/rawDoc.ts",
     "./libraryFiles": "./src/libraryFiles.ts",

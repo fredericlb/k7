@@ -48,9 +48,10 @@ Export samples every frame at its exact source time, whatever the speed
 rate outside the range a browser plays is shown by PARKING the element and seeking it as the
 playhead moves: every frame is right, but a reverse previews choppier than it renders.
 
-## The sound follows, resampled, and goes quiet where it cannot
+## The sound follows, like tape or at its pitch, and goes quiet where it cannot
 
 A shot's sound ([../../song/docs/videoSound.md](../../song/docs/videoSound.md)) runs at the same
-speed through a two-marker `varispeed` warp: resampled, so its pitch follows the speed as a tape's
-would. The engine has no reverse playback, so a reversed shot is silent, and so is a freeze, which
+speed through a two-marker warp. By default it is `varispeed`: resampled, so its pitch follows the
+speed as a tape's would. A shot saying `pitch("keep")` is stretched by the engine instead, at its
+own pitch — a choice per shot, since the stretch is audible processing. The engine has no reverse playback, so a reversed shot is silent, and so is a freeze, which
 has no sound to hold.
