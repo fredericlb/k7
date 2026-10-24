@@ -15,6 +15,7 @@ import {
 import { moduleOfItem } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
+  isVideoTrackItem,
   type NodeItem,
   TRACKS_DIR,
   VSTPRESETS_DIR,
@@ -293,8 +294,8 @@ function loadChainNodes(
   fileIssues.push(...cp.issues);
   const presets = join(dir, VSTPRESETS_DIR);
   for (const n of Object.values(cp.nodes)) {
-    // A PICTURE lane is no module, as in a graph project: its placements are video_tracks/, read by the picture compile.
-    if (n.picture) continue;
+    // A `video_track` item is no module: its placements are video_tracks/; a picture lane's `track` item has its file.
+    if (isVideoTrackItem(n.value)) continue;
     let value: Record<string, unknown> | null;
     let rel: string;
     if (n.track) {

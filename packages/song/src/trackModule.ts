@@ -1,10 +1,12 @@
-// trackModule.ts — the three modules a LANE is a node of. Like `@meta/doc` none of them has a
-// file anywhere, so a lane costs exactly its own node and nothing else. A lane is NOT typed by
+// trackModule.ts — the modules a LANE is a node of. Like `@meta/doc` none of them has a file
+// anywhere, so a lane costs exactly its own node and nothing else. A SOUND lane is not typed by
 // the signal it carries: it offers an `audio` and a `midi` output, and each event leaves by the
-// one its own material fits. Rationale: docs/trackModules.md.
+// one its own material fits. A PICTURE lane is the exception, stated by its ref and offering
+// `video` alone; `lanesOf` answers sound lanes only. Rationale: docs/trackModules.md.
 
 import {
   GROUP_TRACK_REF,
+  PICTURE_TRACK_REF,
   STRUDEL_TRACK_REF,
   TRACK_CATEGORY,
   TRACK_OUTPUTS,
@@ -17,24 +19,32 @@ import type { LoadedModule, RawPlacement } from "./rawDoc";
 interface TrackShape {
   group?: boolean;
   generated?: boolean;
+  picture?: boolean;
 }
 
 const SHAPES: Record<string, TrackShape> = {
   [TRACK_REF]: {},
   [STRUDEL_TRACK_REF]: { generated: true },
   [GROUP_TRACK_REF]: { group: true },
+  [PICTURE_TRACK_REF]: { picture: true },
 };
+
+/** A picture lane's one output: what it draws, carried to RENDER like a sound lane's to MIX. */
+export const PICTURE_OUTPUTS = [{ name: "video", type: "video" }] as const;
 
 /** One built-in as the ref map holds it: no input, two outputs, none for a group — docs/trackModules.md. */
 function trackModule(ref: string): LoadedModule {
-  const { group, generated } = SHAPES[ref];
+  const { group, generated, picture } = SHAPES[ref];
   return {
     kind: "track",
     category: TRACK_CATEGORY,
     inputs: [],
     // Audio first — what a bare cable means, and the order the graph draws the jacks in.
-    outputs: group ? [] : TRACK_OUTPUTS.map((o) => ({ ...o })),
+    outputs: group
+      ? []
+      : (picture ? PICTURE_OUTPUTS : TRACK_OUTPUTS).map((o) => ({ ...o })),
     generated: generated || undefined,
+    picture: picture || undefined,
     file: ref.slice(ref.lastIndexOf("/") + 1),
   };
 }
@@ -52,9 +62,14 @@ export const isGroupTrack = (
   m: { kind?: unknown; outputs?: readonly unknown[] } | null | undefined,
 ): boolean => isTrack(m) && (m?.outputs?.length ?? 0) === 0;
 
+/** A PICTURE lane, asked of the resolved module so a node extending one is still one. */
+export const isPictureTrack = (
+  m: { kind?: unknown; picture?: unknown } | null | undefined,
+): boolean => isTrack(m) && m?.picture === true;
+
 /** A resolved lane module read as an ARRANGEMENT — the ONE projection, see docs/trackModules.md. */
 export interface Lane {
-  type: "single" | "group" | "strudel";
+  type: "single" | "group" | "strudel" | "picture";
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
   events: RawPlacement[];
@@ -66,6 +81,8 @@ export interface Lane {
   videoSource?: string;
   /** Left out of the render entirely, chains and all. */
   disabled: boolean;
+  /** A picture lane's place in the frame, [x, y, w, h] px; absent is the whole frame. */
+  frame?: number[];
 }
 
 /** `m` seen as a lane, or null when it is not one. */
@@ -73,8 +90,15 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
   if (!isTrack(m) || !m) return null;
   const group = isGroupTrack(m);
   const strudel = m.generated === true;
+  const picture = isPictureTrack(m);
   return {
-    type: group ? "group" : strudel ? "strudel" : "single",
+    type: group
+      ? "group"
+      : strudel
+        ? "strudel"
+        : picture
+          ? "picture"
+          : "single",
     color: typeof m.color === "string" && m.color ? m.color : undefined,
     events:
       group || strudel || !Array.isArray(m.events)
@@ -90,17 +114,36 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
         ? m.video_source
         : undefined,
     disabled: m.disabled === true,
+    ...(picture && Array.isArray(m.frame)
+      ? { frame: m.frame.map(Number) }
+      : {}),
   };
 }
 
 /** Every lane in a RESOLVED module map, keyed by node name and in that map's order. */
+/** A lane the song compile plays — every kind but a picture lane. */
+export type SoundLane = Lane & { type: Exclude<Lane["type"], "picture"> };
+
+/** Every SOUND lane in a RESOLVED module map, keyed by node name and in that map's order — what the song compile plays. */
 export function lanesOf(
+  modules: Record<string, LoadedModule>,
+): Record<string, SoundLane> {
+  const out: Record<string, SoundLane> = {};
+  for (const [name, m] of Object.entries(modules)) {
+    const lane = laneOf(m);
+    if (lane && lane.type !== "picture") out[name] = lane as SoundLane;
+  }
+  return out;
+}
+
+/** …and every PICTURE lane, the ones the picture compile composites. */
+export function pictureLanesOf(
   modules: Record<string, LoadedModule>,
 ): Record<string, Lane> {
   const out: Record<string, Lane> = {};
   for (const [name, m] of Object.entries(modules)) {
     const lane = laneOf(m);
-    if (lane) out[name] = lane;
+    if (lane?.type === "picture") out[name] = lane;
   }
   return out;
 }

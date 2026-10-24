@@ -24,6 +24,7 @@ Absent means level 1, and a new project is written without the key.
 |---|---|---|
 | 1 | — | — |
 | 2 | an event `start` written in SECONDS, a number where level 1 takes only a timecode ([timecode.md](timecode.md)) | `@studio/song`'s `formatStamp.ts`: a lane or timeline written through the file service, `events add`, and every project open |
+| 3 | a picture lane as a `@meta/picture-track` node, where level 2 looks for `video_tracks/` and `layers:` ([docs/picture-lanes-plan.md](../../../docs/picture-lanes-plan.md)) | `@studio/song`'s `pictureLanesMigrate.ts`, once it has moved every picture lane |
 
 The stamp is best-effort, like the video run a viewport gains at open: a root that will not read
 is left alone, and the next write or open tries again. The open is what catches a file that arrived

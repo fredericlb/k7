@@ -120,7 +120,9 @@ export function chainStretchHead(dir: string): StretchHead {
   const cp = isChainProject(dir) ? readChainProject(dir) : null;
   return (lane, name) => {
     const file = cp
-      ? Object.values(cp.chains).find((c) => pictureLaneOf(c) === lane)
+      ? Object.values(cp.chains).find(
+          (c) => pictureLaneOf(c, (l) => !!cp.nodes[l]?.picture) === lane,
+        )
       : undefined;
     const sub = file?.subchains?.find((sc) => sc.id === name);
     const first = sub?.steps.flatMap(itemsOf)[0];

@@ -252,6 +252,7 @@ export function editChainGraph(
     itemOf,
     isSource: sourceTest(dir, cp, itemOf),
     isPicturePass: passTest(dir),
+    isPictureLane: (n) => !!cp.nodes[n]?.picture,
     prev: cp,
     levels: lv,
     loose,

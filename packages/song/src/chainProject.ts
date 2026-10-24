@@ -9,16 +9,19 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { printKey } from "@studio/k7x/print";
 import { isDocFile, stripDocExt } from "@studio/song-schema/docExt";
+import { PICTURE_TRACK_REF } from "@studio/song-schema/moduleTypes";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
   type ChainFile,
   type Item,
+  isTrackItem,
   isVideoTrackItem,
   itemsOf,
   LAYOUT_FILE,
   laneOfItem,
   stepLists,
+  TRACKS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import { toSegments } from "./chainSegments";
@@ -65,6 +68,16 @@ export type Positions = NonNullable<GraphFile["positions"]>;
 export function isChainProject(dir: string): boolean {
   const d = join(dir, CHAINS_DIR);
   return existsSync(d) && statSync(d).isDirectory();
+}
+
+/** Whether `tracks/<lane>.k7x` is a PICTURE lane: it extends `@meta/picture-track` (docs/chainFiles.md). */
+function isPictureLaneFile(dir: string, lane: string): boolean {
+  const file = join(dir, TRACKS_DIR, `${lane}.k7x`);
+  try {
+    return existsSync(file) && wsData(file).extends === PICTURE_TRACK_REF;
+  } catch {
+    return false; // a lane file that will not read is reported where it is loaded
+  }
 }
 
 /** The name a node is known by in memory, in commands and on the wire: its lane, else its id. */
@@ -119,7 +132,10 @@ export function readChainProject(dir: string): ChainProject {
             step: s,
             item: Array.isArray(step) ? k : null,
             ...(laneOfItem(it) ? { track: laneOfItem(it) } : {}),
-            ...(isVideoTrackItem(it) ? { picture: true as const } : {}),
+            ...(isVideoTrackItem(it) ||
+            (isTrackItem(it) && isPictureLaneFile(dir, it.track))
+              ? { picture: true as const }
+              : {}),
             value: it,
           };
         });

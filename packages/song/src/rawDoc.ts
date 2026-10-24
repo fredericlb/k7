@@ -216,6 +216,8 @@ export interface LoadedModule {
   outputs?: { name: string; type: "audio" | "midi" | "video" }[];
   // A lane whose clips are STREAMED: stamped on the strudel built-ins and inherited, never authored.
   generated?: boolean;
+  // A PICTURE lane's built-in sets it, and every node extending one inherits it (docs/trackModules.md).
+  picture?: boolean;
   preset?: string; // resolved .vstpreset path, if any
   model?: string; // the amp model, a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
   onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)

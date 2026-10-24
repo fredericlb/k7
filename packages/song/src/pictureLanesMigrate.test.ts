@@ -43,7 +43,7 @@ describe("a node project", () => {
     expect(existsSync(join(dir, "video_tracks"))).toBe(false);
     valid("nodes/main.k7x");
     expect(data("nodes/main.k7x")).toEqual({
-      extends: "@meta/track",
+      extends: "@meta/picture-track",
       frame: [0, 0, 1280, 720],
       events: [{ ref: "sample", start: 0, length: 6, from: 0 }],
     });
@@ -143,7 +143,9 @@ describe("a chain project", () => {
     }
     expect(read("chains/main.k7x")).toMatch(/\.track\("main"\)/);
     // Comments survive: the lane file is edited, not rewritten.
-    expect(read("tracks/main.k7x")).toMatch(/^extends\("@meta\/track"\)/m);
+    expect(read("tracks/main.k7x")).toMatch(
+      /^extends\("@meta\/picture-track"\)/m,
+    );
     expect(data("tracks/main.k7x").events).toEqual([
       { ref: "counter", start: 0, length: 4, from: 0 },
       {

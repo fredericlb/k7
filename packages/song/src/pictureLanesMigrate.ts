@@ -15,7 +15,7 @@ import { orderTracks } from "@studio/song-schema/trackKind";
 import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { laneFolder } from "./chainItemEdit";
-import { isChainProject } from "./chainProject";
+import { isChainProject, newNodeId } from "./chainProject";
 import { loadModuleRefs } from "./moduleRefs";
 import { resolveModuleMap } from "./moduleResolve";
 import { loadModules } from "./moduleTree";
@@ -53,12 +53,12 @@ function renameShotKeys(doc: K7Scope, path: (string | number)[]): void {
   });
 }
 
-/** `extends("@meta/track")` as the first line under the file's header comment. */
+/** `extends("@meta/picture-track")` as the first line under the file's header comment. */
 function withExtends(text: string): string {
   const lines = text.split("\n");
   let at = 0;
   while (at < lines.length && lines[at].trimStart().startsWith("//")) at++;
-  lines.splice(at, 0, 'extends("@meta/track")');
+  lines.splice(at, 0, 'extends("@meta/picture-track")');
   return lines.join("\n");
 }
 
@@ -185,6 +185,7 @@ export function migratePictureLanes(
 
   // 2. The graph: a muted lane is bypassed, and a chain project's picture item becomes a lane item.
   if (isChainProject(dir)) {
+    const held = new Set<string>();
     for (const abs of k7xUnder(join(dir, CHAINS_DIR))) {
       const doc = new K7Document(wsText(abs));
       const items = pictureItems(doc.toJS());
@@ -195,8 +196,21 @@ export function migratePictureLanes(
         s.renameKey([...path, "video_track"], "track");
         s.setIn([...path, "track"], lane);
         if (muted.includes(lane)) s.setIn([...path, "bypass"], true);
+        held.add(lane);
       }
       writes.set(abs, doc.toString());
+    }
+    // A lane exists in a chain project through an item: one no chain holds gets a chain of its own.
+    for (const lane of Object.values(report.lanes)) {
+      if (held.has(lane)) continue;
+      let name = lane;
+      for (let n = 2; existsSync(join(dir, CHAINS_DIR, `${name}.k7x`)); n++)
+        name = `${lane}-${n}`;
+      const bypass = muted.includes(lane) ? ".bypass(true)" : "";
+      writes.set(
+        join(dir, CHAINS_DIR, `${name}.k7x`),
+        `start(true)\nsteps([id("${newNodeId()}").track("${lane}")${bypass}])\n`,
+      );
     }
   } else if (muted.length) {
     const graph = entityFileFor(dir, "", GRAPH_BASE);
