@@ -1,6 +1,6 @@
 // MiniPlayer.tsx — the bar at the bottom of an app: what is playing, how far in, and a way to
 // stop looking at it. It holds NO transport of its own — every number is a prop and every
-// button is a callback, because the two apps mounting it play very different things. It also
+// button is a callback, because the screens mounting it play very different things. It also
 // fills the system's media session, so a phone's lock screen and headset drive the same callbacks.
 // See ../docs/miniPlayer.md.
 
@@ -17,7 +17,7 @@ export function clock(sec: number): string {
   return formatClock(Number.isFinite(sec) && sec > 0 ? Math.floor(sec) : 0);
 }
 
-/** Every string on the bar, since the two hosts translate through different catalogues. */
+/** Every string on the bar, since the hosts translate through different catalogues. */
 export interface MiniPlayerLabels {
   /** The section's accessible name — what this bar IS, read before anything in it. */
   region: string;

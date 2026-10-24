@@ -1,5 +1,5 @@
 import { Button } from "@frediverse/ui/button";
-import { Pencil, Star } from "@frediverse/ui/icons";
+import { Headphones, Pencil, Star } from "@frediverse/ui/icons";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import { Textarea } from "@frediverse/ui/textarea";
 import {
@@ -19,9 +19,9 @@ import { ChordsPanel } from "../components/ChordsPanel";
 import { MetronomeWidget } from "../components/MetronomeWidget";
 import { OptionsPanel } from "../components/OptionsPanel";
 import { SheetPanel } from "../components/SheetPanel";
+import { SongBar } from "../components/SongBar";
 import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
-import { SongPlayer } from "../components/SongPlayer";
 import { confirmLoss } from "../confirm";
 import { fmtDate } from "../format";
 import { useLyricsLead } from "../hooks/useLyricsLead";
@@ -118,9 +118,10 @@ export function SongDetailView({
   const [selectedChord, setSelectedChord] = useState<string | null>(null);
   // Every rail panel opens FOLDED: the page is the song, and a margin full of open drawers is not.
   const [panelOpen, setPanelOpen] = useState(false);
-  const [playerOpen, setPlayerOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [metroOpen, setMetroOpen] = useState(false);
+  // The track's bar is up from the start: closing it silences the track, and playing brings it back.
+  const [barOpen, setBarOpen] = useState(true);
   const isMobile = useMediaQuery("(max-width: 760px)");
 
   // The reference track's playhead, which the timed lyrics follow and seek — ../../docs/lyricsTiming.md.
@@ -224,13 +225,16 @@ export function SongDetailView({
   };
 
   return (
-    <div className="song-detail">
+    <div
+      className={`song-detail${song.audio && barOpen ? " has-song-bar" : ""}`}
+    >
       <div className="song-detail-head">
         <BackButton to={m["nav.songbook"]()} onClick={onBack} />
         <h2>{song.title}</h2>
         {/* Beside the title, and it takes the slack: that is what puts the star next to the ⋮. */}
         <span className="muted song-detail-artist">{song.artist}</span>
         <button
+          type="button"
           className={`star-btn${song.favorite ? " on" : ""}`}
           onClick={onToggleFavorite}
           title={song.favorite ? m["song.unfavorite"]() : m["song.favorite"]()}
@@ -238,6 +242,18 @@ export function SongDetailView({
         >
           <Star className={`size-5${song.favorite ? " fill-current" : ""}`} />
         </button>
+        {/* The way back to a closed bar, and the only play button the page has without it. */}
+        {song.audio && !barOpen && (
+          <button
+            type="button"
+            className="star-btn"
+            onClick={() => void audio.current?.play()}
+            title={m["player.show"]()}
+            aria-label={m["player.show"]()}
+          >
+            <Headphones className="size-5" />
+          </button>
+        )}
         {/* Everything this song can be GIVEN, in one menu rather than a row of links. */}
         <SongMenu
           song={song}
@@ -385,14 +401,6 @@ export function SongDetailView({
             onToggle={() => setOptionsOpen((o) => !o)}
           />
         )}
-        <SongPlayer
-          song={song}
-          audioRef={audio}
-          transpose={transpose}
-          floating
-          open={playerOpen}
-          onToggle={() => setPlayerOpen((o) => !o)}
-        />
         {chords.length > 0 && !editing && (
           <ChordsPanel
             chords={chords}
@@ -407,6 +415,16 @@ export function SongDetailView({
           onToggle={() => setMetroOpen((o) => !o)}
         />
       </aside>
+
+      {/* Outside the rail: the mini player is the page's transport, not one of its drawers. */}
+      <SongBar
+        song={song}
+        audioRef={audio}
+        transpose={transpose}
+        open={barOpen}
+        onPlay={() => setBarOpen(true)}
+        onClose={() => setBarOpen(false)}
+      />
     </div>
   );
 }

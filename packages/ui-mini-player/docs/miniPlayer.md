@@ -2,14 +2,14 @@
 
 `MiniPlayer` is a **view**. It holds no `<audio>` element, no socket, no timer and no transport
 state: `playing`, `position` and `duration` are props, and the three buttons are callbacks. The one
-thing it keeps is where a scrubber being dragged is (below). The two
+thing it keeps is where a scrubber being dragged is (below). The three
 screens that mount it play things that have nothing in common —
 
-| | the médiathèque | k7's references |
-|---|---|---|
-| what plays | a song of the médiathèque | a reference track in the workspace |
-| through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always |
-| beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered |
+| | the médiathèque | k7's references | a songbook song |
+|---|---|---|---|
+| what plays | a song of the médiathèque | a reference track in the workspace | the song's track or its instrumental |
+| through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always | the page's `<audio>`, pitch-shifted when transposed |
+| beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered | the timed lyrics, which follow and seek the same element |
 
 — so a bar that owned a transport could serve exactly one of them. What is shared is the row: a
 play/pause on the left, the title with whatever the host has to say about it, a clock either side
@@ -31,7 +31,7 @@ which its host fills in turn), so the bar must have no opinion.
 
 `meta` sits after the title (an artist, an album, a version badge), `status` closes the line (a
 failure, or "ended"), and `children` sits right of the transport, before the close — where the médiathèque
-puts its destination indicator and its queue button. All optional: a host with none of them gets
+puts its destination indicator and its queue button, and the songbook its Original / Instrumental switch. All optional: a host with none of them gets
 a bar that reads correctly with a title alone.
 
 ## The scrubber is an `<input type="range">`

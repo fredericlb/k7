@@ -86,9 +86,8 @@ receive pipeline once the track is attached to a media element.
 
 A release and a page draw their audio like the songbook does — the shape measured on the server,
 the same one component (`WaveformPlayer`), because "a shape that seeks, and a button that stops"
-is one idea and not three. The song page keeps a player of its own: it carries the Original /
-Instrumental switch, shares its element with the timed lyrics and is transposed with them, which
-is a different job wearing the same clothes.
+is one idea and not three. The song page plays through the app's mini player instead (below): a
+track you rehearse to for an hour is a transport, not a card in the page.
 
 **Every version and every page entry gets its own player**, so a list mounts many of them. Each
 one loads its audio only on the first play (`preload="none"`): a page of ten releases must not
@@ -101,40 +100,39 @@ time**: starting one pauses the one before, because two masters at once is never
 The track is a song of the media library, streamed from `/api/mediatek/stream` on k7's own
 origin with the person's session, with Range; a FLAC master comes as the library's cached MP3.
 
-### A waveform, not the browser's transport
+### The mini player, not a player of the page's own
 
-The panel draws the track's **shape**, and a click on it seeks there and plays — seeking and
-starting are one gesture, the same one a tapped lyric line already makes
-([lyricsTiming.md](lyricsTiming.md)). Under it sits a full-width play/pause button, and that is the
-whole of the transport: no counter, no scrubber of its own. The button exists because a click on
-the shape can say every *where* and no *stop* — without it, pausing would have no gesture at all.
-The element draws no native `<audio controls>` bar; it stays, hidden, because it IS the transport
-and the timed lyrics follow it.
+The track plays through `@studio/ui-mini-player`, the bar the médiathèque and k7's references
+already wear (`packages/ui-mini-player/docs/miniPlayer.md`): play/pause, a scrubber with its clocks,
+and the system's media session. One bar across the app means one way to stop a sound, wherever
+it comes from. The **Original / Instrumental switch is in the bar's row**, the host's slot: it
+chooses what plays, so it belongs with what plays.
 
-**Onsets are not drawn.** The stored shape carries them, but the player leaves `ui-waveform`'s
-`onsets` prop empty: those rules are for placing stretch points in k7, and in a player nothing
-acts on them — they read as noise over the shape.
+- **The `<audio>` element is the page's**, drawn by nobody, beside the bar rather than inside the
+  médiathèque's transport. The timed lyrics follow and seek it, and the transposition runs through it
+  — neither could reach mpv or an engine, which the médiathèque's destinations would offer.
+- **The bar is up as soon as the song has a track**, paused at the start. Its close silences the
+  track and takes the bar away; the element stays mounted, so a tapped lyric line still plays, and
+  playing brings the bar back. A headphones button by the title is the way back without lyrics.
+- **The bar PLAYS; it does not change the file.** Linking a track is in the song's ⋮ menu, beside
+  every other thing the song can be given.
+- **No waveform.** The scrubber says where you are and the lyrics say what is sung there; a shape
+  in the margin would be a third answer to the same question.
+- **It stands at the foot of the content column**, on top of a phone's panel bar and of a minimized
+  take, so recording against the song keeps its transport in reach. The page and the rail leave it
+  room (`--song-bar-h`).
 
-**The instrumental wears the track's shape.** It is the same performance at the same timing, so the
-picture is right where it matters — where you are in the song — and a second envelope would be a
-second decode for a difference of a few decibels in the mid-band.
+### The rail holds what changes what you READ
 
-### The player is a panel of the page's right rail
-
-On a desktop the player and its Original / Instrumental switch sit in the same floating rail as
-the chord diagrams, collapsible by their own toggle. Above the tabs it would cost the page its
-first screenful: a track you keep for a whole rehearsal would push the words you are actually
-reading down. In the margin it stays reachable without displacing anything.
-
-**The panel PLAYS; it does not change the file.** Linking a track is in the song's ⋮ menu, beside
-every other thing the song can be given — a panel you keep open for an hour should not hold a
-button that changes what it is playing.
+On a desktop the Options, the chord diagrams and the metronome sit in a floating rail down the
+right margin, each collapsible by its own toggle. Above the tabs they would cost the page its
+first screenful; in the margin they stay reachable without displacing anything.
 
 **One rail, mounted once, holding the panels stacked.** Two independently fixed panels would
-overlap the moment a song had chords and a track, and deciding which one covers the other is not
+overlap the moment a song had chords and options, and deciding which one covers the other is not
 a decision worth having. They share the chrome (`.rail-panel`) and nothing else. The order reads
 from what you are doing: **Options** first — transposition, which changes what you READ — then the
-player, the chord diagrams, and the metronome. The metronome is a panel too, not a floating button:
+chord diagrams, and the metronome. The metronome is a panel too, not a floating button:
 one convention for "a control that hovers over the song".
 
 **Folded, they are all 200 px wide.** A folded panel is a tab, and tabs of three different widths
@@ -143,10 +141,6 @@ down one edge read as breakage rather than as a stack. The word is clipped rathe
 **They all open folded.** The page is the song; a margin of three open drawers is not, and on a
 laptop the chords panel alone takes a quarter of the width. Folding costs one click and is
 remembered for as long as the page is open.
-
-**Collapsing hides the body; it never unmounts it.** Unmounting would take the `<audio>` element
-with it — the music stops, and the timed lyrics lose the very element they follow and seek. A
-collapsed panel is a track still playing behind a closed drawer.
 
 **On a narrow screen the rail lies down**: the same panels become a bar of icons at the foot of the
 screen, and an opened one rises above that bar. It is the same DOM and the same state — only the
