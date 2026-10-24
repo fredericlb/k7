@@ -15,9 +15,11 @@ export interface MediaSessionProps {
   duration: number;
   onToggle: () => void;
   onSeek: (seconds: number) => void;
-  onClose: () => void;
+  onClose?: () => void;
   /** The next track, when the host has one to start; absent, the system offers no skip. */
   onNext?: () => void;
+  /** False leaves the system's session alone, for a bar whose sound is not this page's. */
+  enabled?: boolean;
 }
 
 const ACTIONS: MediaSessionAction[] = [
@@ -36,7 +38,7 @@ const SKIP_SECONDS = 10;
 /** A playhead further than this from where the last report says it should be is a seek worth telling. */
 const DRIFT_SECONDS = 1;
 
-const session =
+const browserSession =
   typeof navigator !== "undefined" && "mediaSession" in navigator
     ? navigator.mediaSession
     : null;
@@ -47,7 +49,7 @@ function handle(
   handler: MediaSessionActionHandler | null,
 ): void {
   try {
-    session?.setActionHandler(action, handler);
+    browserSession?.setActionHandler(action, handler);
   } catch {}
 }
 
@@ -57,6 +59,7 @@ export function useMediaSession(props: MediaSessionProps): void {
   latest.current = props;
   const { title, artist, album, playing, position, duration } = props;
   const hasNext = !!props.onNext;
+  const session = props.enabled === false ? null : browserSession;
 
   useEffect(() => {
     if (!session) return;
@@ -65,11 +68,11 @@ export function useMediaSession(props: MediaSessionProps): void {
       artist: artist ?? "",
       album: album ?? "",
     });
-  }, [title, artist, album]);
+  }, [title, artist, album, session]);
 
   useEffect(() => {
     if (session) session.playbackState = playing ? "playing" : "paused";
-  }, [playing]);
+  }, [playing, session]);
 
   // The system extrapolates a playing position itself, so only a seek, a pause or a new length is reported.
   const told = useRef<{
@@ -98,7 +101,7 @@ export function useMediaSession(props: MediaSessionProps): void {
     try {
       session.setPositionState({ duration, position: at, playbackRate: 1 });
     } catch {}
-  }, [position, duration, playing]);
+  }, [position, duration, playing, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -109,7 +112,7 @@ export function useMediaSession(props: MediaSessionProps): void {
     handle("pause", () => {
       if (p().playing) p().onToggle();
     });
-    handle("stop", () => p().onClose());
+    handle("stop", () => p().onClose?.());
     handle("seekto", (d) => {
       if (d.seekTime != null) p().onSeek(d.seekTime);
     });
@@ -124,7 +127,7 @@ export function useMediaSession(props: MediaSessionProps): void {
     return () => {
       for (const a of ACTIONS) handle(a, null);
     };
-  }, [hasNext]);
+  }, [hasNext, session]);
 
   // Gone with the bar: a closed player must not leave a lock-screen control that drives nothing.
   useEffect(
@@ -134,6 +137,6 @@ export function useMediaSession(props: MediaSessionProps): void {
       session.playbackState = "none";
       told.current = null;
     },
-    [],
+    [session],
   );
 }

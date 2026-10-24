@@ -2,14 +2,14 @@
 
 `MiniPlayer` is a **view**. It holds no `<audio>` element, no socket, no timer and no transport
 state: `playing`, `position` and `duration` are props, and the three buttons are callbacks. The one
-thing it keeps is where a scrubber being dragged is (below). The three
+thing it keeps is where a scrubber being dragged is (below). The four
 screens that mount it play things that have nothing in common —
 
-| | the médiathèque | k7's references | a songbook song |
-|---|---|---|---|
-| what plays | a song of the médiathèque | a reference track in the workspace | the song's track or its instrumental |
-| through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always | the page's `<audio>`, pitch-shifted when transposed |
-| beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered | the timed lyrics, which follow and seek the same element |
+| | the médiathèque | k7's references | a songbook song | a k7 project |
+|---|---|---|---|---|
+| what plays | a song of the médiathèque | a reference track in the workspace | the song's track or its instrumental | the arrangement |
+| through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always | the page's `<audio>`, pitch-shifted when transposed | the engine, over its socket |
+| beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered | the timed lyrics, which follow and seek the same element | a reference track, which keeps the system's controls |
 
 — so a bar that owned a transport could serve exactly one of them. What is shared is the row: a
 play/pause on the left, the title with whatever the host has to say about it, a clock either side
@@ -33,6 +33,19 @@ which its host fills in turn), so the bar must have no opinion.
 failure, or "ended"), and `children` sits right of the transport, before the close — where the médiathèque
 puts its destination indicator and its queue button, and the songbook its Original / Instrumental switch. All optional: a host with none of them gets
 a bar that reads correctly with a title alone.
+
+## Two slots replace the bar's own transport
+
+`transport` stands where the play/pause button is, and `track` where the clocks and the scrubber are —
+`null` for none at all. They are for a host whose transport is not a file: k7's project has play, stop,
+loop and record, and its "where" is bars and lanes, which it draws as a clock and a minimap. The row
+around them — the title, the host's controls, the close — stays the bar's, so the shape still reads as
+the same player. A host that passes them still passes `playing` and `onToggle`, which the system's
+controls use.
+
+`mediaSession={false}` leaves the system's session alone, for a bar whose sound is not this page's: two
+bars on one screen must not fight over the lock screen. `onClose` is optional, and a bar without it has
+no close.
 
 ## The scrubber is an `<input type="range">`
 
@@ -67,7 +80,8 @@ close is looked for.
 
 ## The close is the only thing that takes the bar away
 
-The component never hides itself: the host decides whether there is a bar at all. That is what
+The component never hides itself: the host decides whether there is a bar at all, and a host with no
+`onClose` keeps it for as long as it has something to drive. That is what
 lets "what I have just heard" outlive the last sample — a track running out leaves the row up,
 saying so through `status`, with the play button ready to start it again.
 

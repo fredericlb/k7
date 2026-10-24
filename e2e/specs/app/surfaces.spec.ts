@@ -7,7 +7,7 @@ import type { FileService } from "../../src/files.ts";
 import { FIXTURES_DIR, FIXTURES_WORKSPACE } from "../../src/fixtures.ts";
 import { navControl } from "../../src/nav.ts";
 import { expect, type K7, TARGET, test } from "../../src/target.ts";
-import { play } from "../../src/transport.ts";
+import { play, transportBar } from "../../src/transport.ts";
 import { watchPage } from "../../src/watch.ts";
 
 const WORKSPACE = "E2E-surfaces";
@@ -25,7 +25,7 @@ const viewport = (page: Page) => page.getByRole("dialog", { name: "Viewport" });
 const recorderCard = (page: Page) =>
   page.getByRole("button", { name: /^recorder\b/ }).first();
 
-/** What each archetype draws on opening, and whether its header offers a transport to roll. */
+/** What each archetype draws on opening, and whether its bar offers a transport to roll. */
 const ARCHETYPES: Record<
   string,
   { draws: (p: Page) => Promise<void>; transport: boolean }
@@ -240,14 +240,13 @@ for (const [shape, { draws, transport }] of Object.entries(ARCHETYPES)) {
     await draws(page);
     if (transport) {
       await play(page, 90_000);
-      await page
-        .getByRole("banner")
+      await transportBar(page)
         .getByRole("button", { name: "Stop", exact: true })
         .click();
     } else {
-      // A desk or a rig has no song position, so the header drops Play rather than offer a dead one.
+      // A desk or a rig has no song position, so the bar drops Play rather than offer a dead one.
       await expect(
-        page.getByRole("banner").getByRole("button", { name: "Play" }),
+        transportBar(page).getByRole("button", { name: "Play" }),
       ).toHaveCount(0);
     }
     watch.assertClean();

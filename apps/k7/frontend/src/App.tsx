@@ -100,7 +100,7 @@ import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
 import { MidiTakeRoll } from "./components/MidiTakeRoll";
-import { Minimap, type MinimapItem } from "./components/Minimap";
+import type { MinimapItem } from "./components/Minimap";
 import {
   MobileInfo,
   MobileMenu,
@@ -216,13 +216,12 @@ import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
 import { saveLabel } from "./saveLabel";
+import { ProjectBar } from "./shell/ProjectBar";
 import { ShellFooter } from "./shell/ShellFooter";
 import { ShellOverlays } from "./shell/ShellOverlays";
-import { ShellTransport } from "./shell/ShellTransport";
 import { TempoMeter } from "./shell/TempoMeter";
-import { useCentredFits } from "./shell/useCentredFits";
 import { type PendingWire, useGraphActions } from "./shell/useGraphActions";
-import { MiniTransport, PANE_META, VIEWPORT_META } from "./shellMeta";
+import { PANE_META, VIEWPORT_META } from "./shellMeta";
 import { ShellContexts } from "./state/ShellContexts";
 import { createShellStore, type ShellVerbs } from "./state/shellStore";
 import { modeCondition, type TimelineMode } from "./timelineMode";
@@ -605,8 +604,6 @@ export default function App({
       .catch(() => {});
   }, []);
   const cmdRef = useRef<CommandBarHandle>(null);
-  // The wide-screen layout, which docks the minimap at the foot of the window.
-  const docked = !isMobile;
   // The command bar floats, hidden until summoned — Ctrl/⌘+Shift+P, double-Shift, the phone's menu (docs/commandBar.md).
   const [paletteOpen, setPaletteOpen] = useState(false);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -1023,12 +1020,13 @@ export default function App({
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
   const deskOnly = visible("turntables") && !timelineVisible && !viewportOpen;
-  // Never without an ARRANGEMENT: the minimap is a second view of one, and floats over the popin the docked strip cannot serve (docs/shell.md).
-  const minimapFloating = docked && !noArrangement && editorPopin;
-  const minimapDocked =
-    docked && !noArrangement && !timelineVisible && !editorPopin;
+  // The bar's buttons, absent where there is nothing to address; its minimap, only for an ARRANGEMENT (docs/shell.md, "The project bar").
+  const showTransport = (!noArrangement || hasTurntables) && !deskOnly;
+  const showBar = showTransport || !noArrangement;
+  // Over the editor popin the bar floats above it, the one road back to the song while the layout is covered.
+  const barFloating = showBar && editorPopin;
 
-  /** How tall the floating strip is, so the popin can stop ABOVE it — measured, since the minimap sizes itself to the track count. */
+  /** How tall the floating bar is, so the popin can stop ABOVE it — measured, since the bar's row depends on what it holds. */
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [stripH, setStripH] = useState(0);
   useEffect(() => {
@@ -1041,7 +1039,7 @@ export default function App({
     ro.observe(el);
     setStripH(el.offsetHeight);
     return () => ro.disconnect();
-  }, [minimapFloating]);
+  }, [barFloating]);
 
   const focusOn = useCallback(
     (p: Pane) => {
@@ -2541,10 +2539,6 @@ export default function App({
 
   /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
   const toolSize = isMobile ? "icon" : "icon-xs";
-  // The transport stays centred on the bar while that clears its neighbours, and joins the row when it would cover them.
-  const headerGroupRef = useRef<HTMLDivElement | null>(null);
-  const transportRef = useRef<HTMLDivElement | null>(null);
-  const transportCentred = useCentredFits(headerGroupRef, transportRef);
 
   const headerTools = snapshot ? (
     <>
@@ -2876,6 +2870,45 @@ export default function App({
     liveTake,
   });
 
+  // The project bar, built once: it is drawn under the panes, or over the editor popin (docs/shell.md, "The project bar").
+  const projectBar = (
+    <ProjectBar
+      title={snapshot?.manifest.name || project?.name || ""}
+      recInfo={recInfo}
+      transport={
+        showTransport
+          ? {
+              toolSize,
+              playing,
+              transportWaiting,
+              recordWithoutArm,
+              transport,
+              noArrangement,
+              recordEnabled,
+              midiArmed,
+              openMidiInputs,
+              setStatus,
+              engineRef,
+              armForRecord,
+              loopOn: !!loopState?.on,
+              onLoop: toggleTransportLoop,
+            }
+          : null
+      }
+      map={
+        noArrangement
+          ? null
+          : {
+              // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
+              automation: laneNodes.automation,
+              caret,
+              highlight: openItem,
+              onSeek: seek,
+            }
+      }
+    />
+  );
+
   return (
     <ShellContexts shell={shell} engine={store}>
       {/* The song's clock for every graph below: a curve card's playhead and its bar lines read it (ui-chains-react docs/nodeCard.md). */}
@@ -2900,11 +2933,8 @@ export default function App({
               items={[]}
               actions={headerActions}
             >
-              {/* Between the two: what you are looking AT, and the transport ABSOLUTELY centred over the bar (docs/shell.md). */}
-              <div
-                ref={headerGroupRef}
-                className="flex min-w-0 flex-1 items-center gap-3"
-              >
+              {/* Between the two: what you are looking AT; the transport is the project bar's, at the foot (docs/shell.md). */}
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* The way back, a full address since the project is the router's BASENAME (appNav.ts); a share has none (docs/shared.md). */}
                 {snapshot ? (
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
@@ -2970,29 +3000,6 @@ export default function App({
                   <span className="truncate rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
                     workspace — pick a project ▶ in Editor
                   </span>
-                )}
-
-                {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
-                {(!noArrangement || hasTurntables) && !deskOnly && (
-                  <ShellTransport
-                    toolSize={toolSize}
-                    playing={playing}
-                    transportWaiting={transportWaiting}
-                    recordWithoutArm={recordWithoutArm}
-                    transport={transport}
-                    noArrangement={noArrangement}
-                    recInfo={recInfo}
-                    recordEnabled={recordEnabled}
-                    midiArmed={midiArmed}
-                    openMidiInputs={openMidiInputs}
-                    setStatus={setStatus}
-                    engineRef={engineRef}
-                    centred={transportCentred}
-                    rootRef={transportRef}
-                    armForRecord={armForRecord}
-                    loopOn={!!loopState?.on}
-                    onLoop={toggleTransportLoop}
-                  />
                 )}
               </div>
             </AppHeader>
@@ -3590,6 +3597,9 @@ export default function App({
               />
             )}
 
+            {/* The transport and the song's map, under every pane and above the status line (shell/ProjectBar.tsx). */}
+            {showBar && !barFloating && projectBar}
+
             {/* The status line on the left, the tempo, the metronome and the panels' buttons on the right (shell/ShellFooter.tsx). */}
             <ShellFooter
               isMobile={isMobile}
@@ -3616,17 +3626,6 @@ export default function App({
               headerTools={headerTools}
               onSummonBar={summonBar}
             />
-
-            {/* The bottom of the window: the minimap, desktop-only (docs/shell.md). */}
-            {docked && minimapDocked && (
-              <Minimap
-                // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
-                automation={laneNodes.automation}
-                caret={caret}
-                highlight={openItem}
-                onSeek={seek}
-              />
-            )}
 
             {/* The FRAME: a WINDOW over every page, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
             {hasViewport && (
@@ -3657,20 +3656,10 @@ export default function App({
               </FloatingWindow>
             )}
 
-            {/* The minimap again, full width over the popin that hid the timeline, last in the tree for painting order (docs/shell.md). */}
-            {minimapFloating && (
-              <div
-                ref={stripRef}
-                className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background"
-              >
-                <MiniTransport
-                  playing={playing}
-                  waiting={transportWaiting}
-                  tempo={recInfo.tempo}
-                  beatsPerBar={recInfo.beatsPerBar}
-                  onToggle={() => transport(playing ? "stop" : "play")}
-                />
-                <Minimap caret={caret} highlight={openItem} onSeek={seek} />
+            {/* The same bar over the popin that hid the layout, last in the tree for painting order (docs/shell.md). */}
+            {barFloating && (
+              <div ref={stripRef} className="fixed inset-x-0 bottom-0 z-50">
+                {projectBar}
               </div>
             )}
 

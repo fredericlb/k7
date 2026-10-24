@@ -58,8 +58,7 @@ they are not screens, they are the three ways of commanding the one you are look
 
 ## The transport, at the head
 
-`MiniTransport` — the shell's, built to ride over a popin that hides the header, which is exactly
-this case. Play/pause and the clock, nothing else: stop, rewind, record and the metronome are
+`MiniTransport` (`src/shellMeta.tsx`): play/pause and the clock, nothing else — stop, rewind, record and the metronome are
 decisions about a session you are looking at, and the keys do all of them anyway.
 
 A tablet by the decks is where the hand is; walking back to the laptop to press play is what this
