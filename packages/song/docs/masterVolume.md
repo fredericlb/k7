@@ -13,7 +13,7 @@ project({
 })
 ```
 
-Set it with the **fader under the header meter**, with `node param "OUT" Volume <dB>`, or with
+Set it with the **fader under the project bar's meter**, with `node param "OUT" Volume <dB>`, or with
 `project master <dB>`. **Absent means unity, and unity is never written**: 0 removes the line
 rather than writing a zero, the rule `type:` and a module's `status:` already follow.
 
@@ -144,5 +144,5 @@ master put back to unity would never come back down.
 | the wire | `@studio/engine-protocol`'s `ProjectDoc` |
 | decoded | `docFromJson` in `engine/k7-runtime/server/DocJson.cpp` |
 | applied | `MasterGainPlugin`, put on the master list by `populateMasterChain` after the song's chain and before the meter — so playback and an offline render both get it — and re-set in `EngineHost.cpp` on diff |
-| drawn | the fader under the header meter, the Fix button beside it (`apps/k7/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
+| drawn | the fader under the project bar's meter, the Fix button beside it (`apps/k7/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
 | written | `node param "OUT" Volume <dB>`, or `project master <dB>` — one implementation, `writeMasterVolume` |

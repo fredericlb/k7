@@ -1,7 +1,7 @@
-// ProjectBar.tsx — the project's transport, drawn as the app's mini player: the way home and the
-// project's name at its left edge, its buttons where the bar keeps play/pause, and the clock and
-// a peekable minimap where it keeps the scrubber. The sound is the engine's, never this page's,
-// so the bar leaves the system's media session alone.
+// ProjectBar.tsx — the project's one bar, drawn as the app's mini player: the way home and the
+// name at its left edge, the pages at its right; in its centre the transport's buttons, the clock,
+// a peekable minimap and the master meter. The sound is the engine's, never this page's, so the
+// bar leaves the system's media session alone.
 // See docs/shell.md, "The project bar".
 
 import { AudioLines } from "@frediverse/ui/icons";
@@ -15,12 +15,18 @@ import { ShellTransport } from "./ShellTransport";
 
 export function ProjectBar({
   lead,
+  trail,
+  meter,
   transport,
   map,
   recInfo,
 }: {
   /** The hamburger, the logo and the project's name — the bar's left slot, and the way home. */
   lead: ReactNode;
+  /** The pages' buttons, or a phone's menu — the bar's right slot. */
+  trail: ReactNode;
+  /** The master meter, right of the minimap; null where there is no engine to read or no room. */
+  meter: ReactNode;
   /** The buttons, or null where they would drive nothing on screen (the desk alone). */
   transport: ComponentProps<typeof ShellTransport> | null;
   /** The minimap, or null for a project with no arrangement to map. */
@@ -34,6 +40,7 @@ export function ProjectBar({
       // The name is in `lead`, so the bar draws no title line of its own.
       title=""
       lead={lead}
+      trail={trail}
       playing={playing}
       // The clock and the map read the playhead themselves, so the bar never re-renders with it.
       position={0}
@@ -60,6 +67,8 @@ export function ProjectBar({
           </>
         ) : null
       }
-    />
+    >
+      {meter}
+    </MiniPlayer>
   );
 }

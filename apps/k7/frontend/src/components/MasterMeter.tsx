@@ -1,4 +1,4 @@
-// MasterMeter — the mix as it leaves for the interface, in the header: ONE lane holding the
+// MasterMeter — the mix as it leaves for the interface, in the project bar: ONE lane holding the
 // meter, the output fader's handle and the unity mark, plus a red light that stays on if
 // anything clipped during the last playback.
 //

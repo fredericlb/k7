@@ -4,7 +4,6 @@
 // mounted — `full`/`focus` only decide size and keys, so no open file, caret or zoom is
 // ever lost. Live engine state goes to an external store, never App state. See docs/shell.md.
 
-import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
   FolderOpen,
@@ -2661,23 +2660,23 @@ export default function App({
     <EngineLink connected={connected} latency={engineLatency} />
   );
 
-  const headerActions = (
+  // The mix leaving for the interface, right of the minimap in the bar's centre; no phone fits it and a snapshot has no engine.
+  const masterMeter =
+    !isMobile && !snapshot ? (
+      <MasterMeter
+        className="shrink-0"
+        ref={masterMeterRef}
+        // The button dispatches the command rather than calling the handler, like every other button in this shell.
+        onFix={() => void runCommand("project master fix")}
+        // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
+        master={projectDoc?.masterVolume}
+        onMaster={setMaster}
+      />
+    ) : null;
+
+  // The project bar's right slot: the pages, or on a phone the one menu holding them.
+  const barTrail = (
     <div className="flex min-w-0 items-center gap-1">
-      {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
-      {!isMobile && !snapshot && (
-        <>
-          <MasterMeter
-            className="shrink-0"
-            ref={masterMeterRef}
-            // The button dispatches the command rather than calling the handler, like every other button in this shell.
-            onFix={() => void runCommand("project master fix")}
-            // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
-            master={projectDoc?.masterVolume}
-            onMaster={setMaster}
-          />
-          <div className="mx-1 h-5 w-px bg-border" />
-        </>
-      )}
       {/* On a phone ONE button holds everywhere there is to go, and a pane is a destination — always `ui <pane>` (docs/shell.md). */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
@@ -2895,11 +2894,51 @@ export default function App({
       )}
     </span>
   );
+  // What the header held beside the name: the engine's health, a share's lock, the workspace warning — after the name in the bar's left slot.
+  const barState = (
+    <>
+      {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
+      {isMobile && !snapshot ? (
+        <MobileInfo
+          open={mobileInfo}
+          onOpenChange={setMobileInfo}
+          status={frozen ? null : !engine ? "none" : connected ? "up" : "down"}
+        >
+          {projectLink}
+          <div className="px-1.5">{engineLink}</div>
+          {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}
+          <div className="px-1.5 text-muted-foreground text-xs">
+            <TempoMeter recInfo={recInfo} runCommand={runCommand} />
+          </div>
+        </MobileInfo>
+      ) : (
+        engineLink
+      )}
+      {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
+      {snapshot && (
+        <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
+        </span>
+      )}
+      {ws && !ws.activeProject && (
+        <span className="truncate rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
+          workspace — pick a project ▶ in Editor
+        </span>
+      )}
+    </>
+  );
 
   // The project bar, built once: it is drawn under the panes, or over the editor popin (docs/shell.md, "The project bar").
   const projectBar = (
     <ProjectBar
-      lead={barLead}
+      lead={
+        <>
+          {barLead}
+          {barState}
+        </>
+      }
+      trail={barTrail}
+      meter={masterMeter}
       recInfo={recInfo}
       transport={
         showTransport
@@ -2943,62 +2982,6 @@ export default function App({
         <LcdSoundsContext.Provider value={shellSounds}>
           {/* `overflow-hidden`: a pane wider than the screen must not widen the page, or a phone moves every dialog off it (docs/shell.md). */}
           <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground">
-            {/* The shared bar (@frediverse/ui/app-header) with k7's contents; `items` is empty on purpose — docs/shell.md. */}
-            <AppHeader
-              // `plain`, not the house tint: k7 keeps its violet for what is lit, and a violet bar would drown it (docs/shell.md).
-              variant="plain"
-              className={cn(
-                // `relative` on the INNER box is what the transport centres against — the bar's own middle, not the gap between its neighbours.
-                "z-20 [&>div]:relative",
-                isMobile
-                  ? "[&>div]:gap-2 [&>div]:px-3 [&>div]:py-1"
-                  : "[&>div]:px-3 [&>div]:py-[3px]",
-              )}
-              // No name and no build stamp inside a project — the project's own name is the only one left (docs/shell.md).
-              title={null}
-              items={[]}
-              actions={headerActions}
-            >
-              {/* Between the two: the engine and the project's state; its name, the way home and the transport are the project bar's (docs/shell.md). */}
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
-                {isMobile && !snapshot ? (
-                  <MobileInfo
-                    open={mobileInfo}
-                    onOpenChange={setMobileInfo}
-                    status={
-                      frozen
-                        ? null
-                        : !engine
-                          ? "none"
-                          : connected
-                            ? "up"
-                            : "down"
-                    }
-                  >
-                    {projectLink}
-                    <div className="px-1.5">{engineLink}</div>
-                    {/* The tempo and meter the footer holds on a desktop; a phone's footer has no room for them. */}
-                    <div className="px-1.5 text-muted-foreground text-xs">
-                      <TempoMeter recInfo={recInfo} runCommand={runCommand} />
-                    </div>
-                  </MobileInfo>
-                ) : (
-                  engineLink
-                )}
-                {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
-                {snapshot && (
-                  <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
-                  </span>
-                )}
-                {ws && !ws.activeProject && (
-                  <span className="truncate rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
-                    workspace — pick a project ▶ in Editor
-                  </span>
-                )}
-              </div>
-            </AppHeader>
             {/* A demo is overwritten on the service's next start: said before an edit is lost (components/DemoBanner.tsx). */}
             {!frozen && ws?.activeIsDemo && ws.activeProject && (
               <DemoBanner project={ws.activeProject} />
@@ -3659,7 +3642,7 @@ export default function App({
               </div>
             )}
 
-            {/* A tab bar stood here, one tab per pane; it is in the hamburger now — see `headerActions` and docs/shell.md. */}
+            {/* The pages are the project bar's right slot — see `barTrail` and docs/shell.md. */}
 
             {homeDrawer && (
               <Suspense fallback={null}>

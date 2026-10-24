@@ -43,7 +43,7 @@ The ring is built TOP-DOWN, in the order the panes are stacked on screen — the
 the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
 the eye did not expect.
 
-That list is load-bearing. The header buttons, the number keys, `ui <pane>` and the mobile tabs
+That list is load-bearing. The project bar's pane buttons, the number keys, `ui <pane>` and the mobile tabs
 all reach the screen through `fullscreen()`, so one list closes all four at once instead of four
 guards that could disagree. `fromLocation` reads the same function: `/timeline` typed at a
 project that declares no timeline names a pane that project has not got, and falls through to

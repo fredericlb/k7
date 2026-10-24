@@ -142,8 +142,8 @@ was when it was written.
 
 `CommentsPanel.tsx` is a **panel**, docked at the right beside the panes, and takes the fourth slot
 in `rightPanel`. Not a pane: a pane is something the project declares, and this is not part of the
-song. The header's button is the whole of a visitor's half of the header: a share has no mixdown to
-download, since nothing is rendered to make one.
+song. The footer's tab is the whole of what a visitor may write: a share has no mixdown to download,
+since nothing is rendered to make one.
 
 **It is the only write in this shell that does not go through `fsend`.** That is the sentence to
 keep: the transport's refusal is what makes a share read-only, and nothing here weakens it. This

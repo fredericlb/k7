@@ -18,7 +18,7 @@ draws none of them opens on its graph and is told why.
 
 ## The two axes, and the pair check
 
-Where a surface goes is its own screen off the header (`view`), a slot in the layout that shares
+Where a surface goes is a screen of its own (`view`), a slot in the layout that shares
 the window with the graph (`split`), or a window over the layout (`floating`). Two axes rather than
 one, deliberately — the same turntables could be a screen or a band under the arrangement, and
 that is a layout rather than a kind. What each TYPE can actually be drawn in is `SURFACE_LAYOUTS_BY_TYPE`: the axes stay independent, and which
@@ -43,7 +43,7 @@ pane ring — which is the whole of why the two are separate words.
   WebGL context and one `<video>` element per layer, and rebuilding those costs a decoder flush and
   a visible hitch.
 - `turntables` is `split` for the plainest reason: a desk is something you work THE GRAPH against,
-  and a screen off the header, over the whole window, makes "which module is this fader on" a round
+  and a screen of its own, over the whole window, makes "which module is this fader on" a round
   trip.
 - `mastering` is `split` for that reason and one of its own: this desk is a picture of ONE node, so
   the graph beside it is where you check that the node it names is the node in the master chain.
