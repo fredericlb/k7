@@ -7,6 +7,9 @@
 #
 # Build from the repo root: docker build -f engine/docker/Dockerfile .
 
+# The Rust toolchain the supervisor's audio decoder is built with (engine/k7-supervisor/rust), pinned by its tag.
+FROM rust:1.97.1-slim-bookworm AS rust
+
 # ---- build: the two CMake projects and the script that stages them, nothing else of the repo ----
 FROM node:24-bookworm AS build
 # The same set as the engine job's Linux leg (.github/workflows/engine-platform.yml), plus ccache.
@@ -18,10 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
       libcurl4-openssl-dev ladspa-sdk \
  && rm -rf /var/lib/apt/lists/*
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
 WORKDIR /src
 COPY engine/k7-runtime engine/k7-runtime
 COPY engine/k7-supervisor engine/k7-supervisor
 COPY packages/supervisor-host/scripts packages/supervisor-host/scripts
+COPY packages/audio-analysis/rust packages/audio-analysis/rust
 # Empty is cores − 2: a JUCE or Tracktion unity file takes a gigabyte to compile (engine/k7-runtime/docs/build.md).
 ARG BUILD_JOBS=
 # Read by the presets into CMAKE_<LANG>_COMPILER_LAUNCHER, which they set and so override from the environment.
@@ -29,6 +36,7 @@ ENV STUDIO_COMPILER_LAUNCHER=ccache CCACHE_DIR=/root/.ccache
 # One RUN, because staging reads the Faust libraries out of the build folder, which only a cache mount holds.
 RUN --mount=type=cache,target=/src/engine/k7-runtime/build,sharing=locked \
     --mount=type=cache,target=/src/engine/k7-supervisor/build,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
     set -eu; \
     export CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS:-$(( $(nproc) > 2 ? $(nproc) - 2 : 1 ))}"; \

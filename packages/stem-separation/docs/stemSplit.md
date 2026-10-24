@@ -92,10 +92,9 @@ the alternative way to learn about it is a click at the loudest moment of the re
 
 The model works at 44.1 kHz, so `decode()` resamples the input to reach the fixed input length.
 The way BACK was missing for a long time: `wavPcm24` stamps `SAMPLE_RATE` into the header, so a
-48 kHz master produced four 44.1 kHz stems and nothing said so. `probeRate()` asks ffprobe what
-the source's rate is and `writeStem()` resamples on the way out when it differs; the rate goes
-into the job's `lines` when it is not the model's. A source ffprobe cannot read falls back to the
-model's rate.
+48 kHz master produced four 44.1 kHz stems and nothing said so. The decode reports the source's
+own rate and `writeStem()` resamples on the way out when it differs; the rate goes into the job's
+`lines` when it is not the model's.
 
 That matters — four parts a few milliseconds apart are a flam on every hit — but it is not
 *critical*, because the desk **plays the four parts** and never subtracts them from the record
@@ -104,7 +103,7 @@ subtraction would cancel only while the two signals stay aligned to the sample, 
 pitch-preserving stretch breaks as soon as the tempo moves.
 
 **The mp3 encoder delay is real.** An mp3 carries it in its Xing/LAME `Info` tag — 1105 samples on
-the record measured — and **ffmpeg trims it while JUCE does not**: `juce_MP3AudioFormat.cpp`
+the record measured — and **ffmpeg and the cut's decoder trim it while JUCE does not**: `juce_MP3AudioFormat.cpp`
 contains no gapless handling at all, and the engine's own `--decode` counts 11 526 192 frames in a
 file ffmpeg decodes to 11 455 983. So **a song nobody separated starts 25 ms late in this engine**,
 which is inaudible alone and matters only between two lanes — named here because the next person
@@ -329,8 +328,8 @@ system-wide change and nothing in this repo writes it.
 
 ## What fails hard, and why that is not a contradiction
 
-ffmpeg decodes the input, and here it is a **hard** dependency — which looks like it
-contradicts the rule stated in `@studio/take-render/render`, that a
+The decode fails the job **hard** — a file it cannot read is an error, never a fallback — which
+looks like it contradicts the rule stated in `@studio/take-render/render`, that a
 missing ffmpeg costs the FORMAT and never the render.
 
 It does not. That rule holds because there is always a lesser result to fall back to: the
@@ -349,12 +348,12 @@ cut says what is missing (`engine/k7-supervisor/docs/supervisor.md`).
 **macOS is not covered by signing.** Nothing in this repo signs a third-party `.dylib`, so a
 notarised `.app` carrying `libonnxruntime.dylib` is unsolved.
 
-The decode is the one ffmpeg call in this repo that is **not** best-effort, for the reason the
-section above gives: elsewhere a missing ffmpeg costs a format and the wav survives, here it costs
-the only thing the request asked for. Resampling and mono-to-stereo are ffmpeg's job because the
-model's input length is fixed — arriving at 48 kHz is not a quality question, it is the wrong
-number of samples. The way back OUT is ffmpeg's job too, for the opposite reason — the
-section above.
+The decode needs no ffmpeg: it is the media library's Rust decoder, built into the supervisor, which
+reads what the songbook downloads — Opus in WebM, AAC in m4a — where the engine's JUCE does not
+(`engine/k7-supervisor/docs/supervisor.md` has the choice). It resamples to 44.1 kHz and makes a mono
+file stereo because the model's input length is fixed — arriving at 48 kHz is not a quality
+question, it is the wrong number of samples. The way back OUT goes through the same resampler, for
+the opposite reason — the section on rates above.
 
 ## The call site
 

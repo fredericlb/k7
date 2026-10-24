@@ -8,8 +8,8 @@
 #include "JobSlots.h"
 #include "OnnxSession.h"
 #include "Paths.h"
-#include "Processes.h"
 #include "SeparationAudio.h"
+#include "SeparationDecode.h"
 
 #include <mbedtls/sha256.h>
 
@@ -21,6 +21,7 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 namespace k7::separation {
 
@@ -116,49 +117,10 @@ void finish(Job& job, const json& patch)
     job.at = Clock::now();
 }
 
-/** Decode into the exact shape the model wants, failing HARD: there is no lesser result to fall back to. */
-Channels decode(const std::string& source)
-{
-    const auto ff = process::findTool("ffmpeg");
-    // Local files only, and named by the `file:` protocol so a name cannot pick another one.
-    const auto r = process::run(ff, {"-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file", "-i", "file:" + source, "-f",
-                                     "f32le", "-acodec", "pcm_f32le", "-ar",
-                                     std::to_string(kSampleRate), "-ac", std::to_string(kChannels), "-"});
-    if (r.code < 0)
-        throw std::runtime_error("ffmpeg is not installed — stem separation decodes its input with it, and unlike a transcode "
-                                 "there is no lesser result to fall back to");
-    if (r.code != 0) throw std::runtime_error("ffmpeg could not decode " + source + ": " + r.err.substr(r.err.size() > 2048 ? r.err.size() - 2048 : 0));
-    return deinterleaveBytes(r.out);
-}
-
-/** The record's own rate: a stem only cancels against the record at the rate the record plays. */
-std::optional<int> probeRate(const std::string& source)
-{
-    const auto r = process::run(process::findTool("ffprobe"),
-                                {"-v", "error", "-protocol_whitelist", "file", "-select_streams", "a:0", "-show_entries",
-                                 "stream=sample_rate", "-of", "csv=p=0", "-i", "file:" + source});
-    try {
-        const int n = std::stoi(r.out);
-        return n > 0 ? std::optional<int>(n) : std::nullopt;
-    } catch (...) {
-        return std::nullopt;
-    }
-}
-
-/** One output AT the record's rate, resampled through ffmpeg when the model's differs. */
+/** One output AT the record's rate, resampled when the model's differs. */
 void writeStem(const fs::path& path, const Channels& chans, int to)
 {
-    if (to == kSampleRate) {
-        std::ofstream(path, std::ios::binary | std::ios::trunc) << wavPcm24(chans);
-        return;
-    }
-    const auto inter = interleave(chans);
-    const std::string bytes(reinterpret_cast<const char*>(inter.data()), inter.size() * sizeof(float));
-    const auto r = process::run(process::findTool("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-f", "f32le", "-ar",
-                                                              std::to_string(kSampleRate), "-ac", std::to_string(chans.size()), "-i", "-", "-ar",
-                                                              std::to_string(to), "-c:a", "pcm_s24le", "-y", paths::utf8(path)},
-                                bytes);
-    if (r.code != 0) throw std::runtime_error("ffmpeg could not write " + paths::utf8(path) + ": " + r.err);
+    std::ofstream(path, std::ios::binary | std::ios::trunc) << (to == kSampleRate ? wavPcm24(chans) : wavPcm24(resample(chans, kSampleRate, to), to));
 }
 
 /** One window's worth of the mix, zero-padded when the file is shorter than a window. */
@@ -176,7 +138,8 @@ std::vector<float> windowOf(const Channels& chans, size_t at)
 void separate(Job& job, const Request& r, const std::vector<std::string>& outputs, std::vector<std::string> providers)
 {
     say(job, "decoding", nullptr);
-    const Channels chans = decode(r.source);
+    Decoded decoded = decodeForModel(r.source);
+    const Channels chans = std::move(decoded.channels);
     const size_t length = chans.empty() ? 0 : chans[0].size();
     if (!length) throw std::runtime_error(r.source + " decoded to no audio");
 
@@ -227,7 +190,7 @@ void separate(Job& job, const Request& r, const std::vector<std::string>& output
 
     say(job, "writing", 100);
     fs::create_directories(paths::fromUtf8(r.outDir));
-    const int rate = probeRate(r.source).value_or(kSampleRate);
+    const int rate = decoded.sourceRate > 0 ? decoded.sourceRate : kSampleRate;
     if (rate != kSampleRate)
         say(job, "writing", 100, "writing at " + std::to_string(rate) + " Hz, the record's own — the model works at " + std::to_string(kSampleRate));
     json files = json::array();

@@ -1,4 +1,4 @@
-// Separation.h — splitting a mix into stems on this machine: decode it with ffmpeg, run HT-Demucs
+// Separation.h — splitting a mix into stems on this machine: decode it (SeparationDecode.h), run HT-Demucs
 // window by window on ONNX Runtime, fold the overlapping windows back, write 24-bit WAVs. A job is
 // keyed by its WORK, so a second request for the same cut joins the one running rather than
 // starting another. The C++ port of packages/stem-separation; see its docs/stemSplit.md.

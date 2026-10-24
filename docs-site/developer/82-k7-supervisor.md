@@ -25,7 +25,7 @@ All sources are in `engine/k7-supervisor/src/`, compiled into a `k7_supervisor_c
 | `Performance.cpp` | The machine rating carried by the heartbeat |
 | `TunnelAgent.cpp`, `TunnelFrames.cpp`, `TunnelFiles.cpp`, `PathMap.cpp` | The tunnel agent (twin of `packages/engine-tunnel/agent.ts`) |
 | `MachineJobs.cpp` | The jobs a server can ask of the machine |
-| `Separation.cpp`, `SeparationAudio.cpp`, `OnnxSession.cpp` | Stem separation: ffmpeg decode, HT-Demucs on ONNX Runtime, 24-bit WAV out |
+| `Separation.cpp`, `SeparationAudio.cpp`, `SeparationDecode.cpp`, `OnnxSession.cpp` | Stem separation: decode through the media library's Rust decoder (`rust/`, no ffmpeg), HT-Demucs on ONNX Runtime, 24-bit WAV out |
 | `Rtc.cpp`, `RtcFrames.cpp` | The WebRTC answerer (libdatachannel) and its fragment format |
 | `Tls.cpp`, `TrustRoots.cpp` | mbedTLS setup and the OS trust store (+ `STUDIO_EXTRA_CA_CERTS`) |
 | `Crash.cpp`, `Log.cpp` | Crash handler and the merged log |

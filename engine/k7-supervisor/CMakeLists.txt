@@ -165,6 +165,48 @@ else()
     message(STATUS "ONNX Runtime ships no binary for this platform: building without stem separation")
 endif()
 
+# --- the audio decoder: the media library's Rust crate, wherever there is stem separation ----------
+# packages/audio-analysis/rust behind rust/include/k7_audio.h, built by cargo into this build tree, so a cut needs no ffmpeg.
+if(K7_ORT_URL)
+    find_program(K7_CARGO cargo HINTS "$ENV{CARGO_HOME}/bin" "$ENV{HOME}/.cargo/bin" "$ENV{USERPROFILE}/.cargo/bin")
+    if(NOT K7_CARGO)
+        message(FATAL_ERROR "cargo not found: stem separation decodes with a Rust crate, install it from https://rustup.rs (docs/supervisor.md)")
+    endif()
+    set(K7_AUDIO_TARGET_DIR ${CMAKE_BINARY_DIR}/cargo)
+    set(K7_AUDIO_OUT ${K7_AUDIO_TARGET_DIR}/release)
+    set(K7_CARGO_ARGS build --release --locked --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/rust/Cargo.toml --target-dir ${K7_AUDIO_TARGET_DIR})
+    set(K7_CARGO_ENV "")
+    if(APPLE)
+        list(APPEND K7_CARGO_ENV MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
+        if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+            list(APPEND K7_CARGO_ARGS --target aarch64-apple-darwin)
+            set(K7_AUDIO_OUT ${K7_AUDIO_TARGET_DIR}/aarch64-apple-darwin/release)
+        endif()
+    endif()
+    set(K7_AUDIO_LIB ${K7_AUDIO_OUT}/${CMAKE_STATIC_LIBRARY_PREFIX}k7_audio${CMAKE_STATIC_LIBRARY_SUFFIX})
+    set(K7_AUDIO_CRATE ${CMAKE_CURRENT_SOURCE_DIR}/../../packages/audio-analysis/rust)
+    file(GLOB_RECURSE K7_AUDIO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rust/src/*.rs ${K7_AUDIO_CRATE}/src/*.rs)
+    add_custom_command(OUTPUT ${K7_AUDIO_LIB}
+        COMMAND ${CMAKE_COMMAND} -E env ${K7_CARGO_ENV} ${K7_CARGO} ${K7_CARGO_ARGS}
+        DEPENDS ${K7_AUDIO_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/rust/Cargo.toml ${CMAKE_CURRENT_SOURCE_DIR}/rust/Cargo.lock ${K7_AUDIO_CRATE}/Cargo.toml
+        COMMENT "cargo: the audio decoder (rust/)"
+        USES_TERMINAL
+        VERBATIM)
+    add_custom_target(k7_audio_build DEPENDS ${K7_AUDIO_LIB})
+    add_library(k7_audio STATIC IMPORTED)
+    set_target_properties(k7_audio PROPERTIES
+        IMPORTED_LOCATION ${K7_AUDIO_LIB}
+        INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/rust/include)
+    # What Rust's standard library links against (`cargo rustc -- --print native-static-libs`).
+    if(WIN32)
+        set_property(TARGET k7_audio PROPERTY INTERFACE_LINK_LIBRARIES kernel32 advapi32 ntdll userenv ws2_32 dbghelp)
+    elseif(APPLE)
+        set_property(TARGET k7_audio PROPERTY INTERFACE_LINK_LIBRARIES "-framework CoreFoundation" iconv m)
+    else()
+        set_property(TARGET k7_audio PROPERTY INTERFACE_LINK_LIBRARIES pthread dl m rt)
+    endif()
+endif()
+
 # --- the program ----------------------------------------------------------------------------------
 # Everything but main.cpp is a library, so the tests link exactly what ships.
 add_library(k7_supervisor_core STATIC
@@ -200,6 +242,7 @@ add_library(k7_supervisor_core STATIC
     src/RtcFrames.cpp
     src/Rtc.cpp
     src/SeparationAudio.cpp
+    src/SeparationDecode.cpp
     src/OnnxSession.cpp
     src/Separation.cpp
     src/Instruments.cpp
@@ -229,7 +272,9 @@ if(APPLE)
 endif()
 if(K7_ORT_URL)
     target_link_libraries(k7_supervisor_core PUBLIC k7_onnxruntime ${CMAKE_DL_LIBS})
-    target_compile_definitions(k7_supervisor_core PUBLIC K7_WITH_ONNX)
+    target_compile_definitions(k7_supervisor_core PUBLIC K7_WITH_ONNX K7_WITH_DECODER)
+    target_link_libraries(k7_supervisor_core PUBLIC k7_audio)
+    add_dependencies(k7_supervisor_core k7_audio_build)
     if(WIN32)
         target_link_libraries(k7_supervisor_core PUBLIC dxgi)
     endif()
@@ -271,6 +316,7 @@ add_executable(k7_supervisor_tests
     tests/MachineJobs_test.cpp
     tests/RtcFrames_test.cpp
     tests/SeparationAudio_test.cpp
+    tests/SeparationDecode_test.cpp
     tests/HostLock_test.cpp
     tests/Registry_test.cpp
     tests/Tls_test.cpp

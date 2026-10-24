@@ -148,8 +148,8 @@ The jobs that READ a path the server names — `local`, `prefetch`, `separate`'s
 accept only one under this machine's copies of the servers' roots, `<state>/remote`, by spelling and
 again once links are resolved. `local` refuses in the words it uses for an absent file and `prefetch`
 does not count it, so neither tells a server whether some other path exists on this disk. `separate`
-hands its source to ffmpeg and ffprobe as `file:<path>` under `-protocol_whitelist file`: a name can
-then neither be read as an option nor reach a network protocol, a playlist's included.
+opens its source itself, in-process: a name is a file and nothing else — never an option, a network
+protocol or a playlist.
 
 `render` works in a folder of its own under the temp directory, created by the job itself with a
 random name and owner-only (`freshScratch`): a name that can be predicted is a folder another user
@@ -169,10 +169,29 @@ listed at (`engine::allowedOrigins`), the rest of that rule being the engine's
 | IXWebSocket | the engine socket, the tunnel, HTTP | the engine's own; its HTTP client rides the same TLS |
 | libdatachannel | the WebRTC path to a browser | what node-datachannel wraps, so the browser meets the same peer |
 | ONNX Runtime | stem separation | the runtime the model was exported for; prebuilt, hash-pinned |
+| the media library's Rust decoder, with rubato | decoding a mix, resampling its stems | the next section |
 
-All are fetched and pinned by `CMakeLists.txt`; none is found on the system. mbedTLS carries a
+All are fetched and pinned by `CMakeLists.txt`, the Rust crates by `rust/Cargo.lock`; none is found on the system. mbedTLS carries a
 user config: `MBEDTLS_SSL_DTLS_SRTP`, because libdatachannel configures DTLS-SRTP profiles
 even with media off, and threading, for the next section.
+
+## The cut decodes with the media library's decoder, not ffmpeg
+
+A stem cut needs every format a song arrives in, and the songbook's hunt keeps YouTube's stream as
+served: Opus in WebM or AAC in m4a. JUCE, the engine's decoder, reads no WebM; ffmpeg is one more
+program a musician would have to install, and the server's engine image has none. The media
+library's decoder (`packages/audio-analysis/rust`, symphonia and opus-rs) reads all of them, is held
+to ffmpeg's frame counts by its own tests, and trims an mp3's encoder delay as ffmpeg does — so a
+stem lines up with the record as it did. Its rubato resampler takes the mix to the model's 44.1 kHz
+and the stems back to the record's rate.
+
+- **A crate of its own, `rust/`**, the C ABI in `rust/include/k7_audio.h`, wrapped by
+  `src/SeparationDecode.cpp`. Not a module of the media library's crate: a change there stales the
+  WebAssembly checked in beside it.
+- **Built only where separation is**, the platforms ONNX Runtime ships for, so a phone's build needs
+  no Rust. There, cargo is a build requirement: configuring without it fails and says so.
+- **A panic is caught at every export** and comes back as the job's error: a corrupt file must not
+  take down the process that holds the tunnel. So the crate unwinds, where the media library's aborts.
 
 ## TLS from several threads
 
@@ -264,8 +283,8 @@ of it, so a server shows a queue rather than a cut that never moves. The hour a 
 counts from its start, not from its request: the last song of a long set list waits longer than
 that.
 
-The decode holds ffmpeg's bytes and the per-channel copy, and no interleaved float copy between
-them.
+The decode lands block by block in the per-channel buffers: no interleaved copy of the whole song
+is held beside them.
 
 ## ONNX Runtime is loaded, never linked
 

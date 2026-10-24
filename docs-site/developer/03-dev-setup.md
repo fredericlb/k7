@@ -8,7 +8,7 @@
 | npm 10 | The workspace manager (`devEngines` in `package.json`). |
 | [Tilt](https://docs.tilt.dev/install.html) | Runs the dev session. `npm run dev` exits with a pointer to the install page if `tilt` is missing. |
 | Access to the `commons` submodule | Install, lint and build all need it. |
-| CMake, Ninja and a C++ toolchain (AppleClang on macOS, MSVC on Windows) | Only for the `k7-tray` resource, which builds and runs the engine (and Rust, for the tray itself). |
+| CMake, Ninja and a C++ toolchain (AppleClang on macOS, MSVC on Windows) | Only for the `k7-tray` resource, which builds and runs the engine (and Rust, for the tray itself and the supervisor's audio decoder). |
 | `yt-dlp` and `ffmpeg` on `PATH` | Optional: media imports and some audio processing in the backend. The UI greys out the YouTube import when `yt-dlp` is absent. |
 
 ## First checkout

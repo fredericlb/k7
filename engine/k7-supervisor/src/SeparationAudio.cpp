@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 
 namespace k7::separation {
 
@@ -50,34 +49,6 @@ Channels OverlapAdd::finish(size_t stem) const
     Channels out(acc_[stem].size(), std::vector<float>(length_));
     for (size_t c = 0; c < out.size(); ++c)
         for (size_t i = 0; i < length_; ++i) out[c][i] = weight_[i] > 0 ? acc_[stem][c][i] / weight_[i] : 0;
-    return out;
-}
-
-Channels deinterleave(const std::vector<float>& pcm, int channels)
-{
-    const size_t frames = pcm.size() / static_cast<size_t>(channels);
-    Channels out(static_cast<size_t>(channels), std::vector<float>(frames));
-    for (size_t i = 0; i < frames; ++i)
-        for (int c = 0; c < channels; ++c) out[static_cast<size_t>(c)][i] = pcm[i * static_cast<size_t>(channels) + static_cast<size_t>(c)];
-    return out;
-}
-
-Channels deinterleaveBytes(const std::string& bytes, int channels)
-{
-    const size_t frames = bytes.size() / sizeof(float) / static_cast<size_t>(channels);
-    Channels out(static_cast<size_t>(channels), std::vector<float>(frames));
-    for (size_t i = 0; i < frames; ++i)
-        for (int c = 0; c < channels; ++c)
-            std::memcpy(&out[static_cast<size_t>(c)][i], bytes.data() + (i * static_cast<size_t>(channels) + static_cast<size_t>(c)) * sizeof(float), sizeof(float));
-    return out;
-}
-
-std::vector<float> interleave(const Channels& chans)
-{
-    const size_t frames = chans.empty() ? 0 : chans[0].size();
-    std::vector<float> out(frames * chans.size());
-    for (size_t i = 0; i < frames; ++i)
-        for (size_t c = 0; c < chans.size(); ++c) out[i * chans.size() + c] = chans[c][i];
     return out;
 }
 
