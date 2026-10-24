@@ -158,6 +158,12 @@ describe("derived lane fields", () => {
       "takes",
       "comp",
       "crossfades",
+      // A SHOT's own, offered on every lane since only the compile knows a ref's material.
+      "length",
+      "animate",
+      "speed",
+      "effect",
+      "silent",
     ]);
   });
 });

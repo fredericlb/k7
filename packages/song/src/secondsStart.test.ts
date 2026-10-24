@@ -43,6 +43,15 @@ describe("the compile", () => {
     expect(starts).toEqual([4, 9]);
   });
 
+  it("refuses what only a shot reads on an event that sounds, by name", () => {
+    writeLane(dir, "fx", "track", {
+      events: [{ ref: "hit", start: 1, length: 2, fadeIn: 0.5 }],
+    });
+    expect(() => compileNodeProject(dir)).toThrow(
+      /'hit' at 1s: length, fadeIn are a shot's/,
+    );
+  });
+
   it("does not move a seconds start when the tempo changes — only the grid under it", () => {
     writeLane(dir, "fx", "track", { events: [{ ref: "hit", start: 3 }] });
     writeDoc(join(dir, "project.k7x"), { project: { name: "d", tempo: 60 } });

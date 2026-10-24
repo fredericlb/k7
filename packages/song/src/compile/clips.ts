@@ -4,11 +4,31 @@
 
 import { resolve } from "node:path";
 import { placementId } from "@studio/song-schema/placementId";
-import { parseDuration, startBeats } from "@studio/song-schema/timecode";
+import {
+  parseDuration,
+  startBeats,
+  startText,
+} from "@studio/song-schema/timecode";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
+import { SHOT_KEYS } from "@studio/song-schema/yaml/placementSchema";
 import { confineTo } from "../confine";
 import type { ClipDoc, EventDoc, NoteDoc } from "../project";
 import type { RawClip, RawPlacement, RawSequence } from "../rawDoc";
+
+/** An event that SOUNDS carrying what only a shot reads, refused by name rather than misread (song-schema docs/moduleFile.md). */
+function refuseShotFields(p: RawPlacement, ref: string): void {
+  if (!ref)
+    throw new Error(
+      `an event at ${startText(p.start)} has no ref — only a lane of shapes takes one, to say when it is on`,
+    );
+  const keys: string[] = SHOT_KEYS.filter((k) => p[k] !== undefined);
+  for (const k of ["fadeIn", "fadeOut"] as const)
+    if (p[k] !== undefined && typeof p[k] !== "string") keys.push(k);
+  if (keys.length)
+    throw new Error(
+      `'${ref}' at ${startText(p.start)}: ${keys.join(", ")} ${keys.length > 1 ? "are" : "is"} a shot's — a fade on sound is a duration like "0:1"`,
+    );
+}
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.
 export function placementToClip(
@@ -22,6 +42,7 @@ export function placementToClip(
   roots: readonly string[],
 ): ClipDoc {
   const ref = String(p.ref ?? "");
+  refuseShotFields(p, ref);
   // A position as the file says it: a number is seconds, a timecode musical (song-schema docs/timecode.md).
   const pos = (tc: unknown) => startBeats(tc, num, den, tempo);
   const dur = (tc: unknown) =>

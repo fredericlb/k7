@@ -9,6 +9,9 @@ export const FORMAT_LEVEL = 2;
 /** The level an event `start` written in SECONDS needs: a level-1 build refuses the number (docs/formatLevel.md). */
 export const SECONDS_START_LEVEL = 2;
 
+/** The level a picture lane as a lane node needs: a level-2 build looks for `video_tracks/` (docs/formatLevel.md). */
+export const PICTURE_LANE_LEVEL = 3;
+
 /** The project root's key that carries the level, a sibling of `project:`. */
 export const FORMAT_KEY = "format";
 
