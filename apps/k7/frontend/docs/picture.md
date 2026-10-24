@@ -45,7 +45,7 @@ filmstrip under its name: frames edge to edge across the whole shot, each the so
 its left edge stands for (`sourceFrom` plus the elapsed time times `speed`, so a freeze repeats one
 frame and a reversed shot runs backwards). Folded, the shot is its name alone, as an audio clip is.
 
-The frames are grabbed in the browser (`timeline/shotFrames.ts`), from the same file the
+The frames are grabbed in the browser (`timeline/frameGrabber.ts`), from the same file the
 viewport reads — the proxy, else the optimized copy, else the source — because there is no
 thumbnail route and a frame the browser cannot decode is one the viewport cannot show either. So
 a shot still converting draws no frames, and neither does an activation or a subtitle clip.

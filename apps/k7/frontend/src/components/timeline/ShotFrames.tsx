@@ -4,7 +4,7 @@
 // hour long at a deep zoom costs what the screen shows, not what the shot holds (docs/picture.md).
 
 import { useEffect, useRef, useState } from "react";
-import { aspectOf, frameAt } from "./shotFrames";
+import { aspectOf, frameAt } from "./frameGrabber";
 
 /** One tile: a canvas painted once its frame arrives, blank until then. */
 function Tile({

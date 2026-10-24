@@ -1,4 +1,4 @@
-// shotFrames.ts — the still frames an expanded picture lane draws along each shot, grabbed by
+// frameGrabber.ts — the still frames an expanded picture lane draws along each shot, grabbed by
 // seeking one hidden <video> per source, one seek at a time, and kept as small bitmaps.
 // What a reader gets wrong: the grabs are SERIAL per source on purpose — a seek interrupts the
 // one before it, so parallel requests on one element would all land on the last time asked.
