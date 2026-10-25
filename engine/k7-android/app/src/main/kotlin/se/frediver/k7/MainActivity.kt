@@ -39,6 +39,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(AppViewsPlugin::class.java)
         super.onCreate(savedInstanceState)
         current = WeakReference(this)
+        Immersive.apply(this)
         mic = DeviceAccess(this, Device.MIC)
         camera = DeviceAccess(this, Device.CAMERA)
         // The studio the views open, before the engine that lists itself there (BackendHost.kt).
@@ -54,6 +55,12 @@ class MainActivity : BridgeActivity() {
     override fun onResume() {
         super.onResume()
         AuthService.release(this)
+    }
+
+    // A dialog or the keyboard may bring the bars back: full screen is asked again once the window is ours.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) Immersive.apply(this)
     }
 
     override fun onNewIntent(intent: Intent) {
