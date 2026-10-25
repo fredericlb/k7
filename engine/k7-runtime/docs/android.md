@@ -70,6 +70,15 @@ composites every layer under the page's top pixel on a one-pixel canvas — AppH
 translucent oklch over the page, which no computed style gives back as one colour — and reports
 it again when the route or the theme changes. The status bar's icons follow its luminance.
 
+**Full screen is a switch, off by default** (`Immersive.kt`): the status and navigation bars
+hidden, a swipe from an edge showing them for a moment. It is set on k7's Engine page
+(`setImmersive` on `k7Android`) and kept in the app's own preferences, not the account's: a
+tablet left on k7 on a stand and a phone carried around want different answers, and one account
+drives both. The activity applies it in `onCreate`, before any page loads, so the switch never
+waits on a studio answering. The views need nothing of their own: their insets are the bars that
+are SHOWN, so with the bars hidden the status-bar strip is zero high and only the cutout still
+pads them.
+
 **This phone's engine is set in k7's settings** (the home page's cog), because on the phone
 k7 is the only screen there is: the studios the engine is listed at, which one the apps open, the private CA,
 Quit (`apps/k7/frontend/docs/settings.md`). The page bundled in the APK, `engine/k7-android/web`,

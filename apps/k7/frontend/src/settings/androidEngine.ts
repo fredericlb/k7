@@ -73,6 +73,8 @@ export function engineCall<T = Record<string, never>>(
     | "forgetCas"
     | "chooseStudio"
     | "checkUpdates"
+    | "immersive"
+    | "setImmersive"
     | "quit",
   arg?: Record<string, string>,
 ): Promise<T> {

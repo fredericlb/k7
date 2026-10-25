@@ -1,6 +1,7 @@
 // AndroidEngineSection.tsx — this phone's engine, drawn only inside a phone app, Android or iOS: there the app IS the
 // engine's machine, so what the command-line engine keeps in its config file — the studios it is listed at,
 // the instruments it downloads, a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
+// Full screen is the device's too, and Android's alone: the iOS app answers no such call.
 // See ../../docs/settings.md, engine/k7-runtime/docs/android.md and docs/ios.md.
 
 import { Switch } from "@frediverse/ui/switch";
@@ -52,6 +53,8 @@ export function AndroidEngineSection() {
           </Action>
         </Row>
       </Section>
+
+      {!onIos && <FullScreenSection />}
 
       <Section title={m["engine.lanTitle"]()} hint={m["engine.lanHint"]()}>
         <Row
@@ -127,6 +130,41 @@ function engineLine(snapshot: EngineSnapshot | null, lan: string | null) {
     return m["android.engineError"]({ message: String(state.error) });
   if (!state.status) return m["android.starting"]();
   return m["android.engineStatus"]({ status: state.status });
+}
+
+// The app keeps the answer, not the account: a tablet left on k7 and a phone in a pocket want different ones.
+function FullScreenSection() {
+  const [on, setOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void engineCall<{ on: boolean }>("immersive").then((r) => setOn(r.on));
+  }, []);
+
+  const toggle = (next: boolean) => {
+    setOn(next);
+    void engineCall<{ on: boolean }>("setImmersive", { on: next ? "1" : "0" })
+      .then((r) => setOn(r.on))
+      .catch(() => setOn(!next));
+  };
+
+  return (
+    <Section
+      title={m["android.screenTitle"]()}
+      hint={m["android.screenHint"]()}
+    >
+      <Row
+        label={m["android.fullScreen"]()}
+        detail={on ? m["android.fullScreenOn"]() : m["android.fullScreenOff"]()}
+      >
+        <Switch
+          checked={on ?? false}
+          disabled={on === null}
+          onCheckedChange={toggle}
+          aria-label={m["android.fullScreen"]()}
+        />
+      </Row>
+    </Section>
+  );
 }
 
 // The supervisor reads its roots once, at start: each change restarts it, and it adopts the running engine.

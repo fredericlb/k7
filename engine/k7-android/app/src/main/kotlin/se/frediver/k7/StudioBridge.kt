@@ -3,7 +3,7 @@
 // (assets/top-color.js), which paints the status bar above it, who is signed in (assets/account.js), and what it plays
 // (assets/media-session.js, to MediaPlayback), what keeps it busy (`busy`, to Busy), and the files it saves
 // (assets/download.js, to Downloads); ONLY k7, checked by origin, reaches
-// the engine: its settings panel is this phone's tray (apps/k7/frontend/src/settings/androidEngine.ts).
+// the engine and full screen: its settings panel is this phone's tray (apps/k7/frontend/src/settings/androidEngine.ts).
 // The object is offered to every origin, since the studio can change; each message is checked instead.
 // k7's origin may be a remote studio, so it gets a short list of commands, and a new studio needs the user's yes.
 // See docs/android.md.
@@ -121,6 +121,12 @@ class StudioBridge(
             "checkUpdates" -> {
                 Updates.checkNow(activity)
                 ok(JSONObject())
+            }
+            // The Engine page's Full screen switch, a setting of this device (Immersive.kt).
+            "immersive" -> ok(JSONObject().put("on", Immersive.isOn(activity)))
+            "setImmersive" -> {
+                Immersive.set(activity, arg.optString("on") == "1")
+                ok(JSONObject().put("on", Immersive.isOn(activity)))
             }
             "quit" -> {
                 ok(JSONObject())
