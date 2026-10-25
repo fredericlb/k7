@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listFamilyFresh } from "./catalogue.ts";
+import { flushIndex, listFamilyFresh } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
 import { setSongBpm, setSongKey } from "./write.ts";
@@ -42,7 +42,9 @@ beforeEach(() => {
   writeFileSync(join(abs, "original.wav"), "RIFF");
   sidecar('title: "So What"\nartist: "Miles"\n');
 });
-afterEach(() => {
+afterEach(async () => {
+  // A listing persists the index in the background; removing the root under that write fails.
+  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
   rmSync(root, { recursive: true, force: true });
 });
