@@ -239,7 +239,18 @@ export function saveFrozenChain(
   const at = fileOf(name);
   const prev = wsExists(at) ? wsRead(at) : "";
   const text = formatChain(
-    { steps: [...steps.map(itemOf), { to: [{ chain: "@out" }] }] } as never,
+    {
+      steps: [
+        // A step naming no engine of a module that has some runs its default, so its values go there.
+        ...steps.map((s) =>
+          itemOf({
+            ...s,
+            engine: s.engine ?? enginesOf(s.module, byRef).engine,
+          }),
+        ),
+        { to: [{ chain: "@out" }] },
+      ],
+    } as never,
     prev,
   );
   const chain: LibraryChainDir = {
