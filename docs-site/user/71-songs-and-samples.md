@@ -6,15 +6,17 @@ This page covers the three sections of the media library that hold audio files: 
 ## Songs
 
 A song is a folder holding one audio file, the **master**, and a small text file beside it,
-`song.yaml`, called the **sidecar**. Songs are filed three levels deep, by artist, album and title:
+`song.yaml`, called the **sidecar**. The song's title, artist, album, tempo and key are the
+master's own tags (ID3 in an mp3, Vorbis comments in a flac…), so they travel with the file. Songs
+are filed three levels deep, by artist, album and title:
 
 ```text
 songs/
   Nirvana/
     Nevermind/
       Lithium/
-        original.flac    the master
-        song.yaml        the sidecar
+        original.flac    the master, with its tags
+        song.yaml        the sidecar: who filed it, the variants
         live.mp3         a variant (optional)
         stems/           drums.wav, bass.wav, other.wav, vocals.wav (optional)
 ```
@@ -32,6 +34,8 @@ audio format the library reads is accepted: `.wav`, `.flac`, `.aiff`, `.aif`, `.
    `Nirvana`, title `Lithium` (a leading track number is dropped).
 4. Check or correct the three fields. They decide where the song is filed; the exact path is
    shown under them. An empty field becomes `Artiste inconnu`, `Album inconnu` or `Sans titre`.
+   The fields you filled are also written into the file's tags; one left empty keeps what the
+   file already said.
 5. Click **Upload** (or **Upload N** for several).
 
 Several files are sent one after another. A row disappears from the dialog once it is sent; what
@@ -58,11 +62,10 @@ open usually has its waveform ready.
 Click a song in the tree or in the list to open it. Its address is
 `/media/songs/<artist>/<album>/<title>/song.yaml`, so you can bookmark or share it.
 
-- **Left**: the sidecar as text, in the YAML editor (vim mode follows your k7 preference). There
-  is no Save button: the file is written as soon as the text reads as YAML. The status in the
-  header reads **saved**, **modified**, **saving…**, **not saved** or **saving failed**. A song with
-  no sidecar opens on a stub ("no sidecar yet — the first edit will create it"); opening it does not
-  create the file.
+- **Left**: the song's info — **Title**, **Artist**, **Album**, **Tempo (BPM)** and **Key** — read
+  from the master's tags. There is no Save button: a change is written into the file a second after
+  you stop typing. The status under the fields reads **saved**, **modified**, **saving…**, **not
+  saved** or **saving failed**; a tempo that is not a positive number is not saved, and says why.
 - **Right**: the player. The play button, the position and length, and where the sound is going
   (see [The media library](./70-media-library.md#where-the-sound-comes-out)). Click or drag on the
   waveform to move the cursor; pressing play starts from there. The footer shows the detected
@@ -71,39 +74,42 @@ Click a song in the tree or in the list to open it. Its address is
   a **Variants** list sits under the player.
 - **Back** returns to the list.
 
-On a narrow screen the editor and the player are stacked.
+On a narrow screen the song info and the player are stacked.
 
 If the waveform is not there yet, the screen says "analysing" while the file is decoded. If the
 analysis fails, the reason is shown with an **Analyse** button to try again.
 
-### The sidecar
+### Song info and the sidecar
 
-The library reads these keys from `song.yaml`:
+What the song screen edits is written into the master's tags:
+
+| Field | Meaning |
+|---|---|
+| Title | The name shown in the list, the player and the queue. Defaults to the folder name. |
+| Artist | Shown beside the title. |
+| Album | Kept for reference. |
+| Tempo (BPM) | Filled in by the analysis when the file has none; your own value is never overwritten. |
+| Key | The musical key, picked by you, for example `C# minor`. A key written by another tool in another spelling (`8A`) is shown as no key. |
+
+Changing the title, artist or album changes what is shown; it does **not** move the folder.
+
+`song.yaml` keeps what is about the folder rather than the music:
 
 | Key | Meaning |
 |---|---|
-| `title` | The name shown in the list, the player and the queue. Defaults to the folder name. |
-| `artist` | Shown beside the title. |
-| `album` | Kept for reference. |
 | `source` | Who filed the song: `upload`, `k7`, `slskd`, `youtube`, `mirror`. |
-| `bpm` | The tempo. Filled in by the analysis when the key is absent; your own value is never overwritten. |
-| `key` | The musical key, typed by you, for example `C# minor`. |
 | `uuid` | A stable identifier. |
 | `variants` | A mapping of version names to audio files in the same folder. |
 
 ```yaml
-title: "Lithium"
-artist: "Nirvana"
-album: "Nevermind"
 source: upload
-bpm: 123
-key: "D major"
 variants:
   live: live.mp3
   "radio edit": radio-edit.wav
 ```
 
-Renaming the title, artist or album here changes what is shown; it does **not** move the folder.
+It has no editor in the app: a variant is added and deleted from the tree and the **Variants**
+list, and renamed by editing `song.yaml` on the library's disk.
 
 ### Variants
 

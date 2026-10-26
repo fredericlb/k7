@@ -312,7 +312,7 @@ export function SongPlayer({
         )}
       </div>
 
-      {/* What the analysis found beyond the shape — the tempo is what `song.yaml` gets seeded with. */}
+      {/* What the analysis found beyond the shape — the tempo is what the master's tags get seeded with. */}
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
         {shape?.bpm ? (
           <span className="tabular-nums">{shape.bpm} bpm</span>

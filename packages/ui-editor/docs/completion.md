@@ -95,7 +95,7 @@ read the buffer's k7x tree (`k7xTree.md`).
 
 ## The médiathèque's YAML files
 
-The médiathèque's store stays YAML (`song.yaml`, its playlists), and `YamlPane` keeps a YAML mode
+The médiathèque's store stays YAML (its playlists, `song.yaml`), and `YamlPane` keeps a YAML mode
 for it: `yaml/language.ts`, `yaml/keyPath.ts`, `yaml/completions.ts`. Three things are only
 true there.
 

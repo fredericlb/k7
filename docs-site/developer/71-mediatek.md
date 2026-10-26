@@ -21,7 +21,8 @@ the cost of walking the disk, which `revision.ts` and `catalogue.ts` keep cheap.
 | `./catalogue` | `src/catalogue.ts` | The in-memory listings, search and summary |
 | `./song` | `src/song.ts` | Where an uploaded song lands, the sidecar text, tags from a file name. Pure. |
 | `./takes` | `src/takes.ts` | A song's versions (master first, then variants) |
-| `./write` | `src/write.ts` | Every write: put, move, remove, add song, add or remove variant, set bpm or key |
+| `./write` | `src/write.ts` | Every write: put, move, remove, add song, add or remove variant, set tags, bpm or key |
+| `./tags` | `src/tags.ts` | A master's title, artist, album, bpm and key, read and written through TagLib (`taglib-wasm`). Node-only. |
 | `./recordings` | `src/recordings.ts` | The capture zone: filing by day and second, moment names |
 | `./playlists` | `src/playlists.ts` | The playlist zone: list and create |
 | `./playlistItems` | `src/playlistItems.ts` | Resolving playlist lines against songs. Pure, shared by k7 and the DJ desk. |
@@ -61,12 +62,19 @@ lexically and throws `PathEscapesError` (a 400 in the routes).
   decision, not a retry) unless `replace` is set; `NotAudioError` for a non-audio name.
 - Scan rule (`scanSongs`): a folder holding `song.yaml` or any audio is a song, and the walk stops
   there. `meta` carries `catalogued`, `master`, `stems` (all four stem files present), `artist`,
-  `bpm`, `key`, `uuid`. `songs/K7/` (published rehearsal versions) is skipped.
+  `album`, `bpm`, `key` (all four from the master's tags, `tags.ts`) and `uuid` (from the sidecar);
+  the entry's `name` is the title tag, else the folder. `songs/K7/` (published rehearsal versions)
+  is skipped.
+- Tags: title, artist, album, bpm and key live in the master, never in `song.yaml`
+  (`packages/mediatek/docs/songs.md`). `writeMasterTags` tags a copy and swaps it in with
+  `placeFile`; `UntaggableError` is a file TagLib cannot open. `addSong` writes the fields it was
+  given and answers `tagged: false` rather than refusing a file it cannot tag.
 - Variants: `variants:` in the sidecar maps a name to a file beside the master. `addSongVariant`
   edits the sidecar as TEXT (append a line at the end of the block) so comments and formatting
   survive; an inline mapping is refused rather than rewritten (`VariantRefusedError`).
-- `setSongBpm` **seeds** (never overwrites an existing key); `setSongKey` forces and quotes the
-  value, since `#` starts a YAML comment.
+- `setSongBpm` and `setSongKey` **seed** the master's tags (never overwrite a value already
+  there) unless `force` is passed; a folder with no audio gets nothing. `setSongTags` is the
+  editor's door and replaces what it is given.
 
 ## Change tokens and the catalogue
 
@@ -108,11 +116,19 @@ npm run upload-library -w @studio/mediatek -- \
 ```
 
 `scripts/uploadLibrary.ts` uploads one song per leaf folder of an `<artist>/<album>/<title>/`
-tree, the sidecar's tags winning over folder names. Only masters travel.
+tree, the master's own tags winning over an older sidecar's, and both over folder names. Only
+masters travel.
+
+```sh
+npm run migrate-song-tags -w @studio/mediatek -- --root /path/to/library [--dry-run]
+```
+
+`scripts/migrateSongTags.ts` moves title, artist, album, bpm and key out of every `song.yaml` under
+`songs/` and into the master's tags, once; a master it cannot tag keeps its sidecar and is listed.
 
 ## Tests
 
 `npm test -w @studio/mediatek` runs vitest over every `src/*.test.ts` (scan, song filing, variants,
 bpm, playlists, playlist items, recordings, cache, eviction, manifest, place, derived MP3, remote,
-write) and `scripts/uploadLibrary.test.ts`. They run against a temporary root through
+write, tags) and `scripts/*.test.ts`. They run against a temporary root through
 `STUDIO_MEDIATEK`.

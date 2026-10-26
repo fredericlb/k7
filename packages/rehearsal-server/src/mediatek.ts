@@ -5,6 +5,7 @@
 import {
   pushRecording,
   pushSong,
+  putTags as putRemoteTags,
   type RemoteConfig,
   type RemoteEnvelope,
   remoteLibrary,
@@ -123,6 +124,14 @@ export async function putFile(
   body: Uint8Array | Blob | string,
 ): Promise<void> {
   await remoteWriter(cfg()).put(path, body);
+}
+
+/** Rename a published version where the library lists it: its master's tags, the folder untouched (../docs/audio.md). */
+export async function putTags(
+  folder: string,
+  tags: { title: string; artist: string; album: string },
+): Promise<void> {
+  await putRemoteTags(cfg(), folder, tags);
 }
 
 /** A whole folder — which is what a published version is: a master, its stems, its sidecar. */

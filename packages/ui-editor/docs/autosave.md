@@ -149,7 +149,7 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 |---|---|
 | k7 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
 | k7 `ChainsBuilder`, `ModuleSidePane` | a library chain's file, and a module's own file from the side pane |
-| `@studio/ui-library` `SongEditor` | the médiathèque's `song.yaml` |
+| `@studio/ui-library` `SongTagsForm` | a song's tags, as a form serialised to JSON — not a file, so it hands the hook its own `validate` |
 | k7 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.k7x`, `ui.k7x`, a jsdsp or Faust source, `widgets.js` |
 
@@ -160,8 +160,8 @@ widget in the panel must not stop the module file reaching disk. Its header show
 
 ## The files that have no file yet
 
-The médiathèque's song sidecar and k7's playlists open on a **stub** when nothing is on disk. The stub is
-loaded as `saved` as well as as the buffer — so opening a song files nothing, and the first thing
+k7's playlists open on a **stub** when nothing is on disk. The stub is
+loaded as `saved` as well as as the buffer — so opening a playlist files nothing, and the first thing
 you actually type creates it. Looking at something must not write it.
 
 ## What a write drags behind it

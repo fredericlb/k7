@@ -3,6 +3,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -27,6 +28,8 @@ import {
   stopRevisionRefresh,
 } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
+import { writeMasterTags } from "./tags.ts";
+import { tinyWav } from "./testWav.ts";
 
 // The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.k7.
 let root: string;
@@ -82,19 +85,19 @@ describe("the layout", () => {
 describe("scanning songs", () => {
   beforeEach(() => ensureLayout());
 
-  it("reads title and artist from the sidecar", async () => {
-    write(
-      "songs/2026/take-one/song.yaml",
-      "title: Sous la pluie\nartist: K7\n",
-    );
-    write("songs/2026/take-one/master.wav", "RIFF");
+  it("reads title and artist from the master's tags, never from the sidecar", async () => {
+    // A sidecar still carrying a title is not read for it: the master's tags are the one truth.
+    write("songs/2026/take-one/song.yaml", "title: Stale\nsource: upload\n");
+    const master = join(root, "songs/2026/take-one/master.wav");
+    writeFileSync(master, tinyWav());
+    await writeMasterTags(master, { title: "Sous la pluie", artist: "K7" });
     const [e] = await scanFamily("songs");
     expect(e.name).toBe("Sous la pluie");
     // No subdivision in this family, so no word to put here — see MediatekEntry.kind.
     expect(e.kind).toBe("");
     expect(e.meta?.artist).toBe("K7");
     expect(e.meta?.catalogued).toBe(true);
-    expect(e.bytes).toBe(4);
+    expect(e.bytes).toBe(statSync(master).size);
   });
 
   it("leaves out everything under the K7 artist folder, whatever its source", async () => {
@@ -120,7 +123,7 @@ describe("scanning songs", () => {
     expect(entries.map((e) => e.name).sort()).toEqual([
       "Fetched",
       "Found",
-      "T",
+      "dropped",
     ]);
   });
 

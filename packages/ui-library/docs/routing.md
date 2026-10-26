@@ -11,7 +11,7 @@ that prefix:
 
 ```
 /songs                                    the section
-/songs/Miles/Kind of Blue/So What/song.yaml  …and the sidecar the editor has open
+/songs/Miles/Kind of Blue/So What/song.yaml  …and the song the editor has open
 ```
 
 The first segment is the section, which is also the family folder's name — so the rest is
@@ -90,7 +90,7 @@ user-editable, and `/media/samples/kicks/909.wav` names nothing these screens ca
 `CARRIES`:
 
 ```
-songs      …/song.yaml      the sidecar, on the left of the split screen
+songs      …/song.yaml      the song, opened on the split screen
 playlists  ete-2026.yaml    the set list, opened in the right-hand pane
 ```
 

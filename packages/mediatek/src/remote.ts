@@ -9,7 +9,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Manifest } from "./manifest.ts";
 import { placeFile } from "./place.ts";
-import type { Family } from "./types.ts";
+import type { Family, MasterTags } from "./types.ts";
 
 /** What a cache needs from whatever owns the library; `download` takes a destination so a video never sits in memory. */
 export interface LibrarySource {
@@ -207,7 +207,12 @@ export async function pushSong(
     source?: string;
     replace?: boolean;
   },
-): Promise<{ path: string; master: string; replaced: boolean }> {
+): Promise<{
+  path: string;
+  master: string;
+  replaced: boolean;
+  tagged?: boolean;
+}> {
   const q = new URLSearchParams({ filename: opts.filename });
   for (const k of ["artist", "album", "title", "source"] as const)
     if (opts[k]) q.set(k, opts[k] as string);
@@ -231,6 +236,29 @@ export async function pushSong(
     master: string;
     replaced: boolean;
   };
+}
+
+/** Rewrite a song's tags by its FOLDER: the library finds the master, as the client never names a file in `songs/` (docs/songs.md). */
+export async function putTags(
+  cfg: RemoteConfig,
+  folder: string,
+  tags: Partial<Record<keyof MasterTags, string | number>>,
+): Promise<MasterTags> {
+  const res = await fetch(
+    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/tags?path=${encodeURIComponent(folder)}`,
+    {
+      method: "PUT",
+      headers: {
+        ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(tags),
+      signal: AbortSignal.timeout(5 * 60_000),
+    },
+  );
+  if (!res.ok)
+    throw new RemoteError(`mediatek tags: ${res.status} ${res.statusText}`);
+  return ((await res.json()) as { tags: MasterTags }).tags;
 }
 
 /** Push one capture into the raw zone: bytes plus a moment, and the library names the file — docs/recordings.md. */

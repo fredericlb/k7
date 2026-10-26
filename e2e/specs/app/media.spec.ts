@@ -24,6 +24,19 @@ async function libraryText(page: Page, path: string): Promise<string> {
   return res.ok() ? res.text() : "";
 }
 
+/** A song's tags as the library reads them from its master — the song screen's own route. */
+async function songTags(
+  page: Page,
+  folder: string,
+): Promise<Record<string, unknown>> {
+  const url = new URL(
+    `/api/mediatek/tags?path=${encodeURIComponent(folder)}`,
+    page.url(),
+  );
+  const res = await page.request.get(url.href);
+  return res.ok() ? ((await res.json()).tags as Record<string, unknown>) : {};
+}
+
 /** Uploads the committed WAV through "Add a song"; a rerun finds the folder taken and replaces it. */
 async function addSong(page: Page): Promise<void> {
   const chooser = page.waitForEvent("filechooser");
@@ -76,21 +89,23 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
     ).toBeVisible();
   });
 
-  await test.step("open it and edit its sidecar", async () => {
+  await test.step("open it and edit its tags", async () => {
     await page.getByRole("button", { name: TITLE }).first().click();
     await expect(page).toHaveURL(
       /\/media\/songs\/E2E%20Artist\/E2E%20Album\/E2E%20Song/,
     );
     await expect(page.getByText(`Song · ${TITLE}`)).toBeVisible();
-    const mark = `# e2e ${Date.now()}`;
-    await page.getByRole("textbox", { name: / — song info$/ }).click();
-    await page.keyboard.press("Control+End");
-    await page.keyboard.press("Enter");
-    await page.keyboard.type(mark);
+    // The upload wrote the three fields into the master itself, not into song.yaml.
+    expect(await songTags(page, FOLDER)).toMatchObject({ title: TITLE });
+    const album = `${ALBUM} ${Date.now()}`;
+    const form = page.getByRole("form", { name: / — song info$/ });
+    await form.getByRole("textbox", { name: "Album" }).fill(album);
     await expect
-      .poll(() => libraryText(page, `${FOLDER}/song.yaml`), { timeout: 15_000 })
-      .toContain(mark);
-    await expect(page.getByText("saved", { exact: true })).toBeVisible();
+      .poll(async () => (await songTags(page, FOLDER)).album, {
+        timeout: 15_000,
+      })
+      .toBe(album);
+    await expect(form.getByText("saved", { exact: true })).toBeVisible();
   });
 
   await test.step("play it: the mini player bar takes it", async () => {

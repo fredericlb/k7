@@ -1,7 +1,8 @@
 # What the media library can complete
 
-Two library screens show YAML — a song's sidecar in `SongEditor` and a playlist in `Playlists`,
-both through `@studio/ui-editor`'s `YamlPane` — and neither is handed a vocabulary. The completion machinery is
+One library screen shows YAML — a playlist in `Playlists`, through `@studio/ui-editor`'s
+`YamlPane` — and it is handed no vocabulary. A song opens on a form, not on text
+([songPlayer.md](songPlayer.md)). The completion machinery is
 [packages/ui-editor/docs/completion.md](../../ui-editor/docs/completion.md); this
 page is the other half, where the names here would have to come from.
 
@@ -32,7 +33,3 @@ and needs to ask nobody. The editor's playlist screen does that over the listing
 (`apps/k7/frontend/docs/playlists.md`), and this catalogue is what answers it, through
 `/api/mediatek/list?family=songs`.
 
-## Not covered
-
-A song's sidecar. Its fields are not a project `FileKind`, so `fileKindFor` answers `null` and
-nothing completes. It would be one more vocabulary on the model above.

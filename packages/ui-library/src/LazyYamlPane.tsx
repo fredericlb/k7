@@ -1,7 +1,7 @@
 // LazyYamlPane.tsx — ui-editor's YamlPane, fetched the first time a screen shows text.
 // CodeMirror and its vim mode weigh more than every other screen of the library together, so a
-// host that mounts the catalogue does not pay for them until a song or a playlist is opened as
-// YAML — see ../docs/audit.md.
+// host that mounts the catalogue does not pay for them until a playlist is opened as YAML —
+// see ../docs/audit.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { type ComponentProps, lazy, Suspense } from "react";

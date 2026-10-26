@@ -29,13 +29,13 @@ Before committing, `npm run lint` (biome) must pass on every touched TypeScript 
 
 ## Recipes
 
-### A new field in a song's sidecar
+### A new field on a song
 
-1. Read it in `scanSongs` (`packages/mediatek/src/scan.ts`) into `meta`: `meta` holds scalars only.
-2. If something writes it, add a setter beside `setSongBpm` / `setSongKey` in
-   `packages/mediatek/src/write.ts`, editing the sidecar as text, and a route in
-   `apps/k7/backend/src/media/routes/library.ts`.
-3. Test it in `packages/mediatek/src/song.test.ts`.
+1. If it describes the music, it is a tag: add it to `MasterTags` (`packages/mediatek/src/types.ts`)
+   and to `WIRE` in `packages/mediatek/src/tags.ts`, which names TagLib's property for it. If it
+   describes the folder, it is a sidecar key, edited as text in `packages/mediatek/src/write.ts`.
+2. Read it in `scanSongs` (`packages/mediatek/src/scan.ts`) into `meta`: `meta` holds scalars only.
+3. Test it in `packages/mediatek/src/tags.test.ts` or `song.test.ts`.
 
 ### A new media library route
 

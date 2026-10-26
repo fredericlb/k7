@@ -6,8 +6,11 @@ import { NotWritableError, PathEscapesError } from "@studio/mediatek/layout";
 import {
   NotAudioError,
   SongExistsError,
+  TagsRefusedError,
   VariantRefusedError,
 } from "@studio/mediatek/song";
+import { UntaggableError } from "@studio/mediatek/tags";
+import type { MasterTags } from "@studio/mediatek/types";
 import {
   addSong,
   addSongVariant,
@@ -17,6 +20,7 @@ import {
   removeFile,
   removeSongVariant,
   removeTree,
+  setSongTags,
 } from "@studio/mediatek/write";
 import express, { type Response, Router } from "express";
 import { allowManage, moveNeedsManager } from "../../libraryGate.ts";
@@ -54,7 +58,7 @@ writeRoutes.put(
 writeRoutes.post(
   "/song",
   rawToDisk(),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const q = req.query as Record<string, unknown>;
     const s = (k: string): string =>
       typeof q[k] === "string" ? (q[k] as string) : "";
@@ -64,7 +68,7 @@ writeRoutes.post(
     if (!upload.size) return res.status(400).json({ error: "empty body" });
     const bytes = { file: upload.file };
     try {
-      const r = addSong({
+      const r = await addSong({
         filename,
         bytes,
         tags: {
@@ -143,6 +147,37 @@ writeRoutes.delete(
       throw e;
     }
     res.json({ ok: true });
+  }),
+);
+
+/** A song's tags rewritten in its master, by the FOLDER; a field absent is kept, `""` clears it — mediatek's docs/songs.md. */
+writeRoutes.put(
+  "/tags",
+  express.json(),
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) return res.status(400).json({ error: "path required" });
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Partial<Record<keyof MasterTags, string | number>> = {};
+    for (const f of ["title", "artist", "album", "key"] as const)
+      if (f in body) patch[f] = String(body[f] ?? "");
+    if ("bpm" in body) {
+      const bpm = body.bpm === "" || body.bpm == null ? "" : Number(body.bpm);
+      if (bpm !== "" && !(Number.isFinite(bpm) && bpm > 0))
+        return res.status(400).json({ error: "bpm must be a positive number" });
+      patch.bpm = bpm;
+    }
+    try {
+      res.json(await setSongTags(path, patch));
+    } catch (e) {
+      if (e instanceof TagsRefusedError)
+        return res.status(400).json({ error: e.message });
+      // The file is there and is not one TagLib can write: nothing about the request will fix it.
+      if (e instanceof UntaggableError)
+        return res.status(422).json({ error: e.message });
+      if (writeError(e, res)) return;
+      throw e;
+    }
   }),
 );
 

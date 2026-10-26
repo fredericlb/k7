@@ -50,7 +50,7 @@ summary counts them, which the host's sidebar draws.
 | `src/treeActions.ts` | Right-click menus: `songActions` for Songs, `assetActions` for writable families |
 | `src/LibraryContents.tsx` | The list, or the capture zone's days |
 | `src/AddSong.tsx`, `src/AddRecording.tsx` | The upload buttons; tags are read in the browser with `music-metadata`, loaded lazily |
-| `src/SongEditor.tsx` | A song: its sidecar in `YamlPane` with `useAutosave`, the player, the variants |
+| `src/SongEditor.tsx`, `src/SongTagsForm.tsx` | A song: its tags in a form autosaved with `useAutosave`, the player, the variants |
 | `src/SongPlayer.tsx`, `src/SongVariants.tsx`, `src/songWaveform.ts` | Version tabs over the shared waveform |
 | `src/Playlists.tsx`, `src/PlaylistRows.tsx` | The playlist zone; every graphical edit goes through the TEXT (`@studio/song-schema/playlist`) |
 | `src/FindSongs.tsx` | The hunt page, polled every 2 s |

@@ -1,6 +1,6 @@
 // uploadLibrary.ts — push a local <artist>/<album>/<title>/<master> tree into a HOSTED pl8,
-// one song per leaf folder holding an audio file. A song.yaml sidecar's tags win over the
-// folder's own names, when one is there; the folder names alone are enough otherwise. Only the
+// one song per leaf folder holding an audio file. The master's own tags win over the folder's
+// names, an older tree's song.yaml filling a field the file lacks. Only the
 // master travels — no stems, no variants, which the remote client has no route for yet.
 //
 // Usage:
@@ -12,6 +12,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isAudio } from "@studio/mediatek/media";
 import { pushSong } from "@studio/mediatek/remote";
+import { readMasterTags } from "@studio/mediatek/tags";
 import { SONG_FILE } from "@studio/mediatek/types";
 import { parse as parseYaml } from "yaml";
 
@@ -59,31 +60,33 @@ function subdirs(abs: string): { name: string }[] {
   }
 }
 
-/** The sidecar's artist/album/title, where present and non-empty — the folder's names otherwise. */
-function tagsOf(
-  dir: string,
-  fallback: { artist: string; album: string; title: string },
-): { artist: string; album: string; title: string } {
-  let sidecar: Record<string, unknown>;
+/** A sidecar written before the tags moved into the master: its fields, or `{}`. */
+function legacySidecar(dir: string): Record<string, unknown> {
   try {
-    sidecar = parseYaml(readFileSync(join(dir, SONG_FILE), "utf8")) as Record<
-      string,
-      unknown
-    >;
+    const v = parseYaml(readFileSync(join(dir, SONG_FILE), "utf8"));
+    return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
   } catch {
-    return fallback; // no sidecar, or an unreadable one — the folder names are all there is
+    return {}; // no sidecar, or an unreadable one
   }
-  const str = (v: unknown, keep: string) =>
-    typeof v === "string" && v ? v : keep;
-  return {
-    artist: str(sidecar.artist, fallback.artist),
-    album: str(sidecar.album, fallback.album),
-    title: str(sidecar.title, fallback.title),
+}
+
+/** Each field from the master's tags, else an older tree's sidecar, else the folder's own name. */
+async function tagsOf(
+  dir: string,
+  master: string,
+  fallback: { artist: string; album: string; title: string },
+): Promise<{ artist: string; album: string; title: string }> {
+  const tags = await readMasterTags(master);
+  const sidecar = legacySidecar(dir);
+  const pick = (k: "artist" | "album" | "title"): string => {
+    const old = sidecar[k];
+    return tags[k] || (typeof old === "string" && old ? old : fallback[k]);
   };
+  return { artist: pick("artist"), album: pick("album"), title: pick("title") };
 }
 
 /** Every leaf folder three levels under root holding an audio file — the first one is the master. */
-export function findSongs(root: string): FoundSong[] {
+export async function findSongs(root: string): Promise<FoundSong[]> {
   const out: FoundSong[] = [];
   for (const artistDir of subdirs(root)) {
     const artistPath = join(root, artistDir.name);
@@ -96,12 +99,13 @@ export function findSongs(root: string): FoundSong[] {
         );
         const master = files.find((f) => isAudio(f.name));
         if (!master) continue;
-        const tags = tagsOf(titlePath, {
+        const abs = join(titlePath, master.name);
+        const tags = await tagsOf(titlePath, abs, {
           artist: artistDir.name,
           album: albumDir.name,
           title: titleDir.name,
         });
-        out.push({ master: join(titlePath, master.name), ...tags });
+        out.push({ master: abs, ...tags });
       }
     }
   }
@@ -115,7 +119,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const songs = findSongs(args.root);
+  const songs = await findSongs(args.root);
   if (!songs.length) {
     console.log(
       `No songs found under ${args.root} (expected <artist>/<album>/<title>/<master file>).`,

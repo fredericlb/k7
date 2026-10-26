@@ -14,6 +14,7 @@ import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo, withoutDerived } from "./media.ts";
 import { mapLimit } from "./pool.ts";
+import { readMasterTags } from "./tags.ts";
 import {
   type Family,
   K7_ARTIST,
@@ -90,12 +91,6 @@ async function readSong(abs: string): Promise<Record<string, unknown>> {
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v ? v : undefined;
 
-// `bpm: 128` and `bpm: "128"` are both meant; NaN and 0 — the engine's "none found" — are not.
-const num = (v: unknown): number | undefined => {
-  const n = typeof v === "string" ? Number(v) : v;
-  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
-};
-
 /** The sidecar's `variants:`, classified against what is in the folder and one way only — see docs/variants.md. */
 function readVariants(
   meta: Record<string, unknown>,
@@ -154,13 +149,13 @@ async function songEntry(
   const hasSidecar = entries.some((e) => e.isFile() && e.name === SONG_FILE);
   const master = entries.find((e) => e.isFile() && isAudio(e.name));
   const meta = hasSidecar ? await readSong(abs) : {};
-  const title = str(meta.title);
-  const artist = str(meta.artist);
+  // The music's own facts are the master's tags; the sidecar holds only provenance and variants.
+  const tags = master ? await readMasterTags(join(abs, master.name)) : {};
   const variants = readVariants(meta, entries);
   return {
     family: "songs",
     id: toRel(abs),
-    name: title ?? basename(abs),
+    name: tags.title ?? basename(abs),
     path: toRel(abs),
     kind: "",
     bytes: master ? await sizeOf(join(abs, master.name)) : undefined,
@@ -172,11 +167,12 @@ async function songEntry(
       ...(master ? { master: master.name } : {}),
       // Has this song been SEPARATED, COMPLETELY? One readdir, and only for a song that has a stems/.
       ...((await separated(abs, entries)) ? { stems: true } : {}),
-      ...(artist ? { artist } : {}),
+      ...(tags.artist ? { artist: tags.artist } : {}),
+      ...(tags.album ? { album: tags.album } : {}),
       // Detected at upload and then EDITABLE — see setSongBpm and docs/songs.md.
-      ...(num(meta.bpm) ? { bpm: num(meta.bpm) as number } : {}),
-      // The KEY, typed rather than detected: a property of the recording, so it lives with it and not in any one set's files.
-      ...(str(meta.key) ? { key: str(meta.key) as string } : {}),
+      ...(tags.bpm ? { bpm: tags.bpm } : {}),
+      // The KEY, typed rather than detected: a property of the recording, so it lives in the recording's own tags.
+      ...(tags.key ? { key: tags.key } : {}),
       ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
     },
   };

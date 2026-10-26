@@ -21,6 +21,9 @@ export class SongExistsError extends Error {}
 /** Thrown when a variant cannot be filed where it was aimed — both cases are 400s (docs/variants.md). */
 export class VariantRefusedError extends Error {}
 
+/** Thrown when a song's tags cannot be set as asked — no master, or a key in no known spelling; a 400. */
+export class TagsRefusedError extends Error {}
+
 export interface SongTags {
   artist?: string;
   album?: string;
@@ -74,15 +77,11 @@ export function variantFile(filename: string): string {
   return `${variantName(filename)}${extOf(filename)}`;
 }
 
-/** The sidecar, whose `source` tells a reader where the folder came from. */
-export function sidecarFor(tags: SongTags): string {
+/** The sidecar, whose `source` tells a reader where the folder came from; title, artist and album are the master's tags. */
+export function sidecarFor(source?: string): string {
   return `${[
-    "# L'arborescence est déduite de ces trois champs — la renommer ici ne déplace rien.",
-    "# Voir packages/mediatek/docs/songs.md.",
-    `title: ${JSON.stringify(tags.title || UNTITLED)}`,
-    `artist: ${JSON.stringify(tags.artist || "")}`,
-    `album: ${JSON.stringify(tags.album || "")}`,
-    `source: ${JSON.stringify(tags.source || "upload")}`,
+    "# Title, artist, album, tempo and key live in the master's tags — see packages/mediatek/docs/songs.md.",
+    `source: ${JSON.stringify(source || "upload")}`,
   ].join("\n")}\n`;
 }
 

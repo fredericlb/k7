@@ -4,6 +4,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,6 +21,8 @@ import {
   tagsFromFilename,
   VariantRefusedError,
 } from "./song.ts";
+import { readMasterTags, writeMasterTags } from "./tags.ts";
+import { tinyWav } from "./testWav.ts";
 import { SONG_FILE } from "./types.ts";
 import {
   addSong,
@@ -83,7 +86,7 @@ describe("the master's name", () => {
     expect(masterName("So What.FLAC")).toBe("original.flac");
   });
 
-  it("refuses what the scan would not see as audio", () => {
+  it("refuses what the scan would not see as audio", async () => {
     expect(() => masterName("cover.jpg")).toThrow(NotAudioError);
     expect(() => masterName("noext")).toThrow(NotAudioError);
   });
@@ -122,24 +125,54 @@ describe("filing an upload", () => {
   // A function: `root` is a fresh temp dir per test, so a constant would capture the previous one.
   const folder = () => join(root, "songs/Miles Davis/Kind of Blue/So What");
 
-  it("creates the tree and the sidecar", () => {
-    const r = addSong({
-      filename: "whatever.mp3",
-      bytes: Buffer.from("ID3"),
+  it("creates the tree, tags the master and writes the sidecar", async () => {
+    const r = await addSong({
+      filename: "whatever.wav",
+      bytes: tinyWav(),
       tags,
     });
     expect(r.path).toBe("songs/Miles Davis/Kind of Blue/So What");
+    expect(r.tagged).toBe(true);
+    expect(await readMasterTags(join(folder(), "original.wav"))).toEqual(tags);
+    // The sidecar keeps provenance only: the title lives in the file, where every player reads it.
+    const sidecar = readFileSync(join(folder(), "song.yaml"), "utf8");
+    expect(sidecar).toContain('source: "upload"');
+    expect(sidecar).not.toContain("So What");
+  });
+
+  it("keeps a tag the file already has when that field was left blank", async () => {
+    const first = join(root, "first.wav");
+    writeFileSync(first, tinyWav());
+    await writeMasterTags(first, { album: "From the file", title: "Old" });
+    const r = await addSong({
+      filename: "x.wav",
+      bytes: { file: first },
+      tags: { artist: "Miles Davis", title: "So What" },
+    });
+    expect(await readMasterTags(join(root, r.master))).toEqual({
+      artist: "Miles Davis",
+      album: "From the file",
+      title: "So What",
+    });
+  });
+
+  it("files a file TagLib cannot tag all the same, and says so", async () => {
+    const r = await addSong({
+      filename: "x.mp3",
+      bytes: Buffer.from("ID3"),
+      tags,
+    });
+    expect(r.tagged).toBe(false);
     expect(readFileSync(join(folder(), "original.mp3"), "utf8")).toBe("ID3");
-    expect(readFileSync(join(folder(), "song.yaml"), "utf8")).toContain(
-      'title: "So What"',
-    );
+    // Named by its folder, which the three fields built.
+    expect((await scanFamily("songs"))[0].name).toBe("So What");
   });
 
   it("files a published version beside every other song, saying who filed it", async () => {
     // `source` is a line in the sidecar rather than a `recorded/` level in the path.
-    const r = addSong({
-      filename: "mixdown.mp3",
-      bytes: Buffer.from("MIX"),
+    const r = await addSong({
+      filename: "mixdown.wav",
+      bytes: tinyWav(),
       tags: {
         artist: "K7",
         album: "Sous la pluie",
@@ -147,22 +180,22 @@ describe("filing an upload", () => {
         source: "k7",
       },
     });
-    expect(r.master).toBe("songs/K7/Sous la pluie/Mix final/original.mp3");
+    expect(r.master).toBe("songs/K7/Sous la pluie/Mix final/original.wav");
+    expect((await readMasterTags(join(root, r.master))).artist).toBe("K7");
     const sidecar = readFileSync(join(root, r.path, "song.yaml"), "utf8");
-    expect(sidecar).toContain('artist: "K7"');
     expect(sidecar).toContain('source: "k7"');
     // Filed like any other song, but not BROWSED — see docs/songs.md.
     expect(await scanFamily("songs")).toEqual([]);
   });
 
   it("quotes the source, so a crafted one cannot add a line to the sidecar", () => {
-    const sidecar = sidecarFor({ title: "T", source: "k7\nmaster: ../../x" });
+    const sidecar = sidecarFor("k7\nmaster: ../../x");
     expect(sidecar).not.toMatch(/^master:/m);
     expect(sidecar).toContain('source: "k7\\nmaster: ../../x"');
   });
 
   it("lands as one catalogued entry the scan can play", async () => {
-    addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
+    await addSong({ filename: "x.wav", bytes: tinyWav(), tags });
     const entries = await scanFamily("songs");
     expect(entries).toHaveLength(1);
     expect(entries[0].name).toBe("So What");
@@ -170,20 +203,21 @@ describe("filing an upload", () => {
     expect(entries[0].kind).toBe("");
     expect(entries[0].meta?.catalogued).toBe(true);
     // Without this the moteur, which opens paths, has nothing to open.
-    expect(entries[0].meta?.master).toBe("original.mp3");
+    expect(entries[0].meta?.master).toBe("original.wav");
+    expect(entries[0].meta?.artist).toBe("Miles Davis");
   });
 
-  it("refuses to clobber a song already there", () => {
-    addSong({ filename: "x.mp3", bytes: Buffer.from("first"), tags });
-    expect(() =>
+  it("refuses to clobber a song already there", async () => {
+    await addSong({ filename: "x.mp3", bytes: Buffer.from("first"), tags });
+    await expect(
       addSong({ filename: "x.mp3", bytes: Buffer.from("second"), tags }),
-    ).toThrow(SongExistsError);
+    ).rejects.toThrow(SongExistsError);
     expect(readFileSync(join(folder(), "original.mp3"), "utf8")).toBe("first");
   });
 
-  it("replaces when told to, leaving ONE master behind", () => {
-    addSong({ filename: "x.mp3", bytes: Buffer.from("first"), tags });
-    const r = addSong({
+  it("replaces when told to, leaving ONE master behind", async () => {
+    await addSong({ filename: "x.mp3", bytes: Buffer.from("first"), tags });
+    const r = await addSong({
       filename: "x.flac",
       bytes: Buffer.from("second"),
       tags,
@@ -196,8 +230,8 @@ describe("filing an upload", () => {
     ).toEqual(["original.flac"]);
   });
 
-  it("leaves nothing half-written", () => {
-    addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
+  it("leaves nothing half-written", async () => {
+    await addSong({ filename: "x.wav", bytes: tinyWav(), tags });
     expect(readdirSync(folder()).some((n) => n.endsWith(".part"))).toBe(false);
   });
 });
@@ -228,7 +262,7 @@ describe("adding a variant to a song", () => {
     addSongVariant({ folder: rel, filename, bytes: Buffer.from(body) });
 
   it("writes the file beside the master and names it in the sidecar", async () => {
-    song();
+    await song();
     const r = add("instrumental.wav");
     expect(r).toMatchObject({
       path: `${rel}/instrumental.wav`,
@@ -245,16 +279,16 @@ describe("adding a variant to a song", () => {
     ]);
   });
 
-  it("keeps the comments the sidecar was written with", () => {
+  it("keeps the comments the sidecar was written with", async () => {
     // Why this edits text rather than round-tripping the parser, which would drop those lines.
-    song();
+    await song();
     add("instrumental.wav");
-    expect(sidecar()).toContain("# Voir packages/mediatek/docs/songs.md.");
-    expect(sidecar()).toContain('title: "So What"');
+    expect(sidecar()).toContain("# Title, artist, album, tempo and key live");
+    expect(sidecar()).toContain('source: "upload"');
   });
 
   it("puts a second one under the same block", async () => {
-    song();
+    await song();
     add("instrumental.wav");
     add("a cappella.flac");
     expect((await scanFamily("songs"))[0].variants).toEqual([
@@ -266,7 +300,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("re-sending the same file replaces its bytes and declares nothing twice", async () => {
-    song();
+    await song();
     add("instrumental.wav", "first");
     const again = add("instrumental.wav", "second");
     expect(again.declared).toBe(false);
@@ -278,7 +312,7 @@ describe("adding a variant to a song", () => {
 
   it("finds a free name rather than shadowing one", async () => {
     // Two formats of one stem: both are real variants, but the second KEY would replace the first.
-    song();
+    await song();
     add("instrumental.wav");
     expect(add("instrumental.mp3").name).toBe("instrumental 2");
     expect((await scanFamily("songs"))[0].variants).toHaveLength(2);
@@ -316,17 +350,17 @@ describe("adding a variant to a song", () => {
     ).toThrow(VariantRefusedError);
   });
 
-  it("refuses a sidecar whose variants: is not a mapping, rather than breaking it", () => {
+  it("refuses a sidecar whose variants: is not a mapping, rather than breaking it", async () => {
     // A `key: value` line under a LIST makes the file unparseable, which costs the song its title.
-    song();
+    await song();
     putFile(`${rel}/${SONG_FILE}`, "title: So What\nvariants:\n  - a\n  - b\n");
     expect(() => add("instrumental.wav")).toThrow(VariantRefusedError);
     expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
   });
 
-  it("refuses a block written inline, which only the text can tell", () => {
+  it("refuses a block written inline, which only the text can tell", async () => {
     // An inline mapping parses fine, so only the TEXT can tell a line cannot be pushed under it.
-    song();
+    await song();
     putFile(
       `${rel}/${SONG_FILE}`,
       "title: So What\nvariants: {instru: a.wav}\n",
@@ -335,8 +369,8 @@ describe("adding a variant to a song", () => {
     expect(existsSync(join(folder(), "instrumental.wav"))).toBe(false);
   });
 
-  it("refuses what the scan would not see as audio", () => {
-    song();
+  it("refuses what the scan would not see as audio", async () => {
+    await song();
     expect(() => add("notes.txt")).toThrow(NotAudioError);
   });
 });
@@ -364,7 +398,7 @@ describe("removing a variant from a song", () => {
     addSong({ filename: "x.mp3", bytes: Buffer.from("ID3"), tags });
 
   it("removes the file and the sidecar's line, leaving the rest", async () => {
-    song();
+    await song();
     addSongVariant({
       folder: rel,
       filename: "instrumental.wav",
@@ -375,12 +409,12 @@ describe("removing a variant from a song", () => {
     // Omitted rather than empty — the scan only sets the field when there is at least one.
     expect((await scanFamily("songs"))[0].variants).toBeUndefined();
     expect(readFileSync(join(folder(), SONG_FILE), "utf8")).toContain(
-      'title: "So What"',
+      'source: "upload"',
     );
   });
 
   it("keeps a sibling variant's line untouched", async () => {
-    song();
+    await song();
     addSongVariant({
       folder: rel,
       filename: "instrumental.wav",
@@ -397,8 +431,8 @@ describe("removing a variant from a song", () => {
     ]);
   });
 
-  it("refuses a name the sidecar does not declare", () => {
-    song();
+  it("refuses a name the sidecar does not declare", async () => {
+    await song();
     expect(() => removeSongVariant(rel, "nope")).toThrow(VariantRefusedError);
   });
 
@@ -408,8 +442,8 @@ describe("removing a variant from a song", () => {
     );
   });
 
-  it("refuses a block written inline, which only the text can tell", () => {
-    song();
+  it("refuses a block written inline, which only the text can tell", async () => {
+    await song();
     putFile(
       `${rel}/${SONG_FILE}`,
       "title: So What\nvariants: {instru: instrumental.wav}\n",

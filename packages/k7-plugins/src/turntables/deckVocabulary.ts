@@ -32,7 +32,7 @@ export interface DeckLoad {
   id: string;
   /** Whether `stems/` holds this song's four files — a fact about the disk, answered by whoever loads it. */
   stems?: boolean;
-  /** What PL8 knows about the recording, from its `song.yaml` — see mediatek's docs/songs.md.
+  /** What PL8 knows about the recording, from its master's tags — see mediatek's docs/songs.md.
    *
    * Both are facts about the RECORD and not about this set, which is why they arrive with the load
    * rather than out of `mix.k7x`: 87 BPM is 87 BPM in every project that plays it. */

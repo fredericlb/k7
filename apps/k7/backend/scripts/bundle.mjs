@@ -45,6 +45,8 @@ const DATA = [
   "packages/song/samples/video/sample.mp4",
   "packages/commands/commands.yaml",
   "demos",
+  // TagLib, which @studio/mediatek's tags.ts reads from this repo path (packages/mediatek/docs/songs.md).
+  "node_modules/taglib-wasm/dist/taglib-web.wasm",
 ];
 
 // Every source whose `import.meta` was rewritten, printed with --list so DATA can be checked against it.
