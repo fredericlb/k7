@@ -246,8 +246,7 @@ app.use((req, res, next) => {
   if (
     !isLegacyHost(req.hostname) ||
     req.path.startsWith("/api") ||
-    req.path.startsWith("/auth") ||
-    req.path === "/rtc"
+    req.path.startsWith("/auth")
   )
     return next();
   const alias = Object.keys(ALIASES).find((h) => req.hostname.startsWith(h));
@@ -294,7 +293,7 @@ const onListening = () => {
   console.log(`🎛  k7 backend on ${url}  (auth + media library + rehearsal)`);
   media.serve(server, url);
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
-  rehearsal.serve(server);
+  rehearsal.serve();
   localEngine?.start();
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)

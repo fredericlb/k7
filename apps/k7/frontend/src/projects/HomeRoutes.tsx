@@ -21,12 +21,6 @@ import { HomeFrame } from "./HomeFrame";
 import { RehearsalHost } from "./RehearsalHost";
 import { RehearsalPage } from "./RehearsalPage";
 
-const RehearsalRemote = lazy(() =>
-  import("@studio/ui-rehearsal/public").then((m) => ({
-    default: m.RehearsalRemote,
-  })),
-);
-
 /** The home's other pages, fetched when visited: the médiathèque carries the editor stack the login and home pages must not wait for (docs/audit.md). */
 const LibrariesPage = lazy(() =>
   import("./LibrariesPage").then((m) => ({
@@ -76,11 +70,6 @@ export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
               <Route path={ABOUT_ROUTE} element={<AboutPage />} />
               <Route path={TASKS_ROUTE} element={<TasksPage />} />
               <Route path={`${MEDIA_ROUTE}/*`} element={<MediaPage />} />
-              {/* The phone's microphone: a page of its own, outside the frame. */}
-              <Route
-                path={`${REHEARSAL_ROUTE}/remote`}
-                element={<RehearsalRemote />}
-              />
               <Route
                 path={`${REHEARSAL_ROUTE}/*`}
                 element={<RehearsalPage />}

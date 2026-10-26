@@ -30,8 +30,6 @@ a page can be opened by others through its link.
 1. Click the red dot (**New session**) in the sidebar. It is there on every rehearsal page.
 2. Choose where the audio comes from:
    - **This device**: this computer's or phone's microphone or audio interface.
-   - **Remote device**: the microphone of another device that has `/rehearsal/remote` open (see
-     below). The button is disabled when no device is connected there.
    - **k7 chain**: the output of a chain from your library, played on k7's bench (see below).
 3. Allow microphone access if the browser asks.
 
@@ -81,19 +79,6 @@ confirmation, since it is saved nowhere else).
 | The microphone is busy or unavailable | Another app is using it |
 | Microphone access needs a secure context | Open k7 over `https://` (or `http://localhost`) |
 | The input went away mid-take | The take is paused; what came before is kept |
-
-## Using a phone as the microphone
-
-1. On the phone (or any other device), sign in with the same account and open
-   `/rehearsal/remote`. The page reads "Ready. Keep this page open — start a remote session on your
-   other device to begin recording."
-2. Pick its **Input device** and, for a multichannel interface, its **Input channel**: one channel,
-   or **Mix** (every channel summed to mono).
-3. On your main device, start a new session and choose **Remote device**.
-
-The phone streams its microphone directly to the recording device; the waveform, highlights and
-stop button stay on the main device. If another device opens `/rehearsal/remote`, it takes over
-and the first one says so.
 
 ## Recording through a chain
 

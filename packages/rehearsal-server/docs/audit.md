@@ -102,12 +102,10 @@ pauses the recorder with a reason; the envelope keeps recorded time in a hidden 
   moment's audio loads only when played; a range played after another is no longer stopped by the
   first one's listener.
 
-## The relay and the secret
+## The secret
 
-The RTC relay pings every 15 s and closes a socket that missed a pong, so a sleeping phone stops
-reading as connected; a signalling message is capped at 64 KB. A production process
-(`NODE_ENV=production`) refuses to boot on the development `SESSION_SECRET` (`src/env.ts`): the RTC
-tickets and the personal tokens both derive from it.
+A production process (`NODE_ENV=production`) refuses to boot on the development `SESSION_SECRET`
+(`src/env.ts`): the personal tokens derive from it.
 
 ## Left as lots
 

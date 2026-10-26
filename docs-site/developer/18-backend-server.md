@@ -19,7 +19,7 @@ The order is load-bearing; `server.ts` mounts, top to bottom:
 9. **Media library** (`mountMedia`, `apps/k7/backend/src/media/mount.ts`) — Media section.
 10. **Preferences**: `/api/preferences` behind `requireAuth`.
 11. **AI**: `/api/ai/settings` and `/api/ai/organize`.
-12. **Aliases**: on a host starting `play.` or `k7.`, every page (not `/api`, `/auth`, `/rtc`) is redirected 301 to `/media…` or `/rehearsal…` on k7's root origin.
+12. **Aliases**: on a host starting `play.` or `k7.`, every page (not `/api`, `/auth`) is redirected 301 to `/media…` or `/rehearsal…` on k7's root origin.
 13. **The SPA**: precompressed static files from the frontend's build output (`dist` under `apps/k7/frontend`) — hashed assets cached for a year as immutable, the shell `no-cache` and only framable by the same origin — then `index.html` for every path except `/api`, `/auth` and `/assets/` (a missing chunk must 404, not return HTML).
 14. **`jsonErrorHandler`**, last: a JSON body for every error, never a 5xx's message or stack.
 

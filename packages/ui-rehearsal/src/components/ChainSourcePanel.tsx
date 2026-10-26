@@ -1,5 +1,5 @@
 // ChainSourcePanel.tsx — the chain source's screen: pick a chain of the library, see k7's bench
-// playing it in a frame, hear it, then record its output. See ../../docs/chainSource.md.
+// playing it in a frame, choose what feeds its inputs, hear it, then record its output. See ../../docs/chainSource.md.
 //
 // What reads wrong: the panel is HIDDEN during a take, never unmounted — the frame is k7's open
 // bench, and unmounting it would reload k7 and drop its claim on the engine mid-take.
@@ -17,6 +17,7 @@ import type { LiveChain } from "@studio/web-protocol";
 import { useEffect, useRef, useState } from "react";
 import {
   benchUrl,
+  type ChainInputs,
   type ChainPhase,
   type ChainSource,
   listLiveChains,
@@ -24,6 +25,7 @@ import {
 } from "../chainSource";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { m } from "../paraglide/messages.js";
+import { ChainInputsPicker } from "./ChainInputsPicker";
 
 interface Props {
   /** Who k7's session belongs to — the email, else the subject, as k7 spells it. */
@@ -53,6 +55,10 @@ export function ChainSourcePanel({
   const [busy, setBusy] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
+  const [inputs, setInputs] = useState<ChainInputs>({
+    devices: null,
+    nodes: null,
+  });
   const source = useRef<ChainSource | null>(null);
   const dialog = useRef<HTMLDivElement>(null);
   useFocusTrap(shown, dialog);
@@ -70,18 +76,24 @@ export function ChainSourcePanel({
   // One listener per chosen chain; the take's own close() may already have run, which is harmless.
   useEffect(() => {
     if (!chain) return;
-    const s = openChainSource(chain, who, (p) => {
-      setPhase(p);
-      // Heard here by default only when the engine is elsewhere: a local one already plays in the room.
-      if (p.k === "live") {
-        setMonitor(!p.local);
-        s.setMonitor(!p.local);
-      }
-    });
+    const s = openChainSource(
+      chain,
+      who,
+      (p) => {
+        setPhase(p);
+        // Heard here by default only when the engine is elsewhere: a local one already plays in the room.
+        if (p.k === "live") {
+          setMonitor(!p.local);
+          s.setMonitor(!p.local);
+        }
+      },
+      setInputs,
+    );
     source.current = s;
     return () => {
       s.close();
       source.current = null;
+      setInputs({ devices: null, nodes: null });
     };
   }, [chain, who]);
 
@@ -214,6 +226,15 @@ export function ChainSourcePanel({
                 {status}
               </span>
             </div>
+            {phase.k !== "waiting" && phase.k !== "error" && (
+              <ChainInputsPicker
+                inputs={inputs}
+                disabled={!source.current}
+                onPick={(node, chs) =>
+                  source.current?.setChannel(node, chs) ?? Promise.resolve()
+                }
+              />
+            )}
             <div className="meter">
               <div
                 className="meter-fill"

@@ -6,35 +6,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Mic, RadioTower, Workflow } from "@frediverse/ui/icons";
-import { useRehearsalNav } from "../host";
+import { Mic, Workflow } from "@frediverse/ui/icons";
 import { m } from "../paraglide/messages.js";
 
 interface Props {
   open: boolean;
-  // Whether a device is connected at the remote-mic page; null while checking.
-  remoteAvailable: boolean | null;
   busy: boolean;
   error: string | null;
   onLocal: () => void;
-  onRemote: () => void;
   onChain: () => void;
   onClose: () => void;
 }
 
-// Asked when a session starts: this device's microphone, the one at the remote page, or a chain of k7's library.
+// Asked when a session starts: this device's microphone, or a chain of k7's library.
 export function SessionSourceDialog({
   open,
-  remoteAvailable,
   busy,
   error,
   onLocal,
-  onRemote,
   onChain,
   onClose,
 }: Props) {
-  // What to TYPE on the phone: the rehearsal pages' own /remote, under the host's prefix.
-  const remotePath = useRehearsalNav().path("/remote");
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent className="rehearsal-root sm:max-w-md">
@@ -51,18 +43,6 @@ export function SessionSourceDialog({
           </Button>
           <Button
             variant="outline"
-            disabled={busy || remoteAvailable === false}
-            onClick={onRemote}
-            title={
-              remoteAvailable === false
-                ? m["source.noDeviceAt"]({ path: remotePath })
-                : m["source.useDeviceAt"]({ path: remotePath })
-            }
-          >
-            <RadioTower className="size-4" /> {m["source.remote"]()}
-          </Button>
-          <Button
-            variant="outline"
             disabled={busy}
             onClick={onChain}
             title={m["source.useChain"]()}
@@ -70,14 +50,6 @@ export function SessionSourceDialog({
             <Workflow className="size-4" /> {m["source.chain"]()}
           </Button>
         </div>
-
-        <p className="muted small">
-          {remoteAvailable === null
-            ? m["source.checking"]()
-            : remoteAvailable
-              ? m["source.ready"]()
-              : m["source.none"]({ path: remotePath })}
-        </p>
       </DialogContent>
     </Dialog>
   );

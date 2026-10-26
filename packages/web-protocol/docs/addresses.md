@@ -55,8 +55,8 @@ outside this repo's reach name them and cannot be rewritten:
 `serviceUrl` reads each of them as the current origin: the `play.` and `k7.` labels are stripped
 (`ALIAS_LABELS`), and what is left is looked up in `LEGACY_HOSTS`, which names each former host's
 successor — so a supervisor's saved registry heartbeats `app.k7.rocks` directly, and so does the
-supervisor's `Url.cpp`, its twin. On those hosts k7's backend answers `/api/*`, `/auth/*` and
-`/rtc` as on its own, and sends every other path to k7's origin with a 301 — under `/media` from
+supervisor's `Url.cpp`, its twin. On those hosts k7's backend answers `/api/*` and `/auth/*`
+as on its own, and sends every other path to k7's origin with a 301 — under `/media` from
 `play.`, under `/rehearsal` from `k7.` (`isLegacyHost`, `apps/k7/backend/src/server.ts`). Dropping
 one of them is a breakage of those links, not a cleanup.
 

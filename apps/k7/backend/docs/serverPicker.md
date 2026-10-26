@@ -41,6 +41,5 @@ access exactly as that person's browser on the server would.
 
 ## What does not cross
 
-- **The rehearsal recorder's live link** (`/rtc`) is a WebSocket, which the forward does not carry.
 - **This machine's own routes** stay on this backend whatever the choice: the engine registry, the
   slskd settings and the copies placed against the server (`hostBase` in each UI package).

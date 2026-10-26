@@ -1,11 +1,11 @@
-// chainSource.ts — the third session source: a chain of k7's library, played on k7's bench and
+// chainSource.ts — the other session source: a chain of k7's library, played on k7's bench and
 // heard HERE. The editor (in an iframe) opens the rig; the recorder finds the engine holding it, subscribes to its
 // master broadcast and turns that into the MediaStream the recorder takes — ../docs/chainSource.md.
 //
 // What reads wrong: the recorder sends the engine no project, only the subscription. It is a second window on
 // the BENCH's session, which runs beside the person's song rather than replacing it.
 
-import { EngineClient } from "@studio/engine-browser";
+import { EngineClient, type EngineInputDevice } from "@studio/engine-browser";
 import { type EngineAccess, engineAccess } from "@studio/engine-browser/access";
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
@@ -23,6 +23,14 @@ import {
 } from "@studio/web-protocol/projects";
 import { isLoopbackHost } from "@studio/web-protocol/services";
 import { ApiError } from "./api";
+import {
+  type BenchFiles,
+  type BenchInput,
+  readBenchInputs,
+  rememberChannel,
+  rememberedChannels,
+  setBenchChannel,
+} from "./benchInputs";
 import { pl8Base } from "./fetchSong/pl8";
 import { m } from "./paraglide/messages.js";
 
@@ -96,7 +104,16 @@ export type ChainPhase =
   | { k: "live"; stream: MediaStream; local: boolean }
   | { k: "error"; message: string };
 
+/** The bench's live inputs and what can feed them; null fields are still being asked. */
+export interface ChainInputs {
+  /** The interface's inputs as the engine groups them — a stereo pair is ONE device. */
+  devices: EngineInputDevice[] | null;
+  nodes: BenchInput[] | null;
+}
+
 export interface ChainSource {
+  /** Feed the bench's input `node` from `channels`, and remember it for this chain. */
+  setChannel(node: string, channels: number[]): Promise<void>;
   /** Peak of the chain's output over the last block, 0..1 — the panel's meter. */
   level(): number;
   /** Play the chain's output on this device too; the recorder takes it either way. */
@@ -116,6 +133,7 @@ export function openChainSource(
   ref: string,
   email: string,
   onPhase: (p: ChainPhase) => void,
+  onInputs?: (i: ChainInputs) => void,
 ): ChainSource {
   let closed = false;
   let client: EngineClient | null = null;
@@ -127,6 +145,32 @@ export function openChainSource(
   let building = false;
   let local = false;
   const buf = new Float32Array(2048);
+  let files: BenchFiles | null = null;
+  const inputs: ChainInputs = { devices: null, nodes: null };
+  const report = () => onInputs?.({ ...inputs });
+
+  // The bench's graph answers once k7's frame has opened it; what this browser chose for the chain goes back on.
+  const loadInputs = async () => {
+    const deadline = Date.now() + WAIT_MS;
+    while (!closed && files) {
+      try {
+        const nodes = await readBenchInputs(files);
+        const kept = rememberedChannels(ref);
+        for (const n of nodes) {
+          const want = kept[n.node];
+          if (!n.channel && want?.length) {
+            await setBenchChannel(files, n.node, want);
+            n.channel = want;
+          }
+        }
+        inputs.nodes = nodes;
+        return report();
+      } catch {
+        if (Date.now() > deadline) return;
+        await new Promise((r) => setTimeout(r, POLL_MS));
+      }
+    }
+  };
 
   // The stream handed to the recorder once live: a failure after that must reach it, or the take records silence.
   let live: MediaStream | null = null;
@@ -210,11 +254,33 @@ export function openChainSource(
       sessionFor(SESSIONS.bench, email),
     );
     client.onStreamFrame(onFrame);
+    // The interface's inputs, which an empty meter request answers with (k7's useInputDevices.ts).
+    client.onIoLevels((l) => {
+      if (!l.devices) return;
+      inputs.devices = l.devices;
+      report();
+    });
     client.broadcast(true);
     client.connect();
+    client.ioLevels([]);
+    const token = ranked.fileToken ?? ranked.token;
+    if (ranked.fileBase && token) {
+      files = { fileBase: ranked.fileBase, fileToken: token };
+      void loadInputs();
+    }
   };
 
   const source: ChainSource = {
+    async setChannel(node, channels) {
+      if (!files) throw new Error(m["chain.inputsUnreachable"]());
+      await setBenchChannel(files, node, channels);
+      rememberChannel(ref, node, channels);
+      inputs.nodes =
+        inputs.nodes?.map((n) =>
+          n.node === node ? { ...n, channel: channels } : n,
+        ) ?? null;
+      report();
+    },
     level() {
       if (!analyser) return 0;
       analyser.getFloatTimeDomainData(buf);

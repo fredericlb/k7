@@ -126,6 +126,9 @@ export const isDroppableProject = (name: string): boolean =>
 
 /** The bench's reserved repository name, which resolves through no pl8 lookup at all — docs/addresses.md. */
 export const BENCH_REPO = "@banc";
+
+/** The workspace the bench lives in on the machine — reserved by convention, capitalised as `Examples` is. */
+export const BENCH_WORKSPACE = "Banc";
 /** Whether an address names the bench rather than a repository. */
 export function isBench(repo: string): boolean {
   return repo === BENCH_REPO;

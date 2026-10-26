@@ -1,8 +1,8 @@
 # The rehearsal server
 
 `packages/rehearsal-server` (`@studio/rehearsal-server`) is the rehearsal recorder's server half:
-sessions and moments, releases and pages, the songbook, singing exercises, and the signaling for a
-phone used as a microphone. It is mounted inside k7's backend; it has no process of its own.
+sessions and moments, releases and pages, the songbook and singing exercises. It is
+mounted inside k7's backend; it has no process of its own.
 
 ## Mounting
 
@@ -23,9 +23,7 @@ Change a signature in both files.
 - `mediatek` is a `RemoteConfig` (`@studio/mediatek/remote`): the host's own library over loopback
   with a service token. Every audio byte goes there.
 - `server(req)` returns the paired server for a local instance (see below).
-- `serve()` runs the one-time PocketBase import, attaches the `/rtc` signaling socket and starts
-  the cache sweeps. It must run after the library's `serve`, since the signaling listener sits in
-  front of the engine registry's upgrade listener.
+- `serve()` runs the one-time PocketBase import and starts the cache sweeps.
 
 ## Configuration
 
@@ -99,7 +97,6 @@ All under `/api`, behind `requireAuth` unless noted.
 | `/public/pages` (no auth) | `GET /:nametag`, and per version `audio`, `envelope`, `download` (404 unless the release allows downloads) |
 | `/songs` | `GET /`, `POST /`, `GET/PATCH/DELETE /:sid`, `PUT /:sid/favorite`, `GET /:sid/lrclib`, `POST /:sid/sheets`, `GET /:sid/sheets/:fid[/:name]`, `DELETE /:sid/sheets/:fid`, `POST/DELETE /:sid/audio`, `POST /:sid/audio/from-library`, `POST /:sid/instrumental/from-library`, `DELETE /:sid/instrumental`, `GET /:sid/envelope` |
 | `/singing` | `GET /`, `POST /`, `PATCH/DELETE /:eid` |
-| `/rtc` | `GET /ticket`, `GET /remote` |
 | `/token` | `GET /`: a personal API token, session only |
 | `/publications` | Whether releases and pages are reachable from this instance |
 
@@ -137,13 +134,6 @@ in memory. The file service reads the URL and token from `.settings.json` at the
   replaces the server's copy. The copy keeps the device's moment id and carries `SharedFrom`.
 
 The routers mounting these sides are wired in `apps/k7/backend/src/media/routes/serverCopy.ts`.
-
-## Remote microphone signaling
-
-`src/rtc.ts` relays SDP and ICE over a WebSocket at `/rtc` on the shared HTTP server. The upgrade
-cannot read the session cookie, so the page first gets a short-lived ticket (`GET /api/rtc/ticket`)
-and presents it on the socket URL. One `remote` per person; a new one replaces the old. The audio
-itself is peer-to-peer WebRTC between the two browsers.
 
 ## Tests
 

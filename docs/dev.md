@@ -27,7 +27,7 @@ and `k7.` aliases, are still accepted (`LEGACY_DEV_HOSTS`), and k7 moves their p
 > | `priv.st0.app`, `play.priv.st0.app`, `k7.priv.st0.app` | **5223** | k7's dev server, which redirects their pages to `app.priv.k7.rocks` |
 >
 > That is the WHOLE table for k7: its vite dev server already proxies
-> `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
+> `/api` and `/auth` to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
 > `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST.
 >

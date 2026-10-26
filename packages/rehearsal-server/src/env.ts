@@ -31,7 +31,7 @@ const raw = defineEnv(
   { service: "k7-backend" },
 );
 
-// RTC tickets and API tokens both derive from this secret, and setupAuth does not refuse the default.
+// API tokens derive from this secret, and setupAuth does not refuse the default.
 if (process.env.NODE_ENV === "production" && raw.SESSION_SECRET === DEV_SECRET)
   throw new Error(
     "SESSION_SECRET is unset — refusing to sign with the development secret in production",

@@ -92,7 +92,7 @@ its top-level folder (`apps` or `engine`). The resource is named after the packa
 | Server | Port | Notes |
 |---|---|---|
 | k7 backend | `8789` (`PORT`) | Also the production port. |
-| k7 frontend | `5223`, or `$STUDIO_WEB_PORT` | `strictPort`: a clash is a hard failure. Proxies `/api` and `/auth` to the backend, and upgrades WebSockets on `/api/engine`, `/api/sync` and `/rtc`. The backend URL can be moved with `$STUDIO_BACKEND_URL`. |
+| k7 frontend | `5223`, or `$STUDIO_WEB_PORT` | `strictPort`: a clash is a hard failure. Proxies `/api` and `/auth` to the backend, and upgrades WebSockets on `/api/engine` and `/api/sync`. The backend URL can be moved with `$STUDIO_BACKEND_URL`. |
 
 Without `STUDIO_WEB_PORT` the frontend dev server declares the public dev host `app.priv.k7.rocks`
 (`scripts/dev-hosts.mjs`) and points HMR at port 443, for a reverse proxy in front of it. It also

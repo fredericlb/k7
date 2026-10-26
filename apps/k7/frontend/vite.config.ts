@@ -10,8 +10,8 @@ import {
 } from "../../../scripts/dev-hosts.mjs";
 import { noticesPlugin } from "./notices/vitePlugin.ts";
 
-/** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api`, `/app_downloads` or the `/rtc` socket off it. */
-const OTHER_APPS = /^\/(api|auth|rtc|app_downloads)(\/|$)/;
+/** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api` or `/app_downloads` off it. */
+const OTHER_APPS = /^\/(api|auth|app_downloads)(\/|$)/;
 
 /** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
@@ -45,7 +45,7 @@ export default defineAppConfig({
   // `/auth` and the apps' download page alongside the default `/api`, all to THIS app's backend: :8789 runs the origin's OIDC flow, being the service with no prefix.
   proxyPaths: ["/auth", "/app_downloads"],
   // The engine relay, live sync's relay and the rehearsal pages' remote-mic signalling: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
-  wsPaths: ["/api/engine", "/api/sync", "/rtc"],
+  wsPaths: ["/api/engine", "/api/sync"],
   // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.
   host: process.env.STUDIO_WEB_PORT ? undefined : DEV_HOST,
   // No `base`: k7 is the front door, so its assets and routes sit at `/`. Polling only when asked for (`$STUDIO_POLL`), for a tree native file events cannot see.
