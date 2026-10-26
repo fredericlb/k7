@@ -19,6 +19,9 @@ import { existingMaster, familyOf } from "./write.ts";
 /** How long a lookup that found nothing keeps a song from being looked up again. */
 export const LYRICS_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** …and one that could not reach the service: an outage says nothing about the song. */
+export const LYRICS_ERROR_RETRY_MS = 60 * 60 * 1000;
+
 /** Why a lookup left no lyrics: nothing sure enough found, or the service unreachable. */
 export type LyricsMiss = "not-found" | "error";
 
@@ -38,7 +41,7 @@ function lastMiss(rel: string): { at: number; result: string } | null {
   return Number.isFinite(at) ? { at, result: v?.result ?? "" } : null;
 }
 
-/** The query for a song due a lookup, or null: a master and no lyrics, never a K7 release, never within a week of a miss. */
+/** The query for a song due a lookup, or null: a master and no lyrics, never a K7 release, never within a week of a miss — an hour of an outage. */
 export async function lyricsQuery(
   folder: string,
   now = Date.now(),
@@ -51,7 +54,9 @@ export async function lyricsQuery(
   const miss = lastMiss(rel);
   // An instrumental is an answer, not a miss: there is nothing to look for again.
   if (miss?.result === "instrumental") return null;
-  if (miss && now - miss.at < LYRICS_RETRY_MS) return null;
+  const wait =
+    miss?.result === "error" ? LYRICS_ERROR_RETRY_MS : LYRICS_RETRY_MS;
+  if (miss && now - miss.at < wait) return null;
   const abs = writablePath(`${rel}/${master}`);
   const tags = await readMasterTags(abs);
   return {
@@ -62,7 +67,7 @@ export async function lyricsQuery(
   };
 }
 
-/** Write down a lookup that left no lyrics, so the next one waits a week — or, for an instrumental, never comes. */
+/** Write down a lookup that left no lyrics, so the next one waits — a week, an hour for an outage, never for an instrumental. */
 export function recordLyricsMiss(
   folder: string,
   result: LyricsMiss | "instrumental",
