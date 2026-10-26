@@ -172,6 +172,14 @@ type Attempt =
   | { ok: true; srt: string }
   | { ok: false; missing: boolean; error?: string };
 
+/** Whether `bin` is on this machine's PATH, asked by running its `--help`. */
+const present = (bin: string): Promise<boolean> =>
+  new Promise((res) => {
+    const child = spawn(bin, ["--help"], { stdio: "ignore" });
+    child.on("error", (e: NodeJS.ErrnoException) => res(e.code !== "ENOENT"));
+    child.on("close", () => res(true));
+  });
+
 async function attempt(
   bin: string,
   cli: WhisperCli,
@@ -182,7 +190,8 @@ async function attempt(
   try {
     args = cli.args(wav, outDir, process.env.STUDIO_WHISPER_MODEL);
   } catch (e) {
-    // A refusal the adapter itself raised — the tool is pointless without what it asked for.
+    // A refusal the adapter itself raised, which only matters once the tool is there: else it is just missing.
+    if (!(await present(bin))) return { ok: false, missing: true };
     return { ok: false, missing: false, error: (e as Error).message };
   }
   const srtPath = cli.srt(wav, outDir);
