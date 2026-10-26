@@ -187,10 +187,12 @@ keeps one that answers, so a blocked one is simply not chosen. Mixed content sta
 
 ## A media player to the system
 
-A WebView implements the Media Session API and connects it to nothing: a page that sets one gets
-no notification, no lock-screen controls and no headset buttons. The app makes that connection.
-`assets/media-session.js`, a document-start script in every view, wraps `navigator.mediaSession`
-and posts what the page sets to `StudioBridge` (`media`); `MediaPlayback.kt` holds a platform
+Android's WebView has no Media Session API at all — no `navigator.mediaSession`, no `MediaMetadata`
+(crbug.com/40611412) — so a page's player gets no notification, no lock-screen controls and no
+headset buttons, and with no notification the process is not held in front: Android freezes it
+behind, the backend the song streams from with it. The app makes that connection.
+`assets/media-session.js`, a document-start script in every view, stands in both with the
+standard's shape where they are missing, wraps `navigator.mediaSession` and posts what the page sets to `StudioBridge` (`media`); `MediaPlayback.kt` holds a platform
 `MediaSession` and its notification from those messages, and sends each system button back as
 `media-action`, which the script hands to the page's own handler. The page code is the standard
 API (`packages/ui-mini-player/docs/miniPlayer.md`) and knows nothing of Android.

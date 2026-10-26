@@ -1,6 +1,6 @@
 // mediaSession.ts — the bar, told to the system as well: the lock screen, the notification shade and a
 // headset's buttons read the browser's Media Session, which this fills from the bar's own props. On the
-// Android app a WebView's session reaches nothing, so the app relays these same calls to a native one.
+// Android app the WebView has none, so the app stands one in and relays these same calls to a native one.
 // See ../docs/miniPlayer.md.
 
 import { useEffect, useRef } from "react";
