@@ -278,19 +278,6 @@ opening a song page should not spend seconds and a hundred megabytes of memory r
 that never changes; the track only changes when it is relinked, which is exactly when the stored
 envelope is cleared.
 
-## The remote microphone's relay
-
-A second device can serve as the microphone (`packages/ui-rehearsal/docs/audio.md`); the
-signalling goes through `src/rtc.ts`, an upgrade listener on `/rtc` that sits in front of the
-engine registry's and leaves every other upgrade to it. It is attached after the media library's
-`serve` for that reason.
-
-There is **one signalling room per user**, with at most one socket per role: the "one remote
-device" rule falls out of the single `remote` slot. A newcomer replaces whoever occupied its role —
-typically the remote device reconnecting after a refresh: the most recent wins, and the old one is
-closed so it stops believing itself online. Signalling payloads (`offer`, `answer`, `ice`, `want`)
-are relayed as they are, without the server looking at them.
-
 ## Configuration
 
 Read from k7's backend section of `env.yaml` (`src/env.ts`): `K7_DATA_DIR` — the store

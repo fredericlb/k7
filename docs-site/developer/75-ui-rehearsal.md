@@ -1,15 +1,15 @@
 # The rehearsal screens
 
 `packages/ui-rehearsal` (`@studio/ui-rehearsal`) draws the rehearsal recorder: sessions and
-moments, publications, the songbook, exercises, the recorder's pop-in, the phone microphone page
-and the public page. k7 mounts it under `/rehearsal`.
+moments, publications, the songbook, exercises, the recorder's pop-in and the public
+page. k7 mounts it under `/rehearsal`.
 
 ## Entry points
 
 | Export | File | For |
 |---|---|---|
-| `.` | `src/index.ts` | What a host's entry imports: `configureRehearsal`, `RehearsalHostProvider`, `followLocale`, `RehearsalRecording`, `NewSessionButton`, `REHEARSAL_SECTIONS`, `rehearsalSectionAt`, `isSongPage`, `publicPageAt`, `isRemoteMic` |
-| `./pages` | `src/pages.ts` | `RehearsalRoutes`, `RehearsalPublicPage`, `RehearsalRemote`, loaded as a lazy chunk |
+| `.` | `src/index.ts` | What a host's entry imports: `configureRehearsal`, `RehearsalHostProvider`, `followLocale`, `RehearsalRecording`, `NewSessionButton`, `REHEARSAL_SECTIONS`, `rehearsalSectionAt`, `isSongPage`, `publicPageAt` |
+| `./pages` | `src/pages.ts` | `RehearsalRoutes`, `RehearsalPublicPage`, loaded as a lazy chunk |
 | `./settings` | `src/settings.ts` | `RehearsalSettings`, the host settings page's section |
 
 The split keeps the heavy screens (alphaTab, pdf-lib, the EPUB generator) out of k7's first load.
@@ -18,8 +18,8 @@ The split keeps the heavy screens (alphaTab, pdf-lib, the EPUB generator) out of
 
 As in the media library, two channels:
 
-- `configureRehearsal({ apiBase, pagesPrefix })` (`src/config.ts`), module-level, for `src/api.ts`,
-  `src/rtc.ts` and `src/fetchSong/pl8.ts`.
+- `configureRehearsal({ apiBase, pagesPrefix })` (`src/config.ts`), module-level, for `src/api.ts`
+  and `src/fetchSong/pl8.ts`.
 - `RehearsalHostProvider` (`src/host.tsx`): `{ prefix, user, onLogout?, settingsHref? }`.
 
 Every navigation goes through `useRehearsalNav()` (`path()` and `go()` under the prefix): a bare
@@ -73,9 +73,6 @@ the upload may fail the save, or a retry would upload the take twice.
 Sources:
 
 - Local microphone: `acquireMicrophone` from `@studio/recorder`.
-- Remote device: `src/rtc.ts` opens the signaling socket with a ticket and receives a peer-to-peer
-  MediaStream; `src/views/RemoteMicView.tsx` and `src/hooks/useRemoteInput.ts` are the phone's side
-  (device, channel or mono mix).
 - k7 chain: `src/chainSource.ts` and `src/components/ChainSourcePanel.tsx`. k7's bench opens the
   chain in an iframe; the recorder finds the engine holding it, subscribes to its master broadcast,
   and turns that into a MediaStream. It sends the engine no project. The panel is hidden during a

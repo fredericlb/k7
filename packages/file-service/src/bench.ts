@@ -6,13 +6,17 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldLive } from "@studio/song/scaffoldLive";
-import { BENCH_PROJECT, benchChainOf } from "@studio/web-protocol/projects";
+import {
+  BENCH_PROJECT,
+  BENCH_WORKSPACE,
+  benchChainOf,
+} from "@studio/web-protocol/projects";
 import { spliceChain } from "./benchChain.ts";
 import { refreshLibraries } from "./libraries.ts";
 import { workspaceRoot } from "./slug.ts";
 
-/** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
-export const BENCH_WORKSPACE = "Banc";
+// Re-exported for the file service's own modules; the browser reads it from web-protocol, which is why it lives there.
+export { BENCH_WORKSPACE };
 
 /**
  * The bench's project folder, whether or not it exists: the directory the ACCOUNT's own views

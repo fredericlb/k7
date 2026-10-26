@@ -1,9 +1,9 @@
 // config.ts — what the fetch layer needs from its host, set once by `configureRehearsal` before the
-// first render. Module-level on purpose: api.ts, rtc.ts and pl8.ts are not components, so a React
+// first render. Module-level on purpose: api.ts and pl8.ts are not components, so a React
 // context cannot reach them; what a COMPONENT needs comes through host.tsx instead.
 
 export interface RehearsalConfig {
-  /** Where the rehearsal `/api/*` and `/rtc` answer — "" for the host's own origin root. */
+  /** Where the rehearsal `/api/*` answers — "" for the host's own origin root. */
   apiBase: string;
   /** Where THIS machine's routes answer when `apiBase` is another server's: its library, hunt and engines; unset is `apiBase`. */
   hostBase?: string;

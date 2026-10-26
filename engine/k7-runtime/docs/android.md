@@ -134,7 +134,7 @@ What the app views do that a browser would do on its own:
   is same-origin with its `/auth`, so the views need no third-party cookies. Only `http`, `https`,
   `mailto` and `tel` are handed to another app; any other scheme a page names is dropped, since a
   `file:` or `intent:` URI handed out exposes or launches what it should not.
-- **The microphone and the camera** go to the studio's apps only (the rehearsal recorder's remote mic, a picture
+- **The microphone and the camera** go to the studio's apps only (the rehearsal recorder's take, a picture
   lane's take, the `live-video` webcam), and only once the app holds RECORD_AUDIO or CAMERA, asked for when a page
   first wants it (below).
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer

@@ -77,13 +77,13 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
   const begin = useCallback(
     async (
       stream: MediaStream,
-      rtc?: { close: () => void },
+      release?: { close: () => void },
       chain?: boolean,
     ) => {
       const s = await api.createSession();
       bump();
       loadTags();
-      setRecording({ session: s, stream, rtc, chain });
+      setRecording({ session: s, stream, release, chain });
       setSourceOpen(false);
       // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
       setRecOpen(!isSongPage(pathname, prefix));
@@ -169,14 +169,14 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
         })
         .catch(() => {});
     }
-    recording.rtc?.close();
+    recording.release?.close();
     setRecording(null);
     bump();
     go(`/sessions/${updated.id}`);
   };
 
   const discard = () => {
-    recording?.rtc?.close();
+    recording?.release?.close();
     setRecording(null);
     bump();
     go("/sessions");

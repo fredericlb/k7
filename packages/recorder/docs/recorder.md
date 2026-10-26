@@ -68,7 +68,7 @@ may cost the length of the take:
   Download is the way back rather than an upload, because re-uploading would need an envelope the
   backup does not hold.
 - **A source that dies is said, and the take pauses.** An input that ends mid-take — a microphone
-  unplugged, a remote device gone, a chain that failed — shows why and pauses the recorder, keeping
+  unplugged, a chain that failed — shows why and pauses the recorder, keeping
   what came before instead of recording silence. Every source reaches the recorder as a
   `MediaStream`, so a failure after the connection was made arrives as an `ended` on the stream's
   tracks, the one event it listens for.

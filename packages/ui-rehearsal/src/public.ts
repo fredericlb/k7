@@ -1,4 +1,4 @@
-// public.ts — the two rehearsal screens a host draws outside its frame, as a lazy chunk of their own.
+// public.ts — the rehearsal screen a host draws outside its frame, as a lazy chunk of its own.
 // What reads wrong: a visitor of a public page loads this and none of the signed-in pages (../docs/routing.md).
 
-export { RehearsalPublicPage, RehearsalRemote } from "./PublicPages";
+export { RehearsalPublicPage } from "./PublicPages";

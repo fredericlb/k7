@@ -73,8 +73,7 @@ A file a remote op just wrote is recorded in the ledger first, so the watcher do
 
 ## Transport
 
-A WebSocket on k7's backend, `/api/sync`, in the same upgrade chain as the rehearsal room
-(`../packages/rehearsal-server/src/rtc.ts`).
+A WebSocket on k7's backend, `/api/sync`, in the same upgrade chain as the engine registry.
 
 - **File services connect to it as clients,** the server's own included. A machine's file service is
   Node and dials out by itself, so the tunnel's rule that only the server opens a channel

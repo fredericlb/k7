@@ -149,6 +149,29 @@
     gap: 8px;
     margin: 8px 0;
   }
+  /* One row per live input of the bench: its node, then what feeds it. */
+  .chain-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 0;
+  }
+  .chain-inputs > legend {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+  .chain-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .chain-input select {
+    min-width: 12rem;
+    max-width: 100%;
+  }
 
   /* The recorder's own bottom bar (@studio/recorder) sits on the host's column: past its sidebar, above its bar. */
   .rec-bar {

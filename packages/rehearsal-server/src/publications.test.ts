@@ -74,9 +74,9 @@ beforeAll(async () => {
   });
   // A route of another service on the same `/api`, which the rehearsal import must never hold up.
   app.get("/api/other", (_req, res) => res.json({ ok: true }));
-  const { url, server } = await listen(app);
+  const { url } = await listen(app);
   local = url;
-  rehearsal.serve(server);
+  rehearsal.serve();
 });
 
 afterAll(async () => {

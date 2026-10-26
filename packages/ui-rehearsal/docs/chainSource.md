@@ -1,9 +1,9 @@
 # Recording through a chain of k7's library
 
-The third answer to "where should the audio come from?", beside this device and the remote one: a
+The other answer to "where should the audio come from?", beside this device's microphone: a
 **chain** of the account's library, played live, and recorded here. The take is an ordinary
 session — same waveform, same highlights, same upload — because what reaches the recorder is a
-`MediaStream` like the other two.
+`MediaStream` like the microphone's.
 
 ## The bench plays it, the rehearsal page records it
 
@@ -40,6 +40,24 @@ The frame is **hidden during the take, never unmounted**. Unmounting it reloads 
 of its claim on the engine; kept alive, it can be brought back from the recorder's header (**Chain**)
 to adjust a knob mid-take.
 
+## Choosing the inputs
+
+A fresh bench feeds nothing: its `IN` node names no channel, since which socket you are plugged into
+is a fact about the rig (`packages/song/docs/liveProject.md`). So the panel lists **every live input
+of the bench** — a node whose step carries `monitor`, which a chain's own steps or a node added in the
+frame can be as well as `IN` — each with a select of the interface's inputs (`ChainInputsPicker.tsx`,
+`src/benchInputs.ts`). Asked here rather than only on the frame's card, because it is the one question
+a take cannot start without.
+
+- **The list is the engine's grouping**, read from the bench's socket by an empty `io-levels`: a
+  stereo pair is one entry. A lone half of a pair matches nothing on the engine and stays silent, so
+  raw channel numbers are not offered.
+- **The choice is k7's own command**, `node param <node> @channel 1,2`, sent to the bench's file
+  service (`Banc` workspace) with the probe's file token — the line the node card sends, so the frame
+  redraws it and the engine hears it the same way.
+- **It is remembered per chain, in this browser**, and put back on every open: the bench is rebuilt
+  each time, and a rig is plugged the same way from one take to the next.
+
 ## How the sound reaches the recorder
 
 The engine already broadcasts a session's master bus to any socket that subscribes
@@ -73,6 +91,8 @@ None of this is covered past `chainSource.test.ts` and `packages/file-service/sr
 
 - New session → **k7 chain** → the library's chains are listed, cold ones greyed with the reason;
 - pick one → the bench opens in the frame, with the chain between `IN` and `fader`;
+- the **Inputs** row lists `IN` with the interface's inputs; picking one shows on the frame's `IN`
+  card, and the meter moves when that input is played; reopen the chain → the choice is back;
 - the status goes *waiting* → *connecting* → *live*, and the meter moves when the input is played;
 - **Record** → the recorder draws the usual live waveform; **Chain** in its header brings the bench back;
 - with a song open in another k7 tab → it stays open and loaded, and the bench opens on its engine;

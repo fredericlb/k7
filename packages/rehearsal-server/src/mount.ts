@@ -4,7 +4,6 @@
 // What reads wrong: it must be mounted BEFORE the media library, whose catch-all `/api` guard is
 // session-only — the public pages are unguarded and the releases take k7's own bearer.
 
-import type { Server } from "node:http";
 import type { RemoteConfig } from "@studio/mediatek/remote";
 import {
   type Express,
@@ -29,12 +28,10 @@ import { momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
 import { publicPagesRouter } from "./routes/publicPages.ts";
 import { releasesRouter } from "./routes/releases.ts";
-import { rtcRouter } from "./routes/rtc.ts";
 import { sessionsRouter } from "./routes/sessions.ts";
 import { singingRouter } from "./routes/singing.ts";
 import { songsRouter } from "./routes/songs.ts";
 import { tokenRouter } from "./routes/token.ts";
-import { attachRtc } from "./rtc.ts";
 import { startCacheSweeps } from "./store.ts";
 
 export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
@@ -46,9 +43,9 @@ export {
 export { songbookCopyRouter, songbookDeviceRouter } from "./songbookCopy.ts";
 
 export interface RehearsalMount {
-  /** The boot work once the server listens: the one-time PocketBase import, the phone-mic signaling, the cache sweeps. */
-  serve(server: Server): void;
-  /** Close the signaling and stop the sweeps; idempotent. */
+  /** The boot work once the server listens: the one-time PocketBase import and the cache sweeps. */
+  serve(): void;
+  /** Stop the sweeps; idempotent. */
   stop(): Promise<void>;
 }
 
@@ -70,7 +67,6 @@ const REHEARSAL_PATHS = [
   "/public/pages",
   "/songs",
   "/singing",
-  "/rtc",
   "/token",
   "/publications",
 ];
@@ -109,17 +105,15 @@ export const mountRehearsal = (
   api.use("/public/pages", publicPagesRouter);
   api.use("/songs", requireAuth, songsRouter);
   api.use("/singing", requireAuth, singingRouter);
-  api.use("/rtc", requireAuth, rtcRouter);
   // `/token/publish` only: the rest of `/api/token` falls through to the media library.
   api.use("/token", requireAuth, tokenRouter);
   api.use(jsonErrors);
   app.use("/api", api);
 
-  let stopRtc: (() => void) | undefined;
   let stopSweeps: (() => void) | undefined;
 
   return {
-    serve(server) {
+    serve() {
       console.log(`   rehearsal: data in ${env.dataDir}`);
       // Once, while none of its rows is here and a PocketBase is named: the server's rows move out of it — ../docs/store.md.
       const pb = env.pocketbase;
@@ -148,14 +142,11 @@ export const mountRehearsal = (
           },
         );
       }
-      // After the media library's serve: the registry's upgrade listener must already be there to sit behind this one.
-      stopRtc = attachRtc(server);
       stopSweeps = startCacheSweeps();
     },
     async stop() {
-      stopRtc?.();
       stopSweeps?.();
-      stopRtc = stopSweeps = undefined;
+      stopSweeps = undefined;
     },
   };
 };

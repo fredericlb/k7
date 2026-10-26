@@ -9,14 +9,12 @@ import {
   RecorderView,
 } from "@studio/recorder";
 import { type ComponentProps, useEffect, useRef, useState } from "react";
-import { api } from "../api";
 import { ChainSourcePanel } from "../components/ChainSourcePanel";
 import { SessionSourceDialog } from "../components/SessionSourceDialog";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useRehearsalHost } from "../host";
 import { m } from "../paraglide/messages.js";
 import { micErrors, recorderLabels } from "../recorderLabels";
-import { connectRemoteMic } from "../rtc";
 import type { RecordingCtx } from "./context";
 import "../styles/index.css";
 
@@ -33,7 +31,11 @@ interface Props {
   setChainOpen: (open: boolean) => void;
   chainShown: boolean;
   setChainShown: (shown: boolean) => void;
-  begin: (stream: MediaStream, rtc?: Close, chain?: boolean) => Promise<void>;
+  begin: (
+    stream: MediaStream,
+    release?: Close,
+    chain?: boolean,
+  ) => Promise<void>;
   onSave: ComponentProps<typeof RecorderView>["onSave"];
   onDiscard: () => void;
 }
@@ -54,27 +56,12 @@ export default function RecordingOverlay({
   onDiscard,
 }: Props) {
   const { user } = useRehearsalHost();
-  const [remoteAvailable, setRemoteAvailable] = useState<boolean | null>(null);
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
 
-  // Keep probing while the chooser is open, so the option enables as soon as a device connects.
+  // A fresh chooser says nothing of the last attempt's failure.
   useEffect(() => {
-    if (!sourceOpen) return;
-    setSourceError(null);
-    setRemoteAvailable(null);
-    let alive = true;
-    const check = () =>
-      api
-        .rtcRemoteStatus()
-        .then((r) => alive && setRemoteAvailable(r.connected))
-        .catch(() => alive && setRemoteAvailable(false));
-    check();
-    const id = setInterval(check, 2000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
+    if (sourceOpen) setSourceError(null);
   }, [sourceOpen]);
 
   const startLocal = async () => {
@@ -95,25 +82,7 @@ export default function RecordingOverlay({
     }
   };
 
-  const startRemote = async () => {
-    setSourceBusy(true);
-    setSourceError(null);
-    try {
-      const conn = await connectRemoteMic();
-      try {
-        await begin(conn.stream, conn);
-      } catch (err) {
-        conn.close();
-        throw err;
-      }
-    } catch (err) {
-      setSourceError((err as Error).message);
-    } finally {
-      setSourceBusy(false);
-    }
-  };
-
-  // The third source: the chooser gives way to the chain panel — ../../docs/chainSource.md.
+  // The other source: the chooser gives way to the chain panel — ../../docs/chainSource.md.
   const startChain = () => {
     setSourceOpen(false);
     setChainShown(true);
@@ -122,14 +91,14 @@ export default function RecordingOverlay({
 
   // Record the chain's output; ending the take closes the listener AND the panel with its frame.
   const recordChain = async (stream: MediaStream, close: () => void) => {
-    const rtc = {
+    const release = {
       close: () => {
         close();
         setChainOpen(false);
         setChainShown(false);
       },
     };
-    await begin(stream, rtc, true);
+    await begin(stream, release, true);
     setChainShown(false);
   };
 
@@ -196,11 +165,9 @@ export default function RecordingOverlay({
 
       <SessionSourceDialog
         open={sourceOpen}
-        remoteAvailable={remoteAvailable}
         busy={sourceBusy}
         error={sourceError}
         onLocal={startLocal}
-        onRemote={startRemote}
         onChain={startChain}
         onClose={() => setSourceOpen(false)}
       />

@@ -12,8 +12,8 @@ export interface RecordingCtx {
   resumeFrom?: number;
   /** The saved recording's envelope, shown as history behind the new take. */
   baseEnvelope?: Envelope;
-  /** Present for a stream that needs tearing down: the WebRTC connection, or the chain's listener. */
-  rtc?: { close: () => void };
+  /** Present for a stream that needs tearing down: the chain's listener and its panel. */
+  release?: { close: () => void };
   /** Recorded through a chain of k7's library, whose panel stays mounted for the take. */
   chain?: boolean;
 }

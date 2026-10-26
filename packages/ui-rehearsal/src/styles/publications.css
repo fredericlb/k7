@@ -80,7 +80,7 @@
     font-size: 12px;
   }
 
-  /* ---- New-session source chooser & remote mic ---------------------------- */
+  /* ---- New-session source chooser ------------------------------------------ */
 
   .source-choices {
     display: flex;
@@ -89,28 +89,6 @@
   }
   .source-choices > * {
     flex: 1;
-  }
-
-  .remote-mic {
-    max-width: 520px;
-    margin: 24px auto;
-  }
-
-  .remote-inputs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin: 12px 0;
-  }
-  .remote-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-    min-width: 180px;
-  }
-  .remote-field select {
-    width: 100%;
   }
 
   /* ---- Metronome (a panel of the song page's rail) ------------------------- */

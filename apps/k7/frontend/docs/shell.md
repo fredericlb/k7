@@ -1881,7 +1881,7 @@ already draws.
 
 **The scope is `/`, the whole origin, and it cannot be narrower — this is the part k7 owns alone.** A
 worker's scope is a prefix and k7's own routes ARE the root, `/@local/…`. So this worker also
-controls `/api`, `/auth` and `/rtc`. The media library and the rehearsal pages are k7's own routes,
+controls `/api` and `/auth`. The media library and the rehearsal pages are k7's own routes,
 so the worker serving them is right. The only thing keeping k7's honest is the `pwaDenylist` it
 passes to `defineAppConfig` (`OTHER_APPS` in `vite.config.ts`): without it, a navigation to one of
 those paths is answered with k7's `index.html`, and the editor's router refuses an address it

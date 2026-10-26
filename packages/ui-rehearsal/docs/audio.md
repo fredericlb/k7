@@ -1,6 +1,6 @@
 # Audio in the rehearsal pages
 
-What the pages do with sound: where a take is drawn, how a remote device becomes a microphone, how
+What the pages do with sound: where a take is drawn, how
 a song's reference track is played, transposed and fetched. Where the bytes are stored is the
 server's page (`packages/rehearsal-server/docs/audio.md`); how a take is captured is the
 recorder's (`packages/recorder/docs/recorder.md`).
@@ -43,46 +43,11 @@ timeline is offset by the length of the existing envelope, so the two stretches 
 edge. The recorder's own timeline — detected moments, listening, pending annotations — stays
 relative to the new take.
 
-## Three sources, one recorder
+## Two sources, one recorder
 
-This device's microphone, a remote device (below), or a chain of k7's library played on k7's
+This device's microphone or a chain of k7's library played on k7's
 bench ([chainSource.md](chainSource.md)). Each reaches the recorder as a `MediaStream`, so the
 waveform, the moments and the upload are the same whatever the source.
-
-## The remote microphone: a Web Audio bridge
-
-A second device, signed in to the same account, opens `/rehearsal/remote` and serves as the
-microphone: signalling goes over a WebSocket to the server's relay
-(`packages/rehearsal-server/docs/audio.md`), the audio over a direct WebRTC stream between the two
-devices. The resulting `MediaStream` is handed to the normal recorder.
-
-A public STUN server is enough for two devices on one network, and for many NATs; a symmetric NAT
-would want a TURN, out of scope here.
-
-Two detours, both measured:
-
-- **`MediaRecorder` does not reliably record a remote WebRTC track.** It often yields an empty or
-  silent file while the meter — a Web Audio analyser on the same track — shows signal. The remote
-  audio is therefore re-routed through the local `AudioContext` into a fresh
-  `MediaStreamDestination`, and it is that locally made stream that is recorded.
-- **That bridge context must be running**, or its output is silence. Autoplay policy only allows
-  resuming it from a user gesture, and by the time `ontrack` fires the click is long past: it is
-  therefore created and resumed immediately, as the first synchronous step, while the click that
-  called is still the active gesture.
-
-### Changing input without cutting the stream
-
-The remote device chooses its device and, if it has several, its input channel — one input of an
-audio interface, say; `"mix"` sums every channel to mono. Capture asks for the **raw** device,
-unprocessed and with many channels, so individual channels survive, and falls back progressively
-to more modest constraints for devices or browsers that refuse rich ones.
-
-Changing device or channel **rewires the graph upstream** of a fixed destination node: the
-gain → destination → analyser tail does not move, so the output `MediaStream`'s track never
-changes and the WebRTC sender feeding the recorder carries on uncut.
-
-A muted `<audio>` element also receives the remote stream: some Chrome versions only run their
-receive pipeline once the track is attached to a media element.
 
 ## Releases and pages: one player
 

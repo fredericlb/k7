@@ -173,8 +173,7 @@ the account's file-service state and outside every workspace.
 
 ## In front of the other upgrade listeners
 
-It installs itself in front of the existing `upgrade` listeners, as the rehearsal room does
-(`../../rehearsal-server/src/rtc.ts`). The engine registry's listener closes an upgrade it does not
+It installs itself in front of the existing `upgrade` listeners. The engine registry's listener closes an upgrade it does not
 recognise when it is the only listener.
 
 ## Change notices for the browsers
