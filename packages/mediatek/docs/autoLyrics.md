@@ -20,10 +20,14 @@ lyricsSearch:
 ```
 
 The mark lives with the song rather than in a table of the backend: it travels with the folder to
-a paired machine, survives a restart, and is gone with the song. A lookup that found nothing and an
-unreachable service are both a miss, and **the next lookup waits at least a week**
-(`LYRICS_RETRY_MS`): LRCLIB is crowdsourced, so a song missing today may be there later, and asking
-on every play would ask a free service the same question all day.
+a paired machine, survives a restart, and is gone with the song. A lookup that found nothing is a
+miss, and **the next lookup waits at least a week** (`LYRICS_RETRY_MS`): LRCLIB is crowdsourced, so
+a song missing today may be there later, and asking on every play would ask a free service the
+same question all day.
+
+**An outage waits an hour** (`LYRICS_ERROR_RETRY_MS`, `result: error`): LRCLIB not answering, or
+answering an error, says nothing about the song, and a week would punish every song played during a
+blip. An hour is still long enough that a service down for the evening is not asked on every play.
 
 **A master with no title tag is not a miss**: nothing was asked, so nothing is held back. A library
 whose sidecars still carry the names (`songs.md`) would otherwise mark every song it plays, and

@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  LYRICS_ERROR_RETRY_MS,
   LYRICS_RETRY_MS,
   lyricsQuery,
   recordFoundLyrics,
@@ -78,6 +79,13 @@ describe("who is due a lookup", () => {
     );
     expect(await lyricsQuery(SONG, t0 + LYRICS_RETRY_MS - 1)).toBeNull();
     expect(await lyricsQuery(SONG, t0 + LYRICS_RETRY_MS)).not.toBeNull();
+  });
+
+  it("an outage holds it back an hour only: it says nothing about the song", async () => {
+    const t0 = Date.parse("2026-10-01T00:00:00Z");
+    recordLyricsMiss(SONG, "error", t0);
+    expect(await lyricsQuery(SONG, t0 + LYRICS_ERROR_RETRY_MS - 1)).toBeNull();
+    expect(await lyricsQuery(SONG, t0 + LYRICS_ERROR_RETRY_MS)).not.toBeNull();
   });
 
   it("an instrumental is never looked up again", async () => {

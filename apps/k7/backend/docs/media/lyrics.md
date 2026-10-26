@@ -20,6 +20,12 @@ when its length is within five seconds of the master's (`pickRecord`,
 artist and title are the same words. Timed lyrics are preferred; plain ones are kept when nothing
 timed fits, since the songbook shows them all the same.
 
+## A miss and an outage wait differently
+
+Nothing found holds a song back a week; LRCLIB unreachable or answering an error holds it back an
+hour (`packages/mediatek/docs/autoLyrics.md`). The queue tells the two apart by whether the lookup
+threw.
+
 ## Off where it must be
 
 A test run never asks LRCLIB, and `STUDIO_LYRICS_LOOKUP=off` turns the lookups off for a

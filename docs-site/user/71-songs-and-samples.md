@@ -60,7 +60,8 @@ open usually has its waveform ready.
 It also looks the song's lyrics up on [LRCLIB](https://lrclib.net), a free lyrics database, and does
 the same the first time a song with no lyrics is played. Lyrics are kept only when the recording's
 length matches, timed when LRCLIB has them, and the song then appears in the
-[songbook](./77-songbook.md). When nothing is found, the song is not looked up again for a week.
+[songbook](./77-songbook.md). When nothing is found, the song is not looked up again for a week;
+when LRCLIB cannot be reached, it is tried again an hour later.
 
 ### The song screen
 
