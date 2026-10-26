@@ -1,6 +1,7 @@
 import { input } from "@studio/ffmpeg";
 import { describe, expect, it } from "vitest";
 import {
+  CLIS,
   extractAudioArgs,
   parseSrt,
   srtOf,
@@ -74,6 +75,13 @@ describe("extractAudioArgs", () => {
   it("opens the user's video under the protocol whitelist", () => {
     const args = extractAudioArgs("/ws/clip.mov", "/tmp/a.wav");
     expect(args.join("\0")).toContain(input("/ws/clip.mov").join("\0"));
+  });
+});
+
+describe("whisper-cli's arguments", () => {
+  it("detects the language, since its English default translates French", () => {
+    const args = CLIS["whisper-cli"]?.args("/a.wav", "/out", "/m.bin") ?? [];
+    expect(args.join(" ")).toContain("-l auto");
   });
 });
 

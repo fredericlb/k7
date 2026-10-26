@@ -133,7 +133,7 @@ interface WhisperCli {
   srt: (wav: string, outDir: string) => string;
 }
 
-const CLIS: Record<string, WhisperCli> = {
+export const CLIS: Record<string, WhisperCli> = {
   // openai-whisper names its output after the input's stem and manages its own model downloads.
   whisper: {
     args: (wav, outDir, model) => [
@@ -159,6 +159,9 @@ const CLIS: Record<string, WhisperCli> = {
         wav,
         "-m",
         model,
+        // Its default is English, which TRANSLATES any other speech; openai-whisper detects the language.
+        "-l",
+        "auto",
         "-osrt",
         "-of",
         join(outDir, "transcribe"),
