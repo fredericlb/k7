@@ -71,6 +71,7 @@ import type { MaybeClipboard } from "./clipboard";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
+import { BarEngine } from "./components/BarEngine";
 import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
@@ -1026,6 +1027,8 @@ export default function App({
 
   /** How tall the floating bar is, so the popin can stop ABOVE it — measured, since the bar's row depends on what it holds. */
   const stripRef = useRef<HTMLDivElement | null>(null);
+  // The bar wherever it is drawn: the home drawer stops at its top edge.
+  const barRef = useRef<HTMLDivElement | null>(null);
   const [stripH, setStripH] = useState(0);
   useEffect(() => {
     const el = stripRef.current;
@@ -2655,9 +2658,22 @@ export default function App({
       {project?.name || "…"}
     </a>
   );
-  // How the engine is doing: the light, the latency, the memory (components/EngineLink.tsx); it is CHOSEN in the sidebar.
+  // How the engine is doing: the light, the latency, the memory (components/EngineLink.tsx); it is CHOSEN in the bar's engine slot.
   const engineLink = !frozen && (
     <EngineLink connected={connected} latency={engineLatency} />
+  );
+  // The project bar's engine slot, right of the pages: which engine plays, its figures, and Change, which is `ui engine` (docs/shell.md).
+  const barEngine = frozen ? null : (
+    <BarEngine
+      current={engine ?? null}
+      searching={engineSearching}
+      compat={engineCompat}
+      audioToBrowser={audioToBrowser}
+      stats={engineLink}
+      compact={isMobile}
+      toolSize={toolSize}
+      onChange={onChangeEngine}
+    />
   );
 
   // The mix leaving for the interface, right of the minimap in the bar's centre; no phone fits it and a snapshot has no engine.
@@ -2894,7 +2910,7 @@ export default function App({
       )}
     </span>
   );
-  // What the header held beside the name: the engine's health, a share's lock, the workspace warning — after the name in the bar's left slot.
+  // After the name in the bar's left slot: a phone's info icon, a share's lock, the workspace warning.
   const barState = (
     <>
       {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
@@ -2911,9 +2927,7 @@ export default function App({
             <TempoMeter recInfo={recInfo} runCommand={runCommand} />
           </div>
         </MobileInfo>
-      ) : (
-        engineLink
-      )}
+      ) : null}
       {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
       {snapshot && (
         <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -2930,48 +2944,51 @@ export default function App({
 
   // The project bar, built once: it is drawn under the panes, or over the editor popin (docs/shell.md, "The project bar").
   const projectBar = (
-    <ProjectBar
-      lead={
-        <>
-          {barLead}
-          {barState}
-        </>
-      }
-      trail={barTrail}
-      meter={masterMeter}
-      recInfo={recInfo}
-      transport={
-        showTransport
-          ? {
-              toolSize,
-              playing,
-              transportWaiting,
-              recordWithoutArm,
-              transport,
-              noArrangement,
-              recordEnabled,
-              midiArmed,
-              openMidiInputs,
-              setStatus,
-              engineRef,
-              armForRecord,
-              loopOn: !!loopState?.on,
-              onLoop: toggleTransportLoop,
-            }
-          : null
-      }
-      map={
-        noArrangement
-          ? null
-          : {
-              // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
-              automation: laneNodes.automation,
-              caret,
-              highlight: openItem,
-              onSeek: seek,
-            }
-      }
-    />
+    <div ref={barRef} className="shrink-0">
+      <ProjectBar
+        lead={
+          <>
+            {barLead}
+            {barState}
+          </>
+        }
+        trail={barTrail}
+        engine={barEngine}
+        meter={masterMeter}
+        recInfo={recInfo}
+        transport={
+          showTransport
+            ? {
+                toolSize,
+                playing,
+                transportWaiting,
+                recordWithoutArm,
+                transport,
+                noArrangement,
+                recordEnabled,
+                midiArmed,
+                openMidiInputs,
+                setStatus,
+                engineRef,
+                armForRecord,
+                loopOn: !!loopState?.on,
+                onLoop: toggleTransportLoop,
+              }
+            : null
+        }
+        map={
+          noArrangement
+            ? null
+            : {
+                // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
+                automation: laneNodes.automation,
+                caret,
+                highlight: openItem,
+                onSeek: seek,
+              }
+        }
+      />
+    </div>
   );
 
   return (
@@ -3646,26 +3663,7 @@ export default function App({
 
             {homeDrawer && (
               <Suspense fallback={null}>
-                <HomeDrawer
-                  open
-                  onClose={closeHomeDrawer}
-                  // The one engine selector, given this project's live engine; a share has none to change (docs/shell.md).
-                  engine={
-                    frozen
-                      ? undefined
-                      : {
-                          current: engine ?? null,
-                          searching: engineSearching,
-                          compat: engineCompat,
-                          audioToBrowser,
-                          stats: engineLink,
-                          onChange: () => {
-                            closeHomeDrawer();
-                            onChangeEngine();
-                          },
-                        }
-                  }
-                />
+                <HomeDrawer open onClose={closeHomeDrawer} above={barRef} />
               </Suspense>
             )}
 

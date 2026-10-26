@@ -1,7 +1,7 @@
-// SidebarEngine.tsx — THE engine selector, at the foot of the home sidebar: which engine plays,
-// a button to change it, and its figures right below. Inside a project the host (App, through the
-// drawer) hands it the live session; on the home pages it shows the account's remembered engine,
-// and a pick there is what the next project opens on. See ../../docs/shell.md.
+// SidebarEngine.tsx — the engine selector at the foot of the home sidebar: which engine plays,
+// a button to change it, and its figures right below. It shows the account's remembered engine,
+// and a pick there is what the next project opens on; inside a project the selector is the project
+// bar's engine slot instead (BarEngine.tsx), which shares its words. See ../../docs/shell.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
@@ -17,7 +17,7 @@ import { usePopin } from "../popins";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
 
-/** What the block shows and does — App's live session in a project, `HomeEngine`'s probe elsewhere. */
+/** What the selector shows and does — App's live session in the project bar, `HomeEngine`'s probe in the sidebar. */
 export interface SidebarEngineProps {
   current: RankedEngine | null;
   /** The first engine is still being looked for. */
@@ -34,18 +34,16 @@ export interface SidebarEngineProps {
 const nameOf = (r: RankedEngine): string =>
   r.engine.hostname || r.engine.id.slice(0, 8);
 
-export function SidebarEngine({
+/** What the selector says and shows, shared with the project bar's engine slot (BarEngine.tsx). */
+export function engineWords({
   current,
   searching,
   compat,
   audioToBrowser = false,
-  stats,
-  onChange,
-  folds = false,
-}: SidebarEngineProps & {
-  /** Below `sm` the sidebar folds to its icon rail, and the block to its icon, which opens the list. */
-  folds?: boolean;
-}) {
+}: Pick<
+  SidebarEngineProps,
+  "current" | "searching" | "compat" | "audioToBrowser"
+>) {
   // Where the sound comes out, said in words: a laptop driving the desktop at home is otherwise silent with no reason given.
   const label = current
     ? audioToBrowser
@@ -76,6 +74,41 @@ export function SidebarEngine({
       )}
     />
   );
+  return { label, hint, incompatible, icon };
+}
+
+/** The incompatibility triangle, beside the engine's name. */
+export function EngineWarning({ text }: { text: string }) {
+  return (
+    <span
+      className="flex shrink-0 text-amber-500"
+      title={text}
+      role="img"
+      aria-label={text}
+    >
+      <TriangleAlert className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
+export function SidebarEngine({
+  current,
+  searching,
+  compat,
+  audioToBrowser = false,
+  stats,
+  onChange,
+  folds = false,
+}: SidebarEngineProps & {
+  /** Below `sm` the sidebar folds to its icon rail, and the block to its icon, which opens the list. */
+  folds?: boolean;
+}) {
+  const { label, hint, incompatible, icon } = engineWords({
+    current,
+    searching,
+    compat,
+    audioToBrowser,
+  });
   return (
     <>
       {folds && (
@@ -108,16 +141,7 @@ export function SidebarEngine({
           >
             {label}
           </span>
-          {incompatible && (
-            <span
-              className="flex shrink-0 text-amber-500"
-              title={incompatible}
-              role="img"
-              aria-label={incompatible}
-            >
-              <TriangleAlert className="h-3.5 w-3.5" />
-            </span>
-          )}
+          {incompatible && <EngineWarning text={incompatible} />}
           <Button
             variant="secondary"
             size="xs"

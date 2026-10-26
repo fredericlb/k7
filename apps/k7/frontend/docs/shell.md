@@ -238,11 +238,12 @@ under the panes, and the footer under that. The bar fills the mini player's slot
 
 | slot | what k7 puts there |
 |---|---|
-| `lead`, at the left edge | the hamburger, the k7 logo and the project's name, then the engine's health, a share's read-only badge and the workspace warning — on a phone the hamburger and the info icon |
+| `lead`, at the left edge | the hamburger, the k7 logo and the project's name, then a share's read-only badge and the workspace warning — on a phone the hamburger and the info icon |
 | `transport` | play/pause, stop, loop and record |
 | `track` | the clock and the peekable minimap |
 | the host's controls | the **master meter**, right of the minimap |
 | `trail`, at the right edge | the pane row and the frame's toggle — or, on a phone, the one menu that also holds the side panels' buttons |
+| `end`, after `trail` | the **engine selector**: where the sound comes out, the engine's health and Change — on a phone its icon alone |
 
 **No brand name and no build stamp.** The brand is what the home page says — repeating it over a song
 names the tool rather than the work — and the stamp goes with it, being the tooltip of that name on the
@@ -270,18 +271,26 @@ gesture that ends a session, drawn in place like any crossing (see above). The d
 carries the media library's and the rehearsal pages' sections. On a frozen share there is no
 hamburger and the name is plain text (`docs/shared.md`).
 
-**There is ONE engine selector, at the foot of the sidebar** (`components/SidebarEngine.tsx`), above
-the user menu — on the home pages, and in the drawer the project bar's hamburger opens over a project. Two
-selectors were two answers to "which machine plays", and the sidebar is the one place every screen
-reaches. It says WHERE THE SOUND COMES OUT — "Sound on <machine>", or "Sound in this browser" when the
-engine streams to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at
-home is silent with no other clue; with no engine it reads "No sound — choose an engine". A **Change**
-button beside it opens the engine list, MEASURED when it opens rather than kept, and the engine's
-figures sit right below.
+**The drawer stops at the bar's top edge**, so the bar stays whole, full width and live while the
+sidebar is out: the transport keeps playing what you hear, and the hamburger is still where you left it.
+The edge is MEASURED, since the bar's height depends on what it holds and it floats over the editor
+popin. A fold button beside the sidebar's brand closes it, as do a click beside it and Escape. The
+drawer carries no engine block: inside a project the engine is the bar's.
 
-- **In a project** the drawer hands it the gate's live choice: Change is `ui engine`, the gate's
+**There is ONE engine selector per screen.** Inside a project it is the project bar's engine slot
+(`components/BarEngine.tsx`), right of the pages: the engine is what plays, so it stands with the
+transport rather than one drawer away. On the home pages it is at the foot of the sidebar
+(`components/SidebarEngine.tsx`), above the user menu. Both say WHERE THE SOUND COMES OUT, in the
+same words (`engineWords`) — "Sound on <machine>", or "Sound in this browser" when the engine streams
+to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at home is silent
+with no other clue; with no engine it reads "No sound — choose an engine". A **Change** button opens
+the engine list, MEASURED when it opens rather than kept.
+
+- **In a project** the slot holds the gate's live choice: Change is `ui engine`, the gate's
   list over the project, and a pick remounts the project on that engine — the files are the
-  server's, so a switch costs the playing position and nothing else. The figures are `EngineLink`'s.
+  server's, so a switch costs the playing position and nothing else. The figures beside it are
+  `EngineLink`'s. A phone keeps the icon alone, an amber dot on it for the warning below, and its
+  figures in the info popover.
 - **On a home page** there is no session: it shows the engine remembered on the account (else the
   policy's pick), with the probe's latency and performance, and a pick there is remembered on the
   account, so it is what the next project opens on. The probe is shared for 30 s, since the sidebar
@@ -408,10 +417,9 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The **engine's health** sits in the project bar's left slot, after the name (`components/EngineLink.tsx`):
-the connection light, the Q badge and the engine process's memory — and again under the sidebar's
-engine selector, beside the engine they describe. The bar keeps them because a dropped link is
-what to see while playing, without opening anything. Q1/Q2/Q3
+The **engine's health** sits in the project bar's engine slot, beside the engine it describes
+(`components/EngineLink.tsx`): the connection light, the Q badge and the engine process's memory. The
+bar keeps them because a dropped link is what to see while playing, without opening anything. Q1/Q2/Q3
 off the measured latency is a property of the SESSION rather than of a screen — it decides what you
 can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. The light changes SHAPE as well as colour — a dot when connected, an unplugged
 plug when not — so it reads for someone who cannot tell red from green.

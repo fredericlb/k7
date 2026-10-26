@@ -12,6 +12,7 @@ import {
   LibraryBig,
   ListChecks,
   type LucideIcon,
+  PanelLeftClose,
   RefreshCw,
   ServerCog,
 } from "@frediverse/ui/icons";
@@ -20,17 +21,19 @@ import { projectsUrl } from "@studio/project-shell/launch";
 import { LIBRARY_SECTIONS, sectionAt, sectionPath } from "@studio/ui-library";
 import { REHEARSAL_SECTIONS, rehearsalSectionAt } from "@studio/ui-rehearsal";
 import { UserMenu } from "@studio/ui-user-menu";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
 import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
-import {
-  HomeEngine,
-  SidebarEngine,
-  type SidebarEngineProps,
-} from "../components/SidebarEngine";
+import { HomeEngine } from "../components/SidebarEngine";
 import { SidebarServer } from "../components/SidebarServer";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
@@ -74,22 +77,23 @@ export function HomeShell({
 const homeHref = (route: string): string =>
   new URL(route.slice(1), projectsUrl(window.location.href)).href;
 
-/** The sidebar over a project: slides in from the left, a click beside it or Escape closes it. */
+/** The sidebar over a project: slides in from the left, its fold button, a click beside it or Escape closes it. */
 export function HomeDrawer({
   open,
   onClose,
-  engine,
+  above,
 }: {
   open: boolean;
   onClose: () => void;
-  /** The project's live engine, which the sidebar's engine block shows and changes. */
-  engine?: SidebarEngineProps;
+  /** The project bar: the drawer stops at its top edge, so the bar stays whole and in reach. */
+  above: RefObject<HTMLElement | null>;
 }) {
   usePopin(open, onClose);
+  const bottom = useSpaceBelow(open ? above : null);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <HomeSidebar away engine={engine} />
+    <div className="fixed inset-x-0 top-0 z-50 flex" style={{ bottom }}>
+      <HomeSidebar away onFold={onClose} />
       <button
         type="button"
         aria-label={m["common.close"]()}
@@ -98,6 +102,28 @@ export function HomeDrawer({
       />
     </div>
   );
+}
+
+/** How far the element's top edge is from the window's bottom — measured, since the bar's height depends on what it holds. */
+function useSpaceBelow(ref: RefObject<HTMLElement | null> | null): number {
+  const [space, setSpace] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref?.current;
+    if (!el) return;
+    const measure = () =>
+      setSpace(
+        Math.max(0, window.innerHeight - el.getBoundingClientRect().top),
+      );
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [ref]);
+  return space;
 }
 
 interface Entry {
@@ -195,14 +221,14 @@ function HomeSidebar({
   actions,
   mediaCounts,
   away,
-  engine,
+  onFold,
 }: {
   actions?: ReactNode;
   mediaCounts?: Partial<Record<string, number>>;
   /** Drawn over a project: full-address links, nothing lit, never folded to the rail. */
   away?: boolean;
-  /** The project's engine, given by the drawer; absent on a home page, which shows the account's own. */
-  engine?: SidebarEngineProps;
+  /** The drawer's way out, a button beside the brand; a home page's sidebar does not fold. */
+  onFold?: () => void;
 }) {
   const routerNavigate = useNavigate();
   const navigate = (route: string) =>
@@ -285,6 +311,18 @@ function HomeSidebar({
           >
             k7
           </span>
+          {onFold && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="ml-auto text-muted-foreground"
+              title={m["home.foldSidebar"]()}
+              aria-label={m["home.foldSidebar"]()}
+              onClick={onFold}
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          )}
         </span>
       </div>
 
@@ -307,8 +345,8 @@ function HomeSidebar({
       {/* The server the pages read, on the tray once paired: a server's own page has no other to offer. */}
       {isDesktop && server && <SidebarServer server={server} folds={!away} />}
 
-      {/* The one engine selector, above the user menu: the project's live engine in the drawer, the account's elsewhere. */}
-      {engine ? <SidebarEngine {...engine} /> : <HomeEngine />}
+      {/* The account's engine, above the user menu; over a project the selector is the project bar's engine slot. */}
+      {!away && <HomeEngine />}
 
       <div
         className={cn(

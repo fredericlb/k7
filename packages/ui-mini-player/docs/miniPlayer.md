@@ -34,11 +34,15 @@ failure, or "ended"), and `children` sits right of the transport, before the clo
 puts its destination indicator and its queue button, and the songbook its Original / Instrumental switch. All optional: a host with none of them gets
 a bar that reads correctly with a title alone.
 
-## A left slot, and two that replace the bar's own transport
+## Edge slots, and two that replace the bar's own transport
 
 `lead` stands at the bar's left edge, outside its centred part: k7's project puts its way home and its
 name there. A host whose name is in `lead` passes an empty `title`, and the title line goes; the system
 still reads `title` when the session is on.
+
+`trail` mirrors it at the right edge, and `end` follows `trail` behind a rule: k7's project puts its
+pages in the first and its engine in the second. Two slots rather than one, because what plays and
+where to go are two questions, and a host answering both in one row reads as one list.
 
 
 `transport` stands where the play/pause button is, and `track` where the clocks and the scrubber are —
