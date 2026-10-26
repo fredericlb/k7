@@ -43,6 +43,9 @@ What stays here is what the médiathèque has to say: the version badge, the art
 "ended" against an error, the destination indicator and the queue button. The strings too —
 they are props, filled from the host's labels ([host.md](host.md)).
 
+The queue waiting with nothing loaded is the same component with no transport and no scrubber,
+so that inside a host's dock it is drawn where every other bar is, with the host's edge slots.
+
 The duration comes from the `<audio>` element, which is mounted for whatever is loaded **even
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,
 and a metadata request is cheaper than a second source of truth.

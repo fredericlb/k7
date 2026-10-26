@@ -12,6 +12,7 @@ import {
   transposeChord,
 } from "@studio/lyrics";
 import { Tablature } from "@studio/tablature";
+import { useMiniPlayerDocked } from "@studio/ui-mini-player/dock";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { ChordPopin } from "../components/ChordPopin";
@@ -122,6 +123,7 @@ export function SongDetailView({
   const [metroOpen, setMetroOpen] = useState(false);
   // The track's bar is up from the start: closing it silences the track, and playing brings it back.
   const [barOpen, setBarOpen] = useState(true);
+  const docked = useMiniPlayerDocked();
   const isMobile = useMediaQuery("(max-width: 760px)");
 
   // The reference track's playhead, which the timed lyrics follow and seek — ../../docs/lyricsTiming.md.
@@ -226,7 +228,8 @@ export function SongDetailView({
 
   return (
     <div
-      className={`song-detail${song.audio && barOpen ? " has-song-bar" : ""}`}
+      // Room under the column for the bar, unless a host's dock draws it below the column instead.
+      className={`song-detail${song.audio && barOpen && !docked ? " has-song-bar" : ""}`}
     >
       <div className="song-detail-head">
         <BackButton to={m["nav.songbook"]()} onClick={onBack} />

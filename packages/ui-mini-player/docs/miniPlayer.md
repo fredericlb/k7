@@ -87,6 +87,16 @@ clocks far from the bar they read, and a long drag is a longer one for nothing. 
 background, its border — still spans the window, and the close stays in its corner, where a bar's
 close is looked for.
 
+## The dock
+
+A host whose pages each mount a bar of their own, and which wants ONE row at its foot whatever the
+page, wraps them in `MiniPlayerDock` and draws `MiniPlayerDockOutlet` where the row goes
+(`src/dock.tsx`). A bar mounted anywhere inside is drawn in the outlet, through a portal, and takes
+the dock's `lead` and `end` when it passes none — so the host's way back and its engine stand on
+every bar without a page knowing them. A `standby` bar fills the outlet while no other is mounted:
+the row never comes and goes, which is the point of a dock. A page that left room under its column
+for a fixed bar asks `useMiniPlayerDocked()` and leaves none.
+
 ## The close is the only thing that takes the bar away
 
 The component never hides itself: the host decides whether there is a bar at all, and a host with no

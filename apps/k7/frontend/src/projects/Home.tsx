@@ -26,7 +26,7 @@ import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { pollWhileVisible } from "../visiblePoll";
 import { AccountBar } from "./AccountBar";
 import { accountFiles, shares as sharesApi } from "./api";
-import { HomeShell } from "./HomeSidebar";
+import { HomeShell } from "./HomeFrame";
 import {
   type ArmedDelete,
   buildHomePalette,

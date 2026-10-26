@@ -33,7 +33,6 @@ import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
 import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
-import { HomeEngine } from "../components/SidebarEngine";
 import { SidebarServer } from "../components/SidebarServer";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
@@ -52,26 +51,6 @@ import {
   TASKS_ROUTE,
 } from "./api";
 import { mediaSectionLabel } from "./mediaLabels";
-
-/** The page frame: the sidebar on the left, the page's own column on the right. */
-export function HomeShell({
-  actions,
-  mediaCounts,
-  children,
-}: {
-  /** Drawn above the user menu — a page's own control, such as a refresh. */
-  actions?: ReactNode;
-  /** Each media section's count, known only on the media pages, which load them. */
-  mediaCounts?: Partial<Record<string, number>>;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex h-full bg-background text-foreground">
-      <HomeSidebar actions={actions} mediaCounts={mediaCounts} />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-    </div>
-  );
-}
 
 /** A home route as a full address, which appNav draws in place, for a sidebar drawn outside the home router. */
 const homeHref = (route: string): string =>
@@ -217,7 +196,7 @@ function SidebarGroup({
   );
 }
 
-function HomeSidebar({
+export function HomeSidebar({
   actions,
   mediaCounts,
   away,
@@ -227,7 +206,7 @@ function HomeSidebar({
   mediaCounts?: Partial<Record<string, number>>;
   /** Drawn over a project: full-address links, nothing lit, never folded to the rail. */
   away?: boolean;
-  /** The drawer's way out, a button beside the brand; a home page's sidebar does not fold. */
+  /** The fold button beside the brand: the drawer closes, a home page's sidebar folds away until the bar's button brings it back. */
   onFold?: () => void;
 }) {
   const routerNavigate = useNavigate();
@@ -315,7 +294,11 @@ function HomeSidebar({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="ml-auto text-muted-foreground"
+              // The rail is too narrow for the logo and the button together.
+              className={cn(
+                "ml-auto text-muted-foreground",
+                !away && "hidden sm:inline-flex",
+              )}
               title={m["home.foldSidebar"]()}
               aria-label={m["home.foldSidebar"]()}
               onClick={onFold}
@@ -344,9 +327,6 @@ function HomeSidebar({
 
       {/* The server the pages read, on the tray once paired: a server's own page has no other to offer. */}
       {isDesktop && server && <SidebarServer server={server} folds={!away} />}
-
-      {/* The account's engine, above the user menu; over a project the selector is the project bar's engine slot. */}
-      {!away && <HomeEngine />}
 
       <div
         className={cn(

@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SERVER_SETTINGS_ROUTE } from "./api";
-import { HomeShell } from "./HomeSidebar";
+import { HomeShell } from "./HomeFrame";
 import { MediaHost } from "./MediaHost";
 
 export function MediaPage() {

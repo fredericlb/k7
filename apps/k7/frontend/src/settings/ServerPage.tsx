@@ -7,7 +7,7 @@ import {
   SlskdSettings,
 } from "@studio/ui-library/settings";
 import { m } from "../paraglide/messages.js";
-import { HomeShell } from "../projects/HomeSidebar";
+import { HomeShell } from "../projects/HomeFrame";
 import { MediaHost } from "../projects/MediaHost";
 import { PageFrame } from "../projects/PageFrame";
 import { useIsAdmin } from "./useIsAdmin";

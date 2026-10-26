@@ -277,11 +277,10 @@ The edge is MEASURED, since the bar's height depends on what it holds and it flo
 popin. A fold button beside the sidebar's brand closes it, as do a click beside it and Escape. The
 drawer carries no engine block: inside a project the engine is the bar's.
 
-**There is ONE engine selector per screen.** Inside a project it is the project bar's engine slot
-(`components/BarEngine.tsx`), right of the pages: the engine is what plays, so it stands with the
-transport rather than one drawer away. On the home pages it is at the foot of the sidebar
-(`components/SidebarEngine.tsx`), above the user menu. Both say WHERE THE SOUND COMES OUT, in the
-same words (`engineWords`) — "Sound on <machine>", or "Sound in this browser" when the engine streams
+**There is ONE engine selector, in the bar's engine slot** (`components/BarEngine.tsx`), right of
+the right slot — the project bar's in a project, the home bar's on the home pages (`projects.md`,
+"The home bar"): the engine is what plays, so it stands with what plays rather than one drawer away.
+It says WHERE THE SOUND COMES OUT, in the same words on both (`components/engineWords.tsx`) — "Sound on <machine>", or "Sound in this browser" when the engine streams
 to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at home is silent
 with no other clue; with no engine it reads "No sound — choose an engine". A **Change** button opens
 the engine list, MEASURED when it opens rather than kept.
@@ -291,10 +290,10 @@ the engine list, MEASURED when it opens rather than kept.
   server's, so a switch costs the playing position and nothing else. The figures beside it are
   `EngineLink`'s. A phone keeps the icon alone, an amber dot on it for the warning below, and its
   figures in the info popover.
-- **On a home page** there is no session: it shows the engine remembered on the account (else the
-  policy's pick), with the probe's latency and performance, and a pick there is remembered on the
-  account, so it is what the next project opens on. The probe is shared for 30 s, since the sidebar
-  remounts on every home route and a probe reaches every engine.
+- **On a home page** there is no session (`components/HomeEngine.tsx`): it shows the engine
+  remembered on the account (else the policy's pick), with the probe's latency and performance, and a
+  pick there is remembered on the account, so it is what the next project opens on. The probe is
+  shared for 30 s, since the bar a page docks remounts the slot and a probe reaches every engine.
 
 A **warning triangle** follows the name when that engine lacks a plugin the open project uses —
 its compatibility under 100 — and its tooltip says the score and which plugins are missing

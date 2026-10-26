@@ -234,7 +234,7 @@
     margin-top: 1px;
   }
   /* Quick links to a song's Lyrics / Tab / Sheet; disabled when that field is empty. */
-  /* The reference track's mini player, at the foot of the content column and above any other bar there. */
+  /* The reference track's mini player standing alone, at the foot of the column above any other bar there; a host's dock draws it instead. */
   .song-detail {
     --song-bar-h: 0px;
     --rail-bar-h: 0px;
@@ -250,7 +250,7 @@
     position: fixed;
     right: 0;
     bottom: calc(var(--rail-bar-h) + var(--rec-bar-h, 0px));
-    left: var(--rehearsal-inset-left);
+    left: 0;
     z-index: 24;
   }
   /* The version toggle: the switch and the word it turns on, kept on one line. */

@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { HomeShell } from "../projects/HomeSidebar";
+import { HomeShell } from "../projects/HomeFrame";
 import { PageFrame } from "../projects/PageFrame";
 import { AccountStatusNote } from "../tabs/AccountStatusNote";
 import { accountBridge } from "../tabs/bridge";

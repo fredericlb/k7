@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
 import { findLibraryFiles } from "../settings/accountFiles";
-import { HomeShell } from "./HomeSidebar";
+import { HomeShell } from "./HomeFrame";
 import { LibrariesCard } from "./LibrariesCard";
 import { PageFrame } from "./PageFrame";
 import type { AccountFiles } from "./workspaceOps";

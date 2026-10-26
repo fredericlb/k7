@@ -6,6 +6,7 @@
 import { Headphones } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
 import { MiniPlayer } from "@studio/ui-mini-player";
+import { useMiniPlayerDocked } from "@studio/ui-mini-player/dock";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePitchShift } from "../hooks/usePitchShift";
 import { usePl8Stream } from "../hooks/usePl8Stream";
@@ -33,6 +34,7 @@ export function SongBar({
   onPlay,
   onClose,
 }: Props) {
+  const docked = useMiniPlayerDocked();
   // The element as STATE: it appears only once the song has a track, and what listens to it must rebind then.
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const bindAudio = useCallback(
@@ -93,6 +95,60 @@ export function SongBar({
 
   const done = duration > 0 && at >= duration - 0.25 && !playing;
 
+  const bar = (
+    <MiniPlayer
+      icon={Headphones}
+      title={song.title}
+      artist={song.artist}
+      playing={playing}
+      position={at}
+      duration={duration}
+      labels={{
+        region: m["player.region"](),
+        play: m["common.play"](),
+        pause: m["common.pause"](),
+        position: m["player.position"](),
+        close: m["player.close"](),
+      }}
+      onToggle={toggle}
+      onSeek={(s) => {
+        if (audioRef.current) audioRef.current.currentTime = s;
+        setAt(s);
+      }}
+      onClose={close}
+      meta={
+        song.artist ? (
+          <span className="min-w-0 truncate text-muted-foreground text-xs">
+            {song.artist}
+          </span>
+        ) : null
+      }
+      status={
+        error ? (
+          <span className="min-w-0 truncate text-destructive text-xs">
+            {error}
+          </span>
+        ) : done ? (
+          <span className="shrink-0 text-muted-foreground text-xs">
+            {m["player.ended"]()}
+          </span>
+        ) : null
+      }
+    >
+      {/* One toggle rather than two buttons: there are two versions and they exclude each other. */}
+      {instrumental && (
+        <span className="song-bar-version">
+          <Switch
+            checked={current === "instrumental"}
+            onCheckedChange={(on) => switchTo(on ? "instrumental" : "original")}
+            aria-label={m["player.instrumental"]()}
+          />
+          <span className="muted small">{m["player.instrumental"]()}</span>
+        </span>
+      )}
+    </MiniPlayer>
+  );
+
   return (
     <>
       <audio
@@ -128,65 +184,8 @@ export function SongBar({
         <track kind="captions" />
       </audio>
 
-      {open && (
-        <div className="song-bar">
-          <MiniPlayer
-            icon={Headphones}
-            title={song.title}
-            artist={song.artist}
-            playing={playing}
-            position={at}
-            duration={duration}
-            labels={{
-              region: m["player.region"](),
-              play: m["common.play"](),
-              pause: m["common.pause"](),
-              position: m["player.position"](),
-              close: m["player.close"](),
-            }}
-            onToggle={toggle}
-            onSeek={(s) => {
-              if (audioRef.current) audioRef.current.currentTime = s;
-              setAt(s);
-            }}
-            onClose={close}
-            meta={
-              song.artist ? (
-                <span className="min-w-0 truncate text-muted-foreground text-xs">
-                  {song.artist}
-                </span>
-              ) : null
-            }
-            status={
-              error ? (
-                <span className="min-w-0 truncate text-destructive text-xs">
-                  {error}
-                </span>
-              ) : done ? (
-                <span className="shrink-0 text-muted-foreground text-xs">
-                  {m["player.ended"]()}
-                </span>
-              ) : null
-            }
-          >
-            {/* One toggle rather than two buttons: there are two versions and they exclude each other. */}
-            {instrumental && (
-              <span className="song-bar-version">
-                <Switch
-                  checked={current === "instrumental"}
-                  onCheckedChange={(on) =>
-                    switchTo(on ? "instrumental" : "original")
-                  }
-                  aria-label={m["player.instrumental"]()}
-                />
-                <span className="muted small">
-                  {m["player.instrumental"]()}
-                </span>
-              </span>
-            )}
-          </MiniPlayer>
-        </div>
-      )}
+      {/* In a host's dock the bar is drawn there; standing alone, it is fixed at the foot of the column. */}
+      {open && (docked ? bar : <div className="song-bar">{bar}</div>)}
     </>
   );
 }

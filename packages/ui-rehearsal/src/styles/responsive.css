@@ -45,7 +45,7 @@
       top: auto;
       right: 0;
       bottom: 0;
-      left: var(--rehearsal-inset-left);
+      left: 0;
       max-height: none;
       flex-direction: row;
       align-items: stretch;
@@ -92,7 +92,7 @@
       position: fixed;
       right: 0;
       bottom: calc(45px + var(--song-bar-h, 0px));
-      left: var(--rehearsal-inset-left);
+      left: 0;
       max-height: 52vh;
       background: var(--surface);
       border-top: 1px solid var(--border);

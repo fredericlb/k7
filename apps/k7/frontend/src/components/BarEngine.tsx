@@ -1,16 +1,16 @@
-// BarEngine.tsx — the engine selector inside a project, in the project bar's engine slot: where the
-// sound comes out, the incompatibility warning, the link's figures and Change, on one row. A phone
-// keeps the icon alone, which opens the list. The words are the sidebar's (SidebarEngine.tsx).
+// BarEngine.tsx — the engine selector in a bar's engine slot, the project's and the home pages': where
+// the sound comes out, the incompatibility warning, the figures and Change, on one row. A phone keeps
+// the icon alone, which opens the list. The words are engineWords.tsx's; the home's probe is HomeEngine.tsx.
 // See ../../docs/shell.md, "No header: the project bar is the one row above the footer".
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
 import { m } from "../paraglide/messages.js";
 import {
+  type EngineSelectorProps,
   EngineWarning,
   engineWords,
-  type SidebarEngineProps,
-} from "./SidebarEngine";
+} from "./engineWords";
 
 export function BarEngine({
   current,
@@ -21,7 +21,7 @@ export function BarEngine({
   onChange,
   compact = false,
   toolSize,
-}: SidebarEngineProps & {
+}: EngineSelectorProps & {
   /** A phone: the icon alone, the figures being in its info popover. */
   compact?: boolean;
   /** The bar's button size, so the icon matches the pages' buttons beside it. */
