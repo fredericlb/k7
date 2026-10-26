@@ -100,6 +100,8 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
     // The upload wrote the three fields into the master itself, not into song.yaml.
     expect(await songTags(page, FOLDER)).toMatchObject({ title: TITLE });
     const album = `${ALBUM} ${Date.now()}`;
+    // Read-only until Edit: the five are a list, and only Edit turns them into inputs.
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     const form = page.getByRole("form", { name: / — song info$/ });
     await form.getByRole("textbox", { name: "Album" }).fill(album);
     await expect
@@ -107,7 +109,10 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
         timeout: 15_000,
       })
       .toBe(album);
-    await expect(form.getByText("saved", { exact: true })).toBeVisible();
+    await expect(page.getByText("saved", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(form).toBeHidden();
+    await expect(page.getByText(album)).toBeVisible();
   });
 
   await test.step("play it: the mini player bar takes it", async () => {

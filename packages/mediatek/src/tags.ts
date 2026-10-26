@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { TagLib } from "taglib-wasm";
 import { isAudio, withoutDerived } from "./media.ts";
 import { placeFile } from "./place.ts";
-import { KEY_PATTERN, type MasterTags } from "./types.ts";
+import { KEY_PATTERN, type MasterTags, type OtherTags } from "./types.ts";
 
 /** A master TagLib cannot open — not audio it knows, or damaged; a 422 over HTTP. */
 export class UntaggableError extends Error {}
@@ -150,10 +150,33 @@ export async function writeMasterTags(
   return readMasterTags(abs);
 }
 
-/** A song folder's master NAME and its tags, the folder given on disk — `null` for one holding no audio. */
+// TagLib names a field it knows in camelCase (`title`) and leaves the rest raw (`INITIALKEY`).
+const OURS = new Set(Object.values(WIRE).map((w) => w.toLowerCase()));
+
+/** Every OTHER tag the master carries, as TagLib names it — shown, never written here; `{}` for a file it cannot open. */
+export async function readOtherTags(abs: string): Promise<OtherTags> {
+  let file: Awaited<ReturnType<TagLib["open"]>>;
+  try {
+    file = await (await taglib()).open(abs);
+  } catch {
+    return {};
+  }
+  try {
+    const out: OtherTags = {};
+    for (const [k, values] of Object.entries(file.properties())) {
+      const kept = (values ?? []).map(String).filter((v) => v.trim());
+      if (!OURS.has(k.toLowerCase()) && kept.length) out[k] = kept;
+    }
+    return out;
+  } finally {
+    file.dispose();
+  }
+}
+
+/** A song folder's master NAME, its tags and the file's other tags, the folder given on disk — `null` for one holding no audio. */
 export async function songTags(
   abs: string,
-): Promise<{ master: string; tags: MasterTags } | null> {
+): Promise<{ master: string; tags: MasterTags; others: OtherTags } | null> {
   let names: { name: string }[];
   try {
     names = (await readdir(abs)).map((name) => ({ name }));
@@ -162,5 +185,10 @@ export async function songTags(
   }
   const name = withoutDerived(names).find((e) => isAudio(e.name))?.name;
   if (!name) return null;
-  return { master: name, tags: await readMasterTags(join(abs, name)) };
+  const at = join(abs, name);
+  return {
+    master: name,
+    tags: await readMasterTags(at),
+    others: await readOtherTags(at),
+  };
 }

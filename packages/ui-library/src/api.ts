@@ -15,6 +15,7 @@ import type {
   FamilyListing,
   LibraryPlacement,
   MasterTags,
+  OtherTags,
 } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
@@ -422,10 +423,10 @@ export const library = {
     return json(res, "variant");
   },
 
-  /** A song's tags, read from its master by the song's FOLDER — mediatek's docs/songs.md. */
+  /** A song's tags and the file's other tags, read from its master by the song's FOLDER — mediatek's docs/songs.md. */
   songTags: async (
     folder: string,
-  ): Promise<{ master: string; tags: MasterTags }> => {
+  ): Promise<{ master: string; tags: MasterTags; others: OtherTags }> => {
     const res = await request(
       `${apiBase()}/api/mediatek/tags?path=${encodeURIComponent(folder)}`,
     );

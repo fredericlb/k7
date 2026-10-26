@@ -35,6 +35,9 @@ export interface MasterTags {
   key?: string;
 }
 
+/** The rest of a master's tags, by TagLib's name for each (`genre`, `date`, `ENCODER`…), every value kept. */
+export type OtherTags = Record<string, string[]>;
+
 /** The shape a key is stored in, checked on every write path. */
 export const KEY_PATTERN = /^[A-G]#?\s+(major|minor)$/;
 

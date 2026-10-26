@@ -1,8 +1,10 @@
-// SongTagsForm.tsx — a song's title, artist, album, tempo and key, edited where they live: the
-// master's own tags. Written as you type, like every editor here; the folder never moves, since
-// it is only the song's address (packages/mediatek/docs/songs.md, ../docs/songPlayer.md).
+// SongTagsForm.tsx — a song's title, artist, album, tempo and key, kept in the master's own tags,
+// shown read-only with the file's other tags; Edit turns the five into inputs, written as you
+// type like every editor here. The folder never moves: it is only the song's address
+// (packages/mediatek/docs/songs.md, ../docs/songPlayer.md).
 
-import { Loader2 } from "@frediverse/ui/icons";
+import { Button } from "@frediverse/ui/button";
+import { Check, Loader2, Pencil } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { Label } from "@frediverse/ui/label";
 import {
@@ -12,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@frediverse/ui/select";
-import type { MasterTags } from "@studio/mediatek/types";
+import type { MasterTags, OtherTags } from "@studio/mediatek/types";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
@@ -63,20 +65,27 @@ export function SongTagsForm({
   // Not a file: the autosave keys its held-back buffers by this, and a folder names one song.
   const path = `${folder}#tags`;
   const [form, setForm] = useState<TagForm | null>(null);
+  const [others, setOthers] = useState<OtherTags>({});
   const [saved, setSaved] = useState("");
+  // Read-only until asked: a click on a song is to look at it, not to type into it.
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setForm(null);
+    setOthers({});
+    setEditing(false);
     void library
       .songTags(folder)
-      .then(({ tags }) => {
+      .then(({ tags, others: rest }) => {
         if (!alive) return;
         const disk = JSON.stringify(toForm(tags));
-        // An edit that could not be written outlived this screen — give it back, not disk.
+        // An edit that could not be written outlived this screen — give it back, and show it being edited.
         const held = recallBuffer(path);
         setForm(JSON.parse(held ?? disk) as TagForm);
         setSaved(disk);
+        setOthers(rest ?? {});
+        if (held && held !== disk) setEditing(true);
       })
       .catch((e: Error) => {
         if (!alive) return;
@@ -133,6 +142,118 @@ export function SongTagsForm({
       </div>
     );
 
+  // Done leaves edit mode only once the buffer is on disk; a held tempo keeps the form open, with its reason.
+  const done = () => {
+    void autosave.flush().then((onDisk) => onDisk && setEditing(false));
+  };
+
+  const rows: [string, string][] = [
+    [l.tagTitle, form.title],
+    [l.tagArtist, form.artist],
+    [l.tagAlbum, form.album],
+    [l.tagBpm, form.bpm],
+    [l.tagKey, form.key],
+  ];
+  const otherRows = Object.entries(others).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+
+  return (
+    <div className="flex h-full flex-col gap-4 overflow-auto p-4">
+      <div className="flex items-center gap-3">
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {l.tagsHeading}
+        </h2>
+        <SaveState autosave={autosave} className="shrink-0" />
+        {editing ? (
+          <Button size="sm" onClick={done}>
+            <Check className="mr-1 h-4 w-4" /> {l.done}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="mr-1 h-4 w-4" /> {l.edit}
+          </Button>
+        )}
+      </div>
+
+      {editing ? (
+        <TagFields
+          form={form}
+          setForm={setForm}
+          folder={folder}
+          onSubmit={done}
+        />
+      ) : (
+        <dl
+          aria-label={l.editor(folder)}
+          className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"
+        >
+          {rows.map(([label, value]) => (
+            <Row key={label} label={label} value={value} />
+          ))}
+        </dl>
+      )}
+      <p className="text-xs text-muted-foreground">{l.tagsHint}</p>
+
+      <section className="grid gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {l.otherTags}
+        </h3>
+        {otherRows.length ? (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            {otherRows.map(([k, values]) => (
+              <Row key={k} label={k} value={values.join(" · ")} mono />
+            ))}
+          </dl>
+        ) : (
+          <p className="text-xs text-muted-foreground">{l.noOtherTags}</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** One read-only line: the name, and the value or a dash for an empty one. */
+function Row({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <>
+      <dt
+        className={`text-muted-foreground ${mono ? "font-mono" : ""} break-all`}
+      >
+        {label}
+      </dt>
+      <dd className="min-w-0 whitespace-pre-wrap break-words">
+        {value || <span className="text-muted-foreground">—</span>}
+      </dd>
+    </>
+  );
+}
+
+/** The five fields as inputs — what Edit swaps the read-only list for. */
+function TagFields({
+  form,
+  setForm,
+  folder,
+  onSubmit,
+}: {
+  form: TagForm;
+  setForm: (f: (prev: TagForm | null) => TagForm | null) => void;
+  folder: string;
+  onSubmit: () => void;
+}) {
+  const l = useLabels().song;
   const set = (k: keyof TagForm) => (v: string) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
   const field = (k: "title" | "artist" | "album", label: string) => (
@@ -149,10 +270,10 @@ export function SongTagsForm({
   return (
     <form
       aria-label={l.editor(folder)}
-      className="flex h-full flex-col gap-4 overflow-auto p-4"
+      className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault();
-        void autosave.flush();
+        onSubmit();
       }}
     >
       {field("title", l.tagTitle)}
@@ -189,12 +310,8 @@ export function SongTagsForm({
           </Select>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-          {l.tagsHint}
-        </p>
-        <SaveState autosave={autosave} className="shrink-0" />
-      </div>
+      {/* Enter in a field means Done, as the button does. */}
+      <button type="submit" hidden />
     </form>
   );
 }

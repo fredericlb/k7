@@ -113,7 +113,7 @@ readRoutes.get(
   }),
 );
 
-/** A song's title, artist, album, tempo and key, read from its master by its FOLDER — mediatek's docs/songs.md. */
+/** A song's title, artist, album, tempo and key, and the file's other tags, read from its master by its FOLDER — mediatek's docs/songs.md. */
 readRoutes.get(
   "/tags",
   wrap(async (req, res) => {
@@ -122,7 +122,7 @@ readRoutes.get(
     if (!abs) return;
     const found = await songTags(abs);
     if (!found) return res.status(404).json({ error: "no master here" });
-    res.json({ master: `${rel}/${found.master}`, tags: found.tags });
+    res.json({ ...found, master: `${rel}/${found.master}` });
   }),
 );
 
