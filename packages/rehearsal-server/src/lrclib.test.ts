@@ -1,7 +1,7 @@
 // Which LRCLIB results are offered, and in what order — no network involved.
 
 import { describe, expect, it } from "vitest";
-import { rankCandidates } from "./lrclib.ts";
+import { pickRecord, rankCandidates } from "./lrclib.ts";
 
 const rec = (over: Record<string, unknown>) => ({
   id: 1,
@@ -45,5 +45,59 @@ describe("rankCandidates", () => {
     const out = rankCandidates(many);
     expect(out).toHaveLength(8);
     expect(out[0].id).toBe(0);
+  });
+});
+
+describe("pickRecord, for a lookup nobody reviews", () => {
+  it("takes the record whose length is the track's, timed lyrics first", () => {
+    const records = [
+      rec({ id: 1, duration: 300, syncedLyrics: "[00:01.00]far" }),
+      rec({ id: 2, duration: 621, syncedLyrics: null, plainLyrics: "plain" }),
+      rec({ id: 3, duration: 621, syncedLyrics: "[00:01.00]near" }),
+    ];
+    expect(pickRecord(records, "Nina Simone", "Sinnerman", 619)).toEqual({
+      kind: "synced",
+      text: "[00:01.00]near",
+    });
+  });
+
+  it("keeps plain lyrics when nothing timed fits", () => {
+    const records = [
+      rec({ duration: 620, syncedLyrics: null, plainLyrics: "Oh sinnerman" }),
+    ];
+    expect(pickRecord(records, "Nina Simone", "Sinnerman", 619)).toEqual({
+      kind: "plain",
+      text: "Oh sinnerman",
+    });
+  });
+
+  it("takes nothing whose length is another recording's", () => {
+    expect(
+      pickRecord([rec({ duration: 240 })], "Nina Simone", "Sinnerman", 619),
+    ).toBeNull();
+  });
+
+  it("with no length, wants the very names, accents and case aside", () => {
+    expect(
+      pickRecord([rec({ trackName: "SINNERMAN" })], "nina simone", "Sinnerman"),
+    ).toMatchObject({ kind: "synced" });
+    expect(
+      pickRecord(
+        [rec({ trackName: "Sinnerman (Live)" })],
+        "Nina Simone",
+        "Sinnerman",
+      ),
+    ).toBeNull();
+  });
+
+  it("says instrumental when the fitting record is one", () => {
+    expect(
+      pickRecord(
+        [rec({ instrumental: true })],
+        "Nina Simone",
+        "Sinnerman",
+        619,
+      ),
+    ).toEqual({ kind: "instrumental" });
   });
 });

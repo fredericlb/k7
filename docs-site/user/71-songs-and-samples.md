@@ -57,6 +57,11 @@ After a song is filed, the library measures it in the background: its waveform, 
 its tempo. The server also measures every song nobody has opened yet, one at a time, so a song you
 open usually has its waveform ready.
 
+It also looks the song's lyrics up on [LRCLIB](https://lrclib.net), a free lyrics database, and does
+the same the first time a song with no lyrics is played. Lyrics are kept only when the recording's
+length matches, timed when LRCLIB has them, and the song then appears in the
+[songbook](./77-songbook.md). When nothing is found, the song is not looked up again for a week.
+
 ### The song screen
 
 Click a song in the tree or in the list to open it. Its address is

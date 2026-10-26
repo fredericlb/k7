@@ -39,7 +39,7 @@ export class SongbookRefusedError extends Error {}
 const FALLBACK = ["title", "artist"] as const;
 
 /** A song folder's sidecar as an editable document — comments kept, which a parse-and-dump would drop. */
-function sidecarDoc(rel: string): Document {
+export function sidecarDoc(rel: string): Document {
   let text = "";
   try {
     text = readFileSync(writablePath(`${rel}/${SONG_FILE}`), "utf8");
@@ -51,7 +51,7 @@ function sidecarDoc(rel: string): Document {
   return doc;
 }
 
-function writeSidecar(rel: string, doc: Document): void {
+export function writeSidecar(rel: string, doc: Document): void {
   putFile(`${rel}/${SONG_FILE}`, doc.toString());
 }
 

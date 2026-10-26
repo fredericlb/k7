@@ -24,6 +24,7 @@ import {
 } from "@studio/mediatek/write";
 import express, { type Response, Router } from "express";
 import { allowManage, moveNeedsManager } from "../../libraryGate.ts";
+import { lyricsQueue } from "../../lyricsQueue.ts";
 import { rawToDisk, uploadOf } from "../../upload.ts";
 
 export const writeRoutes: Router = Router();
@@ -80,6 +81,8 @@ writeRoutes.post(
         },
         replace: s("replace") === "1",
       });
+      // A song that just landed has its lyrics looked up, unless it carries some (../../lyricsQueue.ts).
+      lyricsQueue.want(r.path);
       res.json({ ok: true, ...r });
     } catch (e) {
       // Already there is a 409, not a 400: the request is well formed and the fix is a decision.

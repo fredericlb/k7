@@ -16,12 +16,13 @@ import {
   readablePath,
 } from "@studio/mediatek/layout";
 import { manifestAt } from "@studio/mediatek/manifest";
-import { extOf, mimeFor } from "@studio/mediatek/media";
+import { extOf, isAudio, mimeFor } from "@studio/mediatek/media";
 import { revisions } from "@studio/mediatek/revision";
 import { songTags } from "@studio/mediatek/tags";
 import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { type Response, Router } from "express";
 import { mayManageLibrary } from "../../libraryGate.ts";
+import { lyricsQueue, songFolderOfAudio } from "../../lyricsQueue.ts";
 import {
   ensureStreamCopy,
   SourceChangedError,
@@ -63,6 +64,13 @@ export function resolveReadable(
     res.status(404).json({ error: "not found" });
   }
   return null;
+}
+
+/** A song's audio being read is a song being played: its lyrics are looked up if it has none (../../lyricsQueue.ts). */
+function playedSong(path: string): void {
+  if (!isAudio(path)) return;
+  const folder = songFolderOfAudio(path);
+  if (folder) lyricsQueue.want(folder);
 }
 
 /** Is there a library on this volume, and how much is in it. */
@@ -132,6 +140,7 @@ readRoutes.get(
   wrap((req, res) => {
     const abs = resolveReadable(String(req.query.path ?? ""), res, "file");
     if (!abs) return;
+    playedSong(String(req.query.path));
     streamFile(req, res, abs, mimeFor(abs));
   }),
 );
@@ -142,6 +151,7 @@ readRoutes.get(
   wrap(async (req, res) => {
     const abs = resolveReadable(String(req.query.path ?? ""), res, "file");
     if (!abs) return;
+    playedSong(String(req.query.path));
     if (extOf(abs) !== ".flac") return streamFile(req, res, abs, mimeFor(abs));
 
     let copy: string;

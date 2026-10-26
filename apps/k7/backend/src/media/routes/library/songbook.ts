@@ -22,6 +22,7 @@ import { UntaggableError } from "@studio/mediatek/tags";
 import express, { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { mayManageLibrary } from "../../libraryGate.ts";
+import { lyricsQueue } from "../../lyricsQueue.ts";
 import { rawToDisk, uploadOf } from "../../upload.ts";
 import { writeError } from "./write.ts";
 
@@ -142,13 +143,15 @@ songbookRoutes.delete(
 songbookRoutes.post(
   "/songbook/:id/master",
   rawToDisk(),
-  answer((req) => {
+  answer(async (req) => {
     const upload = uploadOf(req);
     if (!upload.size) throw new SongbookRefusedError("empty track");
-    return setSongbookMaster(req.params.id, {
+    const song = await setSongbookMaster(req.params.id, {
       filename: String(req.query.filename ?? ""),
       bytes: { file: upload.file },
     });
+    lyricsQueue.want(song.path);
+    return song;
   }),
 );
 
