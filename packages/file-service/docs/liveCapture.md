@@ -90,9 +90,11 @@ The capture does not apply anything itself. `@studio/live-sync`'s Replica decide
 become (`../../live-sync/docs/sync.md`) and writes it through `writeKnown`. That records the result in
 the ledger before the watcher sees it, so nothing is echoed back.
 
-A local edit the watcher has not reported yet would be swallowed by that write. So before an entry
-from another replica is applied, `captureFiles` diffs the files it touches and emits whatever local
-change it finds. That batch reaches the replica, as pending, before the entry does.
+A local edit the watcher has not reported yet would be swallowed by that write. So before ANY entry
+is applied, `captureFiles` diffs the files it touches and emits whatever local change it finds. That
+batch reaches the replica, as pending, before the entry does. A replica's own batch coming back is no
+exception: the replica settles its files then, rewriting each to the confirmed text plus what is
+pending, so an edit made between sending the batch and hearing it back would otherwise be reverted.
 
 When an entry rewrites a file of the open project, the project goes to the engine, as an undo does.
 

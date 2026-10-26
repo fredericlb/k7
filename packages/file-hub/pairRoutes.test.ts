@@ -62,7 +62,7 @@ async function start(opts: {
   port = (server.address() as AddressInfo).port;
   const base = `http://127.0.0.1:${port}`;
   // A server behind its proxy: the host and scheme the browser reached it at.
-  const proxied =
+  const proxied: Record<string, string> =
     opts.remotePairing === false
       ? { "x-forwarded-host": "home.test", "x-forwarded-proto": "https" }
       : {};
