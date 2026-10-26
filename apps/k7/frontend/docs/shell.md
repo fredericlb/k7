@@ -306,6 +306,9 @@ has no speakers at all: it is heard here whatever the radio says, and **The engi
   remembered on the account (else the policy's pick), with the probe's latency and performance, and a
   pick there is remembered on the account, so it is what the next project opens on. The probe is
   shared for 30 s, since the bar a page docks remounts the slot and a probe reaches every engine.
+  It is also what the médiathèque's **The engine** destination plays a song on, heard where the
+  radio says (`homeEngine.ts`, `projects/MediaHost.tsx`, `packages/ui-library/docs/playbackTarget.md`):
+  one screen, one answer to which machine plays.
 
 A **warning triangle** follows the name in the menu, and the dot turns amber, when that engine lacks a plugin the open project uses —
 its compatibility under 100 — and its tooltip says the score and which plugins are missing

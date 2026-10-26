@@ -3,7 +3,12 @@
 // See ../docs/host.md.
 
 export { configureLibrary, type LibraryConfig } from "./config";
-export { type LibraryHost, LibraryHostProvider, useLibraryHost } from "./host";
+export {
+  type HostEngine,
+  type LibraryHost,
+  LibraryHostProvider,
+  useLibraryHost,
+} from "./host";
 export type { LibraryLabels } from "./labels";
 export { MediaLibrary } from "./MediaLibrary";
 export { MediaPlayback } from "./MediaPlayback";

@@ -1,10 +1,10 @@
-// useSongEngine.ts — the account's engine, seen from the médiathèque: whether one ANSWERS, which
-// is what puts the moteur in the destinations menu, and — only while that destination is the
-// chosen one — the single socket this tab drives it through. Looking costs no socket; playing
-// somewhere else must not hold one. See ../../docs/playbackTarget.md.
+// useSongEngine.ts — the engine, seen from the médiathèque: the host's selector's when it has one,
+// else the account's; whether it ANSWERS, which puts the moteur in the destinations menu, and — only
+// while that destination is the chosen one — the single socket this tab drives it through. Looking
+// costs no socket; playing somewhere else must not hold one. See ../../docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
-import { playEngineOutput } from "@studio/engine-browser/engine-output";
+import { engineOutput } from "@studio/engine-browser/engine-output";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { useRelook } from "@studio/engine-browser/relook";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -47,7 +47,12 @@ export function useSongEngine(
   frame.current = onFrame;
   const [warning, setWarning] = useState<EngineWarning | null>(null);
   const relook = useRelook();
-  const { user } = useLibraryHost();
+  const { user, engine: hostEngine } = useLibraryHost();
+  const preferId = hostEngine?.id ?? undefined;
+  const listenHere = !!hostEngine?.listenHere;
+  const listenRef = useRef(listenHere);
+  listenRef.current = listenHere;
+  const output = useRef<ReturnType<typeof engineOutput> | null>(null);
   // The measured engine itself, in a REF: re-measuring must not reopen a socket on the same machine.
   const pick = useRef<RankedEngine<PublicEngine> | null>(null);
   const client = useRef<EngineClient | undefined>(undefined);
@@ -59,7 +64,8 @@ export function useSongEngine(
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { chosen } = await engines().find();
+      // The host's selector first: what it shows as the engine is the one a song goes to.
+      const { chosen } = await engines().find(preferId);
       if (cancelled) return;
       pick.current = chosen;
       setChosenId(chosen?.engine.id ?? null);
@@ -67,7 +73,7 @@ export function useSongEngine(
     return () => {
       cancelled = true;
     };
-  }, [relook]);
+  }, [relook, preferId]);
 
   useEffect(() => {
     const found = pick.current;
@@ -89,12 +95,14 @@ export function useSongEngine(
     });
     // Kept rather than dropped: this is how the engine says a clip could not be opened.
     c.onWarning(setWarning);
-    // An engine nobody hears — the server's own — is heard in this tab, through its broadcast.
-    const offOutput = playEngineOutput(c);
+    // Heard in this tab through its broadcast when nobody hears its device — the server's own — or when the host asks.
+    const out = engineOutput(c, listenRef.current);
+    output.current = out;
     c.connect();
     // No unsubscribe of our own: dispose() drops the client and its callbacks together.
     return () => {
-      offOutput();
+      out.stop();
+      output.current = null;
       lease.current?.();
       lease.current = null;
       c.dispose();
@@ -102,6 +110,11 @@ export function useSongEngine(
       setPlaying(false);
     };
   }, [connected, chosenId, user]);
+
+  // The host's radio moved: subscribe or let go on the open socket, without reconnecting.
+  useEffect(() => {
+    output.current?.setHere(listenHere);
+  }, [listenHere]);
 
   // The document first, THEN the verb, or a second of the wrong sound comes out.
   const play = useCallback<SongEngine["play"]>((doc, fromSeconds) => {

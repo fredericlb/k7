@@ -85,6 +85,14 @@ An engine nobody can hear — the server's own, playing into a null sink — say
 that engine, only the speakers are this browser's. No fourth row: the person chose WHERE it plays,
 and which engine has no speakers is a fact about the machine, not a choice.
 
+**A host with an engine selector of its own decides which engine, and where it is heard**
+(`LibraryHost.engine`): k7's home bar. `useSongEngine` asks `find()` for that engine first, so the
+song goes to the engine the bar shows rather than to one the médiathèque chose alone — two answers
+to "which machine" on one screen would be one too many — and a pick there moves the socket to the
+new engine. Its **listen here** subscribes to the broadcast on any engine, on the open socket; the
+engine's own outputs play on. A host with no selector passes nothing, and the account's remembered
+engine and the policy decide as before.
+
 ### Looking costs no socket; playing holds one
 
 `useSongEngine(connected)` does two separate things, and the split is the point. It **looks**

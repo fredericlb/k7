@@ -11,6 +11,16 @@ export interface LibraryHost {
   prefix: string;
   /** Who is signed in: an engine session is per service AND per person. */
   user: string;
+  /** The host's own engine selector, when it has one: the engine "The engine" plays on, and where it is heard. */
+  engine?: HostEngine;
+}
+
+/** What a host's engine selector decided — ../docs/playbackTarget.md, "The third: the moteur". */
+export interface HostEngine {
+  /** The engine chosen; null leaves the choice to the account's remembered one and the policy. */
+  id: string | null;
+  /** This browser hears the engine here, through its broadcast, rather than only on its outputs. */
+  listenHere: boolean;
 }
 
 const HostContext = createContext<LibraryHost | null>(null);
