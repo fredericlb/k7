@@ -2,7 +2,6 @@
 // both, and the download of one entry from there. Matched by PATH: the two volumes share an id space,
 // so a song that differs in content but not in path reads as synced. See packages/mediatek/docs/serverCopy.md.
 
-import { existsSync as fileExists } from "node:fs";
 import { wrap } from "@frediverse/http/route";
 import type { FileHub } from "@studio/file-hub";
 import { listFamilyFresh } from "@studio/mediatek/catalogue";
@@ -207,13 +206,12 @@ export function mountServerCopy(
     songbookCopyRouter({
       deviceRoute: DEVICE_SONGBOOK_ROUTE,
       server: (req) => serverOf(hub, req),
-      // A song's track is a file of a library song: its whole folder comes down, once.
-      fetchTrack: async (req, path) => {
+      // A songbook song IS a library song folder: it comes down whole, texts, sheets and track.
+      fetchFolder: async (req, folder) => {
         const server = serverOf(hub, req);
-        if (!server || fileExists(safePath(path))) return;
-        const folder = path.split("/").slice(0, -1).join("/");
+        if (!server) return;
         if (!(await downloadEntries(server, "songs", [folder])).files)
-          throw new Error(`the server's library has no '${path}'`);
+          throw new Error(`the server's library has no '${folder}'`);
       },
     }),
   );

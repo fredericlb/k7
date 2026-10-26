@@ -17,7 +17,6 @@ const song = (over: Partial<Song> = {}): Song => ({
   fetchStatus: { phase: "", progress: null, error: "", huntId: "", jobId: "" },
   lyricsMatch: "",
   fetchIgnored: false,
-  private: false,
   canDelete: false,
   origin: "",
   favorite: false,

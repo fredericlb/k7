@@ -1,7 +1,7 @@
 // songEnvelope.ts — the shape of a reference track. pl8 decodes and measures it (it already
 // holds the bytes and a decoder); this shapes pl8's finer buckets down to what the waveform
-// canvas needs. Measured ONCE and kept in the store — a rehearsal laptop must not re-decode a
-// song to open its page. See ../docs/audio.md.
+// canvas needs. Measured ONCE, by the library, which keeps it beside the file — a rehearsal laptop
+// must not re-decode a song to open its page. See ../docs/audio.md.
 
 import type { SongEnvelope } from "@studio/rehearsal-shared";
 import { getFileEnvelope } from "./mediatek.ts";

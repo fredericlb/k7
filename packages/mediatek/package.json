@@ -13,6 +13,7 @@
     "./catalogue": "./src/catalogue.ts",
     "./media": "./src/media.ts",
     "./song": "./src/song.ts",
+    "./songbook": "./src/songbook.ts",
     "./tags": "./src/tags.ts",
     "./testWav": "./src/testWav.ts",
     "./recordings": "./src/recordings.ts",

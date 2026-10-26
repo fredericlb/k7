@@ -237,6 +237,71 @@ describe("a song's tags", () => {
   });
 });
 
+describe("the songbook, kept in song folders", () => {
+  const api = (path: string, init?: RequestInit) =>
+    fetch(`${base}/api/mediatek/songbook${path}`, init);
+  const json = (method: string, body: unknown): RequestInit => ({
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  type Song = {
+    id: string;
+    path: string;
+    lyrics: string;
+    facts: { sheets: { id: string; file: string }[] };
+  };
+
+  it("creates a song, lists it once it carries lyrics, and serves its sheet as a library file", async () => {
+    const created = (await (
+      await api("", json("POST", { artist: "Nirvana", title: "Lithium" }))
+    ).json()) as Song;
+    expect(created.path).toBe("songs/Nirvana/Album inconnu/Lithium");
+    expect(await (await api("")).json()).toEqual([]);
+
+    const patched = (await (
+      await api(`/${created.id}`, json("PATCH", { lyrics: "[C]la" }))
+    ).json()) as Song;
+    expect(patched.lyrics).toBe("[C]la");
+    const list = (await (await api("")).json()) as { id: string }[];
+    expect(list.map((s) => s.id)).toEqual([created.id]);
+
+    const withSheet = (await (
+      await api(`/${created.id}/sheets?name=score.pdf&mime=application/pdf`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: "%PDF-1",
+      })
+    ).json()) as Song;
+    const [sheet] = withSheet.facts.sheets;
+    const file = await fetch(
+      `${base}/api/mediatek/file?path=${encodeURIComponent(`${created.path}/${sheet.file}`)}`,
+    );
+    expect(await file.text()).toBe("%PDF-1");
+  });
+
+  it("answers 404 for an unknown song and 400 for a refused move", async () => {
+    expect((await api("/nope")).status).toBe(404);
+    const { id } = (await (
+      await api("", json("POST", { artist: "A", title: "T" }))
+    ).json()) as Song;
+    expect(
+      (await api(`/${id}/move`, json("POST", { to: "samples/x" }))).status,
+    ).toBe(400);
+  });
+
+  it("lets only an admin, or the rehearsal server's own service, delete one", async () => {
+    const { id, path } = (await (
+      await api("", json("POST", { artist: "A", title: "T" }))
+    ).json()) as Song;
+    groups = [];
+    expect((await api(`/${id}`, { method: "DELETE" })).status).toBe(403);
+    groups = ["admins"];
+    expect((await api(`/${id}`, { method: "DELETE" })).status).toBe(204);
+    expect(existsSync(join(root, path))).toBe(false);
+  });
+});
+
 describe("uploading a variant", () => {
   const variant = (
     q: Record<string, string>,

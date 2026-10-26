@@ -18,9 +18,11 @@ import { readMasterTags } from "./tags.ts";
 import {
   type Family,
   K7_ARTIST,
+  LYRICS_FILE,
   type MediatekEntry,
   SONG_FILE,
   type SongVariant,
+  TABS_FILE,
 } from "./types.ts";
 
 // That word lives in types.ts, which a browser may import; re-exported where importers look.
@@ -152,10 +154,19 @@ async function songEntry(
   // The music's own facts are the master's tags; the sidecar holds only provenance and variants.
   const tags = master ? await readMasterTags(join(abs, master.name)) : {};
   const variants = readVariants(meta, entries);
+  // A folder with no audio has no tags to carry its names: the sidecar holds them until a master arrives (docs/songbook.md).
+  const rel = toRel(abs);
+  const title = tags.title ?? (master ? undefined : str(meta.title));
+  const artist =
+    tags.artist ??
+    (master ? undefined : (str(meta.artist) ?? rel.split("/")[1]));
+  const book = songbookOf(meta);
+  const file = (name: string) =>
+    entries.some((e) => e.isFile() && e.name === name);
   return {
     family: "songs",
-    id: toRel(abs),
-    name: tags.title ?? basename(abs),
+    id: rel,
+    name: title ?? basename(abs),
     path: toRel(abs),
     kind: "",
     bytes: master ? await sizeOf(join(abs, master.name)) : undefined,
@@ -167,7 +178,7 @@ async function songEntry(
       ...(master ? { master: master.name } : {}),
       // Has this song been SEPARATED, COMPLETELY? One readdir, and only for a song that has a stems/.
       ...((await separated(abs, entries)) ? { stems: true } : {}),
-      ...(tags.artist ? { artist: tags.artist } : {}),
+      ...(artist ? { artist } : {}),
       ...(tags.album ? { album: tags.album } : {}),
       // Detected at upload and then EDITABLE — see setSongBpm and docs/songs.md.
       ...(tags.bpm ? { bpm: tags.bpm } : {}),
@@ -176,7 +187,33 @@ async function songEntry(
       // The album position, which orders the tree's songs inside their album (ui-library's docs/library.md).
       ...(tags.track ? { track: tags.track } : {}),
       ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
+      // What the songbook lists a song by: one of these three makes it a songbook song (docs/songbook.md).
+      ...(file(LYRICS_FILE) ? { lyrics: true } : {}),
+      ...(file(TABS_FILE) ? { tabs: true } : {}),
+      ...(book.sheets ? { sheets: book.sheets } : {}),
+      ...(book.owner ? { owner: book.owner } : {}),
+      ...(book.origin ? { origin: book.origin } : {}),
+      ...(book.createdAt ? { createdAt: book.createdAt } : {}),
     },
+  };
+}
+
+/** The sidecar's `songbook:` scalars a listing carries — the rest is read with the song itself. */
+function songbookOf(meta: Record<string, unknown>): {
+  sheets: number;
+  owner?: string;
+  origin?: string;
+  createdAt?: string;
+} {
+  const raw = meta.songbook;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return { sheets: 0 };
+  const b = raw as Record<string, unknown>;
+  return {
+    sheets: Array.isArray(b.sheets) ? b.sheets.length : 0,
+    owner: str(b.owner),
+    origin: str(b.origin),
+    createdAt: str(b.createdAt),
   };
 }
 

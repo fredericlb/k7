@@ -81,7 +81,6 @@ export {
   createSong,
   deleteSong,
   getSong,
-  invalidateSong,
   listSongs,
   setSongFavorite,
   songOriginOf,

@@ -9,6 +9,7 @@ import {
   type RemoteConfig,
   type RemoteEnvelope,
   remoteLibrary,
+  remoteSongbook,
   remoteWriter,
 } from "@studio/mediatek/remote";
 import { segment } from "@studio/mediatek/song";
@@ -97,27 +98,6 @@ export async function pushVersion(
   return master;
 }
 
-// The album an uploaded songbook track is filed under: its own folder, so it never collides with a catalogue song.
-const UPLOAD_ALBUM = "k7";
-
-/** File an uploaded songbook track in the library as this song; its master's path is what the song links to. */
-export async function pushSongTrack(
-  bytes: Uint8Array | Blob,
-  tags: { filename: string; artist: string; title: string; songUid: string },
-): Promise<string> {
-  const { master } = await pushSong(cfg(), {
-    filename: tags.filename,
-    bytes,
-    artist: tags.artist,
-    album: UPLOAD_ALBUM,
-    title: tagged(tags.title, tags.songUid, "Untitled"),
-    source: "k7",
-    // Only this song's own upload folder is ever replaced, never a catalogue song's nor another song's.
-    replace: true,
-  });
-  return master;
-}
-
 /** Write a file at a chosen path, reserved for what this service created itself: an extended session overwrites its recording this way. */
 export async function putFile(
   path: string,
@@ -162,6 +142,11 @@ export function streamedMime(remotePath: string): string {
   return remotePath.toLowerCase().endsWith(".flac")
     ? "audio/webm"
     : audioMimeOf(remotePath);
+}
+
+/** The songbook as the library keeps it — a song's texts and sheets in its folder (packages/mediatek/docs/songbook.md). */
+export function songbook(): ReturnType<typeof remoteSongbook> {
+  return remoteSongbook(cfg());
 }
 
 /** The library's own measurement of a médiathèque path — computed once there, kept in its cache. */

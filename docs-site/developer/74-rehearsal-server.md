@@ -68,10 +68,13 @@ import answers 503 on the rehearsal paths and is retried at the next start.
 - `pushVersion` files a release version as a song under the artist `K7`, its album and title
   folders tagged with the release's and the version's ids so each version has a folder of its own;
   the media library's scan hides `songs/K7/`.
-- `pushSongTrack` files an uploaded songbook track under album `k7` for its artist and title.
-- `src/songFetch.ts` links a songbook song to a library song (and its `stems/instrumental.wav`)
-  instead of copying it.
-- `src/songEnvelope.ts` shapes the library's waveform buckets for the page, measured once and kept.
+- `songbook()` is the library's songbook client: a song's texts, sheets, track and bookkeeping live
+  in its library folder (`packages/mediatek/docs/songbook.md`); only favourites stay in the store.
+- `src/songFetch.ts` makes a library song a songbook song's track by moving the song into its
+  folder, and records its `stems/instrumental.wav`.
+- `src/songEnvelope.ts` shapes the library's waveform buckets for the page.
+- `scripts/migrateSongbook.ts` (run with `tsx`) moves the store's `Songs` rows and `sheets/` into
+  the library once.
 
 ## Serving bytes
 
@@ -114,8 +117,8 @@ in memory. The file service reads the URL and token from `.settings.json` at the
 ## Ownership
 
 - Sessions, moments, releases, pages: their owner only (`ownerGuard`).
-- Songs: public songs are read and edited by everyone signed in, deleted by an admin
-  (`AUTH_ADMIN_GROUPS`); private songs are their creator's alone.
+- Songs: read and edited by everyone signed in, deleted by an admin (`AUTH_ADMIN_GROUPS`); there
+  are no private songs.
 - Singing exercises: everyone edits, only the author deletes.
 - Pages: `visibility` is `private`, `authenticated` or `public` (`@studio/rehearsal-shared/pageVisibility`);
   an empty value on an old row reads as public. The version a page plays is
@@ -127,9 +130,9 @@ in memory. The file service reads the URL and token from `.settings.json` at the
 - `src/publications.ts`: releases and pages live on the server only. With `K7_INSTANCE=local`,
   `PUBLICATION_ROUTES` are forwarded to the paired server as the person who paired it, and answer
   503 when it cannot be reached. The server answers devices at `DEVICE_ROUTE` (`/api/sync/k7`).
-- `src/songbookCopy.ts`: the server tells a device the songs its person may see; the device places
-  its own against them by id and copies one down with its sheets and track. A copy carries `Origin`
-  and is read-only.
+- `src/songbookCopy.ts`: the server lists a device its songbook with each song's folder; the device
+  places its own against them by id and brings one folder down whole. A copy carries
+  `songbook.origin` in its sidecar and is read-only.
 - `src/momentShare.ts`: a device shares a moment (clip, span, text, markers) up; sharing again
   replaces the server's copy. The copy keeps the device's moment id and carries `SharedFrom`.
 

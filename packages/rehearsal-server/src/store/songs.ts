@@ -1,71 +1,14 @@
-// songs.ts — the songbook: a song's row, its texts, who sees it and who starred it. Its sheets,
-// reference track and instrumental are songMedia.ts.
+// songs.ts — the songbook: a song is a library song carrying lyrics, a tablature or a sheet, kept in
+// its folder by the médiathèque (packages/mediatek/docs/songbook.md). What stays here is each
+// person's star. Its sheets, reference track and instrumental are songMedia.ts.
 
-import { randomUUID } from "node:crypto";
-import type {
-  FetchStatus,
-  LyricTiming,
-  SongListEntry,
-} from "@studio/rehearsal-shared";
+import { mimeFor } from "@studio/mediatek/media";
+import type { SongbookSong } from "@studio/mediatek/types";
+import type { SongListEntry } from "@studio/rehearsal-shared";
 import { compareSongEntries } from "@studio/rehearsal-shared/songList";
-import type { Row } from "../db.ts";
 import * as db from "../db.ts";
 import { serialized } from "../lock.ts";
-import type { FieldsOf } from "../schema.ts";
-import { ROW_TTL_MS, rowCache } from "./helpers.ts";
-
-export type SongRow = Row<"Songs">;
-
-/** One sheet as SheetMeta stores it: its public id, the attachment holding its bytes, its name and type. */
-export interface StoredSheet {
-  id: string;
-  attachmentId: string;
-  name: string;
-  mime: string;
-}
-
-const songCache = rowCache<SongRow | null>();
-
-export async function getSongRecord(uid: string): Promise<SongRow | null> {
-  const hit = songCache.get(uid);
-  if (hit && hit.exp > Date.now()) return hit.rec;
-  const recs = await db.listRecords("Songs", { Uid: [uid] });
-  const rec = recs[0] || null;
-  songCache.set(uid, { rec, exp: Date.now() + ROW_TTL_MS });
-  return rec;
-}
-
-export function invalidateSong(uid: string): void {
-  songCache.delete(uid);
-}
-
-/** The server a song was copied from, "" for one of this store's own — ../../docs/songbookCopy.md. */
-export async function songOriginOf(uid: string): Promise<string> {
-  const rec = await getSongRecord(uid);
-  return rec ? String(rec.fields.Origin || "") : "";
-}
-
-export function sheetsOf(rec: {
-  fields: { SheetMeta: string };
-}): StoredSheet[] {
-  // SheetMeta is a JSON array of { id, name, mime }, one per SheetFiles attachment, in order.
-  try {
-    const parsed = JSON.parse(rec.fields.SheetMeta || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-/** The stored lyric timecodes, or none when the column is empty or unreadable — ../../../ui-rehearsal/docs/lyricsTiming.md. */
-function timingsOf(rec: SongRow): LyricTiming[] {
-  try {
-    const parsed = JSON.parse(rec.fields.LyricTimings || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
+import * as mediatek from "../mediatek.ts";
 
 /** The song uids `ownerId` starred: a favourite is a person's, not the song's — ../../docs/ownership.md. */
 async function favoritesOf(ownerId: string): Promise<Set<string>> {
@@ -74,127 +17,104 @@ async function favoritesOf(ownerId: string): Promise<Set<string>> {
   return new Set(recs.map((r) => String(r.fields.SongUid)));
 }
 
+/** A library track as the page plays it: where it is, how it reads, and the name it is saved under. */
+const track = (path: string, name: string) => ({
+  name,
+  mime: mimeFor(path),
+  path,
+});
+
 /** A song as `viewer` sees it: everyone reads the same song, the star and `mine` are theirs. */
-function publicSong(
-  rec: SongRow,
+export function publicSong(
+  s: SongbookSong,
   viewer = "",
   favorites: Set<string> = new Set(),
 ) {
-  const f = rec.fields;
+  const f = s.facts;
+  const name = `${s.artist} - ${s.title}`;
   return {
-    id: f.Uid,
-    ownerId: f.OwnerId,
-    mine: Boolean(viewer) && f.OwnerId === viewer,
-    artist: f.Artist || "",
-    title: f.Title || "",
-    lyrics: f.Lyrics || "",
-    lyricTimings: timingsOf(rec),
-    tablature: f.Tablature || "",
-    sheets: sheetsOf(rec).map((s) => ({
-      id: s.id,
-      name: s.name,
-      mime: s.mime,
+    id: s.id,
+    ownerId: f.owner,
+    mine: Boolean(viewer) && f.owner === viewer,
+    artist: s.artist,
+    title: s.title,
+    lyrics: s.lyrics,
+    // Timings live in the text now, as `{{MM:SS}}` — ../../../ui-rehearsal/docs/lyricsTiming.md.
+    lyricTimings: [],
+    tablature: s.tablature,
+    sheets: f.sheets.map(({ id, name: sheetName, mime }) => ({
+      id,
+      name: sheetName,
+      mime,
     })),
-    // The library file the page streams from pl8 — k7 keeps no copy, ../../docs/audio.md.
-    audio: libraryPath(f.AudioPath)
-      ? { name: f.AudioName || "", mime: f.AudioMime || "", path: f.AudioPath }
-      : null,
-    // The same track without the voice, the one an engine's chain wrote beside the song's stems.
-    instrumental: libraryPath(f.InstrumentalPath)
-      ? {
-          name: f.InstrumentalName || "",
-          mime: f.InstrumentalMime || "",
-          path: f.InstrumentalPath,
-        }
+    // The song's own master, which the page streams from the library — ../../docs/audio.md.
+    audio: s.master ? track(s.master, name) : null,
+    instrumental: f.instrumental
+      ? track(f.instrumental, `${name} (instrumental)`)
       : null,
     // The auto-fetch pipeline's own state — fetchSong/run.ts's runPipeline reads and writes it.
     fetchStatus: {
-      phase: (f.FetchPhase || "") as FetchStatus["phase"],
-      progress: f.FetchProgress ? Number(f.FetchProgress) : null,
-      error: f.FetchError || "",
-      huntId: f.FetchHuntId || "",
-      jobId: f.FetchJobId || "",
+      phase: f.fetch.phase as SongPhase,
+      progress: f.fetch.progress,
+      error: f.fetch.error,
+      huntId: f.fetch.huntId,
+      jobId: f.fetch.jobId,
     },
-    lyricsMatch: f.LyricsMatch || "",
-    fetchIgnored: Boolean(f.FetchIgnored),
-    private: Boolean(f.Private),
-    origin: f.Origin || "",
-    favorite: favorites.has(f.Uid),
-    createdAt: f.CreatedAt || "",
+    lyricsMatch: f.lyricsMatch as SongLyricsMatch,
+    fetchIgnored: f.fetchIgnored,
+    origin: f.origin,
+    favorite: favorites.has(s.id),
+    createdAt: f.createdAt,
   };
 }
 
-/** A song's track is a file of pl8's songs family or nothing: k7 stores, copies and plays no file of its own. */
-export function libraryPath(p: unknown): string {
-  const path = String(p || "");
-  return path.startsWith("songs/") ? path : "";
+type SongPhase =
+  | ""
+  | "searching"
+  | "downloading"
+  | "stemming"
+  | "matching-lyrics"
+  | "failed";
+type SongLyricsMatch = "" | "matched" | "unmatched" | "instrumental";
+
+/** Whether a song is there at all — every song is everyone's to read. */
+export async function songVisibleTo(uid: string): Promise<boolean> {
+  return (await mediatek.songbook().get(uid)) !== null;
 }
 
-/** A public song is everyone's to see; a private one is its creator's alone — ../../docs/ownership.md. */
-function visibleTo(rec: SongRow, viewer: string): boolean {
-  return !rec.fields.Private || rec.fields.OwnerId === viewer;
+/** The server a song was copied from, "" for one of this machine's own — ../../docs/songbookCopy.md. */
+export async function songOriginOf(uid: string): Promise<string> {
+  return (await mediatek.songbook().get(uid))?.facts.origin ?? "";
 }
 
-/** Whether `viewer` may reach the song at all: false for a missing one and for someone else's private one. */
-export async function songVisibleTo(
-  uid: string,
-  viewer: string,
-): Promise<boolean> {
-  const rec = await getSongRecord(uid);
-  return rec !== null && visibleTo(rec, viewer);
-}
-
-// What a songbook ROW shows: never the texts nor the envelope, which a whole songbook multiplies.
-const SONG_LIST_FIELDS = [
-  "Uid",
-  "OwnerId",
-  "Artist",
-  "Title",
-  "SheetMeta",
-  "Private",
-  "Origin",
-  "CreatedAt",
-];
-
-/** Every song `viewer` may see as a songbook row — the public book and their own private songs — favourites first; a song's texts come from getSong. */
+/** Every songbook song as a row — favourites first; a song's texts come from getSong. */
 export async function listSongs(viewer = "") {
-  const recs = db.listRecords("Songs", undefined, {
-    fields: SONG_LIST_FIELDS,
-    filled: ["Lyrics", "Tablature"],
-  });
-  const favorites = await favoritesOf(viewer);
-  return recs
-    .filter((rec) => visibleTo(rec, viewer))
-    .map((rec) => songListEntry(rec, viewer, favorites))
+  const [entries, favorites] = await Promise.all([
+    mediatek.songbook().list(),
+    favoritesOf(viewer),
+  ]);
+  return entries
+    .map(
+      (e): Omit<SongListEntry, "canDelete"> => ({
+        id: e.id,
+        mine: Boolean(viewer) && e.owner === viewer,
+        artist: e.artist,
+        title: e.title,
+        hasLyrics: e.hasLyrics,
+        hasTablature: e.hasTablature,
+        sheetCount: e.sheetCount,
+        origin: e.origin,
+        favorite: favorites.has(e.id),
+        createdAt: e.createdAt,
+      }),
+    )
     .sort(compareSongEntries);
 }
 
-/** A song as one songbook row: whether it has lyrics, a tablature, sheets, and never their content; the route adds canDelete. */
-function songListEntry(
-  rec: SongRow,
-  viewer: string,
-  favorites: Set<string>,
-): Omit<SongListEntry, "canDelete"> {
-  const f = rec.fields;
-  return {
-    id: f.Uid,
-    mine: Boolean(viewer) && f.OwnerId === viewer,
-    artist: f.Artist || "",
-    title: f.Title || "",
-    hasLyrics: Boolean(f.Lyrics),
-    hasTablature: Boolean(f.Tablature),
-    sheetCount: sheetsOf(rec).length,
-    private: Boolean(f.Private),
-    origin: f.Origin || "",
-    favorite: favorites.has(f.Uid),
-    createdAt: f.CreatedAt || "",
-  };
-}
-
 export async function getSong(uid: string, viewer = "") {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  return publicSong(rec, viewer, await favoritesOf(viewer));
+  const song = await mediatek.songbook().get(uid);
+  if (!song) return null;
+  return publicSong(song, viewer, await favoritesOf(viewer));
 }
 
 /** Star or unstar a song for `viewer` alone; null when there is no such song. */
@@ -203,8 +123,7 @@ async function setSongFavoriteUnlocked(
   viewer: string,
   favorite: boolean,
 ) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
+  if (!(await songVisibleTo(uid))) return null;
   const mine = await db.listRecords("SongFavorites", {
     OwnerId: [viewer],
     SongUid: [uid],
@@ -221,29 +140,12 @@ async function setSongFavoriteUnlocked(
 
 export async function createSong(
   ownerId: string,
-  {
-    artist,
-    title,
-    private: hidden,
-  }: { artist: string; title: string; private?: boolean },
+  { artist, title }: { artist: string; title: string },
 ) {
-  const uid = randomUUID();
-  const createdAt = new Date().toISOString();
-  await db.addRecords("Songs", [
-    {
-      Uid: uid,
-      OwnerId: ownerId,
-      Artist: artist,
-      Title: title,
-      Lyrics: "",
-      Tablature: "",
-      SheetMeta: "[]",
-      Private: Boolean(hidden),
-      CreatedAt: createdAt,
-    },
-  ]);
-  invalidateSong(uid);
-  return getSong(uid);
+  const song = await mediatek
+    .songbook()
+    .create({ artist, title, owner: ownerId });
+  return song && publicSong(song, ownerId);
 }
 
 /** What an edit of a song may change; the fetch status field by field. */
@@ -252,44 +154,36 @@ interface SongPatch {
   title?: string;
   lyrics?: string;
   tablature?: string;
-  lyricTimings?: LyricTiming[];
-  fetchStatus?: Partial<FetchStatus>;
+  fetchStatus?: Partial<{
+    phase: string;
+    progress: number | null;
+    error: string;
+    huntId: string;
+    jobId: string;
+  }>;
   lyricsMatch?: string;
   fetchIgnored?: boolean;
 }
 
 export async function updateSong(uid: string, patch: SongPatch) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const fields: Partial<FieldsOf<"Songs">> = {};
-  if (patch.artist !== undefined) fields.Artist = String(patch.artist);
-  if (patch.title !== undefined) fields.Title = String(patch.title);
-  if (patch.lyrics !== undefined) fields.Lyrics = String(patch.lyrics);
-  if (patch.tablature !== undefined) fields.Tablature = String(patch.tablature);
-  if (patch.lyricTimings !== undefined)
-    fields.LyricTimings = JSON.stringify(patch.lyricTimings);
-  if (patch.fetchStatus !== undefined) {
-    const s = patch.fetchStatus;
-    if (s.phase !== undefined) fields.FetchPhase = String(s.phase);
-    if (s.progress !== undefined) fields.FetchProgress = s.progress ?? 0;
-    if (s.error !== undefined) fields.FetchError = String(s.error);
-    if (s.huntId !== undefined) fields.FetchHuntId = String(s.huntId);
-    if (s.jobId !== undefined) fields.FetchJobId = String(s.jobId);
-  }
-  if (patch.lyricsMatch !== undefined)
-    fields.LyricsMatch = String(patch.lyricsMatch);
-  if (patch.fetchIgnored !== undefined)
-    fields.FetchIgnored = Boolean(patch.fetchIgnored);
-  await db.patchRecord("Songs", rec.id, fields);
-  invalidateSong(uid);
-  return getSong(uid);
+  const { fetchStatus, ...rest } = patch;
+  const song = await mediatek.songbook().patch(uid, {
+    ...rest,
+    ...(fetchStatus ? { fetch: fetchStatus } : {}),
+  });
+  return song && publicSong(song);
 }
 
+/** Remove a song from the songbook — its texts and sheets go; its audio stays a library song — and every star on it. */
 export async function deleteSong(uid: string): Promise<boolean> {
-  const rec = await getSongRecord(uid);
-  if (!rec) return false;
-  await db.deleteRecords("Songs", [rec.id]);
-  invalidateSong(uid);
+  if (!(await songVisibleTo(uid))) return false;
+  await mediatek.songbook().remove(uid);
+  const stars = await db.listRecords("SongFavorites", { SongUid: [uid] });
+  if (stars.length)
+    await db.deleteRecords(
+      "SongFavorites",
+      stars.map((r) => r.id),
+    );
   return true;
 }
 

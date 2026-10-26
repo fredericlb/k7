@@ -40,6 +40,75 @@ export interface MasterTags {
 /** The rest of a master's tags, by TagLib's name for each (`genre`, `date`, `ENCODER`…), every value kept. */
 export type OtherTags = Record<string, string[]>;
 
+/** A song's lyrics beside its master: a chord sheet, timecodes inline — docs/songbook.md. */
+export const LYRICS_FILE = "lyrics.txt";
+
+/** …its tablature, as plain text. */
+export const TABS_FILE = "tabs.txt";
+
+/** …and its sheet music, one file each, ordered by the sidecar's `songbook.sheets`. */
+export const SHEETS_DIR = "sheets";
+
+/** One sheet of a song: `file` is folder-relative, `id` what a URL names it by. */
+export interface SongbookSheet {
+  id: string;
+  file: string;
+  name: string;
+  mime: string;
+}
+
+/** Where the songbook's fetch pipeline stands for a song, kept so a reload resumes it. */
+export interface SongbookFetch {
+  phase: string;
+  progress: number | null;
+  error: string;
+  huntId: string;
+  jobId: string;
+}
+
+/** What the sidecar's `songbook:` section holds — the song's bookkeeping, never its music. */
+export interface SongbookFacts {
+  owner: string;
+  createdAt: string;
+  /** The server a paired machine copied this song from; "" for one of its own. */
+  origin: string;
+  lyricsMatch: string;
+  fetchIgnored: boolean;
+  fetch: SongbookFetch;
+  /** A library path to the instrumental, "" for none. */
+  instrumental: string;
+  sheets: SongbookSheet[];
+}
+
+/** A songbook song read whole: its folder, its texts, its master and its bookkeeping. */
+export interface SongbookSong {
+  /** The sidecar's `uuid`, the song's id everywhere outside the library. */
+  id: string;
+  /** Its folder, mediatek-relative. */
+  path: string;
+  artist: string;
+  title: string;
+  lyrics: string;
+  tablature: string;
+  /** The master's mediatek-relative path, null for a folder holding no audio. */
+  master: string | null;
+  facts: SongbookFacts;
+}
+
+/** One songbook row: a library song carrying lyrics, a tablature or a sheet, and never their content. */
+export interface SongbookEntry {
+  id: string;
+  path: string;
+  artist: string;
+  title: string;
+  hasLyrics: boolean;
+  hasTablature: boolean;
+  sheetCount: number;
+  owner: string;
+  origin: string;
+  createdAt: string;
+}
+
 /** The shape a key is stored in, checked on every write path. */
 export const KEY_PATTERN = /^[A-G]#?\s+(major|minor)$/;
 

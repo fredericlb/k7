@@ -349,14 +349,6 @@
     width: 1%;
     padding-right: 0;
   }
-  .songbook-table .songbook-visibility-icon {
-    display: inline-flex;
-    vertical-align: middle;
-    opacity: 0.45;
-  }
-  .songbook-table .songbook-visibility-icon.private {
-    opacity: 0.85;
-  }
   /* Releases and pages when their server cannot be reached — ServerOnly.tsx. */
   .server-only-notice {
     display: flex;
@@ -410,30 +402,6 @@
     min-width: 0;
     align-items: center;
     gap: 10px;
-  }
-  /* The new-song form's public/private choice: radios, since the base rule restyles every button. */
-  .song-visibility {
-    border: 0;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 0.5rem;
-  }
-  .song-visibility legend {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-  }
-  .song-visibility-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    cursor: pointer;
-  }
-  .song-visibility-option input {
-    margin-top: 0.25em;
-  }
-  .song-visibility-option > span {
-    display: grid;
   }
   .songbook-table .songbook-links,
   .songbook-table .songbook-links-head {
