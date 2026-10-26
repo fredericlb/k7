@@ -90,6 +90,23 @@ describe("master tags", () => {
     expect(Object.keys(others)).not.toContain("INITIALKEY");
   });
 
+  it("reads a track as its position, `3/12` being track 3, and no longer lists it among the others", async () => {
+    const lib = await TagLib.initialize({
+      wasmBinary: readFileSync(
+        join(import.meta.dirname, "../../..", TAGLIB_WASM),
+      ),
+      forceWasmType: "emscripten",
+    });
+    await lib.edit(wav, (f) => f.setProperty("TRACKNUMBER", "3/12"));
+    expect((await readMasterTags(wav)).track).toBe(3);
+    expect(
+      Object.keys(await readOtherTags(wav)).map((k) => k.toLowerCase()),
+    ).not.toContain("tracknumber");
+    // Written back as a plain position, and cleared by an empty value.
+    expect((await writeMasterTags(wav, { track: 4 })).track).toBe(4);
+    expect((await writeMasterTags(wav, { track: "" })).track).toBeUndefined();
+  });
+
   it("reads a file it cannot open as no tags, and refuses to write into it", async () => {
     const bad = join(dir, "x.mp3");
     writeFileSync(bad, "not audio");

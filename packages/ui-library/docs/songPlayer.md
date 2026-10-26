@@ -22,11 +22,11 @@ thing to learn.
 ## The left half is the master's tags, read-only until Edit
 
 Title, artist, album, tempo and key are the master's own tags (`packages/mediatek/docs/songs.md`),
-so the left half shows those five fields through `GET`/`PUT /api/mediatek/tags` and no file at all.
+so the left half shows those fields — and the track number — through `GET`/`PUT /api/mediatek/tags` and no file at all.
 
 **Read-only by default, with an Edit button.** Opening a song is to look at it and play it; an
 input under the cursor turns a stray keystroke into a write into the audio file itself. Edit swaps
-the five values for inputs, and Done leaves only once the buffer is on disk. An edit held back
+the values for inputs, and Done leaves only once the buffer is on disk. An edit held back
 from an earlier visit opens the panel in edit mode, since a held buffer hidden behind a read-only
 view would look saved.
 
@@ -36,7 +36,7 @@ are shown, by TagLib's name for each. They are not k7's: nothing reads them, and
 open-ended list of frames would be an ID3 editor, which other tools already are. Cover art is a
 picture, not a tag, and is not listed.
 
-In edit mode the five autosave as every editor here does (`@studio/ui-editor/autosave`), the buffer being the
+In edit mode they autosave as every editor here does (`@studio/ui-editor/autosave`), the buffer being the
 form as JSON: a tempo that is not a number is held back with the reason, the one shape the inputs
 cannot rule out. The key is a list of the 24 names the library stores, sharps only, so no spelling
 reaches the file that the scan would not read back. Changing a title moves no folder.

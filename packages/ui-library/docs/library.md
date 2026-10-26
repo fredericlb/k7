@@ -37,9 +37,16 @@ sees a difference and reloads.
 ## What a tree row stands for
 
 The tree is derived, never stored: it IS the entry list in another shape, so a second copy could
-only ever disagree with it. Sorted alphabetically all the way down, whichever builder made the
-rows — a listing arrives in the order the scan walked it, which is an order nobody can look
-something up in.
+only ever disagree with it. Rows come in the listing's order, which the scan sorts by name.
+
+**Inside an album, the track number orders the songs.** A song whose master carries one
+(`meta.track`, `packages/mediatek/docs/songs.md`) is drawn as `03 · Lithium` and placed by that
+number, the songs without one after them in name order. An album is listened to in its own order,
+and an alphabetical one scatters it; the number is in the label because an order nobody can see
+reads as no order at all. It is zero-padded to the album's longest, so the labels line up. Only
+the drawn NAME changes: a row's `path` stays the folder's, which is what opening, dropping a
+variant and the server's rows go by. Two songs claiming one number keep the name order between
+them; nothing here guesses which tag is wrong.
 
 `treeOf` builds it from the entry PATHS alone: the service hands out a flat list and the shape is
 already in the strings. Directories are synthesised on the way down, so a folder holding only

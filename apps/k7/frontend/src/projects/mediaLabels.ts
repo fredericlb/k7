@@ -122,6 +122,8 @@ export function mediaLabels(): LibraryLabels {
       tagArtist: m["media.song.tagArtist"](),
       tagAlbum: m["media.song.tagAlbum"](),
       tagBpm: m["media.song.tagBpm"](),
+      tagTrack: m["media.song.tagTrack"](),
+      trackInvalid: m["media.song.trackInvalid"](),
       tagKey: m["media.song.tagKey"](),
       noKey: m["media.song.noKey"](),
       bpmInvalid: m["media.song.bpmInvalid"](),

@@ -1006,6 +1006,8 @@
   "media.song.tagArtist": "Artiste",
   "media.song.tagAlbum": "Album",
   "media.song.tagBpm": "Tempo (BPM)",
+  "media.song.tagTrack": "Piste",
+  "media.song.trackInvalid": "la piste doit être un nombre entier à partir de 1",
   "media.song.tagKey": "Tonalité",
   "media.song.noKey": "aucune tonalité",
   "media.song.bpmInvalid": "le tempo doit être un nombre positif",

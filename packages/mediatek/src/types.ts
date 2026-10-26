@@ -33,6 +33,8 @@ export interface MasterTags {
   bpm?: number;
   /** `C# minor`, `A major` — the key's name, never its Camelot code. */
   key?: string;
+  /** The position on its album — `3` out of a `3/12` frame; what orders an album's songs in the tree. */
+  track?: number;
 }
 
 /** The rest of a master's tags, by TagLib's name for each (`genre`, `date`, `ENCODER`…), every value kept. */

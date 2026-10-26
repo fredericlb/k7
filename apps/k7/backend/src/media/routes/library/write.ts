@@ -167,6 +167,15 @@ writeRoutes.put(
         return res.status(400).json({ error: "bpm must be a positive number" });
       patch.bpm = bpm;
     }
+    if ("track" in body) {
+      const track =
+        body.track === "" || body.track == null ? "" : Number(body.track);
+      if (track !== "" && !(Number.isInteger(track) && track > 0))
+        return res
+          .status(400)
+          .json({ error: "track must be a positive whole number" });
+      patch.track = track;
+    }
     try {
       res.json(await setSongTags(path, patch));
     } catch (e) {

@@ -36,6 +36,49 @@ describe("treeOf", () => {
     });
   });
 
+  it("orders an album by track number, the number before the name, the untracked after", () => {
+    const song = (title: string, track?: number): MediatekEntry => ({
+      ...entry("songs", `songs/A/B/${title}`),
+      ...(track ? { meta: { track } } : {}),
+    });
+    // The scan hands them in name order; the tracks say otherwise.
+    const [artist] = treeOf(
+      [
+        song("Breed", 3),
+        song("Come as You Are", 2),
+        song("Intro"),
+        song("Lithium", 5),
+      ],
+      [],
+    );
+    const album = artist.children?.[0];
+    expect(album?.children?.map((n) => n.name)).toEqual([
+      "02 · Come as You Are",
+      "03 · Breed",
+      "05 · Lithium",
+      "Intro",
+    ]);
+    // The row's PATH is the folder's, so opening and dropping still find it.
+    expect(album?.children?.[0].path).toBe("A/B/Come as You Are");
+    // Folders above a song are never numbered.
+    expect(artist.name).toBe("A");
+    expect(album?.name).toBe("B");
+  });
+
+  it("widens the number to the album's longest", () => {
+    const [artist] = treeOf(
+      [
+        { ...entry("songs", "songs/A/B/x"), meta: { track: 7 } },
+        { ...entry("songs", "songs/A/B/y"), meta: { track: 112 } },
+      ],
+      [],
+    );
+    expect(artist.children?.[0].children?.map((n) => n.name)).toEqual([
+      "007 · x",
+      "112 · y",
+    ]);
+  });
+
   it("files what no entry accounts for first, so a later entry finds its folder", () => {
     const tree = treeOf(
       [entry("samples", "samples/loose/a.wav")],
