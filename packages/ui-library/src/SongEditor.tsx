@@ -1,4 +1,4 @@
-// SongEditor.tsx — a song opened: its tags on the left, its master played and scrubbed on the
+// SongEditor.tsx — a song opened: its tags and attachments on the left, its master played and scrubbed on the
 // right, the library tree still beside both. The same shape ChainEditor has, for the same
 // reason: you correct what describes the song while hearing it. See ../docs/songPlayer.md.
 
@@ -9,8 +9,8 @@ import { useCallback, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
 import type { PlaybackTarget } from "./playback/targets";
+import { SongInfoTabs } from "./SongInfoTabs";
 import { SongPlayer } from "./SongPlayer";
-import { SongTagsForm } from "./SongTagsForm";
 import { SongVariants } from "./SongVariants";
 
 export function SongEditor({
@@ -70,17 +70,7 @@ export function SongEditor({
       {/* Side by side when there is room and STACKED when there is not (../docs/responsive.md). */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <div className="min-h-0 h-1/2 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
-          {master ? (
-            <SongTagsForm
-              folder={folder}
-              onSaved={onSaved}
-              onStatus={setStatus}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center p-4 text-sm text-muted-foreground">
-              {l.noMaster}
-            </div>
-          )}
+          <SongInfoTabs entry={entry} onSaved={onSaved} onStatus={setStatus} />
         </div>
         {/* The player and the versions under it: one half of the screen, one question. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">

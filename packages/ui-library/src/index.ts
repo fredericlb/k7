@@ -7,6 +7,7 @@ export {
   type HostEngine,
   type LibraryHost,
   LibraryHostProvider,
+  type SongAttachmentView,
   useLibraryHost,
 } from "./host";
 export type { LibraryLabels } from "./labels";
