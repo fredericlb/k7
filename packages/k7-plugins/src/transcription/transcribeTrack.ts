@@ -8,18 +8,24 @@ import { join } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
 import { laneFolder } from "@studio/song/chainItemEdit";
 import { confineToProject } from "@studio/song/confine";
-import { createTrackFile, isVideoSource } from "@studio/song/loader";
+import { createPictureLaneFile, isVideoSource } from "@studio/song/loader";
 import { pictureLaneFile } from "@studio/song/pictureLanes";
 import { setFileValue } from "@studio/song/yaml/edit";
-import { wsData, wsText } from "@studio/song/yaml/workspaceDoc";
-import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
+import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
+import { CAPTION_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
+import {
+  addVideoPlacement,
+  listVideoPlacements,
+  removeVideoPlacementAt,
+} from "@studio/song-schema/yaml/videoTrackFile";
 import { extractAudio, srtOf, transcribeAudio } from "./transcribe";
 
 // `track transcribe <track_in> <track_out>` — whisper listens to the video the picture lane
-// places, and the transcript lands as the NEW lane's `content:` (docs/verbs.md). The order of
-// the acts is the failure order that matters: everything is checked and the take RUNS before a
-// line is written, so a refused transcription costs no track, and a track that already existed
-// gets its content REPLACED (the journal brackets the command, so Ctrl+Z has it either way).
+// places, and the transcript lands as SUBTITLES: `clips/<track_out>.srt`, a caption clip naming
+// it, placed on the picture lane <track_out> where the shot is, so each cue shows as it is said.
+// Everything is checked and the take RUNS before a line is written, so a refused transcription
+// costs nothing, and a rerun replaces its own placement (the journal makes it one Ctrl+Z).
 export async function transcribeTrack(
   arg: string,
   h: CommandHost,
@@ -91,14 +97,30 @@ export async function transcribeTrack(
     ]);
     return;
   }
-  // `nodes/`, or a chain project's `tracks/` — wherever this project keeps a lane's own file.
+  if (trackOut === trackIn) {
+    h.refuse([
+      `the subtitles need a lane of their own — '${trackIn}' holds the video`,
+    ]);
+    return;
+  }
+  // Subtitles are drawn by a PICTURE lane: an existing <track_out> that plays sound cannot take them.
+  const outLane = pictureLaneFile(h.songPath, trackOut);
   const nodeFile = join(h.songPath, laneFolder(h.songPath), `${trackOut}.k7x`);
-  const existed = existsSync(nodeFile);
-  if (!existed) {
-    try {
-      createTrackFile(h.songPath, trackOut);
-    } catch (e) {
-      h.refuse([`track transcribe: ${(e as Error).message}`]);
+  if (!outLane && existsSync(nodeFile)) {
+    h.refuse([
+      `'${trackOut}' is a sound lane — subtitles are drawn on a picture lane: name a new one, or delete it first`,
+    ]);
+    return;
+  }
+  // The caption clip shares the lane's name; one already there must be a subtitle file, never a shot.
+  const srtRel = `clips/${trackOut}.srt`;
+  const clipOut = join(h.songPath, "clips", `${trackOut}.k7x`);
+  if (existsSync(clipOut)) {
+    const was = wsData(clipOut).source;
+    if (typeof was !== "string" || !CAPTION_SOURCE.test(was)) {
+      h.refuse([
+        `clip '${trackOut}' is not a subtitle file (clips/${trackOut}.k7x) — name another lane`,
+      ]);
       return;
     }
   }
@@ -111,12 +133,31 @@ export async function transcribeTrack(
       h.refuse(["whisper heard no speech in this video"]);
       return;
     }
-    setFileValue(nodeFile, ["content"], srtOf(segments));
+    const srtAbs = join(h.songPath, srtRel);
+    for (const f of [srtAbs, clipOut, outLane?.path ?? nodeFile])
+      h.snapshot?.(f);
+    wsWrite(srtAbs, srtOf(segments));
+    setFileValue(clipOut, ["source"], srtRel);
+    if (!outLane) createPictureLaneFile(h.songPath, trackOut);
+    // Where the shot is and from where in its source, so a cue's source time lands where it is said.
+    wsEdit(outLane?.path ?? nodeFile, (doc) => {
+      const lane = doc.at([]);
+      const mine = listVideoPlacements(lane)
+        .map((p, i) => (p.ref === trackOut ? i : -1))
+        .filter((i) => i >= 0);
+      for (const i of mine.reverse()) removeVideoPlacementAt(lane, i);
+      addVideoPlacement(lane, {
+        ref: trackOut,
+        start: shot.start,
+        length: shot.length,
+        sourceFrom: shot.sourceFrom,
+      });
+    });
     await h.reload();
     h.log([
-      `${segments.length} segments into ${trackOut} (content:) — timed in the source's own seconds`,
-      ...(existed
-        ? ["the track already existed, so its content was replaced"]
+      `${segments.length} subtitles into ${srtRel}, placed on picture lane ${trackOut} under ${shot.ref}`,
+      ...(outLane
+        ? ["the lane already existed, so its subtitles were replaced"]
         : []),
     ]);
   } finally {

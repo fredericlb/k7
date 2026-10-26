@@ -235,26 +235,28 @@ the list belongs to the workspace. A task is named by its number in the list, as
 reader see it, and `task mark` stores the project beside the timecode, one file serving every song
 (`verbs/tasks.ts`; the format is `apps/k7/frontend/docs/tasks.md`'s).
 
-## `track transcribe` — whisper writes the lane's text
+## `track transcribe` — whisper writes the lane's subtitles
 
 The verb is the transcription plugin's (`packages/k7-plugins/src/transcription`) — this section
 says what it does, not who ships it; the plugin folder is where its machine lives.
 
 `track transcribe <track_in> <track_out>` listens to the video the PICTURE lane `<track_in>` places
-and writes what is said as `<track_out>`'s **`content:`** — the field a lane's note is read from
-(`packages/song/docs/docModules.md`), so the transcript is on the graph rather than in a panel
-nobody opens. The text is **valid SRT, timed in the SOURCE video's own seconds**, because that is
-the only clock the recording has: a lane cutting between sources would need the segments re-timed
-onto the timeline to mean anything, which is a decision for the day somebody asks for it. The first
-shot decides what is listened to.
+and writes what is said as **subtitles**: `clips/<track_out>.srt`, a caption clip of the same name
+naming it, and that clip placed on the picture lane `<track_out>`. A transcript is only useful
+where it is seen and played, and a caption clip is the one thing the timeline, the viewport and
+every render all draw. The text is **valid SRT, timed in the SOURCE video's own seconds**, the only
+clock the recording has; the placement copies the shot's `start`, `length` and `from`, so a cue
+lands on the timeline where it is said. A lane cutting between sources would need the segments
+re-timed, which is not done: the first shot decides what is listened to.
 
 The machine needs a whisper CLI — `whisper` (openai-whisper) or `whisper-cli` (whisper.cpp, which
 additionally wants `STUDIO_WHISPER_MODEL` to name a ggml model) — and ffmpeg for the audio, which a
 machine that renders has. A missing binary is said as the install it wants; one that RAN and failed
 is quoted as it failed, because retrying with the other dialect would double a model download
-nobody asked for. `<track_out>` is created when new and its `content:` REPLACED when not — a rerun
-after a failed take updates rather than refuses — and every line is written only after whisper has
-answered, so a refused transcription costs no track.
+nobody asked for. `<track_out>` is created when new; when it is already a picture lane, a rerun
+replaces its own placement and keeps the lane's others. A sound lane of that name, or a clip of
+that name that is not a subtitle file, is refused. Every line is written only after whisper has
+answered, so a refused transcription costs nothing.
 
 ## `node tap` writes the NODE, never the module
 
