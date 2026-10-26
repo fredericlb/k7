@@ -1,6 +1,6 @@
 // MiniPlayer.tsx — the bar at the bottom: what is playing, how far in, and where the sound is
 // coming out. It appears when a song starts and goes only when it is closed — including after
-// the song ends. The ROW is @studio/ui-mini-player; what is here is the médiathèque's reading
+// the song ends; a host's dock then draws its own bar in its place. The ROW is @studio/ui-mini-player; what is here is the médiathèque's reading
 // of it. See ../../docs/miniPlayer.md.
 
 import { Disc3, ListVideo } from "@frediverse/ui/icons";
@@ -18,21 +18,26 @@ function albumOf(path: string): string {
   return parts.length >= 4 ? parts[parts.length - 2] : "";
 }
 
-/** The bar cut down to what it says when nothing plays but the queue waits. */
+/** The bar cut down to what it says when nothing plays but the queue waits: no transport, no scrubber. */
 function QueueOnly() {
   const { queue } = usePlayback();
   const l = useLabels().playback;
   return (
-    <section
-      aria-label={l.queueRegion}
-      className="flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2"
+    <Bar
+      icon={ListVideo}
+      title={l.queueWaiting(queue.length)}
+      playing={false}
+      position={0}
+      duration={0}
+      labels={{ ...l.bar, region: l.queueRegion }}
+      onToggle={() => {}}
+      onSeek={() => {}}
+      mediaSession={false}
+      transport={null}
+      track={null}
     >
-      <ListVideo className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-        {l.queueWaiting(queue.length)}
-      </span>
       <QueueButton />
-    </section>
+    </Bar>
   );
 }
 

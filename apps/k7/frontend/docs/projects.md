@@ -57,10 +57,27 @@ groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, u
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
 count, and **Find** — what you DRAW ON; then **Rehearsal** — **Sessions**, **Publications**,
 **Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
-one for the page you are on is lit in the accent, the account's engine selector sits above the user menu at its
-foot (`SidebarEngine.tsx`, `shell.md`; over a project the drawer has none, the bar's engine slot being it), and the user menu last; below `sm` it folds to an
+one for the page you are on is lit in the accent, and the user menu is last; below `sm` it folds to an
 icon rail, where a rule stands in for a group's title. The same entries in the same place on
 every page say which of them you are on, so none of the others carries a back button of its own.
+
+## The home bar
+
+**Every home page has the same bar at its foot, always** (`HomeFrame.tsx`), under the sidebar and the
+page alike, so it spans the window. It is the mini player's DOCK (`packages/ui-mini-player/docs/miniPlayer.md`):
+whichever bar a page mounts is drawn there — the médiathèque's player, the songbook's track — and
+while none is, a standby bar saying nothing is playing. The row never comes and goes, because what
+it carries does not depend on the page: the **engine selector** in its engine slot, right of the
+right slot (`shell.md`), and the way back to a folded sidebar at its left edge.
+
+**The sidebar folds** from a button beside its brand, and the bar's left edge then holds the button
+that brings it back; the fold is kept per browser, being a habit of the screen. The rail below `sm`
+has no room for the button and does not fold.
+
+**The page column holds its own fixed boxes** (`contain: layout`), so a page's docks and pop-ins
+stop at the sidebar and at the bar without knowing either's size. The one thing fixed outside it is
+the rehearsal take, held above the routes so it outlives them; for it the column publishes where it
+is, as `--host-column-left` and `--host-column-bottom` (`packages/ui-rehearsal/docs/audio.md`).
 
 The media sections are the library's own (`LIBRARY_SECTIONS` in `@studio/ui-library`,
 `packages/ui-library/docs/host.md`), drawn here rather than in a header of the library's: one

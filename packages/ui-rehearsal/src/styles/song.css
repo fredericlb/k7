@@ -294,7 +294,7 @@
     align-items: flex-end;
     gap: 10px;
     /* Short of the song's bar, so the last panel never slides under it. */
-    max-height: calc(100vh - 96px - var(--song-bar-h, 0px));
+    max-height: calc(100% - 96px - var(--song-bar-h, 0px));
     /* The gap between two panels is page, not rail: a click there must reach what is behind. */
     pointer-events: none;
   }

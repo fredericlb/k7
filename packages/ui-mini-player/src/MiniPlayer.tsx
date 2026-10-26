@@ -2,6 +2,7 @@
 // stop looking at it. It holds NO transport of its own — every number is a prop and every
 // button is a callback, because the screens mounting it play very different things. It also
 // fills the system's media session, so a phone's lock screen and headset drive the same callbacks.
+// Inside a `MiniPlayerDock` it is drawn in the dock's outlet, not where it is mounted (dock.tsx).
 // See ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
@@ -9,6 +10,8 @@ import type { LucideIcon } from "@frediverse/ui/icons";
 import { Pause, Play, X } from "@frediverse/ui/icons";
 import { formatClock } from "@studio/ui-timeline/ticks";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useDockSlot } from "./dock";
 import { useMediaSession } from "./mediaSession";
 import { useScrub } from "./useScrub";
 
@@ -49,6 +52,7 @@ export function MiniPlayer({
   transport,
   track,
   mediaSession = true,
+  standby = false,
   children,
 }: {
   /** The glyph before the title — a record, a headphone: what KIND of thing this is. */
@@ -84,9 +88,14 @@ export function MiniPlayer({
   track?: ReactNode;
   /** False for a host whose sound is not this page's, so the system's controls are left to one that is. */
   mediaSession?: boolean;
+  /** A dock's bar for while nothing plays: drawn only while no other bar is docked. */
+  standby?: boolean;
   /** Controls of the host's own, right of the transport and left of the close. */
   children?: ReactNode;
 }) {
+  const dock = useDockSlot(standby);
+  const leadShown = lead ?? (dock.docked ? dock.lead : undefined);
+  const endShown = end ?? (dock.docked ? dock.end : undefined);
   useMediaSession({
     title,
     artist,
@@ -106,14 +115,16 @@ export function MiniPlayer({
   const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0;
   // A host whose name stands in `lead` passes an empty title, and the line goes with it.
   const titled = !!title || !!meta || !!status;
-  return (
+  // A docked bar is drawn in the outlet or not at all, never where it was mounted.
+  if (dock.docked && (dock.hidden || !dock.target)) return null;
+  const bar = (
     <section
       aria-label={labels.region}
-      className={`relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2${onClose ? " [@media(hover:none)]:pr-12" : ""}`}
+      className={`relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2${onClose ? ` [@media(hover:none)]:pr-12${trail || endShown ? " pr-9" : ""}` : ""}`}
     >
-      {lead && (
+      {leadShown && (
         <div className="flex min-w-0 max-w-[24rem] shrink items-center gap-1.5">
-          {lead}
+          {leadShown}
         </div>
       )}
       {/* Centred and capped: on a wide screen the transport, the title and the clocks stay together. */}
@@ -198,9 +209,9 @@ export function MiniPlayer({
         </div>
       )}
 
-      {end && (
+      {endShown && (
         <div className="flex min-w-0 shrink items-center gap-1.5 border-l pl-3">
-          {end}
+          {endShown}
         </div>
       )}
 
@@ -218,4 +229,5 @@ export function MiniPlayer({
       )}
     </section>
   );
+  return dock.docked && dock.target ? createPortal(bar, dock.target) : bar;
 }

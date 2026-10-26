@@ -18,8 +18,6 @@
   --amber: var(--sh-amber);
   --red: var(--sh-destructive);
   --sidebar-w: 288px;
-  /* Where a bar fixed at the foot starts: past the host's sidebar, w-14 then sm:w-52 (HomeSidebar.tsx). */
-  --rehearsal-inset-left: 3.5rem;
 
   color: var(--text);
   font-family: var(--font-sans);
@@ -44,15 +42,8 @@
     margin: 24px 0 10px;
   }
 }
-@media (min-width: 640px) {
-  .rehearsal-root {
-    --rehearsal-inset-left: 13rem;
-  }
-}
-
 /* A standalone page (public, phone mic) has no host frame around it, so nothing is beside it. */
 .rehearsal-root.rehearsal-standalone {
-  --rehearsal-inset-left: 0px;
   height: 100%;
 }
 
@@ -67,6 +58,9 @@
 /* The take's overlay is fixed boxes only: the wrapper carries the palette and takes no room. */
 .rehearsal-overlay {
   display: contents;
+  /* Held above the host's routes, so outside its page column: the host publishes where that column is. */
+  --rehearsal-inset-left: var(--host-column-left, 0px);
+  --rehearsal-inset-bottom: var(--host-column-bottom, 0px);
 }
 
 /* Preflight zeroes element margins; these sheets rely on the browser's paragraph and heading flow. */

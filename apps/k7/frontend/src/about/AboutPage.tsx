@@ -6,7 +6,7 @@ import { ExternalLink } from "@frediverse/ui/icons";
 import { lazy, Suspense, useState } from "react";
 import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
-import { HomeShell } from "../projects/HomeSidebar";
+import { HomeShell } from "../projects/HomeFrame";
 import { PageFrame } from "../projects/PageFrame";
 import { Action, Row, Section } from "../settings/Section";
 import { VERSION } from "../version";

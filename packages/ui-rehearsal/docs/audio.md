@@ -25,8 +25,10 @@ collapsed and the page stays readable: you record against a song in order to REA
 play, and covering the tablature the instant the tape rolls is the one thing that use has no answer
 to. The bar reopens the pop-in for the controls the collapsed form cannot carry.
 
-The pop-in and the bar stay inside the content column, offset by `--rehearsal-inset-left`, never
-over k7's sidebar: the sidebar is how you move between pages while the take runs.
+The pop-in and the bar stay inside the content column, never over k7's sidebar nor its home bar:
+the sidebar is how you move between pages while the take runs, and the bar is what plays. Being held
+above the routes, they are outside the column, so they read where it is from the host's
+`--host-column-left` and `--host-column-bottom` (0 without a host).
 
 ## Drawing must not eat the audio
 

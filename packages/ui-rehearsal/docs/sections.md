@@ -51,8 +51,9 @@ inside the rehearsal pages. The `/new` forms have Cancel instead, which is the s
 Every rehearsal screen is drawn inside `.rehearsal-root`, and its stylesheet (`src/styles/`) is
 scoped under it: its palette as custom properties on the wrapper, and no `:root`, no `body`, no bare
 element rule — a rule that reached k7's own pages would restyle them the moment a rehearsal page
-had been opened once. The fixed docks and pop-ins are offset by `--rehearsal-inset-left`, the
-sidebar's width, so they stay inside the content column.
+had been opened once. The fixed docks and pop-ins are placed against the content column, which the
+host makes their containing block; the take's overlay, outside it, reads the column's place from the
+host (`audio.md`). The song's track is the host's dock's bar when there is one (`useMiniPlayerDocked`).
 
 The palette's short names (`--bg`, `--accent`…) READ the theme's `--sh-*` tokens rather than repeat
 their values: a copy is a second palette that drifts the day the theme changes. And `.main-inner` is

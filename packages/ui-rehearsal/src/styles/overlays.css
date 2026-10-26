@@ -10,7 +10,7 @@
   /* Open: the shared dialog's backdrop, over whatever page the take started on. */
   .rec-popin-backdrop {
     position: fixed;
-    inset: 0 0 0 var(--rehearsal-inset-left);
+    inset: 0 0 var(--rehearsal-inset-bottom) var(--rehearsal-inset-left);
     z-index: 50;
     display: flex;
     align-items: flex-start;
@@ -78,7 +78,7 @@
   /* Hidden during a take rather than unmounted: the frame is k7's open bench, ../../docs/chainSource.md. */
   .chain-panel-backdrop {
     position: fixed;
-    inset: 0 0 0 var(--rehearsal-inset-left);
+    inset: 0 0 var(--rehearsal-inset-bottom) var(--rehearsal-inset-left);
     z-index: 60;
     display: flex;
     align-items: flex-start;
@@ -150,8 +150,9 @@
     margin: 8px 0;
   }
 
-  /* The recorder's own bottom bar (@studio/recorder) starts past the host's sidebar. */
+  /* The recorder's own bottom bar (@studio/recorder) sits on the host's column: past its sidebar, above its bar. */
   .rec-bar {
     left: var(--rehearsal-inset-left);
+    bottom: var(--rehearsal-inset-bottom);
   }
 }

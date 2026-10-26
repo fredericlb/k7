@@ -1,5 +1,5 @@
 // HomeRoutes.tsx — the pages with no project in the address, as ROUTES so going between them reloads nothing, with the
-// rehearsal take held above them so it outlives every one. A chunk of its own: a project page never loads the
+// rehearsal take and the home frame (the sidebar's fold, the bar's dock) held above them so they outlive every one. A chunk of its own: a project page never loads the
 // rehearsal package or these pages (../../docs/shell.md).
 
 import { RehearsalRecording } from "@studio/ui-rehearsal";
@@ -17,6 +17,7 @@ import {
   TASKS_ROUTE,
 } from "./api";
 import { Home } from "./Home";
+import { HomeFrame } from "./HomeFrame";
 import { RehearsalHost } from "./RehearsalHost";
 import { RehearsalPage } from "./RehearsalPage";
 
@@ -61,28 +62,34 @@ export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
   const serverChoice = useServerChoice();
   return (
     <RehearsalHost>
-      <RehearsalRecording>
-        {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
-        <Suspense fallback={fallback}>
-          {/* Keyed by the server picker: a page read from one server keeps nothing of it on the other. */}
-          <Routes key={serverChoice}>
-            <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
-            <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
-            <Route path={ENGINE_SETTINGS_ROUTE} element={<EnginePage />} />
-            <Route path={SERVER_SETTINGS_ROUTE} element={<ServerPage />} />
-            <Route path={ABOUT_ROUTE} element={<AboutPage />} />
-            <Route path={TASKS_ROUTE} element={<TasksPage />} />
-            <Route path={`${MEDIA_ROUTE}/*`} element={<MediaPage />} />
-            {/* The phone's microphone: a page of its own, outside the frame. */}
-            <Route
-              path={`${REHEARSAL_ROUTE}/remote`}
-              element={<RehearsalRemote />}
-            />
-            <Route path={`${REHEARSAL_ROUTE}/*`} element={<RehearsalPage />} />
-            <Route path="*" element={<Home />} />
-          </Routes>
-        </Suspense>
-      </RehearsalRecording>
+      {/* The sidebar's fold and the bar's dock, shared by every page below (HomeFrame.tsx). */}
+      <HomeFrame>
+        <RehearsalRecording>
+          {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
+          <Suspense fallback={fallback}>
+            {/* Keyed by the server picker: a page read from one server keeps nothing of it on the other. */}
+            <Routes key={serverChoice}>
+              <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
+              <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
+              <Route path={ENGINE_SETTINGS_ROUTE} element={<EnginePage />} />
+              <Route path={SERVER_SETTINGS_ROUTE} element={<ServerPage />} />
+              <Route path={ABOUT_ROUTE} element={<AboutPage />} />
+              <Route path={TASKS_ROUTE} element={<TasksPage />} />
+              <Route path={`${MEDIA_ROUTE}/*`} element={<MediaPage />} />
+              {/* The phone's microphone: a page of its own, outside the frame. */}
+              <Route
+                path={`${REHEARSAL_ROUTE}/remote`}
+                element={<RehearsalRemote />}
+              />
+              <Route
+                path={`${REHEARSAL_ROUTE}/*`}
+                element={<RehearsalPage />}
+              />
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </Suspense>
+        </RehearsalRecording>
+      </HomeFrame>
     </RehearsalHost>
   );
 }

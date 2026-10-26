@@ -5,7 +5,7 @@
 import { Loader2 } from "@frediverse/ui/icons";
 import { NewSessionButton } from "@studio/ui-rehearsal";
 import { lazy, Suspense } from "react";
-import { HomeShell } from "./HomeSidebar";
+import { HomeShell } from "./HomeFrame";
 
 const RehearsalRoutes = lazy(() =>
   import("@studio/ui-rehearsal/pages").then((x) => ({

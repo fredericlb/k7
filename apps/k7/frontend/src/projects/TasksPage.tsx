@@ -14,7 +14,7 @@ import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { accountFiles, projectHref, workspaceHref } from "./api";
 import { EmptyState } from "./EmptyState";
-import { HomeShell } from "./HomeSidebar";
+import { HomeShell } from "./HomeFrame";
 import { PageFrame } from "./PageFrame";
 import type { AccountFiles } from "./workspaceOps";
 import {

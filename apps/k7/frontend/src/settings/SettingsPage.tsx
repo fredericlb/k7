@@ -5,7 +5,7 @@
 
 import { lazy, Suspense } from "react";
 import { m } from "../paraglide/messages.js";
-import { HomeShell } from "../projects/HomeSidebar";
+import { HomeShell } from "../projects/HomeFrame";
 import { PageFrame } from "../projects/PageFrame";
 import { AiSection } from "./AiSection";
 import { ChainsSection } from "./ChainsSection";
