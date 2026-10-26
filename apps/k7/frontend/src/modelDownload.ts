@@ -3,6 +3,7 @@
 // runs the download as a job (a model is 166 MB); this polls it and says how far it is.
 // See packages/song/docs/moduleAssets.md.
 
+import { trackDownload } from "@studio/http-client/downloads";
 import type { ModelDownloadJob } from "@studio/web-protocol";
 import { m } from "./paraglide/messages.js";
 
@@ -29,8 +30,19 @@ export async function followDownload(
   poll: (id: string) => Promise<ModelDownloadJob>,
   onUpdate: (j: ModelDownloadJob) => void,
 ): Promise<ModelDownloadJob> {
+  // The sidebar's download manager follows it too (packages/http-client/docs/downloads.md).
+  const tracked = trackDownload({
+    key: `model:${job.id}`,
+    kind: "engine",
+    label: job.file,
+  });
+  const report = (j: ModelDownloadJob) => {
+    tracked.progress(j.received, j.total || undefined);
+    if (j.done) tracked.end(j.error ?? undefined);
+    onUpdate(j);
+  };
   let now = job;
-  onUpdate(now);
+  report(now);
   while (!now.done) {
     await new Promise((r) => setTimeout(r, POLL_MS));
     try {
@@ -38,7 +50,7 @@ export async function followDownload(
     } catch (e) {
       now = { ...now, done: true, error: (e as Error).message };
     }
-    onUpdate(now);
+    report(now);
   }
   return now;
 }

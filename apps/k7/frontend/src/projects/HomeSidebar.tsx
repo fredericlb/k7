@@ -33,6 +33,7 @@ import k7Logo from "../../icon/k7.svg";
 import { api } from "../api";
 import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
+import { DownloadsButton } from "../components/DownloadsButton";
 import { SidebarServer } from "../components/SidebarServer";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
@@ -334,6 +335,8 @@ export function HomeSidebar({
           away ? "flex-row justify-end" : "flex-col sm:flex-row sm:justify-end",
         )}
       >
+        {/* First, and only while something comes down (../components/DownloadsButton.tsx). */}
+        <DownloadsButton />
         {actions}
         {/* Last: the account, the settings, the other apps, the logout (packages/ui-user-menu/docs/userMenu.md). */}
         <UserMenu
