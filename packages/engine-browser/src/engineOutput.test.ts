@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { EngineClient } from "./engine";
-import { playEngineOutput } from "./engineOutput";
+import { engineOutput, playEngineOutput } from "./engineOutput";
 
 /** A client whose inbound messages the test writes, and whose broadcast calls it reads. */
 function client() {
@@ -57,6 +57,30 @@ describe("playing an engine's output here", () => {
     feed({ type: "whoami", id: "e1", boot: "2" });
     expect(asked).toEqual([true, false]);
     stop();
+    expect(asked).toEqual([true, false]);
+  });
+});
+
+describe("listening here by choice", () => {
+  it("subscribes on an engine that has speakers, and lets go when the page changes its mind", () => {
+    const { c, feed, asked } = client();
+    const out = engineOutput(c, true);
+    feed({ type: "whoami", id: "e1", boot: "1" });
+    expect(asked).toEqual([true]);
+    out.setHere(false);
+    expect(asked).toEqual([true, false]);
+    out.stop();
+    expect(asked).toEqual([true, false]);
+  });
+
+  it("keeps the broadcast while either reason holds", () => {
+    const { c, feed, asked } = client();
+    const out = engineOutput(c);
+    feed({ type: "whoami", id: "e1", boot: "1", audioToBrowser: true });
+    out.setHere(true);
+    out.setHere(false);
+    expect(asked).toEqual([true]);
+    out.stop();
     expect(asked).toEqual([true, false]);
   });
 });

@@ -13,6 +13,10 @@ an engine whose `whoami` says `audioToBrowser`: the server's own engine, whose d
 (`docs/server-engine.md` at the repo root). There, the broadcast is the ONLY way the music reaches a
 person, so the measurements below are what a user hears, not a mockup's numbers.
 
+A page may also ask for it on any engine (`engineOutput(client, here)`, then `setHere`): k7's
+**Plays on This machine**. One subscription answers both reasons, so switching one never drops the
+other's sound. The engine's own device keeps playing, being shared by every session on it.
+
 ## Why a binary frame on the existing socket
 
 The engine already serves an IXWebSocket server that every client is already connected to.

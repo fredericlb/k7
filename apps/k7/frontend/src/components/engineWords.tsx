@@ -20,7 +20,6 @@ export interface EngineSelectorProps {
   audioToBrowser?: boolean;
   /** The figures beside the name — the session's link in a project, the probe's elsewhere. */
   stats?: ReactNode;
-  onChange: () => void;
 }
 
 const nameOf = (r: RankedEngine): string =>

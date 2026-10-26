@@ -1,12 +1,13 @@
 // HomeEngine.tsx — the engine selector of the home pages, in their bar's engine slot: the engine
-// remembered on the account (else the policy's pick) with the probe's figures, and the list to pick
-// another. There is no session here, so a pick is what the NEXT project opens on. See ../../docs/shell.md.
+// remembered on the account (else the policy's pick) with the probe's figures, and the engines to
+// pick another from. There is no session here, so a pick is what the NEXT project opens on. See ../../docs/shell.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { formatPerformance } from "@studio/web-protocol/performance";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "../api";
+import type { EngineChoice } from "../engineChoice";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 import type { RankedEngine } from "../types";
@@ -78,18 +79,42 @@ export function HomeEngine() {
     </>
   ) : null;
 
+  // Remembered on the ACCOUNT: the next project opened, here or on another device, starts on it.
+  const pick = (r: RankedEngine) => {
+    engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
+    probe = null;
+    setCurrent(r);
+    setPicking(false);
+  };
+  const choice: EngineChoice = {
+    ranked,
+    loading: busy,
+    refresh: () => void refresh(),
+    pick,
+    openList: () => {
+      setPicking(true);
+      void refresh();
+    },
+  };
+
   return (
     <>
       <BarEngine
         current={current}
         searching={searching}
         stats={stats}
-        compact={isMobile}
+        // No session here: the probe's answer is the state, an engine that did not answer reads as down.
+        status={
+          current
+            ? current.latency
+              ? "up"
+              : "down"
+            : searching
+              ? "searching"
+              : "none"
+        }
+        choice={choice}
         toolSize={isMobile ? "icon" : "icon-xs"}
-        onChange={() => {
-          setPicking(true);
-          void refresh();
-        }}
       />
       {picking && (
         <div className="fixed inset-0 z-50 bg-background">
@@ -97,13 +122,7 @@ export function HomeEngine() {
             ranked={ranked}
             loading={busy}
             onRefresh={() => void refresh()}
-            onPick={(r) => {
-              // Remembered on the ACCOUNT: the next project opened, here or on another device, starts on it.
-              engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
-              probe = null;
-              setCurrent(r);
-              setPicking(false);
-            }}
+            onPick={pick}
             onPaired={(id) => void refresh(id)}
             onBack={() => setPicking(false)}
             backLabel={m["common.close"]()}
