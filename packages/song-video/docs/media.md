@@ -67,10 +67,11 @@ above has already explained.
 
 ## The export refuses what it cannot decode, before it starts
 
-The export asks every source whether it decodes here (`assertDecodable` in
+The export asks every video source whether it decodes here (`assertDecodable` in
 `packages/ui-eyes/src/export.ts`), and refuses naming the file and the verb that fixes it. The
 alternative is a render failing at that shot's first frame, minutes in, with every frame before
-it lost.
+it lost. A still and a subtitle clip are not asked: neither is a container, and handing one to the
+reader fails the whole export as an unrecognised format.
 
 ## Stills
 
