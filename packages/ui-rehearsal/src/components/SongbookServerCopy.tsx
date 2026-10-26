@@ -10,7 +10,13 @@ import {
   HardDrive,
   Loader2,
 } from "@frediverse/ui/icons";
-import { useCallback, useEffect, useState } from "react";
+import {
+  downloadsSnapshot,
+  isDownloading,
+  queueDownload,
+  subscribeDownloads,
+} from "@studio/http-client/downloads";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
 import type { SongbookPlacement, SongListEntry } from "../types";
@@ -19,6 +25,12 @@ import type { SongbookPlacement, SongListEntry } from "../types";
 const PLACEMENT_MS = 30_000;
 
 export type SongPlacement = "synced" | "local";
+
+/** The download manager's key for one song (../../../http-client/docs/downloads.md). */
+const downloadKey = (id: string): string => `songbook:${id}`;
+
+const songName = (s: { artist?: string; title: string }): string =>
+  s.artist ? `${s.artist} — ${s.title}` : s.title;
 
 const hostOf = (p: SongbookPlacement | null): string =>
   p?.server ? new URL(p.server).host : "";
@@ -52,10 +64,13 @@ export function useSongbookCopy(
   }, [songs, active, reload]);
 
   const download = useCallback(
-    async (id: string) => {
+    async (id: string, label: string) => {
       setError(null);
       try {
-        await api.downloadSong(id);
+        await queueDownload(
+          { key: downloadKey(id), kind: "songbook", label },
+          () => api.downloadSong(id),
+        );
         onDownloaded();
       } catch (e) {
         setError((e as Error).message);
@@ -108,7 +123,7 @@ export function ServerOnlySongs({
 }: {
   copy: ReturnType<typeof useSongbookCopy>;
 }) {
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const all = useSyncExternalStore(subscribeDownloads, downloadsSnapshot);
   const { placement, error } = copy;
   if (!placement?.serverOnly.length && !error) return null;
   return (
@@ -122,20 +137,15 @@ export function ServerOnlySongs({
               title={m["songbook.sync.server"]({ server: hostOf(placement) })}
             >
               <Cloud className="size-4 shrink-0" />
-              <span className="truncate">
-                {s.artist ? `${s.artist} — ${s.title}` : s.title}
-              </span>
+              <span className="truncate">{songName(s)}</span>
             </span>
             <Button
               variant="ghost"
               size="sm"
-              disabled={downloading !== null}
-              onClick={() => {
-                setDownloading(s.id);
-                void copy.download(s.id).finally(() => setDownloading(null));
-              }}
+              disabled={isDownloading(all, downloadKey(s.id))}
+              onClick={() => void copy.download(s.id, songName(s))}
             >
-              {downloading === s.id ? (
+              {isDownloading(all, downloadKey(s.id)) ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <CloudDownload className="size-4" />

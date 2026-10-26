@@ -10,12 +10,18 @@ import {
   Loader2,
 } from "@frediverse/ui/icons";
 import {
+  downloadsSnapshot,
+  isDownloading,
+  queueDownload,
+  subscribeDownloads,
+} from "@studio/http-client/downloads";
+import {
   FAMILIES,
   type Family,
   type LibraryPlacement,
   type MediatekEntry,
 } from "@studio/mediatek/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
 import { missingUnder } from "./serverSets";
@@ -24,6 +30,13 @@ import { missingUnder } from "./serverSets";
 const PLACEMENT_MS = 30_000;
 
 export type Placement = "synced" | "local";
+
+/** The download manager's key for one family-prefixed path. */
+export const downloadKey = (path: string): string => `library:${path}`;
+
+/** What the manager names a song by: its path under the family, `artist/album/song`. */
+const songLabel = (path: string): string =>
+  path.split("/").slice(1).join(" / ");
 
 /** The open family's placement, re-asked whenever the local listing reloads; null when there is nothing to say. */
 export function useServerCopy(
@@ -56,16 +69,22 @@ export function useServerCopy(
     return () => clearInterval(t);
   }, [entries, reload]);
 
+  // One queued entry per song, so the manager counts songs and each row spins alone (../../http-client/docs/downloads.md).
   const download = useCallback(
     async (paths: string[]) => {
       if (!family || !paths.length) return;
-      try {
-        await library.download(family, paths);
-      } catch (e) {
-        onError((e as Error).message);
-      }
-      // The local poll lists the new entry on its own; the placement is asked again at once.
-      await reload();
+      const runs = paths.map((path) =>
+        queueDownload(
+          { key: downloadKey(path), kind: "song", label: songLabel(path) },
+          () => library.download(family, [path]),
+        )
+          // The local poll lists the new entry on its own; the placement is asked again at once.
+          .then(() => reload()),
+      );
+      const failed = (await Promise.allSettled(runs)).find(
+        (r) => r.status === "rejected",
+      );
+      if (failed) onError((failed.reason as Error).message);
     },
     [family, onError, reload],
   );
@@ -121,7 +140,9 @@ export function RemoteDownload({
   onDownload: (paths: string[]) => Promise<void>;
 }) {
   const l = useLabels();
-  const [busy, setBusy] = useState(false);
+  const all = useSyncExternalStore(subscribeDownloads, downloadsSnapshot);
+  // Read off the manager's list: a right-click's "download missing" spins this row too.
+  const busy = isDownloading(all, downloadKey(path));
   return (
     <Button
       variant="ghost"
@@ -134,8 +155,7 @@ export function RemoteDownload({
       onClick={(e) => {
         // The row behind it must not take the click as its own.
         e.stopPropagation();
-        setBusy(true);
-        void onDownload([path]).finally(() => setBusy(false));
+        void onDownload([path]);
       }}
     >
       {busy ? (
