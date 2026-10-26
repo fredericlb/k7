@@ -130,9 +130,13 @@ describe("in the library", () => {
 
   it("keeps an uploaded WebM master that replaces its FLAC", async () => {
     const tags = { artist: "A", album: "B", title: "C" };
-    const first = addSong({ filename: "c.flac", bytes: bytes("flac"), tags });
+    const first = await addSong({
+      filename: "c.flac",
+      bytes: bytes("flac"),
+      tags,
+    });
     derive(first.master);
-    const second = addSong({
+    const second = await addSong({
       filename: "c.webm",
       bytes: bytes("real webm"),
       tags,

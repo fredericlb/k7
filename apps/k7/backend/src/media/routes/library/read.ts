@@ -18,6 +18,7 @@ import {
 import { manifestAt } from "@studio/mediatek/manifest";
 import { extOf, mimeFor } from "@studio/mediatek/media";
 import { revisions } from "@studio/mediatek/revision";
+import { songTags } from "@studio/mediatek/tags";
 import { asFamily, FAMILY_ERROR } from "@studio/mediatek/types";
 import { type Response, Router } from "express";
 import { mayManageLibrary } from "../../libraryGate.ts";
@@ -109,6 +110,19 @@ readRoutes.get(
   "/search",
   wrap(async (req, res) => {
     res.json({ entries: await search(parseQuery(req.query)) });
+  }),
+);
+
+/** A song's title, artist, album, tempo and key, read from its master by its FOLDER — mediatek's docs/songs.md. */
+readRoutes.get(
+  "/tags",
+  wrap(async (req, res) => {
+    const rel = String(req.query.path ?? "").replace(/\/+$/, "");
+    const abs = resolveReadable(rel, res, "present");
+    if (!abs) return;
+    const found = await songTags(abs);
+    if (!found) return res.status(404).json({ error: "no master here" });
+    res.json({ master: `${rel}/${found.master}`, tags: found.tags });
   }),
 );
 

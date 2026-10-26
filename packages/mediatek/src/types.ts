@@ -22,8 +22,21 @@ export const PLAYLISTS_DIR = "playlists";
 /** The one artist every rehearsal release is published under, `songs/K7/` — the scan keeps it out of the listing; see docs/songs.md. */
 export const K7_ARTIST = "K7";
 
-/** The sidecar that makes a folder a SONG and carries its title, provenance and variants. */
+/** The sidecar that makes a folder a SONG and carries its provenance and variants — the music's own facts are the master's tags. */
 export const SONG_FILE = "song.yaml";
+
+/** What a song's master carries in its tags (ID3, Vorbis comments, MP4 atoms…) — see docs/songs.md. */
+export interface MasterTags {
+  title?: string;
+  artist?: string;
+  album?: string;
+  bpm?: number;
+  /** `C# minor`, `A major` — the key's name, never its Camelot code. */
+  key?: string;
+}
+
+/** The shape a key is stored in, checked on every write path. */
+export const KEY_PATTERN = /^[A-G]#?\s+(major|minor)$/;
 
 // A PLAYLIST needs no such marker — it IS its file; the rule and the parser are `@studio/song/playlist`.
 

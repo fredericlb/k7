@@ -486,7 +486,6 @@ export function MediaLibrary({
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <SongEditor
             entry={editingSong}
-            vimMode={vimMode}
             playbackTarget={playback.target}
             onBack={() => openFile(null)}
             onSaved={refresh}

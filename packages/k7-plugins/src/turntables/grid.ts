@@ -1,10 +1,10 @@
 // grid.ts — laying PL8's correction over what the analysis measured. The correction belongs to the
-// RECORD (pl8's song.yaml) and not to this set: 87 BPM is 87 BPM in every project that plays it.
+// RECORD (its master's tags in pl8) and not to this set: 87 BPM is 87 BPM in every project that plays it.
 // See docs/grid.md, and ../../mediatek/docs/songs.md for where the number is kept.
 
 import type { DeckTempo } from "./deckVocabulary";
 
-/** What PL8 knows about a record's grid — its `song.yaml`, not this set's files. */
+/** What PL8 knows about a record's grid — its master's tags, not this set's files. */
 export interface GridFix {
   bpm?: number;
 }

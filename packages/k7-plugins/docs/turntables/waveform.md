@@ -28,8 +28,8 @@ this view's only promise in silence.
 - **Transients** are what the engine actually detected, in file seconds, in the `{file}.cache`
   sidecar. Drawn as they are.
 - **Beats** are a grid **inferred** from a tempo. The sidecar gives a BPM; it gives no *phase*,
-  and nothing in the media library carries one — `song.yaml` has a `bpm` that can be corrected by
-  hand, no first-beat offset.
+  and nothing in the media library carries one — a master's tags hold a `bpm` that can be corrected
+  by hand, no first-beat offset.
 
 Hence the anchor: **the grid starts on the circular mean of every onset**, not on
 `transients[0]` ([beats.ts](../../src/turntables/beats.ts)). One early transient — a cough, a lead-in note —

@@ -11,7 +11,11 @@ import {
 import { upload } from "@studio/http-client/upload";
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import type { RecordingDay } from "@studio/mediatek/recordings";
-import type { FamilyListing, LibraryPlacement } from "@studio/mediatek/types";
+import type {
+  FamilyListing,
+  LibraryPlacement,
+  MasterTags,
+} from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import type {
@@ -416,6 +420,34 @@ export const library = {
     );
     if (!res.ok) throw await failed(res, `${file.name}:`);
     return json(res, "variant");
+  },
+
+  /** A song's tags, read from its master by the song's FOLDER — mediatek's docs/songs.md. */
+  songTags: async (
+    folder: string,
+  ): Promise<{ master: string; tags: MasterTags }> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/tags?path=${encodeURIComponent(folder)}`,
+    );
+    if (!res.ok) throw await failed(res, "tags");
+    return json(res, "tags");
+  },
+
+  /** Rewrite them: a field absent is kept, `""` clears it; answers what the master now says. */
+  setSongTags: async (
+    folder: string,
+    tags: Partial<Record<keyof MasterTags, string | number>>,
+  ): Promise<{ master: string; tags: MasterTags }> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/tags?path=${encodeURIComponent(folder)}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(tags),
+      },
+    );
+    if (!res.ok) throw await failed(res, "tags");
+    return json(res, "tags");
   },
 
   /** Un-declare a variant and remove the file it named (../../docs/api.md). */

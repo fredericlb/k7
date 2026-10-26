@@ -5,8 +5,7 @@ the same piece:
 
 ```yaml
 # songs/Miles Davis/Kind of Blue/So What/song.yaml
-title: So What
-artist: Miles Davis
+source: upload
 variants:
   instrumental: instrumental.wav     # a file beside the master
 ```
@@ -39,11 +38,10 @@ Three things it refuses or decides, each for a reason:
 - **A `variants:` that is not a mapping is refused, not repaired.** A sidecar can say
   `variants:` followed by a list — the scan ignores it (see `readVariants`) — and inserting a
   `key: value` line under that would make the whole file unparseable, which costs the song its
-  title everywhere. Fix it in the editor; this will not guess.
+  variants and its provenance. Fix the file on the volume; this will not guess.
 
 The sidecar is edited as **text**, never round-tripped through the YAML serialiser: it carries
-the comments that say how the tree is derived. That is the same split `setSongBpm` makes, and
-the new line goes at the **end** of the block, so the order in the file is the order they were
+comments a person wrote, and a serialiser drops them. The new line goes at the **end** of the block, so the order in the file is the order they were
 added. A folder that had no sidecar at all gets one — there is nowhere else the variant could be
 declared.
 
@@ -57,8 +55,9 @@ and the second key would otherwise replace the first.
 In the song's own editor, `SongVariants.tsx` — a list beside the waveform, not a row in the
 tree. A song's tree row opens straight to that editor on any click, folding nothing: its
 `variants:` are never drawn as tree children, so the row has nothing to browse into and no
-second target to confuse with the first. Renaming or re-pointing a variant is a sidecar edit,
-done in the editor like any other field; the list is named by the sidecar and not by a file,
+second target to confuse with the first. Renaming or re-pointing a variant is an edit of
+`song.yaml` on the volume: the song's screen edits the master's tags, not the sidecar. The list is
+named by the sidecar and not by a file,
 because the file it names may not be there — `SongVariants.tsx` says **introuvable** on that row.
 
 **Removing** one is a button on that same row: `removeSongVariant` (write.ts) un-declares the
@@ -78,11 +77,12 @@ would have no way to know. So a variant is settled by the dirents already in han
 A song's master is analysed **at upload**: k7's backend receives the bytes, then asks the chosen
 machine to compute the waveform envelope, the transient onsets and the tempo, because it has
 no engine and cannot decode audio. The `.cache` sidecar is pushed back beside the audio and the
-tempo seeds `song.yaml` — see `packages/file-service/src/routes/mediatek.ts` and
+tempo seeds the master's tags — see `packages/file-service/src/routes/mediatek.ts` and
 `packages/file-service/docs/waveformCache.md`.
 
 A **variant** is a file in the folder, so it is analysed the same way and by the same route: it
 is a path in the library, and nothing about it is special.
 
-The tempo a variant's analysis finds does **not** overwrite the song's. `setSongBpm` refuses an
-existing key, and `bpm` in the sidecar describes the morceau — not one version of it.
+The tempo a variant's analysis finds is written to the MASTER, never to the variant's own file:
+`setSongBpm` takes the song's folder, and the tempo describes the morceau — not one version of it.
+It does not overwrite one already there.

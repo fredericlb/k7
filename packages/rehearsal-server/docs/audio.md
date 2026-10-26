@@ -185,8 +185,8 @@ into the **SONGS** (`songs/`), under the artist `K7`:
 
 ```
 songs/K7/<release title> (<release uid>)/<version name> (<version uid>)/
-    original.mp3        ← the mixdown
-    song.yaml           ← title, artist: K7, album, source: k7
+    original.mp3        ← the mixdown, tagged: title, artist K7, album
+    song.yaml           ← source: k7
     stems/guitare.wav   ← the separated tracks, when the import brings them
 ```
 
@@ -210,7 +210,7 @@ there:
 - **Republishing replaces.** The médiathèque's 409 protects a person sending the same song twice,
   not a service republishing knowingly — and the folder it replaces is this version's own.
 
-Renaming a version **does not move the folder**; only the sidecar is rewritten: a folder path is
+Renaming a version **does not move the folder**; only the master's tags are rewritten: a folder path is
 an entry's identifier and a cache manifest's key, so moving it would cost every machine a
 re-download of bytes that have not changed.
 

@@ -8,13 +8,14 @@ a way to say so, and to say it in the right place.
 
 ## The correction belongs to the RECORD, not to the set
 
-It lives in the track's `song.yaml`, in the media library:
+It lives in the track's own tags, in the media library — the master's tempo and key frames
+(`TBPM` and `TKEY` in an mp3):
 
-```yaml
-title: "Osez Joséphine"
-artist: "Alain Bashung"
-bpm: 87            # the analysis said 174
-key: "C# minor"    # entered, never detected
+```
+title   Osez Joséphine
+artist  Alain Bashung
+bpm     87          the analysis said 174
+key     C# minor    entered, never detected
 ```
 
 **The test is simple: does it change from one mix to the next?** A tempo, no — 87 BPM are 87 BPM
@@ -22,7 +23,7 @@ in every project that plays this record. A key, no either. MARKERS, yes: two ban
 same track drop the needle in different places, which is why those live in `mix.k7x`
 ([mixFile.md](../../../song/docs/mixFile.md)).
 
-And the médiathèque already holds the ground: `bpm:` there is **detected once then edited**, with a rule
+And the médiathèque already holds the ground: the tempo there is **detected once then edited**, with a rule
 saying a present value beats a fresh detection — written precisely because "the engine's estimate
 drops an octave on fast material" ([songs.md](../../../mediatek/docs/songs.md)). Which is exactly the
 error `÷2` corrects.
@@ -74,7 +75,7 @@ rather than disappearing.
 ## What this does not do, and must be said
 
 - **The downbeat cannot be corrected.** It remains the circular mean of the transients.
-  It belongs to the record too and could join `song.yaml` the day someone needs it; a field
+  It belongs to the record too and could join its tags the day someone needs it; a field
   nothing reads is a field filled in for nothing.
 - **4/4 stays assumed.** `BEATS_PER_BAR` is a constant, and a time signature is not corrected here
   — same reason: nobody reads it.

@@ -13,6 +13,8 @@
     "./catalogue": "./src/catalogue.ts",
     "./media": "./src/media.ts",
     "./song": "./src/song.ts",
+    "./tags": "./src/tags.ts",
+    "./testWav": "./src/testWav.ts",
     "./recordings": "./src/recordings.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
@@ -26,14 +28,16 @@
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "upload-library": "node --experimental-strip-types scripts/uploadLibrary.ts"
+    "upload-library": "node --experimental-strip-types scripts/uploadLibrary.ts",
+    "migrate-song-tags": "node --experimental-strip-types scripts/migrateSongTags.ts"
   },
   "dependencies": {
-    "@studio/web-protocol": "*",
+    "@studio/audio-analysis": "*",
     "@studio/engine-client": "*",
-    "yaml": "^2.5.0",
     "@studio/song-schema": "*",
-    "@studio/audio-analysis": "*"
+    "@studio/web-protocol": "*",
+    "taglib-wasm": "^2.4.0",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

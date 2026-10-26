@@ -4,6 +4,7 @@
 import { DEFAULT_CACHE_CONTROL, notModified } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
 import { NoFfmpegError } from "@studio/ffmpeg";
+import { KEY_PATTERN } from "@studio/mediatek/types";
 import { setSongBpm, setSongKey } from "@studio/mediatek/write";
 import express, { Router } from "express";
 import {
@@ -60,7 +61,7 @@ analysisRoutes.post(
     const folder = path.split("/").slice(0, -1).join("/");
     if (env.bpm > 0 && folder)
       try {
-        bpmSet = setSongBpm(folder, env.bpm);
+        bpmSet = await setSongBpm(folder, env.bpm);
       } catch {
         /* reported as `bpmSet: false` — the analysis itself stands */
       }
@@ -121,14 +122,16 @@ analysisRoutes.get(
 analysisRoutes.post(
   "/bpm",
   express.json(),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const path = String(req.body?.path ?? "");
     const bpm = Number(req.body?.bpm);
     if (!path) return res.status(400).json({ error: "path required" });
     if (!Number.isFinite(bpm) || bpm <= 0)
       return res.status(400).json({ error: "bpm must be a positive number" });
     try {
-      res.json({ set: setSongBpm(path, bpm, req.body?.force === true) });
+      res.json({
+        set: await setSongBpm(path, bpm, req.body?.force === true),
+      });
     } catch (e) {
       if (writeError(e, res)) return;
       throw e;
@@ -140,17 +143,19 @@ analysisRoutes.post(
 analysisRoutes.post(
   "/key",
   express.json(),
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const path = String(req.body?.path ?? "");
     const key = String(req.body?.key ?? "");
     if (!path) return res.status(400).json({ error: "path required" });
     // A refused SHAPE and a refused overwrite are different answers; only the first is a 400.
-    if (!/^[A-G]#?\s+(major|minor)$/.test(key.trim()))
+    if (!KEY_PATTERN.test(key.trim()))
       return res
         .status(400)
         .json({ error: "key must read like `C# minor` or `A major`" });
     try {
-      res.json({ set: setSongKey(path, key, req.body?.force === true) });
+      res.json({
+        set: await setSongKey(path, key, req.body?.force === true),
+      });
     } catch (e) {
       if (writeError(e, res)) return;
       throw e;

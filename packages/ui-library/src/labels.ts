@@ -102,8 +102,16 @@ export interface LibraryLabels {
   };
   song: {
     heading: (name: string) => string;
-    noSidecar: string;
     saved: (path: string) => string;
+    tagTitle: string;
+    tagArtist: string;
+    tagAlbum: string;
+    tagBpm: string;
+    tagKey: string;
+    noKey: string;
+    bpmInvalid: string;
+    /** Under the tag form: the tags are the master's, and changing them moves no folder. */
+    tagsHint: string;
     variants: string;
     variantMissing: string;
     variantRemoved: (name: string) => string;
@@ -118,7 +126,7 @@ export interface LibraryLabels {
     noMasterShort: string;
     analysing: string;
     analyse: string;
-    /** The song-info text editor's accessible name, `name` being the song's folder. */
+    /** The song-info form's accessible name, `name` being the song's folder. */
     editor: (name: string) => string;
   };
   playlists: {

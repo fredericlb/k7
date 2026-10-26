@@ -48,10 +48,11 @@ vocabulary, so a mirror can ask either side the same questions.
 | `PUT /file?path=` | Write a file by path (raw body) |
 | `POST /song?filename=&artist=&album=&title=[&source=][&replace=1]` | File an upload as a song from its tags. 409 `{exists:true}` when occupied. |
 | `POST /variant`, `DELETE /variant` | Add or remove a song variant |
+| `GET /tags?path=<folder>`, `PUT /tags?path=<folder>` | Read a song's tags from its master, or rewrite them (JSON: a field absent is kept, `""` clears it; 422 for a master TagLib cannot write) |
 | `POST /analyse` | Measure a file (waveform, onsets, tempo) and write its `.cache` sidecar |
 | `GET /envelope?path=` | A file's waveform envelope |
 | `GET /analysis`, `GET /mp3` | The state of the two background sweeps |
-| `POST /bpm`, `POST /key` | Seed a song's tempo, set its key |
+| `POST /bpm`, `POST /key` | Seed a song's tempo, set its key, in the master's tags |
 | `GET /recordings` | The capture zone by day |
 | `POST /recording?filename=[&at=][&duration=][&label=]` | File a capture; with `duration`, a moment |
 | `GET /playlists`, `POST /playlists` | List playlists, create one (409 when taken) |

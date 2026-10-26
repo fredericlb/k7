@@ -3,7 +3,7 @@
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { segment, sidecarFor } from "@studio/mediatek/song";
+import { segment } from "@studio/mediatek/song";
 import { K7_ARTIST } from "@studio/mediatek/types";
 import type { SongEnvelope } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
@@ -168,24 +168,20 @@ export async function renameVersion(
   const v = await versionOf(releaseUid, versionUid);
   if (!v) return null;
   await db.patchRecord("Versions", v.id, { Name: String(name) });
-  // The folder keeps its name and only the sidecar is rewritten — ../../docs/audio.md.
+  // The folder keeps its name and only the master's tags are rewritten — ../../docs/audio.md.
   if (v.fields.AudioPath) {
     const release = await getReleaseRecord(releaseUid);
     const folder = dirOf(v.fields.AudioPath);
     const own = ownsVersionFolder(folder, versionUid);
     const album = String(release?.fields.Title || "");
     await mediatek
-      .putFile(
-        `${folder}/song.yaml`,
-        sidecarFor({
-          title: own
-            ? mediatek.tagged(String(name), versionUid, "Version")
-            : String(name),
-          artist: K7_ARTIST,
-          album: own ? mediatek.tagged(album, releaseUid, "Release") : album,
-          source: "k7",
-        }),
-      )
+      .putTags(folder, {
+        title: own
+          ? mediatek.tagged(String(name), versionUid, "Version")
+          : String(name),
+        artist: K7_ARTIST,
+        album: own ? mediatek.tagged(album, releaseUid, "Release") : album,
+      })
       .catch(() => {
         // A stale title in the library is worth less than a rename that fails.
       });

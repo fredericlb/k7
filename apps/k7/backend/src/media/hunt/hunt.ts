@@ -277,7 +277,7 @@ async function run(
   }
 
   const { bytes } = await fetchDownload(sftp, taken.file.filename);
-  const filed = addSong({
+  const filed = await addSong({
     // The peer's own file name, which gives the master its extension and nothing else.
     filename: baseNameOf(taken.file.filename),
     bytes,
@@ -355,7 +355,7 @@ export function startYoutube(sub: string, id: string): HuntRecord | null {
 async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
   const query = youtubeQuery(rec);
   const { bytes, filename } = await fetchFromYoutube(query, rec.id);
-  const filed = addSong({
+  const filed = await addSong({
     filename,
     bytes,
     tags: {

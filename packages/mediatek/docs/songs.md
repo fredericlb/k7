@@ -10,8 +10,8 @@ The other two families behave like a folder: the mediatek tree creates, renames,
 in them. `songs/` only **deletes a song** and **fills one** — its shape is a rule, not a convention:
 
 ```
-songs/<artist>/<album>/<title>/original.<ext>
-                               song.yaml
+songs/<artist>/<album>/<title>/original.<ext>   ← title, artist, album, bpm, key: its own tags
+                               song.yaml        ← source, uuid, variants
 ```
 
 The scan starts at the family root, stops at the first folder carrying a `song.yaml` or an audio
@@ -45,10 +45,41 @@ folders someone made — deleting them would take everything below, and a varian
 nothing. On those rows no menu opens at all and the browser's own takes over (see
 `commons/packages/ui/docs/file-tree.md`).
 
-What is locked is the **tree**, not the content: `song.yaml` edits like any YAML, in the split
-screen the media library opens on clicking a song (see `packages/ui-library/docs/songPlayer.md`). The sidecar is the truth —
-the displayed title, the tempo, the variants — and the folder is only an address; correcting one
-therefore moves nothing.
+What is locked is the **tree**, not the content: a song's title, artist, album, tempo and key
+are edited in the split screen the media library opens on clicking a song (see
+`packages/ui-library/docs/songPlayer.md`), and they are written into the master's tags. The tags
+are the truth and the folder is only an address; correcting one therefore moves nothing.
+
+## A song's facts are its master's tags
+
+Title, artist, album, `bpm` and `key` are written into the audio file itself — ID3 frames in an
+mp3, a wav or an aiff, Vorbis comments in a flac, an ogg or an opus, atoms in an m4a, Matroska
+tags in a webm — and read back from there by the scan (`tags.ts`). `song.yaml` keeps what is
+about the FOLDER rather than the music: `source:`, `uuid:` and `variants:`. It still marks the
+folder as filed (`catalogued`).
+
+- **They travel with the bytes.** A master copied out of the library, sent to someone, or opened
+  in any player says what it is; a sidecar left behind says nothing to anybody.
+- **One truth, never two.** A file carries tags whatever we do: a sidecar holding a second title
+  could only disagree with them.
+- **TagLib, compiled to WebAssembly** (`taglib-wasm`), not ffmpeg: the phone has no ffmpeg, a
+  remux rewrites the whole file on every edit, and a scan reading every master per listing needs
+  a reader that opens only a file's head and tail. Reads are memoised on size and mtime.
+- **Its `.wasm` is read by path, not by the package's own lookup**, which in a bundle searches
+  beside the bundle: `tags.ts` walks up to `node_modules/taglib-wasm/dist/taglib-web.wasm`, and
+  `apps/k7/backend/scripts/bundle.mjs` stages that file at that path.
+- **A write never edits the master in place.** It tags a copy beside it and swaps it in through
+  `placeFile`, as `putFile` does, because the engine may be playing the file (`docs/rename.md`).
+- **A `bpm` keeps two decimals**: a detected 127.98 is a grid. An m4a stores an integer tempo
+  atom and loses them; that is the format's, not a rule here.
+- **Another tool's key spelling reads as no key.** `8A` or `Abm` in a downloaded file is not
+  guessed at; the field stays empty until someone picks a key.
+
+The scan reads none of the five from a sidecar. A sidecar still carrying them is migrated once,
+on the volume, by `npm run migrate-song-tags -w @studio/mediatek -- --root <library> [--dry-run]`
+(`scripts/migrateSongTags.ts`): the sidecar's value wins over a tag the file already has, since
+that sidecar is what the library showed, and a master TagLib cannot write keeps its sidecar whole
+and is listed.
 
 ## No provenance level — three segments, never four
 
@@ -103,8 +134,8 @@ and `../..` climb two — `safePath` would catch the second, nothing would catch
 on any of the three systems replaced by a space, trailing dot or space removed because Windows
 silently refuses such a name at rename time, 80 characters at most.
 
-The exact spelling survives in `song.yaml`: that is where the catalogue takes the displayed name
-from. The folder is an address, the sidecar is the truth.
+The exact spelling survives in the master's tags: that is where the catalogue takes the displayed
+name from. The folder is an address, the tags are the truth.
 
 ## An empty field names the hole
 
@@ -112,18 +143,19 @@ A file with no album tag files under « Album inconnu ». Refusing the upload wo
 paper and unusable in practice: half a downloaded record has no album tag, and a song filed under a
 readable name is a song you can find and rename. A refused song is nowhere.
 
-## Tags are read in the browser
+## Tags are read in the browser, and written by the server
 
-`music-metadata` runs frontend-side, on the chosen `File`, and fills the dialog. Three intended
+`music-metadata` runs frontend-side, on the chosen `File`, and fills the dialog. Two intended
 consequences:
 
 - **you see the path before sending.** The dialog shows exactly what the server will build, by
   calling this module's own functions — not a second version of the rule, which would end up
   diverging;
-- **you correct before sending**, which beats renaming three folders after;
-- **the backend does not have the dependency.** It receives three strings and parses no audio
-  container, so a malformed mp3 cannot bring it down: at worst it becomes a form to fill by hand,
-  which the dialog already allows.
+- **you correct before sending**, which beats renaming three folders after.
+
+The server then writes the three fields it received into the master, a field left blank keeping
+what the file already says. A file TagLib cannot open is filed all the same, named by its folder,
+and the answer says `tagged: false`: refusing it would lose a song over its metadata.
 
 A file the library cannot read is not an error either: the file name is then the best source
 available, and `tagsFromFilename` gets "01 - Artist - Title" out of it when the convention holds.
@@ -153,40 +185,33 @@ names the exact path it means, sending a file from a browser does not.
 
 ## The sidecar is written last
 
-`addSong` places the folder, then the master, then `song.yaml` — in that order, as the mirror does
-and for the same reason: a failure in the middle then leaves an uncatalogued folder, not a catalogue
-entry pointing at nothing. The scan can read the first case (a folder with audio and no sidecar is
-listed anyway); the second would be a song with no bytes.
+`addSong` places the folder, then the master, then its tags, then `song.yaml` — in that order, as
+the mirror does and for the same reason: a failure in the middle then leaves an uncatalogued
+folder, not a catalogue entry pointing at nothing. The scan can read the first case (a folder with
+audio and no sidecar is listed anyway); the second would be a song with no bytes.
 
-## `bpm:` is detected once, then edited
+## The tempo is detected once, then edited
 
-`setSongBpm` **never overwrites**. `bpm` is a field a person corrects, and the detected value is only
+`setSongBpm` writes the master's tempo tag, and **never overwrites**. `bpm` is a field a person corrects, and the detected value is only
 a starting point: the engine's estimate drops an octave on fast material (see
 `packages/file-service/docs/waveformCache.md`). Re-analysing a song must not undo a correction, so a
 key already present — whatever its value — wins.
 
 A `bpm` of 0 is the engine's "found nothing" and writes nothing: an explicit zero in the file would
-read as an assertion, where absence is the honest state.
+read as an assertion, where absence is the honest state. A folder with no audio is not given one
+either: there is no master to carry the tag.
 
 **`force` is the corrector's door.** The no-overwrite rule exists to protect a correction from a
 RE-ANALYSIS, not from the person correcting: the desk's `÷2` / `×2` buttons therefore send `force`,
 and replace. Without it a first wrong detection would be final.
 
-## `key:` is typed, never detected
+## The key is typed, never detected
 
-The key lives here for the reason the tempo does: it is a fact about the RECORDING, and it does not
-change from one set to the next. C sharp minor stays C sharp minor in every project that plays the
-record — hence `song.yaml` and not a set's `mix.yaml`.
+The key lives with the recording for the reason the tempo does: it does not change from one set to
+the next. C sharp minor stays C sharp minor in every project that plays the record — hence the
+master's `INITIALKEY` tag (`TKEY` in ID3) and not a set's `mix.yaml`.
 
-```yaml
-key: "C# minor"
-```
-
-**Quoted, and that is not cosmetic**: a bare `#` mid-value opens a YAML comment, so `key: C# minor`
-reads back as `C` and the mode disappears without a word. `setSongKey` always quotes, and a test
-pins it.
-
-It is the KEY that is stored, not its Camelot code: the wheel is a rendering — `12A` — and keeping
+It is the KEY that is stored, `C# minor`, not its Camelot code: the wheel is a rendering — `12A` — and keeping
 the rendering would lose the mode's name. The desk converts for display.
 
 And it is **typed**. A detector measured against seventeen hand-labelled songs gets 53 % of keys

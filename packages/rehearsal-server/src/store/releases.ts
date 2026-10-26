@@ -3,7 +3,6 @@
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import { sidecarFor } from "@studio/mediatek/song";
 import { K7_ARTIST } from "@studio/mediatek/types";
 import * as db from "../db.ts";
 import * as mediatek from "../mediatek.ts";
@@ -99,7 +98,7 @@ export async function createRelease(
   return getRelease(uid);
 }
 
-/** Edit a release's own fields; a new title is also the album in every version's sidecar. */
+/** Edit a release's own fields; a new title is also the album in every version's master tags. */
 export async function updateRelease(
   uid: string,
   patch: Partial<Omit<NewRelease, "songUuid">>,
@@ -118,19 +117,15 @@ export async function updateRelease(
   invalidateRelease(uid);
   const title = patch.title;
   if (title !== undefined && title !== rec.fields.Title) {
-    // Folders keep their names and only the sidecars are rewritten — ../../docs/audio.md.
+    // Folders keep their names and only the masters' tags are rewritten — ../../docs/audio.md.
     for (const v of await getVersionRecords(uid)) {
       if (!v.fields.AudioPath) continue;
       await mediatek
-        .putFile(
-          `${dirOf(v.fields.AudioPath)}/song.yaml`,
-          sidecarFor({
-            title: String(v.fields.Name || "Version"),
-            artist: K7_ARTIST,
-            album: title,
-            source: "k7",
-          }),
-        )
+        .putTags(dirOf(v.fields.AudioPath), {
+          title: String(v.fields.Name || "Version"),
+          artist: K7_ARTIST,
+          album: title,
+        })
         .catch(() => {
           // A stale album in the library is worth less than an edit that fails.
         });

@@ -32,11 +32,18 @@ import {
   type SongTags,
   sidecarFor,
   songFolder,
+  TagsRefusedError,
   VariantRefusedError,
   variantFile,
   variantName,
 } from "./song.ts";
-import { FAMILIES, type Family } from "./types.ts";
+import { readMasterTags, UntaggableError, writeMasterTags } from "./tags.ts";
+import {
+  FAMILIES,
+  type Family,
+  KEY_PATTERN,
+  type MasterTags,
+} from "./types.ts";
 
 /** Which family a path belongs to, or null — the shared folders have no token of their own. */
 export function familyOf(rel: string): Family | null {
@@ -151,30 +158,68 @@ function isSongFolder(abs: string): boolean {
   return existsSync(join(abs, SONG_FILE)) || existingMaster(abs) !== null;
 }
 
-/** File one uploaded audio file as a song: the folder, the master, the sidecar — see docs/songs.md. */
-export function addSong(opts: {
+/** File one uploaded audio file as a song: the folder, the master and its tags, the sidecar — see docs/songs.md. */
+export async function addSong(opts: {
   filename: string;
   bytes: Uint8Array | OnDisk;
   tags: SongTags;
   /** Replace the master already there. Absent, an occupied folder is a refusal, not a clobber. */
   replace?: boolean;
-}): { path: string; master: string; replaced: boolean } {
+}): Promise<{
+  path: string;
+  master: string;
+  replaced: boolean;
+  /** False when TagLib could not write into this file: it is filed all the same, named by its folder. */
+  tagged: boolean;
+}> {
   const folder = songFolder(opts.tags);
   const name = masterName(opts.filename); // refuses anything the scan won't see as audio
   ensureLayout();
   const already = existingMaster(writablePath(folder));
   if (already && !opts.replace)
     throw new SongExistsError(`${folder} already holds ${already}`);
-  putFile(`${folder}/${name}`, opts.bytes);
+  const master = putFile(`${folder}/${name}`, opts.bytes);
   // A replacement in another format would otherwise leave two masters for the scan to pick from.
   // A FLAC replaced by a WebM or an MP3 keeps it: it is the new master, written over a derived one.
   if (already && already !== name) removeFile(`${folder}/${already}`, name);
-  putFile(`${folder}/${SONG_FILE}`, sidecarFor(opts.tags));
+  // Only what was given: a field the caller left blank keeps whatever the file already says.
+  const given: Partial<Record<keyof MasterTags, string>> = {};
+  for (const f of ["title", "artist", "album"] as const)
+    if (opts.tags[f]?.trim()) given[f] = opts.tags[f];
+  let tagged = true;
+  try {
+    await writeMasterTags(master, given);
+    bump(master);
+  } catch (e) {
+    if (!(e instanceof UntaggableError)) throw e;
+    tagged = false;
+  }
+  putFile(`${folder}/${SONG_FILE}`, sidecarFor(opts.tags.source));
   return {
     path: folder,
     master: `${folder}/${name}`,
     replaced: Boolean(already),
+    tagged,
   };
+}
+
+/** Rewrite a song's tags — the editor's door; the folder keeps its name, since it is only an address (docs/songs.md). */
+export async function setSongTags(
+  folder: string,
+  patch: Partial<Record<keyof MasterTags, string | number | undefined>>,
+): Promise<{ master: string; tags: MasterTags }> {
+  const rel = folder.replace(/\/+$/, "");
+  const name = existingMaster(writablePath(rel));
+  if (familyOf(rel) !== "songs" || !name)
+    throw new TagsRefusedError(`${rel} n'a pas de master à étiqueter`);
+  if (patch.key && !KEY_PATTERN.test(String(patch.key).trim()))
+    throw new TagsRefusedError(
+      `key must read like \`C# minor\` or \`A major\``,
+    );
+  const abs = writablePath(`${rel}/${name}`);
+  const tags = await writeMasterTags(abs, patch);
+  bump(abs);
+  return { master: `${rel}/${name}`, tags };
 }
 
 /** The `variants:` a sidecar declares; `null` means the key is there and is not a mapping, which this refuses rather than repairs — see docs/variants.md. */
@@ -328,44 +373,40 @@ export function removeSongVariant(folder: string, name: string): void {
   removeFile(`${rel}/${ref}`);
 }
 
-/** Put one scalar into a song's sidecar. SEEDING never overwrites; FORCING replaces — docs/songs.md.
- *
- * A line-level edit and not a YAML round trip, which would drop the sidecar's comments. */
-function setSongField(
+/** Put one field into a song's master tags. SEEDING never overwrites; FORCING replaces — docs/songs.md. */
+async function setSongField(
   folder: string,
-  field: string,
+  field: "bpm" | "key",
   value: string | number,
   force: boolean,
-): boolean {
-  const abs = writablePath(`${folder}/${SONG_FILE}`);
-  let text: string;
+): Promise<boolean> {
+  const rel = folder.replace(/\/+$/, "");
+  const name = existingMaster(writablePath(rel));
+  if (!name) return false; // no audio: nothing carries the tag, and this does not invent a master
+  const abs = writablePath(`${rel}/${name}`);
+  const held = (await readMasterTags(abs))[field];
+  // The SEEDING rule: a value already there — whatever it is — wins over a fresh detection.
+  if (held !== undefined && !force) return false;
+  if (held === value) return false;
   try {
-    text = readFileSync(abs, "utf8");
-  } catch {
-    return false; // no sidecar: the folder is not catalogued, and this does not catalogue it
+    await writeMasterTags(abs, { [field]: value });
+  } catch (e) {
+    if (e instanceof UntaggableError) return false;
+    throw e;
   }
-  const line = new RegExp(`^\\s*${field}\\s*:.*$`, "m");
-  const held = line.test(text);
-  // The SEEDING rule: a key already there — whatever its value — wins over a fresh detection.
-  if (held && !force) return false;
-  const next = held
-    ? text.replace(line, `${field}: ${value}`)
-    : `${text.endsWith("\n") ? text : `${text}\n`}${field}: ${value}\n`;
-  if (next === text) return false;
-  writeFileSync(abs, next, "utf8");
   bump(abs);
   return true;
 }
 
-/** Seed a song's detected tempo into its sidecar, never overwriting an existing key — see docs/songs.md.
+/** Seed a song's detected tempo into its master's tags, never overwriting one already there — see docs/songs.md.
  *
  * `force` is the DESK's door: a detector that halved the tempo has to be correctable, and the
  * seeding rule exists to protect a correction from re-analysis, not from the person correcting it. */
-export function setSongBpm(
+export async function setSongBpm(
   folder: string,
   bpm: number,
   force = false,
-): boolean {
+): Promise<boolean> {
   if (!(bpm > 0)) return false;
   return setSongField(folder, "bpm", bpm, force);
 }
@@ -374,15 +415,14 @@ export function setSongBpm(
  *
  * Camelot (`8A`) is deliberately not what is stored: the wheel is a rendering of a key, and keeping
  * the rendering would throw away the mode's name. `C# minor` goes in; `12A` comes out of it. */
-export function setSongKey(
+export async function setSongKey(
   folder: string,
   key: string,
   force = false,
-): boolean {
+): Promise<boolean> {
   const clean = key.trim();
-  if (!/^[A-G]#?\s+(major|minor)$/.test(clean)) return false;
-  // Quoted: a bare `#` mid-value starts a YAML comment and would truncate `C# minor` to `C`.
-  return setSongField(folder, "key", JSON.stringify(clean), force);
+  if (!KEY_PATTERN.test(clean)) return false;
+  return setSongField(folder, "key", clean, force);
 }
 
 /** Rev the family or zone a path belongs to, so the next poll refetches its listing. */

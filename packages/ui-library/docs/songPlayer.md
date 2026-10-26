@@ -5,8 +5,8 @@ splits in two.
 
 ```
 ┌────────┬─────────────────────┬─────────────────────┐
-│ tree   │ song.yaml           │ transport           │
-│        │ (YamlPane)          │ Original · inst · … │
+│ tree   │ the master's tags   │ transport           │
+│        │ (SongTagsForm)      │ Original · inst · … │
 │        │                     │ waveform            │
 │        │                     ├─────────────────────┤
 │        │                     │ variants (if the    │
@@ -15,9 +15,21 @@ splits in two.
 └────────┴─────────────────────┴─────────────────────┘
 ```
 
-That is `ChainEditor`'s shape — text on the left, what the text describes on the right — and
+That is `ChainEditor`'s shape — what describes the thing on the left, the thing on the right — and
 deliberately so: the two families ask the same question, and a third layout would only add one more
 thing to learn.
+
+## The left half is a form, not the sidecar
+
+Title, artist, album, tempo and key are the master's own tags (`packages/mediatek/docs/songs.md`),
+so the left half edits those five fields through `GET`/`PUT /api/mediatek/tags` and shows no file
+at all. They autosave as every editor here does (`@studio/ui-editor/autosave`), the buffer being the
+form as JSON: a tempo that is not a number is held back with the reason, the one shape the inputs
+cannot rule out. The key is a list of the 24 names the library stores, sharps only, so no spelling
+reaches the file that the scan would not read back. Changing a title moves no folder.
+
+`song.yaml` — provenance and variants — has no editor on this screen: a variant is added and
+removed from the tree and the list, and renamed on the volume (`packages/mediatek/docs/variants.md`).
 
 ## The browser does not decode audio
 
@@ -168,10 +180,9 @@ clicking a song opens something.
 `/songs/<artist>/<album>/<title>/song.yaml` is an address, like `/modules/audio/reverb/ui.k7x`. See
 [routing.md](routing.md): `CARRIES` says which sections carry a file path after their first segment.
 
-## The sidecar may not exist
+## The sidecar may not exist, the master may not either
 
 A folder found on disk with no `song.yaml` is listed anyway — `catalogued: false`, a song nobody
-filed. The editor then opens on a template (`# <path>` and `title:`) rather than an error, and the
-first save creates the file through the ordinary write route. That is what `library.moduleUi`
-already does for a missing panel, and for the same reason: refusing to open leaves the person in
-front of a screen that offers nothing.
+filed — and its form edits its master like any other: the tags need no sidecar. A folder holding a
+sidecar and no audio has nothing to tag, and the left half says so instead of offering a form that
+could not save.

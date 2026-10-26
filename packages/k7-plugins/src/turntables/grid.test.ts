@@ -1,7 +1,7 @@
 // Laying PL8's tempo over the analysis. The audit this answers: the grid is deduced and was not
 // correctable, while the doc itself showed a song whose detected tempo is wrong.
 //
-// The correction lives with the RECORD (pl8's song.yaml) and not with the set: 87 BPM is 87 BPM in
+// The correction lives with the RECORD (its master's tags in pl8) and not with the set: 87 BPM is 87 BPM in
 // every project that plays it. See ../../mediatek/docs/songs.md.
 //
 // What would be wrong silently here: a correction that moves the fader somebody has already set,

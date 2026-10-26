@@ -66,7 +66,7 @@ view of that audio agrees from then on; asking for none keeps whatever is there.
 ## The tempo
 
 The analysis also estimates a **bpm** in the same pass, and writes it into the sidecar. It is what the media library
-seeds a song's `song.yaml` with; the person edits it afterwards, and nothing overwrites an edited
+seeds a song's master tags with; the person edits it afterwards, and nothing overwrites an edited
 value.
 
 **0 means "no tempo found"** — silence, one sustained note, free time — and is never a guess.

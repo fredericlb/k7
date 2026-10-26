@@ -13,6 +13,7 @@ import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import { writeSidecar } from "@studio/audio-analysis/sidecar";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { tinyWav } from "@studio/mediatek/testWav";
 import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -164,6 +165,74 @@ describe("uploading a song", () => {
     expect(path).toMatch(/^songs\//);
     // Four segments pins that `songs/` did not quietly grow a provenance level back.
     expect(path.split("/")).toHaveLength(4);
+  });
+});
+
+describe("a song's tags", () => {
+  const tagsUrl = () =>
+    `${base}/api/mediatek/tags?path=${encodeURIComponent("songs/Miles Davis/Kind of Blue/So What")}`;
+  const upload = () =>
+    fetch(
+      `${base}/api/mediatek/song?${new URLSearchParams({ ...tags, filename: "x.wav" })}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: tinyWav(),
+      },
+    );
+  const put = (body: unknown) =>
+    fetch(tagsUrl(), {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("reads back what the upload wrote into the master, not into the sidecar", async () => {
+    const filed = (await (await upload()).json()) as { tagged: boolean };
+    expect(filed.tagged).toBe(true);
+    const res = await fetch(tagsUrl());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      master: "songs/Miles Davis/Kind of Blue/So What/original.wav",
+      tags: { artist: "Miles Davis", album: "Kind of Blue", title: "So What" },
+    });
+    expect(readFileSync(join(folder(), "song.yaml"), "utf8")).not.toContain(
+      "So What",
+    );
+  });
+
+  it("rewrites them, keeping what the body leaves out and moving no folder", async () => {
+    await upload();
+    const res = await put({
+      title: "So What (take 2)",
+      bpm: 136,
+      key: "D minor",
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { tags: unknown }).tags).toEqual({
+      artist: "Miles Davis",
+      album: "Kind of Blue",
+      title: "So What (take 2)",
+      bpm: 136,
+      key: "D minor",
+    });
+    expect(existsSync(join(folder(), "original.wav"))).toBe(true);
+    const list = (await (
+      await fetch(`${base}/api/mediatek/list?family=songs`)
+    ).json()) as { entries: { name: string }[] };
+    expect(list.entries[0].name).toBe("So What (take 2)");
+  });
+
+  it("refuses a key in no known spelling and a tempo that is not one", async () => {
+    await upload();
+    expect((await put({ key: "8A" })).status).toBe(400);
+    expect((await put({ bpm: "fast" })).status).toBe(400);
+  });
+
+  it("answers 404 for a folder with no master, and 422 for a master TagLib cannot write", async () => {
+    expect((await fetch(tagsUrl())).status).toBe(404);
+    await post(tags, "ID3");
+    expect((await put({ title: "T" })).status).toBe(422);
   });
 });
 

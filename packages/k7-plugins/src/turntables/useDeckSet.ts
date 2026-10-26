@@ -882,7 +882,7 @@ export function useDeckSet(
       );
     },
 
-    /** What PL8 holds about the record on this deck — its `song.yaml`, docs/grid.md. */
+    /** What PL8 holds about the record on this deck — its master's tags, docs/grid.md. */
     gridOf: (deckId) => ({ bpm: loadsRef.current[deckId]?.bpm }),
     keyOf: (deckId) => loadsRef.current[deckId]?.key ?? "",
 
