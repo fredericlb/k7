@@ -182,8 +182,9 @@ they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
 
 A star names a path, so a song moved or renamed loses it.
 
-Which of the two lists the tree shows is the BROWSER's choice, kept in `localStorage`: it is a view
-of the moment, not something to follow the account to another machine. The middle pane is not
+The tree opens on **Favorites**: the songs a person plays are the ones they starred, and the whole
+library is one click away. Which of the two lists it shows is the BROWSER's choice, kept in
+`localStorage`: it is a view of the moment, not something to follow the account to another machine. The middle pane is not
 filtered — the selector belongs to the tree it sits above.
 
 ## Adding songs
