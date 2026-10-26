@@ -17,7 +17,10 @@ import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 
 /** Q1 plays, Q2 works, Q3 is for listening — so the badge reads green, plain, amber. */
-const QUALITY_VARIANT: Record<EngineQuality, "tag" | "default" | "amber"> = {
+export const QUALITY_VARIANT: Record<
+  EngineQuality,
+  "tag" | "default" | "amber"
+> = {
   Q1: "tag",
   Q2: "default",
   Q3: "amber",
@@ -188,7 +191,7 @@ export function EngineSelect({
 }
 
 /** What this account is to the engine, said as the settings card says it — engine-registry docs/ownership.md. */
-function accessText(e: RankedEngine["engine"]): string | null {
+export function accessText(e: RankedEngine["engine"]): string | null {
   switch (e.access) {
     case "owner":
       return m["media.engines.yours"]();
@@ -206,7 +209,7 @@ function accessText(e: RankedEngine["engine"]): string | null {
 }
 
 /** Answered, free, not waiting to pair this device, and not too old for this server. */
-function selectableRow(r: RankedEngine): boolean {
+export function selectableRow(r: RankedEngine): boolean {
   return (
     !!r.latency &&
     !r.engine.assigned &&

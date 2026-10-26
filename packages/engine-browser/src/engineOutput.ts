@@ -1,6 +1,6 @@
-// engineOutput.ts — hearing an engine whose device nobody listens to: the server's own engine plays
-// into a null sink, says so in `whoami` (`audioToBrowser`), and a page driving it plays its master
-// broadcast here instead. Nothing happens for an engine that has speakers of its own. See docs/streaming.md.
+// engineOutput.ts — hearing an engine here: the server's own engine plays into a null sink and says so
+// in `whoami` (`audioToBrowser`), and a page driving it plays its master broadcast instead; a page
+// may also ASK to listen here (`setHere`), whatever the engine has. Its speakers play on. See docs/streaming.md.
 // What reads wrong: the context is built on the FIRST frame, since it must match the engine's rate.
 
 import { decodeStreamFrame } from "@studio/engine-protocol/stream";
@@ -16,10 +16,20 @@ type OutputClient = Pick<
 
 /** Play `client`'s engine here while it says nobody hears its device; the returned function stops it. */
 export function playEngineOutput(client: OutputClient): () => void {
+  return engineOutput(client).stop;
+}
+
+/** The same, with the page's own wish to listen here on top of the engine's flag. */
+export function engineOutput(
+  client: OutputClient,
+  here = false,
+): { setHere: (on: boolean) => void; stop: () => void } {
   let ctx: AudioContext | null = null;
   let player: StreamPlayer | null = null;
   let building = false;
   let on = false;
+  let unheard = false;
+  let wanted = here;
 
   // A context built without a click starts suspended; the next gesture on the page is what lets it sound.
   const resume = () => {
@@ -75,21 +85,34 @@ export function playEngineOutput(client: OutputClient): () => void {
     if (frame) void build(frame.sampleRate, frame.channels);
   });
 
-  const offFlag = client.onAudioToBrowser((toBrowser) => {
-    if (toBrowser === on) return;
-    on = toBrowser;
+  // One decision for both reasons to listen here: the broadcast is subscribed once, and let go once.
+  const settle = () => {
+    const next = unheard || wanted;
+    if (next === on) return;
+    on = next;
     client.broadcast(on);
     if (!on) teardown();
+  };
+  const offFlag = client.onAudioToBrowser((toBrowser) => {
+    unheard = toBrowser;
+    settle();
   });
+  settle();
 
   for (const g of gestures) page?.addEventListener(g, resume, true);
 
-  return () => {
-    for (const g of gestures) page?.removeEventListener(g, resume, true);
-    offFlag();
-    offFrame();
-    if (on) client.broadcast(false);
-    on = false;
-    teardown();
+  return {
+    setHere: (next) => {
+      wanted = next;
+      settle();
+    },
+    stop: () => {
+      for (const g of gestures) page?.removeEventListener(g, resume, true);
+      offFlag();
+      offFrame();
+      if (on) client.broadcast(false);
+      on = false;
+      teardown();
+    },
   };
 }

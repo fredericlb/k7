@@ -20,6 +20,7 @@ import { claimSlot } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engines } from "../api";
 import { go } from "../appNav";
+import { type EngineChoice, EngineChoiceContext } from "../engineChoice";
 import { compatByEngine } from "../engineCompat";
 import { accountEngine } from "../engineSession";
 import { m } from "../paraglide/messages.js";
@@ -252,6 +253,24 @@ export function EngineGate({
     void go(projectsUrl(window.location.href));
   };
 
+  // The bar's dropdown: the same list and the same pick, a pick there remounting the project like the list's.
+  const choice = useMemo<EngineChoice>(
+    () => ({
+      ranked,
+      loading: busy,
+      refresh: () => void refresh(),
+      pick: (r) => {
+        if (r.engine.id !== chosenRef.current?.engine.id)
+          void pick(r, true, true);
+      },
+      openList: () => {
+        setPicking(true);
+        void refresh();
+      },
+    }),
+    [ranked, busy, refresh, pick],
+  );
+
   if (taken)
     return (
       <ProjectTakenOver
@@ -308,7 +327,7 @@ export function EngineGate({
   }
 
   return (
-    <>
+    <EngineChoiceContext.Provider value={choice}>
       <ProjectGate
         key={generation}
         engine={chosen}
@@ -327,6 +346,6 @@ export function EngineGate({
       {picking && (
         <div className="fixed inset-0 z-50 bg-background">{select(true)}</div>
       )}
-    </>
+    </EngineChoiceContext.Provider>
   );
 }

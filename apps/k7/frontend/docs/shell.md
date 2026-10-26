@@ -243,7 +243,7 @@ under the panes, and the footer under that. The bar fills the mini player's slot
 | `track` | the clock and the peekable minimap |
 | the host's controls | the **master meter**, right of the minimap |
 | `trail`, at the right edge | the pane row and the frame's toggle — or, on a phone, the one menu that also holds the side panels' buttons |
-| `end`, after `trail` | the **engine selector**: where the sound comes out, the engine's health and Change — on a phone its icon alone |
+| `end`, after `trail` | the **engine selector**: an icon button with the engine's state as a dot, opening the engines and where you hear them |
 
 **No brand name and no build stamp.** The brand is what the home page says — repeating it over a song
 names the tool rather than the work — and the stamp goes with it, being the tooltip of that name on the
@@ -280,22 +280,34 @@ drawer carries no engine block: inside a project the engine is the bar's.
 **There is ONE engine selector, in the bar's engine slot** (`components/BarEngine.tsx`), right of
 the right slot — the project bar's in a project, the home bar's on the home pages (`projects.md`,
 "The home bar"): the engine is what plays, so it stands with what plays rather than one drawer away.
-It says WHERE THE SOUND COMES OUT, in the same words on both (`components/engineWords.tsx`) — "Sound on <machine>", or "Sound in this browser" when the engine streams
-to the page (its `whoami`'s `audioToBrowser`) — since a laptop driving the desktop at home is silent
-with no other clue; with no engine it reads "No sound — choose an engine". A **Change** button opens
-the engine list, MEASURED when it opens rather than kept.
+It is **an icon button with a dot**: green while the link is up, red when it is down, amber with no
+engine (or one missing a plugin), grey while one is looked for. One glyph, because the bar's right end
+is crowded on any screen and the state is what is glanced at; the words are in its tooltip and its menu.
 
-- **In a project** the slot holds the gate's live choice: Change is `ui engine`, the gate's
-  list over the project, and a pick remounts the project on that engine — the files are the
-  server's, so a switch costs the playing position and nothing else. The figures beside it are
-  `EngineLink`'s. A phone keeps the icon alone, an amber dot on it for the warning below, and its
-  figures in the info popover.
+**Its menu is the engines and where you hear them.** At the top, WHERE THE SOUND COMES OUT, in the
+same words on both bars (`components/engineWords.tsx`) — "Sound on <machine>", or "Sound in this
+browser" — since a laptop driving the desktop at home is silent with no other clue; with no engine it
+reads "No sound — choose an engine". Then every engine found, MEASURED when the menu opens rather than
+kept, each with its rating — the Q badge, the performance — and the reason it cannot be picked when it
+cannot (in use, too old, to pair). **All engines…** opens the full list, the one that pairs a device.
+Last, two radios: **Plays on This machine** or **The engine**.
+
+**This machine** subscribes to the engine's master broadcast and plays it in this browser
+(`listenHere.ts`, `@studio/engine-browser`'s `engineOutput`); **The engine** is its own speakers. It
+is a choice of the DEVICE you sit at, so it is kept per browser, and it applies without reconnecting.
+The engine's speakers play on either way: its interface is one per process and shared by every
+session on it, so a page cannot silence it for itself. An engine whose `whoami` says `audioToBrowser`
+has no speakers at all: it is heard here whatever the radio says, and **The engine** is disabled.
+
+- **In a project** the menu holds the gate's list and pick (`engineChoice.ts`): a pick remounts the
+  project on that engine — the files are the server's, so a switch costs the playing position and
+  nothing else. The figures under the name are `EngineLink`'s.
 - **On a home page** there is no session (`components/HomeEngine.tsx`): it shows the engine
   remembered on the account (else the policy's pick), with the probe's latency and performance, and a
   pick there is remembered on the account, so it is what the next project opens on. The probe is
   shared for 30 s, since the bar a page docks remounts the slot and a probe reaches every engine.
 
-A **warning triangle** follows the name when that engine lacks a plugin the open project uses —
+A **warning triangle** follows the name in the menu, and the dot turns amber, when that engine lacks a plugin the open project uses —
 its compatibility under 100 — and its tooltip says the score and which plugins are missing
 (`hooks/useEngineCompat.ts`). Scored in the browser when the files are the server's, by the file
 service beside the engine when they live on its machine (`/project-compat`). Nothing is drawn while either half is unknown: a warning that might

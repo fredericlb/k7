@@ -132,6 +132,7 @@ import {
   withAmbient,
 } from "./contextMenu";
 import { desktop } from "./desktop";
+import { useEngineChoice } from "./engineChoice";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { firstTimeFor, givesChannel, hasAudibleInput } from "./headphonesHint";
@@ -2662,19 +2663,29 @@ export default function App({
   const engineLink = !frozen && (
     <EngineLink connected={connected} latency={engineLatency} />
   );
-  // The project bar's engine slot, right of the pages: which engine plays, its figures, and Change, which is `ui engine` (docs/shell.md).
-  const barEngine = frozen ? null : (
-    <BarEngine
-      current={engine ?? null}
-      searching={engineSearching}
-      compat={engineCompat}
-      audioToBrowser={audioToBrowser}
-      stats={engineLink}
-      compact={isMobile}
-      toolSize={toolSize}
-      onChange={onChangeEngine}
-    />
-  );
+  // The project bar's engine slot, right of the pages: the engine's state, the gate's engines and where this browser hears them (docs/shell.md).
+  const engineChoice = useEngineChoice();
+  const barEngine =
+    frozen || !engineChoice ? null : (
+      <BarEngine
+        current={engine ?? null}
+        searching={engineSearching}
+        compat={engineCompat}
+        audioToBrowser={audioToBrowser}
+        stats={engineLink}
+        status={
+          engine
+            ? connected
+              ? "up"
+              : "down"
+            : engineSearching
+              ? "searching"
+              : "none"
+        }
+        choice={engineChoice}
+        toolSize={toolSize}
+      />
+    );
 
   // The mix leaving for the interface, right of the minimap in the bar's centre; no phone fits it and a snapshot has no engine.
   const masterMeter =

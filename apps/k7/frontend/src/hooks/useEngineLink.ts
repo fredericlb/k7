@@ -3,7 +3,7 @@
 // panes call, so App.tsx holds no engine wiring of its own.
 
 import { EngineClient, type EngineUrl } from "@studio/engine-browser";
-import { playEngineOutput } from "@studio/engine-browser/engine-output";
+import { engineOutput } from "@studio/engine-browser/engine-output";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { engineSession } from "../engineSession";
 import { beginActivity, tally } from "../freezeWatchdog";
+import { useListenHere } from "../listenHere";
 import { m } from "../paraglide/messages.js";
 import { throughPanicRule } from "../transportPanic";
 import { useLatest } from "./useLatest";
@@ -62,6 +63,10 @@ export function useEngineLink(
   const [engineBusy, setEngineBusy] = useState(false);
   // Whether the engine's sound is played by THIS page (the server's engine) rather than by its own machine's speakers.
   const [audioToBrowser, setAudioToBrowser] = useState(false);
+  // This browser asked to hear the engine here, whatever speakers the engine has (listenHere.ts).
+  const listenHere = useListenHere();
+  const listenHereRef = useLatest(listenHere);
+  const outputRef = useRef<ReturnType<typeof engineOutput> | null>(null);
   // Load problems the engine reported, by SUBJECT — a PluginDoc id, which is what a node carries as `pluginId`; latest per subject wins.
   const [engineWarnings, setEngineWarnings] = useState<Record<string, string>>(
     {},
@@ -171,13 +176,15 @@ export function useEngineLink(
       );
     });
     engine.connect();
-    // An engine nobody hears — the server's own — is heard here, through its broadcast.
-    const offOutput = playEngineOutput(engine);
+    // An engine nobody hears — the server's own — is heard here, through its broadcast; so is any engine this browser asked to hear.
+    const output = engineOutput(engine, listenHereRef.current);
+    outputRef.current = output;
     // …and that is said in the header, since where the sound comes out is not otherwise visible.
     const offToBrowser = engine.onAudioToBrowser(setAudioToBrowser);
     return () => {
       offToBrowser();
-      offOutput();
+      output.stop();
+      outputRef.current = null;
       offState();
       offConn();
       offParams();
@@ -192,6 +199,11 @@ export function useEngineLink(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The radio moved while the link is up: subscribe or let go without reconnecting.
+  useEffect(() => {
+    outputRef.current?.setHere(listenHere);
+  }, [listenHere]);
 
   // When the last stop was sent, so a second one can read as "that did not work" — transportPanic.ts.
   const lastStopAt = useRef<number | null>(null);
