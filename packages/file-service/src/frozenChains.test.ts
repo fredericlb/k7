@@ -143,6 +143,21 @@ describe("frozen chains", () => {
     expect(listFrozenChains(benchDir()).some((c) => c.mine)).toBe(false);
   });
 
+  it("writes a step naming no engine under the module's default one, where the engine reads it", () => {
+    saveFrozenChain(benchDir(), "tape-only", [
+      { module: "@k7-core/audio/delay", params: { Wow: 1.5 } },
+    ]);
+    const [mine] = listFrozenChains(benchDir());
+    expect(mine?.steps).toMatchObject([
+      { module: "@k7-core/audio/delay", engine: "tape", params: { Wow: 1.5 } },
+    ]);
+    const text = readFileSync(
+      join(home, "library/chains/tape-only.k7x"),
+      "utf8",
+    );
+    expect(text).toContain("engines");
+  });
+
   it("refuses a chain that separates and treats, an unknown module, and a bad name", () => {
     expect(() =>
       saveFrozenChain(benchDir(), "both", [

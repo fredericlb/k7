@@ -69,9 +69,18 @@ function StepCard({
         <select
           aria-label={m["frozen.module"]()}
           value={step.module}
-          onChange={(e) =>
-            onChange({ id: step.id, module: e.target.value, params: {} })
-          }
+          onChange={(e) => {
+            // The engine the select shows is the one the step names: values set later belong to it.
+            const engine = modules.find(
+              (x) => x.ref === e.target.value,
+            )?.engine;
+            onChange({
+              id: step.id,
+              module: e.target.value,
+              ...(engine ? { engine } : {}),
+              params: {},
+            });
+          }}
           className={`${FIELD} min-w-0 flex-1`}
         >
           <option value="" disabled>
