@@ -46,6 +46,12 @@ describe("planVideo", () => {
     expect(planVideo(facts({ container: "matroska" })).optimized).toBe("remux");
   });
 
+  it("re-encodes a rotated stream upright, even a playable one", () => {
+    for (const rotation of [90, 180, 270])
+      expect(planVideo(facts({ rotation })).optimized).toBe("transcode");
+    expect(planVideo(facts({ rotation: 0 })).optimized).toBe("none");
+  });
+
   it("adds a proxy above 1080p, whatever else it needs", () => {
     expect(planVideo(facts({ width: 3840, height: 2160 }))).toMatchObject({
       optimized: "none",

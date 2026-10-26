@@ -39,6 +39,13 @@ export function planVideo(
   const pixOk = (PLAYABLE_PIX_FMTS as readonly string[]).includes(f.pixFmt);
   const proxy = f.height > PREVIEW_MAX_HEIGHT;
   const size = `${f.width}×${f.height}`;
+  // Firefox's WebGL upload and the export's decoder both take a rotated frame as coded: only a re-encode is upright everywhere.
+  if (f.rotation)
+    return {
+      optimized: "transcode",
+      proxy,
+      reason: `${size} is turned ${f.rotation}° on display, which not every browser applies — an upright optimized copy${proxy ? ", and a proxy to preview" : ""}`,
+    };
   if (!codecOk || !pixOk) {
     const what = !codecOk
       ? f.codec || "an unknown codec"

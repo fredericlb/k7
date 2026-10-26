@@ -44,6 +44,17 @@ stream of a listed codec counts as undecodable, since that is where browsers dif
 silently. The export's own check (`assertDecodable`) is the backstop for whatever the list gets
 wrong.
 
+## A rotated stream gets an upright copy
+
+A phone records portrait as a landscape stream with a display rotation (ffprobe's `rotation` side
+data). Every browser reports such a `<video>` as portrait, but not every one uploads it to WebGL
+that way: Chrome applies the rotation, Firefox uploads the frame as it is coded, and the compositor
+then stretches a sideways picture into a portrait box. The export's decoder (mediabunny's samples)
+also hands over coded frames. So a rotated stream counts as one a browser cannot be trusted with:
+the plan asks for an optimized copy, and ffmpeg's re-encode applies the rotation, writing an
+upright stream with none. `mp4Probe.ts` does not read the rotation: without ffmpeg no copy can be
+made, and the phone's WebView, being Chromium, turns the clip upright itself.
+
 ## What the copies are
 
 - **Optimized**: H.264, 8-bit 4:2:0, CRF 18, at the source's resolution. Near-transparent quality,

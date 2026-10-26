@@ -22,6 +22,8 @@ export interface VideoFacts {
   seconds: number;
   /** The container, by ffprobe's format name: "mov,mp4,m4a,3gp,3g2,mj2", "matroska,webm", … */
   container: string;
+  /** The quarter turn a player applies on display, 90/180/270; absent when there is none or nothing read it (mp4Probe.ts). */
+  rotation?: number;
   /** Read from the boxes because there is no ffmpeg here: nothing can be made from this file on this host. */
   noFfmpeg?: true;
 }
@@ -34,6 +36,16 @@ const rate = (r: unknown): number => {
   return d ? (n as number) / d : Number(n) || 0;
 };
 
+/** A stream's display rotation as a quarter turn in [0, 360): side data in ffprobe's JSON, a `rotate` tag from older builds. */
+export function rotationOf(s: Record<string, unknown>): number {
+  const side = (s.side_data_list as { rotation?: unknown }[] | undefined)?.find(
+    (d) => d.rotation !== undefined,
+  );
+  const tags = s.tags as { rotate?: unknown } | undefined;
+  const deg = Number(side?.rotation ?? tags?.rotate ?? 0) || 0;
+  return (((Math.round(deg / 90) * 90) % 360) + 360) % 360;
+}
+
 /** ffprobe's arguments for `source`, pure so the whitelist on an uploaded file is testable. */
 export const probeArgs = (source: string): string[] => [
   "-v",
@@ -41,7 +53,7 @@ export const probeArgs = (source: string): string[] => [
   "-select_streams",
   "v:0",
   "-show_entries",
-  "stream=codec_name,width,height,pix_fmt,avg_frame_rate:format=duration,format_name",
+  "stream=codec_name,width,height,pix_fmt,avg_frame_rate:stream_side_data=rotation:stream_tags=rotate:format=duration,format_name",
   "-of",
   "json",
   ...input(source),
@@ -64,6 +76,7 @@ export async function probeVideo(source: string): Promise<VideoFacts | null> {
   };
   const s = j.streams?.[0];
   if (!s) return null;
+  const rotation = rotationOf(s);
   return {
     codec: String(s.codec_name ?? ""),
     width: Number(s.width) || 0,
@@ -72,5 +85,6 @@ export async function probeVideo(source: string): Promise<VideoFacts | null> {
     fps: rate(s.avg_frame_rate),
     seconds: Number(j.format?.duration) || 0,
     container: String(j.format?.format_name ?? ""),
+    ...(rotation ? { rotation } : {}),
   };
 }
