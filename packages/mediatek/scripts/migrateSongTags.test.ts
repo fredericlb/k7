@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readMasterTags, writeMasterTags } from "../src/tags.ts";
 import { tinyWav } from "../src/testWav.ts";
@@ -109,7 +109,8 @@ variants:
   it("finds every sidecar under songs/, the K7 releases included", () => {
     song("songs/A/B/C", OLD);
     song("songs/K7/Release (abc)/Version (def)", OLD);
-    expect(sidecarFolders(root).map((d) => d.slice(root.length + 1))).toEqual([
+    const rel = (d: string) => relative(root, d).split(sep).join("/");
+    expect(sidecarFolders(root).map(rel)).toEqual([
       "songs/A/B/C",
       "songs/K7/Release (abc)/Version (def)",
     ]);
