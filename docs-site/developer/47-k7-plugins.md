@@ -23,7 +23,7 @@ and checks every browser plugin contributes a pane.
 
 | id | List | Folder | Contributes |
 |---|---|---|---|
-| `transcription` | server | `packages/k7-plugins/src/transcription/` | The verb `track transcribe <track_in> <track_out>` (sid `track.transcribe`, on the track menu). It decodes the audio of the video a picture lane places with ffmpeg, runs `whisper` (openai-whisper) or `whisper-cli` (whisper.cpp, which needs `STUDIO_WHISPER_MODEL` naming a ggml model), and writes the SRT as the new lane's `content:`. |
+| `transcription` | server | `packages/k7-plugins/src/transcription/` | The verb `track transcribe <track_in> <track_out>` (sid `track.transcribe`, on the track menu). It decodes the audio of the video a picture lane places with ffmpeg, runs `whisper` (openai-whisper) or `whisper-cli` (whisper.cpp, which needs `STUDIO_WHISPER_MODEL` naming a ggml model), and writes the SRT as a caption clip placed on the picture lane `<track_out>`. |
 | `turntables` | browser | `packages/k7-plugins/src/turntables/` | The pane for the `turntables` surface type: the DJ desk. The surface type itself is a schema built-in, so the plugin registers no type. |
 | `video` | browser | `packages/k7-plugins/src/video/` | The pane for the `viewport` surface type: the WebGL picture window. |
 

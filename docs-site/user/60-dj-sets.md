@@ -13,7 +13,7 @@ This section covers:
 | [Playlists](./64-playlists.md) | Set lists in a workspace, and how a desk names one |
 | [Preparing a gig](./65-gig-prep.md) | Analysis, copying songs to the engine's machine, stem separation |
 | [Reference tracks](./66-reference-tracks.md) | Finished mixes you listen against, played by the browser |
-| [Transcription](./67-transcription.md) | `track transcribe`: speech in a video to timed text |
+| [Transcription](./67-transcription.md) | `track transcribe`: speech in a video to subtitles |
 | [Live rigs](./68-live-rigs.md) | The `live` project: an input, a fader, the output |
 
 ## What you need

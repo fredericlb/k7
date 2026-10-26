@@ -27,7 +27,7 @@ The same list, generated from the running app, is on the help page (`?`).
 | `track automation add` | `<track> <param>` | Draws a curve against one of the track's parameters (e.g. `track automation add gtr Filter Freq`). |
 | `track automation remove` | `<track> <param>` | Stops automating a parameter; the curve file stays. |
 | `track process` | `<track> <chain>` | Bounces every file the track's clips play through a chain and keeps the result (e.g. `@k7-core/amp-room`). |
-| `track transcribe` | `<track_in> <track_out>` | Listens to the video a picture lane places with whisper and writes the transcript as the `content` of a new lane (replaced if it exists). |
+| `track transcribe` | `<track_in> <track_out>` | Listens to the video a picture lane places with whisper and writes the transcript as subtitles on the picture lane `track_out` (created if new, its subtitles replaced if not). |
 
 ## Sequences and notes
 
