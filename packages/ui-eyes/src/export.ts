@@ -116,13 +116,19 @@ export interface ExportResult {
   extension: string;
 }
 
-/** Refuse a scene whose sources this browser cannot decode, NAMING the file — a ProRes or HEVC shot fails at its first frame otherwise. */
-export async function assertDecodable(scene: VideoScene): Promise<void> {
+/** Each video the export DECODES, with the first lane placing it; a still is one bitmap and a subtitle clip is text, neither a container. */
+export function decodedSources(scene: VideoScene): Map<string, string> {
   const seen = new Map<string, string>();
   for (const l of scene.layers)
     for (const c of l.clips)
-      if (c.src && !c.still && !seen.has(c.src)) seen.set(c.src, l.id);
-  for (const [src, lane] of seen) {
+      if (c.src && !c.still && !c.captions && !seen.has(c.src))
+        seen.set(c.src, l.id);
+  return seen;
+}
+
+/** Refuse a scene whose sources this browser cannot decode, NAMING the file — a ProRes or HEVC shot fails at its first frame otherwise. */
+export async function assertDecodable(scene: VideoScene): Promise<void> {
+  for (const [src, lane] of decodedSources(scene)) {
     const input = new Input({
       source: new UrlSource(src),
       formats: ALL_FORMATS,
