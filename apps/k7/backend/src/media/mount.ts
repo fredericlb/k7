@@ -27,6 +27,7 @@ import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
 import {
   DEVICE_FAVORITES_ROUTE,
+  DEVICE_PRACTICE_ROUTE,
   type FavoriteStores,
   favoritesDeviceRouter,
   favoritesRouter,
@@ -81,6 +82,8 @@ export function mountMedia(
     onRemote?: Parameters<typeof mountFileHub>[6];
     /** Where each account's médiathèque favorites are kept (./routes/favorites.ts). */
     favorites: FavoriteStores;
+    /** …and its practice list, the same kind of list under its own name. */
+    practice: FavoriteStores;
   },
 ): MediaMount {
   const { requireAuth, port, tokens } = opts;
@@ -164,6 +167,21 @@ export function mountMedia(
     "/api/favorites",
     requireAuth,
     favoritesRouter(opts.favorites, (req) => serverOf(fileHub, req)),
+  );
+  // The practice list: the same list, the same doors, its own name — ../../docs/media/practice.md.
+  const practice: FavoriteStores = {
+    ...opts.practice,
+    key: "practice",
+    deviceRoute: DEVICE_PRACTICE_ROUTE,
+  };
+  app.use(
+    DEVICE_PRACTICE_ROUTE,
+    favoritesDeviceRouter(fileHub.sync.deviceGate(), practice),
+  );
+  app.use(
+    "/api/practice",
+    requireAuth,
+    favoritesRouter(practice, (req) => serverOf(fileHub, req)),
   );
 
   // Play on THIS host's outputs under a dot-directory no family scan sees — packages/mpv-player/docs/mpvPlayer.md.

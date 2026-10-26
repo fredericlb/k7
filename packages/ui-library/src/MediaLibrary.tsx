@@ -17,9 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
 import { library } from "./api";
-import { FavoritesFilter, StarredMark } from "./FavoritesFilter";
+import { FavoritesFilter, PracticeMark, StarredMark } from "./FavoritesFilter";
 import { FindSongs } from "./FindSongs";
-import { favoriteEntries, useFavorites, useFavoritesOnly } from "./favorites";
+import { favoriteEntries, useSongLists } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
 import {
@@ -103,12 +103,17 @@ export function MediaLibrary({
     () => remoteRows(entries, remote),
     [entries, remote],
   );
-  // The account's starred songs and albums, and whether the songs' tree shows only them (../docs/library.md).
-  const fav = useFavorites(setError);
-  const [favoritesOnly, setFavoritesOnly] = useFavoritesOnly();
-  const onlyFavorites = section === "songs" && favoritesOnly;
-  const starredAt = (n: TreeNode) =>
-    section === "songs" && fav.favorites.has(`${section}/${n.path}`);
+  // The account's starred songs and albums, its practice list, and which the songs' tree shows (../docs/library.md).
+  const {
+    fav,
+    practice,
+    treeFilter,
+    setTreeFilter,
+    listed,
+    listedSet,
+    starredAt,
+    practisedAt,
+  } = useSongLists(section, setError);
   // Derived, never stored, and it synthesises the zone's own root row (../docs/library.md).
   const tree = useMemo<TreeNode[]>(
     () => [
@@ -120,26 +125,17 @@ export function MediaLibrary({
         children: sortNodes(
           isZone
             ? dayNodes(recordings)
-            : onlyFavorites
+            : listedSet
               ? treeOf(
-                  favoriteEntries(entries, fav.favorites),
+                  favoriteEntries(entries, listedSet),
                   [],
-                  favoriteEntries(remote, fav.favorites),
+                  favoriteEntries(remote, listedSet),
                 )
               : treeOf(entries, unlisted, remote),
         ),
       },
     ],
-    [
-      entries,
-      isZone,
-      recordings,
-      section,
-      unlisted,
-      remote,
-      onlyFavorites,
-      fav.favorites,
-    ],
+    [entries, isZone, recordings, section, unlisted, remote, listedSet],
   );
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
@@ -248,11 +244,16 @@ export function MediaLibrary({
             manage,
             favorites: fav.ready ? fav.favorites : null,
             toggleFavorite: fav.toggle,
+            practice: practice.ready ? practice.favorites : null,
+            togglePractice: practice.toggle,
           }),
     [
       fav.ready,
       fav.favorites,
       fav.toggle,
+      practice.ready,
+      practice.favorites,
+      practice.toggle,
       manage,
       entries,
       file,
@@ -314,14 +315,16 @@ export function MediaLibrary({
               : "hidden"
         }`}
       >
-        {/* Above the tree's scroll, like the foot below it: every song, or only the starred ones. */}
+        {/* Above the tree's scroll, like the foot below it: every song, or only one of the account's lists. */}
         {section === "songs" ? (
-          <FavoritesFilter only={favoritesOnly} onChange={setFavoritesOnly} />
+          <FavoritesFilter value={treeFilter} onChange={setTreeFilter} />
         ) : null}
         <div className="min-h-0 flex-1 overflow-auto">
-          {onlyFavorites && fav.ready && !tree[0]?.children?.length ? (
+          {listed?.ready && !tree[0]?.children?.length ? (
             <p className="px-1 py-2 text-muted-foreground text-sm">
-              {labels.tree.noFavorites}
+              {treeFilter === "practice"
+                ? labels.tree.noPractice
+                : labels.tree.noFavorites}
             </p>
           ) : null}
           <input
@@ -402,10 +405,19 @@ export function MediaLibrary({
                   path={`${section}/${n.path}`}
                   onDownload={serverCopy.download}
                 />
-              ) : starredAt(n) ? (
-                <StarredMark
-                  onUnstar={() => fav.toggle(`${section}/${n.path}`)}
-                />
+              ) : starredAt(n) || practisedAt(n) ? (
+                <span className="flex shrink-0 items-center">
+                  {practisedAt(n) ? (
+                    <PracticeMark
+                      onRemove={() => practice.toggle(`${section}/${n.path}`)}
+                    />
+                  ) : null}
+                  {starredAt(n) ? (
+                    <StarredMark
+                      onUnstar={() => fav.toggle(`${section}/${n.path}`)}
+                    />
+                  ) : null}
+                </span>
               ) : null
             }
             // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).

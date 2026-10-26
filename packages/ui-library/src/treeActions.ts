@@ -33,6 +33,9 @@ export function songActions(d: {
   /** This account's starred songs and albums; null until they are read, when no star is offered. */
   favorites: ReadonlySet<string> | null;
   toggleFavorite: (path: string) => void;
+  /** …and its practice list, offered the same way. */
+  practice: ReadonlySet<string> | null;
+  togglePractice: (path: string) => void;
 }): Actions {
   const { section, entries, file, favorites } = d;
   const l = d.labels.tree;
@@ -43,12 +46,22 @@ export function songActions(d: {
     !!favorites &&
     (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path));
   const starred = (t: TreeNode) => !!favorites?.has(`${section}/${t.path}`);
+  const practised = (t: TreeNode) => !!d.practice?.has(`${section}/${t.path}`);
   return [
     {
       key: "favorite",
       label: (t) => (starred(t) ? l.unfavorite : l.favorite),
       when: starrable,
       run: (t) => d.toggleFavorite(`${section}/${t.path}`),
+    },
+    {
+      key: "practice",
+      label: (t) => (practised(t) ? l.unpractice : l.practice),
+      // What may be starred may be practised: a song, or the album holding it.
+      when: (t) =>
+        !!d.practice &&
+        (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path)),
+      run: (t) => d.togglePractice(`${section}/${t.path}`),
     },
     {
       key: "download-missing",

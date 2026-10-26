@@ -53,6 +53,10 @@ export interface LibraryLabels {
     favorite: string;
     unfavorite: string;
     noFavorites: string;
+    showPractice: string;
+    practice: string;
+    unpractice: string;
+    noPractice: string;
   };
   contents: {
     emptyLibrary: string;

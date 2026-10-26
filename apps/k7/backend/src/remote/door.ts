@@ -19,6 +19,7 @@ export const ALLOWED = [
   "/api/shares",
   "/api/stems",
   "/api/favorites",
+  "/api/practice",
   "/api/preferences",
   "/api/engine-local",
   "/api/config",

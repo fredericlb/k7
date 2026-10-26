@@ -25,10 +25,11 @@ const listen = (app: express.Express): Promise<string> =>
     servers.push(s);
   });
 
-const storesAt = (dir: string): FavoriteStores => ({
-  own: prefsStore(join(dir, "favorites")),
-  prefs: prefsStore(dir),
-});
+const storesAt = (dir: string) =>
+  ({
+    own: prefsStore(join(dir, "favorites")),
+    prefs: prefsStore<{ favorites?: string[] }>(dir),
+  }) satisfies FavoriteStores;
 
 // The device gate's stand-in: `Bearer <person>` names the person, `Bearer -` names nobody.
 const gate: RequestHandler = (req, res, next) => {
@@ -76,6 +77,38 @@ afterEach(() => {
   for (const s of servers) s.close();
   servers = [];
   rmSync(root, { recursive: true, force: true });
+});
+
+describe("the practice list", () => {
+  it("is a list of its own, under its own name, never seeded from the favorites", async () => {
+    const fav = storesAt(root);
+    fav.prefs.write("u", { favorites: ["songs/F"] });
+    const practice: FavoriteStores = {
+      own: prefsStore(join(root, "practice")),
+      prefs: fav.prefs,
+      key: "practice",
+    };
+    expect(listOf(practice, "u")).toEqual([]);
+    expect(star(practice, "u", { paths: ["songs/P"], favorite: true })).toEqual(
+      ["songs/P"],
+    );
+    expect(listOf(fav, "u")).toEqual(["songs/F"]);
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as { user?: { sub: string } }).user = { sub: "u" };
+      next();
+    });
+    app.use(
+      "/api/practice",
+      favoritesRouter(practice, () => null),
+    );
+    const base = await listen(app);
+    expect(await (await fetch(`${base}/api/practice`)).json()).toEqual({
+      practice: ["songs/P"],
+    });
+  });
 });
 
 describe("the store", () => {

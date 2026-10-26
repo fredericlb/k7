@@ -1,6 +1,6 @@
-// favorites.ts — the médiathèque songs and albums an account starred, kept where the account lives.
-// A paired machine keeps none of its own: it asks its server, through a device door, so every
-// device shows the same stars. An unpaired backend, the server among them, keeps them itself.
+// favorites.ts — an account's lists of médiathèque songs and albums — its favorites, its practice
+// list — kept where the account lives. A paired machine keeps none of its own: it asks its server,
+// through a device door, so every device shows the same lists. An unpaired backend keeps them itself.
 // The one thing a reader would get wrong: these are NOT in the preferences file, which the page
 // rewrites wholesale from a copy read at load — see packages/ui-library/docs/library.md.
 
@@ -13,12 +13,24 @@ import { subOf } from "../../who.ts";
 /** Where the origin answers a paired device's favorites, behind its device token. */
 export const DEVICE_FAVORITES_ROUTE = "/api/sync/favorites";
 
+/** …and its practice list. */
+export const DEVICE_PRACTICE_ROUTE = "/api/sync/practice";
+
+/** Which list: the field the store keeps it under and every answer names it by. */
+export type ListKey = "favorites" | "practice";
+
 export interface FavoriteStores {
-  /** Each account's starred library paths, in a store of their own. */
-  own: PrefsStore<{ favorites: string[] }>;
-  /** The account's preferences, whose `favorites` field seeds an account with no list yet. */
-  prefs: PrefsStore<{ favorites?: string[] }>;
+  /** Each account's library paths on this list, in a store of their own. */
+  own: PrefsStore<Partial<Record<ListKey, string[]>>>;
+  /** The account's preferences, whose `favorites` field seeds an account with no favorites yet; no other list has one. */
+  prefs?: PrefsStore<{ favorites?: string[] }>;
+  /** The list these stores hold — favorites when absent. */
+  key?: ListKey;
+  /** Where the server's door for this list is — the favorites' when absent. */
+  deviceRoute?: string;
 }
+
+const keyOf = (s: FavoriteStores): ListKey => s.key ?? "favorites";
 
 /** What a paired machine needs to call its server. */
 interface PairedServer {
@@ -36,9 +48,13 @@ type Star = z.infer<typeof starSchema>;
 /** How long the server may take: the stars wait on it, and it may be away. */
 const SERVER_TIMEOUT_MS = 10_000;
 
+/** The preferences' seed, which only the favorites have. */
+const seedOf = (s: FavoriteStores, sub: string): string[] | undefined =>
+  keyOf(s) === "favorites" ? s.prefs?.read(sub)?.favorites : undefined;
+
 /** The account's list, seeded from its preferences while it has none of its own. */
 export function listOf(s: FavoriteStores, sub: string): string[] {
-  return s.own.read(sub)?.favorites ?? s.prefs.read(sub)?.favorites ?? [];
+  return s.own.read(sub)?.[keyOf(s)] ?? seedOf(s, sub) ?? [];
 }
 
 /** Star or unstar `paths`, an explicit state rather than a toggle so two devices never undo each other; null when the write failed. */
@@ -48,11 +64,11 @@ export function star(
   { paths, favorite }: Star,
 ): string[] | null {
   const now = new Set(
-    s.own.readForUpdate(sub)?.favorites ?? s.prefs.read(sub)?.favorites ?? [],
+    s.own.readForUpdate(sub)?.[keyOf(s)] ?? seedOf(s, sub) ?? [],
   );
   for (const p of paths) favorite ? now.add(p) : now.delete(p);
   const list = [...now].sort();
-  return s.own.write(sub, { favorites: list }) ? list : null;
+  return s.own.write(sub, { [keyOf(s)]: list }) ? list : null;
 }
 
 /** One request answered from this backend's own store, for `sub`. */
@@ -62,7 +78,8 @@ function answerHere(
   req: Request,
   res: Parameters<RequestHandler>[1],
 ): void {
-  if (req.method === "GET") return void res.json({ favorites: listOf(s, sub) });
+  if (req.method === "GET")
+    return void res.json({ [keyOf(s)]: listOf(s, sub) });
   const body = starSchema.safeParse(req.body);
   if (!body.success)
     return void res
@@ -70,8 +87,8 @@ function answerHere(
       .json({ error: "expected { paths: string[], favorite: boolean }" });
   const list = star(s, sub, body.data);
   if (!list)
-    return void res.status(500).json({ error: "favorites not stored" });
-  res.json({ favorites: list });
+    return void res.status(500).json({ error: `${keyOf(s)} not stored` });
+  res.json({ [keyOf(s)]: list });
 }
 
 /** The server's side: the account's favorites for the person who paired the device. */
@@ -98,8 +115,12 @@ export function favoritesDeviceRouter(
 }
 
 /** Call the paired server's door: the list, or a change to it. */
-const callServer = (server: PairedServer, body?: Star): Promise<Response> =>
-  fetch(`${server.base}${DEVICE_FAVORITES_ROUTE}`, {
+const callServer = (
+  s: FavoriteStores,
+  server: PairedServer,
+  body?: Star,
+): Promise<Response> =>
+  fetch(`${server.base}${s.deviceRoute ?? DEVICE_FAVORITES_ROUTE}`, {
     method: body ? "POST" : "GET",
     headers: {
       authorization: `Bearer ${server.token}`,
@@ -135,14 +156,17 @@ export function favoritesRouter(
         // Stars made here before the pairing go up once; from then on this machine keeps none.
         const mine = listOf(s, sub);
         if (mine.length) {
-          const up = await callServer(server, { paths: mine, favorite: true });
-          if (up.ok) s.own.write(sub, { favorites: [] });
+          const up = await callServer(s, server, {
+            paths: mine,
+            favorite: true,
+          });
+          if (up.ok) s.own.write(sub, { [keyOf(s)]: [] });
         }
-        const got = await callServer(server, body?.data);
+        const got = await callServer(s, server, body?.data);
         res.status(got.status).json(await got.json());
       } catch (e) {
         res.status(502).json({
-          error: `could not reach ${server.base} for the favorites: ${(e as Error).message}`,
+          error: `could not reach ${server.base} for the ${keyOf(s)}: ${(e as Error).message}`,
         });
       }
     }),
