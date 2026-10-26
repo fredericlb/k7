@@ -11,14 +11,11 @@ import {
   type AccountLibrariesReply,
   type AccountWorkspace,
   type AccountWorkspaceList,
-  type ChainModule,
-  type ChainModuleParams,
   type ColdChainsReply,
   type CommentState,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type FrozenChain,
-  type FrozenChainStep,
   type ModelDownloadJob,
   type PublishLibraryBody,
   type RepoProject,
@@ -233,37 +230,15 @@ export const accountFiles = {
       )
     ).chains,
 
-  /** The modules a frozen chain's step may extend, with their engines. */
-  chainModules: async (m: AccountFiles): Promise<ChainModule[]> =>
-    (
-      await call<{ modules: ChainModule[] }>(
-        m,
-        `/account/chain-modules`,
-        "chain-modules",
-      )
-    ).modules,
-
-  /** What one module, run as `engine`, offers a step: its knobs and their defaults. */
-  chainModuleParams: async (
+  /** Copy any library chain whole into the account's, as `name`; the reply is the copy as it reads. */
+  copyFrozenChain: async (
     m: AccountFiles,
-    ref: string,
-    engine?: string,
-  ): Promise<ChainModuleParams> =>
-    call(
-      m,
-      `/account/chain-modules/params?ref=${encodeURIComponent(ref)}${engine ? `&engine=${encodeURIComponent(engine)}` : ""}`,
-      "chain-modules/params",
-    ),
-
-  /** Write the account's chain `name` as these steps; the reply is the chain as it now reads. */
-  saveFrozenChain: async (
-    m: AccountFiles,
+    from: string,
     name: string,
-    steps: FrozenChainStep[],
   ): Promise<FrozenChain> =>
-    call(m, `/account/frozen-chains/${encodeURIComponent(name)}`, "save", {
-      method: "PUT",
-      json: { steps },
+    call(m, `/account/frozen-chains/${encodeURIComponent(name)}/copy`, "copy", {
+      method: "POST",
+      json: { from },
     }),
 
   deleteFrozenChain: async (m: AccountFiles, name: string): Promise<void> => {

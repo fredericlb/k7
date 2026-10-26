@@ -259,8 +259,9 @@ workspace's pin, not a field of the song (`packages/song/docs/sharedFolders.md`)
 ## The bench is not where a library is edited
 
 `/@banc/<chain>/live.k7` opens a live rig seeded with a COPY of a library chain, which anyone may
-open and which edits no library (`apps/k7/backend/docs/media/banc.md`). To hear a library module no song you
-have open names, wire it into the song you have open. The bare `/@banc/live.k7`, a bare library
+open and which edits no origin library; `chain save` keeps it as one of the account's own chains
+(`apps/k7/backend/docs/media/banc.md`). To hear a library module no song you
+have open names, wire it into the song you have open, or into the bare rig `/@banc/live.k7`. A bare library
 such as `/@banc/@k7-core/live.k7`, and every other address under `@banc` is refused with a sentence
 saying where a library is edited.
 

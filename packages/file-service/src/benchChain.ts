@@ -2,8 +2,9 @@
 // between the rig's input and its fader. What k7 records through (../../ui-rehearsal/docs/chainSource.md).
 //
 // The one thing a reader would get wrong: the chain is COPIED into the bench, never referenced, and
-// as the bench's own segments and node files whichever layout the library keeps it in — a copy dies
-// with the bench, so an edit made while auditioning reaches nothing shared. See apps/k7/backend/docs/media/banc.md.
+// as the bench's own segments and node files whichever layout the library keeps it in — an edit made
+// while auditioning reaches nothing shared until `chain save` writes it as the account's own chain
+// (frozenChains.ts). See apps/k7/backend/docs/media/banc.md.
 
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -94,7 +95,10 @@ export function liveChains(dir: string): LiveChain[] {
 }
 
 /** Put the chain `ref` of the library between the bench's input and its fader; throws with the reason. */
-export function spliceChain(benchDir: string, ref: string): void {
+export function spliceChain(
+  benchDir: string,
+  ref: string,
+): { ref: string; ids: Record<string, string> } {
   // A BARE ref is the default library's: bench addresses minted before libraries had names say one.
   const chain = findLibraryChain(ref, benchDir);
   if (!chain) throw new Error(`no chain "${ref}" in the library`);
@@ -142,8 +146,13 @@ export function spliceChain(benchDir: string, ref: string): void {
       },
       [
         `The bench, with the library chain "${ref}" COPIED between the input and the fader.`,
-        "Nothing here is saved: edit the chain in k7's chains builder. See apps/k7/backend/docs/media/banc.md.",
+        "Nothing here is saved by itself: `chain save <name>` writes the run into your chains. See apps/k7/backend/docs/media/banc.md.",
       ],
     ),
   );
+  // Which step each bench node copies, so a save keeps the step's id and its comments.
+  return {
+    ref: chain.ref,
+    ids: Object.fromEntries(names.map((n, i) => [n, steps[i].name])),
+  };
 }

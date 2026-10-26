@@ -72,6 +72,7 @@ import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
 import { BarEngine } from "./components/BarEngine";
+import { BenchSaveButton } from "./components/BenchSaveButton";
 import { BottomPanel } from "./components/BottomPanel";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
@@ -2929,6 +2930,8 @@ export default function App({
     <>
       {/* A visitor's share runs nothing of theirs on the file service (docs/processes.md). */}
       {!snapshot && <ProcessesButton size={toolSize} />}
+      {/* The bench's chain, written back into the account's chains — frozenChains.md. */}
+      {!snapshot && <BenchSaveButton size={toolSize} runCommand={runCommand} />}
       {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
       {isMobile && !snapshot ? (
         <MobileInfo

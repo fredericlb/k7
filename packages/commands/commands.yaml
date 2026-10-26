@@ -1773,6 +1773,22 @@
       { name: file, hint: "an .otio or .edl inside the project, named from its folder" },
       { name: prefix, optional: true, hint: "what the new lanes are called — import-1, import-2… unless said" },
     ]
+# The bench's run written as one of the account's frozen chains — apps/k7/frontend/docs/frozenChains.md.
+- command: "chain save"
+  sid: chain.save
+  readable:
+    en: "Save the bench as one of your chains"
+    fr: "Enregistrer le banc comme une de vos chaînes"
+  help: "write the bench's chain, input to fader, as @account/<name> (e.g. chain save warm-vocals) — a bench opened on one of your chains saves into it"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: name,
+        optional: true,
+        hint: "the chain's name — omitted on a bench opened on one of yours",
+      },
+    ]
 # The picture rendered on the SERVER, with no browser left open — in the background, into exports/;
 # the words are `project export video`'s — packages/file-service/docs/serverRender.md.
 - command: "picture render"

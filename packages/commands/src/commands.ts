@@ -11,6 +11,7 @@ import type {
 } from "@studio/engine-client/engineClient";
 import type { ProjectDoc } from "@studio/song/project";
 import type { Renderer } from "@studio/take-render/renderer";
+import { CHAIN_SAVE_VERBS } from "./verbs/chainSave.ts";
 import { CLIP_VERBS } from "./verbs/clip.ts";
 import { CONSOLE_VERBS } from "./verbs/console.ts";
 import { CROSSFADE_VERBS } from "./verbs/crossfade.ts";
@@ -124,6 +125,8 @@ export interface CommandHost {
   ): Promise<{ version: number; requires: number }[]>;
   /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/renderers.md. */
   renderer?: Renderer;
+  /** Write the bench `dir`'s run as the account's chain `name` (its own when it was opened on one); throws when `dir` is no bench. */
+  saveBenchChain?(dir: string, name?: string): { ref: string; steps: number };
   /** Run `work` after the command returns, once per tag; false when that tag is already running. Absent, a verb waits for it. */
   background?(tag: string, work: () => Promise<string>): boolean;
   /** Render the active project's PICTURE with no browser open; the file written, project-relative — packages/file-service/docs/serverRender.md. */
@@ -167,6 +170,7 @@ export const VERB_TABLES: readonly Record<string, SidHandler>[] = [
   PICTURE_INTERCHANGE_VERBS,
   PICTURE_IMPORT_VERBS,
   PICTURE_RENDER_VERBS,
+  CHAIN_SAVE_VERBS,
   TRACK_VERBS,
   NODE_STACK_VERBS,
   TRACK_HIDE_VERBS,

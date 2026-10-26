@@ -16,11 +16,9 @@ import { benchDir } from "../bench.ts";
 import { liveChains } from "../benchChain.ts";
 import { pluginParams, showNativePluginUIOf } from "../engineLink.ts";
 import {
-  chainModuleParams,
-  chainModules,
+  copyFrozenChain,
   deleteFrozenChain,
   listFrozenChains,
-  saveFrozenChain,
 } from "../frozenChains.ts";
 import { modelDownload, startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -101,45 +99,21 @@ accountRouter.get(
   }),
 );
 
-// The home page's Frozen chains: the account's own, built there, and the libraries' cold ones — docs/libraries.md.
+// The home page's Frozen chains: the account's own, edited on the bench, and the libraries' cold ones — docs/libraries.md.
 accountRouter.get(
   "/account/frozen-chains",
   wrap((_req, res) => {
     res.json({ chains: listFrozenChains(benchDir()) });
   }),
 );
-accountRouter.get(
-  "/account/chain-modules",
-  wrap((_req, res) => {
-    res.json({ modules: chainModules(benchDir()) });
-  }),
-);
-accountRouter.get(
-  "/account/chain-modules/params",
+// A copy of any library chain into the account's, whole: what the page's Duplicate does.
+accountRouter.post(
+  "/account/frozen-chains/:name/copy",
+  validate(z.object({ from: z.string().min(1) })),
   wrap((req, res) => {
-    const ref = String(req.query.ref ?? "");
-    const engine = req.query.engine ? String(req.query.engine) : undefined;
+    const { from } = req.body as { from: string };
     try {
-      res.json(chainModuleParams(benchDir(), ref, engine));
-    } catch (e) {
-      res.status(404).json({ error: (e as Error).message });
-    }
-  }),
-);
-const frozenStep = z.object({
-  id: z.string().optional(),
-  module: z.string().min(1),
-  engine: z.string().optional(),
-  params: z.record(z.string(), z.union([z.number(), z.string()])),
-  bypass: z.boolean().optional(),
-});
-accountRouter.put(
-  "/account/frozen-chains/:name",
-  validate(z.object({ steps: z.array(frozenStep) })),
-  wrap((req, res) => {
-    const { steps } = req.body as { steps: z.infer<typeof frozenStep>[] };
-    try {
-      res.json(saveFrozenChain(benchDir(), String(req.params.name), steps));
+      res.json(copyFrozenChain(benchDir(), from, String(req.params.name)));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

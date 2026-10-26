@@ -46,7 +46,8 @@ every change to the library's k7fs room, whose log is its history. An unresolved
 `@<name>/…` ref is still not a compile error (`packages/song/docs/sharedFolders.md`), so a library
 that starts empty breaks nothing.
 
-A chain's bench (`/@banc/<chain>/live.k7`) edits no library and changes no overlay.
+A chain's bench (`/@banc/<chain>/live.k7`) edits no origin library and changes no overlay; what
+`chain save` writes from it goes to the account's own library.
 
 `_libraries/account/…` is the account's OWN library, written by its account like `_modules`, never
 refused. It syncs as one more room of the account, `_account`, attached at start beside the
@@ -55,12 +56,13 @@ workspaces, since it is none.
 
 ## Frozen chains are the account's library's
 
-The home page's Frozen chains (`apps/k7/frontend/docs/frozenChains.md`) writes chains into the
-account's own library, `@account/chains/<name>.k7x` (`src/frozenChains.ts`), and only there: the
-account's library is always its own to write, an origin library is an admin's. Being an ordinary
-library chain is the point, since every chain reader already walks the account's library first.
-The routes answer with no workspace, against the bench's folder, like the live chains: the modules
-a step may extend are the ones a project of this account would resolve.
+Frozen chains (`apps/k7/frontend/docs/frozenChains.md`) are written into the account's own
+library, `@account/chains/<name>.k7x` (`src/frozenChains.ts`), and only there: the account's
+library is always its own to write, an origin library is an admin's. Being an ordinary library
+chain is the point, since every chain reader already walks the account's library first. They are
+written by `chain save` from the bench (`apps/k7/backend/docs/media/banc.md`), each node file whole
+under the id of the step it was copied from, and by the page's copy route; the listing answers with
+no workspace, against the bench's folder, like the live chains.
 
 ## Cold chains and their models are the machine's, not a project's
 

@@ -96,7 +96,7 @@ matches before changing it:
 | `curveEditor.md` | `ui curve` — the popin that creates and edits an automation curve |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@k7-core` module in place |
-| `frozenChains.md` | `/libraries/chains` — chains built on the home page into the account's library, and the libraries' cold ones beside them |
+| `frozenChains.md` | `/libraries/chains` — the account's chains, built and edited on the bench and saved by `chain save`, and the libraries' cold ones beside them |
 | `processes.md` | the project bar's background processes — the file service's commands and jobs, and this page's exports, in one list |
 | `conflicts.md` | the sync relay's change notices, the `/revision` fallback, and the open conflicts settled from the footer |
 | `shared.md` | the OTHER shared: `/@shares/<token>.k7` — this app opened on a project at a checkpoint, played by the server's engine in the visitor's own session, with no account and no source |
@@ -254,7 +254,8 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   library for the whole origin, seeded from `k7-core`, and the file service answers it at
   the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
   `packages/file-hub/docs/fileHub.md`). `frontend/docs/sharedModules.md` is the page to read; a
-  chain's bench, `/@banc/<chain>/live.k7`, is a live RIG kept nowhere that edits no library.
+  chain's bench, `/@banc/<chain>/live.k7`, is a live RIG that edits no origin library: `chain save`
+  writes it into the account's own (`frontend/docs/frozenChains.md`).
 
   **k7 will not open a project without a library.** The origin has ONE list, which the admins
   (this backend's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
