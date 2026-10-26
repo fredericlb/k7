@@ -1,12 +1,14 @@
 // MediaHost.tsx — k7 as the media library's host: the fetch layer configured once, on this
-// module's import, and the labels, prefix and user handed to the screens and settings cards.
+// module's import, and the labels, prefix, user and the home bar's engine choice handed to the screens.
 // The API is this backend's, or on the tray the paired server's through it (../serverChoice.ts).
 // See packages/ui-library/docs/host.md.
 
 import { configureLibrary, LibraryHostProvider } from "@studio/ui-library";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { useHomeEngineId } from "../homeEngine";
 import { useLocale } from "../i18n";
+import { useListenHere } from "../listenHere";
 import { m } from "../paraglide/messages.js";
 import "../serverChoice";
 import { MEDIA_ROUTE } from "./api";
@@ -34,9 +36,17 @@ export function MediaHost({ children }: { children: ReactNode }) {
   const user = useSignedIn();
   // biome-ignore lint/correctness/useExhaustiveDependencies: the locale is the trigger, the messages read it themselves
   const labels = useMemo(() => mediaLabels(), [locale]);
+  // The home bar's engine selector: "The engine" plays on the engine it shows, heard where its radio says.
+  const engineId = useHomeEngineId();
+  const listenHere = useListenHere();
   const value = useMemo(
-    () => ({ labels, prefix: MEDIA_ROUTE, user }),
-    [labels, user],
+    () => ({
+      labels,
+      prefix: MEDIA_ROUTE,
+      user,
+      engine: { id: engineId, listenHere },
+    }),
+    [labels, user, engineId, listenHere],
   );
   return <LibraryHostProvider value={value}>{children}</LibraryHostProvider>;
 }

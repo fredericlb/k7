@@ -8,6 +8,7 @@ import { formatLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useState } from "react";
 import { engines } from "../api";
 import type { EngineChoice } from "../engineChoice";
+import { setHomeEngineId } from "../homeEngine";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 import type { RankedEngine } from "../types";
@@ -36,6 +37,8 @@ export function HomeEngine() {
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   usePopin(picking, () => setPicking(false));
+  // What the bar shows is what the médiathèque's engine destination plays on (homeEngine.ts).
+  useEffect(() => setHomeEngineId(current?.engine.id ?? null), [current]);
 
   // The remembered engine when it answered, else what the policy would take — what the next project opens on.
   const load = useCallback(async (fresh = false, prefer?: string) => {

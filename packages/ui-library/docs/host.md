@@ -16,7 +16,8 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
   context cannot reach them.
 - **`LibraryHostProvider`** (`src/host.tsx`) — what the COMPONENTS read: the labels, the route
   `prefix` the screens live under, and who is signed in, since an engine session is per service and
-  per person ([engine.md](engine.md)).
+  per person ([engine.md](engine.md)); optionally the host's own engine selector, which the engine
+  destination then follows ([playbackTarget.md](playbackTarget.md)).
 
 k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases through its server
 picker (`apps/k7/frontend/docs/serverPicker.md`). Either base is its own backend, on the same
