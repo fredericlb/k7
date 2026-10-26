@@ -109,6 +109,21 @@ describe("frozen chains", () => {
     expect(saveBenchChain().ref).toBe("@account/warm-vox");
   });
 
+  it("saves a node that names its plugin itself, as `node new` writes an engine-provided module", async () => {
+    await ensureBench(EMAIL, BENCH_PROJECT);
+    wsWriteData(join(benchDir(), "nodes", "comp.k7x"), {
+      plugin: { type: "internal", name: "Compressor" },
+    });
+    writeFileSync(
+      join(benchDir(), "graph.k7x"),
+      graphOf().replace(/IN: \["fader"\]/, 'IN: ["comp"], comp: ["fader"]'),
+    );
+    expect(saveBenchChain("built-in").steps).toMatchObject([
+      { module: "Compressor" },
+    ]);
+    expect(accountFile("built-in")).toContain('name: "Compressor"');
+  });
+
   it("refuses an empty bench, a branch, and a nameless save of a chain that is not the account's", async () => {
     await ensureBench(EMAIL, BENCH_PROJECT);
     expect(() => saveBenchChain("empty")).toThrow(/nothing sits between/);
