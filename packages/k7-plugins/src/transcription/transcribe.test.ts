@@ -1,6 +1,11 @@
 import { input } from "@studio/ffmpeg";
 import { describe, expect, it } from "vitest";
-import { extractAudioArgs, parseSrt, srtOf } from "./transcribe";
+import {
+  extractAudioArgs,
+  parseSrt,
+  srtOf,
+  transcribeAudio,
+} from "./transcribe";
 
 // The SRT dialect is the one decision here worth pinning: both whisper CLIs write it, the track's
 // `content:` carries it, and whoever copies it out gets a valid subtitle file. Raw timings are the
@@ -69,5 +74,25 @@ describe("extractAudioArgs", () => {
   it("opens the user's video under the protocol whitelist", () => {
     const args = extractAudioArgs("/ws/clip.mov", "/tmp/a.wav");
     expect(args.join("\0")).toContain(input("/ws/clip.mov").join("\0"));
+  });
+});
+
+describe("transcribeAudio with no whisper", () => {
+  it("says none is installed, not that whisper-cli lacks a model", async () => {
+    const saved = {
+      PATH: process.env.PATH,
+      MODEL: process.env.STUDIO_WHISPER_MODEL,
+    };
+    process.env.PATH = "";
+    delete process.env.STUDIO_WHISPER_MODEL;
+    try {
+      await expect(transcribeAudio("/none.wav", "/tmp")).rejects.toThrow(
+        /no whisper on this machine \(tried whisper, whisper-cli\)/,
+      );
+    } finally {
+      process.env.PATH = saved.PATH;
+      if (saved.MODEL !== undefined)
+        process.env.STUDIO_WHISPER_MODEL = saved.MODEL;
+    }
   });
 });
