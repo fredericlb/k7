@@ -118,21 +118,21 @@ export function useFavorites(onError: (message: string) => void) {
   return { favorites, ready, toggle };
 }
 
-const ONLY_KEY = "k7.library.favoritesOnly";
+const ALL_KEY = "k7.library.showAll";
 
-/** Whether the tree shows only favorites — this browser's choice, remembered where it can be. */
+/** Whether the tree shows only favorites, the default — this browser's choice, remembered where it can be. */
 export function useFavoritesOnly(): [boolean, (on: boolean) => void] {
   const [only, setOnly] = useState(() => {
     try {
-      return localStorage.getItem(ONLY_KEY) === "1";
+      return localStorage.getItem(ALL_KEY) !== "1";
     } catch {
-      return false;
+      return true;
     }
   });
   const set = useCallback((on: boolean) => {
     setOnly(on);
     try {
-      localStorage.setItem(ONLY_KEY, on ? "1" : "0");
+      localStorage.setItem(ALL_KEY, on ? "0" : "1");
     } catch {}
   }, []);
   return [only, set];

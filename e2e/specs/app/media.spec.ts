@@ -61,6 +61,8 @@ test("a song is uploaded, edited and played, then put in a playlist", async ({
   );
 
   await test.step("upload it with Add a song", async () => {
+    // The tree opens on Favorites, which the new song is not.
+    await page.getByRole("tab", { name: "All" }).click();
     await addSong(page);
     const tree = page.getByRole("complementary").last();
     await expect(tree.getByRole("button", { name: ARTIST })).toBeVisible();
