@@ -108,6 +108,7 @@ import {
 } from "./components/MobileChrome";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
+import { ProcessesButton } from "./components/ProcessesButton";
 import { RackBuilder } from "./components/RackBuilder";
 import { ReferenceBar } from "./components/ReferenceBar";
 import { ReferencesPanel } from "./components/ReferencesPanel";
@@ -188,6 +189,7 @@ import { PaneVisible } from "./paneVisible";
 import { m } from "./paraglide/messages.js";
 import { type PendingEdit, pendingOf } from "./pendingEdits";
 import type { PendingNode } from "./pendingNode";
+import { setServiceProcesses } from "./processes";
 import { type EditFocus, keepIfEqual, sameEditFocus } from "./shellEquality";
 import { soundingNow } from "./sounding";
 import { createStatusLine } from "./statusLine";
@@ -1583,6 +1585,7 @@ export default function App({
     },
     onSync: setEngineSync,
     onLoad: setEngineLoad,
+    onProcesses: setServiceProcesses,
     onScan: (s) => {
       // Said once, where errors are: a scan given up on leaves its unscanned plugins drawn missing.
       if (s?.stalled) setStatus(m["pluginScan.stalled"](), "error");
@@ -2921,9 +2924,11 @@ export default function App({
       )}
     </span>
   );
-  // After the name in the bar's left slot: a phone's info icon, a share's lock, the workspace warning.
+  // After the name in the bar's left slot: the background processes, a phone's info icon, a share's lock, the workspace warning.
   const barState = (
     <>
+      {/* A visitor's share runs nothing of theirs on the file service (docs/processes.md). */}
+      {!snapshot && <ProcessesButton size={toolSize} />}
       {/* A phone folds the name and the engine into one icon, the bar having room for neither (docs/shell.md). */}
       {isMobile && !snapshot ? (
         <MobileInfo

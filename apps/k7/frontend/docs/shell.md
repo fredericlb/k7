@@ -238,7 +238,7 @@ under the panes, and the footer under that. The bar fills the mini player's slot
 
 | slot | what k7 puts there |
 |---|---|
-| `lead`, at the left edge | the hamburger, the k7 logo and the project's name, then a share's read-only badge and the workspace warning — on a phone the hamburger and the info icon |
+| `lead`, at the left edge | the hamburger, the k7 logo and the project's name, then the **background processes** button (`processes.md`), a share's read-only badge and the workspace warning — on a phone the hamburger, the processes button and the info icon |
 | `transport` | play/pause, stop, loop and record |
 | `track` | the clock and the peekable minimap |
 | the host's controls | the **master meter**, right of the minimap |

@@ -16,6 +16,7 @@ import {
 } from "../engineLink.ts";
 import { libraryVersionsAt } from "../libraryPins.ts";
 import { startModelDownload } from "../modelDownloads.ts";
+import { listProcesses } from "../processes.ts";
 import { preferences, setVim } from "../workspace.ts";
 
 export const workspaceRouter: Router = Router();
@@ -32,6 +33,7 @@ workspaceRouter.get(
       engineSync: engineSyncOf(req.ws!),
       engineLoad: engineLoadOf(req.ws!),
       engineScan: engineScanStateOf(req.ws!),
+      processes: listProcesses(),
     });
   }),
 );

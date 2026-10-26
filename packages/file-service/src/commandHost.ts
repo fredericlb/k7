@@ -17,6 +17,7 @@ import { askBoundMachine } from "./boundMachine.ts";
 import { isReady } from "./engineSessions.ts";
 import { askHubRemote, askHubSync } from "./libraries.ts";
 import { renderPicture } from "./pictureRender.ts";
+import { currentProcess } from "./processes.ts";
 import type { Workspace } from "./workspace.ts";
 
 /** How often a waiting `clip process` asks the separation registry — slow on purpose. */
@@ -85,12 +86,18 @@ export function serviceMembers(
     // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
     background: (tag: string, work: () => Promise<string>) =>
       runInBackground(tag, work),
-    // The picture rendered in headless Chromium, the progress said in the log every few seconds of song.
-    renderPicture: (opts) =>
-      renderPicture(ws, opts, (frame, total) => {
+    // The picture rendered in headless Chromium, the progress on its listed process and in the log every few seconds of song.
+    renderPicture: (opts) => {
+      const shown = currentProcess();
+      return renderPicture(ws, opts, (frame, total) => {
+        shown?.progress(
+          total ? frame / total : null,
+          `frame ${frame} / ${total}`,
+        );
         if (frame % 300 === 0)
           console.log(`   … picture render ${frame}/${total}`);
-      }),
+      });
+    },
     // A clip's source envelope for `event trim` — the WHOLE file, from THIS workspace's waveform machinery.
     clipEnvelope: async (clip: string) => {
       try {
@@ -119,8 +126,15 @@ export function serviceMembers(
         outputs: step.outputs,
         outDir,
       });
+      const shown = currentProcess();
       for (;;) {
         const job = separateJob(started.id);
+        // The separation's own account, on the command's listed process.
+        if (job)
+          shown?.progress(
+            job.percent === null ? null : job.percent / 100,
+            job.phase,
+          );
         // Forgotten between two polls: said as itself, since the files may well be on disk.
         if (!job)
           throw new Error(

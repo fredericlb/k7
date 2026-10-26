@@ -11,6 +11,7 @@ import type {
   EngineScanState,
   EngineSyncState,
   FormatTooNew,
+  ServiceProcess,
   WaveformStatus,
   WorkspaceInfo,
 } from "../types";
@@ -121,6 +122,8 @@ export function useActiveProjectFollow(opts: {
   onLoad?: (l: EngineLoadPhase | null) => void;
   /** The engine's plugin scan the load waits for, or the one it went on without — handed on when it changes. */
   onScan?: (s: EngineScanState | null) => void;
+  /** What the file service is busy with, every answer; the receiver ignores a list that did not change. */
+  onProcesses?: (p: ServiceProcess[]) => void;
   /** A take just stopped and has not landed yet: poll at TAKE_POLL_MS rather than every 2 s. */
   awaitingTake?: boolean;
   /** The project is still on its way to the engine: poll fast, so Play frees as soon as it can play. */
@@ -161,6 +164,7 @@ export function useActiveProjectFollow(opts: {
         }
         // Every answer, not each change: another request's older answer may have overwritten the state since.
         optsRef.current.onLoad?.(w.engineLoad ?? null);
+        optsRef.current.onProcesses?.(w.processes ?? []);
       } catch {
         /* backend momentarily unavailable */
       } finally {
