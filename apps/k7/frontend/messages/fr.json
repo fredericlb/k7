@@ -1523,5 +1523,11 @@
   "about.where.server": "Serveur",
   "about.where.engine": "Moteur",
   "about.where.desktop": "Tray (ordinateur)",
-  "about.where.android": "App Android"
+  "about.where.android": "App Android",
+  "processes.title": "Tâches en arrière-plan : {running} en cours",
+  "processes.heading": "Tâches en arrière-plan",
+  "processes.running": "En cours",
+  "processes.done": "Terminé",
+  "processes.failed": "Échec",
+  "processes.here": "dans cet onglet"
 }

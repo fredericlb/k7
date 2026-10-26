@@ -1,10 +1,11 @@
 // backgroundJobs.ts — work a COMMAND starts and does not wait for: a video transcode, minutes
 // long, which must not hold the `/command` request open. One tag runs once at a time, so a verb
 // run twice joins the first run rather than encoding the same file twice. A job reports through
-// what it WRITES — the files and the k7x field the revision token sees — and through the log.
+// what it WRITES, through the log, and as a listed process the project bar shows (processes.ts).
 // See docs/background.md.
 
 import { guard } from "./background.ts";
+import { runAsProcess, tagLabel } from "./processes.ts";
 
 /** A job the service is running, by tag; dropped once it ends, since its result is on disk. */
 const running = new Map<string, number>();
@@ -19,7 +20,7 @@ export function runInBackground(
   running.set(tag, Date.now());
   guard(
     tag,
-    work()
+    runAsProcess(tagLabel(tag), work)
       .then((line) => log(`   ✓ ${line}`))
       .finally(() => running.delete(tag)),
   );

@@ -10,6 +10,7 @@ import {
   webCommandList,
   webCompletions,
 } from "../engineLink.ts";
+import { runAsProcess, SHOW_AFTER_MS } from "../processes.ts";
 
 export const commandRouter: Router = Router();
 
@@ -50,6 +51,7 @@ commandRouter.post(
     if (target) req.ws!.assertLibraryWritable(target, "run a command on");
     const t0 = performance.now();
     // The tokens come out of the run and the graph is built inside it, so no walk of its own — docs/fileRoutes.md.
+    // Listed once it has run a second, so a transcription or a bounce shows in the bar's process list.
     const {
       output,
       before,
@@ -57,10 +59,19 @@ commandRouter.post(
       files,
       graph,
       ranAt,
-    } = await runWebCommand(req.ws!, line, req.userEmail, target, {
-      graph: wantsGraph,
-      journal,
-    });
+    } = await runAsProcess(
+      line.trim(),
+      () =>
+        runWebCommand(req.ws!, line, req.userEmail, target, {
+          graph: wantsGraph,
+          journal,
+        }),
+      {
+        showAfterMs: SHOW_AFTER_MS,
+        failed: (r) =>
+          r.output.refused ? (r.output.at(-1) ?? "refused") : undefined,
+      },
+    );
     // The project MOVED — "something", where `changed` on the reply below is "these files".
     const moved = rev !== before;
     // One line per WRITING command, in the shape the engine's `[applyFull]` uses — see docs/fileRoutes.md.

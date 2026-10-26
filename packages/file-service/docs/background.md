@@ -32,10 +32,21 @@ transcode is the first user: minutes long, so a `/command` request held open for
 the command bar. One job per TAG at a time, so running the verb twice joins the first run instead
 of encoding one file twice. The job goes through `guard` like any other unawaited promise.
 
-There is no progress route. A job reports through what it WRITES, the copy and the clip field
-naming it, which moves the revision token every view already follows, and through one line in the
-log when it ends. A registry the browser polled would be a second account of state the files
-already hold.
+A job's RESULT is what it writes, the copy and the clip field naming it, which moves the revision
+token every view already follows, and one line in the log says how it ended.
+
+## The processes the project bar lists
+
+`src/processes.ts` keeps what the service is busy with, for the project bar's list
+(`apps/k7/frontend/docs/processes.md`): every background job, and every `/command` still running
+after a second (`SHOW_AFTER_MS`). It says what is RUNNING, which no file holds, and never stands
+for a result: a process ends as done or failed and is forgotten `LINGER_MS` later. It rides the
+`/workspace` answer rather than a route of its own, since that poll already runs every two seconds.
+
+The running process is carried by an `AsyncLocalStorage`, so the code that knows how far it is
+says so where it stands: `renderPicture`'s frames, the separation poll's percent (`commandHost.ts`).
+A callback that fires outside the run's async context (a page event) is handed the process taken
+when the run started, not `currentProcess()` read late.
 
 ## Not covered
 

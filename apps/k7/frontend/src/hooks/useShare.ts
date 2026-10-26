@@ -18,6 +18,7 @@ import type {
   VideoSettings,
 } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
+import { trackProcess } from "../processes";
 import { shareProgressLine } from "../shareProgress";
 
 export interface Share {
@@ -57,15 +58,18 @@ export function useShare(onStatus: (s: string) => void): Share {
   const exportMix = useCallback(
     async (format: MixFormat, timeline?: string) => {
       setBusy(true);
-      onStatus(
-        `rendering ${format.toUpperCase()} mixdown${timeline ? ` of ${timeline}` : ""}…`,
-      );
+      const what = `${format.toUpperCase()} mixdown${timeline ? ` of ${timeline}` : ""}`;
+      onStatus(`rendering ${what}…`);
+      // A route, not a command, so the service lists nothing: this page lists it (docs/processes.md).
+      const shown = trackProcess(`export ${what}`);
       try {
         const { blob, filename } = await api.exportMix(format, timeline);
         download(blob, filename);
         onStatus(`exported ${filename}`);
+        shown.end();
       } catch (e) {
         onStatus(`export failed: ${(e as Error).message}`);
+        shown.end((e as Error).message);
       } finally {
         setBusy(false);
       }
@@ -86,12 +90,15 @@ export function useShare(onStatus: (s: string) => void): Share {
         return;
       }
       setBusy(true);
+      // Rendered in this page, so no poll reports it: this page lists it (docs/processes.md).
+      const shown = trackProcess(`export ${format.toUpperCase()} video`);
       try {
         // The sound FIRST: the engine renders it, and a failure there should not cost a minute
         // of frames. Decoded here because the container wants neither a wav nor an mp3.
         let track: AudioBuffer | undefined;
         if (audio) {
           onStatus(`rendering ${audio.toUpperCase()} mixdown…`);
+          shown.progress(null, `${audio.toUpperCase()} mixdown`);
           const { blob } = await api.exportMix(audio);
           const ctx = new AudioContext();
           try {
@@ -128,7 +135,10 @@ export function useShare(onStatus: (s: string) => void): Share {
           },
           // A frame count, not a percentage: a viewport export is slow and "1200 / 4500" is the
           // only progress that says how slow.
-          (p) => onStatus(`rendering ${p.frame} / ${p.total} frames…`),
+          (p) => {
+            onStatus(`rendering ${p.frame} / ${p.total} frames…`);
+            shown.progress(p.frame / p.total, `frame ${p.frame} / ${p.total}`);
+          },
         );
         // Named by the container itself: mediabunny owns both strings, so the two cannot drift.
         download(
@@ -136,8 +146,10 @@ export function useShare(onStatus: (s: string) => void): Share {
           `${name || "video"}${file.extension}`,
         );
         onStatus(`exported ${total} frames`);
+        shown.end();
       } catch (e) {
         onStatus(`export failed: ${(e as Error).message}`);
+        shown.end((e as Error).message);
       } finally {
         setBusy(false);
       }

@@ -1523,5 +1523,11 @@
   "about.where.server": "Server",
   "about.where.engine": "Engine",
   "about.where.desktop": "Tray (computer)",
-  "about.where.android": "Android app"
+  "about.where.android": "Android app",
+  "processes.title": "Background processes: {running} running",
+  "processes.heading": "Background processes",
+  "processes.running": "Running",
+  "processes.done": "Done",
+  "processes.failed": "Failed",
+  "processes.here": "in this tab"
 }

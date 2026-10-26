@@ -53,10 +53,26 @@ export interface WorkspaceInfo {
   engineLoad?: EngineLoadPhase | null;
   // The engine's plugin scan while a project naming an external plugin waits for it, or the scan it gave up on — docs/engineLoad.md there.
   engineScan?: EngineScanState | null;
+  // What the account's file service is busy with: a command past a second, a verb's background work — packages/file-service/docs/background.md.
+  processes?: ServiceProcess[];
   // The open project is a bundled demo, which the next start of the service overwrites — packages/file-service/src/demos.ts.
   activeIsDemo?: boolean;
   // The change token as of this answer, set by `/open` alone: the page's views start from it rather than fetching twice.
   rev?: string;
+}
+
+// One process the file service runs: listed while it runs, and a few seconds after it ended so its end is seen.
+export interface ServiceProcess {
+  id: string;
+  // What it is, as a person reads it: the command line, or the background work's tag.
+  label: string;
+  state: "running" | "done" | "failed";
+  startedAt: number; // ms since the epoch
+  endedAt?: number;
+  // 0..1 when the work knows how far it is; absent, it is a spinner.
+  progress?: number;
+  // A word on where it stands ("frame 300 / 1800"), or why it failed.
+  detail?: string;
 }
 
 // Held for the engine's plugin scan when it names an external plugin, copied to the engine's machine, applied, then played half a second in silence.
