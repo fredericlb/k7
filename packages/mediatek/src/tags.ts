@@ -181,6 +181,23 @@ export async function readOtherTags(abs: string): Promise<OtherTags> {
   }
 }
 
+/** A master's length in seconds, or undefined for a file TagLib cannot read it from. */
+export async function readDuration(abs: string): Promise<number | undefined> {
+  try {
+    const file = await (await taglib()).open(abs);
+    try {
+      const p = file.audioProperties();
+      // The milliseconds when TagLib has them: whole seconds are a rounding a 5 s match can feel.
+      const d = p?.durationMs ? p.durationMs / 1000 : p?.duration;
+      return d && d > 0 ? d : undefined;
+    } finally {
+      file.dispose();
+    }
+  } catch {
+    return undefined;
+  }
+}
+
 /** A song folder's master NAME, its tags and the file's other tags, the folder given on disk — `null` for one holding no audio. */
 export async function songTags(
   abs: string,

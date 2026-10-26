@@ -61,6 +61,9 @@ editor removes its file, so an emptied song leaves the list rather than showing 
 behind it. The listing's entries say so (`meta.lyrics`, `meta.tabs`, `meta.sheets`, with
 `meta.owner`, `meta.origin`, `meta.createdAt`), so the songbook is one catalogue read.
 
+Lyrics looked up on LRCLIB for a song that has a master and none land the same way, so a library
+song joins the songbook on its own once its words are found ([autoLyrics.md](autoLyrics.md)).
+
 ## Everyone's
 
 The songbook has no private songs: everything in the library is shared, and a song visible to some

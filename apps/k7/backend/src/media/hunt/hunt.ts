@@ -8,6 +8,7 @@ import { writablePath } from "@studio/mediatek/layout";
 import { extOf, withoutDerived } from "@studio/mediatek/media";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
 import { addSong } from "@studio/mediatek/write";
+import { lyricsQueue } from "../lyricsQueue.ts";
 import { missing, sftpOf, slskdOf } from "../settings/store.ts";
 import { lookupDeezer } from "./deezer.ts";
 import { lookup, type Tags } from "./musicbrainz.ts";
@@ -283,6 +284,7 @@ async function run(
     bytes,
     tags: songTags,
   });
+  lyricsQueue.want(filed.path);
   patchHunt(sub, id, {
     status: "done",
     path: filed.path,
@@ -367,6 +369,7 @@ async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
     },
     // Recovering a failure: nothing is there to overwrite, and if something is, `addSong` refuses.
   });
+  lyricsQueue.want(filed.path);
   patchHunt(sub, rec.id, {
     status: "done",
     path: filed.path,
