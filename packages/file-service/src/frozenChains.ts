@@ -1,64 +1,42 @@
 // frozenChains.ts — the home page's Frozen chains: the account's own chains, kept as files under
-// `@account/chains/`, and the libraries' cold ones beside them read-only. A saved chain is an ordinary
-// library chain, so `clip process … @account/<name>` and the recorder's live chains find it unaided.
-// What a reader would get wrong: a module with engines takes its values under `engines.<engine>.params`,
-// never its top-level `params`, which an engine ignores (packages/song/src/engines.ts). See docs/libraries.md.
+// `@account/chains/`, and the libraries' cold ones beside them read-only. A chain is EDITED on the bench,
+// with the engine's panels and sound, and `chain save` writes the bench's run back here as a chain file.
+// What a reader would get wrong: a node file goes into the chain WHOLE, its engine and every field it
+// holds, never re-derived; only its id comes from what the bench copied. See docs/libraries.md.
 
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isOfflineModule } from "@studio/audio-passes/coldPass";
 import {
+  findLibraryChain,
   type LibraryChainDir,
   libraryChainDirs,
   readFileTemplate,
   readTemplate,
 } from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
-import { moduleCatalogue } from "@studio/song/moduleCatalogue";
 import { resolveModule } from "@studio/song/moduleResolve";
 import type { LoadedModule } from "@studio/song/rawDoc";
+import { LIVE_FADER, LIVE_INPUT } from "@studio/song/scaffoldLive";
 import { accountLibraryHome } from "@studio/song/sharedFolders";
+import { wsData } from "@studio/song/yaml/workspaceDoc";
 import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
-import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { ACCOUNT_LIBRARY, libraryRef } from "@studio/song-schema/moduleTypes";
 import { formatChain } from "@studio/song-schema/yaml/chainFile";
-import type {
-  ChainModule,
-  ChainModuleParams,
-  FrozenChain,
-  FrozenChainStep,
-} from "@studio/web-protocol";
+import { parseGraph } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import type { FrozenChain, FrozenChainStep } from "@studio/web-protocol";
+import { benchDir, readBenchSource, writeBenchSource } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 
 /** A frozen chain's name: one path segment, what its file and its ref are named after. */
 export const FROZEN_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
-/** The categories a step may come from: what treats audio, and what separates it. */
-const STEP_CATEGORIES = new Set(["audio", "cold"]);
-
 type Modules = Record<string, LoadedModule>;
+type Item = Record<string, unknown> & { id: string; extends?: unknown };
 
-/** The module that holds `ref`'s engines: itself, or the nearest base it extends that has some. */
-function engineHolder(ref: string, byRef: Modules): LoadedModule | undefined {
-  let m: LoadedModule | undefined = byRef[ref];
-  for (let i = 0; m && i < 16; i++) {
-    if (m.engineRefs && Object.keys(m.engineRefs).length) return m;
-    const up: string | undefined =
-      typeof m.extends === "string" ? m.extends : undefined;
-    m = up ? byRef[up] : undefined;
-  }
-  return undefined;
-}
-
-const enginesOf = (ref: string, byRef: Modules) => {
-  const holder = engineHolder(ref, byRef);
-  return holder
-    ? { engines: engineNames(holder), engine: currentEngine(holder) }
-    : { engines: [] as string[], engine: undefined };
-};
-
-/** A step read off a chain file, in the builder's terms. */
+/** A step read off a chain file, in the list's terms: the engine's values when it names one. */
 function stepOf(
   name: string,
   module: Record<string, unknown>,
@@ -115,10 +93,13 @@ function frozenOf(
   }
 }
 
+const liveMap = (dir: string) =>
+  new Map(liveChains(dir).map((l) => [l.ref, l.unavailable]));
+
 /** The account's own chains, then the libraries' cold ones — the page's two lists, `dir` the bench resolving them. */
 export function listFrozenChains(dir: string): FrozenChain[] {
   const byRef = loadModuleRefs(dir);
-  const live = new Map(liveChains(dir).map((l) => [l.ref, l.unavailable]));
+  const live = liveMap(dir);
   const all = libraryChainDirs(dir).map((c) => frozenOf(c, byRef, live));
   const mine = all.filter((c) => c.mine);
   const cold = all.filter((c) => !c.mine && c.cold);
@@ -126,148 +107,147 @@ export function listFrozenChains(dir: string): FrozenChain[] {
   return [...mine.sort(byName), ...cold.sort(byName)];
 }
 
-/** Every module a step may extend, as the builder's picker lists them. */
-export function chainModules(dir: string): ChainModule[] {
-  const byRef = loadModuleRefs(dir);
-  return moduleCatalogue(dir)
-    .filter((m) => STEP_CATEGORIES.has(m.category))
-    .map((m) => {
-      const resolved = resolveModule({ extends: m.ref } as LoadedModule, byRef);
-      return {
-        ref: m.ref,
-        name: m.name,
-        category: m.category,
-        offline: isOfflineModule(resolved),
-        ...enginesOf(m.ref, byRef),
-      };
-    });
-}
-
-/** What `ref` run as `engine` offers a step: its panel's knobs, with the module's defaults. */
-export function chainModuleParams(
-  dir: string,
-  ref: string,
-  engine?: string,
-): ChainModuleParams {
-  const byRef = loadModuleRefs(dir);
-  if (!byRef[ref]) throw new Error(`no module "${ref}"`);
-  const { engines, engine: fallback } = enginesOf(ref, byRef);
-  if (engine && !engines.includes(engine))
-    throw new Error(`"${ref}" has no engine "${engine}"`);
-  const chosen = engine ?? fallback;
-  const m = resolveModule(
-    { extends: ref, ...(chosen ? { engine: chosen } : {}) } as LoadedModule,
-    byRef,
-  );
-  const widgets = ((m.ui as { widgets?: unknown } | undefined)?.widgets ??
-    {}) as Record<string, Record<string, unknown>>;
-  const defaults = (m.params ?? {}) as Record<string, unknown>;
-  const seen = new Set<string>();
-  const params: ChainModuleParams["params"] = [];
-  for (const w of Object.values(widgets)) {
-    const name = typeof w.bind === "string" ? w.bind : "";
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    const min = Number(w.min ?? 0);
-    const max = Number(w.max ?? 1);
-    const value = Number(defaults[name] ?? min);
-    params.push({
-      name,
-      label: typeof w.label === "string" ? w.label : name,
-      min,
-      max,
-      value: Number.isFinite(value) ? value : min,
-    });
-  }
-  return { ...(chosen ? { engine: chosen } : {}), params };
-}
-
 /** Where `name`'s file is in the account's library. */
 const fileOf = (name: string): string =>
   join(accountLibraryHome(), "chains", `${name}.k7x`);
 
-/** The chain file's item for one step: the engine's values under its engine, or the module's own. */
-function itemOf(s: FrozenChainStep): Record<string, unknown> {
-  const values = Object.keys(s.params).length ? s.params : undefined;
-  return {
-    id: s.id || randomUUID(),
-    extends: s.module,
-    ...(s.engine
-      ? {
-          engine: s.engine,
-          ...(values ? { engines: { [s.engine]: { params: values } } } : {}),
-        }
-      : values
-        ? { params: values }
-        : {}),
-    ...(s.bypass ? { bypass: true } : {}),
-  };
-}
+const accountChain = (name: string): LibraryChainDir => ({
+  ref: libraryRef(ACCOUNT_LIBRARY, name),
+  library: ACCOUNT_LIBRARY,
+  path: name,
+  at: fileOf(name),
+  layout: "file",
+  libraryRoot: accountLibraryHome(),
+  nodes: [],
+});
 
-/** Write `name` into the account's library as `steps`; throws with the reason, having written nothing. */
-export function saveFrozenChain(
+/** Write `items` as the account's chain `name`, with each item's preset file; throws with the reason, having written nothing. */
+function writeAccountChain(
   dir: string,
   name: string,
-  steps: FrozenChainStep[],
+  items: Item[],
+  presets: Record<string, string> = {},
 ): FrozenChain {
   if (!FROZEN_NAME.test(name))
     throw new Error(
       `"${name}" is not a chain name — letters, digits, '-' and '_', starting with a letter or digit`,
     );
-  if (!steps.length) throw new Error("a chain holds at least one step");
+  if (!items.length) throw new Error("a chain holds at least one step");
   const byRef = loadModuleRefs(dir);
   let offline = 0;
-  for (const [i, s] of steps.entries()) {
-    if (!byRef[s.module])
-      throw new Error(`step ${i + 1}: no module "${s.module}"`);
-    if (s.engine && !enginesOf(s.module, byRef).engines.includes(s.engine))
-      throw new Error(
-        `step ${i + 1}: "${s.module}" has no engine "${s.engine}"`,
-      );
-    if (
-      isOfflineModule(
-        resolveModule({ extends: s.module } as LoadedModule, byRef),
-      )
-    )
+  for (const [i, it] of items.entries()) {
+    const ref = typeof it.extends === "string" ? it.extends : "";
+    if (!ref || !byRef[ref])
+      throw new Error(`step ${i + 1}: no module "${ref || "(none)"}"`);
+    if (isOfflineModule(resolveModule(it as unknown as LoadedModule, byRef)))
       offline++;
   }
   // A separator writes files, so nothing could follow it: the process verbs refuse such a chain (processChain.md).
-  if (offline && steps.length > 1)
+  if (offline && items.length > 1)
     throw new Error(
       "a chain separates or it treats: a separating module is the chain's only step",
     );
-  const at = fileOf(name);
-  const prev = wsExists(at) ? wsRead(at) : "";
+  const chain = accountChain(name);
+  const prev = wsExists(chain.at) ? wsRead(chain.at) : "";
   const text = formatChain(
-    {
-      steps: [
-        // A step naming no engine of a module that has some runs its default, so its values go there.
-        ...steps.map((s) =>
-          itemOf({
-            ...s,
-            engine: s.engine ?? enginesOf(s.module, byRef).engine,
-          }),
-        ),
-        { to: [{ chain: "@out" }] },
-      ],
-    } as never,
+    { steps: [...items, { to: [{ chain: "@out" }] }] } as never,
     prev,
   );
-  const chain: LibraryChainDir = {
-    ref: libraryRef(ACCOUNT_LIBRARY, name),
-    library: ACCOUNT_LIBRARY,
-    path: name,
-    at,
-    layout: "file",
-    libraryRoot: accountLibraryHome(),
-    nodes: [],
-  };
   // Read back BEFORE it lands: a file a chain reader would refuse is never written.
   readFileTemplate(chain, text);
-  mkdirSync(dirname(at), { recursive: true });
-  wsWrite(at, text);
-  const live = new Map(liveChains(dir).map((l) => [l.ref, l.unavailable]));
-  return frozenOf(chain, byRef, live);
+  mkdirSync(dirname(chain.at), { recursive: true });
+  wsWrite(chain.at, text);
+  const presetDir = join(accountLibraryHome(), "vstpresets");
+  for (const [id, from] of Object.entries(presets)) {
+    mkdirSync(presetDir, { recursive: true });
+    copyFileSync(from, join(presetDir, `${id}.vstpreset`));
+  }
+  return frozenOf(chain, byRef, liveMap(dir));
+}
+
+/** The bench's run from its input to its fader, as chain items: one node after another, or a throw saying why not. */
+function benchRun(dir: string): {
+  items: Item[];
+  presets: Record<string, string>;
+  ids: Record<string, string>;
+} {
+  const graph = parseGraph(wsRead(join(dir, GRAPH_FILE))).value;
+  if (!graph) throw new Error("the bench has a graph that does not read");
+  const modules = graph.modules ?? {};
+  const bypassed = new Set(graph.bypassed ?? []);
+  const known = readBenchSource()?.ids ?? {};
+  const items: Item[] = [];
+  const presets: Record<string, string> = {};
+  const ids: Record<string, string> = {};
+  const seen = new Set<string>();
+  for (let at = LIVE_INPUT; ; ) {
+    const next = modules[at] ?? [];
+    if (next.length !== 1)
+      throw new Error(
+        `"${at}" feeds ${next.length ? next.join(" and ") : "nothing"}: a chain is one run from ${LIVE_INPUT} to ${LIVE_FADER}`,
+      );
+    const node = next[0] as string;
+    if (node === LIVE_FADER) break;
+    if (seen.has(node)) throw new Error(`"${node}" loops back on itself`);
+    seen.add(node);
+    const file = join(dir, "nodes", `${node}.k7x`);
+    if (!wsExists(file)) throw new Error(`"${node}" has no node file`);
+    const id = known[node] ?? randomUUID();
+    ids[node] = id;
+    items.push({
+      id,
+      ...wsData(file),
+      ...(bypassed.has(node) ? { bypass: true } : {}),
+    });
+    const preset = join(dir, "nodes", `${node}.vstpreset`);
+    if (wsExists(preset)) presets[id] = preset;
+    at = node;
+  }
+  if (!items.length)
+    throw new Error(
+      `nothing sits between ${LIVE_INPUT} and ${LIVE_FADER}: add a module to the bench first`,
+    );
+  return { items, presets, ids };
+}
+
+/** `chain save [name]`: the bench's run written as the account's chain; a bench opened on one of the account's chains names itself. */
+export function saveBenchChain(name?: string): FrozenChain {
+  const dir = benchDir();
+  const source = readBenchSource();
+  const mine = `@${ACCOUNT_LIBRARY}/`;
+  const chosen =
+    name ??
+    (source?.ref?.startsWith(mine) ? source.ref.slice(mine.length) : undefined);
+  if (!chosen)
+    throw new Error(
+      "name the chain: `chain save <name>` writes it as @account/<name>",
+    );
+  const { items, presets, ids } = benchRun(dir);
+  const saved = writeAccountChain(dir, chosen, items, presets);
+  // The bench now holds that chain, unedited: the next open of its address rebuilds it from the file.
+  writeBenchSource({ ref: saved.ref, ids });
+  return saved;
+}
+
+/** A copy of any library chain as the account's chain `name`: every step whole, with fresh ids and its presets. */
+export function copyFrozenChain(
+  dir: string,
+  from: string,
+  name: string,
+): FrozenChain {
+  const chain = findLibraryChain(from, dir);
+  if (!chain) throw new Error(`no chain "${from}" in the libraries`);
+  if (wsExists(fileOf(name)))
+    throw new Error(`you already have a chain "${name}"`);
+  const items: Item[] = [];
+  const presets: Record<string, string> = {};
+  for (const s of readTemplate(chain).steps) {
+    // Fresh ids: two chains sharing an id would share their presets' file names.
+    const id = randomUUID();
+    items.push({ id, ...s.module, ...(s.bypass ? { bypass: true } : {}) });
+    if (s.preset) presets[id] = s.preset;
+  }
+  return writeAccountChain(dir, name, items, presets);
 }
 
 /** Remove one of the account's chains; a library's is never this account's to remove. */

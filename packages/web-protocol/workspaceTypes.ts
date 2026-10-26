@@ -346,33 +346,6 @@ export interface FrozenChain {
   unreadable?: string;
 }
 
-/** A module a frozen chain's step may extend, as the builder's picker lists it. */
-export interface ChainModule {
-  ref: string;
-  /** The ref without its library, for display: `audio/compressor`. */
-  name: string;
-  /** Its type folder: `audio`, `cold`… */
-  category: string;
-  /** It writes files instead of a signal (a separator): a chain holding it holds nothing else. */
-  offline: boolean;
-  /** The engines it can run as, and the one it runs as unless a step says otherwise. */
-  engines: string[];
-  engine?: string;
-}
-
-/** The values one module (as one engine) offers a step, from its panel's knobs. */
-export interface ChainModuleParams {
-  engine?: string;
-  params: {
-    name: string;
-    label: string;
-    min: number;
-    max: number;
-    /** The module's own default, the value a step that sets nothing runs with. */
-    value: number;
-  }[];
-}
-
 export interface LiveChain {
   /** Its path under `chains/` (`vocals/warm`), what the bench's `chain` names. */
   ref: string;

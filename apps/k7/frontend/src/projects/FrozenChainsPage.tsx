@@ -1,6 +1,7 @@
-// FrozenChainsPage.tsx — `/libraries/chains`: the account's frozen chains, built here and kept in its own
-// library (`@account/chains/`), and the libraries' cold chains beside them, read-only, to copy from.
-// A saved chain is what `clip process` and the recorder's live chains already read. See ../../docs/frozenChains.md.
+// FrozenChainsPage.tsx — `/libraries/chains`: the account's frozen chains, kept in its own library
+// (`@account/chains/`), and the libraries' cold chains beside them, read-only, to copy from. A chain is
+// built and edited on the BENCH, with the engine's panels and sound, and saved back by `chain save`.
+// See ../../docs/frozenChains.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -12,23 +13,27 @@ import {
   Snowflake,
   Trash2,
 } from "@frediverse/ui/icons";
-import { askConfirm } from "@studio/project-shell/ask";
+import { askConfirm, askText } from "@studio/project-shell/ask";
+import { launchUrl } from "@studio/project-shell/launch";
 import { Toaster } from "@studio/project-shell/toast";
-import type {
-  ChainModule,
-  FrozenChain,
-  FrozenChainStep,
-} from "@studio/web-protocol";
+import type { FrozenChain } from "@studio/web-protocol";
+import { BENCH_REPO, benchProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
 import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
 import { findLibraryFiles } from "../settings/accountFiles";
 import { type AccountFiles, accountFiles } from "./api";
-import { FrozenChainBuilder } from "./FrozenChainBuilder";
 import { HomeShell } from "./HomeFrame";
 import { PageFrame } from "./PageFrame";
 
-type Draft = { name: string; steps: FrozenChainStep[]; existing: boolean };
+/** A chain's name as the file service takes it: one path segment. */
+const FROZEN_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+
+/** Open the bench on `ref`, or on the bare rig: where a chain is built and edited. */
+const openBench = (ref: string | null): void =>
+  window.location.assign(
+    launchUrl(window.location.origin, BENCH_REPO, benchProject(ref), "k7"),
+  );
 
 /** A copy's name: the source's last segment, numbered past the account's own names. */
 function copyName(ref: string, taken: Set<string>): string {
@@ -59,6 +64,10 @@ function Row({
           (s) => `${s.module.split("/").pop()}${s.bypass ? " (bypass)" : ""}`,
         )
         .join(" → ");
+  // The bench plays it live, so a chain that cannot run live is edited nowhere: the reason says why.
+  const editTitle = chain.liveRefusal
+    ? m["frozen.notLive"]({ why: chain.liveRefusal })
+    : m["frozen.editOnBench"]();
   return (
     <li className="flex items-center gap-3 rounded px-2 py-2 hover:bg-muted/40">
       {chain.cold ? (
@@ -84,9 +93,10 @@ function Row({
         <Button
           size="icon-xs"
           variant="ghost"
+          disabled={!!chain.liveRefusal}
           onClick={onEdit}
-          aria-label={m["frozen.edit"]()}
-          title={m["frozen.edit"]()}
+          aria-label={editTitle}
+          title={editTitle}
         >
           <Pencil className="size-3.5" />
         </Button>
@@ -121,8 +131,6 @@ export function FrozenChainsPage() {
     undefined,
   );
   const [chains, setChains] = useState<FrozenChain[] | null>(null);
-  const [modules, setModules] = useState<ChainModule[]>([]);
-  const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async (f: AccountFiles) => {
@@ -138,12 +146,7 @@ export function FrozenChainsPage() {
     void findLibraryFiles().then((f) => {
       if (!live) return;
       setFiles(f);
-      if (!f) return;
-      void reload(f);
-      void accountFiles
-        .chainModules(f)
-        .then((ms) => live && setModules(ms))
-        .catch((e: Error) => live && setError(e.message));
+      if (f) void reload(f);
     });
     return () => {
       live = false;
@@ -170,12 +173,27 @@ export function FrozenChainsPage() {
       setError((e as Error).message);
     }
   };
-  // A copy drops the step ids: two chains sharing an id would share their presets' file names.
-  const copyOf = (c: FrozenChain): Draft => ({
-    name: copyName(c.name, taken),
-    steps: c.steps.map(({ id: _, ...s }) => s),
-    existing: false,
-  });
+  const duplicate = async (c: FrozenChain) => {
+    if (!files) return;
+    const name = (
+      await askText({
+        title: m["frozen.duplicate"](),
+        body: m["frozen.duplicateBody"]({ ref: c.ref }),
+        initial: copyName(c.name, taken),
+        placeholder: m["frozen.namePlaceholder"](),
+        confirmLabel: m["frozen.duplicate"](),
+      })
+    )?.trim();
+    if (!name) return;
+    if (!FROZEN_NAME.test(name)) return setError(m["frozen.badName"]());
+    setError(null);
+    try {
+      await accountFiles.copyFrozenChain(files, c.ref, name);
+      await reload(files);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   return (
     <HomeShell>
@@ -185,17 +203,8 @@ export function FrozenChainsPage() {
         title={m["frozen.title"]()}
         summary={m["frozen.summary"]()}
         actions={
-          files && !draft ? (
-            <Button
-              size="sm"
-              onClick={() =>
-                setDraft({
-                  name: "",
-                  steps: [{ module: "", params: {} }],
-                  existing: false,
-                })
-              }
-            >
+          files ? (
+            <Button size="sm" onClick={() => openBench(null)}>
               <Plus className="size-3.5" /> {m["frozen.new"]()}
             </Button>
           ) : null
@@ -212,20 +221,6 @@ export function FrozenChainsPage() {
         ) : (
           <div className="space-y-6">
             {error && <p className="text-destructive text-sm">{error}</p>}
-            {draft && (
-              <FrozenChainBuilder
-                // A new key per opening, so a second draft starts from its own steps.
-                key={`${draft.name}:${draft.existing}`}
-                files={files}
-                modules={modules}
-                initial={draft}
-                onCancel={() => setDraft(null)}
-                onSaved={() => {
-                  setDraft(null);
-                  void reload(files);
-                }}
-              />
-            )}
             <section>
               <h2 className="mb-1 font-medium text-sm">{m["frozen.mine"]()}</h2>
               {mine.length === 0 ? (
@@ -238,14 +233,8 @@ export function FrozenChainsPage() {
                     <Row
                       key={c.ref}
                       chain={c}
-                      onEdit={() =>
-                        setDraft({
-                          name: c.name,
-                          steps: c.steps,
-                          existing: true,
-                        })
-                      }
-                      onCopy={() => setDraft(copyOf(c))}
+                      onEdit={() => openBench(c.ref)}
+                      onCopy={() => void duplicate(c)}
                       onDelete={() => void remove(c)}
                     />
                   ))}
@@ -267,7 +256,7 @@ export function FrozenChainsPage() {
                     <Row
                       key={c.ref}
                       chain={c}
-                      onCopy={() => setDraft(copyOf(c))}
+                      onCopy={() => void duplicate(c)}
                     />
                   ))}
                 </ul>

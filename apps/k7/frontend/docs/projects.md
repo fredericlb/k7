@@ -331,10 +331,11 @@ A chain is something you HEAR: what it does cannot be read in its file, and its 
 exist inside a project with the plugin loaded. The bench is that project — a live rig written again
 on every open and saved nowhere ([apps/k7/backend/docs/media/banc.md](../../backend/docs/media/banc.md)).
 
-**This page has no bench card.** A bench is always ON a chain: `/@banc/<chain>/live.k7` seeds the
-rig with a copy of a library chain, which the rehearsal recorder opens to record through. It edits no library — an
-admin does that from any project — so a bench that names nothing, or names a bare library, is
-refused.
+**This page has no bench card.** The bench is reached from the Frozen chains page
+(`frozenChains.md`), where it builds and edits the account's chains, and from the rehearsal
+recorder, which records through it. `/@banc/<chain>/live.k7` seeds the rig with a copy of a library
+chain, and the bare `/@banc/live.k7` is the rig alone. It edits no origin library — an admin does
+that from any project — so a bench that names a bare library is refused.
 
 **The bench is in no list of workspaces.** Its `Banc` folder is a workspace on disk, but it is
 reached by an address and rebuilt on every open; a row for it on this page would offer to open

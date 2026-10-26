@@ -2,6 +2,7 @@
 // catalogue queries, and the service's own work (background jobs, renders, separation, the hub's
 // library listings). engineLink's makeHost spreads them in beside the run's own. See docs/activeProject.md.
 
+import { resolve } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
 import type {
   AudioDeviceInfo,
@@ -13,8 +14,10 @@ import {
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
 import { runInBackground } from "./backgroundJobs.ts";
+import { benchDir } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
 import { isReady } from "./engineSessions.ts";
+import { saveBenchChain } from "./frozenChains.ts";
 import { askHubRemote, askHubSync } from "./libraries.ts";
 import { renderPicture } from "./pictureRender.ts";
 import { currentProcess } from "./processes.ts";
@@ -74,6 +77,7 @@ export function serviceMembers(
 ): Pick<
   CommandHost,
   | "background"
+  | "saveBenchChain"
   | "renderPicture"
   | "clipEnvelope"
   | "onnxProviders"
@@ -83,6 +87,15 @@ export function serviceMembers(
   | "fetchLibraryVersion"
 > {
   return {
+    // `chain save` writes the BENCH's run, and only from the bench: a project's own graph is not a chain to keep.
+    saveBenchChain: (dir, name) => {
+      if (resolve(dir) !== resolve(benchDir()))
+        throw new Error(
+          "only the bench saves a chain — open one on the bench from the Frozen chains page",
+        );
+      const saved = saveBenchChain(name);
+      return { ref: saved.ref, steps: saved.steps.length };
+    },
     // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
     background: (tag: string, work: () => Promise<string>) =>
       runInBackground(tag, work),

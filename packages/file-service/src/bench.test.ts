@@ -1,5 +1,5 @@
 // The BENCH — a live rig seeded with a library chain — and the guard on library writes. What is
-// proved: it opens, it keeps nothing of the rig, it names no library to edit; a library module is
+// proved: it opens, it keeps its edits only for the chain it holds, it names no library to edit; a library module is
 // written into an admin's own clone and never the server's, and refused to anyone else.
 
 import {
@@ -82,7 +82,7 @@ describe("the bench", () => {
     expect(listWorkspaces(EMAIL).map((w) => w.name)).toEqual(["songs"]);
   });
 
-  it("throws away what was wired on it, at the next open", async () => {
+  it("keeps what was edited on it when the same chain opens again, and drops it for another", async () => {
     await openChainBench();
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
@@ -90,13 +90,19 @@ describe("the bench", () => {
       `${BENCH_PROJECT}/graph.k7x`,
       'modules({ IN: ["reverb"], reverb: ["MIX"] })\n',
     );
+    const graph = () => readFileSync(join(benchDir(), "graph.k7x"), "utf8");
+    // A reload of the page opens the gate again: the knobs turned since must survive it.
     await openChainBench();
-    const graph = readFileSync(join(benchDir(), "graph.k7x"), "utf8");
-    expect(graph).not.toContain("reverb");
+    expect(graph()).toContain("reverb");
+    await ensureBench(EMAIL, BENCH_PROJECT);
+    expect(graph()).not.toContain("reverb");
   });
 
-  it("is refused for a bare rig, and for a library — which is edited from any project", async () => {
-    await expect(ensureBench(EMAIL, BENCH_PROJECT)).rejects.toThrow(/chain/);
+  it("opens the bare rig, input straight to the fader, and refuses a library — which is edited from any project", async () => {
+    await ensureBench(EMAIL, BENCH_PROJECT);
+    expect(readFileSync(join(benchDir(), "graph.k7x"), "utf8")).toMatch(
+      /IN: \["fader"\]/,
+    );
     await expect(ensureBench(EMAIL, benchProject("@k7-core"))).rejects.toThrow(
       /any project/,
     );
