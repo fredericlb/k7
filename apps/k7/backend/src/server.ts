@@ -201,6 +201,7 @@ const media = mountMedia(app, {
     own: prefsStore(join(PREFS_DIR, "favorites")),
     prefs: prefsStore(PREFS_DIR),
   },
+  practice: { own: prefsStore(join(PREFS_DIR, "practice")) },
 });
 
 /** One person's layer over a command, as the WIRE shape — the meaning is the frontend's `commandPrefs.ts`. */

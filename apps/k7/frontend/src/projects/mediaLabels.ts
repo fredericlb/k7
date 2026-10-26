@@ -66,6 +66,10 @@ export function mediaLabels(): LibraryLabels {
       favorite: m["media.tree.favorite"](),
       unfavorite: m["media.tree.unfavorite"](),
       noFavorites: m["media.tree.noFavorites"](),
+      showPractice: m["media.tree.showPractice"](),
+      practice: m["media.tree.practice"](),
+      unpractice: m["media.tree.unpractice"](),
+      noPractice: m["media.tree.noPractice"](),
     },
     contents: {
       emptyLibrary: m["media.contents.emptyLibrary"](),

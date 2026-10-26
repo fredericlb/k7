@@ -25,6 +25,14 @@ The master is always called `original` and keeps the extension of the file you u
 audio format the library reads is accepted: `.wav`, `.flac`, `.aiff`, `.aif`, `.mp3`, `.ogg`,
 `.opus`, `.m4a`, `.webm`.
 
+### Favorites and practice
+
+A song or an album can be added to your **favorites** (its menu's **Favorite**) or to your
+**practice** list (**Add to practice**): two lists of your own, kept on the server, the same on
+every device. The tabs above the songs' tree show **All**, only your **Favorites**, or only what you
+are practising (**Practice**). A starred row wears a star and a practised one a cap; a click on it
+takes the song off that list.
+
 ### Adding a song
 
 1. Open **Songs**.

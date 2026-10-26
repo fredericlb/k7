@@ -189,8 +189,20 @@ they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
 
 A star names a path, so a song moved or renamed loses it.
 
+## Practice
+
+The **practice list** is a second list of the same kind: a song or an album is added from its menu
+(« Add to practice »), a practised row wears a mark that takes it off in one click, and the tree's
+third tab, **Practice**, shows only it. Everything said of favorites above holds for it — the
+account's, kept on its server, a state per click, a path covering what is below it — through its own
+route, `/api/practice` (`apps/k7/backend/docs/media/practice.md`).
+
+It is a list apart rather than a kind of star because the two answer different questions: what a
+person likes to hear, and what they are working on this month. A song moves on and off the second
+far more often than the first, and taking it off must not lose the star.
+
 The tree opens on **Favorites**: the songs a person plays are the ones they starred, and the whole
-library is one click away. Which of the two lists it shows is the BROWSER's choice, kept in
+library is one click away. Which of the three it shows is the BROWSER's choice, kept in
 `localStorage`: it is a view of the moment, not something to follow the account to another machine. The middle pane is not
 filtered — the selector belongs to the tree it sits above.
 

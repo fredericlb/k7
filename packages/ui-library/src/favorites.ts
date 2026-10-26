@@ -1,5 +1,5 @@
-// favorites.ts — the songs and albums this account starred, and the filter that shows only them.
-// A favorite is a library path (`songs/Artist/Album[/Title]`), kept by the account's server, every device alike.
+// favorites.ts — the songs and albums on this account's lists — its favorites, its practice list —
+// and the filter that shows one of them. An item is a library path (`songs/Artist/Album[/Title]`), kept by the account's server, every device alike.
 // The one thing a reader would get wrong: a song shows when IT or ANY folder above it is starred (../docs/library.md).
 
 import { fetchWithin, readJson } from "@studio/http-client/call";
@@ -39,16 +39,22 @@ export function isAlbumFolder(
   });
 }
 
-/** What a favorites call may take: on a paired machine it waits on the server. */
+/** What a list call may take: on a paired machine it waits on the server. */
 const FAVORITES_MS = 15_000;
 
-/** `/api/favorites` on the host's backend, which asks the account's server when it is paired (../docs/library.md). */
-async function favoritesCall(body?: {
-  paths: string[];
-  favorite: boolean;
-}): Promise<string[]> {
+/** An account's lists of songs and albums: the stars, and what it is practising. */
+export type PathList = "favorites" | "practice";
+
+/** `/api/favorites` or `/api/practice` on the host's backend, which asks the account's server when it is paired (../docs/library.md). */
+async function listCall(
+  kind: PathList,
+  body?: {
+    paths: string[];
+    favorite: boolean;
+  },
+): Promise<string[]> {
   const res = await fetchWithin(
-    `${apiBase()}/api/favorites`,
+    `${apiBase()}/api/${kind}`,
     body
       ? {
           method: "POST",
@@ -59,11 +65,19 @@ async function favoritesCall(body?: {
     FAVORITES_MS,
     (s) => new Error(libraryConfig().noAnswer(s)),
   );
-  return (await readJson<{ favorites: string[] }>(res, "favorites")).favorites;
+  return (await readJson<Record<PathList, string[]>>(res, kind))[kind] ?? [];
 }
 
 /** The account's favorites, `ready` once read — a star offered before that would not reflect the list. */
-export function useFavorites(onError: (message: string) => void) {
+export const useFavorites = (onError: (message: string) => void) =>
+  usePathList("favorites", onError);
+
+/** …and its practice list, the same kind of list (../docs/library.md). */
+export const usePractice = (onError: (message: string) => void) =>
+  usePathList("practice", onError);
+
+/** One of the account's lists, `ready` once read, toggled one path at a time in click order. */
+function usePathList(kind: PathList, onError: (message: string) => void) {
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(new Set());
   const [ready, setReady] = useState(false);
   const current = useRef<ReadonlySet<string>>(favorites);
@@ -78,12 +92,12 @@ export function useFavorites(onError: (message: string) => void) {
   // Read again whenever the tab comes back, so a star made on another device shows; never over a write in flight.
   const reload = useCallback(() => {
     if (pending.current) return;
-    favoritesCall()
+    listCall(kind)
       .then((list) => {
         if (!pending.current) adopt(list);
       })
       .catch(() => {});
-  }, [adopt]);
+  }, [adopt, kind]);
   useEffect(() => {
     reload();
     const onShow = () => {
@@ -101,7 +115,7 @@ export function useFavorites(onError: (message: string) => void) {
       setFavorites(next);
       pending.current++;
       writing.current = writing.current
-        .then(() => favoritesCall({ paths: [path], favorite }))
+        .then(() => listCall(kind, { paths: [path], favorite }))
         .then(
           (list) => {
             if (--pending.current === 0) adopt(list);
@@ -113,27 +127,64 @@ export function useFavorites(onError: (message: string) => void) {
           },
         );
     },
-    [onError, adopt, reload],
+    [onError, adopt, reload, kind],
   );
   return { favorites, ready, toggle };
 }
 
+/** Both lists, the tree's filter and the list it shows, for the section on screen — only the songs have lists. */
+export function useSongLists(
+  section: string,
+  onError: (message: string) => void,
+) {
+  const fav = useFavorites(onError);
+  const practice = usePractice(onError);
+  const [treeFilter, setTreeFilter] = useTreeFilter();
+  const listed =
+    section !== "songs" || treeFilter === "all"
+      ? null
+      : treeFilter === "practice"
+        ? practice
+        : fav;
+  const has = (set: ReadonlySet<string>, n: { path: string }) =>
+    section === "songs" && set.has(`${section}/${n.path}`);
+  return {
+    fav,
+    practice,
+    treeFilter,
+    setTreeFilter,
+    listed,
+    // The set alone, which keeps its identity between renders where the hook's object does not.
+    listedSet: listed?.favorites ?? null,
+    starredAt: (n: { path: string }) => has(fav.favorites, n),
+    practisedAt: (n: { path: string }) => has(practice.favorites, n),
+  };
+}
+
+/** What the songs' tree shows: every song, or only one of the account's lists. */
+export type TreeFilter = "all" | PathList;
+
+const FILTER_KEY = "k7.library.treeFilter";
+// The earlier boolean choice, read once so a browser keeps what it had picked.
 const ALL_KEY = "k7.library.showAll";
 
-/** Whether the tree shows only favorites, the default — this browser's choice, remembered where it can be. */
-export function useFavoritesOnly(): [boolean, (on: boolean) => void] {
-  const [only, setOnly] = useState(() => {
+/** The tree's filter, favorites by default — this browser's choice, remembered where it can be. */
+export function useTreeFilter(): [TreeFilter, (f: TreeFilter) => void] {
+  const [filter, setFilter] = useState<TreeFilter>(() => {
     try {
-      return localStorage.getItem(ALL_KEY) !== "1";
+      const kept = localStorage.getItem(FILTER_KEY);
+      if (kept === "all" || kept === "favorites" || kept === "practice")
+        return kept;
+      return localStorage.getItem(ALL_KEY) === "1" ? "all" : "favorites";
     } catch {
-      return true;
+      return "favorites";
     }
   });
-  const set = useCallback((on: boolean) => {
-    setOnly(on);
+  const set = useCallback((f: TreeFilter) => {
+    setFilter(f);
     try {
-      localStorage.setItem(ALL_KEY, on ? "0" : "1");
+      localStorage.setItem(FILTER_KEY, f);
     } catch {}
   }, []);
-  return [only, set];
+  return [filter, set];
 }
