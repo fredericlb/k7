@@ -409,8 +409,7 @@ function send(c: ReturnType<typeof synced>, room: Room): Sequenced[] {
 
 /** What liveRelay.ts does with an entry: capture the files' pending edits first, then apply. */
 function receive(c: ReturnType<typeof synced>, entry: Sequenced): void {
-  if (entry.batch.replica !== c.r.id)
-    c.capture.captureFiles(entry.batch.ops.map((o) => o.file));
+  c.capture.captureFiles(entry.batch.ops.map((o) => o.file));
   give(c);
   expect(c.r.remote(entry)).toEqual([]);
 }
@@ -429,6 +428,20 @@ function seededRoom(file = FILE, text = MIX): Room {
 }
 
 describe("two replicas through a room", () => {
+  it("keeps an edit the watcher has not reported when its own earlier batch comes back", async () => {
+    const room = seededRoom();
+    const a = synced("a", room);
+    put(a.root, FILE, MIX.replace("gain: 0.5", "gain: 0.7"));
+    await batches(a, 1);
+    const [echo] = send(a, room);
+    // Rewritten before the echo arrives, and before the watcher's quiet period has passed.
+    const later = MIX.replace("gain: 0.5", "gain: 0.9");
+    put(a.root, FILE, later);
+    receive(a, echo);
+    expect(read(a.root, FILE)).toBe(later);
+    expect(a.batches.at(-1)?.ops).toMatchObject([{ file: FILE }]);
+  });
+
   it("converge on two edits to different values of one file, and echo nothing back", async () => {
     const room = seededRoom();
     const a = synced("a", room);

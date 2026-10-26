@@ -74,20 +74,24 @@ async function relayOn(
   return { port, stop, relay, http: `http://127.0.0.1:${port}/h` };
 }
 
-/** A bare replica: says hello, sends batches, and keeps every entry it hears. */
+/** A bare replica: says hello and waits to be welcomed, sends batches, and keeps every entry it hears. */
 async function client(port: number) {
   const ws = new WebSocket(`ws://127.0.0.1:${port}${SYNC_PATH}`, {
     headers: { "x-studio-hub-secret": "secret" },
   });
   const heard: Sequenced[] = [];
+  let welcomed = false;
   ws.on("message", (d) => {
     const msg = JSON.parse(d.toString()) as FromRelay;
     if (msg.t === "seq") heard.push(msg.entry);
+    if (msg.t === "welcome") welcomed = true;
   });
   await new Promise((r) => ws.on("open", r));
   ws.send(
     JSON.stringify({ t: "hello", workspace: WS, since: 0, proto: SYNC_PROTO }),
   );
+  // In the room before anyone sends: an entry ordered before this hello arrives in the welcome, not as a `seq`.
+  await until(() => welcomed);
   cleanup.push(() => ws.terminate());
   let n = 0;
   const send = (ops: FileOp[], label = "edit"): Batch => {

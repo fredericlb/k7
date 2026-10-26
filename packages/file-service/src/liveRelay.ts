@@ -536,8 +536,8 @@ export class RelayLink {
   }
 
   private sequenced(l: Linked & { logDir: string }, entry: Sequenced): void {
-    // A local edit the watcher has not reported would be absorbed by what this entry writes: send it first.
-    if (!this.following && entry.batch.replica !== l.replica.id)
+    // A local edit the watcher has not reported would be absorbed by what this entry writes — its own echo included, which settles the file: send it first.
+    if (!this.following)
       l.capture.captureFiles(entry.batch.ops.map((o) => o.file));
     let failed: string[] = [];
     const written = this.tracking(l, () => {
