@@ -45,6 +45,7 @@ export function MiniPlayer({
   onNext,
   lead,
   trail,
+  end,
   transport,
   track,
   mediaSession = true,
@@ -75,6 +76,8 @@ export function MiniPlayer({
   lead?: ReactNode;
   /** At the bar's right edge, outside its centred part and before the close: where a host's way elsewhere goes. */
   trail?: ReactNode;
+  /** After `trail`, set off by a rule: a second right slot, for what the host's way elsewhere is not. */
+  end?: ReactNode;
   /** In place of the play/pause button, for a host whose transport is more than one. */
   transport?: ReactNode;
   /** In place of the clocks and the scrubber — null for no position row at all. */
@@ -192,6 +195,12 @@ export function MiniPlayer({
       {trail && (
         <div className="flex shrink-0 items-center justify-end gap-1">
           {trail}
+        </div>
+      )}
+
+      {end && (
+        <div className="flex min-w-0 shrink items-center gap-1.5 border-l pl-3">
+          {end}
         </div>
       )}
 

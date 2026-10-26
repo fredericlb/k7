@@ -1,5 +1,5 @@
 // ProjectBar.tsx — the project's one bar, drawn as the app's mini player: the way home and the
-// name at its left edge, the pages at its right; in its centre the transport's buttons, the clock,
+// name at its left edge, the pages then the engine at its right; in its centre the transport's buttons, the clock,
 // a peekable minimap and the master meter. The sound is the engine's, never this page's, so the
 // bar leaves the system's media session alone.
 // See docs/shell.md, "The project bar".
@@ -16,6 +16,7 @@ import { ShellTransport } from "./ShellTransport";
 export function ProjectBar({
   lead,
   trail,
+  engine,
   meter,
   transport,
   map,
@@ -25,6 +26,8 @@ export function ProjectBar({
   lead: ReactNode;
   /** The pages' buttons, or a phone's menu — the bar's right slot. */
   trail: ReactNode;
+  /** The engine selector, after the pages; null on a share, which has no engine to change. */
+  engine: ReactNode;
   /** The master meter, right of the minimap; null where there is no engine to read or no room. */
   meter: ReactNode;
   /** The buttons, or null where they would drive nothing on screen (the desk alone). */
@@ -41,6 +44,7 @@ export function ProjectBar({
       title=""
       lead={lead}
       trail={trail}
+      end={engine}
       playing={playing}
       // The clock and the map read the playhead themselves, so the bar never re-renders with it.
       position={0}

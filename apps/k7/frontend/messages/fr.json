@@ -180,6 +180,7 @@
   "home.settings": "Réglages",
   "home.checkUpdates": "Rechercher des mises à jour",
   "home.account": "Compte",
+  "home.foldSidebar": "Masquer le panneau latéral",
   "home.signOut": "Se déconnecter",
   "home.appsUnavailable": "Autres applications — associez un serveur dans les Réglages pour les ouvrir",
   "repos.noFilesTitle": "Le service de fichiers du serveur ne répond pas : la liste de vos projets ne peut pas être lue.",

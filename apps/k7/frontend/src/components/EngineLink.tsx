@@ -1,4 +1,4 @@
-// EngineLink — how the chosen engine is doing, drawn right of the header's engine switch: the
+// EngineLink — how the chosen engine is doing, drawn in the project bar beside its engine: the
 // connection light, the link's latency and the engine process's memory (docs/shell.md).
 // The one thing a reader would get wrong: the latency is the SESSION's, not the engine's alone.
 
