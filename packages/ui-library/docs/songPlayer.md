@@ -19,6 +19,25 @@ That is `ChainEditor`'s shape — what describes the thing on the left, the thin
 deliberately so: the two families ask the same question, and a third layout would only add one more
 thing to learn.
 
+## A song's attachments are tabs beside its tags
+
+A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
+each beside **Info**, its tags (`src/SongInfoTabs.tsx`); a song with none shows its tags alone, a
+tab bar for one tab being noise. The listing already says which it carries (`meta.lyrics`,
+`meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
+`GET /api/mediatek/songbook/:id` behind them, again whenever the folder changes.
+
+**They are drawn by the host, as the songbook draws them.** A song's lyrics in the médiathèque and
+in the songbook are one file, and two renderings of it would be two places to fix every chord-sheet
+rule. The songbook's renderer and its stylesheet are `@studio/ui-rehearsal`'s
+(`SongAttachment`, exported for this), which this package does not import: the host passes it in
+(`songAttachment`, [host.md](host.md)), and k7 loads it lazily the first time a song with
+attachments is opened. A host that passes nothing gets the tags alone.
+
+Read-only here: lyrics, tablature and sheets are edited in the songbook. The lyrics show their
+timecodes as the songbook does, without following the player — the line being sung is the
+songbook's.
+
 ## The left half is the master's tags, read-only until Edit
 
 Title, artist, album, tempo and key are the master's own tags (`packages/mediatek/docs/songs.md`),

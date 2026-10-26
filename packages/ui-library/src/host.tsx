@@ -13,6 +13,16 @@ export interface LibraryHost {
   user: string;
   /** The host's own engine selector, when it has one: the engine "The engine" plays on, and where it is heard. */
   engine?: HostEngine;
+  /** How the host draws a song's lyrics, tablature or sheets; absent, a song shows its tags alone — ../docs/songPlayer.md. */
+  songAttachment?: (props: SongAttachmentView) => ReactNode;
+}
+
+/** One of a song's attachments, as the song screen hands it to the host to draw. */
+export interface SongAttachmentView {
+  kind: "lyrics" | "tablature" | "sheet";
+  text: string;
+  sheets: { id: string; name: string; mime: string }[];
+  sheetUrl: (id: string) => string;
 }
 
 /** What a host's engine selector decided — ../docs/playbackTarget.md, "The third: the moteur". */

@@ -114,6 +114,11 @@ export interface LibraryLabels {
     bpmInvalid: string;
     /** Under the tag form: the tags are the master's, and changing them moves no folder. */
     tagsHint: string;
+    /** The song screen's tabs: its tags, then each attachment it carries. */
+    tabInfo: string;
+    tabLyrics: string;
+    tabTablature: string;
+    tabSheet: string;
     tagsHeading: string;
     edit: string;
     done: string;

@@ -16,6 +16,7 @@ import type {
   LibraryPlacement,
   MasterTags,
   OtherTags,
+  SongbookSong,
 } from "@studio/mediatek/types";
 import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
@@ -421,6 +422,15 @@ export const library = {
     );
     if (!res.ok) throw await failed(res, `${file.name}:`);
     return json(res, "variant");
+  },
+
+  /** A songbook song read whole by its id — its texts and sheets, what the song screen's tabs show (mediatek's docs/songbook.md). */
+  songbook: async (id: string): Promise<SongbookSong> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}`,
+    );
+    if (!res.ok) throw await failed(res, "songbook");
+    return json(res, "songbook");
   },
 
   /** A song's tags and the file's other tags, read from its master by the song's FOLDER — mediatek's docs/songs.md. */

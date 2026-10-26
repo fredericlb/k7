@@ -1,10 +1,22 @@
 // MediaHost.tsx — k7 as the media library's host: the fetch layer configured once, on this
-// module's import, and the labels, prefix, user and the home bar's engine choice handed to the screens.
+// module's import, and the labels, prefix, user, the home bar's engine choice and the songbook's
+// way of drawing lyrics, tablature and sheets handed to the screens.
 // The API is this backend's, or on the tray the paired server's through it (../serverChoice.ts).
 // See packages/ui-library/docs/host.md.
 
-import { configureLibrary, LibraryHostProvider } from "@studio/ui-library";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  configureLibrary,
+  LibraryHostProvider,
+  type SongAttachmentView,
+} from "@studio/ui-library";
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { api } from "../api";
 import { useHomeEngineId } from "../homeEngine";
 import { useLocale } from "../i18n";
@@ -18,6 +30,20 @@ import { mediaLabels } from "./mediaLabels";
 configureLibrary({
   noAnswer: (seconds) => m["media.noAnswer"]({ seconds }),
 });
+
+// The songbook's own drawing, fetched the first time a song with lyrics, a tab or a sheet is opened.
+const SongAttachment = lazy(() =>
+  import("@studio/ui-rehearsal/songAttachment").then((mod) => ({
+    default: mod.SongAttachment,
+  })),
+);
+
+/** A song's attachment as the songbook draws it (packages/ui-library/docs/songPlayer.md). */
+const songAttachment = (props: SongAttachmentView) => (
+  <Suspense fallback={null}>
+    <SongAttachment {...props} />
+  </Suspense>
+);
 
 /** Who is signed in, as an engine session names them; "" until known. */
 function useSignedIn(): string {
@@ -45,6 +71,7 @@ export function MediaHost({ children }: { children: ReactNode }) {
       prefix: MEDIA_ROUTE,
       user,
       engine: { id: engineId, listenHere },
+      songAttachment,
     }),
     [labels, user, engineId, listenHere],
   );

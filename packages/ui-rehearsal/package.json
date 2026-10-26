@@ -10,7 +10,8 @@
     "./addresses": "./src/addresses.ts",
     "./pages": "./src/pages.ts",
     "./public": "./src/public.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./songAttachment": "./src/components/SongAttachment.tsx"
   },
   "scripts": {
     "i18n": "paraglide-js compile --emit-ts-declarations --output-structure locale-modules --strategy localStorage baseLocale --silent",
