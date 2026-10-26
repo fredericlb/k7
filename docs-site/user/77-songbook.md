@@ -9,12 +9,15 @@ of content, each on its own tab, plus a reference track to play along with:
 | **Tab** | Guitar tablature in ASCII |
 | **Sheet** | Uploaded files: images, PDFs, and scores (MusicXML, Guitar Pro) |
 
+A songbook song is a song of the media library: its lyrics, tab and sheet files are kept in the
+song's folder (`lyrics.txt`, `tabs.txt`, `sheets/`), beside its audio. The songbook lists every
+library song that has at least one of the three.
+
 ## The songbook list
 
 The list is a table. Each row has:
 
 - a star to add the song to your **favourites** (or remove it),
-- whether it is public or private,
 - the artist and title,
 - a link per content kind (**Open the lyrics**, **Open the tab**, **Open the sheet**), greyed when
   the song has none yet.
@@ -23,16 +26,14 @@ Click anywhere else on a row to open the song. The **+** button offers **New son
 
 ## Who sees and changes a song
 
-When you create a song you must choose:
-
-- **Public**: everyone sees it in the songbook and can edit it. Only an administrator of the
-  instance can delete it.
-- **Private**: only you see it, edit it and delete it.
+Every song is shared: everyone signed in sees it in the songbook and can edit it. Only an
+administrator of the instance can delete it. Deleting a song removes its lyrics, tab and sheets; its
+audio stays in the media library.
 
 ## Creating a song
 
-**New song** asks for **Artist**, **Title** and the visibility, all required. **Create song** opens
-it.
+**New song** asks for **Artist** and **Title**, both required. **Create song** opens it. A new song
+appears in the list once it has lyrics, a tab or a sheet.
 
 ## A song's page
 
@@ -168,7 +169,7 @@ failed.
 
 The songbook in k7 on your computer (the tray) or on a phone is the device's own. When it is paired with a server, each song
 shows "Synced with <server>" or "On this machine only", and the server's songs this device does not
-have are listed with a **Download** button, which copies the song with its sheets and track.
+have are listed with a **Download** button, which copies the song's whole folder: its texts, sheets and track.
 
 A downloaded song is a copy: "A copy of <server>'s song: it is edited there." Its ⋮ menu only offers
 **Remove from this machine**; the song stays on the server.

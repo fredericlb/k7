@@ -5,7 +5,9 @@
   "type": "module",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./lrc": "./src/lrc.ts",
+    "./chords": "./src/chords.ts"
   },
   "scripts": {
     "test": "vitest run",

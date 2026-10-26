@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { MEDIA_YAML_READ } from "@studio/song-schema/mediaYaml";
-import { parse as parseYaml } from "yaml";
+import { isMap, parseDocument, parse as parseYaml } from "yaml";
 import {
   ensureLayout,
   mediatekDir,
@@ -144,7 +144,7 @@ export function removeTree(rel: string): void {
 }
 
 /** The audio file already in a song folder, or null — a folder that is not there is the usual case. */
-function existingMaster(abs: string): string | null {
+export function existingMaster(abs: string): string | null {
   try {
     const names = readdirSync(abs).map((name) => ({ name }));
     return withoutDerived(names).find((e) => isAudio(e.name))?.name ?? null;
@@ -156,6 +156,26 @@ function existingMaster(abs: string): string | null {
 /** Is this folder ALREADY a song? A sidecar, or failing that any audio — the scan's own test. */
 function isSongFolder(abs: string): boolean {
   return existsSync(join(abs, SONG_FILE)) || existingMaster(abs) !== null;
+}
+
+/** The sidecar once a master landed: a fresh one, or the folder's own KEPT — its variants and songbook are not the upload's to drop (docs/songbook.md). */
+function sidecarAfterUpload(
+  folder: string,
+  source: string | undefined,
+  tagged: boolean,
+): string {
+  let text: string;
+  try {
+    text = readFileSync(writablePath(`${folder}/${SONG_FILE}`), "utf8");
+  } catch {
+    return sidecarFor(source);
+  }
+  const doc = parseDocument(text, MEDIA_YAML_READ);
+  if (!isMap(doc.contents)) return sidecarFor(source);
+  if (!doc.has("source")) doc.set("source", source || "upload");
+  // The names a folder with no audio kept in its sidecar are the master's tags now.
+  if (tagged) for (const k of ["title", "artist"]) doc.delete(k);
+  return doc.toString();
 }
 
 /** File one uploaded audio file as a song: the folder, the master and its tags, the sidecar — see docs/songs.md. */
@@ -194,7 +214,10 @@ export async function addSong(opts: {
     if (!(e instanceof UntaggableError)) throw e;
     tagged = false;
   }
-  putFile(`${folder}/${SONG_FILE}`, sidecarFor(opts.tags.source));
+  putFile(
+    `${folder}/${SONG_FILE}`,
+    sidecarAfterUpload(folder, opts.tags.source, tagged),
+  );
   return {
     path: folder,
     master: `${folder}/${name}`,

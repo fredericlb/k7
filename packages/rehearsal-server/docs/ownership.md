@@ -6,8 +6,7 @@ nametag is the one way past this rule**, graded by the page's own visibility: pu
 in, or its owner alone ([pages.md](pages.md)). The releases it lists are heard through it, and
 only through it.
 
-Two things are shared instead: the **songbook** — all of it but the songs added as private — and
-the **singing exercises**.
+Two things are shared instead: the **songbook**, all of it, and the **singing exercises**.
 
 ## Owned: filtered by list, guarded by address
 
@@ -24,20 +23,17 @@ row id and has no owner of its own, so the database is asked before the cached f
 
 ## Shared: the songbook and the practice book
 
-Songs are the band's common book, so every logged-in user lists, reads and **edits** every public
-song — lyrics, tablature, sheets, the reference track. Only an **admin** can **delete** one: editing
+Songs are the band's common book, so every logged-in user lists, reads and **edits** every song —
+lyrics, tablature, sheets, the reference track. Only an **admin** can **delete** one: editing
 is how a shared book grows, while deleting a song wipes everyone's work on it at once, its creator's
 included, so it belongs to whoever looks after the book rather than to whoever added the song. An
 admin is a member of one of the OIDC groups in `AUTH_ADMIN_GROUPS` — read from k7's backend
 section, the same variable and the same `groups` claim that make an admin of k7's libraries; left
-empty, no public song can be deleted.
+empty, no song can be deleted.
 
-**A private song** is the exception inside the shared book. Adding a song asks whether it is public
-or private, with neither preselected: whether the band sees it is the creator's call, and a default
-would make it for them. A private song follows the owned rule — left out of everyone else's list,
-and `songVisibleTo` turns every `/api/songs/:sid` route into a **404** for anyone but its creator,
-the same answer as a song that is not there. The choice is made once, at creation. A private song is deleted by its creator, and nobody else
-— an admin included — can even see it.
+There are no private songs. A song is a folder of the shared library
+(`../../mediatek/docs/songbook.md`), which every account reads, and a song hidden from some of them
+would be a rule the library could not keep.
 
 Delete is an entry of the song's ⋮ menu, drawn only when the song says `canDelete`. The backend
 works that flag out per request and refuses a delete without it with a 403.

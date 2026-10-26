@@ -1,22 +1,17 @@
-// songMedia.ts — what a song carries beside its texts: its sheets, kept here, and its reference
-// track and instrumental, which are LINKS to files of the médiathèque, never copies (../../docs/audio.md).
+// songMedia.ts — what a song carries beside its texts: its sheets, its reference track and its
+// instrumental, all in the song's library folder (packages/mediatek/docs/songbook.md). The
+// reference track IS the folder's master; linking another library track moves the song there.
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import type { SongEnvelope } from "@studio/rehearsal-shared";
-import * as db from "../db.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import { audioExtOf } from "../serve.ts";
-import { envelopeOf, hasPeak } from "../songEnvelope.ts";
-import {
-  getSong,
-  getSongRecord,
-  invalidateSong,
-  libraryPath,
-  type SongRow,
-  type StoredSheet,
-  sheetsOf,
-} from "./songs.ts";
+import { envelopeOf } from "../songEnvelope.ts";
+import { CACHE_DIR, fetching } from "./helpers.ts";
+import { getSong } from "./songs.ts";
 
 /** A track a song links to: where it is in the médiathèque, and how it reads. */
 interface TrackLink {
@@ -25,106 +20,73 @@ interface TrackLink {
   name: string;
 }
 
-// --- Song sheets (PDF / image / MusicXML files — not audio, so the store keeps them) -------
+// --- Song sheets (PDF / image / score files), in the song's `sheets/` --------------------
 
-// SheetMeta is the order, name and type; the bytes live in the song_sheets collection.
-async function writeSheets(rec: SongRow, sheets: StoredSheet[]): Promise<void> {
-  await db.patchRecord("Songs", rec.id, {
-    SheetMeta: JSON.stringify(sheets),
-  });
-}
-
-// Upload { file, mime, name } files — each a path on disk, copied in — onto a song's sheet, after the existing ones.
+// Upload { file, mime, name } files — each a path on disk — onto a song's sheet, after the existing ones.
 async function addSheetFilesUnlocked(
   uid: string,
   files: { file: string; mime: string; name: string }[],
 ) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const existing = sheetsOf(rec);
-  const added: StoredSheet[] = [];
-  for (const file of files) {
-    const name = file.name || "sheet";
-    const attachmentId = await db.uploadAttachment(
-      { file: file.file },
-      file.mime,
-      name,
-      rec.id,
-    );
-    added.push({ id: attachmentId, attachmentId, name, mime: file.mime });
-  }
-  await writeSheets(rec, [...existing, ...added]);
-  invalidateSong(uid);
+  if (!(await getSong(uid))) return null;
+  for (const file of files)
+    await mediatek.songbook().addSheet(uid, await fs.openAsBlob(file.file), {
+      name: file.name || "sheet",
+      mime: file.mime,
+    });
   return getSong(uid);
 }
 
 // Remove a single sheet file (by its public id) from a song.
 async function deleteSheetFileUnlocked(uid: string, fileId: string) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const existing = sheetsOf(rec);
-  const gone = existing.find((s) => s.id === fileId);
-  if (!gone) return getSong(uid);
-  await writeSheets(
-    rec,
-    existing.filter((s) => s.id !== fileId),
-  );
-  try {
-    db.deleteAttachment(gone.attachmentId);
-  } catch {
-    // The metadata row is what the songbook reads; a stray blob left behind is not fatal.
-  }
-  invalidateSong(uid);
+  if (!(await getSong(uid))) return null;
+  await mediatek.songbook().removeSheet(uid, fileId);
   return getSong(uid);
 }
 
-/** A sheet's file on disk, where the store keeps it, so it can be streamed. */
+/** A sheet's bytes on this disk, fetched from the library once: a sheet file never changes under its name. */
 export async function ensureSheetFileCached(uid: string, fileId: string) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const entry = sheetsOf(rec).find((s) => s.id === fileId);
-  if (!entry) return null;
-  const filePath = db.attachmentFile(entry.attachmentId);
-  return filePath ? { filePath, mime: entry.mime, name: entry.name } : null;
+  const song = await mediatek.songbook().get(uid);
+  const sheet = song?.facts.sheets.find((s) => s.id === fileId);
+  if (!song || !sheet) return null;
+  const remote = `${song.path}/${sheet.file}`;
+  const key = createHash("sha1").update(remote).digest("hex");
+  const filePath = path.join(CACHE_DIR, "sheets", key);
+  if (!fs.existsSync(filePath)) {
+    // One download per file however many readers ask at once.
+    let pending = fetching.get(filePath);
+    if (!pending) {
+      pending = mediatek
+        .download(remote, filePath)
+        .finally(() => fetching.delete(filePath));
+      fetching.set(filePath, pending);
+    }
+    await pending;
+  }
+  return { filePath, mime: sheet.mime, name: sheet.name };
 }
 
-/** Point the song at a library master; the browser streams it from pl8 — ../../docs/audio.md. */
-export async function linkSongAudio(
-  uid: string,
-  { path: master, mime, name }: TrackLink,
-) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const previous = rec.fields.AudioPath ? String(rec.fields.AudioPath) : "";
-  await db.patchRecord("Songs", rec.id, {
-    AudioPath: master,
-    AudioMime: mime,
-    AudioName: name,
-    // Another track has another shape; the next reader measures this one.
-    Envelope: "",
-  });
-  // An instrumental made from the old track is not this track's.
-  if (previous !== master) await clearInstrumental(rec);
-  invalidateSong(uid);
+/** Make a library track the song's own: the song moves into that track's folder — ../../docs/audio.md. */
+export async function linkSongAudio(uid: string, { path: master }: TrackLink) {
+  const folder = master.split("/").slice(0, -1).join("/");
+  if (!(await mediatek.songbook().move(uid, folder))) return null;
   return getSong(uid);
 }
 
-/** An uploaded track goes INTO the library, as this song, and the song links to it. */
+/** An uploaded track goes INTO the library, as the master of the song's own folder. */
 export async function setSongAudio(
   uid: string,
   { file, mime, name }: { file: string; mime: string; name: string },
 ) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  const artist = String(rec.fields.Artist || "");
-  const title = String(rec.fields.Title || "");
-  const master = await mediatek.pushSongTrack(await fs.openAsBlob(file), {
-    filename: `${artist} - ${title}.${songAudioExt(mime, name)}`,
-    artist,
-    title,
-    songUid: uid,
-  });
-  return linkSongAudio(uid, { path: master, mime, name });
+  const song = await getSong(uid);
+  if (!song) return null;
+  await mediatek
+    .songbook()
+    .setMaster(
+      uid,
+      await fs.openAsBlob(file),
+      `${song.artist} - ${song.title}.${songAudioExt(mime, name)}`,
+    );
+  return getSong(uid);
 }
 
 /** Common audio containers, then the uploaded name's own extension, then `bin`. */
@@ -135,78 +97,35 @@ function songAudioExt(mime: string, name: string): string {
   return fromName ? fromName[1].toLowerCase() : "bin";
 }
 
-/** The song stops pointing at its library track and instrumental; the library keeps both files. */
+/** The song leaves its track and instrumental behind, for a folder of its own; the library keeps both files. */
 export async function unlinkSongAudio(uid: string) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  await db.patchRecord("Songs", rec.id, {
-    AudioPath: "",
-    AudioMime: "",
-    AudioName: "",
-    Envelope: "",
-  });
-  await clearInstrumental(rec);
-  invalidateSong(uid);
+  if (!(await getSong(uid))) return null;
+  await mediatek.songbook().patch(uid, { instrumental: "" });
+  await mediatek.songbook().detach(uid);
   return getSong(uid);
 }
 
 // --- The instrumental: the one an engine's chain wrote beside the library song's stems ------------
 
-/** Forget a song's instrumental link — also what a new track calls; the library keeps the file. */
-async function clearInstrumental(rec: SongRow): Promise<void> {
-  if (!rec.fields.InstrumentalPath) return;
-  await db.patchRecord("Songs", rec.id, {
-    InstrumentalPath: "",
-    InstrumentalMime: "",
-    InstrumentalName: "",
-  });
-}
-
 export async function linkSongInstrumental(
   uid: string,
-  { path: file, mime, name }: TrackLink,
+  { path: file }: TrackLink,
 ) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  await db.patchRecord("Songs", rec.id, {
-    InstrumentalPath: file,
-    InstrumentalMime: mime,
-    InstrumentalName: name,
-  });
-  invalidateSong(uid);
+  if (!(await mediatek.songbook().patch(uid, { instrumental: file })))
+    return null;
   return getSong(uid);
 }
 
 export async function deleteSongInstrumental(uid: string) {
-  const rec = await getSongRecord(uid);
-  if (!rec) return null;
-  await clearInstrumental(rec);
-  invalidateSong(uid);
+  if (!(await mediatek.songbook().patch(uid, { instrumental: "" })))
+    return null;
   return getSong(uid);
 }
 
-/** The track's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
+/** The track's shape, measured by the library, which keeps it beside the file. */
 export async function songEnvelope(uid: string): Promise<SongEnvelope | null> {
-  const rec = await getSongRecord(uid);
-  const track = libraryPath(rec?.fields.AudioPath);
-  if (!rec || !track) return null;
-  const stored = String(rec.fields.Envelope || "");
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as SongEnvelope;
-      // An RMS-only shape is measured again, so every waveform is drawn the same way.
-      if (parsed?.samples?.length && hasPeak(parsed)) return parsed;
-    } catch {
-      // Unreadable is the same as absent: measure it again rather than refuse to draw.
-    }
-  }
-  // pl8 already holds the bytes and measures them — no local download needed.
-  const measured = await envelopeOf(track);
-  await db.patchRecord("Songs", rec.id, {
-    Envelope: JSON.stringify(measured),
-  });
-  invalidateSong(uid);
-  return measured;
+  const song = await mediatek.songbook().get(uid);
+  return song?.master ? envelopeOf(song.master) : null;
 }
 
 // One at a time per key — a read-modify-write here has no transaction to lean on (../lock.ts).

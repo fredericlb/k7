@@ -1,18 +1,31 @@
 // What a client sends is never what the server serves back: an upload's type is checked, a stream's
 // type is the server's, and a published version's folder is its own — ../docs/serving.md.
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { songFolder } from "@studio/mediatek/song";
 import express from "express";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { inProcessSongbook } from "./inProcessSongbook.ts";
 
-// The store is opened at import, so the environment is set before anything of it loads.
+// The songbook's library answered in this process; the rest goes to the stub médiathèque below.
+vi.mock("./mediatek.ts", async (actual) => ({
+  ...(await actual<typeof import("./mediatek.ts")>()),
+  songbook: () => inProcessSongbook(),
+  download: async (path: string, dest: string) => {
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(join(process.env.STUDIO_MEDIATEK as string, path), dest);
+  },
+}));
+
+// The store and the library are opened at import, so the environment is set before anything loads.
 const dir = mkdtempSync(join(tmpdir(), "k7-serving-"));
-process.env.K7_DATA_DIR = dir;
+process.env.K7_DATA_DIR = join(dir, "data");
+process.env.STUDIO_MEDIATEK = join(dir, "library");
 const db = await import("./db.ts");
+(await import("@studio/mediatek/layout")).ensureLayout();
 const store = await import("./store.ts");
 const { linkMediatek } = await import("./mediatek.ts");
 const { releasesRouter } = await import("./routes/releases.ts");
@@ -200,7 +213,7 @@ describe("a sheet file", () => {
       await fetch(`${local}/songs`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artist: "A", title: name, private: false }),
+        body: JSON.stringify({ artist: "A", title: name }),
       })
     ).json()) as { id: string };
     const res = await upload(`/songs/${song.id}/sheets`, "files", type, name);
@@ -227,7 +240,7 @@ describe("a sheet file", () => {
       await fetch(`${local}/songs`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artist: "A", title: "many", private: false }),
+        body: JSON.stringify({ artist: "A", title: "many" }),
       })
     ).json()) as { id: string };
     const form = new FormData();

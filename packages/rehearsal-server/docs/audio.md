@@ -16,12 +16,11 @@ row keeps only the path.
 | a moment | `recordings/<day>/moment-…` |
 | a published version | `songs/K7/…` |
 | what the row points at | a path (`RecordingPath`, `ClipPath`, `AudioPath`) |
-| sheet music | a `song_sheets` record — not audio |
+| a songbook song — its texts, sheets and reference track | its library song folder (`packages/mediatek/docs/songbook.md`) |
 
 The store is a database, and hours of wav have no place in one. A médiathèque is made for it: a
 volume, paths, native Range, and a family whose whole role this is — see
-`packages/mediatek/docs/recordings.md`. The rest of the studio can read that family; a
-`song_sheets` file is readable by these routes alone. The local cache, under `K7_DATA_DIR`, serves
+`packages/mediatek/docs/recordings.md`. The local cache, under `K7_DATA_DIR`, serves
 Range reads and fills from the médiathèque, so a cached session makes no round trip.
 
 ## The library is reached over loopback, with a service token
@@ -233,41 +232,33 @@ cleared when the file is replaced. `Versions.AudioPath` carries the mixdown's pa
 ## A songbook song's reference track
 
 A song in the songbook carries at most one recording — the take you play along to while
-reading its chords. It is a **song of the media library**, and the row keeps its path with
-`AudioPath` / `AudioMime` / `AudioName`; the page streams it from the médiathèque, and this
-package keeps no copy.
+reading its chords. A songbook song IS a library song folder, and its recording is that folder's
+master; the page streams it from the médiathèque, and this package keeps no copy.
 
-- **Not a sheet of the store**, unlike the sheet files. The rule above holds: metadata in
-  the store, bytes in the médiathèque. A sheet is a page; this is a whole track.
-- **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
-  under the REAL album, where a song of that name may already be, would replace it. No upload
-  here may overwrite a catalogued song; replacing an upload only overwrites that folder, whose
-  title carries the song's uid (`<title> (<uid>)`), so two songbook songs of one name never share it.
-- **Only a library file is a track.** A path outside the library's `songs/` family is read as no
-  track at all (`libraryPath`, `src/store/songs.ts`): the rehearsal server stores, copies and plays no
-  songbook file of its own, so such a song shows the fetch insert like any song without one.
-- **Linking only checks and records paths** (`src/songFetch.ts`). The hunt, the download and the
-  stem cut are asked by the page, as the user (`packages/ui-rehearsal/docs/audio.md`); what lands
-  here is the library path of the master and of its `instrumental.wav`.
+- **An upload becomes the master of the song's own folder**, tagged with its names. A song typed
+  in with no audio was filed where an upload of its names would land, so the folder is already the
+  right one.
+- **Linking a library track moves the song into that track's folder** (`src/songFetch.ts`,
+  `moveSongbook`). The hunt, the download and the stem cut are asked by the page, as the user
+  (`packages/ui-rehearsal/docs/audio.md`); what lands here is the library path of the master, and
+  of its `instrumental.wav`, which the sidecar records.
+- **Unlinking leaves the audio in the library** and moves the song to a folder of its own.
 
 The médiathèque's `/api/mediatek/stream` answers Range — without that the waveform could draw but
 not seek.
 
-**The shape is measured once, by the médiathèque, and kept in the store** (`Songs.Envelope`,
-written by `src/songEnvelope.ts`): the médiathèque already holds the reference track's bytes and
-already decodes it, via `@studio/audio-analysis` — the same measurement its own catalogue sweep
-computes for every song, reached over `GET /api/mediatek/envelope` instead of decoding anything
-here. Measured lazily, the first time a page asks for it, rather than in a migration that would
-decode every song in the songbook at once.
+**The shape is measured once, by the médiathèque, and kept beside the file there**
+(`src/songEnvelope.ts`): the médiathèque already holds the reference track's bytes and already
+decodes it, via `@studio/audio-analysis` — the same measurement its own catalogue sweep computes for
+every song, reached over `GET /api/mediatek/envelope` instead of decoding anything here.
 
 **The médiathèque's bucketing is far finer than a waveform panel needs, so `songEnvelope.ts`
 downsamples it — RMS-of-RMS for the samples, the max for the peak and the three bands, not a
 second decode — to at most 800 buckets, rounded to three decimals.** The peak and the bands are
-what k7's one waveform is drawn from (`packages/ui-waveform/docs/spectrum.md`), so a shape stored
-without a peak is measured again the next time a page asks for it. The bands share the peak's
-scale, never their own: their colour is the ratio between them. A fixed 100 ms bucket gives 3113 values for a five-minute track — 61 kB of JSON in a
-cell the songbook listing reads whole, for a panel 272 px wide where that is eleven buckets per
-pixel. The cap is what keeps a stored shape a few kilobytes.
+what k7's one waveform is drawn from (`packages/ui-waveform/docs/spectrum.md`). The bands share the
+peak's scale, never their own: their colour is the ratio between them. A fixed 100 ms bucket gives
+3113 values for a five-minute track, for a panel 272 px wide where that is eleven buckets per
+pixel. The cap is what keeps the shape sent to the page a few kilobytes.
 
 **Onsets are passed through, not drawn.** The médiathèque's analysis also detects transients, and
 `songEnvelope.ts` passes them on as `SongEnvelope.onsets`; the player leaves them out
@@ -275,8 +266,7 @@ pixel. The cap is what keeps a stored shape a few kilobytes.
 
 Measuring in the browser on each visit is the alternative, and it is rejected: a rehearsal laptop
 opening a song page should not spend seconds and a hundred megabytes of memory rebuilding a picture
-that never changes; the track only changes when it is relinked, which is exactly when the stored
-envelope is cleared.
+that never changes.
 
 ## Configuration
 

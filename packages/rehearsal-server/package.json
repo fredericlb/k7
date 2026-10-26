@@ -16,6 +16,7 @@
     "@frediverse/http": "*",
     "@frediverse/oidc": "*",
     "@studio/audio-analysis": "*",
+    "@studio/lyrics": "*",
     "@studio/mediatek": "*",
     "@studio/rehearsal-shared": "*",
     "express": "^4.19.2",

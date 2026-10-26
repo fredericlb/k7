@@ -1,8 +1,9 @@
 # The rehearsal store: SQLite, and sheets on disk
 
 The rehearsal pages' rows (sessions, moments, markers, releases, versions, pages, singing
-exercises, songs, favourites) live in one SQLite file, `k7.db` under `K7_DATA_DIR`. A song's
-sheets are plain files beside it, under `sheets/`. `../src/sqlite.ts` is the store and `../src/db.ts`
+exercises, favourites) live in one SQLite file, `k7.db` under `K7_DATA_DIR`. The songbook's songs
+are not rows: they are library song folders (`../../mediatek/docs/songbook.md`), and only each
+person's star on one is kept here. `../src/sqlite.ts` is the store and `../src/db.ts`
 is the one this process opens. The server, the desktop and the phone run the same store, so a
 rehearsal feature behaves the same wherever it runs.
 
@@ -63,30 +64,28 @@ always bound.
 
 ## The songbook list carries no texts
 
-`GET /api/songs` answers one row per song: its names, its flags, whether it has lyrics, a
-tablature and sheets, and nothing of their content. A song's texts come from `GET /api/songs/:sid`,
+`GET /api/songs` answers one row per song, read from the library's catalogue: its names, its flags,
+whether it has lyrics, a tablature and sheets, and nothing of their content. A song's texts come from `GET /api/songs/:sid`,
 and every route that changes a song answers the song whole, which is what the page patches its
 list from instead of fetching the songbook again. A songbook's texts and envelopes, multiplied by
 every song, are what the list would otherwise carry on each edit.
 
 An id is a random 15-character string. Rows imported from PocketBase keep their PocketBase ids,
-which is what keeps the references between rows intact (a sheet's song, a song's `SheetMeta`).
+which is what keeps the references between rows intact.
 
-## Sheets are files, not BLOBs
+## The `Songs` rows and `sheets/` are what the migration reads
 
-A sheet's bytes are written to `sheets/<id>` under a temporary name and moved into place, and the
-`sheets` table keeps only its song, name and type. The file is written before its row, so a row
-never names a file that is missing. Deleting a song deletes its sheets, rows and files together.
-
-Files rather than BLOBs keep the database small enough to copy and back up quickly, let a route
-stream a sheet straight from disk with Range support, and let a person see the sheets with
-ordinary tools.
+`Songs` rows and the `sheets/` folder (each sheet's bytes under its id, the `sheets` table naming
+it) are no longer read or written by any route: they are what
+`../scripts/migrateSongbook.ts` moves into the library, and they are left in place after it, a copy
+nothing serves. A sheet is served from the song's library folder, fetched once into the local cache
+(`ensureSheetFileCached`, `../src/store/songMedia.ts`).
 
 ## Backups
 
 `k7.db` runs in WAL mode, so copying the file while the backend writes it can capture half a
 transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop k7 first. The
-`sheets/` folder is ordinary files and can be copied as it is.
+songbook is backed up with the library's volume.
 
 ## The one-time import from PocketBase
 

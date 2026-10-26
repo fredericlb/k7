@@ -1,15 +1,25 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SongbookPlacement } from "@studio/rehearsal-shared";
 import express from "express";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { inProcessSongbook } from "./inProcessSongbook.ts";
 
-// The store is chosen at import, so the environment is set before anything of it loads.
+// The library answered in this process, over a temporary volume — see inProcessSongbook.ts.
+vi.mock("./mediatek.ts", async (actual) => ({
+  ...(await actual<typeof import("./mediatek.ts")>()),
+  songbook: () => inProcessSongbook(),
+}));
+
+// The store and the library are chosen at import, so the environment is set before anything loads.
 const dir = mkdtempSync(join(tmpdir(), "k7-copy-"));
-process.env.K7_DATA_DIR = dir;
+process.env.K7_DATA_DIR = join(dir, "data");
+process.env.STUDIO_MEDIATEK = join(dir, "library");
 const db = await import("./db.ts");
+const book = await import("@studio/mediatek/songbook");
+const { ensureLayout } = await import("@studio/mediatek/layout");
 const { songbookCopyRouter, songbookDeviceRouter } = await import(
   "./songbookCopy.ts"
 );
@@ -31,43 +41,33 @@ const asMe: express.RequestHandler = (req, _res, next) => {
 
 let stub: string;
 let local: string;
-const tracks: string[] = [];
+const fetched: string[] = [];
+
+/** A songbook song filed in this machine's library, as a download or a person would leave it. */
+async function songHere(id: string, title: string) {
+  book.createSongbook({ id, artist: "A", title, owner: "me" });
+  await book.patchSongbook(id, { lyrics: `${title} lyrics` });
+}
 
 beforeAll(async () => {
-  // The server: one public song with a sheet and a track, one private song.
+  ensureLayout();
+  // The server's songbook: one song this machine lacks, one it already holds.
   const s = express();
   s.get("/dev", (_req, res) =>
     res.json([
-      { id: "pub", artist: "A", title: "Public" },
-      { id: "here", artist: "B", title: "Already here" },
+      { id: "pub", artist: "A", title: "Public", path: "songs/A/x/Public" },
+      { id: "here", artist: "A", title: "Already here", path: "songs/A/x/H" },
     ]),
   );
-  s.get("/dev/pub", (_req, res) =>
-    res.json({
-      fields: { Artist: "A", Title: "Public", AudioPath: "songs/A/x/t.flac" },
-      sheets: [{ id: "s1", name: "a.pdf", mime: "application/pdf" }],
-    }),
-  );
-  s.get("/dev/pub/sheets/s1", (_req, res) => res.send("pdf bytes"));
   stub = await listen(s);
 
-  await db.addRecords("Songs", [
-    { Uid: "here", OwnerId: "me", Title: "Already here" },
-    { Uid: "secret", OwnerId: "x", Title: "Mine", Private: true },
-  ]);
+  await songHere("here", "Already here");
   const app = express();
   app.use(express.json());
   app.use(asMe);
-  // The gate as deviceGate leaves it: the person a device's token names, here from a header.
   app.use(
     "/dev",
-    songbookDeviceRouter((req, res, next) => {
-      res.locals.syncCaller = {
-        slug: "a",
-        person: req.headers["x-person"] ?? null,
-      };
-      next();
-    }),
+    songbookDeviceRouter((_req, _res, next) => next()),
   );
   app.use("/songs", songsRouter);
   app.use(
@@ -75,7 +75,11 @@ beforeAll(async () => {
     songbookCopyRouter({
       deviceRoute: "/dev",
       server: () => ({ base: stub, token: "t" }),
-      fetchTrack: async (_req, path) => void tracks.push(path),
+      // The folder comes down: here, the song is filed as the server had it.
+      fetchFolder: async (_req, folder) => {
+        fetched.push(folder);
+        await songHere("pub", "Public");
+      },
     }),
   );
   local = await listen(app);
@@ -88,29 +92,22 @@ afterAll(async () => {
 });
 
 describe("the device's door", () => {
-  const ids = async (person?: string) =>
-    (
-      (await (
-        await fetch(`${local}/dev`, {
-          headers: person ? { "x-person": person } : {},
-        })
-      ).json()) as { id: string }[]
-    ).map((s) => s.id);
-
-  it("offers a private song to the person who owns it, and to nobody else", async () => {
-    expect(await ids()).toEqual(["here"]);
-    expect(await ids("someone")).toEqual(["here"]);
-    expect(await ids("x")).toEqual(["here", "secret"]);
-    expect((await fetch(`${local}/dev/secret`)).status).toBe(404);
-    expect(
-      (await fetch(`${local}/dev/secret`, { headers: { "x-person": "x" } }))
-        .status,
-    ).toBe(200);
+  it("lists every songbook song with the folder a copy downloads", async () => {
+    const songs = (await (await fetch(`${local}/dev`)).json()) as {
+      id: string;
+      path: string;
+    }[];
+    expect(songs).toEqual([
+      expect.objectContaining({
+        id: "here",
+        path: "songs/A/Album inconnu/Already here",
+      }),
+    ]);
   });
 });
 
 describe("copying a server's song", () => {
-  it("places by id, then copies the song with its sheet and its track", async () => {
+  it("places by id, then brings the song's folder down and marks where it came from", async () => {
     const before = (await (
       await fetch(`${local}/copy`)
     ).json()) as SongbookPlacement;
@@ -123,19 +120,8 @@ describe("copying a server's song", () => {
       body: JSON.stringify({ id: "pub" }),
     });
     expect(r.status).toBe(200);
-    expect(tracks).toEqual(["songs/A/x/t.flac"]);
-
-    const [rec] = await db.listRecords("Songs", { Uid: ["pub"] });
-    expect(rec.fields).toMatchObject({
-      Title: "Public",
-      OwnerId: "me",
-      Origin: stub,
-    });
-    const [sheet] = JSON.parse(String(rec.fields.SheetMeta));
-    expect(sheet.id).toBe("s1");
-    expect(
-      readFileSync(db.attachmentFile(sheet.attachmentId) as string, "utf8"),
-    ).toBe("pdf bytes");
+    expect(fetched).toEqual(["songs/A/x/Public"]);
+    expect((await book.readSongbook("pub"))?.facts.origin).toBe(stub);
 
     const after = (await (
       await fetch(`${local}/copy`)
@@ -154,7 +140,11 @@ describe("a copy on this machine", () => {
 
   it("reads, takes a star, and refuses every edit", async () => {
     const song = await (await call("GET", "")).json();
-    expect(song).toMatchObject({ origin: stub, canDelete: true });
+    expect(song).toMatchObject({
+      origin: stub,
+      canDelete: true,
+      lyrics: "Public lyrics",
+    });
     expect((await call("PATCH", "", { lyrics: "new" })).status).toBe(403);
     expect((await call("DELETE", "/audio")).status).toBe(403);
     expect((await call("PUT", "/favorite", { favorite: true })).status).toBe(
@@ -162,9 +152,12 @@ describe("a copy on this machine", () => {
     );
   });
 
-  it("is removed from this machine only, and is offered again", async () => {
+  it("is removed from this machine only, its stars with it, and is offered again", async () => {
     expect((await call("DELETE", "")).status).toBe(204);
-    expect(await db.listRecords("Songs", { Uid: ["pub"] })).toEqual([]);
+    expect(await book.readSongbook("pub")).toBeNull();
+    expect(await db.listRecords("SongFavorites", { SongUid: ["pub"] })).toEqual(
+      [],
+    );
     const placement = (await (
       await fetch(`${local}/copy`)
     ).json()) as SongbookPlacement;

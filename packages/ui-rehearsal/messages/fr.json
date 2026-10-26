@@ -431,18 +431,10 @@
   "recover.download": "Télécharger",
   "recover.discard": "Jeter",
   "recover.discardConfirm": "Jeter cette prise pour de bon ? Elle n'est enregistrée nulle part ailleurs.",
-  "song.private": "Privé : vous seul le voyez",
-  "song.visibility.question": "Qui peut voir ce morceau ?",
-  "song.visibility.public": "Public",
-  "song.visibility.publicHint": "Tout le monde le voit dans le recueil et peut le modifier.",
-  "song.visibility.private": "Privé",
-  "song.visibility.privateHint": "Vous seul le voyez.",
-  "song.visibility.required": "Choisissez si le morceau est public ou privé.",
   "uploadTrack.title": "Envoyer ce morceau",
   "uploadTrack.lyrics": "Télécharger les paroles automatiquement",
   "uploadTrack.instrumental": "Créer la version instrumentale",
   "uploadTrack.confirm": "Envoyer",
-  "song.public": "Public : tout le monde le voit",
   "songbook.visibility": "Public ou privé",
   "settings.rehearsal": "Répétitions"
 }

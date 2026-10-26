@@ -1,7 +1,7 @@
 /* Songbook: each song carries free-text lyrics / tablature, plus a sheet made of
-   uploaded PDF / image / score files (not text). A public song is shared by everyone logged
-   in and deleted by an admin; a private one is its creator's alone, to read and to delete.
-   The star is each person's — ../../docs/ownership.md.
+   uploaded PDF / image / score files (not text), all kept in its library folder. Every song is
+   shared by everyone logged in and deleted by an admin; the star is each person's —
+   ../../docs/ownership.md.
 */
 
 import { sub, validate, wrap } from "@frediverse/http";
@@ -32,8 +32,6 @@ const required = "artist and title are required";
 const createSchema = z.object({
   artist: z.string({ error: required }).trim().min(1, required),
   title: z.string({ error: required }).trim().min(1, required),
-  // Asked at creation, never defaulted: a private song is seen by its creator alone.
-  private: z.boolean({ error: "choose public or private" }),
 });
 
 const patchSchema = z.object({
@@ -78,10 +76,10 @@ const favoriteSchema = z.object({ favorite: z.boolean() });
 
 export const songsRouter = Router();
 
-// Any logged-in user reaches a public song; someone else's private one answers 404, like a missing one.
-songsRouter.param("sid", (req, res, next, sid) => {
+// Any logged-in user reaches any song; a missing one answers 404.
+songsRouter.param("sid", (_req, res, next, sid) => {
   store
-    .songVisibleTo(sid, sub(req))
+    .songVisibleTo(sid)
     .then((visible) =>
       visible ? next() : res.status(404).json({ error: "not found" }),
     )
@@ -107,16 +105,11 @@ songsRouter.use("/:sid", (req, res, next) => {
     .catch(next);
 });
 
-/** A copy is removed by whoever uses this machine; a private song by its creator, a public one by an admin. */
-const mayDelete = (
-  song: { origin: string; private: boolean; mine: boolean },
-  req: Request,
-): boolean =>
+/** A copy is removed by whoever uses this machine; a song of its own by an admin. */
+const mayDelete = (song: { origin: string }, req: Request): boolean =>
   song.origin
     ? true
-    : song.private
-      ? song.mine
-      : isAdmin((req as { user?: SessionUser }).user, env.adminGroups);
+    : isAdmin((req as { user?: SessionUser }).user, env.adminGroups);
 
 /** A song as the asking user sees it, with whether they may delete it. */
 const withRights = <T extends Parameters<typeof mayDelete>[0]>(
@@ -344,15 +337,11 @@ songsRouter.delete(
 songsRouter.delete(
   "/:sid",
   wrap(async (req, res) => {
-    // Anyone edits a public song; deleting it is an admin's, a private one its creator's, a copy this machine's.
+    // Anyone edits a song; deleting it is an admin's, a copy this machine's.
     const song = await store.getSong(req.params.sid, sub(req));
     if (!song) return res.status(404).json({ error: "not found" });
     if (!mayDelete(song, req))
-      return res.status(403).json({
-        error: song.private
-          ? "only the song's creator can delete it"
-          : "only an admin can delete a public song",
-      });
+      return res.status(403).json({ error: "only an admin can delete a song" });
     const ok = await store.deleteSong(req.params.sid);
     if (!ok) return res.status(404).json({ error: "not found" });
     res.status(204).end();

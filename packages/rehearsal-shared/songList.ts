@@ -23,7 +23,6 @@ export function songListEntryOf(song: Song): SongListEntry {
     hasLyrics: song.lyrics.trim() !== "",
     hasTablature: song.tablature.trim() !== "",
     sheetCount: song.sheets.length,
-    private: song.private,
     favorite: song.favorite,
     mine: song.mine,
     canDelete: song.canDelete,

@@ -122,13 +122,11 @@ export interface Song {
   lyricsMatch: "" | "matched" | "unmatched" | "instrumental";
   // The fetch insert was dismissed on purpose ("Ignore") — never offer it again for this song.
   fetchIgnored: boolean;
-  // Seen by its creator alone; chosen when the song is added — ../rehearsal-server/docs/ownership.md.
-  private: boolean;
   // The asking user's own star: the songbook is shared, a favourite is not.
   favorite: boolean;
   // The asking user created it.
   mine: boolean;
-  // The asking user may delete it: its creator for a private song, an admin for a public one, anyone for a copy.
+  // The asking user may delete it: an admin, or anyone for a copy.
   canDelete: boolean;
   // The server this machine copied it from, read-only here; "" for a song of this store's own.
   origin: string;
@@ -257,7 +255,6 @@ export interface SongListEntry {
   hasLyrics: boolean;
   hasTablature: boolean;
   sheetCount: number;
-  private: boolean;
   favorite: boolean;
   mine: boolean;
   canDelete: boolean;
@@ -270,7 +267,8 @@ export interface SongSummary {
   id: string;
   artist: string;
   title: string;
-  private: boolean;
+  /** Its library folder on the server — what a copy downloads. */
+  path: string;
 }
 
 /** A paired machine's songbook against its server's, by song id — ../rehearsal-server/docs/songbookCopy.md. */
@@ -281,7 +279,7 @@ export interface SongbookPlacement {
   server: string | null;
   /** This machine's song ids the server holds too. */
   synced: string[];
-  /** The server's public songs this machine lacks. */
+  /** The server's songs this machine lacks. */
   serverOnly: SongSummary[];
 }
 
