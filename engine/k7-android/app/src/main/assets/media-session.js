@@ -1,13 +1,49 @@
-// media-session.js — run at document start in every studio app's view (AppViewsPlugin.kt). A WebView's Media Session
-// reaches nothing outside it, so this copies what the page tells it to the app's native session (MediaPlayback.kt,
-// `media`) and hands the system's buttons back to the page's own handlers (`media-action`). It also reports, as
-// `busy`, a microphone the page holds open and a screen wake lock it holds (Busy.kt), and stands in for the Wake
-// Lock API where the WebView has none. The iOS app injects it too (AppViews.swift). See docs/android.md.
+// media-session.js — run at document start in every studio app's view (AppViewsPlugin.kt). Android's WebView has
+// no Media Session API at all, so this stands one in, then copies what the page tells it to the app's native session
+// (MediaPlayback.kt, `media`) and hands the system's buttons back to the page's own handlers (`media-action`). It also
+// reports, as `busy`, a microphone the page holds open and a screen wake lock it holds (Busy.kt), and stands in for the
+// Wake Lock API where the WebView has none. The iOS app injects it too (AppViews.swift). See docs/android.md.
 (() => {
   const bridge = window.k7Android || window.k7Ios;
-  const ms = navigator.mediaSession;
-  if (!bridge || !ms || window.__k7Media) return;
+  if (!bridge || window.__k7Media) return;
   window.__k7Media = true;
+
+  // The API's shape and nothing more: the wrapping below relays it exactly as it relays a real one.
+  if (!navigator.mediaSession) {
+    class Session {
+      #metadata = null;
+      #state = "none";
+      get metadata() {
+        return this.#metadata;
+      }
+      set metadata(v) {
+        this.#metadata = v ?? null;
+      }
+      get playbackState() {
+        return this.#state;
+      }
+      set playbackState(v) {
+        if (v === "none" || v === "paused" || v === "playing") this.#state = v;
+      }
+      setActionHandler() {}
+      setPositionState() {}
+    }
+    Object.defineProperty(navigator, "mediaSession", {
+      configurable: true,
+      value: new Session(),
+    });
+  }
+  if (typeof window.MediaMetadata !== "function") {
+    window.MediaMetadata = class MediaMetadata {
+      constructor(init = {}) {
+        this.title = init.title ?? "";
+        this.artist = init.artist ?? "";
+        this.album = init.album ?? "";
+        this.artwork = init.artwork ?? [];
+      }
+    };
+  }
+  const ms = navigator.mediaSession;
 
   const handlers = new Map();
   let metadata = null;

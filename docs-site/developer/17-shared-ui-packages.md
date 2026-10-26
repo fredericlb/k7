@@ -24,7 +24,7 @@ To add an app to the menu, add its service to `services.ts` and a row to `APPS`.
 
 `packages/ui-mini-player/src/MiniPlayer.tsx` is the transport bar at the bottom of a screen: an icon and title (with free-form `meta` and `status`), play/pause, a scrubber with `clock()` times, a close button, and optional children. It **owns no transport**: position, duration and playing state are props and every button is a callback, because its two hosts play very different things — the media library's player (`packages/ui-library/src/playback/MiniPlayer.tsx`) and k7's reference tracks (`apps/k7/frontend/src/components/ReferenceBar.tsx`). The scrubber is disabled until a duration is known.
 
-`packages/ui-mini-player/src/mediaSession.ts` (`useMediaSession`) mirrors the same props into the browser's Media Session API (title, artist, album, position; play, pause, stop, seek, skip forward/back and, when `onNext` is given, next track), so a phone's lock screen and a headset's buttons drive the same callbacks. On the Android app the WebView's session reaches nothing, so the app relays these calls to a native session.
+`packages/ui-mini-player/src/mediaSession.ts` (`useMediaSession`) mirrors the same props into the browser's Media Session API (title, artist, album, position; play, pause, stop, seek, skip forward/back and, when `onNext` is given, next track), so a phone's lock screen and a headset's buttons drive the same callbacks. On the Android app the WebView has no Media Session API, so the app stands one in and relays these calls to a native session.
 
 All labels (`region`, `play`, `pause`, `position`, `close`) come from the host's catalogue through `MiniPlayerLabels`.
 
