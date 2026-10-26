@@ -1,11 +1,24 @@
 // A song's facts live in its master's tags: what is written reads back, a write never edits the
 // file in place, and a file TagLib cannot open reads as no tags rather than as an error.
 
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { TagLib } from "taglib-wasm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readMasterTags, UntaggableError, writeMasterTags } from "./tags.ts";
+import {
+  readMasterTags,
+  readOtherTags,
+  TAGLIB_WASM,
+  UntaggableError,
+  writeMasterTags,
+} from "./tags.ts";
 import { tinyWav } from "./testWav.ts";
 
 let dir: string;
@@ -54,6 +67,27 @@ describe("master tags", () => {
   it("reads a key in another tool's spelling as no key", async () => {
     await writeMasterTags(wav, { key: "8A" });
     expect((await readMasterTags(wav)).key).toBeUndefined();
+  });
+
+  it("lists the file's other tags apart from the five, whatever tool wrote them", async () => {
+    await writeMasterTags(wav, { title: "T", key: "A minor" });
+    // Another tool's frames, written the way it would: straight through TagLib.
+    const lib = await TagLib.initialize({
+      wasmBinary: readFileSync(
+        join(import.meta.dirname, "../../..", TAGLIB_WASM),
+      ),
+      forceWasmType: "emscripten",
+    });
+    await lib.edit(wav, (f) => {
+      f.setProperty("GENRE", "Jazz");
+      f.setProperty("DATE", "1959");
+    });
+    const others = await readOtherTags(wav);
+    expect(others).toMatchObject({ genre: ["Jazz"], date: ["1959"] });
+    expect(Object.keys(others).map((k) => k.toLowerCase())).not.toContain(
+      "title",
+    );
+    expect(Object.keys(others)).not.toContain("INITIALKEY");
   });
 
   it("reads a file it cannot open as no tags, and refuses to write into it", async () => {

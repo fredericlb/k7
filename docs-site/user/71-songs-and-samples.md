@@ -63,9 +63,11 @@ Click a song in the tree or in the list to open it. Its address is
 `/media/songs/<artist>/<album>/<title>/song.yaml`, so you can bookmark or share it.
 
 - **Left**: the song's info — **Title**, **Artist**, **Album**, **Tempo (BPM)** and **Key** — read
-  from the master's tags. There is no Save button: a change is written into the file a second after
-  you stop typing. The status under the fields reads **saved**, **modified**, **saving…**, **not
-  saved** or **saving failed**; a tempo that is not a positive number is not saved, and says why.
+  from the master's tags, read-only. Click **Edit** to change them: a change is written into the
+  file a second after you stop typing, and **Done** returns to the read-only view. The status beside
+  the button reads **saved**, **modified**, **saving…**, **not saved** or **saving failed**; a tempo
+  that is not a positive number is not saved, and says why. Under them, **Other tags in the file**
+  lists every other tag the file carries (genre, date, encoder…), read-only.
 - **Right**: the player. The play button, the position and length, and where the sound is going
   (see [The media library](./70-media-library.md#where-the-sound-comes-out)). Click or drag on the
   waveform to move the cursor; pressing play starts from there. The footer shows the detected

@@ -195,6 +195,7 @@ describe("a song's tags", () => {
     expect(await res.json()).toEqual({
       master: "songs/Miles Davis/Kind of Blue/So What/original.wav",
       tags: { artist: "Miles Davis", album: "Kind of Blue", title: "So What" },
+      others: {},
     });
     expect(readFileSync(join(folder(), "song.yaml"), "utf8")).not.toContain(
       "So What",

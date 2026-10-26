@@ -112,6 +112,12 @@ export interface LibraryLabels {
     bpmInvalid: string;
     /** Under the tag form: the tags are the master's, and changing them moves no folder. */
     tagsHint: string;
+    tagsHeading: string;
+    edit: string;
+    done: string;
+    /** The file's tags k7 does not use, listed read-only under the five. */
+    otherTags: string;
+    noOtherTags: string;
     variants: string;
     variantMissing: string;
     variantRemoved: (name: string) => string;
