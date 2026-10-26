@@ -36,6 +36,13 @@ export const FROZEN_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 type Modules = Record<string, LoadedModule>;
 type Item = Record<string, unknown> & { id: string; extends?: unknown };
 
+/** What a step is a use of: the module it extends, else the plugin it names itself. */
+function moduleLabel(module: Record<string, unknown>): string {
+  if (typeof module.extends === "string") return module.extends;
+  const plugin = module.plugin as { name?: unknown } | undefined;
+  return typeof plugin?.name === "string" ? plugin.name : "";
+}
+
 /** A step read off a chain file, in the list's terms: the engine's values when it names one. */
 function stepOf(
   name: string,
@@ -51,7 +58,7 @@ function stepOf(
     {};
   return {
     id: name,
-    module: typeof module.extends === "string" ? module.extends : "",
+    module: moduleLabel(module),
     ...(engine ? { engine } : {}),
     params: { ...params },
     ...(module.bypass ? { bypass: true } : {}),
@@ -136,9 +143,14 @@ function writeAccountChain(
   const byRef = loadModuleRefs(dir);
   let offline = 0;
   for (const [i, it] of items.entries()) {
+    // A step extends a library module, or names its plugin itself, as `node new` writes an engine-provided one.
     const ref = typeof it.extends === "string" ? it.extends : "";
-    if (!ref || !byRef[ref])
-      throw new Error(`step ${i + 1}: no module "${ref || "(none)"}"`);
+    if (ref ? !byRef[ref] : !it.plugin)
+      throw new Error(
+        ref
+          ? `step ${i + 1}: no module "${ref}"`
+          : `step ${i + 1} names no module and no plugin`,
+      );
     if (isOfflineModule(resolveModule(it as unknown as LoadedModule, byRef)))
       offline++;
   }
