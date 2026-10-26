@@ -9,6 +9,7 @@ import { useServerChoice } from "../serverChoice";
 import {
   ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
+  FROZEN_CHAINS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
@@ -25,6 +26,11 @@ import { RehearsalPage } from "./RehearsalPage";
 const LibrariesPage = lazy(() =>
   import("./LibrariesPage").then((m) => ({
     default: m.LibrariesPage,
+  })),
+);
+const FrozenChainsPage = lazy(() =>
+  import("./FrozenChainsPage").then((m) => ({
+    default: m.FrozenChainsPage,
   })),
 );
 const MediaPage = lazy(() =>
@@ -64,6 +70,10 @@ export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
             {/* Keyed by the server picker: a page read from one server keeps nothing of it on the other. */}
             <Routes key={serverChoice}>
               <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
+              <Route
+                path={FROZEN_CHAINS_ROUTE}
+                element={<FrozenChainsPage />}
+              />
               <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
               <Route path={ENGINE_SETTINGS_ROUTE} element={<EnginePage />} />
               <Route path={SERVER_SETTINGS_ROUTE} element={<ServerPage />} />

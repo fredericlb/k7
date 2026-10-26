@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   RefreshCw,
   ServerCog,
+  Snowflake,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { projectsUrl } from "@studio/project-shell/launch";
@@ -44,6 +45,7 @@ import { VERSION } from "../version";
 import {
   ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
+  FROZEN_CHAINS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
@@ -244,6 +246,11 @@ export function HomeSidebar({
     { label: m["home.projects"](), icon: Folders, route: "/" },
     { label: m["home.tasks"](), icon: ListChecks, route: TASKS_ROUTE },
     { label: m["home.libraries"](), icon: LibraryBig, route: LIBRARIES_ROUTE },
+    {
+      label: m["frozen.title"](),
+      icon: Snowflake,
+      route: FROZEN_CHAINS_ROUTE,
+    },
   ].map((e) => ({ ...e, active: here(e.route) }));
 
   // The media library's sections: active by the section the address shows, the bare prefix included.

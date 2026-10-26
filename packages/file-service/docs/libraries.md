@@ -53,6 +53,15 @@ refused. It syncs as one more room of the account, `_account`, attached at start
 workspaces (`attachAccountLibrary` in `../src/workspaces.ts`) and kept out of every list of
 workspaces, since it is none.
 
+## Frozen chains are the account's library's
+
+The home page's Frozen chains (`apps/k7/frontend/docs/frozenChains.md`) writes chains into the
+account's own library, `@account/chains/<name>.k7x` (`src/frozenChains.ts`), and only there: the
+account's library is always its own to write, an origin library is an admin's. Being an ordinary
+library chain is the point, since every chain reader already walks the account's library first.
+The routes answer with no workspace, against the bench's folder, like the live chains: the modules
+a step may extend are the ones a project of this account would resolve.
+
 ## Cold chains and their models are the machine's, not a project's
 
 Which chains this machine separates a record with and makes an instrumental with are standing

@@ -23,6 +23,10 @@ untouched. The machine is the side that decides what the
 address means — `benchChainOf` reads it, and the chain is looked up among the ones the library
 holds, never joined onto a path.
 
+The list holds the account's **frozen chains** too, built on k7's home page and kept in the account's
+library (`apps/k7/frontend/docs/frozenChains.md`): they are library chains like any other, so
+nothing here names them apart.
+
 A chain holding a **cold** step (one that needs the whole file first, `cold: true` or `offline`)
 cannot run on a live input. The list still shows it, greyed with the reason, rather than dropping
 it: a missing entry reads as a library missing a chain somebody knows is there.
