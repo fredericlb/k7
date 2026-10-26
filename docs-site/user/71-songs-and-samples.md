@@ -90,6 +90,7 @@ What the song screen edits is written into the master's tags:
 | Title | The name shown in the list, the player and the queue. Defaults to the folder name. |
 | Artist | Shown beside the title. |
 | Album | Kept for reference. |
+| Track | The song's position on its album. In the tree, an album's songs with a track number come first, in that order, shown as `03 · Title`. |
 | Tempo (BPM) | Filled in by the analysis when the file has none; your own value is never overwritten. |
 | Key | The musical key, picked by you, for example `C# minor`. A key written by another tool in another spelling (`8A`) is shown as no key. |
 

@@ -173,6 +173,8 @@ async function songEntry(
       ...(tags.bpm ? { bpm: tags.bpm } : {}),
       // The KEY, typed rather than detected: a property of the recording, so it lives in the recording's own tags.
       ...(tags.key ? { key: tags.key } : {}),
+      // The album position, which orders the tree's songs inside their album (ui-library's docs/library.md).
+      ...(tags.track ? { track: tags.track } : {}),
       ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
     },
   };

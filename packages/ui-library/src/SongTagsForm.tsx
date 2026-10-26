@@ -27,6 +27,7 @@ interface TagForm {
   artist: string;
   album: string;
   bpm: string;
+  track: string;
   key: string;
 }
 
@@ -40,8 +41,11 @@ const toForm = (t: MasterTags): TagForm => ({
   artist: t.artist ?? "",
   album: t.album ?? "",
   bpm: t.bpm ? String(t.bpm) : "",
+  track: t.track ? String(t.track) : "",
   key: t.key ?? "",
 });
+
+const trackOk = (s: string): boolean => !s.trim() || /^\s*[1-9]\d*\s*$/.test(s);
 
 const bpmOk = (s: string): boolean => {
   const n = Number(s);
@@ -107,7 +111,8 @@ export function SongTagsForm({
       // Only what changed: the analysis may have seeded a tempo since this form was read.
       const patch: Partial<TagForm> = {};
       for (const k of Object.keys(f) as (keyof TagForm)[])
-        if (f[k] !== was[k]) patch[k] = k === "bpm" ? f.bpm.trim() : f[k];
+        if (f[k] !== was[k])
+          patch[k] = k === "bpm" || k === "track" ? f[k].trim() : f[k];
       await library.setSongTags(folder, patch);
       // What was SENT, not what came back: a trimmed echo would read as a new edit and write again.
       setSaved(text);
@@ -122,12 +127,20 @@ export function SongTagsForm({
     text,
     saved,
     write,
-    // The only shape the inputs cannot rule out is a tempo that is not a number.
+    // The only shapes the inputs cannot rule out: a tempo or a track that is not a number.
     validate: (_p, t) => {
-      const ok = !t || bpmOk((JSON.parse(t) as TagForm).bpm);
+      const f = t ? (JSON.parse(t) as TagForm) : null;
+      const bad = !f
+        ? null
+        : !bpmOk(f.bpm)
+          ? { path: "bpm", message: said.current.bpmInvalid }
+          : !trackOk(f.track)
+            ? { path: "track", message: said.current.trackInvalid }
+            : null;
+      const ok = !bad;
       return {
         ok,
-        issues: ok ? [] : [{ path: "bpm", message: said.current.bpmInvalid }],
+        issues: bad ? [bad] : [],
         depth: "schema",
         malformed: false,
       };
@@ -151,6 +164,7 @@ export function SongTagsForm({
     [l.tagTitle, form.title],
     [l.tagArtist, form.artist],
     [l.tagAlbum, form.album],
+    [l.tagTrack, form.track],
     [l.tagBpm, form.bpm],
     [l.tagKey, form.key],
   ];
@@ -279,7 +293,17 @@ function TagFields({
       {field("title", l.tagTitle)}
       {field("artist", l.tagArtist)}
       {field("album", l.tagAlbum)}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="tag-track">{l.tagTrack}</Label>
+          <Input
+            id="tag-track"
+            inputMode="numeric"
+            value={form.track}
+            aria-invalid={!trackOk(form.track)}
+            onChange={(e) => set("track")(e.target.value)}
+          />
+        </div>
         <div className="grid gap-1.5">
           <Label htmlFor="tag-bpm">{l.tagBpm}</Label>
           <Input

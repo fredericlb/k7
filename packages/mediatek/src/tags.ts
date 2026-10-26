@@ -22,6 +22,7 @@ const WIRE = {
   album: "ALBUM",
   bpm: "BPM",
   key: "INITIALKEY",
+  track: "TRACKNUMBER",
 } as const satisfies Record<keyof MasterTags, string>;
 
 /** The binary's repo path — what bundle.mjs stages beside a standalone backend, at that same path. */
@@ -63,6 +64,8 @@ async function readFresh(abs: string): Promise<MasterTags> {
       file.getProperty(k)?.[0]?.trim() || undefined;
     const key = one(WIRE.key);
     const bpm = positive(one(WIRE.bpm));
+    // `3/12` is a position and a total; only the position orders anything.
+    const track = Number.parseInt(one(WIRE.track) ?? "", 10);
     return {
       ...(one(WIRE.title) ? { title: one(WIRE.title) } : {}),
       ...(one(WIRE.artist) ? { artist: one(WIRE.artist) } : {}),
@@ -70,6 +73,7 @@ async function readFresh(abs: string): Promise<MasterTags> {
       ...(bpm ? { bpm } : {}),
       // Another tool's spelling (`8A`, `Abm`) is not ours to guess at: it reads as no key.
       ...(key && KEY_PATTERN.test(key) ? { key } : {}),
+      ...(track > 0 ? { track } : {}),
     };
   } finally {
     file.dispose();
@@ -108,6 +112,10 @@ function wire(
   v: MasterTags[keyof MasterTags],
 ): string {
   if (v === undefined || v === "") return "";
+  if (field === "track") {
+    const n = Number.parseInt(String(v), 10);
+    return n > 0 ? String(n) : "";
+  }
   if (field === "bpm") {
     const n = Number(v);
     // Two decimals: a detected 127.98 is a grid, and ID3's integer convention would move it.

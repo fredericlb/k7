@@ -52,7 +52,7 @@ are the truth and the folder is only an address; correcting one therefore moves 
 
 ## A song's facts are its master's tags
 
-Title, artist, album, `bpm` and `key` are written into the audio file itself — ID3 frames in an
+Title, artist, album, `bpm`, `key` and the track number are written into the audio file itself — ID3 frames in an
 mp3, a wav or an aiff, Vorbis comments in a flac, an ogg or an opus, atoms in an m4a, Matroska
 tags in a webm — and read back from there by the scan (`tags.ts`). `song.yaml` keeps what is
 about the FOLDER rather than the music: `source:`, `uuid:` and `variants:`. It still marks the
@@ -75,7 +75,10 @@ folder as filed (`catalogued`).
 - **Another tool's key spelling reads as no key.** `8A` or `Abm` in a downloaded file is not
   guessed at; the field stays empty until someone picks a key.
 
-The scan reads none of the five from a sidecar. A sidecar still carrying them is migrated once,
+The track number is read as a position — `3` from a `3/12` frame — and written back as one; it
+orders an album's songs in the library tree (`packages/ui-library/docs/library.md`).
+
+The scan reads none of these from a sidecar. A sidecar still carrying them is migrated once,
 on the volume, by `npm run migrate-song-tags -w @studio/mediatek -- --root <library> [--dry-run]`
 (`scripts/migrateSongTags.ts`): the sidecar's value wins over a tag the file already has, since
 that sidecar is what the library showed, and a master TagLib cannot write keeps its sidecar whole

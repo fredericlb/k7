@@ -107,6 +107,8 @@ export interface LibraryLabels {
     tagArtist: string;
     tagAlbum: string;
     tagBpm: string;
+    tagTrack: string;
+    trackInvalid: string;
     tagKey: string;
     noKey: string;
     bpmInvalid: string;

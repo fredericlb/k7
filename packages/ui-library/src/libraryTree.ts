@@ -66,6 +66,8 @@ export function treeOf(
       into.push({ name: rel.slice(cut + 1), path: rel });
     } else folderAt(roots, rel);
   }
+  // A song's album position, by its row — read once the tree is whole, by `byTrack`.
+  const tracks = new Map<TreeNode, number>();
   // Here first, then the server's: the same path is the same row, and one here is the one that opens.
   for (const e of [...(entries ?? []), ...remote]) {
     // The family segment leads every path and is what the tabs already name.
@@ -84,10 +86,35 @@ export function treeOf(
           : { name: part, path: sofar, dir: true, children: [] };
         level.push(node);
       }
+      const track = e.meta?.track;
+      if (leaf && typeof track === "number" && track > 0 && !tracks.has(node))
+        tracks.set(node, track);
       if (!leaf) level = node.children ??= [];
     });
   }
+  if (tracks.size) byTrack(roots, tracks);
   return roots;
+}
+
+/** Inside each folder, songs with a track number first and in its order, the number before the name; the rest keep theirs (../docs/library.md). */
+function byTrack(level: TreeNode[], tracks: Map<TreeNode, number>): void {
+  const numbered = level.filter((n) => tracks.has(n));
+  if (numbered.length) {
+    const width = Math.max(
+      2,
+      ...numbered.map((n) => String(tracks.get(n)).length),
+    );
+    const at = new Map(level.map((n, i) => [n, i]));
+    // Stable: two songs claiming one number keep the scan's order, which is by name.
+    level.sort((a, b) => {
+      const ta = tracks.get(a) ?? Number.POSITIVE_INFINITY;
+      const tb = tracks.get(b) ?? Number.POSITIVE_INFINITY;
+      return ta - tb || (at.get(a) ?? 0) - (at.get(b) ?? 0);
+    });
+    for (const n of numbered)
+      n.name = `${String(tracks.get(n)).padStart(width, "0")} · ${n.name}`;
+  }
+  for (const n of level) if (n.children) byTrack(n.children, tracks);
 }
 
 /** Which rows are the server's alone: its entries this machine lacks, and every folder holding nothing else. */
