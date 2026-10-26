@@ -11,10 +11,14 @@ import {
   type AccountLibrariesReply,
   type AccountWorkspace,
   type AccountWorkspaceList,
+  type ChainModule,
+  type ChainModuleParams,
   type ColdChainsReply,
   type CommentState,
   ENGINE_TOKEN_HEADER,
   type FileNode,
+  type FrozenChain,
+  type FrozenChainStep,
   type ModelDownloadJob,
   type PublishLibraryBody,
   type RepoProject,
@@ -71,6 +75,9 @@ export function workspaceHref(ws: Addressable): string {
 
 /** The LIBRARIES page as a ROUTE: with no project in the address the router's basename is the mount, so the home pages switch without a reload. */
 export const LIBRARIES_ROUTE = `/${LIBRARIES_PAGE}`;
+
+/** …and the FROZEN CHAINS page under it, so no workspace name is taken (../../docs/frozenChains.md). */
+export const FROZEN_CHAINS_ROUTE = `/${LIBRARIES_PAGE}/chains`;
 
 /** …and the SETTINGS page, the same way. */
 export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
@@ -215,6 +222,60 @@ export const accountFiles = {
       "libraries",
       { method: "POST", json: body },
     ),
+
+  /** The Frozen chains page's list: the account's own chains, then the libraries' cold ones (../../docs/frozenChains.md). */
+  frozenChains: async (m: AccountFiles): Promise<FrozenChain[]> =>
+    (
+      await call<{ chains: FrozenChain[] }>(
+        m,
+        `/account/frozen-chains`,
+        "frozen-chains",
+      )
+    ).chains,
+
+  /** The modules a frozen chain's step may extend, with their engines. */
+  chainModules: async (m: AccountFiles): Promise<ChainModule[]> =>
+    (
+      await call<{ modules: ChainModule[] }>(
+        m,
+        `/account/chain-modules`,
+        "chain-modules",
+      )
+    ).modules,
+
+  /** What one module, run as `engine`, offers a step: its knobs and their defaults. */
+  chainModuleParams: async (
+    m: AccountFiles,
+    ref: string,
+    engine?: string,
+  ): Promise<ChainModuleParams> =>
+    call(
+      m,
+      `/account/chain-modules/params?ref=${encodeURIComponent(ref)}${engine ? `&engine=${encodeURIComponent(engine)}` : ""}`,
+      "chain-modules/params",
+    ),
+
+  /** Write the account's chain `name` as these steps; the reply is the chain as it now reads. */
+  saveFrozenChain: async (
+    m: AccountFiles,
+    name: string,
+    steps: FrozenChainStep[],
+  ): Promise<FrozenChain> =>
+    call(m, `/account/frozen-chains/${encodeURIComponent(name)}`, "save", {
+      method: "PUT",
+      json: { steps },
+    }),
+
+  deleteFrozenChain: async (m: AccountFiles, name: string): Promise<void> => {
+    await call(
+      m,
+      `/account/frozen-chains/${encodeURIComponent(name)}`,
+      "delete",
+      {
+        method: "DELETE",
+      },
+    );
+  },
 
   /** Which COLD chains of the library this machine separates and makes instrumentals with, and the ones it could — machine settings, no project open. */
   coldChains: async (m: AccountFiles): Promise<ColdChainsReply> =>

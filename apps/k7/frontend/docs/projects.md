@@ -106,6 +106,7 @@ routes can only be served by k7 (`packages/web-protocol/docs/addresses.md`).
 /@banc/vocals/warm/live.k7  a bench: a live rig seeded with a library chain
 /external             the menu of surfaces a second device drives
 /libraries            the origin's libraries — read by anyone, edited by an admin
+/libraries/chains     the account's frozen chains, and the libraries' cold ones — frozenChains.md
 /tasks                every workspace's TODOS.md in one list — tasks.md
 /settings             what a browser may change — settings.md
 ```
@@ -131,6 +132,7 @@ switched off:
 | `/` | `AuthGate` → `Home` — the account, and nothing else |
 | `/external` | `AuthGate` → `ExternalIndex` — probes for a machine without claiming one |
 | `/libraries` | `AuthGate` → `LibrariesPage` — the account's file service, no engine |
+| `/libraries/chains` | `AuthGate` → `FrozenChainsPage` — the account's file service, no engine |
 | `/settings` | `AuthGate` → `SettingsPage` — no engine |
 | `/@local/…`, `/@banc/…` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
 

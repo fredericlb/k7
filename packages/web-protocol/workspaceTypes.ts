@@ -319,6 +319,60 @@ export interface ColdChainsReply {
 }
 
 /** One chain of the library, and whether the bench can PLAY it live — `GET /account/live-chains`. */
+/** One step of a frozen chain: a module, the engine it runs as when it has several, and that engine's values. */
+export interface FrozenChainStep {
+  /** The step's id in the file, kept across saves so an unchanged step keeps its comments. */
+  id?: string;
+  /** The module it extends, `@<library>/<path>`. */
+  module: string;
+  engine?: string;
+  params: Record<string, number | string>;
+  bypass?: boolean;
+}
+
+/** A chain the home page's Frozen chains lists: the account's own (`@account/…`), or a library's cold one. */
+export interface FrozenChain {
+  ref: string;
+  /** Its path under `chains/`, what a person calls it. */
+  name: string;
+  /** In the account's library, so this account edits it; a library's is read-only here. */
+  mine: boolean;
+  /** Every step is offline: it separates a file rather than treating a signal. */
+  cold: boolean;
+  steps: FrozenChainStep[];
+  /** Why it cannot be recorded through live, null when it can. */
+  liveRefusal: string | null;
+  /** Why the file does not read, when it does not; its steps are then empty. */
+  unreadable?: string;
+}
+
+/** A module a frozen chain's step may extend, as the builder's picker lists it. */
+export interface ChainModule {
+  ref: string;
+  /** The ref without its library, for display: `audio/compressor`. */
+  name: string;
+  /** Its type folder: `audio`, `cold`… */
+  category: string;
+  /** It writes files instead of a signal (a separator): a chain holding it holds nothing else. */
+  offline: boolean;
+  /** The engines it can run as, and the one it runs as unless a step says otherwise. */
+  engines: string[];
+  engine?: string;
+}
+
+/** The values one module (as one engine) offers a step, from its panel's knobs. */
+export interface ChainModuleParams {
+  engine?: string;
+  params: {
+    name: string;
+    label: string;
+    min: number;
+    max: number;
+    /** The module's own default, the value a step that sets nothing runs with. */
+    value: number;
+  }[];
+}
+
 export interface LiveChain {
   /** Its path under `chains/` (`vocals/warm`), what the bench's `chain` names. */
   ref: string;
