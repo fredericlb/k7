@@ -133,6 +133,27 @@ describe("the lyrics queue", () => {
     expect(calls).toBe(0);
   });
 
+  it("leaves no mark on a master with no title: nothing was asked", async () => {
+    let calls = 0;
+    const q = createLyricsQueue(
+      async () => {
+        calls++;
+        return null;
+      },
+      { spacingMs: 0 },
+    );
+    const { path } = await addSong({
+      filename: "x.wav",
+      bytes: tinyWav(),
+      tags: { artist: "A", title: "Untagged" },
+    });
+    await writeMasterTags(join(root, path, "original.wav"), { title: "" });
+    q.want(path);
+    await q.idle();
+    expect(calls).toBe(0);
+    expect(sidecarOf(path)).not.toContain("lyricsSearch");
+  });
+
   it("does nothing at all with no lookup, as in a test run or an offline library", async () => {
     const q = createLyricsQueue(null);
     const folder = await song("A", "T");

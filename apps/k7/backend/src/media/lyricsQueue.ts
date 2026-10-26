@@ -41,7 +41,8 @@ export function createLyricsQueue(
 
   async function one(q: LyricsQuery): Promise<void> {
     if (!lookup) return;
-    if (!q.title) return recordLyricsMiss(q.folder, "no-title", now());
+    // Nothing asked, so nothing to hold back: a master tagged later is looked up at its next play.
+    if (!q.title) return;
     let found: LyricsFound;
     try {
       found = await lookup(q.artist, q.title, q.duration);

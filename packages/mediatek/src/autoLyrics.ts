@@ -19,8 +19,8 @@ import { existingMaster, familyOf } from "./write.ts";
 /** How long a lookup that found nothing keeps a song from being looked up again. */
 export const LYRICS_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Why a lookup left no lyrics: nothing sure enough found, the service unreachable, no title to ask with. */
-export type LyricsMiss = "not-found" | "error" | "no-title";
+/** Why a lookup left no lyrics: nothing sure enough found, or the service unreachable. */
+export type LyricsMiss = "not-found" | "error";
 
 /** What a lookup needs to ask: the song's names and the master's length. */
 export interface LyricsQuery {
