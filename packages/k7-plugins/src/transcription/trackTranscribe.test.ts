@@ -66,12 +66,15 @@ const makeVideo = (at: string): void => {
   if (r.status !== 0) throw new Error("the test video could not be made");
 };
 
-const stage = (): void => {
+// A refusal only asks that the video exist, so it stages a placeholder: CI has no ffmpeg.
+const stage = (real = true): void => {
   writeLane(song, "cam", "picture-track", {
     events: [{ ref: "intro", start: 2, length: 0, from: 0.5 }],
   });
   writeDoc(join(song, "clips", "intro.k7x"), { source: "clips/intro.mp4" });
-  makeVideo(join(song, "clips", "intro.mp4"));
+  const video = join(song, "clips", "intro.mp4");
+  if (real) makeVideo(video);
+  else writeFileSync(video, "");
 };
 
 // The plugin's verb exists only once its plugin is installed — the same act the
@@ -158,7 +161,7 @@ describe("track transcribe", () => {
   );
 
   it("refuses a sound lane, or a clip of that name that is no subtitle file", async () => {
-    stage();
+    stage(false);
     writeLane(song, "notes", "track", { events: [] });
     await runCommand("track transcribe cam notes", host(), "cli");
     expect(refusals.join(" ")).toMatch(/'notes' is a sound lane/);
