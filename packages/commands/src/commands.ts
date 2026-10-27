@@ -126,7 +126,10 @@ export interface CommandHost {
   /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/renderers.md. */
   renderer?: Renderer;
   /** Write the bench `dir`'s run as the account's chain `name` (its own when it was opened on one); throws when `dir` is no bench. */
-  saveBenchChain?(dir: string, name?: string): { ref: string; steps: number };
+  saveBenchChain?(
+    dir: string,
+    name?: string,
+  ): { ref: string; steps: number; outside: string[] };
   /** Run `work` after the command returns, once per tag; false when that tag is already running. Absent, a verb waits for it. */
   background?(tag: string, work: () => Promise<string>): boolean;
   /** Render the active project's PICTURE with no browser open; the file written, project-relative — packages/file-service/docs/serverRender.md. */

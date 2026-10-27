@@ -30,7 +30,7 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { LiveChain } from "@studio/web-protocol";
 
 /** The rig's own node names, which a chain's nodes must not reuse once copied beside them. */
-const RIG_NODES = new Set([
+export const RIG_NODES: ReadonlySet<string> = new Set([
   LIVE_INPUT,
   LIVE_FADER,
   LIVE_RECORDER,
