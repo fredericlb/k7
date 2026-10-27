@@ -45,9 +45,10 @@ relative to the new take.
 
 ## Two sources, one recorder
 
-This device's microphone or a chain of k7's library played on k7's
-bench ([chainSource.md](chainSource.md)). Each reaches the recorder as a `MediaStream`, so the
-waveform, the moments and the upload are the same whatever the source.
+The account's rehearsal chain played on k7's bench when k7 names one, else this device's microphone
+([chainSource.md](chainSource.md)) — chosen on k7's Frozen chains page, never asked here. Each
+reaches the recorder as a `MediaStream`, so the waveform, the moments and the upload are the same
+whatever the source.
 
 ## Releases and pages: one player
 

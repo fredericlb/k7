@@ -7,6 +7,7 @@ import { Button } from "@frediverse/ui/button";
 import {
   Copy,
   Loader2,
+  Mic,
   Pencil,
   Plus,
   Radio,
@@ -48,15 +49,27 @@ function copyName(ref: string, taken: Set<string>): string {
 
 function Row({
   chain,
+  rehearsal,
   onEdit,
+  onRehearsal,
   onCopy,
   onDelete,
 }: {
   chain: FrozenChain;
+  /** It is the chain rehearsals are recorded through. */
+  rehearsal?: boolean;
   onEdit?: () => void;
+  /** Make it the rehearsals' chain, or let it go when it is. */
+  onRehearsal?: () => void;
   onCopy: () => void;
   onDelete?: () => void;
 }) {
+  // Recorded live, so only a chain that plays live can be the rehearsals' — the reason says why not.
+  const rehearsalTitle = chain.liveRefusal
+    ? m["frozen.notLive"]({ why: chain.liveRefusal })
+    : rehearsal
+      ? m["frozen.rehearsalOff"]()
+      : m["frozen.rehearsalOn"]();
   const input = chain.input
     ? m["frozen.input"]({
         channel: Array.isArray(chain.input.channel)
@@ -95,8 +108,26 @@ function Row({
           {chain.liveRefusal
             ? m["frozen.notLive"]({ why: chain.liveRefusal })
             : m["frozen.live"]()}
+          {rehearsal && (
+            <span className="ml-2 rounded bg-primary/15 px-1.5 text-primary">
+              {m["frozen.rehearsalBadge"]()}
+            </span>
+          )}
         </span>
       </span>
+      {onRehearsal && (
+        <Button
+          size="icon-xs"
+          variant={rehearsal ? "secondary" : "ghost"}
+          disabled={!!chain.liveRefusal && !rehearsal}
+          aria-pressed={!!rehearsal}
+          onClick={onRehearsal}
+          aria-label={rehearsalTitle}
+          title={rehearsalTitle}
+        >
+          <Mic className={`size-3.5 ${rehearsal ? "text-primary" : ""}`} />
+        </Button>
+      )}
       {onEdit && (
         <Button
           size="icon-xs"
@@ -139,11 +170,14 @@ export function FrozenChainsPage() {
     undefined,
   );
   const [chains, setChains] = useState<FrozenChain[] | null>(null);
+  const [rehearsal, setRehearsal] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async (f: AccountFiles) => {
     try {
-      setChains(await accountFiles.frozenChains(f));
+      const listed = await accountFiles.frozenChains(f);
+      setChains(listed.chains);
+      setRehearsal(listed.rehearsalChain);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -177,6 +211,21 @@ export function FrozenChainsPage() {
     try {
       await accountFiles.deleteFrozenChain(files, c.name);
       await reload(files);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  // One chain at a time: choosing another replaces it, choosing it again lets rehearsals record from the microphone.
+  const toggleRehearsal = async (c: FrozenChain) => {
+    if (!files) return;
+    setError(null);
+    try {
+      setRehearsal(
+        await accountFiles.setRehearsalChain(
+          files,
+          rehearsal === c.ref ? "" : c.ref,
+        ),
+      );
     } catch (e) {
       setError((e as Error).message);
     }
@@ -241,6 +290,8 @@ export function FrozenChainsPage() {
                     <Row
                       key={c.ref}
                       chain={c}
+                      rehearsal={rehearsal === c.ref}
+                      onRehearsal={() => void toggleRehearsal(c)}
                       onEdit={() => openBench(c.ref)}
                       onCopy={() => void duplicate(c)}
                       onDelete={() => void remove(c)}
@@ -250,6 +301,11 @@ export function FrozenChainsPage() {
               )}
               <p className="mt-2 text-muted-foreground text-xs">
                 {m["frozen.howToUse"]()}
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                {rehearsal
+                  ? m["frozen.rehearsalIs"]({ ref: rehearsal })
+                  : m["frozen.rehearsalNone"]()}
               </p>
             </section>
             <section>

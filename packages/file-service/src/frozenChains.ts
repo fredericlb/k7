@@ -17,6 +17,7 @@ import {
 } from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
 import { resolveModule } from "@studio/song/moduleResolve";
+import { loadPreferences, setRehearsalChain } from "@studio/song/preferences";
 import type { LoadedModule } from "@studio/song/rawDoc";
 import { LIVE_FADER, LIVE_INPUT } from "@studio/song/scaffoldLive";
 import { accountLibraryHome } from "@studio/song/sharedFolders";
@@ -296,4 +297,27 @@ export function deleteFrozenChain(name: string): void {
   const at = fileOf(name);
   if (!wsExists(at)) throw new Error(`no chain "${name}" of yours`);
   rmSync(at);
+  // Rehearsals named it: they record from the microphone again rather than through a chain that is gone.
+  if (loadPreferences().rehearsalChain === libraryRef(ACCOUNT_LIBRARY, name))
+    setRehearsalChain("");
+}
+
+/** The chain rehearsals are recorded through, or null: they record from the microphone. */
+export const rehearsalChain = (): string | null =>
+  loadPreferences().rehearsalChain ?? null;
+
+/** Choose the rehearsal chain among the account's own that can run live; `""` clears it. */
+export function chooseRehearsalChain(dir: string, ref: string): string | null {
+  const want = ref.trim();
+  if (want) {
+    const chain = listFrozenChains(dir).find((c) => c.ref === want);
+    if (!chain?.mine)
+      throw new Error(`"${want}" is not one of your frozen chains`);
+    // A rehearsal is recorded LIVE, through the bench: a chain that cannot play live records nothing.
+    if (chain.liveRefusal)
+      throw new Error(
+        `"${want}" cannot be recorded through live: ${chain.liveRefusal}`,
+      );
+  }
+  return setRehearsalChain(want).rehearsalChain ?? null;
 }

@@ -1551,6 +1551,11 @@
   "frozen.badName": "Lettres, chiffres, « - » et « _ » seulement, en commençant par une lettre ou un chiffre.",
   "frozen.save": "Enregistrer",
   "frozen.input": "entrée {channel}",
+  "frozen.rehearsalOn": "Enregistrer les répétitions à travers cette chaîne",
+  "frozen.rehearsalOff": "Ne plus enregistrer les répétitions à travers cette chaîne",
+  "frozen.rehearsalBadge": "utilisée pour les répétitions",
+  "frozen.rehearsalIs": "Les répétitions sont enregistrées à travers {ref}.",
+  "frozen.rehearsalNone": "Les répétitions sont enregistrées depuis le micro de l'appareil — le bouton micro d'une chaîne les enregistre à travers elle.",
   "bench.saveInto": "Enregistrer dans votre chaîne {name}",
   "bench.saveAs": "Enregistrer comme une de vos chaînes",
   "bench.saveBody": "Ce qui se trouve entre l'entrée et le fader devient @account/<nom>, avec quoi les projets traitent et à travers quoi l'enregistreur de répétitions enregistre."

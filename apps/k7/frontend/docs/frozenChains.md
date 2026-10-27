@@ -31,6 +31,16 @@ stays an admin's to write, which is why the libraries' chains are copied rather 
 `@account/<name>` is the spelling to use in a project. A bare name prefers the default library's
 chain of that name (`resolveChain`), so a frozen chain does not silently replace one.
 
+## One chain records the rehearsals
+
+The microphone button on one of the account's chains makes it the **rehearsal chain**: every
+rehearsal session is then recorded through it, and the recorder asks nothing and shows no chain
+(`packages/ui-rehearsal/docs/chainSource.md`). Pressed again, rehearsals record from the device's
+microphone. It is chosen here because it is a standing answer, decided where the chain is built and
+heard, not before each take. It is kept as the file service's `rehearsalChain` setting
+(`PUT /account/rehearsal-chain`); only a chain that can play live is accepted, and deleting the
+chain clears it.
+
 ## A chain keeps its input
 
 What IN is fed from is part of a frozen chain: `chain save` writes IN's channel into the file as

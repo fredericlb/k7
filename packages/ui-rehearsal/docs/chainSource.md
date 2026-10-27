@@ -1,21 +1,29 @@
-# Recording through a chain of k7's library
+# Recording through the account's rehearsal chain
 
-The other answer to "where should the audio come from?", beside this device's microphone: a
-**chain** of the account's library, played live, and recorded here. The take is an ordinary
-session — same waveform, same highlights, same upload — because what reaches the recorder is a
-`MediaStream` like the microphone's.
+A session's audio comes from one of two places, and the recorder asks about neither: the account's
+**rehearsal chain** when k7 names one, else this device's microphone. The rehearsal chain is one of
+the account's frozen chains, chosen on k7's Frozen chains page (`apps/k7/frontend/docs/frozenChains.md`)
+and kept as the file service's `rehearsalChain` setting (`GET /account/rehearsal-chain`). The take is
+an ordinary session — same waveform, same highlights, same upload — because what reaches the
+recorder is a `MediaStream` like the microphone's.
+
+## Chosen once, on the Frozen chains page
+
+Which chain a band records through is a standing answer, like which interface it plays on, so it is
+asked where chains are built and not before each take. The recorder therefore draws no list, no
+preview and no "another chain": a session starts on the click, and the start dialog
+(`SessionStartDialog.tsx`) only says what it is opening, and why it failed, with a retry. Only a
+chain the bench can play live may be chosen (a **cold** step needs the whole file first), and
+deleting the chain lets go of the setting, so a rehearsal falls back on the microphone rather than on
+a chain that is gone.
 
 ## The bench plays it, the rehearsal page records it
 
 The rehearsal pages run no DSP and load no plugin. A chain's modules are engine plugins, and the only place they
 load is an engine playing a project. So the chain is played on k7's **bench**
-(`apps/k7/backend/docs/media/banc.md`) — the throwaway `live` rig, input → fader → master — opened on the
+(`apps/k7/backend/docs/media/banc.md`) — the `live` rig, input → fader → master — opened on the
 address `/@banc/<chain ref>/live.k7`, which puts a **copy** of the chain between the input and the
 fader.
-
-A copy, not a reference: a template cannot be inlined into a host graph
-(`packages/song/docs/assemblies.md`), and a copy dies with the bench, so a knob turned while
-auditioning reaches nothing shared. Editing the chain for good stays in k7's chains builder.
 
 The chain is in the address PATH, not in a query: k7's router owns the query and rewrites it within
 a frame (`packages/project-shell/docs/launch.md`), and as a path the gate forwards it to the machine
@@ -23,48 +31,35 @@ untouched. The machine is the side that decides what the
 address means — `benchChainOf` reads it, and the chain is looked up among the ones the library
 holds, never joined onto a path.
 
-The list holds the account's **frozen chains** too, built on k7's home page and kept in the account's
-library (`apps/k7/frontend/docs/frozenChains.md`): they are library chains like any other, so
-nothing here names them apart.
+## A frame nobody sees
 
-A chain holding a **cold** step (one that needs the whole file first, `cold: true` or `offline`)
-cannot run on a live input. The list still shows it, greyed with the reason, rather than dropping
-it: a missing entry reads as a library missing a chain somebody knows is there.
+The bench is k7's own project page, on the same origin, in an iframe the person never sees
+(`RehearsalChainSource.tsx`): it is what loads the chain on an engine, and k7's screen is what does that.
+The chain was tuned with that same screen on the Frozen chains page, so it is not shown again here.
+A frame rather than a route, because a project page and the home pages are two different apps of
+one SPA (`apps/k7/frontend/src/appMain.tsx`), and the take must not leave the page it is recorded on.
 
-## Why a frame
+The frame is **hidden, never unmounted**, laid out at a real size under `visibility: hidden`.
+Unmounting it reloads the bench and lets go of its claim on the engine mid-take.
 
-The bench is shown in an iframe — k7's own project page, on the same origin — so the person can **check** what is about to be recorded: the right chain,
-the input picked on the rig's `IN` node, the knobs where they want them. That is k7's project
-screen; rebuilding a graph view in the rehearsal pages would be a second chains editor to keep in
-step with the first. A frame rather than a route, because a project page and the home pages are two
-different apps of one SPA (`apps/k7/frontend/src/appMain.tsx`), and the take must not leave the
-page it is recorded on.
+The take **starts by itself** once the chain is live and every live input of the bench is fed: the
+click that started the session is what lets the audio context run.
 
-The frame is **hidden during the take, never unmounted**. Unmounting it reloads the bench and lets go
-of its claim on the engine; kept alive, it can be brought back from the recorder's header (**Chain**)
-to adjust a knob mid-take.
+## The inputs
 
-## Choosing the inputs
-
-A fresh bench feeds nothing: its `IN` node names no channel, since which socket you are plugged into
-is a fact about the rig (`packages/song/docs/liveProject.md`). So the panel lists **every live input
-of the bench** — a node whose step carries `monitor`, which a chain's own steps or a node added in the
-frame can be as well as `IN` — each with a select of the interface's inputs (`ChainInputsPicker.tsx`,
-`src/benchInputs.ts`). Asked here rather than only on the frame's card, because it is the one question
-a take cannot start without.
+A frozen chain names its input itself (`input({ channel: … })`, written by `chain save` from the
+bench's IN), and the bench opens with IN fed from it. An input left with no channel is the one thing
+still asked, since a take cannot start without it: a small dialog lists **every live input of the
+bench** that has none — a node whose step carries `monitor` — each with a select of the interface's
+inputs (`ChainInputsPicker.tsx`, `src/benchInputs.ts`).
 
 - **The list is the engine's grouping**, read from the bench's socket by an empty `io-levels`: a
   stereo pair is one entry. A lone half of a pair matches nothing on the engine and stays silent, so
   raw channel numbers are not offered.
 - **The choice is k7's own command**, `node param <node> @channel 1,2`, sent to the bench's file
-  service (`Banc` workspace) with the probe's file token — the line the node card sends, so the frame
-  redraws it and the engine hears it the same way.
-- **It is remembered per chain, in this browser**, and put back on every open: the bench is rebuilt
-  each time, and a rig is plugged the same way from one take to the next.
-- **A frozen chain can name its input itself** (`input({ channel: … })`, written by `chain save`
-  from the bench's IN — `apps/k7/frontend/docs/frozenChains.md`). The bench then opens with IN fed
-  from it, and the browser's remembered choice, put back only on an IN that names no channel, does
-  not override it; a chain of nothing but an input records straight from that socket.
+  service (`Banc` workspace) with the probe's file token — the line the node card sends.
+- **It is remembered per chain, in this browser**, and put back on an IN that names no channel: a
+  chain's own input is never overridden by it.
 
 ## How the sound reaches the recorder
 
@@ -84,24 +79,23 @@ takes. The engine has no feature of its own for this.
   (`packages/engine-registry/docs/claim.md`). Both play into the same outputs, so a song left
   playing is heard — and recorded — under the chain.
 - **The page's socket says it is a driver**, which is `EngineClient`'s default. That is deliberate:
-  a person is looking at the recorder, and if the frame were gone the engine would otherwise free the rig 45
-  seconds into the take (`engine/k7-runtime/docs/sessions.md`). It sends no project.
-- **Hearing it here is a toggle.** An engine on this machine already plays through the interface,
-  so monitoring starts off there and on for a remote engine; either way the recorder takes the
-  stream. Monitoring a local engine as well would play it twice, 150 ms apart.
+  a take is running, and with nobody driving the hidden frame the engine would otherwise free the rig
+  45 seconds in (`engine/k7-runtime/docs/sessions.md`). It sends no project.
+- **Heard here only from a remote engine.** An engine on this machine already plays through the
+  interface, so the page plays the stream only when the engine is elsewhere; monitoring a local one
+  as well would play it twice, 150 ms apart. The recorder takes the stream either way.
 - **The rate is the stream's.** The audio context is built at the first frame's sample rate, since
   the sink does not resample. A rate change mid-take is reported as an error rather than recorded at
   the wrong pitch.
 
 ## What to check in a browser
 
-None of this is covered past `chainSource.test.ts` and `packages/file-service/src/benchChain.test.ts`.
+None of this is covered past `chainSource.test.ts` and `packages/file-service/src/frozenChains.test.ts`.
 
-- New session → **k7 chain** → the library's chains are listed, cold ones greyed with the reason;
-- pick one → the bench opens in the frame, with the chain between `IN` and `fader`;
-- the **Inputs** row lists `IN` with the interface's inputs; picking one shows on the frame's `IN`
-  card, and the meter moves when that input is played; reopen the chain → the choice is back;
-- the status goes *waiting* → *connecting* → *live*, and the meter moves when the input is played;
-- **Record** → the recorder draws the usual live waveform; **Chain** in its header brings the bench back;
+- no rehearsal chain → New session opens the microphone at once, with no question asked;
+- a rehearsal chain chosen on the Frozen chains page → New session says it is opening it, then the
+  recorder draws the usual live waveform from the chain's output, with no frame and no list;
+- a chain whose input names no channel → only the input dialog appears, and the take starts once one
+  is picked;
 - with a song open in another k7 tab → it stays open and loaded, and the bench opens on its engine;
-- stop and save → the session is an ordinary one, and the frame is gone.
+- stop and save → the session is an ordinary one, and the hidden bench is gone.
