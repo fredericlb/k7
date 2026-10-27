@@ -2030,8 +2030,8 @@ export default function App({
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
-      // …and the lane's modules, side by side, in the event panel; the framing above still happens.
-      if (target.kind === "track")
+      // …and the lane's modules, side by side, in the event panel; the framing above still happens — a picture lane's too.
+      if (target.kind === "track" || target.kind === "video")
         openEvent({ kind: "trackModules", trackId: target.id });
     },
     [openEvent],
