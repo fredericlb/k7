@@ -12,8 +12,9 @@ pins to its right edge.
   on it, so no library may remove or change it. Being a shader, its knobs are the four every
   shader has, `P1`..`P4`, each 0..1 ([../../song-video/docs/shaders.md](../../song-video/docs/shaders.md)).
 - **Neutral as made.** Red, green and blue at 1 (each channel as shot), transparency at 0 (opaque).
-  A strip left neutral is dropped before the compositor (`isNeutralStrip`), so a lane that never
-  turns a knob costs no extra pass: any pass puts a layer through an off-screen buffer.
+  Its pass declares those knobs its IDENTITY, and the compositor skips it there per frame, so a
+  lane that never turns a knob costs no extra pass. It is kept in the scene rather than dropped:
+  a dropped pass has nothing for a knob set live to move until the picture is read back.
 - **Transparency thins alpha alone.** The compositor blends straight alpha, so scaling rgb as well
   would darken the lane before it faded.
 - **Last in the lane's OWN run.** It goes right after the run's last item, in that item's chain
@@ -41,8 +42,7 @@ shell's `onShaderParam` writes it a few times a drag, the last value always land
 
 A drag is SEEN before it is saved. The write is a quiet command, which reloads nothing, so the
 knob is also pushed to every viewport on the page (`shaderLive.ts`) and set on the compositor's
-passes in place, no program rebuilt (`setParam`); the picture is read back once the writes stop,
-which is also what gives a strip left neutral, and so drawn as no pass at all, its pass.
+passes in place, no program rebuilt (`setParam`); the picture is read back once the writes stop.
 
 The graph names each lane's strip in `trackMixers`, read off the graph's `extends` rather than off
 the compile, which knows nothing of picture (`laneStripsOf`).

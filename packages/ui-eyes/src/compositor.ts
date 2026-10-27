@@ -19,7 +19,7 @@ import {
   type TransitionProgram,
 } from "./passes";
 import { PlainProgram, type QuadLook } from "./plain";
-import type { ScenePass, VideoScene } from "./scene";
+import { isIdentityPass, type ScenePass, type VideoScene } from "./scene";
 import { Sides } from "./slots";
 import { Stretches } from "./stretches";
 import type { SlotStretch } from "./timeline";
@@ -247,6 +247,7 @@ export class Compositor {
     for (let i = 0; i < passes.length; i++) {
       const prog = programs[i];
       if (!prog) continue; // did not compile — this pass is simply not in the chain
+      if (isIdentityPass(passes[i])) continue; // at its identity knobs: drawing it would change nothing
       pp.bindBack();
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, pp.frontTexture());
@@ -381,7 +382,9 @@ export class Compositor {
       // A blending layer needs no `hasFrame`: the blend says which slots carry a picture THIS frame.
       if (!blend && !layer.hasFrame) continue;
 
-      if (pp && (blend || layer.passes.length || graded)) {
+      // Asked per frame: a pass at its identity knobs leaves the layer on the direct path until one moves.
+      const shaded = layer.passes.some((p) => !isIdentityPass(p));
+      if (pp && (blend || shaded || graded)) {
         // Each side's own runs go FIRST, through the same scratch the blend is about to be seeded into.
         const sides = blend
           ? this.sides.blendSides(layer, blend, motion, effect)
