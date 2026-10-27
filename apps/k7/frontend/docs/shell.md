@@ -1194,6 +1194,9 @@ same nodes and not a bigger version of them. The framing
 still happens underneath, deliberately: closing the panel leaves the graph already framed on the
 track it was about.
 
+A picture lane gets the same row: it is a lane node in the graph like a sound lane, its chain ending on
+`VIDEO_OUT`. Its row has no *audio in* / *midi in*, since `track input` is a sound lane's verb.
+
 **The cards are GLUED** (`moduleRow`'s `gap: 0`): a lane's path is one strip read left to right, and
 two cards touching IS the cable between them. That arrow is still in the row, marked `glued` — the
 canvas draws no cable for it, since cables paint over the cards and one between two touching cards

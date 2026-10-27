@@ -286,6 +286,10 @@ export function TrackModulesPane({
 
   // An input already feeding the lane, or no graph yet to say: either way the input buttons wait.
   const hasInput = !graph || laneHasInput(graph, trackId);
+  // A picture lane takes no audio or MIDI input: `track input` is a sound lane's verb.
+  const onInput = graph?.videoTracks?.includes(trackId)
+    ? undefined
+    : onTrackInput;
 
   // A row ending on the lane's mixer pins that mixer to the right, headerless — @studio/ui-chains's anchorRight.ts.
   const split = useMemo(
@@ -390,7 +394,7 @@ export function TrackModulesPane({
   return frame(
     <div className="flex h-full min-h-0">
       {/* The view's toggles down its left edge, the timeline's column: no modes here, only what the row SHOWS (docs/shell.md). */}
-      {(onToggleCurves || onTrackInput || inPanel) && (
+      {(onToggleCurves || onInput || inPanel) && (
         <ModeStrip
           modes={NO_MODES}
           current=""
@@ -398,12 +402,12 @@ export function TrackModulesPane({
           title={() => ""}
           footer={
             <>
-              {onTrackInput &&
+              {onInput &&
                 INPUTS.map(({ kind, label, Icon }) => (
                   <button
                     key={kind}
                     type="button"
-                    onClick={() => onTrackInput(kind)}
+                    onClick={() => onInput(kind)}
                     disabled={hasInput}
                     aria-label={label}
                     title={
