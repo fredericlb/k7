@@ -1535,7 +1535,7 @@
   "frozen.new": "Nouvelle chaîne",
   "frozen.mine": "Vos chaînes",
   "frozen.mineEmpty": "Aucune pour l'instant — Nouvelle chaîne ouvre le banc : placez des modules entre l'entrée et le fader, puis enregistrez-la depuis la barre du projet.",
-  "frozen.howToUse": "Dans un projet : clip process <clip> @account/<nom>. Dans l'enregistreur de répétitions : choisissez-la dans la liste des chaînes pour enregistrer à travers elle.",
+  "frozen.howToUse": "Dans un projet : clip process <clip> @account/<nom>.",
   "frozen.cold": "Chaînes froides des bibliothèques",
   "frozen.coldEmpty": "Les bibliothèques ne contiennent aucune chaîne froide.",
   "frozen.noServer": "Aucun service de fichiers ne répond pour ce compte.",
