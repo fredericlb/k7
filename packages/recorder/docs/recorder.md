@@ -50,7 +50,7 @@ enough to aim at. The last tenth scrolls the last twelve seconds, where a level 
 framed view reads every sample, so it is redrawn twice a second, not every frame; only its playhead
 follows the frame. The ⋮ opens outside the bar, so the host hands it its scope class
 (`menuClassName`) for its palette to reach it. A highlight clicked on either waveform pauses the
-take and plays it back, tinted on the framed view, with a row over the bar to play it again and to
+take and plays it back from its start and no further, tinted on the framed view, with a row over the bar to play it again and to
 note what happened; **Resume** carries the take on from where it paused. Errors, the upload's
 progress and a failed upload's Retry and Download are said in the bar too. It publishes its own
 height as `--rec-bar-h`, which the host pads its pages and stacks its own bars by, the bar growing
