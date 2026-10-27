@@ -38,6 +38,13 @@ export function createLyricsQueue(
   const queued = new Set<string>();
   const seen = new Map<string, number>();
   let running: Promise<void> | null = null;
+  // One lookup at a time, whoever asked: the queue's and a page's take the same turn.
+  let tail: Promise<unknown> = Promise.resolve();
+  const serial = <T>(fn: () => Promise<T>): Promise<T> => {
+    const mine = tail.then(fn);
+    tail = mine.catch(() => {});
+    return mine;
+  };
 
   async function one(q: LyricsQuery): Promise<void> {
     if (!lookup) return;
@@ -65,7 +72,7 @@ export function createLyricsQueue(
       try {
         const q = await lyricsQuery(folder, now());
         if (q) {
-          await one(q);
+          await serial(() => one(q));
           if (waiting.length && spacing)
             await new Promise((ok) => setTimeout(ok, spacing));
         }
@@ -88,6 +95,13 @@ export function createLyricsQueue(
       queued.add(folder);
       waiting.push(folder);
       running ??= drain();
+    },
+    /** Look a folder up NOW, for a person on its page: an earlier miss and a recent look hold nothing back. */
+    async lookupNow(folder: string): Promise<void> {
+      if (!lookup || !folder) return;
+      seen.set(folder, now());
+      const q = await lyricsQuery(folder, now(), { asked: true });
+      if (q) await serial(() => one(q));
     },
     /** Resolves once every folder asked for so far has had its turn — for a test. */
     idle(): Promise<void> {

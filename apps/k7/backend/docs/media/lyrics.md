@@ -26,6 +26,12 @@ Nothing found holds a song back a week; LRCLIB unreachable or answering an error
 hour (`packages/mediatek/docs/autoLyrics.md`). The queue tells the two apart by whether the lookup
 threw.
 
+## Asked from a song's page
+
+`POST /api/mediatek/songbook/:id/lyrics/lookup` looks one song up NOW, for a person who has just
+typed its chords and wants them timed: an earlier miss and a recent look hold nothing back, since
+somebody asked. It still takes its turn with the queue's lookups (`lookupNow`), one at a time.
+
 ## Off where it must be
 
 A test run never asks LRCLIB, and `STUDIO_LYRICS_LOOKUP=off` turns the lookups off for a

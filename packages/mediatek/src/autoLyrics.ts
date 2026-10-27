@@ -45,13 +45,15 @@ function lastMiss(rel: string): { at: number; result: string } | null {
 export async function lyricsQuery(
   folder: string,
   now = Date.now(),
+  /** A person ASKED, on the song's page: an earlier miss holds nothing back. */
+  opts: { asked?: boolean } = {},
 ): Promise<LyricsQuery | null> {
   const rel = folder.replace(/^\/+|\/+$/g, "");
   const parts = rel.split("/");
   if (familyOf(rel) !== "songs" || parts[1] === K7_ARTIST) return null;
   const master = existingMaster(writablePath(rel));
   if (!master || existsSync(writablePath(`${rel}/${LYRICS_FILE}`))) return null;
-  const miss = lastMiss(rel);
+  const miss = opts.asked ? null : lastMiss(rel);
   // An instrumental is an answer, not a miss: there is nothing to look for again.
   if (miss?.result === "instrumental") return null;
   const wait =

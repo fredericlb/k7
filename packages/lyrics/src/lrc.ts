@@ -252,7 +252,30 @@ export type LrcTimecoding =
  * themselves, each with its code.
  */
 export function timeLyrics(lyrics: string, source: string): LrcTimecoding {
-  const lrc = parseLrc(source).filter((l) => normalizeLine(l.text) !== "");
+  return timeLines(lyrics, parseLrc(source));
+}
+
+/**
+ * The same timing, from a TIMED SHEET rather than an LRC: each of its timed sung lines, chords left
+ * out, is a timed line to place — what makes a song's chords take the times its lyrics carry
+ * (../docs/timecodes.md). A sheet with no code in it times nothing.
+ */
+export function timeFromSheet(
+  target: string,
+  timedSheet: string,
+): LrcTimecoding {
+  const raw = timedSheet.split(/\r?\n/);
+  const lines: LrcLine[] = [];
+  for (const l of lyricLines(timedSheet)) {
+    const t = timecodeOf(raw[l.line] ?? "");
+    if (t !== null) lines.push({ t, text: l.text });
+  }
+  return timeLines(target, lines);
+}
+
+/** Place timed lines on a sheet's sung lines, in order — the one matcher both timings share. */
+function timeLines(lyrics: string, timed: readonly LrcLine[]): LrcTimecoding {
+  const lrc = timed.filter((l) => normalizeLine(l.text) !== "");
   if (lrc.length === 0) return { ok: false, reason: "empty" };
 
   if (lyrics.trim() === "")

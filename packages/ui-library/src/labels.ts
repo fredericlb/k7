@@ -128,11 +128,13 @@ export interface LibraryLabels {
     tabSheet: string;
     /** Lyrics with chords, typed by hand — a tab of its own, apart from the lyrics. */
     tabChords: string;
-    /** The three buttons over the song's tabs, each offered while the song lacks it (a sheet always). */
+    /** The buttons over the song's tabs, each offered while the song lacks it (a sheet always). */
+    addLyrics: string;
     addChords: string;
     addTab: string;
     addSheet: string;
     /** What an empty text editor says before anything is typed. */
+    placeholderLyrics: string;
     placeholderChords: string;
     placeholderTab: string;
     save: string;
@@ -142,6 +144,10 @@ export interface LibraryLabels {
     notASheet: (name: string) => string;
     /** While the picked sheets go up, one after another. */
     sendingSheets: string;
+    /** Chords saved with no lyrics: the lyrics asked for, and what came back. */
+    lookingForLyrics: string;
+    lyricsFound: string;
+    lyricsNotFound: string;
     tagsHeading: string;
     edit: string;
     done: string;

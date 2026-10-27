@@ -9,6 +9,7 @@ import {
   normalizeLine,
   parseLrc,
   timecodesByLine,
+  timeFromSheet,
   timeLyrics,
   timingsByLine,
   withoutTimecodes,
@@ -241,5 +242,45 @@ describe("timingsByLine and lineAt", () => {
     expect(lineAt(byLine, 5)).toBeNull();
     expect(lineAt(byLine, 15)).toBe(1);
     expect(lineAt(byLine, 60)).toBe(2);
+  });
+});
+
+describe("timeFromSheet", () => {
+  const LYRICS = [
+    "{{00:12.50}} Oh sinnerman, where you gonna run to?",
+    "{{00:18.00}} Where you gonna run to?",
+    "{{00:24.00}} All on that day",
+  ].join("\n");
+
+  it("gives chords typed over the words the times the lyrics carry, the chord lines untouched", () => {
+    const chords = [
+      "Am            G",
+      "Oh sinnerman, where you gonna run to?",
+      "Am",
+      "Where you gonna run to",
+      "[Am]All on [G]that day",
+    ].join("\n");
+    const r = timeFromSheet(chords, LYRICS);
+    expect(r.ok && r.placed).toBe(3);
+    expect(r.ok && r.lyrics.split("\n")).toEqual([
+      "Am            G",
+      "{{00:12.50}} Oh sinnerman, where you gonna run to?",
+      "Am",
+      "{{00:18.00}} Where you gonna run to",
+      "{{00:24.00}} [Am]All on [G]that day",
+    ]);
+  });
+
+  it("replaces the codes the chords already had, so timing again changes nothing", () => {
+    const first = timeFromSheet("All on that day", LYRICS);
+    const again = timeFromSheet(first.ok ? first.lyrics : "", LYRICS);
+    expect(again.ok && again.lyrics).toBe("{{00:24.00}} All on that day");
+  });
+
+  it("times nothing from lyrics that carry no code", () => {
+    expect(timeFromSheet("All on that day", "All on that day")).toEqual({
+      ok: false,
+      reason: "empty",
+    });
   });
 });

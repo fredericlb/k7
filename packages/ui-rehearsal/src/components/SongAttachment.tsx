@@ -28,9 +28,12 @@ export function SongAttachment({
   sheetUrl,
   onDeleteSheet,
 }: SongAttachmentProps) {
-  // The timecodes are read the way the songbook reads them, so a timed line shows as timed.
+  // The timecodes are read the way the songbook reads them, so a timed line shows as timed — the chords' too.
   const timings = useMemo(
-    () => (kind === "lyrics" ? timecodesByLine(text) : undefined),
+    () =>
+      kind === "lyrics" || kind === "chords"
+        ? timecodesByLine(text)
+        : undefined,
     [kind, text],
   );
   return (
@@ -44,7 +47,7 @@ export function SongAttachment({
       ) : kind === "lyrics" ? (
         <ChordSheet text={text} transpose={0} timings={timings} />
       ) : kind === "chords" ? (
-        <ChordSheet text={text} transpose={0} />
+        <ChordSheet text={text} transpose={0} timings={timings} />
       ) : (
         <Tablature text={text} />
       )}

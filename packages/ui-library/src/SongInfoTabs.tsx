@@ -1,10 +1,16 @@
 // SongInfoTabs.tsx — the song screen's left half: its tags, then a tab per attachment it carries —
 // lyrics, chords, tablature, sheets — drawn by the host exactly as the songbook draws them, and
-// three buttons over them to add chords, a tab or a sheet as the songbook does. A library song
-// becomes a songbook song in its own folder at its first one (../docs/songPlayer.md).
+// buttons over them to add each as the songbook does. The CHORDS take the lyrics' times on the
+// server; chords saved with no lyrics ask for them first (../docs/songPlayer.md).
 
 import { Button } from "@frediverse/ui/button";
-import { FileMusic, Guitar, Loader2, Music } from "@frediverse/ui/icons";
+import {
+  FileMusic,
+  Guitar,
+  Loader2,
+  MicVocal,
+  Music,
+} from "@frediverse/ui/icons";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import type { MediatekEntry, SongbookSong } from "@studio/mediatek/types";
 import {
@@ -19,8 +25,8 @@ import { SongTextEditor } from "./SongTextEditor";
 
 type Kind = SongAttachmentView["kind"];
 type Tab = "info" | Kind;
-/** The two texts typed by hand here; the lyrics stay the songbook's and the lyrics finder's. */
-type Typed = "chords" | "tablature";
+/** The texts typed by hand here: the lyrics too, when none were found or they need fixing. */
+type Typed = "lyrics" | "chords" | "tablature";
 
 export function SongInfoTabs({
   entry,
@@ -42,6 +48,7 @@ export function SongInfoTabs({
   const [song, setSong] = useState<SongbookSong | null>(null);
   const [editing, setEditing] = useState<Typed | null>(null);
   const [sending, setSending] = useState(false);
+  const [looking, setLooking] = useState(false);
   const sheetInput = useRef<HTMLInputElement>(null);
 
   // What it carries: the song read whole once it is, the listing's flags until then.
@@ -111,9 +118,28 @@ export function SongInfoTabs({
       // An emptied text is removed, and its tab with it.
       if (!text.trim()) setTab("info");
       onSaved();
+      // Chords with no lyrics to take their times from: the lyrics are asked for, if there is audio to name them.
+      if (kind === "chords" && text.trim() && !saved.lyrics && saved.master)
+        void lookUpLyrics(sid);
     } catch (e) {
       onStatus((e as Error).message);
       throw e;
+    }
+  };
+
+  /** The lyrics looked up now; found and timed, the chords come back timed with them. */
+  const lookUpLyrics = async (sid: string) => {
+    setLooking(true);
+    onStatus(l.lookingForLyrics);
+    try {
+      const after = await library.lookUpLyrics(sid);
+      setSong(after);
+      onStatus(after.lyrics ? l.lyricsFound : l.lyricsNotFound);
+      if (after.lyrics) onSaved();
+    } catch (e) {
+      onStatus((e as Error).message);
+    } finally {
+      setLooking(false);
     }
   };
 
@@ -177,6 +203,21 @@ export function SongInfoTabs({
   // Offered only where the host can draw what they add.
   const adds = songAttachment && (
     <div className="flex flex-wrap gap-2 px-3 pt-2">
+      {!has.lyrics && editing !== "lyrics" && (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={looking}
+          onClick={() => startTyping("lyrics")}
+        >
+          {looking ? (
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <MicVocal className="mr-1 h-3.5 w-3.5" />
+          )}
+          {looking ? l.lookingForLyrics : l.addLyrics}
+        </Button>
+      )}
       {!has.chords && editing !== "chords" && (
         <Button
           variant="secondary"
@@ -225,15 +266,17 @@ export function SongInfoTabs({
   );
 
   const typed = (kind: Typed) => {
-    const text =
-      kind === "chords" ? (song?.chords ?? "") : (song?.tablature ?? "");
+    const text = song?.[kind] ?? "";
+    const placeholder = {
+      lyrics: l.placeholderLyrics,
+      chords: l.placeholderChords,
+      tablature: l.placeholderTab,
+    }[kind];
     if (editing === kind)
       return (
         <SongTextEditor
           initial={text}
-          placeholder={
-            kind === "chords" ? l.placeholderChords : l.placeholderTab
-          }
+          placeholder={placeholder}
           onSave={(t) => saveText(kind, t)}
           onCancel={cancelTyping}
         />
@@ -256,14 +299,14 @@ export function SongInfoTabs({
   const body =
     current === "info"
       ? info
-      : current === "chords" || current === "tablature"
+      : current !== "sheet"
         ? typed(current)
         : song &&
           songAttachment && (
             <div className="p-4">
               {songAttachment({
                 kind: current,
-                text: song.lyrics,
+                text: "",
                 sheets: song.facts.sheets.map(({ id: sid, name, mime }) => ({
                   id: sid,
                   name,

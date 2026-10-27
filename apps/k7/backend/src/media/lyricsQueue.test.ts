@@ -4,6 +4,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
+import {
+  createSongbook,
+  patchSongbook,
+  readSongbookAt,
+} from "@studio/mediatek/songbook";
 import { writeMasterTags } from "@studio/mediatek/tags";
 import { tinyWav } from "@studio/mediatek/testWav";
 import { addSong } from "@studio/mediatek/write";
@@ -160,6 +165,39 @@ describe("the lyrics queue", () => {
     q.want(folder);
     await q.idle();
     expect(sidecarOf(folder)).not.toContain("lyricsSearch");
+  });
+});
+
+describe("lookupNow, asked from a song's page", () => {
+  it("looks up past an earlier miss, and the chords already typed take the lyrics' times", async () => {
+    let answer: Awaited<ReturnType<LyricsLookup>> = null;
+    const q = createLyricsQueue(async () => answer, { spacingMs: 0 });
+    const folder = await song("A", "Asked");
+    // The queue missed once: a week would normally pass before asking again.
+    q.want(folder);
+    await q.idle();
+    expect(sidecarOf(folder)).toContain("lyricsSearch");
+    const { id } = createSongbook({
+      folder,
+      artist: "A",
+      title: "Asked",
+      owner: "",
+    });
+    await patchSongbook(id, { chords: "G\nHello world\nC\nGoodbye moon" });
+    answer = {
+      kind: "synced",
+      text: "[00:10.00] Hello world\n[00:20.00] Goodbye moon",
+    };
+    await q.lookupNow(folder);
+    const read = await readSongbookAt(folder);
+    expect(read.lyrics).toContain("{{00:10.00}} Hello world");
+    expect(read.chords.split("\n")).toEqual([
+      "G",
+      "{{00:10.00}} Hello world",
+      "C",
+      "{{00:20.00}} Goodbye moon",
+    ]);
+    expect(read.facts.chordsMatch).toBe("matched");
   });
 });
 
