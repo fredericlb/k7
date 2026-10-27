@@ -102,7 +102,14 @@ export interface ScenePass {
   params: Record<string, number>; // uP1..uP4, each 0..1
   audio: number; // uAudio, 0..1 — replaced every frame by the host
   lut?: string; // a `.cube` file's URL, read as `uLut` — fetched and uploaded once (docs/luts.md)
+  /** The knobs at which this pass changes nothing: there it is skipped, yet kept, so a knob set live has a pass to move. */
+  identity?: Record<string, number>;
 }
+
+/** Is this pass, at its knobs as they are NOW, one that changes nothing — skipped per frame, see docs/passes.md. */
+export const isIdentityPass = (p: ScenePass): boolean =>
+  !!p.identity &&
+  Object.entries(p.identity).every(([k, v]) => (p.params[k] ?? 0) === v);
 
 // A layer in the draw stack: a VIDEO lane (a rect plus clips), a SHAPE lane, or a CAMERA — the
 // third discriminated by `camera` being present, since a live lane holds no clips and no shapes.

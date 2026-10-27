@@ -533,3 +533,36 @@ describe("a shot's own EFFECT", () => {
     expect(uniforms.get("uPresence")).toBeUndefined();
   });
 });
+
+describe("a lane's pass at its IDENTITY knobs", () => {
+  const strip = () => ({
+    id: "main:0",
+    name: "mix",
+    vertex: "// v",
+    fragment: "// f",
+    enabled: true,
+    params: { P1: 1, P2: 1, P3: 1, P4: 0 },
+    audio: 0,
+    identity: { P1: 1, P2: 1, P3: 1, P4: 0 },
+  });
+  const striped = () => {
+    const s = scene([clip()]);
+    return make({ ...s, layers: [{ ...s.layers[0], passes: [strip()] }] });
+  };
+  const drawn = (log: Log) => log.filter((l) => l.startsWith("uniform1f(uP1,"));
+
+  it("is skipped while the knobs say it changes nothing", () => {
+    const { comp, log } = striped();
+    comp.upload("main", {} as TexImageSource, 0);
+    comp.draw(new Set(["main"]));
+    expect(drawn(log)).toEqual([]);
+  });
+
+  it("is drawn the frame a knob set live moves it off them", () => {
+    const { comp, log } = striped();
+    comp.upload("main", {} as TexImageSource, 0);
+    expect(comp.setParam("mix", "P1", 0.5)).toBe(true);
+    comp.draw(new Set(["main"]));
+    expect(drawn(log)).toEqual(["uniform1f(uP1,0.5)"]);
+  });
+});

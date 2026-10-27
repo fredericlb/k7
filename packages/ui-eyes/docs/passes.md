@@ -117,6 +117,13 @@ All passes share the single vertex buffer the compositor already set up. Without
 shader declaring its attributes in another order reads the quad from whatever location the linker
 chose — so draws nothing, on some machines only.
 
+## A pass at its identity knobs is skipped, not removed
+
+A pass may declare `identity`, the knobs at which it changes nothing. There, `runPasses` skips it,
+and a layer with no other pass keeps the direct path, asked per frame. It stays in the scene: a
+knob set live (`setParam`) needs a pass to move, and a scene without it would wait for the next
+`setScene`. What it costs is the scratch pair, allocated once for the viewport.
+
 ## `setLive` is separate from `setScene`
 
 `uAudio` moves at the engine's meter rate (~20 Hz), `uTime` at the transport's, and a scene is
