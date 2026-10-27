@@ -115,3 +115,9 @@ stored envelope (`packages/ui-rehearsal/docs/recordings.md`). The model is three
 argument with English defaults, and the host fills it from its own messages
 (`packages/ui-rehearsal/src/recorderLabels.ts`). One catalogue per app, not one per package, is what
 keeps a translator in a single file.
+
+## The click is shared
+
+`useMetronome` is exported alone as `@studio/recorder/metronome`, for a page that wants the click
+and none of the recorder: the médiathèque's song page clicks at a song's tempo with it
+(`packages/ui-library/docs/songPlayer.md`). The package root imports the stylesheets, the subpath none.

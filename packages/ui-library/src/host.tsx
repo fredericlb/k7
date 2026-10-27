@@ -19,13 +19,21 @@ export interface LibraryHost {
 
 /** One of a song's attachments, as the song screen hands it to the host to draw. */
 export interface SongAttachmentView {
-  /** `chords` is lyrics with chords, typed by hand and kept apart from the lyrics for now. */
-  kind: "lyrics" | "chords" | "tablature" | "sheet";
+  /** `chords` is lyrics with chords, typed by hand; `diagrams` draws the fingering of each of `chords`. */
+  kind: "lyrics" | "chords" | "tablature" | "sheet" | "diagrams";
   text: string;
   sheets: { id: string; name: string; mime: string }[];
   sheetUrl: (id: string) => string;
   /** Remove one sheet; absent, the sheets are drawn read-only. */
   onDeleteSheet?: (id: string) => Promise<void>;
+  /** Semitones the chords are shown shifted by — the lyrics', the chords' and a score's. */
+  transpose?: number;
+  /** The timed line being sung, by line index of `text`, highlighted and kept in view. */
+  activeLine?: number | null;
+  /** A timed line tapped, with its time in seconds; absent, timed lines are not controls. */
+  onLineClick?: (seconds: number) => void;
+  /** For `diagrams`: the chord symbols to draw, already transposed. */
+  chords?: string[];
 }
 
 /** What a host's engine selector decided — ../docs/playbackTarget.md, "The third: the moteur". */

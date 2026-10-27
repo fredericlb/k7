@@ -1,29 +1,33 @@
-# Opening a song — the split screen
+# Opening a song — one column of tabs
 
-A song opens like a module and like a chain: the tree stays on the left, and the rest of the width
-splits in two.
+A song opens beside the tree as one column: a header, then tabs.
 
 ```
-┌────────┬─────────────────────┬─────────────────────┐
-│ tree   │ the master's tags   │ transport           │
-│        │ (SongTagsForm)      │ Original · inst · … │
-│        │                     │ waveform            │
-│        │                     ├─────────────────────┤
-│        │                     │ variants (if the    │
-│        │                     │ sidecar declares    │
-│        │                     │ any)                │
-└────────┴─────────────────────┴─────────────────────┘
+┌────────┬──────────────────────────────────────────────┐
+│ tree   │ ← Back  ▶ 1:02   Song · title          ⋮    │
+│        │ Waveform · Info · Lyrics · Chords · …        │
+│        │ Original · instrumental · …   (versions)     │
+│        │ waveform                                     │
+│        │ variants (if the sidecar declares any)       │
+└────────┴──────────────────────────────────────────────┘
 ```
 
-That is `ChainEditor`'s shape — what describes the thing on the left, the thing on the right — and
-deliberately so: the two families ask the same question, and a third layout would only add one more
-thing to learn.
+**One column, and the waveform is a tab.** Two halves made a phone stack them, each half too short to
+read lyrics in; with the waveform a tab like the rest, every screen draws one thing at its full
+height. What kept the two side by side — correcting a song while hearing it — survives without them:
+the play button is in the HEADER, above every tab, so the song plays on whatever tab is open, and the
+lyrics follow it on theirs. The page opens on the waveform.
+
+**The header holds what belongs to the whole song**: Back, the play button and its clock, the title,
+and at the far right a ⋮ (`src/SongMenu.tsx`) holding, in this order, the date the song was added,
+a metronome, the transposition, and the buttons that add lyrics, chords, a tab or a sheet. It is a
+popover, not a menu: its controls are used in place, and a menu closes on the first press. The
+metronome's click and the sheet picker live outside the popover, so closing it stops neither.
 
 ## A song's attachments are tabs beside its tags
 
 A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
-each beside **Info**, its tags (`src/SongInfoTabs.tsx`); a song with none shows its tags alone, a
-tab bar for one tab being noise. The listing already says which it carries (`meta.lyrics`,
+each after **Waveform** and **Info**, its tags (`src/SongInfoTabs.tsx`). The listing already says which it carries (`meta.lyrics`,
 `meta.chords`, `meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
 `GET /api/mediatek/songbook/:id` behind them, again whenever the folder changes.
 
@@ -34,17 +38,48 @@ rule. The songbook's renderer and its stylesheet are `@studio/ui-rehearsal`'s
 (`songAttachment`, [host.md](host.md)), and k7 loads it lazily the first time a song with
 attachments is opened. A host that passes nothing gets the tags alone.
 
-The lyrics are read-only here: they are the songbook's and the lyrics finder's, and show their
-timecodes as the songbook does, without following the player — the line being sung is the
-songbook's.
+## The lyrics and the chords follow the track
 
-## Add chords, a tab, a sheet
+While THIS song plays — any of its versions, since a variant is the same song sung at the same
+times — the timed line being sung is highlighted and kept in view, and a tapped timed line plays the
+song from there, starting the open version when another song is playing. The texts carry their times
+as `{{MM:SS.cc}}` codes (`packages/lyrics/docs/timecodes.md`); the line is `lineAt` over them, the
+songbook's own rule, computed in `src/FollowedText.tsx` — the one component reading the position,
+which redraws the host's text only when the line changes, not on every frame. A tapped line starts
+early by the songbook's lead, the reader's own setting (`packages/ui-rehearsal/docs/lyricsTiming.md`).
 
-Three buttons over the tabs add what the songbook's song page adds, the same way: **chords** and a
-**tab** are typed by hand in a text box with Save and Cancel (`src/SongTextEditor.tsx`), then shown
+## Transposing is for what is read
+
+The ⋮'s transposition moves the chords of the lyrics and the chords tabs, the chords the diagrams
+draw, and where a score's own transposition starts; the score's toolbar still moves it from there.
+**The audio keeps its pitch**: the médiathèque plays through the browser, the host's player or a
+machine's engine, and a pitch shift would be one per destination — the songbook's shifts its own
+`<audio>` element only. Another song opens untransposed.
+
+## The chord diagrams
+
+A **Diagrams** tab draws the fingering of every chord the song uses, as transposed, each once: the
+chords' text first, then the chords written inline in the lyrics, since either may be all a song
+has (`songChords`, `src/songExtras.ts`). It follows the chords tab, or the lyrics tab when the chords
+are only inline, and is absent for a song with no chord at all. The drawing is the songbook's
+(`ChordDiagram`), reached through the host like the rest, as the `diagrams` kind.
+
+## The metronome and the date
+
+The metronome clicks at the tempo the master's tags carry (`meta.bpm`), changed in place with − and
++ or typed; a song tagged with none starts at 120 and says so. It is the recorder's own click
+(`@studio/recorder/metronome`), and another song stops it.
+
+The date is the songbook's (`facts.createdAt`) when the song is one; otherwise the newest file time
+of the song's folder, which the listing carries (`entry.mtime`), with a line saying that is what it is.
+
+## Add lyrics, chords, a tab, a sheet
+
+The ⋮'s last four entries add what the songbook's song page adds, the same way: **lyrics**,
+**chords** and a **tab** are typed by hand in a text box with Save and Cancel (`src/SongTextEditor.tsx`), then shown
 as drawn with an Edit over them; a **sheet** is a file picked — a PDF, an image or a score, the
 songbook's own rule (`@studio/rehearsal-shared/sheetKind`) — sent one after another and removable
-from its tab. Chords and tab are offered while the song lacks them, a sheet always.
+from its tab. Lyrics, chords and tab are offered while the song lacks them, a sheet always.
 
 **Chords are their own text**, `chords.txt`, apart from the lyrics: the LYRICS are what was found on
 LRCLIB or typed here, the CHORDS what a person wrote, and two files keep either from overwriting the
@@ -60,10 +95,10 @@ songbook id, which a song uploaded or downloaded does not have: the first chords
 asks `POST /api/mediatek/songbook {folder}` to ADOPT the song's own folder, rather than making a
 second song beside it (mediatek's [songbook.md](../../mediatek/docs/songbook.md)).
 
-## The left half is the master's tags, read-only until Edit
+## The Info tab is the master's tags, read-only until Edit
 
 Title, artist, album, tempo and key are the master's own tags (`packages/mediatek/docs/songs.md`),
-so the left half shows those fields — and the track number — through `GET`/`PUT /api/mediatek/tags` and no file at all.
+so the Info tab shows those fields — and the track number — through `GET`/`PUT /api/mediatek/tags` and no file at all.
 
 **Read-only by default, with an Edit button.** Opening a song is to look at it and play it; an
 input under the cursor turns a stray keystroke into a write into the audio file itself. Edit swaps
@@ -172,15 +207,20 @@ when a browser three hops away says the analysis failed.
 ## The transport is ours, but it is not here
 
 No `controls`: the waveform **is** the scrub bar, and two scrub bars contradict each other the
-moment one is dragged. The header's button and clock stay this panel's only controls.
+moment one is dragged. The page header's button and clock are the only other controls.
 
-What they drive, though, does not belong to it. `playback.toggle()` and `playback.seek()` when the
+Which version is open, and where its cursor rests, is the PAGE's (`src/useSongTransport.ts`): the
+header's button, this tab and the followed lyrics read it, so the three agree on one version. The
+button speaks for the song: while any version of it sounds, it pauses that one rather than
+replacing it with the open tab's.
+
+What they drive, though, does not belong to the page. `playback.toggle()` and `playback.seek()` when the
 open version is the one playing; `playback.start()` otherwise, the only way to load one. The
 `<audio>` element, the `requestAnimationFrame` loop tracking the playhead — `timeupdate` fires four
 times a second and reads as a stutter — and the sharing between the two destinations live in
 `PlaybackProvider`: see [miniPlayer.md](miniPlayer.md).
 
-This panel keeps what only it knows: where the cursor is **before** this version is the one playing.
+The page keeps what only it knows: where the cursor is **before** this version is the one playing.
 You click in a stopped song's waveform, then press play, and it starts there — `cursor` is that
 point, and it is passed to `start`.
 
@@ -194,7 +234,7 @@ screen whose tab strip may point at something else entirely.
 
 ## One tab per version
 
-Under the transport, a tab strip: **Original**, then each variant the sidecar declares, in the
+At the top of the Waveform tab, a strip: **Original**, then each variant the sidecar declares, in the
 sidecar's order. The open tab decides *everything* below it — the file played, the waveform drawn,
 the analysis requested, the path sent to the engine — because it is one question asked one way:
 what does this version sound like.
@@ -223,9 +263,9 @@ Two consequences worth stating:
 
 A song with no variant has no strip at all: a single tab is a control that does nothing.
 
-## The variants are under the player
+## The variants are under the waveform
 
-In the same half of the screen, not in a column of their own: the master and its other versions are
+In the same tab, not in one of their own: the master and its other versions are
 one question, and a column that only showed when *nothing* is open would be unreachable, since
 clicking a song opens something.
 
@@ -238,5 +278,5 @@ clicking a song opens something.
 
 A folder found on disk with no `song.yaml` is listed anyway — `catalogued: false`, a song nobody
 filed — and its form edits its master like any other: the tags need no sidecar. A folder holding a
-sidecar and no audio has nothing to tag, and the left half says so instead of offering a form that
+sidecar and no audio has nothing to tag, and the Info tab says so instead of offering a form that
 could not save.
