@@ -33,6 +33,9 @@ export interface LibraryLabels {
     delete: (name: string) => string;
     deleteFolder: (name: string) => string;
     deleteFolderConfirm: (name: string) => string;
+    /** A song's removal, offered to an admin only; its confirmation names the song. */
+    deleteSong: (name: string) => string;
+    deleteSongConfirm: (name: string) => string;
     deleteSubmit: string;
     uploadFolder: string;
     newFolder: string;

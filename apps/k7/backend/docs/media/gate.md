@@ -53,7 +53,7 @@ reshapes it answers 403 unless the caller is an admin (`AUTH_ADMIN_GROUPS`, `../
 
 | route | why it is gated |
 |---|---|
-| `DELETE /folder` | a subtree — and a song is a folder, so removing ONE song is a subtree too |
+| `DELETE /folder` | a subtree — and a song is a folder, so removing ONE song is a subtree too: its master, variants, texts and sheets |
 | `DELETE /file`, `DELETE /variant` | one file, and nothing on disk says which account filed it, so there is no owner to let through |
 | `POST /move` of a folder, or onto a file that exists | a folder move empties every path under it; a move onto a file replaces it |
 
@@ -69,5 +69,6 @@ loopback only, and holds that machine's own library, so whoever reaches it may m
 local user is never an admin ([../standalone.md](../standalone.md)).
 
 `GET /api/mediatek` answers `manage` with the same decision, and the médiathèque hides the
-removals, the folder renames and the folder drags when it is false
+removals, the folder renames and the folder drags when it is false, and asks before deleting a song
+or a folder
 (`packages/ui-library/docs/library.md`). The rule is `../../src/media/libraryGate.ts`.

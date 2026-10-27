@@ -111,12 +111,14 @@ takes a whole grouping away — and each `when` accepts a row only for the kind 
 shared tree opens no menu at all when nothing passes, which is how the capture zone gets no menu
 at all.
 
-**Deleting an artist or an album asks first**, the tree's `confirm` gate — yes/no, nothing typed —
-and every other delete in this screen does not. The difference is blast radius: a song's own
-delete takes one song, a variant's takes one file, but an artist or an album can hold many songs —
-and there is no trash here, so a wrong click has no path back. `confirm` rather than `prompt`
-because there is no name to echo back as the answer: the row IS the thing being confirmed, not a
-value to type again.
+**Deleting a song, an artist or an album asks first**, the tree's `confirm` gate — yes/no, nothing
+typed — and every other delete in this screen does not. The difference is what goes and that it
+cannot come back: a song's delete takes its whole folder — master, variants, lyrics, chords, sheets
+— and an artist or an album can hold many songs, while a variant's takes one file. There is no
+trash here, so a wrong click has no path back. The song's confirmation names it by its listed
+title, the folder's name only when it has none. `confirm` rather than `prompt` because there is no
+name to echo back as the answer: the row IS the thing being confirmed, not a value to type again.
+The tree's own gate rather than a dialog of this screen's, so the three deletes ask the same way.
 
 **Every removal, and every folder rename or drag, is an admin's**, because the library is one
 folder every account shares (`apps/k7/backend/docs/media/gate.md`). The service says so as `manage`
@@ -136,8 +138,8 @@ though a leaf in the tree, so `remove` would leave the folder — and with it a 
 finds.
 
 Drops are `onDropTree` rather than `onDropFiles` because a folder has to arrive AS a folder, which
-`dataTransfer.files` cannot carry. In `songs/` a drop is a variant and only onto the morceau
-itself; the rows above it are an artist and an album, which hold nothing. The shared tree decides
+`dataTransfer.files` cannot carry. In `songs/` a drop lands only onto the morceau itself — as its
+MASTER when it has none, as a variant otherwise (see Filing a dropped track below); the rows above it are an artist and an album, which hold nothing. The shared tree decides
 whether a row is a target from the prop alone and has no per-row test, so those rows do highlight —
 hence the message saying why nothing landed, rather than a swallowed drop.
 
@@ -223,6 +225,17 @@ The NAMES come first and decide the folder, whichever way the audio comes, so th
 same place. It adds one song at a time: a batch would be a different screen, deciding per song.
 Once added, the song's page opens — its address at once, its screen as soon as the listing has it —
 since what comes next for a new song is its chords, tab or sheet ([songPlayer.md](songPlayer.md)).
+
+## Filing a dropped track
+
+A song made without audio — the songbook's, or Add a song with no file — has no master, and a
+version of nothing is not a version. So the first audio file dropped on it becomes its master, and
+only the rest become variants (`../src/songMaster.ts`). It lands through the songbook's own write,
+`POST /api/mediatek/songbook/:id/master`, rather than an upload by tags: that one tags the master
+with the names the sidecar held, drops them from the sidecar, and queues the lyrics lookup — the
+same song, the same folder, whichever screen gave it its track. The write names the song by its
+uuid, so a masterless folder that has none (one made by hand) is adopted first,
+which writes one. The variant picker in the menu stays a variant picker: it says so in its label.
 
 ## Filing variants
 

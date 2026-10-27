@@ -505,6 +505,22 @@ export const library = {
     return json(res, "songbook");
   },
 
+  /** One audio file made the MASTER of a songbook song's folder, tagged with its names; no time budget, as for every upload. */
+  setSongbookMaster: async (id: string, file: File): Promise<SongbookSong> => {
+    const q = new URLSearchParams({ filename: file.name });
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}/master?${q}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: file,
+      },
+      null,
+    );
+    if (!res.ok) throw await failed(res, `${file.name}:`);
+    return json(res, "songbook");
+  },
+
   /** One of a songbook song's texts written; an empty one is removed — mediatek's docs/songbook.md. */
   patchSongbook: async (
     id: string,
