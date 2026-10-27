@@ -1,21 +1,24 @@
 # Recording through the account's rehearsal chain
 
-A session's audio comes from one of two places, and the recorder asks about neither: the account's
-**rehearsal chain** when k7 names one, else this device's microphone. The rehearsal chain is one of
-the account's frozen chains, chosen on k7's Frozen chains page (`apps/k7/frontend/docs/frozenChains.md`)
-and kept as the file service's `rehearsalChain` setting (`GET /account/rehearsal-chain`). The take is
-an ordinary session — same waveform, same highlights, same upload — because what reaches the
-recorder is a `MediaStream` like the microphone's.
+A session's audio comes from one of two places, picked in the **New session** button's menu
+(`NewSessionButton.tsx`): **Local device**, this device's microphone, or **K7 chain**, the account's
+**rehearsal chain**. The rehearsal chain is one of the account's frozen chains, chosen on k7's
+Frozen chains page (`apps/k7/frontend/docs/frozenChains.md`) and kept as the file service's
+`rehearsalChain` setting (`GET /account/rehearsal-chain`). The take is an ordinary session — same
+waveform, same highlights, same upload — because what reaches the recorder is a `MediaStream` like
+the microphone's.
 
-## Chosen once, on the Frozen chains page
+## Which chain is chosen once, on the Frozen chains page
 
 Which chain a band records through is a standing answer, like which interface it plays on, so it is
-asked where chains are built and not before each take. The recorder therefore draws no list, no
-preview and no "another chain": a session starts on the click, and the start dialog
-(`SessionStartDialog.tsx`) only says what it is opening, and why it failed, with a retry. Only a
-chain the bench can play live may be chosen (a **cold** step needs the whole file first), and
-deleting the chain lets go of the setting, so a rehearsal falls back on the microphone rather than on
-a chain that is gone.
+asked where chains are built and not before each take; whether this take goes through it or not is
+the one question the menu asks. The recorder therefore draws no list, no preview and no "another
+chain": the menu's **K7 chain** names the rehearsal chain, and is disabled, saying where to choose
+one, while there is none. The start dialog (`SessionStartDialog.tsx`) only says what it is opening,
+and why it failed, with a retry. The menu asks the file service again at each opening, the chain
+being chosen on another page, maybe in another tab, and loads the chain source on demand, since it
+carries the engine client the sidebar must not. Only a chain the bench can play live may be chosen
+(a **cold** step needs the whole file first), and deleting the chain lets go of the setting.
 
 ## The bench plays it, the rehearsal page records it
 
@@ -92,9 +95,11 @@ takes. The engine has no feature of its own for this.
 
 None of this is covered past `chainSource.test.ts` and `packages/file-service/src/frozenChains.test.ts`.
 
-- no rehearsal chain → New session opens the microphone at once, with no question asked;
-- a rehearsal chain chosen on the Frozen chains page → New session says it is opening it, then the
-  recorder draws the usual live waveform from the chain's output, with no frame and no list;
+- New session → a menu of **Local device** and **K7 chain**; with no rehearsal chain, K7 chain is
+  disabled and says where to choose one; Local device opens the microphone;
+- a rehearsal chain chosen on the Frozen chains page → K7 chain names it, and picking it says it is
+  opening it, then the recorder draws the usual live waveform from the chain's output, with no
+  frame and no list;
 - a chain whose input names no channel → only the input dialog appears, and the take starts once one
   is picked;
 - with a song open in another k7 tab → it stays open and loaded, and the bench opens on its engine;

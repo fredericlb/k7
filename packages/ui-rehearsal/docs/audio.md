@@ -45,8 +45,9 @@ relative to the new take.
 
 ## Two sources, one recorder
 
-The account's rehearsal chain played on k7's bench when k7 names one, else this device's microphone
-([chainSource.md](chainSource.md)) — chosen on k7's Frozen chains page, never asked here. Each
+This device's microphone, or the account's rehearsal chain played on k7's bench
+([chainSource.md](chainSource.md)), picked in the New session button's menu; which chain that is
+is chosen on k7's Frozen chains page, never here. Each
 reaches the recorder as a `MediaStream`, so the waveform, the moments and the upload are the same
 whatever the source.
 

@@ -33,10 +33,10 @@ chain of that name (`resolveChain`), so a frozen chain does not silently replace
 
 ## One chain records the rehearsals
 
-The microphone button on one of the account's chains makes it the **rehearsal chain**: every
-rehearsal session is then recorded through it, and the recorder asks nothing and shows no chain
-(`packages/ui-rehearsal/docs/chainSource.md`). Pressed again, rehearsals record from the device's
-microphone. It is chosen here because it is a standing answer, decided where the chain is built and
+The microphone button on one of the account's chains makes it the **rehearsal chain**: the
+rehearsal recorder's **K7 chain** source records through it, beside **Local device**, and the
+recorder shows no list of chains and no preview (`packages/ui-rehearsal/docs/chainSource.md`).
+Pressed again, K7 chain is disabled until another is chosen. It is chosen here because it is a standing answer, decided where the chain is built and
 heard, not before each take. It is kept as the file service's `rehearsalChain` setting
 (`PUT /account/rehearsal-chain`); only a chain that can play live is accepted, and deleting the
 chain clears it.

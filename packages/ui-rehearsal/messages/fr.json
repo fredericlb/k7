@@ -423,5 +423,10 @@
   "source.openingChain": "Ouverture de {ref} sur le banc de k7…",
   "source.retry": "Réessayer",
   "chain.inputTitle": "Entrée de {ref}",
-  "chain.inputBody": "La chaîne ne nomme aucun canal d'entrée. Choisissez ce qui l'alimente, et la prise démarre."
+  "chain.inputBody": "La chaîne ne nomme aucun canal d'entrée. Choisissez ce qui l'alimente, et la prise démarre.",
+  "source.local": "Appareil local",
+  "source.chain": "Chaîne K7",
+  "source.chainReading": "Lecture de votre chaîne de répétition…",
+  "source.noChainShort": "Aucune choisie — voir Chaînes figées dans k7",
+  "source.noChain": "Aucune chaîne n'est choisie pour les répétitions : choisissez-en une sur la page Chaînes figées de k7."
 }

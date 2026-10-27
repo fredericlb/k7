@@ -18,12 +18,15 @@ export interface RecordingCtx {
   chain?: boolean;
 }
 
+/** Where a session's audio comes from: this device's microphone, or the account's rehearsal chain on k7's bench. */
+export type SessionSource = "local" | "chain";
+
 export interface RehearsalRecordingApi {
   recording: RecordingCtx | null;
   /** The take runs collapsed to the bottom bar. */
   minimized: boolean;
-  /** Opens the source chooser; throws when a take already runs, after bringing it back. */
-  start: () => Promise<void>;
+  /** Starts a session from `source`; throws when a take already runs, after bringing it back. */
+  start: (source: SessionSource) => Promise<void>;
   /** Appends to a saved take; throws, with a sentence to show, when it cannot. */
   resume: (session: Session) => Promise<void>;
   /** Bumped whenever this provider created, saved or dropped a session. */

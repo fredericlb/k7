@@ -1555,7 +1555,7 @@
   "frozen.rehearsalOff": "Ne plus enregistrer les répétitions à travers cette chaîne",
   "frozen.rehearsalBadge": "utilisée pour les répétitions",
   "frozen.rehearsalIs": "Les répétitions sont enregistrées à travers {ref}.",
-  "frozen.rehearsalNone": "Les répétitions sont enregistrées depuis le micro de l'appareil — le bouton micro d'une chaîne les enregistre à travers elle.",
+  "frozen.rehearsalNone": "Aucune chaîne n'est choisie pour les répétitions : le bouton micro de l'une de vos chaînes en fait la Chaîne K7 de l'enregistreur.",
   "bench.saveInto": "Enregistrer dans votre chaîne {name}",
   "bench.saveAs": "Enregistrer comme une de vos chaînes",
   "bench.saveBody": "Ce qui se trouve entre l'entrée et le fader devient @account/<nom>, avec quoi les projets traitent et à travers quoi l'enregistreur de répétitions enregistre."
