@@ -69,6 +69,7 @@ describe("fileKindFor", () => {
       "ports",
       "bus_only",
       "hidden",
+      "input",
       "steps",
       "subchains",
     ]);

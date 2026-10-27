@@ -57,13 +57,21 @@ function Row({
   onCopy: () => void;
   onDelete?: () => void;
 }) {
+  const input = chain.input
+    ? m["frozen.input"]({
+        channel: Array.isArray(chain.input.channel)
+          ? chain.input.channel.join("+")
+          : chain.input.channel,
+      })
+    : null;
   const summary = chain.unreadable
     ? chain.unreadable
-    : chain.steps
-        .map(
+    : [
+        ...(input ? [input] : []),
+        ...chain.steps.map(
           (s) => `${s.module.split("/").pop()}${s.bypass ? " (bypass)" : ""}`,
-        )
-        .join(" → ");
+        ),
+      ].join(" → ");
   // The bench plays it live, so a chain that cannot run live is edited nowhere: the reason says why.
   const editTitle = chain.liveRefusal
     ? m["frozen.notLive"]({ why: chain.liveRefusal })

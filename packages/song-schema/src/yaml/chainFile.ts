@@ -197,6 +197,7 @@ function chainData(chain: ChainFile): Record<string, unknown> {
   if (chain.ports?.length) top.ports = chain.ports;
   if (chain.bus_only) top.bus_only = true;
   if (chain.hidden) top.hidden = true;
+  if (chain.input) top.input = chain.input;
   top.steps = chain.steps;
   if (chain.subchains?.length)
     top.subchains = chain.subchains.map((sc) => ({

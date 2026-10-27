@@ -4,6 +4,7 @@
 // SUBCHAINS, steps under an id that only the parent and its other subchains link to. See docs/chainFiles.md.
 
 import { z } from "zod";
+import { InputSchema } from "./moduleSchema";
 
 /** The folder a chain project keeps its chains in, one file per chain — its presence IS the format. */
 export const CHAINS_DIR = "chains";
@@ -128,6 +129,8 @@ export const ChainFileSchema = z
     bus_only: z.boolean().optional(),
     // Set aside: compiled, drawn and played by nothing, and left as it is by every writer — docs/chainFiles.md.
     hidden: z.boolean().optional(),
+    // A frozen chain's input: the interface channel the bench's IN is set to when it opens on the chain — docs/chainFiles.md.
+    input: z.object({ channel: InputSchema }).strict().optional(),
     steps: z.array(StepSchema).default([]),
     subchains: z.array(SubchainSchema).optional(),
   })

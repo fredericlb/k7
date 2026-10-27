@@ -124,9 +124,26 @@ describe("frozen chains", () => {
     expect(accountFile("built-in")).toContain('name: "Compressor"');
   });
 
+  it("keeps IN's input channel, alone, and feeds IN from it when the bench opens on the chain again", async () => {
+    await ensureBench(EMAIL, BENCH_PROJECT);
+    // What the node card's channel select writes: `node param IN @channel 1,2`.
+    const inFile = join(benchDir(), "nodes", "IN.k7x");
+    wsWriteData(inFile, { ...wsData(inFile), channel: [1, 2] });
+    expect(saveBenchChain("mic")).toMatchObject({
+      ref: "@account/mic",
+      steps: [],
+      input: { channel: [1, 2] },
+      liveRefusal: null,
+    });
+    expect(accountFile("mic")).toContain("input(");
+    await ensureBench(EMAIL, benchProject("@account/mic"));
+    expect(wsData(inFile).channel).toEqual([1, 2]);
+    expect(graphOf()).toMatch(/IN: \["fader"\]/);
+  });
+
   it("refuses an empty bench, a branch, and a nameless save of a chain that is not the account's", async () => {
     await ensureBench(EMAIL, BENCH_PROJECT);
-    expect(() => saveBenchChain("empty")).toThrow(/holds no module yet/);
+    expect(() => saveBenchChain("empty")).toThrow(/nothing to keep yet/);
     // A module wired after the fader is named, so the refusal says what to move.
     wsWriteData(join(benchDir(), "nodes", "eq.k7x"), {
       extends: "@k7-core/audio/comp",

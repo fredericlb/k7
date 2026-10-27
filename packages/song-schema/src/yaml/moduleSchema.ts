@@ -9,7 +9,7 @@ import { MODULE_STATUSES, SHAPE_KINDS } from "../moduleTypes";
 import { PlacementSchema } from "./placementSchema";
 
 /** An interface input: a preferences label, or one/two physical channel numbers. */
-const InputSchema = z.union([
+export const InputSchema = z.union([
   z.string().min(1),
   z.tuple([z.number().int().positive()]),
   z.tuple([z.number().int().positive(), z.number().int().positive()]),
