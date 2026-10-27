@@ -10,6 +10,7 @@ songs/<artist>/<album>/<title>/
   original.flac        the master, its tags naming the song (docs/songs.md)
   lyrics.txt           the chord sheet, timecodes inline as {{MM:SS}}
   tabs.txt             the tablature
+  chords.txt           lyrics with chords, typed by hand, kept apart from lyrics.txt for now
   sheets/score.pdf     one file per sheet, in the order the sidecar lists them
   song.yaml            uuid, source, variants, and the songbook: section
 ```
@@ -56,9 +57,9 @@ write. A field cleared is removed, not left as an empty string.
 
 ## Listed by what it carries
 
-A song is in the songbook when it has `lyrics.txt`, `tabs.txt` or a sheet. A text emptied in the
+A song is in the songbook when it has `lyrics.txt`, `tabs.txt`, `chords.txt` or a sheet. A text emptied in the
 editor removes its file, so an emptied song leaves the list rather than showing a row with nothing
-behind it. The listing's entries say so (`meta.lyrics`, `meta.tabs`, `meta.sheets`, with
+behind it. The listing's entries say so (`meta.lyrics`, `meta.tabs`, `meta.chords`, `meta.sheets`, with
 `meta.owner`, `meta.origin`, `meta.createdAt`), so the songbook is one catalogue read.
 
 Lyrics looked up on LRCLIB for a song that has a master and none land the same way, so a library

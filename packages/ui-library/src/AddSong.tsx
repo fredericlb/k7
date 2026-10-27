@@ -45,9 +45,12 @@ interface HuntAvailability {
 
 export function AddSong({
   onDone,
+  onCreated,
   onOpenSettings,
 }: {
   onDone: () => void;
+  /** The song just added, by its folder (mediatek-relative): the screen opens its page. */
+  onCreated: (folder: string) => void;
   /** Where an unconfigured download is fixed: the instance's slskd settings. */
   onOpenSettings?: () => void;
 }) {
@@ -130,6 +133,7 @@ export function AddSong({
         .catch(() => {});
       onDone();
       setOpen(false);
+      onCreated(added.path);
     } catch (e) {
       if (ctl.signal.aborted) return;
       setStep(
@@ -168,9 +172,10 @@ export function AddSong({
     setError(null);
     void library
       .addSongWithoutAudio(names)
-      .then(() => {
+      .then((song) => {
         onDone();
         setOpen(false);
+        onCreated(song.path);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
@@ -365,7 +370,14 @@ export function AddSong({
             <HuntProgress
               first={step.first}
               youtube={availability?.youtube ?? false}
-              onFiled={onDone}
+              onFiled={(folder) => {
+                onDone();
+                // Filed while watched: its page, as for the other two ways.
+                if (folder) {
+                  setOpen(false);
+                  onCreated(folder);
+                }
+              }}
               onStatus={setHuntStatus}
             />
           )}

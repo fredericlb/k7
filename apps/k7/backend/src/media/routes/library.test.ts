@@ -280,6 +280,45 @@ describe("the songbook, kept in song folders", () => {
     expect(await file.text()).toBe("%PDF-1");
   });
 
+  it("adopts a library song's own folder, so its page can carry chords, a tab and sheets", async () => {
+    expect((await post(tags, "ID3")).status).toBe(200);
+    const path = "songs/Miles Davis/Kind of Blue/So What";
+    const adopted = (await (
+      await api("", json("POST", { artist: "x", title: "y", folder: path }))
+    ).json()) as Song & { chords: string };
+    expect(adopted.path).toBe(path);
+    const patched = (await (
+      await api(`/${adopted.id}`, json("PATCH", { chords: "[Dm]so what" }))
+    ).json()) as Song & { chords: string };
+    expect(patched.chords).toBe("[Dm]so what");
+  });
+
+  it("refuses a folder outside the songs, or one that is not there", async () => {
+    for (const folder of [
+      "songs/../samples/x",
+      "samples/x",
+      "songs/Nobody/Album/Nothing",
+    ])
+      expect(
+        (await api("", json("POST", { artist: "a", title: "t", folder })))
+          .status,
+      ).toBe(400);
+  });
+
+  it("takes a PDF, an image or a score as a sheet, and nothing else", async () => {
+    const { id } = (await (
+      await api("", json("POST", { artist: "A", title: "Sheets" }))
+    ).json()) as Song;
+    const sheet = (q: string) =>
+      api(`/${id}/sheets?${q}`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: "bytes",
+      });
+    expect((await sheet("name=notes.txt&mime=text/plain")).status).toBe(400);
+    expect((await sheet("name=score.musicxml&mime=text/xml")).status).toBe(200);
+  });
+
   it("answers 404 for an unknown song and 400 for a refused move", async () => {
     expect((await api("/nope")).status).toBe(404);
     const { id } = (await (

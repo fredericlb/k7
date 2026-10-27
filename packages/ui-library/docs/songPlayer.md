@@ -24,7 +24,7 @@ thing to learn.
 A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
 each beside **Info**, its tags (`src/SongInfoTabs.tsx`); a song with none shows its tags alone, a
 tab bar for one tab being noise. The listing already says which it carries (`meta.lyrics`,
-`meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
+`meta.chords`, `meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
 `GET /api/mediatek/songbook/:id` behind them, again whenever the folder changes.
 
 **They are drawn by the host, as the songbook draws them.** A song's lyrics in the médiathèque and
@@ -34,9 +34,26 @@ rule. The songbook's renderer and its stylesheet are `@studio/ui-rehearsal`'s
 (`songAttachment`, [host.md](host.md)), and k7 loads it lazily the first time a song with
 attachments is opened. A host that passes nothing gets the tags alone.
 
-Read-only here: lyrics, tablature and sheets are edited in the songbook. The lyrics show their
+The lyrics are read-only here: they are the songbook's and the lyrics finder's, and show their
 timecodes as the songbook does, without following the player — the line being sung is the
 songbook's.
+
+## Add chords, a tab, a sheet
+
+Three buttons over the tabs add what the songbook's song page adds, the same way: **chords** and a
+**tab** are typed by hand in a text box with Save and Cancel (`src/SongTextEditor.tsx`), then shown
+as drawn with an Edit over them; a **sheet** is a file picked — a PDF, an image or a score, the
+songbook's own rule (`@studio/rehearsal-shared/sheetKind`) — sent one after another and removable
+from its tab. Chords and tab are offered while the song lacks them, a sheet always.
+
+**Chords are their own text for now**, `chords.txt`, though the lyrics are a chord sheet too: chords
+typed by hand and lyrics found or timed are not yet one thing to edit, and two files keep either
+from overwriting the other. They are drawn by the same chord-sheet renderer.
+
+**A library song becomes a songbook song at its first one.** Texts and sheets live under a song's
+songbook id, which a song uploaded or downloaded does not have: the first chords, tab or sheet
+asks `POST /api/mediatek/songbook {folder}` to ADOPT the song's own folder, rather than making a
+second song beside it (mediatek's [songbook.md](../../mediatek/docs/songbook.md)).
 
 ## The left half is the master's tags, read-only until Edit
 

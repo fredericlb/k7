@@ -55,8 +55,8 @@ export function HuntProgress({
   first: HuntRecord;
   /** Is yt-dlp there? If not, the fallback is greyed out and says why rather than failing on click. */
   youtube: boolean;
-  /** Called once, when the song is filed, so the catalogue behind reloads. */
-  onFiled: () => void;
+  /** Called once, when the song is filed, with its folder — so the screen behind can open it. */
+  onFiled: (folder: string) => void;
   /** Every state it reaches, so the popin offers Stop while it runs and another way once it failed. */
   onStatus: (status: HuntRecord["status"]) => void;
 }) {
@@ -80,7 +80,8 @@ export function HuntProgress({
           setH(row);
           if (row.status === "done" && !told.current) {
             told.current = true;
-            onFiled();
+            // An "already filed" row names the master, not its folder (apps/k7/backend/docs/media/hunt.md).
+            onFiled((row.path ?? "").replace(/\/original\.[^/]+$/, ""));
           }
         })
         .catch((e: Error) => !stop && setError(e.message));

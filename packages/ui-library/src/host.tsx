@@ -19,10 +19,13 @@ export interface LibraryHost {
 
 /** One of a song's attachments, as the song screen hands it to the host to draw. */
 export interface SongAttachmentView {
-  kind: "lyrics" | "tablature" | "sheet";
+  /** `chords` is lyrics with chords, typed by hand and kept apart from the lyrics for now. */
+  kind: "lyrics" | "chords" | "tablature" | "sheet";
   text: string;
   sheets: { id: string; name: string; mime: string }[];
   sheetUrl: (id: string) => string;
+  /** Remove one sheet; absent, the sheets are drawn read-only. */
+  onDeleteSheet?: (id: string) => Promise<void>;
 }
 
 /** What a host's engine selector decided — ../docs/playbackTarget.md, "The third: the moteur". */

@@ -129,6 +129,21 @@ describe("texts, sheets and bookkeeping", () => {
     expect(sidecar(path)).not.toContain("huntId");
   });
 
+  it("keeps the CHORDS in a text of their own, apart from the lyrics, and an emptied one leaves", async () => {
+    const { id, path } = createSongbook({ artist: "A", title: "T", owner: "" });
+    const song = await patchSongbook(id, {
+      lyrics: "words only",
+      chords: "[G]words [C]and chords",
+    });
+    expect(song.chords).toBe("[G]words [C]and chords");
+    expect(song.lyrics).toBe("words only");
+    expect(readFileSync(at(`${path}/chords.txt`), "utf8")).toBe(
+      "[G]words [C]and chords",
+    );
+    await patchSongbook(id, { chords: "" });
+    expect(existsSync(at(`${path}/chords.txt`))).toBe(false);
+  });
+
   it("keeps sheets in order, under their own names, and removes one with its file", async () => {
     const { id, path } = createSongbook({ artist: "A", title: "T", owner: "" });
     await addSongbookSheet(id, {

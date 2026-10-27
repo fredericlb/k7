@@ -13,6 +13,7 @@ import { writablePath } from "./layout.ts";
 import { masterName, segment, songFolder } from "./song.ts";
 import { readMasterTags, writeMasterTags } from "./tags.ts";
 import {
+  CHORDS_FILE,
   LYRICS_FILE,
   type MediatekEntry,
   SHEETS_DIR,
@@ -158,16 +159,17 @@ export async function readSongbookAt(rel: string): Promise<SongbookSong> {
     ...names,
     lyrics: readText(rel, LYRICS_FILE),
     tablature: readText(rel, TABS_FILE),
+    chords: readText(rel, CHORDS_FILE),
     facts: factsOf(data),
   };
 }
 
-/** A listing entry as a songbook row, when it is one: an id, and lyrics, a tablature or a sheet. */
+/** A listing entry as a songbook row, when it is one: an id, and lyrics, a tablature, chords or a sheet. */
 export function songbookEntryOf(e: MediatekEntry): SongbookEntry | null {
   const m = e.meta ?? {};
   const id = typeof m.uuid === "string" ? m.uuid : "";
   const sheets = typeof m.sheets === "number" ? m.sheets : 0;
-  if (!id || !(m.lyrics || m.tabs || sheets)) return null;
+  if (!id || !(m.lyrics || m.tabs || m.chords || sheets)) return null;
   return {
     id,
     path: e.path,
@@ -175,6 +177,7 @@ export function songbookEntryOf(e: MediatekEntry): SongbookEntry | null {
     title: e.name,
     hasLyrics: m.lyrics === true,
     hasTablature: m.tabs === true,
+    hasChords: m.chords === true,
     sheetCount: sheets,
     owner: typeof m.owner === "string" ? m.owner : "",
     origin: typeof m.origin === "string" ? m.origin : "",
@@ -238,6 +241,7 @@ export interface SongbookPatch {
   title?: string;
   lyrics?: string;
   tablature?: string;
+  chords?: string;
   lyricsMatch?: string;
   fetchIgnored?: boolean;
   fetch?: Partial<SongbookFacts["fetch"]>;
@@ -253,6 +257,7 @@ export async function patchSongbook(
   const rel = await folderOrRefuse(id);
   if (patch.lyrics !== undefined) writeText(rel, LYRICS_FILE, patch.lyrics);
   if (patch.tablature !== undefined) writeText(rel, TABS_FILE, patch.tablature);
+  if (patch.chords !== undefined) writeText(rel, CHORDS_FILE, patch.chords);
   const master = existingMaster(writablePath(rel));
   if (master && (patch.artist !== undefined || patch.title !== undefined))
     await writeMasterTags(writablePath(`${rel}/${master}`), {
@@ -370,7 +375,7 @@ export function setFactsAt(rel: string, facts: Partial<SongbookFacts>): void {
 /** The songbook's files of a folder, as folder-relative paths — what a move carries. */
 function attachmentsOf(rel: string, facts: SongbookFacts): string[] {
   const out: string[] = [];
-  for (const f of [LYRICS_FILE, TABS_FILE])
+  for (const f of [LYRICS_FILE, TABS_FILE, CHORDS_FILE])
     if (existsSync(writablePath(`${rel}/${f}`))) out.push(f);
   for (const s of facts.sheets)
     if (existsSync(writablePath(`${rel}/${s.file}`))) out.push(s.file);
