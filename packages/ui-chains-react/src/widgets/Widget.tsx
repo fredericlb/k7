@@ -228,7 +228,9 @@ function WidgetInner({
           : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
             ch.rehearsal ||
             (tgt.kind === "offline"
-              ? ch.offlineWritable
+              ? tgt.shader
+                ? ch.shaderWritable
+                : ch.offlineWritable
               : tgt.kind === "track"
                 ? ch.trackWritable
                 : ch.pluginWritable));

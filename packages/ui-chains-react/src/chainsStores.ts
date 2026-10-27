@@ -98,6 +98,8 @@ export interface Channels {
   offlineChannel: boolean;
   // …and can it TAKE one back? Showing without taking is legitimate — docs/hosting.md.
   offlineWritable: boolean;
+  // …and a SHADER's knob, which no surface lends: the host writes it to the node itself (docs/hosting.md).
+  shaderWritable: boolean;
   // The same question for the other two channels, asked separately since they answer separately.
   pluginWritable: boolean;
   trackWritable: boolean;

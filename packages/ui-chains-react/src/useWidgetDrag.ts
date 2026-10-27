@@ -47,6 +47,7 @@ export function useWidgetDrag({
   midiActivity,
   moduleParams,
   onModuleParam,
+  onShaderParam,
   onProjectField,
   onRecorder,
   onTrackSet,
@@ -67,6 +68,7 @@ export function useWidgetDrag({
   midiActivity: DomChainsProps["midiActivity"];
   moduleParams: DomChainsProps["moduleParams"];
   onModuleParam: DomChainsProps["onModuleParam"];
+  onShaderParam: DomChainsProps["onShaderParam"];
   onProjectField: DomChainsProps["onProjectField"];
   onRecorder: DomChainsProps["onRecorder"];
   onTrackSet: DomChainsProps["onTrackSet"];
@@ -113,6 +115,8 @@ export function useWidgetDrag({
   const sendLive = useCallback((t: WidgetTarget, value: number) => {
     if (t.kind === "plugin")
       cb.current.setPluginParam?.(t.pluginId, t.name, value);
+    else if (t.kind === "offline" && t.shader)
+      cb.current.onShaderParam?.(t.module, t.name, value);
     else if (t.kind === "offline")
       cb.current.onModuleParam?.(t.module, t.name, value);
   }, []);
@@ -148,7 +152,7 @@ export function useWidgetDrag({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the inputs are refs and setters DomChains hands in, stable for its lifetime.
   useEffect(() => {
     setOverride((o) => dropChannel(o, "o:", drag.current?.key));
-  }, [moduleParams, setOverride]);
+  }, [moduleParams, graph, setOverride]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the inputs are refs and setters DomChains hands in, stable for its lifetime.
   useEffect(() => {
     setOverride((o) => dropChannel(o, "t:", drag.current?.key));
@@ -161,6 +165,7 @@ export function useWidgetDrag({
   // Either one: a host that wired the toggles or the two continuous controls meant it.
   const trackWritable = onTrackSet !== undefined || onTrackToggle !== undefined;
   const offlineWritable = onModuleParam !== undefined;
+  const shaderWritable = onShaderParam !== undefined;
   const rackTriggerable = onTriggerRack !== undefined;
   const recorderWired = onRecorder !== undefined;
   const projectWritable = onProjectField !== undefined;
@@ -176,6 +181,7 @@ export function useWidgetDrag({
       pluginWritable,
       trackWritable,
       offlineWritable,
+      shaderWritable,
       rackTriggerable,
       recorderWired,
       projectWritable,
@@ -193,6 +199,7 @@ export function useWidgetDrag({
       pluginWritable,
       trackWritable,
       offlineWritable,
+      shaderWritable,
       rackTriggerable,
       recorderWired,
       projectWritable,

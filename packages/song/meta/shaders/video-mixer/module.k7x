@@ -1,0 +1,11 @@
+// video-mixer — a picture lane's STRIP: its red, green and blue, and how transparent it is, last in
+// the lane's own run. Shipped with k7, as the audio strip is (packages/song/docs/videoMixer.md).
+// NEUTRAL as made: each channel whole and the lane opaque, so the compositor skips it until a knob moves.
+type("shader")
+shader("video-mixer")
+params({
+  P1: 1, // red: 0 none of it, 1 as shot
+  P2: 1, // green
+  P3: 1, // blue
+  P4: 0, // transparency: 0 opaque, 1 gone
+})

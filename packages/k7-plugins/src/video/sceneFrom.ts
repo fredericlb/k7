@@ -3,6 +3,7 @@
 // export does; scene.ts is the browser's door to it, with the file service's /media as its URLs.
 // See packages/file-service/docs/serverRender.md.
 
+import { PICTURE_STRIP_SHADER } from "@studio/song-schema/moduleTypes";
 import {
   buildScene,
   type ScenePass,
@@ -11,12 +12,20 @@ import {
 import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
 import { laneHidden, lensOpen } from "./pictureMix";
 
+/** A lane's strip left as made: dropped, so a lane that never turned a knob keeps the compositor's cheap path. */
+export function isNeutralStrip(p: WebVideoPlugin): boolean {
+  if (p.shader?.name !== PICTURE_STRIP_SHADER) return false;
+  const { P1 = 1, P2 = 1, P3 = 1, P4 = 0 } = p.params;
+  return P1 >= 1 && P2 >= 1 && P3 >= 1 && P4 <= 0;
+}
+
 /** A compiled video plugin → the pass eyes runs, or null — two ordinary ways to be null, and `audio` is replaced per frame by the driver. */
 function passOf(
   p: WebVideoPlugin,
   urlOf: (path: string) => string,
 ): ScenePass | null {
   if (p.type !== "shader" || !p.shader) return null;
+  if (isNeutralStrip(p)) return null;
   return {
     id: p.id,
     name: p.name,

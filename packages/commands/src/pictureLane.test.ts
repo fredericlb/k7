@@ -5,6 +5,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadGraph } from "@studio/song/graph";
+import {
+  pictureStripsOf,
+  stripPictureLanes,
+} from "@studio/song/pictureMixerFile";
 import { loadProject } from "@studio/song/project";
 import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
@@ -123,6 +128,16 @@ describe("picture lane delete", () => {
     expect(p.soloed).toBeUndefined();
     // A timeline lane drawing on it is left, and said to draw nowhere.
     expect(h.lines.log.join(" ")).toMatch(/verse>cam now draw/);
+  });
+
+  it("takes the lane's strip with it, and leaves the other lane's", async () => {
+    stripPictureLanes(dir);
+    const before = pictureStripsOf(loadGraph(dir));
+    const h = await run("picture lane delete cam");
+    expect(h.lines.refuse).toEqual([]);
+    expect(wsExists(join(dir, `nodes/${before.cam}.k7x`))).toBe(false);
+    expect(Object.keys(data("graph.k7x").modules)).not.toContain(before.cam);
+    expect(pictureStripsOf(loadGraph(dir))).toEqual({ pip: before.pip });
   });
 
   it("refuses while a lane plays its sound", async () => {

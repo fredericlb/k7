@@ -44,6 +44,7 @@ import {
 import type { ForkedModule } from "@studio/song/moduleFork";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import { migratePictureLanes } from "@studio/song/pictureLanesMigrate";
+import { stripPictureLanes } from "@studio/song/pictureMixerFile";
 import { foldPictureSounds } from "@studio/song/pictureSoundMigrate";
 import {
   formatAudioDevice,
@@ -435,13 +436,19 @@ export class Workspace {
     }
   }
 
-  /** A project declaring a viewport gains its VIDEO_OUT run on open — packages/song/docs/videoOutputs.md. */
+  /** A project declaring a viewport gains its VIDEO_OUT run, then each picture lane its strip, on open — packages/song/docs/videoOutputs.md, videoMixer.md. */
   private repairVideoOutputs(abs: string): void {
     try {
       const declaresViewport = projectSurfaces(abs).surfaces.some(
         (s) => s.surface.type === "viewport",
       );
-      if (declaresViewport) ensureVideoRun(abs);
+      if (!declaresViewport) return;
+      ensureVideoRun(abs);
+      const { warnings } = stripPictureLanes(abs);
+      if (warnings.length)
+        console.warn(
+          `picture strips of ${this.toRel(abs)}:\n  ${warnings.join("\n  ")}`,
+        );
     } catch {
       /* best-effort — a project whose surfaces will not read still opens */
     }

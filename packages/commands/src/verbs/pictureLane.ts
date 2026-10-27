@@ -12,12 +12,14 @@ import {
 import { deleteChainItem, renameChainLane } from "@studio/song/chainGraphEdit";
 import { laneFileFor } from "@studio/song/chainItemEdit";
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
+import { loadGraph } from "@studio/song/graph";
 import {
   loadModuleRefs,
   loadModules,
   loadProjectRoot,
 } from "@studio/song/loader";
 import { resolveModuleMap } from "@studio/song/moduleResolve";
+import { pictureStripsOf } from "@studio/song/pictureMixerFile";
 import { surfacesNaming } from "@studio/song/surfaces";
 import { lanesOf } from "@studio/song/trackModule";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
@@ -39,8 +41,28 @@ import { splitWords } from "./shared.ts";
 
 const NAME = /^[A-Za-z0-9_.-]+$/;
 
+/** The lane's own STRIP, deleted with it: no other lane runs through it (packages/song/docs/videoMixer.md). */
+function dropStrip(dir: string, lane: string): string[] {
+  const strip = pictureStripsOf(loadGraph(dir))[lane];
+  if (!strip) return [];
+  if (isChainProject(dir))
+    return deleteChainItem(dir, strip, (doc) => {
+      removeNode(doc, strip);
+    });
+  wsEdit(join(dir, GRAPH_FILE), (doc) => removeNode(doc.at([]), strip));
+  const file = join(dir, "nodes", `${strip}.k7x`);
+  if (existsSync(file)) rmSync(file);
+  return [GRAPH_FILE, `nodes/${strip}.k7x`];
+}
+
 /** The graph's references to a picture lane, renamed or dropped — in chains/ or graph.k7x, whichever the project keeps. */
 function followInGraph(dir: string, lane: string, to: string | null): string[] {
+  const strip = to ? [] : dropStrip(dir, lane);
+  return [...strip, ...followLane(dir, lane, to)];
+}
+
+/** …the lane's own references, its strip already gone when it is dropped. */
+function followLane(dir: string, lane: string, to: string | null): string[] {
   if (isChainProject(dir)) {
     if (!readChainProject(dir).nodes[lane]) return [];
     return to

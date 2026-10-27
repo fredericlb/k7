@@ -201,6 +201,8 @@ export interface DomChainsProps {
   moduleParams?: Record<string, Record<string, number>>;
   /** …and the way back, for the same modules. Called per frame during a drag. */
   onModuleParam?: (module: string, name: string, value: number) => void;
+  /** A SHADER's knob moved, per frame of a drag: the host writes it where the picture reads it — docs/hosting.md. */
+  onShaderParam?: (module: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (
     trackId: string,
@@ -243,6 +245,7 @@ export type ChainsCallbacks = Pick<
   | "onPickTrackInput"
   | "setPluginParam"
   | "onModuleParam"
+  | "onShaderParam"
   | "onTrackToggle"
   | "onTrackSet"
   | "onTapEdit"

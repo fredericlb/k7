@@ -6,8 +6,8 @@
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
-import { createPictureLaneFile } from "@studio/song/loader";
 import { pictureLaneIds } from "@studio/song/pictureLanes";
+import { createPictureLane } from "@studio/song/pictureMixerFile";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
@@ -74,7 +74,7 @@ export async function copyPictureLane(
           ]),
         );
     try {
-      const written = createPictureLaneFile(h.songPath, id);
+      const { written } = createPictureLane(h.songPath, id);
       const lane = laneFileFor(h.songPath, id);
       if (!lane) throw new Error(`lane '${id}' has no file`);
       wsEdit(lane.path, (doc) => {

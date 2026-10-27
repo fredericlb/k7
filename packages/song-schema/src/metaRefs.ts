@@ -42,6 +42,11 @@ export const GROUP_TRACK_REF = `${META_NS}/group-track`;
 /** A lane of SHOTS, composited rather than heard: stated, since an empty one would otherwise read as sound. */
 export const PICTURE_TRACK_REF = `${META_NS}/picture-track`;
 
+/** A picture lane's STRIP, its red, green, blue and transparency — shipped in `packages/song/meta/` (packages/song/docs/videoMixer.md). */
+export const PICTURE_STRIP = `${META_NS}/shaders/video-mixer`;
+/** The strip's shader name, which is what the compiled scene still carries of it. */
+export const PICTURE_STRIP_SHADER = "video-mixer";
+
 export const TRACK_REFS = [
   TRACK_REF,
   STRUDEL_TRACK_REF,

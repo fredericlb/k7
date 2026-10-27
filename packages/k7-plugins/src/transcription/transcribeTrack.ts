@@ -8,8 +8,9 @@ import { join } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
 import { laneFolder } from "@studio/song/chainItemEdit";
 import { confineToProject } from "@studio/song/confine";
-import { createPictureLaneFile, isVideoSource } from "@studio/song/loader";
+import { isVideoSource } from "@studio/song/loader";
 import { pictureLaneFile } from "@studio/song/pictureLanes";
+import { createPictureLane } from "@studio/song/pictureMixerFile";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsWrite } from "@studio/song/yaml/workspaceFile";
@@ -138,7 +139,7 @@ export async function transcribeTrack(
       h.snapshot?.(f);
     wsWrite(srtAbs, srtOf(segments));
     setFileValue(clipOut, ["source"], srtRel);
-    if (!outLane) createPictureLaneFile(h.songPath, trackOut);
+    if (!outLane) createPictureLane(h.songPath, trackOut);
     // Where the shot is and from where in its source, so a cue's source time lands where it is said.
     wsEdit(outLane?.path ?? nodeFile, (doc) => {
       const lane = doc.at([]);

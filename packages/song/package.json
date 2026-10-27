@@ -32,6 +32,7 @@
     "./moduleResolve": "./src/moduleResolve.ts",
     "./ownMix": "./src/ownMix.ts",
     "./trackMixerFile": "./src/trackMixerFile.ts",
+    "./pictureMixerFile": "./src/pictureMixerFile.ts",
     "./trackModule": "./src/trackModule.ts",
     "./scaffold": "./src/scaffold.ts",
     "./scaffoldNeeds": "./src/scaffoldNeeds.ts",
