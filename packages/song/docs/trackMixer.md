@@ -53,6 +53,18 @@ For a lane already wired, that means splicing into the one arrow between its run
 `MIX`. For an ORPHAN lane — one no chain mentions, as a hand-edited project can have
 — the lane and its strip arrive together, `lane: [ mix-lane ]` and `mix-lane: [ MIX ]`.
 
+## One implementation for both kinds of lane
+
+A picture lane has a strip too, the `video-mixer` ([videoMixer.md](videoMixer.md)), and it is
+planned, written, named, found, renamed and deleted by the same code as this one: `laneStrip.ts`.
+The two kinds differ in two words only, the module the strip extends and the sum its run ends on
+(`MIX`, `RENDER`), so a second copy of the rest would only be a place for the two to drift apart.
+
+In a chain project the strip goes into ONE chain file, right after the run's last item, when that
+file's only way out is the sum; a run with a send out of it goes through the whole-graph splice
+instead, which keeps the send BEFORE the strip. The one-file write comes first because the
+whole-graph rewrite folds a fade's stretch into its lane.
+
 ## What it refuses
 
 A run that ends anywhere but the sum: a real bus (two lanes meeting), a send, a split. That is
@@ -61,7 +73,7 @@ named and left alone rather than guessed at.
 
 ## Two ways to BE one
 
-`hasTrackMixer` asks both, and needs to. A node extending `SHARED_STRIP` is one by construction —
+`hasLaneStrip` asks both, and needs to. A node extending `SHARED_STRIP` is one by construction —
 readable off the file, with no library and no plugin scan in the picture. Anything RESOLVING to
 the `Mixer` plugin is one too: every strip that names the plugin directly, by hand or from an
 older project.
@@ -73,9 +85,11 @@ the next `track new`.
 
 ## Where it comes from
 
-- **`track new`** writes it with the lane. A project with no `graph.k7x` has nowhere to wire one:
-  the lane is still made, and the missing strip is *said* rather than thrown.
-- **`scripts/migrateTrackMixer.ts`** gives one to every lane that predates the rule. Dry by
+- **`track new`** writes it with the lane (`stripNewLane`), as do a timeline lane's copy and a
+  picture's sound lane. A strip that cannot be wired is *said* rather than thrown, and a project
+  with no `graph.k7x` yet is given one, the lane and its strip arriving together.
+- **`scripts/migrateTrackMixer.ts`** gives one to every lane that predates the rule, sound and
+  picture (`stripLanes`, the back-fill a project's open runs for its picture lanes). Dry by
   default, idempotent, and through the k7x document, so `graph.k7x` keeps its comments.
 - **The importer** writes one per lane it emits (`packages/translator/docs/import.md`), as a NODE
   on k7's own `@meta/audio/mixer` — it does not go through this file, a foreign
@@ -85,5 +99,5 @@ the next `track new`.
 npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.k7> [more…] [--write]
 ```
 
-The decision and the writes are split — `planTrackMixer` then `applyTrackMixer` — so the dry run
+The decision and the writes are split — `planLaneStrip` then `applyLaneStrip` — so the dry run
 reports what it would actually do instead of promising something it has not worked out.

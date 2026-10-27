@@ -20,10 +20,10 @@ import {
   nodePlaces,
   nodeStacks,
 } from "@studio/song/graph";
+import { laneStripsOf, pictureLanes } from "@studio/song/laneStrip";
 import { missingModel } from "@studio/song/modelCache";
 import { assetLookup } from "@studio/song/moduleAssetChoices";
 import { stageOf } from "@studio/song/ownMix";
-import { pictureStripsOf } from "@studio/song/pictureMixerFile";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
@@ -129,7 +129,7 @@ export function buildGraphDoc(
     ...Object.fromEntries(
       Object.entries(mixers ?? {}).filter(([id]) => id in g.tracks),
     ),
-    ...pictureStripsOf(g),
+    ...laneStripsOf(g, pictureLanes(g)),
   };
   const usedCurves: WebGraph["curves"] = {};
   // A chain project's unnamed nodes, by where they sit — what a card shows instead of the uuid.

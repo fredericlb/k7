@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { K7Path } from "@studio/k7x/ast";
 import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { laneFolder } from "@studio/song/chainItemEdit";
+import { createPictureLane } from "@studio/song/laneStrip";
 import {
   loadLanes,
   loadProjectRoot,
@@ -16,7 +17,6 @@ import {
   setLaneOrder,
 } from "@studio/song/loader";
 import { pictureLaneFile, pictureLaneIds } from "@studio/song/pictureLanes";
-import { createPictureLane } from "@studio/song/pictureMixerFile";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";

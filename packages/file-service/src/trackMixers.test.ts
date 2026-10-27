@@ -7,7 +7,7 @@ import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stripPictureLanes } from "@studio/song/pictureMixerFile";
+import { pictureLanes, stripLanes } from "@studio/song/laneStrip";
 import { MIXER_PLUGIN } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { buildGraphDoc, trackMixersOf } from "./graphDoc";
@@ -72,7 +72,7 @@ describe("a picture lane's strip", () => {
     cpSync(join(REPO, "demos"), ws, { recursive: true });
     const dir = join(ws, "video-demo.k7");
     try {
-      stripPictureLanes(dir);
+      stripLanes(dir, pictureLanes);
       const strips = buildGraphDoc(dir).trackMixers ?? {};
       expect(Object.keys(strips).sort()).toEqual([
         "box_layer",

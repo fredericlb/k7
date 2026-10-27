@@ -6,7 +6,6 @@
 
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { K7Document } from "@studio/k7x/document";
 import { renameNodeInAssemblies } from "@studio/song/assemblyEdit";
 import { chainTaken } from "@studio/song/chainCreate";
@@ -14,14 +13,17 @@ import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { type GraphDoc, loadGraph } from "@studio/song/graph";
 import {
+  isLaneStrip,
+  mixerNameFor,
+  ownLaneStrip,
+} from "@studio/song/laneStrip";
+import {
   createTrackFile,
   loadModules,
   loadProjectRoot,
   setLaneOrder,
 } from "@studio/song/loader";
-import { SHARED_STRIP } from "@studio/song/scaffoldLive";
 import { surfacesNaming } from "@studio/song/surfaces";
-import { mixerNameFor } from "@studio/song/trackMixerFile";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import {
@@ -130,12 +132,7 @@ function duplicateChain(
   const boundary = (node: string): boolean =>
     isBuiltinOutput(node) || lanes.has(node) || node === lane;
 
-  const isStrip = (node: string): boolean => {
-    const m = g.modules[node];
-    return (
-      !!m && (m.plugin?.name === MIXER_PLUGIN || m.extends === SHARED_STRIP)
-    );
-  };
+  const isStrip = (node: string): boolean => isLaneStrip(g, node);
 
   const clones = new Map<string, string>();
   const order: string[] = [];
@@ -297,25 +294,20 @@ async function duplicateTrack(
   }
 }
 
-/** A name `mixerNameFor` made for `lane` — `mix-<lane>` or `mix-<lane>-<n>` — so it may follow the lane's. */
-const isLaneMixerName = (name: string, lane: string): boolean => {
-  const base = `mix-${lane}`;
-  return (
-    name === base ||
-    (name.startsWith(`${base}-`) && /^\d+$/.test(name.slice(base.length + 1)))
-  );
-};
-
-/** The lane's strip, when it bears the name `track new` gave it: a name somebody CHOSE is left alone. */
-export function laneMixer(g: GraphDoc, lane: string): string | null {
-  const chain = Object.values(g.chains).find((c) => c.from === lane);
-  for (const step of chain?.use ?? []) {
-    const m = g.modules[step.module];
-    const strip =
-      m?.plugin?.name === MIXER_PLUGIN || m?.extends === SHARED_STRIP;
-    if (strip && isLaneMixerName(step.module, lane)) return step.module;
-  }
-  return null;
+/** The strip `track new` named after a lane follows its rename, its first line re-labelled too — sound or picture. */
+export function followStripName(
+  dir: string,
+  mixer: string,
+  to: string,
+  taken: (name: string) => boolean,
+): string | null {
+  const next = mixerNameFor(to, (n) => n !== mixer && taken(n));
+  if (next === mixer) return null;
+  renameChainNode(dir, mixer, next);
+  renameNodeInAssemblies(dir, mixer, next);
+  const strip = join(dir, "nodes", `${next}.k7x`);
+  if (wsExists(strip)) relabelStrip(strip, to);
+  return `${mixer} → ${next}`;
 }
 
 /** `track rename <track> <new name>` — the file, the graph, the boxes, the order, the solo and the strip follow. */
@@ -370,7 +362,7 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
       return;
     }
     // Read before the lane moves: the strip is found by the chain the lane STARTS.
-    const mixer = chained ? null : laneMixer(loadGraph(dir), lane);
+    const mixer = chained ? null : ownLaneStrip(dir, loadGraph(dir), lane);
 
     const { moved, rewired } = renameChainNode(dir, lane, to);
     const boxes = renameNodeInAssemblies(dir, lane, to);
@@ -393,17 +385,8 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
       notes.push(`${key} in ${projectFile.rel.replace(/^\//, "")}`);
     }
 
-    // The strip `track new` named after the lane follows it, its first line re-labelled too.
-    if (mixer) {
-      const next = mixerNameFor(to, (n) => n !== mixer && taken(n));
-      if (next !== mixer) {
-        renameChainNode(dir, mixer, next);
-        renameNodeInAssemblies(dir, mixer, next);
-        const strip = join(dir, "nodes", `${next}.k7x`);
-        if (wsExists(strip)) relabelStrip(strip, to);
-        notes.push(`${mixer} → ${next}`);
-      }
-    }
+    const followed = mixer && followStripName(dir, mixer, to, taken);
+    if (followed) notes.push(followed);
     await h.reload();
     h.log([`${lane} → ${to} (${notes.join(", ")})`]);
   } catch (e) {

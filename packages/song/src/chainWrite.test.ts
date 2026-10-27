@@ -23,11 +23,11 @@ import {
 import { spliceChainItem } from "./chainItemEdit";
 import { readChainProject, readLayout, toSegments } from "./chainProject";
 import type { GraphDoc } from "./graph";
+import { applyLaneStrip, planLaneStrip } from "./laneStrip";
 import { createIoModuleFile, createTrackFile, nodeNameTaken } from "./loader";
 import { materialiseEngineModule } from "./moduleFork";
 import { createNodeOn } from "./nodeOnRef";
 import type { LoadedModule } from "./rawDoc";
-import { applyTrackMixer, planTrackMixer } from "./trackMixerFile";
 import { ensureVideoRun } from "./videoOutputs";
 import { wsData } from "./yaml/workspaceDoc";
 
@@ -97,9 +97,9 @@ describe("a new lane", () => {
       steps: [expect.objectContaining({ track: "gtr" })],
     });
     const g = { chains: {}, modules: {} } as unknown as GraphDoc;
-    const plan = planTrackMixer(dir, "gtr", g);
+    const plan = planLaneStrip(dir, "gtr", g);
     expect(plan?.rel).toBe("chains/gtr.k7x");
-    applyTrackMixer(dir, plan as NonNullable<typeof plan>);
+    applyLaneStrip(dir, plan as NonNullable<typeof plan>);
     const steps = data("chains/gtr.k7x").steps;
     expect(steps).toContainEqual(
       expect.objectContaining({ extends: "@meta/audio/mixer" }),

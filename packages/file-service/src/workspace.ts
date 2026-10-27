@@ -30,6 +30,7 @@ import {
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
+import { pictureLanes, stripLanes } from "@studio/song/laneStrip";
 import {
   type BaseModuleRef,
   type Diagnostic,
@@ -44,7 +45,6 @@ import {
 import type { ForkedModule } from "@studio/song/moduleFork";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import { migratePictureLanes } from "@studio/song/pictureLanesMigrate";
-import { stripPictureLanes } from "@studio/song/pictureMixerFile";
 import { foldPictureSounds } from "@studio/song/pictureSoundMigrate";
 import {
   formatAudioDevice,
@@ -444,7 +444,7 @@ export class Workspace {
       );
       if (!declaresViewport) return;
       ensureVideoRun(abs);
-      const { warnings } = stripPictureLanes(abs);
+      const { warnings } = stripLanes(abs, pictureLanes);
       if (warnings.length)
         console.warn(
           `picture strips of ${this.toRel(abs)}:\n  ${warnings.join("\n  ")}`,

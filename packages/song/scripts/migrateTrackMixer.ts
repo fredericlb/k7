@@ -1,15 +1,13 @@
-// migrateTrackMixer.ts — give every audio lane the channel strip it lacks: a node on the library's
-// mixer, wired at the end of its run, just before the mixer's sum.
+// migrateTrackMixer.ts — give every lane the channel strip it lacks, sound and picture alike: a node on
+// k7's own strip, wired at the end of its run, just before the sum it ends on.
 //
 //   npx tsx packages/song/scripts/migrateTrackMixer.ts <projet.k7> [more…] [--write]
 //
-// A lane with no strip has faders that write nowhere: the gutter's, the card's, the Mixer view's.
-// Idempotent (a lane whose run already ends on a mixer is skipped), dry by default, and as document
-// edits, so graph.k7x's comments and key order come back byte-identical.
+// The same back-fill a project's open runs for its picture lanes (laneStrip.ts `stripLanes`).
+// Idempotent, dry by default, and as document edits, so comments and key order come back intact.
 // See packages/song/docs/trackMixer.md.
 
-import { loadGraph } from "../src/graph.ts";
-import { applyTrackMixer, planTrackMixer } from "../src/trackMixerFile.ts";
+import { pictureLanes, soundLanes, stripLanes } from "../src/laneStrip.ts";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -23,41 +21,24 @@ if (!roots.length) {
 
 let touched = 0;
 for (const root of roots) {
-  let g: ReturnType<typeof loadGraph>;
   try {
-    g = loadGraph(root);
+    // Lanes only, of both kinds: a group holds no material and a bus is already somebody's strip.
+    const done = stripLanes(
+      root,
+      (g) => [...soundLanes(g), ...pictureLanes(g)],
+      {
+        dry: !write,
+      },
+    );
+    for (const w of done.warnings) console.error(`${root}: ${w}`);
+    for (const p of done.planned)
+      console.log(
+        `${root}: ${p.lane} + ${p.rel}, wired ${p.after ? `after ${p.after}` : "straight to the sum"}`,
+      );
+    if (!done.planned.length) console.log(`${root}: every lane has its strip`);
+    touched += write ? done.planned.length : 0;
   } catch (e) {
     console.error(`${root}: ${(e as Error).message}`);
-    continue;
-  }
-  // Lanes only. A group holds no material and a bus is already somebody's strip.
-  const lanes = Object.keys(g.tracks);
-  if (!lanes.length) {
-    console.log(`${root}: no lanes`);
-    continue;
-  }
-  for (const lane of lanes) {
-    // The graph is re-read per lane on a write: each strip changes it, and the next plan reads the new one.
-    let plan: ReturnType<typeof planTrackMixer>;
-    try {
-      plan = planTrackMixer(root, lane, write ? loadGraph(root) : g);
-    } catch (e) {
-      console.error(`${root}: ${lane} — ${(e as Error).message}`);
-      continue;
-    }
-    if (!plan) {
-      console.log(`${root}: ${lane} — already has a strip`);
-      continue;
-    }
-    if (!write) {
-      console.log(
-        `${root}: ${lane} + ${plan.rel}, wired ${plan.after ? `after ${plan.after}` : "straight to the sum"}`,
-      );
-      continue;
-    }
-    applyTrackMixer(root, plan);
-    touched++;
-    console.log(`${root}: ${lane} + ${plan.rel}`);
   }
 }
 if (!write) console.log("\ndry run — pass --write to apply");

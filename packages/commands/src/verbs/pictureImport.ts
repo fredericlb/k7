@@ -7,8 +7,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { laneFileFor } from "@studio/song/chainItemEdit";
+import { createPictureLane } from "@studio/song/laneStrip";
 import { loadProjectRoot, readYamlEntities } from "@studio/song/loader";
-import { createPictureLane } from "@studio/song/pictureMixerFile";
 import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";

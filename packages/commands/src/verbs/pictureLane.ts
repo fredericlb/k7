@@ -13,19 +13,20 @@ import { deleteChainItem, renameChainLane } from "@studio/song/chainGraphEdit";
 import { laneFileFor } from "@studio/song/chainItemEdit";
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { loadGraph } from "@studio/song/graph";
+import { ownLaneStrip } from "@studio/song/laneStrip";
 import {
   loadModuleRefs,
   loadModules,
   loadProjectRoot,
 } from "@studio/song/loader";
 import { resolveModuleMap } from "@studio/song/moduleResolve";
-import { pictureStripsOf } from "@studio/song/pictureMixerFile";
 import { surfacesNaming } from "@studio/song/surfaces";
 import { lanesOf } from "@studio/song/trackModule";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
+import { deleteChainNode } from "@studio/song-edit/projectEdit";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import { portRef, splitPort } from "@studio/song-schema/moduleTypes";
 import { timelineLaneOf } from "@studio/song-schema/timelineLane";
@@ -38,21 +39,17 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { laneFile } from "./picture.ts";
 import { splitWords } from "./shared.ts";
+import { followStripName } from "./track.ts";
 
 const NAME = /^[A-Za-z0-9_.-]+$/;
 
-/** The lane's own STRIP, deleted with it: no other lane runs through it (packages/song/docs/videoMixer.md). */
+/** The lane's own STRIP, deleted with it as `track delete` deletes a sound lane's (packages/song/docs/videoMixer.md). */
 function dropStrip(dir: string, lane: string): string[] {
-  const strip = pictureStripsOf(loadGraph(dir))[lane];
+  const strip = ownLaneStrip(dir, loadGraph(dir), lane);
   if (!strip) return [];
-  if (isChainProject(dir))
-    return deleteChainItem(dir, strip, (doc) => {
-      removeNode(doc, strip);
-    });
-  wsEdit(join(dir, GRAPH_FILE), (doc) => removeNode(doc.at([]), strip));
-  const file = join(dir, "nodes", `${strip}.k7x`);
-  if (existsSync(file)) rmSync(file);
-  return [GRAPH_FILE, `nodes/${strip}.k7x`];
+  const { removed } = deleteChainNode(dir, strip);
+  dropNodeFromAssemblies(dir, strip);
+  return removed;
 }
 
 /** The graph's references to a picture lane, renamed or dropped — in chains/ or graph.k7x, whichever the project keeps. */
@@ -209,9 +206,24 @@ export const PICTURE_LANE_VERBS: Record<string, SidHandler> = {
         `'${lane}' is named by ${mapped.length > 1 ? "surfaces" : "surface"} ${mapped.join(", ")} — a mapping is not rewritten, so the lane keeps its name`,
       ]);
     try {
+      // Read before the lane moves, as `track rename` does: the strip is found by the run the lane STARTS.
+      const mixer = isChainProject(dir)
+        ? null
+        : ownLaneStrip(dir, loadGraph(dir), lane);
       const notes = followInGraph(dir, lane, to);
       if (renameNodeInAssemblies(dir, lane, to).length)
         notes.push("assemblies");
+      const nodes = mixer ? loadGraph(dir) : null;
+      const followed =
+        mixer &&
+        nodes &&
+        followStripName(
+          dir,
+          mixer,
+          to,
+          (n) => n in nodes.modules || n in nodes.chains,
+        );
+      if (followed) notes.push(followed);
       // A chain project's rename moved the file with its item; a node project's is moved here.
       if (existsSync(found.abs))
         renameSync(found.abs, join(dirname(found.abs), `${to}.k7x`));

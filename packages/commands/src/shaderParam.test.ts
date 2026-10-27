@@ -6,10 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadGraph } from "@studio/song/graph";
-import {
-  pictureStripsOf,
-  stripPictureLanes,
-} from "@studio/song/pictureMixerFile";
+import { laneStrip, pictureLanes, stripLanes } from "@studio/song/laneStrip";
 import { loadVideoProject } from "@studio/song-video/videoProject";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -35,11 +32,11 @@ beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-shparam-"));
   cpSync(join(REPO, "demos"), ws, { recursive: true });
   song = join(ws, "video-demo.k7");
-  stripPictureLanes(song);
+  stripLanes(song, pictureLanes);
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
-const strip = (lane: string) => pictureStripsOf(loadGraph(song))[lane];
+const strip = (lane: string) => laneStrip(loadGraph(song), lane);
 const passOf = (lane: string) =>
   loadVideoProject(song)
     .videoTracks.find((t) => t.id === lane)
