@@ -247,6 +247,15 @@ export function mediaLabels(): LibraryLabels {
       ),
       upNext: m["media.playback.upNext"](),
       queueEmpty: m["media.playback.queueEmpty"](),
+      instrumental: m["media.playback.instrumental"](),
+      instrumentalBack: m["media.playback.instrumentalBack"](),
+      instrumentalMake: m["media.playback.instrumentalMake"](),
+      instrumentalMaking: m["media.playback.instrumentalMaking"](),
+      instrumentalNoEngine: m["media.playback.instrumentalNoEngine"](),
+      instrumentalFailed: (error) =>
+        m["media.playback.instrumentalFailed"]({ error }),
+      instrumentalAsk: (song) => m["media.playback.instrumentalAsk"]({ song }),
+      instrumentalConfirm: m["media.playback.instrumentalConfirm"](),
     },
     engines: {
       title: m["media.engines.title"](),

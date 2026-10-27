@@ -220,6 +220,16 @@ export interface LibraryLabels {
     queueButton: (n: number) => string;
     upNext: string;
     queueEmpty: string;
+    /** The bar's instrumental button: what pressing it does, said as its title. */
+    instrumental: string;
+    instrumentalBack: string;
+    instrumentalMake: string;
+    instrumentalMaking: string;
+    instrumentalNoEngine: string;
+    instrumentalFailed: (error: string) => string;
+    /** The question before a cut, naming the song. */
+    instrumentalAsk: (song: string) => string;
+    instrumentalConfirm: string;
   };
   engines: {
     title: string;

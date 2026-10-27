@@ -18,7 +18,11 @@ import type {
   OtherTags,
   SongbookSong,
 } from "@studio/mediatek/types";
-import type { PublicEngine } from "@studio/web-protocol";
+import type {
+  PublicEngine,
+  SeparateJob,
+  StemsReply,
+} from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import type {
   SlskdCheck,
@@ -181,6 +185,46 @@ export const hunt = {
       }),
       "hunt",
     );
+  },
+};
+
+/** No engine is online to cut on: the one refusal of a cut the user can act on, so told apart. */
+export class NoCutter extends Error {}
+
+/** `/api/stems` — a song's instrumental, cut by an engine and kept beside its master (apps/k7/backend/docs/media/stems.md). */
+export const stems = {
+  /** Already cut, or being cut for this account now: `job` is the running cut, null when there is none. */
+  held: async (master: string): Promise<StemsReply> =>
+    json(
+      await request(
+        `${apiBase()}/api/stems/held?${new URLSearchParams({ song: master, want: "instrumental" })}`,
+      ),
+      "stems",
+    ),
+
+  /** Start the cut, or join the one running: the job's id is the song's, so asking twice asks once. */
+  instrumental: async (master: string): Promise<StemsReply> => {
+    const res = await request(`${apiBase()}/api/stems`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ song: master, want: "instrumental" }),
+    });
+    if (res.status === 409) {
+      const b = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new NoCutter(b.error ?? "no engine");
+    }
+    if (!res.ok) throw await failed(res, "stems");
+    return json(res, "stems");
+  },
+
+  /** How a cut is getting on; null once it is forgotten, which means "look at the disk". */
+  job: async (id: string): Promise<SeparateJob | null> => {
+    const res = await request(
+      `${apiBase()}/api/stems/${encodeURIComponent(id)}`,
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) throw await failed(res, "stems");
+    return json(res, "stems");
   },
 };
 
@@ -464,7 +508,13 @@ export const library = {
   /** One of a songbook song's texts written; an empty one is removed — mediatek's docs/songbook.md. */
   patchSongbook: async (
     id: string,
-    patch: { chords?: string; tablature?: string; lyrics?: string },
+    patch: {
+      chords?: string;
+      tablature?: string;
+      lyrics?: string;
+      /** The instrumental's library path, so the songbook plays it too. */
+      instrumental?: string;
+    },
   ): Promise<SongbookSong> => {
     const res = await request(
       `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}`,

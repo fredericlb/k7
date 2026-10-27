@@ -6,6 +6,7 @@
 import { Disc3, ListVideo } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
+import { InstrumentalButton } from "./InstrumentalButton";
 import { usePlayback } from "./PlaybackProvider";
 import { usePlaybackPosition } from "./position";
 import { QueueButton } from "./QueueButton";
@@ -126,6 +127,9 @@ export function MiniPlayer() {
         <WhereIcon className="h-3.5 w-3.5" />
         {l.targets[where.id].label}
       </span>
+
+      {/* The library song's instrumental, and back — before the queue, being about THIS song. */}
+      <InstrumentalButton />
 
       {/* What plays next — right of the row and before the close, being a playback control. */}
       <QueueButton />
