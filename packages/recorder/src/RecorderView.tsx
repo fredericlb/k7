@@ -158,7 +158,12 @@ export function RecorderView({
     if (!a) return;
     if (a.paused) {
       ensurePlaybackGain();
-      a.play();
+      const outside =
+        reviewing &&
+        (a.currentTime < reviewing.startSec ||
+          a.currentTime >= reviewing.endSec);
+      if (outside) seekPreview(a, reviewing.startSec, () => a.play());
+      else a.play();
     } else {
       a.pause();
     }
@@ -376,16 +381,25 @@ export function RecorderView({
       <audio
         ref={audioRef}
         src={previewUrl ?? undefined}
-        autoPlay
         style={{ display: "none" }}
         onPlay={() => {
           ensurePlaybackGain();
           setPreviewPlaying(true);
         }}
         onPause={() => setPreviewPlaying(false)}
-        onTimeUpdate={(e) => setPreviewTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => {
+          const a = e.currentTarget;
+          setPreviewTime(a.currentTime);
+          // The highlight's end stops it and rewinds to its start, so Play hears it again rather than the take's rest.
+          if (reviewing && !a.paused && a.currentTime >= reviewing.endSec) {
+            a.pause();
+            seekPreview(a, reviewing.startSec);
+          }
+        }}
         onLoadedMetadata={(e) => {
-          if (reviewing) seekPreview(e.currentTarget, reviewing.startSec);
+          const a = e.currentTarget;
+          // Played only once the seek landed: autoplay would sound the take's first instant.
+          if (reviewing) seekPreview(a, reviewing.startSec, () => a.play());
         }}
       />
       {displayEnvelope.samples.length > 0 ? (
@@ -427,18 +441,26 @@ export function RecorderView({
   );
 }
 
-function seekPreview(audio: HTMLAudioElement, target: number) {
-  if (Number.isFinite(audio.duration) && audio.duration > 0) {
-    audio.currentTime = Math.min(target, audio.duration - 0.1);
-    return;
-  }
+/** Seeks to `target`, then calls `landed`; a duration-less file is first sent past its end so it learns its length. */
+function seekPreview(
+  audio: HTMLAudioElement,
+  target: number,
+  landed?: () => void,
+) {
+  const go = () => {
+    if (landed) audio.addEventListener("seeked", landed, { once: true });
+    try {
+      audio.currentTime = Number.isFinite(audio.duration)
+        ? Math.min(target, Math.max(0, audio.duration - 0.1))
+        : target;
+    } catch {
+      landed?.();
+    }
+  };
+  if (Number.isFinite(audio.duration) && audio.duration > 0) return go();
   const onUpdate = () => {
     audio.removeEventListener("timeupdate", onUpdate);
-    try {
-      audio.currentTime = target;
-    } catch {
-      /* ignore */
-    }
+    go();
   };
   audio.addEventListener("timeupdate", onUpdate);
   try {
