@@ -9,26 +9,22 @@ recorder's (`packages/recorder/docs/recorder.md`).
 
 The take is held by `RehearsalRecording`, which k7 wraps around its home routes
 (`apps/k7/frontend/src/appMain.tsx`), so a take survives going from a rehearsal page to the media
-library, the projects or the settings and back. It has no route of its own: it is drawn either in a
-**pop-in** over the page, or collapsed to a bar at the bottom of the content column. It holds
-nothing until a take starts — no microphone, no engine — so wrapping every home page costs them
-nothing; what it draws is a lazy chunk.
-
-Hiding the pop-in (its Hide button, Escape, a click on the backdrop) collapses it; the take keeps
-running. The pop-in is two wrapper classes swapped around the recorder, not a dialog component: a
-portal or a conditional wrapper would re-parent `RecorderView`, and React would remount it —
-ending the take it holds.
+library, the projects or the settings and back. It has no route of its own and no dialog: it is
+**one bar** at the bottom of the content column (`@studio/recorder`'s `docs/recorder.md`), from the
+start of the session to its upload. It holds nothing until a take starts — no microphone, no engine —
+so wrapping every home page costs them nothing; what it draws is a lazy chunk.
 
 A take starts from the red dot k7 draws as the rehearsal pages' action (`NewSessionButton`), or
-from resuming a session. It opens in the pop-in, except on one song's page, where it begins
-collapsed and the page stays readable: you record against a song in order to READ it while you
-play, and covering the tablature the instant the tape rolls is the one thing that use has no answer
-to. The bar reopens the pop-in for the controls the collapsed form cannot carry.
+from resuming a session, and the page it starts on stays as it is: you record against a song in
+order to READ it while you play, and covering the tablature the instant the tape rolls is the one
+thing that use has no answer to. A bar does not cover it, and its chips, Resume and Stop are every
+control a take needs. What starts the session (`SessionStartBar.tsx`) and the input a chain may ask
+for are said in that same bar, before the recorder takes its place.
 
-The pop-in and the bar stay inside the content column, never over k7's sidebar nor its home bar:
-the sidebar is how you move between pages while the take runs, and the bar is what plays. Being held
-above the routes, they are outside the column, so they read where it is from the host's
-`--host-column-left` and `--host-column-bottom` (0 without a host).
+The bar stays inside the content column, never over k7's sidebar nor its home bar: the sidebar is
+how you move between pages while the take runs. Being held above the routes, it is outside the
+column, so it reads where it is from the host's `--host-column-left` and `--host-column-bottom`
+(0 without a host), and the pages leave it room by its published height, `--rec-bar-h`.
 
 ## Drawing must not eat the audio
 
@@ -87,8 +83,8 @@ chooses what plays, so it belongs with what plays.
   every other thing the song can be given.
 - **No waveform.** The scrubber says where you are and the lyrics say what is sung there; a shape
   in the margin would be a third answer to the same question.
-- **It stands at the foot of the content column**, on top of a phone's panel bar and of a minimized
-  take, so recording against the song keeps its transport in reach. The page and the rail leave it
+- **It stands at the foot of the content column**, on top of a phone's panel bar and of the
+  recorder's bar, so recording against the song keeps its transport in reach. The page and the rail leave it
   room (`--song-bar-h`).
 
 ### The rail holds what changes what you READ

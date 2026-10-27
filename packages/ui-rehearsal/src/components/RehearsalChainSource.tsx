@@ -15,7 +15,6 @@ import {
   type ChainSource,
   openChainSource,
 } from "../chainSource";
-import { useFocusTrap } from "../hooks/useFocusTrap";
 import { m } from "../paraglide/messages.js";
 import { ChainInputsPicker } from "./ChainInputsPicker";
 
@@ -26,11 +25,13 @@ interface Props {
   who: string;
   /** A take is running through it: nothing is asked any more. */
   recording: boolean;
-  /** Where the chain stands, in words, for the start dialog. */
+  /** Where the chain stands, in words, for the start bar. */
   onStatus: (text: string) => void;
   onRecord: (stream: MediaStream, close: () => void) => Promise<void>;
   onFail: (message: string) => void;
   onCancel: () => void;
+  /** Whether it is asking for an input, which takes the bar's place from the start bar meanwhile. */
+  onAsking: (asking: boolean) => void;
 }
 
 export function RehearsalChainSource({
@@ -41,6 +42,7 @@ export function RehearsalChainSource({
   onRecord,
   onFail,
   onCancel,
+  onAsking,
 }: Props) {
   const [phase, setPhase] = useState<ChainPhase>({ k: "waiting" });
   const [inputs, setInputs] = useState<ChainInputs>({
@@ -49,7 +51,6 @@ export function RehearsalChainSource({
   });
   const source = useRef<ChainSource | null>(null);
   const started = useRef(false);
-  const dialog = useRef<HTMLDivElement>(null);
   const said = useRef({ onStatus, onFail });
   said.current = { onStatus, onFail };
 
@@ -97,7 +98,9 @@ export function RehearsalChainSource({
 
   const asking =
     !recording && phase.k === "live" && !!unfed && unfed.length > 0;
-  useFocusTrap(asking, dialog);
+  useEffect(() => {
+    onAsking(asking);
+  }, [asking, onAsking]);
 
   return (
     <>
@@ -110,34 +113,33 @@ export function RehearsalChainSource({
           tabIndex={-1}
         />
       </div>
+      {/* Asked in the recorder's bar, where the take is about to run: never a dialog. */}
       {asking && (
-        <div className="chain-panel-backdrop">
-          <div
-            ref={dialog}
-            className="chain-panel"
-            role="dialog"
-            aria-modal
-            aria-label={m["chain.inputTitle"]({ ref: chainRef })}
-          >
-            <div className="chain-panel-head">
-              <h2>
+        <section
+          className="rec-bar"
+          aria-label={m["chain.inputTitle"]({ ref: chainRef })}
+        >
+          <div className="rec-bar-main">
+            <div className="rec-bar-wave chain-ask">
+              <span className="chain-ask-what">
                 <Workflow className="size-4" />{" "}
                 {m["chain.inputTitle"]({ ref: chainRef })}
-              </h2>
+              </span>
+              <ChainInputsPicker
+                inputs={inputs}
+                disabled={!source.current}
+                onPick={(node, chs) =>
+                  source.current?.setChannel(node, chs) ?? Promise.resolve()
+                }
+              />
+            </div>
+            <div className="rec-bar-actions">
               <Button variant="ghost" size="sm" onClick={onCancel}>
                 {m["chain.cancel"]()}
               </Button>
             </div>
-            <p className="muted small">{m["chain.inputBody"]()}</p>
-            <ChainInputsPicker
-              inputs={inputs}
-              disabled={!source.current}
-              onPick={(node, chs) =>
-                source.current?.setChannel(node, chs) ?? Promise.resolve()
-              }
-            />
           </div>
-        </div>
+        </section>
       )}
     </>
   );

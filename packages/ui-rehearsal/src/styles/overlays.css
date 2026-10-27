@@ -1,53 +1,15 @@
-/* overlays.css — the recorder's pop-in and the chain source's panel, drawn over any page. Nested under .rehearsal-root like every sheet here (index.css). */
+/* overlays.css — what a take draws over every page: the recorder's bar, the start bar and the input bar, and the rehearsal chain's hidden bench. Nested under .rehearsal-root like every sheet here (index.css). */
 
 .rehearsal-root {
-  /* ---- Recorder pop-in ------------------------------------------------------ */
+  /* ---- The recorder's bar (@studio/recorder) ------------------------------ */
 
-  /* Collapsed, both wrappers vanish from layout, so the recorder's own bottom bar is what shows. */
-  .rec-dock {
-    display: contents;
+  /* It sits on the host's column: past its sidebar, above its bar. */
+  .rec-bar {
+    left: var(--rehearsal-inset-left);
+    bottom: var(--rehearsal-inset-bottom);
   }
-  /* Open: the shared dialog's backdrop, over whatever page the take started on. */
-  .rec-popin-backdrop {
-    position: fixed;
-    inset: 0 0 var(--rehearsal-inset-bottom) var(--rehearsal-inset-left);
-    z-index: 50;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 5vh 16px;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.55);
-  }
-  /* The recorder's Card is the panel itself; this only caps its width and hosts the close button. */
-  /* Auto block margins, not align-items: center, which would crop the top of a pop-in taller than the screen. */
-  .rec-popin {
-    position: relative;
-    margin-block: auto;
-    width: 100%;
-    max-width: 720px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-    border-radius: 12px;
-  }
-  .rec-popin > .recorder {
-    margin: 0;
-  }
-  /* In the recorder's header row; .rec-popin prefixed so it outranks the base button rule's padding and fill. */
-  .rec-popin .rec-popin-hide {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    font-size: 13px;
-    background: transparent;
-    color: var(--muted);
-  }
-  .rec-popin .rec-popin-hide:hover:not(:disabled) {
-    background: var(--surface-2);
-    color: var(--text);
-  }
-  /* The metronome toggle: an icon, purple while it clicks; scoped for the same reason as Hide. */
-  .recorder-head .recorder-metro {
+  /* The metronome toggle: an icon, purple while it clicks; .rec-bar prefixed so it outranks the base button rule. */
+  .rec-bar .recorder-metro {
     padding: 0;
     width: 28px;
     height: 28px;
@@ -57,14 +19,17 @@
     background: transparent;
     color: var(--muted);
   }
-  .recorder-head .recorder-metro:hover:not(:disabled) {
+  .rec-bar .recorder-metro:hover:not(:disabled) {
     background: var(--surface-2);
     color: var(--text);
   }
-  .recorder-head .recorder-metro[aria-pressed="true"],
-  .recorder-head .recorder-metro[aria-pressed="true"]:hover:not(:disabled) {
+  .rec-bar .recorder-metro[aria-pressed="true"],
+  .rec-bar .recorder-metro[aria-pressed="true"]:hover:not(:disabled) {
     background: var(--accent);
     color: #fff;
+  }
+  .rec-bar p {
+    margin: 0;
   }
 
   /* A moment under its session: only the card steps right, so the time column and the spine stay one line. */
@@ -73,21 +38,9 @@
     padding-block: 6px;
   }
 
-  /* ---- Chain source: k7's bench in a frame ------------------------------- */
+  /* ---- The rehearsal chain: k7's bench, seen by nobody ------------------- */
 
-  /* Hidden during a take rather than unmounted: the frame is k7's open bench, ../../docs/chainSource.md. */
-  .chain-panel-backdrop {
-    position: fixed;
-    inset: 0 0 var(--rehearsal-inset-bottom) var(--rehearsal-inset-left);
-    z-index: 60;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 4vh 16px;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.55);
-  }
-  /* The rehearsal chain's bench: laid out at a real size so k7 runs as it would, and seen by nobody. */
+  /* Laid out at a real size so k7 runs as it would; hidden, never unmounted (../../docs/chainSource.md). */
   .chain-bench-offstage {
     position: fixed;
     left: 0;
@@ -96,70 +49,29 @@
     visibility: hidden;
     pointer-events: none;
   }
-  /* Centred the same way as the recorder's pop-in, and for the same reason. */
-  .chain-panel {
-    margin-block: auto;
-    width: 100%;
-    max-width: 1100px;
-    padding: 16px;
-    border-radius: 12px;
-    background: var(--surface);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  }
-  .chain-panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-  .chain-panel-head h2 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-  }
-  .chain-list {
-    list-style: none;
-    margin: 8px 0 0;
-    padding: 0;
-    display: grid;
-    gap: 6px;
-  }
-  .chain-row {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: var(--surface-2);
-    color: var(--text);
-    text-align: left;
-  }
-  .chain-row:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
   .chain-frame {
     width: 100%;
-    height: min(62vh, 640px);
-    border: 1px solid var(--surface-2);
-    border-radius: 8px;
-    background: var(--bg);
+    height: 640px;
+    border: 0;
   }
-  .chain-status {
-    display: flex;
+  /* The input a chain names none of, asked in the bar: what for, then the picker. */
+  .chain-ask {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .chain-ask-what {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin: 8px 0;
+    gap: 6px;
+    font-weight: 600;
+    white-space: nowrap;
   }
   /* One row per live input of the bench: its node, then what feeds it. */
   .chain-inputs {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 16px;
-    margin: 0 0 8px;
+    margin: 0;
     padding: 0;
     border: 0;
   }
@@ -176,11 +88,5 @@
   .chain-input select {
     min-width: 12rem;
     max-width: 100%;
-  }
-
-  /* The recorder's own bottom bar (@studio/recorder) sits on the host's column: past its sidebar, above its bar. */
-  .rec-bar {
-    left: var(--rehearsal-inset-left);
-    bottom: var(--rehearsal-inset-bottom);
   }
 }

@@ -1,7 +1,6 @@
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MIC_ERRORS_EN, type MicErrorTexts } from "./labels";
-import { createLiveValue, type LiveValue } from "./liveValue";
 import { backupChunk, beginTake } from "./takeBackup";
 import type { Envelope } from "./types";
 import { patchWebmDuration } from "./webmDuration";
@@ -30,7 +29,6 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
   micRef.current = mic;
   const [status, setStatus] = useState<RecStatus>("idle");
   const [elapsed, setElapsed] = useState(0); // recorded seconds, whole while running (excludes pauses)
-  const [level] = useState(() => createLiveValue(0)); // current RMS, 0..1, read by the meter alone
   const [gain, setGainState] = useState(1); // auto gain: max before saturation
   const [error, setError] = useState<string | null>(null);
 
@@ -107,13 +105,12 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     [],
   );
 
-  // Every frame feeds the meter's store and the peak; React state moves once a second at most (../docs/recorder.md).
+  // Every frame feeds the peak; React state moves once a second at most (../docs/recorder.md).
   const startTimers = useCallback(() => {
     running.current = true;
     const tick = () => {
       const rms = readRmsRef.current();
       if (rms > rawPeak.current) rawPeak.current = rms;
-      level.set(rms);
       const whole = Math.floor(readElapsed());
       if (whole !== shownSec.current) {
         shownSec.current = whole;
@@ -138,7 +135,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
         setGainState(g);
       }
     }, SAMPLE_INTERVAL_MS);
-  }, [level, readElapsed]);
+  }, [readElapsed]);
 
   const start = useCallback(
     async (existing?: MediaStream) => {
@@ -244,10 +241,9 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     accumulatedMs.current += performance.now() - segmentStart.current;
     stopTimers();
     releaseWakeLock();
-    level.set(0);
     setElapsed(accumulatedMs.current / 1000);
     setStatus("paused");
-  }, [stopTimers, releaseWakeLock, level]);
+  }, [stopTimers, releaseWakeLock]);
   pauseRef.current = pause;
 
   const resume = useCallback(() => {
@@ -304,7 +300,6 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
           truePeak.current > 0 ? Math.min(MAX_GAIN, 0.9 / truePeak.current) : 1;
         cleanup();
         setStatus("stopped");
-        level.set(0);
         resolve({
           takeId: takeIdRef.current,
           blob,
@@ -321,7 +316,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
       recorder.onstop = finish;
       recorder.stop();
     });
-  }, [cleanup, stopTimers, level]);
+  }, [cleanup, stopTimers]);
 
   return {
     status,
@@ -329,7 +324,6 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     isPaused: status === "paused",
     elapsed,
     readElapsed,
-    level: level as LiveValue<number>,
     samples: samplesRef.current,
     gain,
     error,

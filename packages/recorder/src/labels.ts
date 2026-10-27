@@ -22,13 +22,10 @@ export const MIC_ERRORS_EN: MicErrorTexts = {
 };
 
 export interface RecorderLabels {
-  returnToRecording: string;
+  /** The bar's name for assistive technology: the recorder is a region of the page, not a dialog. */
+  recorder: string;
   paused: string;
   rec: string;
-  detectedSoFar: string;
-  moments: (n: number) => string;
-  tagged: (n: number) => string;
-  open: string;
   tempo: string;
   metronomeStart: string;
   metronomeStop: string;
@@ -37,10 +34,8 @@ export interface RecorderLabels {
   retryUpload: string;
   downloadTake: string;
   starting: string;
-  intro: string;
   start: string;
   cancel: string;
-  autoGain: (gain: string) => string;
   highlights: string;
   keepPlaying: string;
   taggedBadge: string;
@@ -54,8 +49,6 @@ export interface RecorderLabels {
   holdTitle: string;
   holding: string;
   stopSave: string;
-  orHoldSpace: string;
-  tagsPending: (n: number) => string;
   uploading: string;
   /** The share of the take sent so far, 0 to 100. */
   uploadProgress: (percent: number) => string;
@@ -65,17 +58,10 @@ export interface RecorderLabels {
   mic: MicErrorTexts;
 }
 
-const plural = (n: number, one: string, other: string) =>
-  `${n} ${n === 1 ? one : other}`;
-
 export const RECORDER_LABELS_EN: RecorderLabels = {
-  returnToRecording: "Return to recording",
+  recorder: "Recorder",
   paused: "paused",
   rec: "rec",
-  detectedSoFar: "Detected moments so far",
-  moments: (n) => plural(n, "moment", "moments"),
-  tagged: (n) => `${n} tagged`,
-  open: "Open",
   tempo: "Metronome tempo (BPM)",
   metronomeStart: "Start the metronome",
   metronomeStop: "Stop the metronome",
@@ -84,11 +70,8 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   retryUpload: "Retry upload",
   downloadTake: "Download the take",
   starting: "Starting recording… allow microphone access if prompted.",
-  intro:
-    "Everything except silences (2s+ below the floor) is flagged live as a highlight — click one to pause, listen back, and tag it, then resume.",
   start: "Start recording",
   cancel: "Cancel",
-  autoGain: (gain) => `auto gain ${gain}× — leveled to just below saturation`,
   highlights: "Highlights",
   keepPlaying: "Keep playing — everything between 2s+ silences shows up here.",
   taggedBadge: "tagged",
@@ -99,11 +82,9 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   whatHappened: "What happened here?",
   add: "Add",
   resume: "Resume recording",
-  holdTitle: "Hold 2s to stop & save (or hold Space)",
+  holdTitle: "Hold 2s to stop & save",
   holding: "Hold to stop…",
   stopSave: "Stop & save",
-  orHoldSpace: "or hold space",
-  tagsPending: (n) => `${plural(n, "tag", "tags")} pending`,
   uploading: "Uploading & analyzing…",
   uploadProgress: (percent) => `Uploading… ${percent}%`,
   analyzing: "Analyzing…",

@@ -12,9 +12,9 @@ export interface RecordingCtx {
   resumeFrom?: number;
   /** The saved recording's envelope, shown as history behind the new take. */
   baseEnvelope?: Envelope;
-  /** Present for a stream that needs tearing down: the chain's listener and its panel. */
+  /** Present for a stream that needs tearing down: the chain's listener and its hidden bench. */
   release?: { close: () => void };
-  /** Recorded through a chain of k7's library, whose panel stays mounted for the take. */
+  /** Recorded through the rehearsal chain, whose hidden bench stays mounted for the take. */
   chain?: boolean;
 }
 
@@ -23,8 +23,8 @@ export type SessionSource = "local" | "chain";
 
 export interface RehearsalRecordingApi {
   recording: RecordingCtx | null;
-  /** The take runs collapsed to the bottom bar. */
-  minimized: boolean;
+  /** A take runs, so the recorder's bar covers the foot of every page. */
+  barShown: boolean;
   /** Starts a session from `source`; throws when a take already runs, after bringing it back. */
   start: (source: SessionSource) => Promise<void>;
   /** Appends to a saved take; throws, with a sentence to show, when it cannot. */

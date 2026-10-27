@@ -1,24 +1,18 @@
-import { Badge } from "@frediverse/ui/badge";
+// RecorderView.tsx — a take, recorded and drawn in one bar at the foot of the page: the live waveform, the
+// highlights as chips, and Pause, Resume and Stop at its right. A chip pauses the take to listen back and
+// tag; Resume carries on. It is never a dialog, so the pages stay usable while it runs (../docs/recorder.md).
+
 import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
-import {
-  Circle,
-  Mic,
-  MicOff,
-  Pause,
-  Sparkles,
-  Square,
-} from "@frediverse/ui/icons";
+import { Circle, Mic, MicOff, Pause, Square } from "@frediverse/ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { detectEvents } from "./detect";
 import { downloadTake } from "./download";
-import { fmtTime, sessionTitle } from "./format";
-import { LiveMeter } from "./LiveMeter";
+import { sessionTitle } from "./format";
 import { LiveWaveform } from "./LiveWaveform";
 import { RECORDER_LABELS_EN, type RecorderLabels } from "./labels";
 import { useDisplayTimeline, useLiveEnvelope } from "./liveEnvelope";
 import {
-  HighlightList,
+  HighlightChips,
   MetronomeControls,
   RecorderBar,
   ReviewPanel,
@@ -43,9 +37,6 @@ interface Props {
   allTags: string[];
   // A resumed session's stored envelope, drawn ahead of the new take.
   baseEnvelope?: Envelope | null;
-  // Collapsed to a bottom bar and still recording; `onExpand` reopens the full view.
-  minimized?: boolean;
-  onExpand?: () => void;
   onSave: (
     result: {
       blob: Blob;
@@ -58,8 +49,6 @@ interface Props {
     onProgress?: (fraction: number) => void,
   ) => Promise<void>;
   onDiscard: () => void;
-  /** Controls the host adds at the end of the header row (the pop-in's Hide). */
-  headerActions?: React.ReactNode;
   /** Every word shown, in the host's language; English when left out. */
   labels?: RecorderLabels;
 }
@@ -72,11 +61,8 @@ export function RecorderView({
   stream,
   allTags,
   baseEnvelope = null,
-  minimized = false,
-  onExpand,
   onSave,
   onDiscard,
-  headerActions,
   labels: L = RECORDER_LABELS_EN,
 }: Props) {
   const rec = useRecorder(L.mic);
@@ -179,6 +165,7 @@ export function RecorderView({
     ]);
   };
 
+  // Resume carries the take on, whether it was paused or a highlight was being heard.
   const resumeRecording = () => {
     audioRef.current?.pause();
     setReviewing(null);
@@ -207,6 +194,8 @@ export function RecorderView({
   const stopped = useRef<Awaited<ReturnType<typeof rec.stop>> | null>(null);
 
   const stopAndSave = async () => {
+    audioRef.current?.pause();
+    setReviewing(null);
     setUploading(true);
     setUploadErr(null);
     setProgress(null);
@@ -235,7 +224,6 @@ export function RecorderView({
     canStop: () =>
       !uploading && (rec.status === "recording" || rec.status === "paused"),
     onStop: () => void stopAndSave(),
-    minimized,
   });
 
   const tagSuggestions = [
@@ -245,56 +233,52 @@ export function RecorderView({
     (p) => reviewing && p.startSec === reviewing.startSec,
   );
 
-  // The collapsed bar keeps the recorder MOUNTED, which is what keeps the take running.
-  if (minimized) {
-    return (
-      <RecorderBar
-        paused={rec.isPaused}
-        time={displayOffset + rec.elapsed}
-        moments={highlights.length}
-        tagged={pending.length}
-        onExpand={onExpand}
-        labels={L}
-      >
-        {displayEnvelope.samples.length > 0 ? (
-          <LiveWaveform
-            envelope={displayEnvelope}
-            live={live.feed}
-            threshold={threshold}
-            events={displayEvents}
-            metronome={displayMetronome}
-            paused={rec.isPaused}
-            height={56}
-          />
-        ) : (
-          <span className="muted small">{sessionTitle(session.createdAt)}</span>
-        )}
-      </RecorderBar>
-    );
-  }
+  const running = rec.status === "recording" || rec.status === "paused";
+  const idle = rec.status === "idle";
 
-  return (
-    <Card className="recorder">
-      <div className="recorder-head">
-        <h2>{sessionTitle(session.createdAt)}</h2>
-        <div className="recorder-head-actions">
-          <MetronomeControls
-            metronome={metronome}
-            onStart={(bpm) => startMetronome(bpm, rec.readElapsed())}
-            onStop={stopMetronome}
-            labels={L}
-          />
-          {headerActions}
-        </div>
-      </div>
-      {rec.error && (
-        <p className="error">
-          <MicOff className="size-3.5" /> {rec.error}
-        </p>
+  // What the bar says above itself: why it is not recording, or where the saving stands.
+  const notice = rec.error ? (
+    <p className="error">
+      <MicOff className="size-3.5" /> {rec.error}
+    </p>
+  ) : uploadErr ? (
+    <p className="error">{L.uploadFailed(uploadErr)}</p>
+  ) : uploading ? (
+    <p className="muted" role="status">
+      {progress === null
+        ? L.uploading
+        : progress < 1
+          ? L.uploadProgress(Math.round(progress * 100))
+          : L.analyzing}
+    </p>
+  ) : idle && autoStarting ? (
+    <p className="muted">
+      <Mic className="size-4" /> {L.starting}
+    </p>
+  ) : null;
+
+  const actions = (
+    <>
+      {running && (
+        <MetronomeControls
+          metronome={metronome}
+          onStart={(bpm) => startMetronome(bpm, rec.readElapsed())}
+          onStop={stopMetronome}
+          labels={L}
+        />
       )}
-      {uploadErr && <p className="error">{L.uploadFailed(uploadErr)}</p>}
+      {idle && !autoStarting && (
+        <Button size="sm" onClick={() => rec.start()}>
+          <Circle className="size-2.5 fill-current" /> {L.start}
+        </Button>
+      )}
+      {idle && (
+        <Button size="sm" variant="outline" onClick={onDiscard}>
+          {L.cancel}
+        </Button>
+      )}
       {uploadErr && stopped.current && (
-        <div className="flex gap-2">
+        <>
           <Button size="sm" onClick={stopAndSave} disabled={uploading}>
             {L.retryUpload}
           </Button>
@@ -305,9 +289,85 @@ export function RecorderView({
           >
             {L.downloadTake}
           </Button>
-        </div>
+        </>
       )}
+      {running && rec.isRecording && !reviewing && (
+        <Button size="sm" variant="outline" onClick={rec.pause}>
+          <Pause className="size-4" /> {L.pause}
+        </Button>
+      )}
+      {running && (rec.isPaused || reviewing) && (
+        <Button size="sm" onClick={resumeRecording}>
+          <Circle className="size-2.5 fill-current" /> {L.resume}
+        </Button>
+      )}
+      {running && (
+        <Button
+          size="sm"
+          variant="destructive"
+          className="hold-btn"
+          disabled={uploading}
+          title={L.holdTitle}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            beginHold();
+          }}
+          onPointerUp={cancelHold}
+          onPointerLeave={cancelHold}
+          onPointerCancel={cancelHold}
+        >
+          <span
+            className="hold-fill"
+            style={{ width: `${holdProgress * 100}%` }}
+          />
+          <span className="hold-label">
+            {holdProgress > 0 ? (
+              L.holding
+            ) : (
+              <>
+                <Square className="size-4" /> {L.stopSave}
+              </>
+            )}
+          </span>
+        </Button>
+      )}
+    </>
+  );
 
+  return (
+    <RecorderBar
+      paused={rec.isPaused || !!reviewing}
+      time={displayOffset + rec.elapsed}
+      notice={notice}
+      review={
+        reviewing && (
+          <ReviewPanel
+            key={reviewing.startSec}
+            moment={reviewing}
+            playing={previewPlaying}
+            time={previewTime}
+            onToggle={togglePreview}
+            onAdd={addPending}
+            suggestions={tagSuggestions}
+            notes={reviewPending}
+            labels={L}
+          />
+        )
+      }
+      highlights={
+        running && (
+          <HighlightChips
+            highlights={highlights}
+            active={reviewing?.startSec ?? null}
+            tagged={pending}
+            onPick={pickHighlight}
+            labels={L}
+          />
+        )
+      }
+      actions={actions}
+      labels={L}
+    >
       {/* A hidden preview player, kept mounted so its Web Audio gain node stays wired. */}
       <audio
         ref={audioRef}
@@ -324,144 +384,22 @@ export function RecorderView({
           if (reviewing) seekPreview(e.currentTarget, reviewing.startSec);
         }}
       />
-
-      {rec.status === "idle" &&
-        (autoStarting && !rec.error ? (
-          <p className="muted">
-            <Mic className="size-4" /> {L.starting}
-          </p>
-        ) : (
-          <>
-            <p className="muted">{L.intro}</p>
-            <div className="row">
-              <Button onClick={() => rec.start()}>
-                <Circle className="size-2.5 fill-current" /> {L.start}
-              </Button>
-              <Button variant="outline" onClick={onDiscard}>
-                {L.cancel}
-              </Button>
-            </div>
-          </>
-        ))}
-
-      {rec.status !== "idle" && rec.status !== "stopped" && (
-        <>
-          <LiveMeter level={rec.level} gain={rec.gain} />
-          <div className="muted small" style={{ textAlign: "center" }}>
-            {L.autoGain(rec.gain.toFixed(1))}
-          </div>
-
-          <div className="timer">
-            {fmtTime(rec.elapsed)}{" "}
-            {rec.isPaused ? (
-              <Badge variant="amber">{L.paused}</Badge>
-            ) : (
-              <Badge variant="rec">
-                <Circle className="size-2.5 fill-current" /> {L.rec}
-              </Badge>
-            )}
-          </div>
-
-          {displayEnvelope.samples.length > 0 && (
-            <LiveWaveform
-              envelope={displayEnvelope}
-              live={live.feed}
-              threshold={threshold}
-              events={displayEvents}
-              metronome={displayMetronome}
-              paused={rec.isPaused || !!reviewing}
-              playhead={reviewing ? readPreview : null}
-              focus={focus}
-            />
-          )}
-
-          <h3>
-            <Sparkles className="size-4" /> {L.highlights}{" "}
-            <span className="muted small">({highlights.length})</span>
-          </h3>
-          {highlights.length === 0 && (
-            <p className="muted small">{L.keepPlaying}</p>
-          )}
-          <HighlightList
-            highlights={highlights}
-            active={reviewing?.startSec ?? null}
-            tagged={pending}
-            onPick={pickHighlight}
-            labels={L}
-          />
-
-          {reviewing && (
-            <ReviewPanel
-              key={reviewing.startSec}
-              moment={reviewing}
-              playing={previewPlaying}
-              time={previewTime}
-              onToggle={togglePreview}
-              onAdd={addPending}
-              suggestions={tagSuggestions}
-              notes={reviewPending}
-              labels={L}
-            />
-          )}
-
-          <div className="row" style={{ marginTop: 12 }}>
-            {rec.isRecording && !reviewing && (
-              <Button variant="outline" onClick={rec.pause}>
-                <Pause className="size-4" /> {L.pause}
-              </Button>
-            )}
-            {reviewing && (
-              <Button onClick={resumeRecording}>
-                <Circle className="size-2.5 fill-current" /> {L.resume}
-              </Button>
-            )}
-            <Button
-              variant="destructive"
-              className="hold-btn"
-              disabled={uploading}
-              title={L.holdTitle}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                beginHold();
-              }}
-              onPointerUp={cancelHold}
-              onPointerLeave={cancelHold}
-              onPointerCancel={cancelHold}
-            >
-              <span
-                className="hold-fill"
-                style={{ width: `${holdProgress * 100}%` }}
-              />
-              <span className="hold-label">
-                {holdProgress > 0 ? (
-                  L.holding
-                ) : (
-                  <>
-                    <Square className="size-4" /> {L.stopSave}
-                  </>
-                )}
-              </span>
-            </Button>
-            <span className="muted small">{L.orHoldSpace}</span>
-            {pending.length > 0 && (
-              <span className="muted small">
-                {L.tagsPending(pending.length)}
-              </span>
-            )}
-          </div>
-        </>
+      {displayEnvelope.samples.length > 0 ? (
+        <LiveWaveform
+          envelope={displayEnvelope}
+          live={live.feed}
+          threshold={threshold}
+          events={displayEvents}
+          metronome={displayMetronome}
+          paused={rec.isPaused || !!reviewing}
+          playhead={reviewing ? readPreview : null}
+          focus={focus}
+          height={56}
+        />
+      ) : (
+        <span className="muted small">{sessionTitle(session.createdAt)}</span>
       )}
-
-      {uploading && (
-        <p className="muted" role="status">
-          {progress === null
-            ? L.uploading
-            : progress < 1
-              ? L.uploadProgress(Math.round(progress * 100))
-              : L.analyzing}
-        </p>
-      )}
-    </Card>
+    </RecorderBar>
   );
 }
 

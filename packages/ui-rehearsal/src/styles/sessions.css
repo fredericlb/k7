@@ -243,9 +243,6 @@
     --song-bar-h: 64px;
     padding-bottom: var(--song-bar-h);
   }
-  .main-inner.has-rec-bar .song-detail {
-    --rec-bar-h: 64px;
-  }
   .song-bar {
     position: fixed;
     right: 0;

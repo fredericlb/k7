@@ -36,32 +36,33 @@ a page can be opened by others through its link.
    With no rehearsal chain chosen, the session records from the local device straight away.
 3. Allow microphone access if the browser asks.
 
-The recorder opens in a pop-in. A session is created at once.
+The recorder is a bar at the bottom of the window, and it stays there for the whole take: the page
+above stays usable, so you can browse other pages, including the songbook, while it records. A
+session is created at once.
 
-Only one take runs at a time: pressing the red dot during a take brings it back to the front
-("Finish the current recording first.").
+Only one take runs at a time: pressing the red dot during a take says "Finish the current recording
+first."
 
 ### While recording
 
-- **The waveform** grows live. The recorder levels it automatically ("auto gain N× — leveled to
-  just below saturation"); the recorded audio itself is not changed.
-- **Highlights**: everything between silences is flagged live as a highlight. A silence is two
-  seconds or more below the floor (15% of the loudest level so far); a highlight shorter than four
-  seconds is ignored. The list is titled "Detected moments so far".
-- **Tagging**: click a highlight to pause the take and listen back to that span ("Reviewing
-  from – to"). Answer "What happened here?" with tags, then **Resume recording** (or **Return to
-  recording**). Tagged highlights become moments when the session is saved.
+- **The waveform** grows live in the bar. The recorder levels it automatically; the recorded audio
+  itself is not changed.
+- **Highlights**: everything between silences is flagged live as a highlight, shown as a chip under
+  the waveform. A silence is two seconds or more below the floor (15% of the loudest level so far);
+  a highlight shorter than four seconds is ignored.
+- **Listening back**: click a highlight's chip to pause the take and play that span ("Reviewing
+  from – to"). A row above the bar plays it again, and you can answer "What happened here?" with
+  tags. Tagged highlights become moments when the session is saved.
+- **Resume recording**, at the right of the bar, carries the take on after a pause or a highlight;
+  **Pause** stops it for a moment without ending it.
 - **Metronome**: type a tempo in BPM and start it. While it runs, changing the tempo changes the
   click. It plays on this device; it is not recorded.
-- **Hide** (or Escape) folds the recorder into a bar at the bottom of the window. The take keeps
-  recording while you browse other pages, including the songbook. A take started from a song's
-  page starts folded, so the song stays on screen. Click the bar to bring the recorder back.
 - The screen is kept awake while recording, so a phone locking itself does not cut the take.
 - Closing the tab during a take asks for confirmation.
 
 ### Stopping
 
-**Stop & save** must be held for two seconds, or hold the Space bar: no stray tap ends a long
+**Stop & save**, at the right of the bar, must be held for two seconds: no stray tap ends a long
 take. The take is uploaded and analysed ("Uploading & analyzing…"), then the session's page opens.
 
 If the upload fails, the recorder offers **Retry upload** and **Download the take**.
