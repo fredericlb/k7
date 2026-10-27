@@ -20,17 +20,17 @@ pins to its right edge.
   file, ahead of wherever the run leads; a run that led nowhere is led on to `RENDER` by it, as the
   audio strip leads to `MIX`. A lane whose run goes through a linked chain (`main` → `glow`) gets it
   at the end of that chain, so the colour and the fade come after the effect.
-- **Written by a targeted edit, never a whole-graph rewrite.** `editChainGraph` re-serialises every
-  chain, and on a lane carrying a fade's stretch it folds the stretch into the lane's steps. The
-  strip is one `insertIn` on one file, checked by `parseChain` and written through `formatChain`.
+- **The audio strip's code, not a copy of it.** Planning, writing, naming (`mix-<lane>`), finding,
+  the back-fill, a rename and a delete are `laneStrip.ts`'s, shared with the sound lanes
+  ([trackMixer.md](trackMixer.md)); only the module and the sum differ.
 - **Every lane gets one, by two routes.** `createPictureLane` makes a new lane with its strip
   (`picture lane new`, `picture import`, a timeline copy, a transcription), and the file service
   back-fills every lane lacking one when a project with a viewport is opened
-  (`stripPictureLanes`). A strip that cannot be wired is said (`no strip: …`), never refused.
+  (`stripLanes`). A strip that cannot be wired is said (`no strip: …`), never refused.
 - **A lane without one is still drawn.** The back-fill makes that rare; hiding the lane instead
   would turn a missing node into a missing picture.
-- **Deleted with its lane, renamed never.** No other lane runs through it. In a chain project its
-  name is an id, so a lane rename has nothing to follow.
+- **Deleted with its lane, and renamed with it** where its name is the lane's, as a sound lane's
+  strip is: no other lane runs through it. In a chain project its name is an id, with nothing to follow.
 
 ## Its knobs
 
@@ -40,4 +40,4 @@ shell's `onShaderParam` writes it a few times a drag, the last value always land
 (`apps/k7/frontend/src/hooks/useShaderParam.ts`).
 
 The graph names each lane's strip in `trackMixers`, read off the graph's `extends` rather than off
-the compile, which knows nothing of picture (`pictureStripsOf`).
+the compile, which knows nothing of picture (`laneStripsOf`).

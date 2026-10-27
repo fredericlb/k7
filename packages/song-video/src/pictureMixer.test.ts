@@ -13,11 +13,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadGraph } from "@studio/song/graph";
 import {
-  addPictureMixer,
-  hasPictureMixer,
-  planPictureMixer,
-  stripPictureLanes,
-} from "@studio/song/pictureMixerFile";
+  addLaneStrip,
+  hasLaneStrip,
+  pictureLanes,
+  planLaneStrip,
+  stripLanes,
+} from "@studio/song/laneStrip";
 import { PICTURE_STRIP_SHADER } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileVideoChains } from "./videoChains";
@@ -37,27 +38,29 @@ afterEach(() => rmSync(ws, { recursive: true, force: true }));
 const LANES = ["box_layer", "dot_layer", "main", "pip", "title_layer"];
 
 const stripAll = () => {
-  for (const lane of LANES) addPictureMixer(dir, lane, loadGraph(dir));
+  for (const lane of LANES) addLaneStrip(dir, lane, loadGraph(dir));
 };
 
 describe("a picture lane's strip", () => {
   it("is given to every lane, once", () => {
     stripAll();
     const g = loadGraph(dir);
-    for (const lane of LANES) expect(hasPictureMixer(g, lane)).toBe(true);
-    for (const lane of LANES) expect(planPictureMixer(dir, lane, g)).toBeNull();
+    for (const lane of LANES) expect(hasLaneStrip(g, lane)).toBe(true);
+    for (const lane of LANES) expect(planLaneStrip(dir, lane, g)).toBeNull();
   });
 
   it("is back-filled on every lane by one pass, and a second pass writes nothing", () => {
-    const first = stripPictureLanes(dir);
+    const first = stripLanes(dir, pictureLanes);
     expect(first.warnings).toEqual([]);
     const g = loadGraph(dir);
-    for (const lane of LANES) expect(hasPictureMixer(g, lane)).toBe(true);
-    expect(stripPictureLanes(dir).written).toEqual([]);
+    for (const lane of LANES) expect(hasLaneStrip(g, lane)).toBe(true);
+    expect(stripLanes(dir, pictureLanes).written).toEqual([]);
   });
 
-  it("is no sound lane's", () => {
-    expect(planPictureMixer(dir, "drums", loadGraph(dir))).toBeNull();
+  it("is planned by the same planner as a sound lane's, which gets the audio strip", () => {
+    const g = loadGraph(dir);
+    expect(planLaneStrip(dir, "pip", g)?.kind).toBe("picture");
+    expect(planLaneStrip(dir, "drums", g)?.kind).toBe("audio");
   });
 
   it("is each lane's LAST pass, the linked glow (its shader `pulse`) ahead of it", () => {

@@ -6,9 +6,8 @@
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
 import { laneEventsAt } from "@studio/song/chainItemEdit";
-import { loadGraph } from "@studio/song/graph";
+import { stripNewLane } from "@studio/song/laneStrip";
 import { createTrackFile } from "@studio/song/loader";
-import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { addTrackPlacements } from "@studio/song-edit/trackMix";
@@ -66,10 +65,7 @@ export const TIMELINE_LANE_COPY_VERBS: Record<string, SidHandler> = {
         ]);
       try {
         const written = createTrackFile(h.songPath, id);
-        let strip: string[] = [];
-        try {
-          strip = addTrackMixer(h.songPath, id, loadGraph(h.songPath)) ?? [];
-        } catch {}
+        const { written: strip } = stripNewLane(h.songPath, id);
         if (events.length) addTrackPlacements(h.songPath, id, events);
         h.log([
           `+ track ${id}: ${events.length} event(s) of ${track.id} (${[...written, ...strip].join(", ")})`,

@@ -6,6 +6,7 @@
 import { dropNodeFromAssemblies } from "@studio/song/assemblyEdit";
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { loadGraph } from "@studio/song/graph";
+import { ownLaneStrip } from "@studio/song/laneStrip";
 import { loadProjectRoot } from "@studio/song/loader";
 import { surfacesNaming } from "@studio/song/surfaces";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
@@ -13,7 +14,6 @@ import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { deleteChainNode } from "@studio/song-edit/projectEdit";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
-import { laneMixer } from "./track.ts";
 
 export const TRACK_DELETE_VERBS: Record<string, SidHandler> = {
   "track.delete": trackDeleteCommand,
@@ -31,7 +31,7 @@ function laneOwnNodes(dir: string, lane: string): string[] {
     return [...others, lane];
   }
   // A graph.k7x project names no chain a lane owns: its strip goes with it, every other node is shared.
-  const mixer = laneMixer(loadGraph(dir), lane);
+  const mixer = ownLaneStrip(dir, loadGraph(dir), lane);
   return mixer ? [mixer, lane] : [lane];
 }
 

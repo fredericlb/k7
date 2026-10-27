@@ -6,8 +6,8 @@
 import { join } from "node:path";
 import { K7Document } from "@studio/k7x/document";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
+import { createPictureLane } from "@studio/song/laneStrip";
 import { pictureLaneIds } from "@studio/song/pictureLanes";
-import { createPictureLane } from "@studio/song/pictureMixerFile";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit } from "@studio/song/yaml/workspaceDoc";
 import { wsExists } from "@studio/song/yaml/workspaceFile";

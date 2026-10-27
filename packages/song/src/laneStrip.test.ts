@@ -7,6 +7,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
+import {
+  addLaneStrip,
+  hasLaneStrip,
+  mixerNameFor,
+  planLaneStrip,
+} from "./laneStrip";
 import { compileNodeProject } from "./nodeProject";
 import { trackMixer } from "./project";
 import { SHARED_STRIP } from "./scaffoldLive";
@@ -16,12 +22,6 @@ import {
   writeLane,
   writeNode,
 } from "./testSupport";
-import {
-  addTrackMixer,
-  hasTrackMixer,
-  mixerNameFor,
-  planTrackMixer,
-} from "./trackMixerFile";
 import { wsData } from "./yaml/workspaceDoc";
 
 let dir: string;
@@ -68,11 +68,11 @@ describe("mixerNameFor", () => {
   });
 });
 
-describe("planTrackMixer", () => {
+describe("planLaneStrip", () => {
   it("wires an ORPHAN lane straight to the sum, since it is in no chain at all", () => {
     lane("kit");
     graph({ MIX: ["OUT"] });
-    const plan = planTrackMixer(dir, "kit", loadGraph(dir));
+    const plan = planLaneStrip(dir, "kit", loadGraph(dir));
     expect(plan).toMatchObject({ name: "mix-kit", after: null });
   });
 
@@ -80,7 +80,7 @@ describe("planTrackMixer", () => {
     lane("pad");
     module_("synth-pad", "4osc");
     graph({ pad: ["synth-pad"], "synth-pad": ["MIX"], MIX: ["OUT"] });
-    expect(planTrackMixer(dir, "pad", loadGraph(dir))).toMatchObject({
+    expect(planLaneStrip(dir, "pad", loadGraph(dir))).toMatchObject({
       name: "mix-pad",
       after: "synth-pad",
     });
@@ -91,8 +91,8 @@ describe("planTrackMixer", () => {
     module_("mix-pad", "Mixer");
     graph({ pad: ["mix-pad"], "mix-pad": ["MIX"], MIX: ["OUT"] });
     const g = loadGraph(dir);
-    expect(hasTrackMixer(g, "pad")).toBe(true);
-    expect(planTrackMixer(dir, "pad", g)).toBeNull();
+    expect(hasLaneStrip(g, "pad")).toBe(true);
+    expect(planLaneStrip(dir, "pad", g)).toBeNull();
   });
 
   it("refuses a run that ends somewhere other than the sum rather than guessing", () => {
@@ -108,13 +108,13 @@ describe("planTrackMixer", () => {
       bus: ["MIX"],
       MIX: ["OUT"],
     });
-    expect(() => planTrackMixer(dir, "pad", loadGraph(dir))).toThrow(
+    expect(() => planLaneStrip(dir, "pad", loadGraph(dir))).toThrow(
       /does not run into MIX/,
     );
   });
 });
 
-describe("addTrackMixer", () => {
+describe("addLaneStrip", () => {
   it("writes the node and one arrow, and the lane then HAS a mixer when compiled", () => {
     lane("pad");
     module_("synth-pad", "4osc");
@@ -122,7 +122,7 @@ describe("addTrackMixer", () => {
       { pad: ["synth-pad"], "synth-pad": ["MIX"], MIX: ["OUT"] },
       "// the graph\n",
     );
-    const files = addTrackMixer(dir, "pad", loadGraph(dir));
+    const files = addLaneStrip(dir, "pad", loadGraph(dir));
     // A NODE on k7's own mixer, not a project copy of it (docs/trackMixer.md, docs/metaModules.md).
     expect(files).toEqual(["nodes/mix-pad.k7x", "graph.k7x"]);
     expect(wsData(join(dir, "nodes/mix-pad.k7x")).extends).toBe(SHARED_STRIP);
@@ -140,9 +140,9 @@ describe("addTrackMixer", () => {
   it("is a no-op the second time", () => {
     lane("kit");
     graph({ MIX: ["OUT"] });
-    addTrackMixer(dir, "kit", loadGraph(dir));
+    addLaneStrip(dir, "kit", loadGraph(dir));
     const after = graphText();
-    expect(addTrackMixer(dir, "kit", loadGraph(dir))).toBeNull();
+    expect(addLaneStrip(dir, "kit", loadGraph(dir))).toBeNull();
     expect(graphText()).toBe(after);
   });
 });

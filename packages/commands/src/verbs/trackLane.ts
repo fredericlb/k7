@@ -3,7 +3,7 @@
 
 import { join } from "node:path";
 import { createFlatCurveFile } from "@studio/song/curves";
-import { loadGraph } from "@studio/song/graph";
+import { stripNewLane } from "@studio/song/laneStrip";
 import {
   createTrackFile,
   loadProjectRoot,
@@ -11,7 +11,6 @@ import {
 } from "@studio/song/loader";
 import { pictureLaneIds } from "@studio/song/pictureLanes";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
-import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import {
   setBypassEntry,
@@ -32,13 +31,7 @@ async function newTrack(arg: string, h: CommandHost): Promise<void> {
   try {
     const written = createTrackFile(h.songPath, id);
     // …and its STRIP, which a lane with nowhere to wire one is SAID to lack rather than refused for.
-    let strip: string[] = [];
-    let noStrip = "";
-    try {
-      strip = addTrackMixer(h.songPath, id, loadGraph(h.songPath)) ?? [];
-    } catch (e) {
-      noStrip = (e as Error).message;
-    }
+    const { written: strip, noStrip } = stripNewLane(h.songPath, id);
     h.reload(); // the doc now comes from disk, so the mixer and the engine agree with it
     h.log([
       `+ track ${id} (${[...written, ...strip].join(", ")})`,

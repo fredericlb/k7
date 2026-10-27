@@ -296,7 +296,7 @@ The strip runs into **`MIX`**, and `MIX` into the master run — or straight to 
 project's master track carries no plugins. That is the notation every k7 project uses
 (`packages/song/docs/masterChain.md`): not an audible difference, since every track feeds the
 master bus whatever it names, but the shape the rest of the app reads. A lane that ended at `OUT`
-is one `planTrackMixer` refuses to touch — "does not run into MIX, wire its strip by hand" — so an
+is one `planLaneStrip` refuses to touch — "does not run into MIX, wire its strip by hand" — so an
 imported project could not be repaired by the tool that repairs every other one.
 
 ## The surface, so the song can be looked at

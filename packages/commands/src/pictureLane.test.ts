@@ -6,10 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGraph } from "@studio/song/graph";
-import {
-  pictureStripsOf,
-  stripPictureLanes,
-} from "@studio/song/pictureMixerFile";
+import { laneStripsOf, pictureLanes, stripLanes } from "@studio/song/laneStrip";
 import { loadProject } from "@studio/song/project";
 import { writeDoc, writeLane } from "@studio/song/testSupport";
 import { wsData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
@@ -118,6 +115,18 @@ describe("picture lane rename", () => {
   });
 });
 
+describe("picture lane rename, and the strip", () => {
+  it("takes the strip named after the lane along, as `track rename` does a sound lane's", async () => {
+    stripLanes(dir, pictureLanes);
+    expect(wsExists(join(dir, "nodes/mix-cam.k7x"))).toBe(true);
+    const h = await run("picture lane rename cam wide");
+    expect(h.lines.refuse).toEqual([]);
+    expect(wsExists(join(dir, "nodes/mix-wide.k7x"))).toBe(true);
+    const g = loadGraph(dir);
+    expect(laneStripsOf(g, pictureLanes(g)).wide).toBe("mix-wide");
+  });
+});
+
 describe("picture lane delete", () => {
   it("removes the file and the lane from `trackOrder` and `soloed:`", async () => {
     const h = await run("picture lane delete cam");
@@ -131,13 +140,17 @@ describe("picture lane delete", () => {
   });
 
   it("takes the lane's strip with it, and leaves the other lane's", async () => {
-    stripPictureLanes(dir);
-    const before = pictureStripsOf(loadGraph(dir));
+    stripLanes(dir, pictureLanes);
+    const g = loadGraph(dir);
+    const before = laneStripsOf(g, pictureLanes(g));
     const h = await run("picture lane delete cam");
     expect(h.lines.refuse).toEqual([]);
     expect(wsExists(join(dir, `nodes/${before.cam}.k7x`))).toBe(false);
     expect(Object.keys(data("graph.k7x").modules)).not.toContain(before.cam);
-    expect(pictureStripsOf(loadGraph(dir))).toEqual({ pip: before.pip });
+    const after = loadGraph(dir);
+    expect(laneStripsOf(after, pictureLanes(after))).toEqual({
+      pip: before.pip,
+    });
   });
 
   it("refuses while a lane plays its sound", async () => {

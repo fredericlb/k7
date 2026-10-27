@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "@studio/k7x/document";
 import { loadGraph } from "@studio/song/graph";
-import { hasPictureMixer } from "@studio/song/pictureMixerFile";
+import { hasLaneStrip } from "@studio/song/laneStrip";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -209,7 +209,7 @@ describe("picture lane new", () => {
     await runCommand("picture lane new broll", host(), "cli");
     expect(logs.join(" ")).not.toMatch(/no strip/);
     const g = loadGraph(song);
-    expect(hasPictureMixer(g, "broll")).toBe(true);
+    expect(hasLaneStrip(g, "broll")).toBe(true);
     const run = Object.values(g.chains).find((c) => c.from === "broll");
     expect(run?.out.map((o) => o.to)).toEqual(["RENDER"]);
   });

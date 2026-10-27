@@ -18,10 +18,10 @@ import {
 } from "@studio/song/confine";
 import { stampFormatLevel } from "@studio/song/formatStamp";
 import { loadGraph } from "@studio/song/graph";
+import { stripNewLane } from "@studio/song/laneStrip";
 import { createTrackFile, readYamlEntities } from "@studio/song/loader";
 import { pictureLaneIds } from "@studio/song/pictureLanes";
 import type { RawClip, RawVideoTrack } from "@studio/song/rawDoc";
-import { addTrackMixer } from "@studio/song/trackMixerFile";
 import { videoSoundPieces } from "@studio/song/videoSound";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { wsData } from "@studio/song/yaml/workspaceDoc";
@@ -100,12 +100,8 @@ function soundLane(lane: string, track: string, h: CommandHost): string[] {
   // A fresh lane says `events: []`, and a sounding lane may state no events of its own.
   deleteFileValue(file, ["events"]);
   setFileValue(file, ["video_source"], lane);
-  let strip: string[] = [];
-  try {
-    strip = addTrackMixer(h.songPath, track, loadGraph(h.songPath)) ?? [];
-  } catch {
-    // A lane with nowhere to wire a strip still plays, as `track new` says of one.
-  }
+  // A lane with nowhere to wire a strip still plays, as `track new` says of one.
+  const { written: strip } = stripNewLane(h.songPath, track);
   return [
     `+ track ${track} plays ${lane}'s sound (${[...written, ...strip].join(", ")})`,
   ];
