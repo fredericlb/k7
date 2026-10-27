@@ -46,8 +46,10 @@ where to go are two questions, and a host answering both in one row reads as one
 
 
 `transport` stands where the play/pause button is, and `track` where the clocks and the scrubber are —
-`null` for none at all. They are for a host whose transport is not a file: k7's project has play, stop,
-loop and record, and its "where" is bars and lanes, which it draws as a clock and a minimap. The row
+`null` for none at all. They are for a host whose transport is more than a range: k7's project has play,
+stop, loop and record, and its "where" is bars and lanes, which it draws as a clock and a minimap; the
+médiathèque draws the playing file's waveform (`packages/ui-library/docs/miniPlayer.md`), and leaves
+`track` unset for a file it has no shape of, which gives the scrubber back. The row
 around them — the title, the host's controls, the close — stays the bar's, so the shape still reads as
 the same player. A host that passes them still passes `playing` and `onToggle`, which the system's
 controls use.

@@ -1,9 +1,12 @@
 // songWaveform.ts — the shape of a song's master, for the player pane: read the `.cache`
 // sidecar the engine writes beside the audio and turn it into the Envelope @studio/ui-waveform
-// draws. Nothing here decodes audio — the browser never has to. See ../docs/songPlayer.md.
+// draws. Nothing here decodes audio — the browser never has to. Every shape read is remembered,
+// so the bar at the bottom draws the one the pane found. See ../docs/songPlayer.md.
 
 import type { Envelope } from "@studio/ui-waveform";
+import { useEffect, useSyncExternalStore } from "react";
 import { library } from "./api";
+import { Memo } from "./shapeMemo";
 
 /** The sidecar's name, mirroring `CACHE_EXT`: to this app it is a file beside the audio. */
 const CACHE_EXT = ".cache";
@@ -55,14 +58,30 @@ function shapeOf(raw: unknown): SongShape | null {
   };
 }
 
+/** The shapes this tab has read, the song pane's and the bar's alike. */
+const known = new Memo<SongShape>(16);
+
 /** Read the sidecar beside `masterPath`, or null — an ABSENCE rather than a failure. */
 export async function readSongShape(
   masterPath: string,
 ): Promise<SongShape | null> {
   try {
     const { content } = await library.readFile(`${masterPath}${CACHE_EXT}`);
-    return shapeOf(JSON.parse(content));
+    const shape = shapeOf(JSON.parse(content));
+    if (shape) known.set(masterPath, shape);
+    return shape;
   } catch {
     return null;
   }
+}
+
+/** The shape of `path` if one exists, read once and then followed; it never asks for an analysis. */
+export function useSongShape(path: string | null): SongShape | null {
+  const shape = useSyncExternalStore(known.subscribe, () =>
+    path ? (known.get(path) ?? null) : null,
+  );
+  useEffect(() => {
+    if (path && !known.has(path)) void readSongShape(path);
+  }, [path]);
+  return shape;
 }

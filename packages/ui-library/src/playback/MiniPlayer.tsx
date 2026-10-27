@@ -1,17 +1,20 @@
 // MiniPlayer.tsx — the bar at the bottom: what is playing, how far in, and where the sound is
 // coming out. It appears when a song starts and goes only when it is closed — including after
-// the song ends; a host's dock then draws its own bar in its place. The ROW is @studio/ui-mini-player; what is here is the médiathèque's reading
-// of it. See ../../docs/miniPlayer.md.
+// the song ends; a host's dock then draws its own bar in its place. The ROW is @studio/ui-mini-player;
+// what is here is the médiathèque's reading of it, its position row the waveform of what plays
+// when that file has a shape. See ../../docs/miniPlayer.md.
 
 import { Disc3, ListVideo } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
+import { useSongShape } from "../songWaveform";
 import { InstrumentalButton } from "./InstrumentalButton";
 import { usePlayback } from "./PlaybackProvider";
 import { usePlaybackPosition } from "./position";
 import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";
 import { useStartNext } from "./useQueueAdvance";
+import { WaveformTrack } from "./WaveformTrack";
 
 /** The album, which no field carries: the path's second-to-last segment IS it. */
 function albumOf(path: string): string {
@@ -58,6 +61,8 @@ export function MiniPlayer() {
   const l = useLabels().playback;
   // The skip the queue's own advance takes, offered to the system's controls while there is a next.
   const startNext = useStartNext(wanted);
+  // The shape of the file PLAYING — the master, a variant or the instrumental — and none means the plain scrubber.
+  const shape = useSongShape(now?.path ?? null);
 
   /** The bar appears for a NON-EMPTY queue too, or the queue could not bring up its own button. */
   if (!now) return queue.length ? <QueueOnly /> : null;
@@ -85,6 +90,17 @@ export function MiniPlayer() {
       onSeek={seek}
       onClose={close}
       onNext={queue.length ? startNext : undefined}
+      track={
+        shape ? (
+          <WaveformTrack
+            shape={shape}
+            position={position}
+            duration={duration}
+            label={l.bar.position}
+            onSeek={seek}
+          />
+        ) : undefined
+      }
       meta={
         <>
           {/* Which version, when not the master: the strip above may point elsewhere entirely. */}
