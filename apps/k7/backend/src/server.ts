@@ -29,6 +29,7 @@ import {
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
 import { jsonBodies } from "./bodyLimits.ts";
+import { withDevAdmin } from "./devAdmin.ts";
 import { devFrontend } from "./devFrontend.ts";
 import { mountHandoff } from "./handoff.ts";
 import {
@@ -136,7 +137,8 @@ const auth = await setupAuth(app, {
   // Dropping `groups` would 403 every admin surface — see ../../AGENTS.md, § The backend in detail.
   scopes,
 });
-const { requireAuth } = auth;
+// A local dev session's stub user is an admin, nobody else's is (./devAdmin.ts).
+const requireAuth = withDevAdmin(auth.requireAuth);
 // Under the tray: the machine's supervisor, run by this backend, for k7's pages and the tray (./localEngine/).
 const localEngine = LOCAL_USER
   ? localEngineFromEnv(`http://127.0.0.1:${PORT}`)
