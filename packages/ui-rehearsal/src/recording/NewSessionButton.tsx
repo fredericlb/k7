@@ -1,7 +1,7 @@
 // NewSessionButton.tsx — what starts a take: the red dot the host draws wherever it puts a page's own
-// control, and the labelled button an empty timeline offers in its place. Both open one menu — this
-// device, or the account's rehearsal chain — and run one hook, so a start in progress or refused reads
-// the same from either. See ../../docs/chainSource.md.
+// control, and the labelled button an empty timeline offers in its place. Both start on this device at
+// once when no rehearsal chain is chosen, else open a menu of this device and that chain, and run one
+// hook, so a start in progress or refused reads the same from either. See ../../docs/chainSource.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Mic, MicOff, Workflow } from "@frediverse/ui/icons";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { type SessionSource, useRehearsalRecording } from "./context";
 
@@ -34,54 +34,65 @@ function useStartSession() {
   return { create, creating, error };
 }
 
-/** The account's rehearsal chain as the menu shows it: undefined while asked, null when none is chosen. */
-function useRehearsalChain(open: boolean): string | null | undefined {
-  const [chain, setChain] = useState<string | null | undefined>(undefined);
-  // Asked again at every opening: the chain is chosen on another page, maybe in another tab.
-  useEffect(() => {
-    if (!open) return;
-    let live = true;
-    // Loaded on demand: the chain source carries the engine client the sidebar must not.
-    void import("../chainSource")
-      .then(({ rehearsalChain }) => rehearsalChain())
-      .then((ref) => live && setChain(ref))
-      .catch(() => live && setChain(null));
-    return () => {
-      live = false;
-    };
-  }, [open]);
-  return chain;
+/** The account's rehearsal chain, or null; loaded on demand, the chain source carrying the engine client the sidebar must not. */
+async function askRehearsalChain(): Promise<string | null> {
+  try {
+    const { rehearsalChain } = await import("../chainSource");
+    return await rehearsalChain();
+  } catch {
+    return null;
+  }
 }
 
-/** The menu both buttons open: this device's microphone, or the chain chosen on k7's Frozen chains page. */
+/**
+ * What both buttons do: with no rehearsal chain chosen, start on this device at once; with one, open
+ * the menu of this device and that chain. Asked at the click, since it is chosen on another page,
+ * maybe in another tab, so Radix's own opening on pointer and key is held back until the answer.
+ */
 function SourceMenu({
   trigger,
   onPick,
 }: {
-  trigger: ReactNode;
+  trigger: (asking: boolean) => ReactNode;
   onPick: (source: SessionSource) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const chain = useRehearsalChain(open);
+  const [asking, setAsking] = useState(false);
+  const [chain, setChain] = useState<string | null>(null);
+  const decide = async () => {
+    if (asking) return;
+    setAsking(true);
+    const ref = await askRehearsalChain();
+    setAsking(false);
+    if (!ref) return onPick("local");
+    setChain(ref);
+    setOpen(true);
+  };
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        asChild
+        onPointerDown={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowDown")
+            return;
+          e.preventDefault();
+          void decide();
+        }}
+        onClick={() => void decide()}
+      >
+        {trigger(asking)}
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="rehearsal-root min-w-64">
         <DropdownMenuItem onSelect={() => onPick("local")}>
           <Mic className="size-4" /> {m["source.local"]()}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={!chain}
-          onSelect={() => onPick("chain")}
-          title={chain === null ? m["source.noChain"]() : undefined}
-        >
+        <DropdownMenuItem onSelect={() => onPick("chain")}>
           <Workflow className="size-4" />
           <span className="flex min-w-0 flex-col">
             <span>{m["source.chain"]()}</span>
             <span className="truncate text-muted-foreground text-xs">
-              {chain === undefined
-                ? m["source.chainReading"]()
-                : (chain ?? m["source.noChainShort"]())}
+              {chain}
             </span>
           </span>
         </DropdownMenuItem>
@@ -95,7 +106,7 @@ export function NewSessionButton() {
   return (
     <SourceMenu
       onPick={(s) => void create(s)}
-      trigger={
+      trigger={(asking) => (
         <Button
           variant="ghost"
           size="icon-sm"
@@ -111,11 +122,11 @@ export function NewSessionButton() {
             // A recorder's red dot, pulsing while the session starts.
             <span
               aria-hidden="true"
-              className={`size-3.5 rounded-full bg-destructive${creating ? " animate-pulse" : ""}`}
+              className={`size-3.5 rounded-full bg-destructive${creating || asking ? " animate-pulse" : ""}`}
             />
           )}
         </Button>
-      }
+      )}
     />
   );
 }
@@ -127,12 +138,12 @@ export function StartFirstSessionButton() {
     <>
       <SourceMenu
         onPick={(s) => void create(s)}
-        trigger={
-          <Button size="sm" className="ds-button" disabled={creating}>
+        trigger={(asking) => (
+          <Button size="sm" className="ds-button" disabled={creating || asking}>
             <Mic className="size-4" />
             {creating ? m["rec.starting"]() : m["recordings.startFirst"]()}
           </Button>
-        }
+        )}
       />
       {error && <p className="text-destructive text-xs">{error}</p>}
     </>

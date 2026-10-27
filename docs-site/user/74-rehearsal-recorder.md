@@ -28,10 +28,12 @@ a page can be opened by others through its link.
 ## Recording a session
 
 1. Click the red dot (**New session**) in the sidebar. It is there on every rehearsal page.
-2. Choose where the audio comes from:
+2. If you chose a rehearsal chain on k7's **Frozen chains** page (see below), a menu asks where the
+   audio comes from:
    - **Local device**: this computer's or phone's microphone or audio interface.
-   - **K7 chain**: your rehearsal chain, chosen on k7's **Frozen chains** page (see below). It is
-     greyed out, saying so, until you choose one.
+   - **K7 chain**: your rehearsal chain, named under it.
+
+   With no rehearsal chain chosen, the session records from the local device straight away.
 3. Allow microphone access if the browser asks.
 
 The recorder opens in a pop-in. A session is created at once.
