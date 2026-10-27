@@ -1,10 +1,10 @@
-// match.ts — which song of pl8's library a songbook song is: artist and title equal once normalised,
-// else every typed word found (pl8's own `songMatches`), else the same title by an artist a typo away.
-// Pure, so tested without pl8.
+// songMatch.ts — is this library entry, or this identified recording, the song a person named?
+// Artist and title equal once normalised, else every typed word found, else a typo away. Pure, and
+// HERE because the songbook and the médiathèque's "Add a song" both check a hunt with it — docs/songs.md.
 
-import { similarity } from "@studio/lyrics";
-import { songMatches } from "@studio/mediatek/playlistItems";
-import type { MediatekEntry } from "@studio/mediatek/types";
+import { similarity } from "@studio/lyrics/lrc";
+import { songMatches } from "./playlistItems.ts";
+import type { MediatekEntry } from "./types.ts";
 
 const normalize = (s: string): string =>
   s
@@ -54,7 +54,7 @@ export function sameSong(
 
 /** Is `candidateArtist`/`candidateTitle` this song, once normalised? The same exact bar
  * `findLibrarySong` tries first — no loose fallback, since a wrong auto-applied lyric is
- * worse than asking (see fetchSong/run.ts's runPipeline). */
+ * worse than asking (the songbook's fetchSong/run.ts). */
 export function matches(
   artist: string,
   title: string,

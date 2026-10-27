@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { identify, message, searchTexts } from "./hunt.ts";
+import { filingTags, identify, message, searchTexts } from "./hunt.ts";
 
 describe("searchTexts", () => {
   it("demande l'album et le titre, puis le titre seul", () => {
@@ -33,6 +33,32 @@ describe("searchTexts", () => {
 
   it("n'a rien à demander sans titre", () => {
     expect(searchTexts("Nevermind", "  ")).toEqual([]);
+  });
+});
+
+describe("filingTags", () => {
+  const hunted = {
+    artist: "Nina Simone",
+    title: "Sinnerman",
+    album: "Pastel Blues",
+  };
+
+  it("files under the tags hunted, album included, when the caller named nothing", () => {
+    expect(filingTags(hunted, undefined, "slskd")).toEqual({
+      ...hunted,
+      source: "slskd",
+    });
+  });
+
+  it("files under the caller's names with the album unknown, as an upload of the same names", () => {
+    // The médiathèque's three ways must land in one folder — packages/ui-library/docs/hunt.md.
+    expect(
+      filingTags(
+        hunted,
+        { artist: "nina simone", title: "Sinnerman" },
+        "youtube",
+      ),
+    ).toEqual({ artist: "nina simone", title: "Sinnerman", source: "youtube" });
   });
 });
 

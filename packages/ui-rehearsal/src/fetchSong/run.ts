@@ -3,19 +3,19 @@
 // Two verbs because separating borrows a musician's machine — ../../docs/audio.md.
 
 import { hasTimecodes, timeLyrics } from "@studio/lyrics";
-import type { MediatekEntry } from "@studio/mediatek/types";
-import type { StemsReply } from "@studio/web-protocol";
-import type { HuntRecord } from "@studio/web-protocol/hunt";
-import { ApiError } from "../api";
-import { m } from "../paraglide/messages.js";
-import type { FetchStatus, LrcCandidate, Song } from "../types";
 import {
   findLibrarySong,
   masterPath,
   matches,
   sameSong,
   songAtPath,
-} from "./match";
+} from "@studio/mediatek/songMatch";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import type { StemsReply } from "@studio/web-protocol";
+import type { HuntRecord } from "@studio/web-protocol/hunt";
+import { ApiError } from "../api";
+import { m } from "../paraglide/messages.js";
+import type { FetchStatus, LrcCandidate, Song } from "../types";
 import type { Pl8Client } from "./pl8";
 
 const POLL_MS = 2000;

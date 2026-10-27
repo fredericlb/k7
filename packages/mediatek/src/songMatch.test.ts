@@ -1,8 +1,14 @@
-// Matching a songbook song to pl8's library, where tags differ by accents, case and punctuation.
+// Matching a named song to the library's library, where tags differ by accents, case and punctuation.
 
-import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
+import {
+  findLibrarySong,
+  masterPath,
+  matches,
+  sameSong,
+  songAtPath,
+} from "./songMatch.ts";
+import type { MediatekEntry } from "./types.ts";
 
 const song = (
   path: string,
@@ -104,5 +110,24 @@ describe("songAtPath and masterPath", () => {
       "Sinnerman",
     );
     expect(masterPath(library[0])).toBe(`${folder}/original.flac`);
+  });
+});
+
+describe("sameSong", () => {
+  it("accepts what was identified a typo away from what was typed", () => {
+    expect(
+      sameSong("Jose Gonzales", "heartbeats", "José González", "Heartbeats"),
+    ).toBe(true);
+  });
+
+  it("refuses another song by a band one word of the query named", () => {
+    // « Expedition 33 Lumières » identifies as the band Lumières' « Momentary ».
+    expect(sameSong("Expedition 33", "Lumières", "Lumières", "Momentary")).toBe(
+      false,
+    );
+  });
+
+  it("refuses the right artist with another title", () => {
+    expect(sameSong("Beyoncé", "Hold Up", "Beyoncé", "Halo")).toBe(false);
   });
 });

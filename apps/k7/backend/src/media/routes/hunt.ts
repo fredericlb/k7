@@ -5,6 +5,7 @@
 import { wrap } from "@frediverse/http/route";
 import {
   canFallBackToYoutube,
+  type HuntFileAs,
   type HuntIdentity,
   type HuntTags,
 } from "@studio/web-protocol/hunt";
@@ -93,14 +94,23 @@ huntRouter.get(
   }),
 );
 
-/** Tags a caller identified and checked, or undefined when absent or not well formed. */
-function givenTags(raw: unknown): HuntTags | undefined {
+const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/** The names a caller files the hunt under, or undefined when absent or not well formed. */
+function givenNames(raw: unknown): HuntFileAs | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const t = raw as Record<string, unknown>;
-  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const artist = text(t.artist);
   const title = text(t.title);
-  if (!artist || !title) return undefined;
+  return artist && title ? { artist, title } : undefined;
+}
+
+/** Tags a caller identified and checked, or undefined when absent or not well formed. */
+function givenTags(raw: unknown): HuntTags | undefined {
+  const named = givenNames(raw);
+  if (!named) return undefined;
+  const t = raw as Record<string, unknown>;
+  const { artist, title } = named;
   return {
     artist,
     title,
@@ -114,7 +124,11 @@ huntRouter.post(
   wrap((req, res) => {
     const gap = missing();
     if (gap) return res.status(503).json({ error: gap });
-    const body = req.body as { query?: unknown; tags?: unknown };
+    const body = req.body as {
+      query?: unknown;
+      tags?: unknown;
+      fileAs?: unknown;
+    };
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     if (!query)
       return res.status(400).json({ error: "il faut un titre à chercher" });
@@ -128,7 +142,9 @@ huntRouter.post(
       return res.status(429).json({
         error: `${MAX_RUNNING} recherches déjà en cours — attendez qu'une se termine`,
       });
-    res.json(startHunt(sub, query, givenTags(body.tags)));
+    res.json(
+      startHunt(sub, query, givenTags(body.tags), givenNames(body.fileAs)),
+    );
   }),
 );
 

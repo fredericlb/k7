@@ -8,6 +8,7 @@ import { writablePath } from "@studio/mediatek/layout";
 import { extOf, withoutDerived } from "@studio/mediatek/media";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
 import { addSong } from "@studio/mediatek/write";
+import type { HuntFileAs } from "@studio/web-protocol/hunt";
 import { lyricsQueue } from "../lyricsQueue.ts";
 import { missing, sftpOf, slskdOf } from "../settings/store.ts";
 import { lookupDeezer } from "./deezer.ts";
@@ -199,12 +200,28 @@ export async function identify(query: string): Promise<Tags | null> {
   }
 }
 
+/** What the folder is named from: the caller's own names when given, album unknown, else the tags hunted. */
+export function filingTags(
+  tags: { artist?: string; title?: string; album?: string | null },
+  fileAs: HuntFileAs | undefined,
+  source: string,
+): SongTags {
+  if (fileAs) return { artist: fileAs.artist, title: fileAs.title, source };
+  return {
+    artist: tags.artist,
+    title: tags.title,
+    album: tags.album ?? undefined,
+    source,
+  };
+}
+
 async function run(
   sub: string,
   id: string,
   query: string,
   signal: AbortSignal,
   given?: Tags,
+  fileAs?: HuntFileAs,
 ): Promise<void> {
   // Read once per hunt, so settings saved mid-run change the next one and not this one.
   const slskd = slskdOf();
@@ -215,13 +232,8 @@ async function run(
   const tags = given ?? (await identify(query));
   // Null and not a guess: filing a typo as an artist makes a folder nobody finds again.
   if (!tags) throw new Error("aucun morceau ne correspond à ce nom");
-  const songTags: SongTags = {
-    artist: tags.artist,
-    title: tags.title,
-    album: tags.album ?? undefined,
-    // Where it came from, for whoever reads the folder — beside `upload` and `k7`.
-    source: "slskd",
-  };
+  // `slskd` says where it came from, for whoever reads the folder — beside `upload` and `k7`.
+  const songTags = filingTags(tags, fileAs, "slskd");
   patchHunt(sub, id, {
     artist: tags.artist,
     title: tags.title,
@@ -297,6 +309,7 @@ export function startHunt(
   sub: string,
   query: string,
   given?: Tags,
+  fileAs?: HuntFileAs,
 ): HuntRecord {
   const rec: HuntRecord = {
     id: randomUUID(),
@@ -304,11 +317,12 @@ export function startHunt(
     status: "searching",
     switches: 0,
     startedAt: Date.now(),
+    ...(fileAs ? { fileAs } : {}),
   };
   saveHunt(sub, rec);
   const ctl = new AbortController();
   running.set(rec.id, ctl);
-  void run(sub, rec.id, rec.query, ctl.signal, given)
+  void run(sub, rec.id, rec.query, ctl.signal, given, fileAs)
     .catch((e) => {
       patchHunt(sub, rec.id, {
         status: "failed",
@@ -360,13 +374,12 @@ async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
   const filed = await addSong({
     filename,
     bytes,
-    tags: {
-      artist: rec.artist,
-      title: rec.title || rec.query,
-      album: rec.album,
-      // Once filed, the only trace that this is a video's audio track and not a record.
-      source: "youtube",
-    },
+    // `youtube`: once filed, the only trace that this is a video's audio track and not a record.
+    tags: filingTags(
+      { artist: rec.artist, title: rec.title || rec.query, album: rec.album },
+      rec.fileAs,
+      "youtube",
+    ),
     // Recovering a failure: nothing is there to overwrite, and if something is, `addSong` refuses.
   });
   lyricsQueue.want(filed.path);

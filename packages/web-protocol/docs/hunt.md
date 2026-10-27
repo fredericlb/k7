@@ -34,3 +34,6 @@ then failed on every query would be worse than one that says which variables are
   are different waits and want different patience.
 - **`via`** is absent for the ordinary path, Soulseek through slskd; `youtube` is the fallback
   somebody asked for after that came back empty-handed.
+- **`fileAs`** is set when the caller chose the folder's names itself — the médiathèque's **Add a
+  song**, filing under what was typed with the album unknown — and kept on the row so the YouTube
+  fallback files in that same folder.

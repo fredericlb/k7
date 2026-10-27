@@ -23,7 +23,8 @@
     "./takes": "./src/takes.ts",
     "./write": "./src/write.ts",
     "./playlistItems": "./src/playlistItems.ts",
-    "./playlists": "./src/playlists.ts"
+    "./playlists": "./src/playlists.ts",
+    "./songMatch": "./src/songMatch.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
