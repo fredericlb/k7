@@ -25,6 +25,15 @@ shared with phare; it is k7, the one backend that MINTS the session, that must n
 The compose file asks for `OIDC_ISSUER` and `OIDC_CLIENT_ID` with `:?` as well, so a deployment
 missing them fails at `docker compose up` before any container starts.
 
+### The dev user is an admin, in a dev session only
+
+Under `STUDIO_DEV_AUTH=1` with no OIDC, the stub "Dev User" is the only account there is, so it is
+an admin: `withDevAdmin` (`src/devAdmin.ts`) wraps the `requireAuth` every route receives and gives
+that subject every group of `AUTH_ADMIN_GROUPS`. The stub itself stays groupless, being commons' and
+shared. A configured OIDC turns it off, as does the tray, whose local user has the same subject but
+runs on `STUDIO_LOCAL_USER` and not on this flag. An empty `AUTH_ADMIN_GROUPS` admits nobody, the
+dev user included, and the backend says so at start.
+
 ## Every answer carries two headers; the shell carries two more
 
 `src/hardening.ts`, mounted first:
