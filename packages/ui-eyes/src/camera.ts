@@ -62,6 +62,8 @@ export interface Lens {
   problem: string | null;
   /** Let go of what carries the picture beyond its tracks — a remote lens's peer connection and socket. */
   close?: () => void;
+  /** How late its picture is, in ms, as last measured — a remote lens only; absent or null is "about none". */
+  latencyMs?: () => number | null;
 }
 
 /** How a live lane gets its picture. Injected, because the browser that DRAWS a surface is not

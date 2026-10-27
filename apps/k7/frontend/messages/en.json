@@ -1605,5 +1605,14 @@
   "frozen.rehearsalNone": "No chain is chosen for rehearsals: the microphone button on one of your chains makes it the recorder's K7 chain.",
   "bench.saveInto": "Save into your chain {name}",
   "bench.saveAs": "Save as one of your chains",
-  "bench.saveBody": "What sits between the input and the fader becomes @account/<name>, which projects process with and the rehearsal recorder records through."
+  "bench.saveBody": "What sits between the input and the fader becomes @account/<name>, which projects process with and the rehearsal recorder records through.",
+  "hc.cameraUnavailable": "this screen cannot become a camera",
+  "hc.cameraStarted": "camera mode on",
+  "hc.noCameraHere": "this browser cannot open a camera here — it needs https and a camera",
+  "cameraMode.connecting": "connecting to the server…",
+  "cameraMode.retrying": "the server is out of reach, trying again… {error}",
+  "cameraMode.on": "on as \"{name}\" · {count} watching",
+  "cameraMode.switch": "Switch",
+  "cameraMode.stop": "Stop",
+  "cameraMode.noCamera": "no camera: {error}"
 }

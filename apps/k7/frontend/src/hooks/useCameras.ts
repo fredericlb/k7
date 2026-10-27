@@ -1,12 +1,18 @@
-// useCameras.ts — the lenses this BROWSER can see, by label. The list belongs to the browser and
-// not to the document: a project says which camera by a name a person reads, and the machine
-// answers whether it has one. See packages/song/docs/camera.md.
+// useCameras.ts — the lenses this BROWSER can see, by label, and the account's remote cameras that
+// are on, as `remote:<device name>`. The list belongs to the browser and the account, not to the
+// document: a project says which camera by a name a person reads. See packages/song/docs/camera.md.
 
-import { useEffect, useState } from "react";
+import { listRemoteCameras } from "@studio/k7-plugins/video/camera/remoteCamera";
+import { remoteLabel } from "@studio/web-protocol/cameras";
+import { useEffect, useMemo, useState } from "react";
 
-/** Their LABELS, in the order the browser lists them; empty until there is a camera and a permission. */
+/** A camera mode coming on or off is noticed within this; the list is only read while a graph is shown. */
+const REMOTE_POLL_MS = 5000;
+
+/** Their LABELS, the local ones in the order the browser lists them, then the remote ones. */
 export function useCameras(): string[] {
   const [cameras, setCameras] = useState<string[]>([]);
+  const [remote, setRemote] = useState<string[]>([]);
 
   useEffect(() => {
     const media = navigator.mediaDevices;
@@ -36,5 +42,27 @@ export function useCameras(): string[] {
     };
   }, []);
 
-  return cameras;
+  useEffect(() => {
+    let live = true;
+    const read = () =>
+      void listRemoteCameras().then((list) => {
+        if (!live) return;
+        const next = list.map((c) => remoteLabel(c.name)).sort();
+        // Same list, same array: the graph rebuilds its cards on a new one.
+        setRemote((prev) =>
+          prev.join("\n") === next.join("\n") ? prev : next,
+        );
+      });
+    read();
+    const timer = window.setInterval(read, REMOTE_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  return useMemo(
+    () => (remote.length ? [...cameras, ...remote] : cameras),
+    [cameras, remote],
+  );
 }

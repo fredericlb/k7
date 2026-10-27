@@ -29,6 +29,9 @@ import {
 import { authRefusals, DEFAULT_SESSION_SECRET } from "./authGuard.ts";
 import { sessionRevocations } from "./authState.ts";
 import { jsonBodies } from "./bodyLimits.ts";
+import { CameraHub } from "./cameras/hub.ts";
+import { camerasRouter } from "./cameras/routes.ts";
+import { cameraTickets, iceServersFromEnv } from "./cameras/ticket.ts";
 import { withDevAdmin } from "./devAdmin.ts";
 import { devFrontend } from "./devFrontend.ts";
 import { mountHandoff } from "./handoff.ts";
@@ -53,6 +56,7 @@ import { deviceDoor } from "./remote/door.ts";
 import { forwardToPairedServer, SERVER_PATH } from "./remote/forward.ts";
 import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
 import { BUILD, VERSION } from "./version.ts";
+import { subjectOf } from "./who.ts";
 
 // A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
 process.on("unhandledRejection", (reason) =>
@@ -181,6 +185,20 @@ else
     }),
   );
 
+// A device in camera mode, offered to its own account; ahead of the library's catch-all `/api` guard (../docs/cameras.md).
+const cameraTicketKeys = cameraTickets();
+const cameras = new CameraHub(cameraTicketKeys);
+app.use(
+  "/api/cameras",
+  camerasRouter({
+    hub: cameras,
+    tickets: cameraTicketKeys,
+    iceServers: iceServersFromEnv(process.env.K7_CAMERA_ICE_SERVERS),
+    requireAuth,
+    accountOf: subjectOf,
+  }),
+);
+
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.
 const tokens = mediaTokens();
 // Before the library: its public pages are unguarded and its releases take k7's own bearer.
@@ -297,6 +315,7 @@ const onListening = () => {
   media.serve(server, url);
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
   rehearsal.serve();
+  cameras.attach(server);
   localEngine?.start();
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)

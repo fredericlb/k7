@@ -1605,5 +1605,14 @@
   "frozen.rehearsalNone": "Aucune chaîne n'est choisie pour les répétitions : le bouton micro de l'une de vos chaînes en fait la Chaîne K7 de l'enregistreur.",
   "bench.saveInto": "Enregistrer dans votre chaîne {name}",
   "bench.saveAs": "Enregistrer comme une de vos chaînes",
-  "bench.saveBody": "Ce qui se trouve entre l'entrée et le fader devient @account/<nom>, avec quoi les projets traitent et à travers quoi l'enregistreur de répétitions enregistre."
+  "bench.saveBody": "Ce qui se trouve entre l'entrée et le fader devient @account/<nom>, avec quoi les projets traitent et à travers quoi l'enregistreur de répétitions enregistre.",
+  "hc.cameraUnavailable": "cet écran ne peut pas devenir une caméra",
+  "hc.cameraStarted": "mode caméra activé",
+  "hc.noCameraHere": "ce navigateur ne peut pas ouvrir de caméra ici — il faut https et une caméra",
+  "cameraMode.connecting": "connexion au serveur…",
+  "cameraMode.retrying": "le serveur est injoignable, nouvel essai… {error}",
+  "cameraMode.on": "active sous « {name} » · {count} en train de regarder",
+  "cameraMode.switch": "Changer",
+  "cameraMode.stop": "Arrêter",
+  "cameraMode.noCamera": "pas de caméra : {error}"
 }

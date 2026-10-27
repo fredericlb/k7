@@ -112,5 +112,8 @@
   "lens.noAnswer": "the machine did not answer",
   "lens.failed": "camera link failed: {error}",
   "lens.closed": "the link to the machine closed",
-  "lens.noRelay": "no camera relay on this machine"
+  "lens.noRelay": "no camera relay on this machine",
+  "lens.remoteNoAnswer": "the remote camera did not answer",
+  "lens.remoteGone": "the remote camera went off",
+  "lens.remoteNoRelay": "this server offers no remote cameras"
 }

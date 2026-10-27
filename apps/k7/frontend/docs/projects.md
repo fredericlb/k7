@@ -191,7 +191,7 @@ follows is what sets it apart here.
 **Its vocabulary is its own** (`src/projects/homeCommands.ts`), and not `LOCAL_COMMANDS`. This
 screen has no open project, no engine session and no file: the editor's catalogue here would be a
 list of things you cannot do, and the half that comes from the file service would not even answer
-— `/complete` and `/command` want an active project. Seven verbs, and they are the page's buttons:
+— `/complete` and `/command` want an active project. The verbs are the page's buttons, and one screen of its own:
 
 | the line | what it does, and through what |
 |---|---|
@@ -201,6 +201,12 @@ list of things you cannot do, and the half that comes from the file service woul
 | `project delete init <name>` | **names** the project and says what confirming will do. Writes nothing |
 | `project delete confirm <name>` | deletes that one, if it is the one that was named |
 | `system workspace new <name>` | an empty workspace on the server |
+| `camera mode [name]` | this device becomes a camera of the account, full screen — `src/camera/CameraMode.tsx` |
+
+**`camera mode` is here because it needs nothing else.** A device acting as a camera has no project
+open and no engine, only the account, which is exactly what this page has; a phone on a stand opens
+k7 and is one line from being a camera. What it is and how the picture travels:
+`packages/web-protocol/docs/cameras.md`.
 
 **Deleting is two verbs, and that is the confirmation.** A palette can fire a destructive line on
 an Enter landing on a fuzzy match; the bar has no dialog to ask a second question with, so it asks

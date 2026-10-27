@@ -159,6 +159,13 @@ One verb, because that is the rule intrinsics already follow: a vocabulary that 
 time a field becomes settable is a vocabulary that will be one field behind
 ([intrinsics.md](intrinsics.md)). The card's dropdown sends exactly that line.
 
+## A remote camera is a label, not a node type
+
+`camera("remote:Stage left")` names a device of the same account in camera mode, reached peer to
+peer rather than opened by this browser. It is still `@meta/CAM`: lanes, `monitor:`, recording and
+`validate()` are this page's, unchanged — `packages/web-protocol/docs/cameras.md` is why, and how
+its latency is corrected.
+
 ## The browser that opens it is not always the one that draws
 
 `matchCamera` resolves a label against the browser that draws the lane, and on a second device
