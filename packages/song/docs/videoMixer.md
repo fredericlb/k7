@@ -39,5 +39,10 @@ it: no engine holds a shader. On a card, a shader's knob is its own target (`sha
 shell's `onShaderParam` writes it a few times a drag, the last value always landing
 (`apps/k7/frontend/src/hooks/useShaderParam.ts`).
 
+A drag is SEEN before it is saved. The write is a quiet command, which reloads nothing, so the
+knob is also pushed to every viewport on the page (`shaderLive.ts`) and set on the compositor's
+passes in place, no program rebuilt (`setParam`); the picture is read back once the writes stop,
+which is also what gives a strip left neutral, and so drawn as no pass at all, its pass.
+
 The graph names each lane's strip in `trackMixers`, read off the graph's `extends` rather than off
 the compile, which knows nothing of picture (`laneStripsOf`).

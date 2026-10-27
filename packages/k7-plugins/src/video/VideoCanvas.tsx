@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { canAskForLens, remoteLens } from "./camera/remoteLens";
 import { levelsForPasses, smoothLevels } from "./shaderAudio";
+import { listenShaderParams } from "./shaderLive";
 
 /** Whose camera a live lane draws: this browser's, or the machine's over a peer connection when
  *  this device may not open one — which is every device reaching the app over the LAN.
@@ -152,6 +153,15 @@ export function VideoCanvas({
     }
     onFitRef.current?.(letterbox(driver, host, scene));
   }, [scene]);
+
+  // A shader knob turned on a card, set on the passes at once; the document read back after the write catches up (shaderLive.ts).
+  useEffect(
+    () =>
+      listenShaderParams((node, name, value) =>
+        driverRef.current?.setParam(node, name, value),
+      ),
+    [],
+  );
 
   /** Feed the clock every engine state frame, off a RAW subscription that renders nothing — here the right leaf is no component at all. */
   useEffect(() => {

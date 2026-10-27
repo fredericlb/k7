@@ -321,6 +321,18 @@ describe("a fade's STRETCH", () => {
       ],
     ]);
 
+  it("takes a knob set IN PLACE, by node, drawn at the next frame without a new scene", () => {
+    const { comp, log } = stretching();
+    expect(comp.setParam("iris", "P1", 0.6)).toBe(true);
+    expect(comp.setParam("nobody", "P1", 0.6)).toBe(false);
+    comp.draw(
+      new Set(["main"]),
+      blend({ to: { chain: "iris", presence: 0.25 } }),
+    );
+    // The log, not the last value: the blend drawn after the stretch sets its own uP1.
+    expect(log).toContain("uniform1f(uP1,0.6)");
+  });
+
   it("allocates a target per picture slot beside the scratch, and only when a fade names one", () => {
     expect(fbos(stretching().log)).toBe(4);
   });

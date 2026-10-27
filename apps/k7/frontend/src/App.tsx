@@ -845,7 +845,11 @@ export default function App({
     [],
   );
   // The song's picture — fetched ONCE here, since the timeline draws its lanes and the viewport composites them.
-  const { doc: videoDoc, error: videoError } = useVideoDoc(reloadKey);
+  const {
+    doc: videoDoc,
+    error: videoError,
+    refresh: refreshVideoDoc,
+  } = useVideoDoc(reloadKey);
   const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
   // When each lane is showing a frame, so a picture cable knows to ripple — memoised, being a subscription's input (videoSpans.ts).
   const videoLaneSpans = useMemo(() => videoSpans(videoDoc), [videoDoc]);
@@ -2181,7 +2185,7 @@ export default function App({
   }, [builderPlugin, requestPluginParams, watchPluginParams, listPresets]);
 
   // A shader's knob, written to its node a few times a drag (hooks/useShaderParam.ts).
-  const onShaderParam = useShaderParam(quietCommand);
+  const onShaderParam = useShaderParam(quietCommand, refreshVideoDoc);
   // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
   const cardProps = useMemo(
     () => ({
