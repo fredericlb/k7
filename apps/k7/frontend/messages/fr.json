@@ -971,6 +971,8 @@
   "media.tree.practice": "Ajouter à travailler",
   "media.tree.unpractice": "Retirer de « à travailler »",
   "media.tree.noPractice": "Rien à travailler pour l'instant. Ajoutez un morceau ou un album depuis son menu.",
+  "media.tree.deleteSong": "Supprimer {name}…",
+  "media.tree.deleteSongConfirm": "Supprimer le morceau « {name} » — son audio, ses variantes et ses textes ? C'est définitif.",
   "media.contents.emptyLibrary": "La médiathèque est vide pour l'instant.",
   "media.contents.emptyFamily": "Rien ici pour l'instant.",
   "media.contents.notCatalogued": "non catalogué",

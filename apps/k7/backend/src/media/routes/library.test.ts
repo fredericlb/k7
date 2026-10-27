@@ -293,6 +293,34 @@ describe("the songbook, kept in song folders", () => {
     expect(patched.chords).toBe("[Dm]so what");
   });
 
+  it("takes a dropped track as the master of a song with no audio, adopting a folder with no uuid first", async () => {
+    const master = async (id: string) =>
+      (await (
+        await api(`/${id}/master?filename=take.mp3`, {
+          method: "POST",
+          headers: { "content-type": "application/octet-stream" },
+          body: "ID3",
+        })
+      ).json()) as Song & { master: string | null };
+    const created = (await (
+      await api("", json("POST", { artist: "Nirvana", title: "Lithium" }))
+    ).json()) as Song;
+    expect((await master(created.id)).master).toBe(
+      "songs/Nirvana/Album inconnu/Lithium/original.mp3",
+    );
+    const bare = "songs/Someone/Album/Bare";
+    mkdirSync(join(root, bare), { recursive: true });
+    writeFileSync(join(root, bare, "song.yaml"), "source: hand\n");
+    const adopted = (await (
+      await api(
+        "",
+        json("POST", { artist: "Someone", title: "Bare", folder: bare }),
+      )
+    ).json()) as Song;
+    expect(adopted.path).toBe(bare);
+    expect((await master(adopted.id)).master).toBe(`${bare}/original.mp3`);
+  });
+
   it("refuses a folder outside the songs, or one that is not there", async () => {
     for (const folder of [
       "songs/../samples/x",
@@ -580,6 +608,16 @@ describe("who may remove or move", () => {
     }
     expect(existsSync(folder())).toBe(true);
     expect(existsSync(join(root, "samples/loose.wav"))).toBe(true);
+  });
+
+  it("lets only an admin delete ONE song, its folder and everything in it", async () => {
+    await post(tags, "ID3");
+    groups = [];
+    expect((await del("folder", { path: song })).status).toBe(403);
+    expect(existsSync(folder())).toBe(true);
+    groups = ["admins"];
+    expect((await del("folder", { path: song })).status).toBe(200);
+    expect(existsSync(folder())).toBe(false);
   });
 
   it("refuses a non-admin a folder move and a move that would replace a file", async () => {

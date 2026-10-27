@@ -971,6 +971,8 @@
   "media.tree.practice": "Add to practice",
   "media.tree.unpractice": "Remove from practice",
   "media.tree.noPractice": "Nothing to practise yet. Add a song or an album from its menu.",
+  "media.tree.deleteSong": "Delete {name}…",
+  "media.tree.deleteSongConfirm": "Delete the song “{name}” — its audio, its variants and its texts? This cannot be undone.",
   "media.contents.emptyLibrary": "The media library is empty for now.",
   "media.contents.emptyFamily": "Nothing here yet.",
   "media.contents.notCatalogued": "not catalogued",

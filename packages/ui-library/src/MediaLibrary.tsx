@@ -36,6 +36,7 @@ import { usePlayback } from "./playback/PlaybackProvider";
 import { DEFAULT_SECTION, folderOf, type SectionId } from "./routes";
 import { RemoteDownload, useServerCopy } from "./ServerCopy";
 import { SongEditor } from "./SongEditor";
+import { fileAsMaster, splitDrop } from "./songMaster";
 import { assetActions, songActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
 import { useLibraryRoute } from "./useLibraryRoute";
@@ -223,6 +224,27 @@ export function MediaLibrary({
       for (const path of added) void library.analyse(path).catch(() => {});
     },
     [refresh, setError, labels],
+  );
+
+  /** A drop on a song: its master first when it has none, then the rest as variants (./songMaster.ts). */
+  const dropOnSong = useCallback(
+    async (songPath: string, files: File[]) => {
+      const entry = entryAt(entries, songPath);
+      const { master, variants } = splitDrop(entry, files);
+      if (entry && master) {
+        try {
+          const path = await fileAsMaster(entry, master);
+          if (path) void library.analyse(path).catch(() => {});
+        } catch (e) {
+          refresh();
+          setError((e as Error).message);
+          return;
+        }
+      }
+      if (variants.length) await addVariants(songPath, variants);
+      else refresh();
+    },
+    [entries, addVariants, refresh, setError],
   );
 
   /** The SONGS family's menu, and the only one it gets (../docs/library.md). */
@@ -425,7 +447,7 @@ export function MediaLibrary({
                 : section === "songs"
                   ? (dir, files) =>
                       void (isSongFolder(entries, dir)
-                        ? addVariants(
+                        ? dropOnSong(
                             dir,
                             files.map((f) => f.file),
                           )

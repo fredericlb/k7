@@ -47,6 +47,8 @@ export function songActions(d: {
     (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path));
   const starred = (t: TreeNode) => !!favorites?.has(`${section}/${t.path}`);
   const practised = (t: TreeNode) => !!d.practice?.has(`${section}/${t.path}`);
+  // The song's title as the listing reads it, the folder's name only when the listing has none.
+  const songName = (t: TreeNode) => entryAt(entries, t.path)?.name ?? t.name;
   return [
     {
       key: "favorite",
@@ -94,10 +96,14 @@ export function songActions(d: {
     },
     {
       key: "delete-song",
-      // Named as a folder: what goes is the master and its sidecar, not just the row. No confirmation.
-      label: (t) => l.delete(t.name),
+      // What goes is the whole folder — master, variants, texts — so it is an admin's, and asked (../docs/library.md).
+      label: (t) => l.deleteSong(songName(t)),
       when: (t) => d.manage && isSongFolder(entries, t.path),
       danger: true,
+      confirm: {
+        message: (t) => l.deleteSongConfirm(songName(t)),
+        submit: l.deleteSubmit,
+      },
       run: (t) =>
         void library
           .removeTree(`${section}/${t.path}`)

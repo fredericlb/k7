@@ -48,6 +48,8 @@ export function mediaLabels(): LibraryLabels {
       deleteFolder: (name) => m["media.tree.deleteFolder"]({ name }),
       deleteFolderConfirm: (name) =>
         m["media.tree.deleteFolderConfirm"]({ name }),
+      deleteSong: (name) => m["media.tree.deleteSong"]({ name }),
+      deleteSongConfirm: (name) => m["media.tree.deleteSongConfirm"]({ name }),
       deleteSubmit: m["media.tree.deleteSubmit"](),
       uploadFolder: m["media.tree.uploadFolder"](),
       newFolder: m["media.tree.newFolder"](),
