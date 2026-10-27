@@ -148,6 +148,17 @@ songbookRoutes.patch(
   ),
 );
 
+/** Lyrics looked up NOW for a song that has none — its chords then take their times (mediatek's docs/songbook.md). */
+songbookRoutes.post(
+  "/songbook/:id/lyrics/lookup",
+  answer(async (req) => {
+    const song = await readSongbook(req.params.id);
+    if (!song) throw new SongbookRefusedError("no such song");
+    await lyricsQueue.lookupNow(song.path);
+    return readSongbookAt(song.path);
+  }),
+);
+
 /** One sheet, raw body: the name and type come in the query, the bytes are streamed to disk. */
 songbookRoutes.post(
   "/songbook/:id/sheets",

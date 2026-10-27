@@ -10,7 +10,7 @@ songs/<artist>/<album>/<title>/
   original.flac        the master, its tags naming the song (docs/songs.md)
   lyrics.txt           the chord sheet, timecodes inline as {{MM:SS}}
   tabs.txt             the tablature
-  chords.txt           lyrics with chords, typed by hand, kept apart from lyrics.txt for now
+  chords.txt           lyrics with chords, typed by hand, timed from lyrics.txt
   sheets/score.pdf     one file per sheet, in the order the sidecar lists them
   song.yaml            uuid, source, variants, and the songbook: section
 ```
@@ -64,6 +64,16 @@ behind it. The listing's entries say so (`meta.lyrics`, `meta.tabs`, `meta.chord
 
 Lyrics looked up on LRCLIB for a song that has a master and none land the same way, so a library
 song joins the songbook on its own once its words are found ([autoLyrics.md](autoLyrics.md)).
+
+## The chords take the lyrics' times
+
+The lyrics are what was found or typed as lyrics; the chords are a person's own sheet. Every write
+of either — a hand edit, rehearsal's timing, lyrics found — times the chords again (`timeChordsAt`):
+each sung line takes the time of the lyrics line it matches, `@studio/lyrics`' `timeFromSheet`, the
+same matching that times lyrics from an LRC. Here, at the one place both texts are written, and not
+in a screen, so rehearsal and the médiathèque cannot time them differently. `songbook.chordsMatch`
+says how it went: `matched`, `unmatched` when the lyrics had times and no line matched, absent when
+the lyrics carry no time to give. The chords keep what was typed whenever nothing is placed.
 
 ## Everyone's
 

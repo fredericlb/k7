@@ -36,6 +36,7 @@
   "dependencies": {
     "@studio/audio-analysis": "*",
     "@studio/engine-client": "*",
+    "@studio/lyrics": "*",
     "@studio/song-schema": "*",
     "@studio/web-protocol": "*",
     "taglib-wasm": "^2.4.0",

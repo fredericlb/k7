@@ -49,3 +49,7 @@ spelling, its chords, its sections and its tablature stay exactly as typed.
   together only when nothing but chords stands between them.
 - **Codes already in the text are replaced**, never piled up: timing a sheet twice gives the same text.
 - **A song with no lyrics** gets the fetched lines themselves, each with its code.
+
+`timeFromSheet` does the same from a TIMED SHEET instead of an LRC: the timed sung lines of one text,
+chords left out, are the lines to place on another. It is how a song's chords take the times its
+lyrics carry.

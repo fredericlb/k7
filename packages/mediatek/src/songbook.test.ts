@@ -144,6 +144,35 @@ describe("texts, sheets and bookkeeping", () => {
     expect(existsSync(at(`${path}/chords.txt`))).toBe(false);
   });
 
+  it("times the chords from the lyrics, whichever of the two is written last", async () => {
+    const { id } = createSongbook({ artist: "A", title: "Timed", owner: "" });
+    const timedLyrics = "{{00:10.00}} Hello world\n{{00:20.00}} Goodbye moon";
+    const chordsTyped = "G       C\nHello world\nD\nGoodbye moon";
+    // Lyrics first, chords after.
+    await patchSongbook(id, { lyrics: timedLyrics });
+    const song = await patchSongbook(id, { chords: chordsTyped });
+    expect(song.chords.split("\n")).toEqual([
+      "G       C",
+      "{{00:10.00}} Hello world",
+      "D",
+      "{{00:20.00}} Goodbye moon",
+    ]);
+    expect(song.facts.chordsMatch).toBe("matched");
+    // The lyrics change their times: the chords follow.
+    const again = await patchSongbook(id, {
+      lyrics: "{{00:11.00}} Hello world\n{{00:21.00}} Goodbye moon",
+    });
+    expect(again.chords).toContain("{{00:11.00}} Hello world");
+  });
+
+  it("leaves the chords as typed when the lyrics carry no time", async () => {
+    const { id } = createSongbook({ artist: "A", title: "Plain", owner: "" });
+    await patchSongbook(id, { lyrics: "Hello world" });
+    const song = await patchSongbook(id, { chords: "[G]Hello world" });
+    expect(song.chords).toBe("[G]Hello world");
+    expect(song.facts.chordsMatch).toBe("");
+  });
+
   it("keeps sheets in order, under their own names, and removes one with its file", async () => {
     const { id, path } = createSongbook({ artist: "A", title: "T", owner: "" });
     await addSongbookSheet(id, {

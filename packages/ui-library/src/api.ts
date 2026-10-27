@@ -478,6 +478,18 @@ export const library = {
     return json(res, "songbook");
   },
 
+  /** The song's lyrics looked up on LRCLIB now; its chords come back timed when they are found timed. */
+  lookUpLyrics: async (id: string): Promise<SongbookSong> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}/lyrics/lookup`,
+      { method: "POST" },
+      // LRCLIB answers in seconds, but the lookups take turns: a page's waits behind the queue's.
+      null,
+    );
+    if (!res.ok) throw await failed(res, "lyrics");
+    return json(res, "lyrics");
+  },
+
   /** One sheet added at the end of the song's list; no time budget, a score or a PDF can be large. */
   addSheet: async (
     id: string,

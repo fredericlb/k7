@@ -76,6 +76,8 @@ export interface SongbookFacts {
   /** The server a paired machine copied this song from; "" for one of its own. */
   origin: string;
   lyricsMatch: string;
+  /** How the chords took the lyrics' times: "matched", "unmatched", or "" with nothing timed to take them from. */
+  chordsMatch: string;
   fetchIgnored: boolean;
   fetch: SongbookFetch;
   /** A library path to the instrumental, "" for none. */

@@ -46,9 +46,14 @@ as drawn with an Edit over them; a **sheet** is a file picked — a PDF, an imag
 songbook's own rule (`@studio/rehearsal-shared/sheetKind`) — sent one after another and removable
 from its tab. Chords and tab are offered while the song lacks them, a sheet always.
 
-**Chords are their own text for now**, `chords.txt`, though the lyrics are a chord sheet too: chords
-typed by hand and lyrics found or timed are not yet one thing to edit, and two files keep either
-from overwriting the other. They are drawn by the same chord-sheet renderer.
+**Chords are their own text**, `chords.txt`, apart from the lyrics: the LYRICS are what was found on
+LRCLIB or typed here, the CHORDS what a person wrote, and two files keep either from overwriting the
+other. The chords take the lyrics' TIMES: whenever either is saved, each sung line of the chords gets
+the time of the lyrics line it matches, the matching rehearsal uses to time lyrics from an LRC
+(mediatek's [songbook.md](../../mediatek/docs/songbook.md)). Chords saved on a song with a master and
+no lyrics ask for them at once (`POST …/songbook/:id/lyrics/lookup`); lyrics typed by hand time the
+chords the same way when they carry codes. Both are drawn by the chord-sheet renderer, timed lines
+shown as timed.
 
 **A library song becomes a songbook song at its first one.** Texts and sheets live under a song's
 songbook id, which a song uploaded or downloaded does not have: the first chords, tab or sheet

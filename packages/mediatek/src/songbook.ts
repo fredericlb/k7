@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
+import { hasTimecodes, timeFromSheet } from "@studio/lyrics/lrc";
 import { MEDIA_YAML_READ } from "@studio/song-schema/mediaYaml";
 import { type Document, isMap, parseDocument } from "yaml";
 import { listFamilyFresh } from "./catalogue.ts";
@@ -88,6 +89,7 @@ function factsOf(data: Record<string, unknown>): SongbookFacts {
     createdAt: str(b.createdAt),
     origin: str(b.origin),
     lyricsMatch: str(b.lyricsMatch),
+    chordsMatch: str(b.chordsMatch),
     fetchIgnored: b.fetchIgnored === true,
     fetch: {
       phase: str(f.phase),
@@ -258,6 +260,9 @@ export async function patchSongbook(
   if (patch.lyrics !== undefined) writeText(rel, LYRICS_FILE, patch.lyrics);
   if (patch.tablature !== undefined) writeText(rel, TABS_FILE, patch.tablature);
   if (patch.chords !== undefined) writeText(rel, CHORDS_FILE, patch.chords);
+  // Either text changed: the chords take the lyrics' times again.
+  if (patch.chords !== undefined || patch.lyrics !== undefined)
+    timeChordsAt(rel);
   const master = existingMaster(writablePath(rel));
   if (master && (patch.artist !== undefined || patch.title !== undefined))
     await writeMasterTags(writablePath(`${rel}/${master}`), {
@@ -359,6 +364,30 @@ export function writeTextsAt(
 ): void {
   if (texts.lyrics !== undefined) writeText(rel, LYRICS_FILE, texts.lyrics);
   if (texts.tablature !== undefined) writeText(rel, TABS_FILE, texts.tablature);
+  // Lyrics found or migrated in: chords already typed take their times.
+  if (texts.lyrics !== undefined) timeChordsAt(rel);
+}
+
+/**
+ * The CHORDS timed from the LYRICS: each sung line of the chords takes the time of the lyrics line it
+ * matches, as rehearsal times lyrics from an LRC (@studio/lyrics `timeFromSheet`). Run after every
+ * write of either text. Lyrics with no code time nothing, and the chords keep what was typed.
+ */
+export function timeChordsAt(rel: string): void {
+  const chords = readText(rel, CHORDS_FILE);
+  const lyrics = readText(rel, LYRICS_FILE);
+  const doc = sidecarDoc(rel);
+  let match = "";
+  if (chords.trim() && hasTimecodes(lyrics)) {
+    const timed = timeFromSheet(chords, lyrics);
+    if (timed.ok && timed.placed > 0) {
+      if (timed.lyrics !== chords) writeText(rel, CHORDS_FILE, timed.lyrics);
+      match = "matched";
+    } else match = "unmatched";
+  }
+  if (match) doc.setIn(["songbook", "chordsMatch"], match);
+  else doc.deleteIn(["songbook", "chordsMatch"]);
+  writeSidecar(rel, doc);
 }
 
 /** Set the songbook facts by folder, for the same caller. */
