@@ -426,7 +426,5 @@
   "chain.inputBody": "The chain names no input channel. Choose what feeds it, and the take starts.",
   "source.local": "Local device",
   "source.chain": "K7 chain",
-  "source.chainReading": "Reading your rehearsal chain…",
-  "source.noChainShort": "None chosen — see Frozen chains in k7",
   "source.noChain": "No chain is chosen for rehearsals: pick one on k7's Frozen chains page."
 }
