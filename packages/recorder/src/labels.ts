@@ -27,6 +27,7 @@ export interface RecorderLabels {
   paused: string;
   rec: string;
   tempo: string;
+  more: string;
   metronomeStart: string;
   metronomeStop: string;
   metronomeOn: (bpm: number) => string;
@@ -63,6 +64,7 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   paused: "paused",
   rec: "rec",
   tempo: "Metronome tempo (BPM)",
+  more: "More",
   metronomeStart: "Start the metronome",
   metronomeStop: "Stop the metronome",
   metronomeOn: (bpm) => `Metronome on at ${bpm} BPM — click to stop`,

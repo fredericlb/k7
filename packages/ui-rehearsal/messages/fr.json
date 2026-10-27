@@ -243,6 +243,7 @@
   "recorder.stopSave": "Arrêter et enregistrer",
   "recorder.taggedBadge": "étiqueté",
   "recorder.tempo": "Tempo du métronome (BPM)",
+  "recorder.more": "Plus",
   "recorder.uploadFailed": "L'envoi a échoué : {message}",
   "recorder.retryUpload": "Réessayer l'envoi",
   "recorder.downloadTake": "Télécharger la prise",

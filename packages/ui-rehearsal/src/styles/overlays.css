@@ -8,8 +8,8 @@
     left: var(--rehearsal-inset-left);
     bottom: var(--rehearsal-inset-bottom);
   }
-  /* The metronome toggle: an icon, purple while it clicks; .rec-bar prefixed so it outranks the base button rule. */
-  .rec-bar .recorder-metro {
+  /* The metronome toggle in the ⋮ popover, which carries this scope's class itself: purple while it clicks. */
+  &.rec-more .recorder-metro {
     padding: 0;
     width: 28px;
     height: 28px;
@@ -19,12 +19,12 @@
     background: transparent;
     color: var(--muted);
   }
-  .rec-bar .recorder-metro:hover:not(:disabled) {
+  &.rec-more .recorder-metro:hover:not(:disabled) {
     background: var(--surface-2);
     color: var(--text);
   }
-  .rec-bar .recorder-metro[aria-pressed="true"],
-  .rec-bar .recorder-metro[aria-pressed="true"]:hover:not(:disabled) {
+  &.rec-more .recorder-metro[aria-pressed="true"],
+  &.rec-more .recorder-metro[aria-pressed="true"]:hover:not(:disabled) {
     background: var(--accent);
     color: #fff;
   }

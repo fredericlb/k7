@@ -367,11 +367,31 @@
   display: flex;
   align-items: center;
 }
+.rec-bar-wave {
+  gap: 8px;
+}
+/* The whole take at 80%, the scrolling last seconds at 20%. */
+.rec-bar-whole {
+  flex: 4 1 0;
+  min-width: 0;
+}
+.rec-bar-live {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .rec-bar-wave .waveform-wrap {
   width: 100%;
 }
 
-.rec-bar .recorder-bpm {
+/* The ⋮ popover, portalled out of the bar: the metronome in one row. */
+.rec-more {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 8px;
+}
+.rec-more .recorder-bpm {
   width: 72px;
   height: 28px;
   font-variant-numeric: tabular-nums;

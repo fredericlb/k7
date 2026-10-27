@@ -15,6 +15,7 @@ import {
   HighlightChips,
   MetronomeControls,
   RecorderBar,
+  RecorderMore,
   ReviewPanel,
 } from "./RecorderParts";
 import { forgetTake } from "./takeBackup";
@@ -51,6 +52,8 @@ interface Props {
   onDiscard: () => void;
   /** Every word shown, in the host's language; English when left out. */
   labels?: RecorderLabels;
+  /** Put on the ⋮ menu, which opens outside the bar: the host's scope class, so its palette reaches it. */
+  menuClassName?: string;
 }
 
 const SAMPLE_INTERVAL_MS = 200;
@@ -64,6 +67,7 @@ export function RecorderView({
   onSave,
   onDiscard,
   labels: L = RECORDER_LABELS_EN,
+  menuClassName,
 }: Props) {
   const rec = useRecorder(L.mic);
   const {
@@ -259,14 +263,6 @@ export function RecorderView({
 
   const actions = (
     <>
-      {running && (
-        <MetronomeControls
-          metronome={metronome}
-          onStart={(bpm) => startMetronome(bpm, rec.readElapsed())}
-          onStop={stopMetronome}
-          labels={L}
-        />
-      )}
       {idle && !autoStarting && (
         <Button size="sm" onClick={() => rec.start()}>
           <Circle className="size-2.5 fill-current" /> {L.start}
@@ -292,21 +288,33 @@ export function RecorderView({
         </>
       )}
       {running && rec.isRecording && !reviewing && (
-        <Button size="sm" variant="outline" onClick={rec.pause}>
-          <Pause className="size-4" /> {L.pause}
+        <Button
+          size="icon-sm"
+          variant="outline"
+          onClick={rec.pause}
+          aria-label={L.pause}
+          title={L.pause}
+        >
+          <Pause className="size-4" />
         </Button>
       )}
       {running && (rec.isPaused || reviewing) && (
-        <Button size="sm" onClick={resumeRecording}>
-          <Circle className="size-2.5 fill-current" /> {L.resume}
+        <Button
+          size="icon-sm"
+          onClick={resumeRecording}
+          aria-label={L.resume}
+          title={L.resume}
+        >
+          <Circle className="size-2.5 fill-current" />
         </Button>
       )}
       {running && (
         <Button
-          size="sm"
+          size="icon-sm"
           variant="destructive"
           className="hold-btn"
           disabled={uploading}
+          aria-label={holdProgress > 0 ? L.holding : L.stopSave}
           title={L.holdTitle}
           onPointerDown={(e) => {
             e.preventDefault();
@@ -321,15 +329,19 @@ export function RecorderView({
             style={{ width: `${holdProgress * 100}%` }}
           />
           <span className="hold-label">
-            {holdProgress > 0 ? (
-              L.holding
-            ) : (
-              <>
-                <Square className="size-4" /> {L.stopSave}
-              </>
-            )}
+            <Square className="size-4" />
           </span>
         </Button>
+      )}
+      {running && (
+        <RecorderMore className={menuClassName} labels={L}>
+          <MetronomeControls
+            metronome={metronome}
+            onStart={(bpm) => startMetronome(bpm, rec.readElapsed())}
+            onStop={stopMetronome}
+            labels={L}
+          />
+        </RecorderMore>
       )}
     </>
   );
@@ -385,17 +397,34 @@ export function RecorderView({
         }}
       />
       {displayEnvelope.samples.length > 0 ? (
-        <LiveWaveform
-          envelope={displayEnvelope}
-          live={live.feed}
-          threshold={threshold}
-          events={displayEvents}
-          metronome={displayMetronome}
-          paused={rec.isPaused || !!reviewing}
-          playhead={reviewing ? readPreview : null}
-          focus={focus}
-          height={56}
-        />
+        <>
+          <div className="rec-bar-whole">
+            <LiveWaveform
+              whole
+              envelope={displayEnvelope}
+              live={live.feed}
+              threshold={threshold}
+              events={displayEvents}
+              metronome={displayMetronome}
+              paused={rec.isPaused || !!reviewing}
+              playhead={reviewing ? readPreview : null}
+              height={56}
+            />
+          </div>
+          <div className="rec-bar-live">
+            <LiveWaveform
+              envelope={displayEnvelope}
+              live={live.feed}
+              threshold={threshold}
+              events={displayEvents}
+              metronome={displayMetronome}
+              paused={rec.isPaused || !!reviewing}
+              playhead={reviewing ? readPreview : null}
+              focus={focus}
+              height={56}
+            />
+          </div>
+        </>
       ) : (
         <span className="muted small">{sessionTitle(session.createdAt)}</span>
       )}

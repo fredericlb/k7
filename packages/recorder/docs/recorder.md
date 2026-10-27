@@ -40,9 +40,14 @@ though a microphone exists.
 ## One bar, never a dialog
 
 `RecorderView` is a bar at the foot of the page, whatever the take is doing, so the page above stays
-usable: the songbook is read while the band plays. The bar holds the take's status and time, the
-live waveform, the highlights as chips, the metronome, **Pause** or **Resume**, and **Stop & save**.
-A chip pauses the take and plays that highlight back, with a row over the bar to play it again and
+usable: the songbook is read while the band plays. The bar holds the take's status and time, two
+waveforms, the highlights as chips, **Pause** or **Resume** and **Stop & save** as bare icons, and a
+⋮ that holds the metronome: a tool a take rarely touches does not take room from the ones it does.
+The waveform over four fifths of the width is the whole take, start to now, so the shape of an hour
+reads at a glance; the last fifth scrolls the last twelve seconds, where a level is checked. The
+whole view reads every sample, so it is redrawn twice a second, not every frame; only its playhead
+follows the frame. The ⋮ opens outside the bar, so the host hands it its scope class
+(`menuClassName`) for its palette to reach it. A chip pauses the take and plays that highlight back, with a row over the bar to play it again and
 to note what happened; **Resume** carries the take on from where it paused. Errors, the upload's
 progress and a failed upload's Retry and Download are said in the bar too. It publishes its own
 height as `--rec-bar-h`, which the host pads its pages and stacks its own bars by, the bar growing
