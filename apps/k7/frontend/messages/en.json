@@ -1535,7 +1535,7 @@
   "frozen.new": "New chain",
   "frozen.mine": "Your chains",
   "frozen.mineEmpty": "None yet — New chain opens the bench: put modules between the input and the fader, then save it from the project bar.",
-  "frozen.howToUse": "In a project: clip process <clip> @account/<name>. In the rehearsal recorder: pick it in the chain list to record through it.",
+  "frozen.howToUse": "In a project: clip process <clip> @account/<name>.",
   "frozen.cold": "Library cold chains",
   "frozen.coldEmpty": "The libraries hold no cold chain.",
   "frozen.noServer": "No file service answers for this account.",
