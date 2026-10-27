@@ -37,19 +37,29 @@ live `samples` array feeds moment detection as it goes. The rehearsal pages moun
 refuses some combinations with a `NotFoundError` ("The object can not be found here.") even
 though a microphone exists.
 
-Stopping requires a **two-second hold**, button or space bar, so a brushed key does not end an
-hour-long take. The space bar is swallowed on every `keydown` while the take runs — otherwise the
-page scrolls — but only starts the hold on the first; and it is ignored while the recorder is
-minimised, since the stop button is then off screen.
+## One bar, never a dialog
+
+`RecorderView` is a bar at the foot of the page, whatever the take is doing, so the page above stays
+usable: the songbook is read while the band plays. The bar holds the take's status and time, the
+live waveform, the highlights as chips, the metronome, **Pause** or **Resume**, and **Stop & save**.
+A chip pauses the take and plays that highlight back, with a row over the bar to play it again and
+to note what happened; **Resume** carries the take on from where it paused. Errors, the upload's
+progress and a failed upload's Retry and Download are said in the bar too. It publishes its own
+height as `--rec-bar-h`, which the host pads its pages and stacks its own bars by, the bar growing
+while a highlight is heard.
+
+Stopping requires a **two-second hold** on the Stop button, so a brushed tap does not end an
+hour-long take. No key does it: the pages stay usable during a take, and a key held anywhere, a
+space in a field or on a focused button, would otherwise end it.
 
 ## A take of hours renders like a take of seconds
 
 The recorder runs for hours, so nothing per frame may re-render its view, and nothing per sample
 may cost the length of the take:
 
-- **The level moves through a store, not state.** `useRecorder` reads the input every frame and
-  sets a `LiveValue` (`src/liveValue.ts`) that only the meter subscribes to (`src/LiveMeter.tsx`).
-  The view's own state — the elapsed seconds, the gain — changes once a second at most.
+- **The input is read every frame, and state moves once a second.** `useRecorder` reads the input's
+  level every frame for the peak the gain is drawn from; the view's own state — the elapsed seconds,
+  the gain — changes once a second at most.
 - **The waveform scrolls itself.** `LiveWaveform` takes a `LiveFeed` — a clock and a pull — and
   redraws from its own animation frame; its cost per frame is the canvas's width, whatever the
   take's length. The preview's playhead is a function it reads each frame, not a prop re-rendered.

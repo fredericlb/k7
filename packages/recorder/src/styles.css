@@ -63,28 +63,6 @@
 }
 /* ---- Recorder ------------------------------------------------------------ */
 
-.meter {
-  height: 12px;
-  background: var(--surface-2);
-  border-radius: 6px;
-  overflow: hidden;
-  margin: 16px 0 8px;
-}
-.meter-fill {
-  height: 100%;
-  transition: width 0.08s linear;
-}
-.timer {
-  font-size: 34px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  margin: 6px 0 14px;
-}
-.review-panel {
-  border-color: var(--amber);
-}
-
 /* Hold-to-stop button: a fill sweeps across as the 2s hold progresses. */
 .hold-btn {
   position: relative;
@@ -275,11 +253,11 @@
   align-items: center;
   gap: 6px;
 }
-/* ---- Minimized recording bar --------------------------------------------- */
+/* ---- The recording bar: the whole recorder, at the foot of the page ------ */
 
-/* Extra clearance so page content isn't hidden behind the fixed bar. */
+/* Clearance so page content isn't hidden behind the fixed bar, which publishes its own height. */
 .main-inner.has-rec-bar {
-  padding-bottom: 96px;
+  padding-bottom: calc(var(--rec-bar-h, 96px) + 16px);
 }
 
 .rec-bar {
@@ -289,16 +267,92 @@
   bottom: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 16px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.28);
+}
+.rec-bar-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.rec-bar-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rec-bar-notice p {
+  margin: 0;
+  font-size: 13px;
+}
+/* The highlight being heard, over the bar: play, where, and what to note. */
+.rec-bar-review {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.rec-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.rec-review-what {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rec-review-comment {
+  flex: 1 1 200px;
+  min-width: 140px;
+  height: 32px;
+}
+.rec-review-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+/* The highlights, one chip each, scrolled to the newest. */
+.rec-chips {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.rec-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: inherit;
+  font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
 }
-.rec-bar:hover {
-  background: var(--surface-2);
+.rec-chip:hover,
+.rec-chip:focus-visible {
+  border-color: var(--accent);
+}
+.rec-chip.is-active {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.rec-chip-tagged {
+  color: var(--accent);
+  font-weight: 700;
+}
+.rec-chips-empty {
+  margin: 0;
 }
 .rec-bar-status {
   flex: 0 0 auto;
@@ -316,36 +370,8 @@
 .rec-bar-wave .waveform-wrap {
   width: 100%;
 }
-.rec-bar-meta {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.rec-bar-open {
-  color: var(--accent);
-}
 
-/* The recorder's header: the session's title, then the tempo, the metronome and the host's controls. */
-.recorder-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.recorder-head h2 {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-}
-.recorder-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.recorder-head .recorder-bpm {
+.rec-bar .recorder-bpm {
   width: 72px;
   height: 28px;
   font-variant-numeric: tabular-nums;

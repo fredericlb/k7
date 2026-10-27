@@ -1,5 +1,5 @@
 // RehearsalRecording.tsx — the running take, held ABOVE the host's routes so it survives moving
-// between pages: the source chooser, the chain panel and the recorder's pop-in or bottom bar.
+// between pages: the start dialog, the rehearsal chain's hidden bench and the recorder's bar.
 // It holds nothing until a take starts; what it draws then is a lazy chunk (RecordingOverlay).
 
 import type { ComponentProps } from "react";
@@ -8,17 +8,14 @@ import {
   type ReactNode,
   Suspense,
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
-import { useLocation } from "react-router-dom";
 import { api } from "../api";
 import { fmtStamp } from "../format";
 import { useRehearsalNav } from "../host";
 import { m } from "../paraglide/messages.js";
 import { micErrors } from "../recorderLabels";
-import { isSongPage } from "../sections";
 import type { Session } from "../types";
 import {
   RecordingContext,
@@ -38,11 +35,8 @@ function stopTracks(stream: MediaStream): void {
 }
 
 export function RehearsalRecording({ children }: { children: ReactNode }) {
-  const { go, prefix } = useRehearsalNav();
-  const { pathname } = useLocation();
+  const { go } = useRehearsalNav();
   const [recording, setRecording] = useState<RecordingCtx | null>(null);
-  // The running take drawn in its pop-in; false collapses it to the bottom bar.
-  const [recOpen, setRecOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   // What the session's button menu picked, read by the start dialog.
   const [source, setSource] = useState<SessionSource>("local");
@@ -51,15 +45,6 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
   const [changed, setChanged] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const bump = useCallback(() => setChanged((n) => n + 1), []);
-
-  useEffect(() => {
-    if (!recOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) setRecOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [recOpen]);
 
   // The tags the recorder suggests, read once per take: the pages that list moments are not mounted here.
   const loadTags = useCallback(() => {
@@ -71,18 +56,15 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     async (from: SessionSource) => {
-      // Only one recording at a time — bring the user back to the active one.
-      if (recording) {
-        setRecOpen(true);
-        throw new Error(m["rec.finishFirst"]());
-      }
+      // Only one recording at a time: the running one is in the bar.
+      if (recording) throw new Error(m["rec.finishFirst"]());
       setSource(from);
       setSourceOpen(true);
     },
     [recording],
   );
 
-  // Create the session once there is a stream, and open the recorder unless a song holds the page.
+  // Create the session once there is a stream; the recorder is the bar, so the page stays as it is.
   const begin = useCallback(
     async (
       stream: MediaStream,
@@ -94,18 +76,13 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
       loadTags();
       setRecording({ session: s, stream, release, chain });
       setSourceOpen(false);
-      // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
-      setRecOpen(!isSongPage(pathname, prefix));
     },
-    [bump, loadTags, pathname, prefix],
+    [bump, loadTags],
   );
 
   const resume = useCallback(
     async (session: Session) => {
-      if (recording) {
-        setRecOpen(true);
-        throw new Error(m["rec.finishFirst"]());
-      }
+      if (recording) throw new Error(m["rec.finishFirst"]());
       const { acquireMicrophone, describeMicError } = await import(
         "@studio/recorder"
       );
@@ -134,7 +111,6 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
         resumeFrom: fresh.duration,
         baseEnvelope,
       });
-      setRecOpen(true);
     },
     [recording, loadTags],
   );
@@ -191,10 +167,10 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
     go("/sessions");
   };
 
-  const minimized = recording != null && !recOpen;
+  const barShown = recording != null;
   const value = useMemo(
-    () => ({ recording, minimized, start, resume, changed }),
-    [recording, minimized, start, resume, changed],
+    () => ({ recording, barShown, start, resume, changed }),
+    [recording, barShown, start, resume, changed],
   );
 
   const active = recording != null || sourceOpen || chainOpen;
@@ -205,8 +181,6 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
         <Suspense fallback={null}>
           <RecordingOverlay
             recording={recording}
-            recOpen={recOpen}
-            setRecOpen={setRecOpen}
             tags={tags}
             source={source}
             sourceOpen={sourceOpen}

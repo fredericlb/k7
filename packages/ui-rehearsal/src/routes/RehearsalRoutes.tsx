@@ -39,7 +39,7 @@ export function RehearsalRoutes() {
   const { go, path } = useRehearsalNav();
   const { settingsHref } = useRehearsalHost();
   const { pathname } = useLocation();
-  const { minimized, resume } = useRehearsalRecording();
+  const { barShown, resume } = useRehearsalRecording();
   const d = useRehearsalData();
 
   const handleDeleteSession = async (id: string) => {
@@ -64,7 +64,7 @@ export function RehearsalRoutes() {
       <AskHost />
       <main className="main">
         <RecoveredTakes />
-        <div className={`main-inner${minimized ? " has-rec-bar" : ""}`}>
+        <div className={`main-inner${barShown ? " has-rec-bar" : ""}`}>
           <Routes>
             <Route index element={toSessions} />
 

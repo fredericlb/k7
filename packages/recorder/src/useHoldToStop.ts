@@ -1,5 +1,5 @@
-// useHoldToStop.ts — stopping a take takes a deliberate hold, button or space bar, so no stray tap ends it.
-// What reads wrong: the space bar is swallowed on every keydown while a stop is possible, but holds only on the first (../docs/recorder.md).
+// useHoldToStop.ts — stopping a take takes a deliberate two-second hold on the Stop button, so no stray tap ends it.
+// No key does it: the pages stay usable during a take, and a key held anywhere would end it (../docs/recorder.md).
 
 import { useEffect, useRef, useState } from "react";
 
@@ -8,13 +8,11 @@ const HOLD_MS = 2000;
 export function useHoldToStop(opts: {
   canStop: () => boolean;
   onStop: () => void;
-  /** Minimized, the stop control is off screen, so the space bar must not start the hold. */
-  minimized: boolean;
 }) {
   const [holdProgress, setHoldProgress] = useState(0); // 0→1 while holding to stop
   const holdStart = useRef<number | null>(null);
   const holdRaf = useRef<number | null>(null);
-  // Read through a ref, so the once-mounted key listener never rebinds nor captures a stale status.
+  // Read through a ref, so a hold that began before a render never captures a stale status.
   const latest = useRef(opts);
   latest.current = opts;
 
@@ -42,44 +40,13 @@ export function useHoldToStop(opts: {
     holdRaf.current = requestAnimationFrame(tick);
   };
 
-  const holdRef = useRef({ beginHold, cancelHold });
-  holdRef.current = { beginHold, cancelHold };
-
-  useEffect(() => {
-    const isEditable = (t: EventTarget | null) => {
-      const el = t as HTMLElement | null;
-      return (
-        !!el &&
-        (el.isContentEditable ||
-          el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.tagName === "SELECT")
-      );
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
-      // Never hijack space while typing a comment or a tag.
-      if (
-        isEditable(e.target) ||
-        latest.current.minimized ||
-        !latest.current.canStop()
-      )
-        return;
-      e.preventDefault();
-      if (!e.repeat) holdRef.current.beginHold();
-    };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") holdRef.current.cancelHold();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      // Stop any in-flight hold animation if the recorder unmounts mid-hold.
+  // Stop any in-flight hold animation if the recorder unmounts mid-hold.
+  useEffect(
+    () => () => {
       if (holdRaf.current) cancelAnimationFrame(holdRaf.current);
-    };
-  }, []);
+    },
+    [],
+  );
 
   return { holdProgress, beginHold, cancelHold };
 }
