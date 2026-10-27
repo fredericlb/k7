@@ -2,6 +2,7 @@
 // and the inputs that feed it. Pure reads of a WebGraph, nothing drawn.
 
 import type { WebGraph } from "@studio/graph-model";
+import { isPicturePass } from "@studio/song-schema/moduleTypes";
 
 // Narrow the graph to one track's signal path — a WebGraph, so `buildGraph` takes it unchanged.
 export function subgraphForTrack(graph: WebGraph, track: string): WebGraph {
@@ -53,6 +54,20 @@ export function trackModules(graph: WebGraph, track: string): string[] {
   return out;
 }
 
+/** Picture passes nothing feeds, landing on a picture lane — song's `isStretch`, read off the browser's graph. */
+function isStretch(
+  graph: WebGraph,
+  c: WebGraph["chains"][string],
+  target: string,
+): boolean {
+  const head = c.use[0]?.module;
+  if (!head || !graph.videoTracks?.includes(target)) return false;
+  if (!c.use.every((st) => isPicturePass(st.category))) return false;
+  return !Object.values(graph.chains).some((o) =>
+    o.out?.some((x) => x.to.split("#")[0] === head),
+  );
+}
+
 /** The modules FEEDING one track — its input, and anything between that and the lane — farthest first. */
 export function trackInputs(graph: WebGraph, track: string): string[] {
   const seen = new Set<string>();
@@ -64,6 +79,8 @@ export function trackInputs(graph: WebGraph, track: string): string[] {
     for (const c of Object.values(graph.chains)) {
       if (c.from || !c.out?.some((o) => o.to.split("#")[0] === target))
         continue;
+      // A fade's STRETCH lands on the lane but feeds no signal: a shot runs through it, not the lane.
+      if (isStretch(graph, c, target)) continue;
       const run = c.use.map((st) => st.module).filter((m): m is string => !!m);
       if (run.length) out.push(...upstream(run[0]), ...run);
     }
