@@ -19,6 +19,12 @@ export const CHAIN_SAVE_VERBS: Record<string, SidHandler> = {
       const saved = h.saveBenchChain(h.songPath, name);
       h.log([
         `saved ${saved.ref} (${saved.steps} step${saved.steps === 1 ? "" : "s"}) — clip process <clip> ${saved.ref}`,
+        // A module the person sees on the bench and the chain leaves out must be said, never dropped quietly.
+        ...(saved.outside.length
+          ? [
+              `not in it: ${saved.outside.join(", ")} — only what sits between IN and fader is the chain`,
+            ]
+          : []),
       ]);
     } catch (e) {
       h.refuse([`chain save: ${(e as Error).message}`]);

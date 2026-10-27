@@ -126,7 +126,15 @@ describe("frozen chains", () => {
 
   it("refuses an empty bench, a branch, and a nameless save of a chain that is not the account's", async () => {
     await ensureBench(EMAIL, BENCH_PROJECT);
-    expect(() => saveBenchChain("empty")).toThrow(/nothing sits between/);
+    expect(() => saveBenchChain("empty")).toThrow(/holds no module yet/);
+    // A module wired after the fader is named, so the refusal says what to move.
+    wsWriteData(join(benchDir(), "nodes", "eq.k7x"), {
+      extends: "@k7-core/audio/comp",
+    });
+    expect(() => saveBenchChain("empty")).toThrow(
+      /eq is on the bench but not wired between them/,
+    );
+    rmSync(join(benchDir(), "nodes", "eq.k7x"));
     await ensureBench(EMAIL, benchProject("@k7-core/vocals"));
     expect(() => saveBenchChain()).toThrow(/name the chain/);
     writeFileSync(

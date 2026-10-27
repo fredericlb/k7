@@ -94,7 +94,11 @@ export function serviceMembers(
           "only the bench saves a chain — open one on the bench from the Frozen chains page",
         );
       const saved = saveBenchChain(name);
-      return { ref: saved.ref, steps: saved.steps.length };
+      return {
+        ref: saved.ref,
+        steps: saved.steps.length,
+        outside: saved.outside,
+      };
     },
     // Work a verb starts and does not wait for, one run per tag — a transcode (docs/background.md).
     background: (tag: string, work: () => Promise<string>) =>

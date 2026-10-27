@@ -5,7 +5,7 @@
 // holds, never re-derived; only its id comes from what the bench copied. See docs/libraries.md.
 
 import { randomUUID } from "node:crypto";
-import { copyFileSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isOfflineModule } from "@studio/audio-passes/coldPass";
 import {
@@ -28,7 +28,7 @@ import { parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { FrozenChain, FrozenChainStep } from "@studio/web-protocol";
 import { benchDir, readBenchSource, writeBenchSource } from "./bench.ts";
-import { liveChains } from "./benchChain.ts";
+import { liveChains, RIG_NODES } from "./benchChain.ts";
 
 /** A frozen chain's name: one path segment, what its file and its ref are named after. */
 export const FROZEN_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -182,6 +182,7 @@ function benchRun(dir: string): {
   items: Item[];
   presets: Record<string, string>;
   ids: Record<string, string>;
+  outside: string[];
 } {
   const graph = parseGraph(wsRead(join(dir, GRAPH_FILE))).value;
   if (!graph) throw new Error("the bench has a graph that does not read");
@@ -215,15 +216,25 @@ function benchRun(dir: string): {
     if (wsExists(preset)) presets[id] = preset;
     at = node;
   }
+  // The bench's modules off that run — unwired, or after the fader — which the chain does not hold.
+  const outside = readdirSync(join(dir, "nodes"))
+    .filter((f) => f.endsWith(".k7x"))
+    .map((f) => f.slice(0, -".k7x".length))
+    .filter((n) => !RIG_NODES.has(n) && !seen.has(n))
+    .sort();
   if (!items.length)
     throw new Error(
-      `nothing sits between ${LIVE_INPUT} and ${LIVE_FADER}: add a module to the bench first`,
+      outside.length
+        ? `nothing sits between ${LIVE_INPUT} and ${LIVE_FADER}: ${outside.join(", ")} ${outside.length === 1 ? "is" : "are"} on the bench but not wired between them — insert ${outside.length === 1 ? "it" : "them"} on the ${LIVE_INPUT} → ${LIVE_FADER} cable`
+        : `the bench holds no module yet: hover the ${LIVE_INPUT} → ${LIVE_FADER} cable and click ⊕ to insert one`,
     );
-  return { items, presets, ids };
+  return { items, presets, ids, outside };
 }
 
 /** `chain save [name]`: the bench's run written as the account's chain; a bench opened on one of the account's chains names itself. */
-export function saveBenchChain(name?: string): FrozenChain {
+export function saveBenchChain(
+  name?: string,
+): FrozenChain & { outside: string[] } {
   const dir = benchDir();
   const source = readBenchSource();
   const mine = `@${ACCOUNT_LIBRARY}/`;
@@ -234,11 +245,11 @@ export function saveBenchChain(name?: string): FrozenChain {
     throw new Error(
       "name the chain: `chain save <name>` writes it as @account/<name>",
     );
-  const { items, presets, ids } = benchRun(dir);
+  const { items, presets, ids, outside } = benchRun(dir);
   const saved = writeAccountChain(dir, chosen, items, presets);
   // The bench now holds that chain, unedited: the next open of its address rebuilds it from the file.
   writeBenchSource({ ref: saved.ref, ids });
-  return saved;
+  return { ...saved, outside };
 }
 
 /** A copy of any library chain as the account's chain `name`: every step whole, with fresh ids and its presets. */
