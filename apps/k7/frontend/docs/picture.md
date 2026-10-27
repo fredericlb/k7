@@ -169,6 +169,12 @@ Drag the body to move it, drag a handle to resize it, and on release the shell r
 **`picture rect <lane> <x> <y> <w> <h>`** — a command, so one journal entry and one Ctrl+Z, unlike
 the three timeline drags below. Escape drops the selection.
 
+The PICTURE follows the drag, not only the box: each move is set on the compositor in place
+(`pushLayerRect`, `pictureLive.ts`), and the command waits for the release, since writing and
+recompiling the picture takes a second or more. After the release the box holds the dropped rect
+until the document read back says the same, so nothing snaps back to where the drag began; a
+document that never agrees (the write failed) wins after five seconds.
+
 What is being dragged is the **lane's** rect, not a placement's. A lane says where in the frame it
 draws and its placements say what plays there, so there is one rect per lane however many shots
 run through it — which is also why this is the only geometry verb picture has.

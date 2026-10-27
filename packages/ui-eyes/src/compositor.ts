@@ -4,7 +4,7 @@
 // It OWNS its canvas (a React-owned one races two GL contexts). A layer may carry GLSL passes
 // and so may the finished frame: passes.ts runs those, docs/passes.md is the page.
 
-import { isFullFrame, laneUV, sourceAR, UV_FILL } from "./geometry";
+import { isFullFrame, laneUV, rectToClip, sourceAR, UV_FILL } from "./geometry";
 import { buildLayer, emptyTexel, type LayerGL } from "./layerGL";
 import { Luts } from "./luts";
 import { type Motion, motionAffine, scissorBox } from "./motion";
@@ -232,6 +232,20 @@ export class Compositor {
         found = true;
       }
     return found;
+  }
+
+  /** Where a LANE draws, moved in place — a drag's frame, no texture or program rebuilt; false when no layer has that id. */
+  setLayerRect(
+    id: string,
+    r: { x: number; y: number; w: number; h: number },
+  ): boolean {
+    const l = this.layers.find((x) => x.id === id);
+    if (!l) return false;
+    const [vw, vh] = [this.canvas.width, this.canvas.height];
+    l.rect = rectToClip(r.x, r.y, r.w, r.h, vw, vh);
+    l.px = { x: r.x, y: r.y, w: r.w, h: r.h };
+    l.dstAR = r.h > 0 ? r.w / r.h : 0;
+    return true;
   }
 
   /** Run a chain over the ping-pong's front texture, leaving the RESULT there and the framebuffer unbound. */

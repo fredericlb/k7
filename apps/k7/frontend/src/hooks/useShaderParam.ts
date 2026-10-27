@@ -1,4 +1,4 @@
-// useShaderParam.ts — a shader's knob turned on a card: the viewport takes it AT ONCE (shaderLive.ts),
+// useShaderParam.ts — a shader's knob turned on a card: the viewport takes it AT ONCE (pictureLive.ts),
 // and `node param` writes it to the node, at most every WAIT ms per knob, the LAST value always
 // landing. The picture is read back once the writes stop (packages/song/docs/videoMixer.md).
 

@@ -57,8 +57,8 @@ export class RealtimeDriver {
   private uploads = new UploadMemo();
   private drawGate = new DrawGate();
   private audioRev = 0;
-  // Bumped by a knob set in place, so a stopped transport still draws the change.
-  private paramRev = 0;
+  // Bumped by a knob or a lane's rect set in place, so a stopped transport still draws the change.
+  private liveRev = 0;
   // The frame's collections, cleared and refilled each tick rather than allocated anew.
   private visible = new Set<string>();
   private blends = new Map<string, LayerBlend>();
@@ -344,7 +344,7 @@ export class RealtimeDriver {
       const b = blends.get(id);
       shown += b ? `${id}:${+b.from}${+b.to},` : `${id},`;
     }
-    const key = `${t}|${shown}|${this.audioRev}|${this.paramRev}|${this.comp.revision}`;
+    const key = `${t}|${shown}|${this.audioRev}|${this.liveRev}|${this.comp.revision}`;
     if (!this.drawGate.need(this.uploaded, playing, key)) return;
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
@@ -400,7 +400,17 @@ export class RealtimeDriver {
   /** A shader knob turned by hand, drawn at the next frame without a setScene; false when that node has no pass yet. */
   setParam(node: string, name: string, value: number): boolean {
     const found = this.comp.setParam(node, name, value);
-    if (found) this.paramRev++;
+    if (found) this.liveRev++;
+    return found;
+  }
+
+  /** A lane's rect dragged by hand, drawn at the next frame without a setScene; false when no layer is that lane. */
+  setLayerRect(
+    id: string,
+    r: { x: number; y: number; w: number; h: number },
+  ): boolean {
+    const found = this.comp.setLayerRect(id, r);
+    if (found) this.liveRev++;
     return found;
   }
 
