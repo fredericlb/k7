@@ -68,6 +68,23 @@ describe("moduleRow led by its lane", () => {
     expect(trackInputs(lane, "vox")).toEqual([]);
   });
 
+  it("leaves a picture lane's fade STRETCH out of its inputs, and keeps the shape that draws on it", () => {
+    const pic: WebGraph = {
+      ...graph({
+        iris: {
+          use: [{ module: "iris", category: "shaders" }],
+          out: [{ to: "cam", gain: 1 }],
+        },
+        box: {
+          use: [{ module: "box", category: "shapes" }],
+          out: [{ to: "cam", gain: 1 }],
+        },
+      }),
+      videoTracks: ["cam"],
+    };
+    expect(trackInputs(pic, "cam")).toEqual(["box"]);
+  });
+
   it("carries the cable OUT of the lane, which the row could not draw without it", () => {
     const row = moduleRow(lane, ["comp", "eq"], { links: true, track: "vox" });
     expect(row.edges).toContainEqual(

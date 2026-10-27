@@ -1,9 +1,9 @@
-// video-mixer — the picture strip, two columns like the audio strip: the channels, then transparency.
+// video-mixer — the picture strip, the audio strip's two columns by four rows: the channels, then transparency.
 cols(2)
-rows(2)
+rows(4)
 widgets({
-  red: { type: "knob", col: 0, row: 0, label: "Red", bind: "P1", min: 0, max: 1, step: 0.01 },
-  green: { type: "knob", col: 1, row: 0, label: "Green", bind: "P2", min: 0, max: 1, step: 0.01 },
-  blue: { type: "knob", col: 0, row: 1, label: "Blue", bind: "P3", min: 0, max: 1, step: 0.01 },
-  transparency: { type: "knob", col: 1, row: 1, label: "Transparency", bind: "P4", min: 0, max: 1, step: 0.01 },
+  red: { type: "knob", col: 0, row: 0, rowSpan: 2, label: "Red", bind: "P1", min: 0, max: 1, step: 0.01 },
+  green: { type: "knob", col: 1, row: 0, rowSpan: 2, label: "Green", bind: "P2", min: 0, max: 1, step: 0.01 },
+  blue: { type: "knob", col: 0, row: 2, rowSpan: 2, label: "Blue", bind: "P3", min: 0, max: 1, step: 0.01 },
+  transparency: { type: "knob", col: 1, row: 2, rowSpan: 2, label: "Transparency", bind: "P4", min: 0, max: 1, step: 0.01 },
 })
