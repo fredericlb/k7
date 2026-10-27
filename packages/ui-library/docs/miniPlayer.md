@@ -134,6 +134,24 @@ Finally, `enqueue` refuses duplicates and `moveTo` takes the INTENDED index in t
 inserting at the starting index would make a downward move one notch short, and the button would
 seem dead. Both are tested in `playback/queue.test.ts`.
 
+## The instrumental, from the bar
+
+A library song playing has a button in the bar for its **instrumental**
+(`src/playback/InstrumentalButton.tsx`): pressed, the same song plays from its instrumental at the same second, on
+whichever destination it plays — `start` with the instrumental's path and the `instrumental`
+version, as the song screen's version tabs switch — and pressed again, back to the master.
+
+The instrumental is the one the song DECLARES (a variant of that name), else the one a cut left in
+`stems/instrumental.wav`, where the songbook's cut writes it too. A song with neither ASKS before
+making one, since a cut takes an engine minutes: confirmed, `/api/stems` cuts it, the button greys
+out with the cut's percent, and the song switches to it by itself when it lands — only if that song
+is still the one playing its master, never if the listener has moved on. A cut found already running
+(a reload) is followed, but switches nothing: nobody asked for it on this page.
+
+The state is a store of the page's (`src/playback/instrumental.ts`), keyed by the master, not the
+bar's: the bar comes and goes with what plays, and a cut must keep being followed while another
+song plays. A songbook song's fact is set to the cut too, so rehearsal plays the same file.
+
 ## Where a failure is said
 
 One field, `error`, carries every account of silence: a master the browser could not load, mpv

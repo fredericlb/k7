@@ -69,6 +69,10 @@ instrumental because somebody once cut the stems, and hand back four files that 
 Asked of the disk rather than of a record somewhere — the files are the truth, and a record beside
 them is a second one that can disagree.
 
+`GET /api/stems/held` answers that question without starting anything, and with it the cut THIS
+caller has running on that song, if any (`job`): a page reloaded in the middle of a cut finds it
+again and follows it, rather than offering to start one already under way.
+
 ## `stems/`, never beside the master
 
 The scan takes the **first** audio file in a folder and does not descend, so a stem dropped

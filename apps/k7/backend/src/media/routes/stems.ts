@@ -108,7 +108,7 @@ export function stemsRouter(
     }),
   );
 
-  /** Is this song ALREADY cut? A READ — the POST above starts a job, so it cannot answer this. */
+  /** Is this song ALREADY cut — or being cut for this caller now? A READ: the POST above starts a job, so it cannot answer this. */
   router.get(
     "/held",
     wrap((req, res) => {
@@ -116,8 +116,12 @@ export function stemsRouter(
       if (!song) return res.status(400).json({ error: "song is required" });
       const asked = req.query.want === INSTRUMENTAL ? INSTRUMENTAL : "stems";
       try {
+        const ready = heldFor(song, asked);
+        // A cut this caller started on the default chain, still running: a page reloaded mid-cut follows it again.
+        const id = jobIdFor(emailOf(req) ?? "unknown", song, `\0${asked}`);
+        const job = ready ? null : runningJob(id);
         // The same `ready` word the POST answers with, so one caller reads both the same way.
-        res.json({ ready: heldFor(song, asked), job: null } as StemsReply);
+        res.json({ ready, job } as StemsReply);
       } catch (e) {
         if (e instanceof PathEscapesError)
           return res.status(400).json({ error: e.message });

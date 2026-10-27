@@ -72,6 +72,7 @@ export function SongInfoTabs({
     : [];
 
   // Another song opens on its tags, with nothing of the last one's held.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the song's path is the trigger, read by nothing inside.
   useEffect(() => {
     setTab("info");
     setEditing(null);
