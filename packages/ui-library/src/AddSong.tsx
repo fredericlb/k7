@@ -1,7 +1,8 @@
 // AddSong.tsx — the one way a song enters the library, as one enters the songbook: a popin asks its
 // artist and title, then where its audio comes from — a file uploaded, the automatic Soulseek download,
 // or none at all. One song at a time. The names the user typed are what file it, whichever way is
-// chosen, so the three land in the same folder. See ../docs/library.md, "Adding a song".
+// chosen, so the three land in the same folder; the download first checks what it would fetch
+// is that song. See ../docs/library.md, "Adding a song", and ../docs/hunt.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -22,6 +23,12 @@ import { hunt, library, SongExists } from "./api";
 import { readsThisMachine } from "./config";
 import { HuntProgress } from "./HuntProgress";
 import { useLabels } from "./host";
+import {
+  type Doubtful,
+  IdentifiedActions,
+  IdentifiedNotice,
+} from "./IdentifiedSong";
+import { huntRequest, type Identified, judge } from "./identifySong";
 
 /** Where the popin stands: naming the song, choosing its audio, then following the way chosen. */
 type Step =
@@ -34,6 +41,7 @@ type Step =
       progress: number;
       error?: string;
     }
+  | { kind: "identified"; identified: Doubtful }
   | { kind: "hunt"; first: HuntRecord };
 
 /** What the server says of the automatic download: whether it can run, and why not. */
@@ -152,16 +160,27 @@ export function AddSong({
     }
   };
 
-  /** The automatic download, filed under the names typed rather than under whatever a peer called it. */
-  const download = () => {
+  /** Start the hunt: the identified recording searched, filed under the names typed. */
+  const startHunt = async (identified: Identified) => {
+    const { query, tags, fileAs } = huntRequest(names, identified);
+    const first = await hunt.start(query, tags, fileAs);
+    setHuntStatus(first.status);
+    setStep({ kind: "hunt", first });
+  };
+
+  /** The automatic download: identified first, and started at once only when that is the song named. */
+  const download = (accepted?: Identified) => {
     setBusy(true);
     setError(null);
-    void hunt
-      .start(`${names.artist} ${names.title}`, names)
-      .then((first) => {
-        setHuntStatus(first.status);
-        setStep({ kind: "hunt", first });
-      })
+    void (async () => {
+      if (accepted) return startHunt(accepted);
+      const identified = judge(
+        names,
+        await hunt.identify(`${names.artist} ${names.title}`),
+      );
+      if (identified.kind === "same") return startHunt(identified);
+      setStep({ kind: "identified", identified });
+    })()
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -232,12 +251,13 @@ export function AddSong({
   );
 
   const unavailable = availability && !availability.configured;
+  const typed = `${names.artist} — ${names.title}`;
   const description =
     step.kind === "names"
       ? l.hint
       : step.kind === "hunt"
         ? l.background
-        : `${names.artist} — ${names.title}`;
+        : typed;
 
   return (
     <>
@@ -295,14 +315,14 @@ export function AddSong({
                 () => input.current?.click(),
               )}
               {choice(
-                availability ? (
+                availability && !busy ? (
                   <Download className="h-4 w-4" />
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ),
                 l.download,
-                l.downloadHint,
-                download,
+                busy ? l.identifying : l.downloadHint,
+                () => download(),
                 !availability?.configured,
               )}
               {/* Said rather than hidden: an unconfigured download is a normal state of a deployment. */}
@@ -366,6 +386,10 @@ export function AddSong({
             </div>
           )}
 
+          {step.kind === "identified" && (
+            <IdentifiedNotice identified={step.identified} typed={typed} />
+          )}
+
           {step.kind === "hunt" && (
             <HuntProgress
               first={step.first}
@@ -410,6 +434,15 @@ export function AddSong({
               >
                 {labels.common.back}
               </Button>
+            )}
+            {step.kind === "identified" && (
+              <IdentifiedActions
+                identified={step.identified}
+                busy={busy}
+                onCancel={close}
+                onOtherWay={() => setStep({ kind: "how" })}
+                onAnyway={() => download(step.identified)}
+              />
             )}
             {step.kind === "upload" &&
               (step.state === "sending" ? (

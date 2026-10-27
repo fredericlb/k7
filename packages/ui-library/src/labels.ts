@@ -91,6 +91,17 @@ export interface LibraryLabels {
     /** Back to the three ways, after one failed or found the folder taken. */
     otherWay: string;
     close: string;
+    /** Said on the download while the names are being identified, before anything is searched. */
+    identifying: string;
+    /** Over the recording identified when it is not the song named. */
+    identifiedOther: string;
+    /** Under it: downloading it anyway still files it under the names typed, `artist — title`. */
+    anywayHint: (typed: string) => string;
+    downloadAnyway: string;
+    /** Nothing identified at all: the names are searched as typed, if the user wants. */
+    identifiedNone: string;
+    searchAnywayHint: string;
+    searchAnyway: string;
     notAudio: (name: string) => string;
     occupied: string;
     cancelUpload: string;

@@ -23,7 +23,13 @@ import type {
   SeparateJob,
   StemsReply,
 } from "@studio/web-protocol";
-import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
+import type {
+  HuntFileAs,
+  HuntIdentity,
+  HuntList,
+  HuntRecord,
+  HuntTags,
+} from "@studio/web-protocol/hunt";
 import type {
   SlskdCheck,
   SlskdSettings,
@@ -154,16 +160,26 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  /** A hunt files the song into the media library and stops there; `tags` the song already NAMED, filed under them. */
+  /** The recording a query WOULD hunt, downloading nothing; null when nothing matches. */
+  identify: async (query: string): Promise<HuntTags | null> =>
+    (
+      await hget<HuntIdentity>(
+        `/identify?${new URLSearchParams({ q: query })}`,
+        "identify",
+      )
+    ).tags,
+
+  /** A hunt files the song into the media library and stops there: `tags` searched as given, `fileAs` naming its folder. */
   start: async (
     query: string,
-    tags?: { artist: string; title: string },
+    tags?: HuntTags,
+    fileAs?: HuntFileAs,
   ): Promise<HuntRecord> =>
     json(
       await request(`${apiBase()}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(tags ? { query, tags } : { query }),
+        body: JSON.stringify({ query, tags, fileAs }),
       }),
       "hunt",
     ),

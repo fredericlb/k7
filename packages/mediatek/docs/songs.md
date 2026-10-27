@@ -241,3 +241,13 @@ And a **folder picker** in the tree's context menu, beside the drag: a drag-and-
 so silently, which makes it a bad sole entry. It is a second `<input type="file">` with
 `webkitdirectory` — the property belongs to the input, not the click, hence two hidden fields rather
 than one.
+
+## Is it the song named? (`songMatch.ts`)
+
+Two surfaces ask whether a recording is the song a person named: the rehearsal songbook, finding a
+song's track in the library and checking what a hunt would fetch, and the médiathèque's **Add a
+song**, checking the same before its automatic download. They share one rule, kept here because
+both screen packages already read this one and neither may import the other. A library entry
+matches on artist and title equal once accents, case and punctuation are dropped, else every typed
+word found, else the same title by an artist a typo away; an identified recording (`sameSong`)
+matches when artist and title are each a typo away at most. Pure, so it is tested without a server.

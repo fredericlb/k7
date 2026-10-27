@@ -15,6 +15,8 @@ export interface HuntRecord {
   album?: string;
   /** The release date of the album named above, for telling two records apart. */
   date?: string;
+  /** The names the CALLER chose to file it under, album unknown; absent, the tags above decide the folder. */
+  fileAs?: HuntFileAs;
   /** Where it landed, mediatek-relative, once filed. */
   path?: string;
   /** What was actually taken — `.flac`, or the kbps of a lossy one; see docs/hunt.md. */
@@ -39,6 +41,12 @@ export interface HuntTags {
   title: string;
   album: string | null;
   date: string | null;
+}
+
+/** The names a hunt files under when the caller typed them: the médiathèque's "Add a song" — docs/hunt.md. */
+export interface HuntFileAs {
+  artist: string;
+  title: string;
 }
 
 /** What `GET /api/hunt/identify` answers: the recording a query would hunt, or null for none. */

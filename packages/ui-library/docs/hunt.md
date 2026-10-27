@@ -14,9 +14,30 @@ three and has no section, no address and no history screen. Two pages for one ac
 choose between them before knowing which would work, and the history page grew into a queue of
 titles where the act is one song.
 
-The popin sends the hunt the names the user TYPED, as tags (`POST /api/hunt {query, tags}`), so the
-song is filed under them rather than under whatever a peer called the file, and lands in the very
-folder an upload or a song without audio of the same names would.
+## Identified and checked before anything downloads
+
+The download first asks what the names WOULD hunt (`GET /api/hunt/identify`, MusicBrainz then
+Deezer), because the best match for the words typed is not always the song meant. The answer is
+judged by the songbook's own rule, `sameSong` (`@studio/mediatek/songMatch`, through
+`src/identifySong.ts`): artist and title each a typo away at most.
+
+- **The same song**: the hunt starts at once, searching THAT recording — its album included,
+  which is the first search slskd is asked.
+- **Another song**: nothing starts. The popin names what was identified (artist, title, album,
+  year) and offers **Download it anyway** — the user knows the song better than a scorer —,
+  **Choose another way**, or **Cancel**. Refusing outright, as the songbook does, would leave no
+  way to get a recording MusicBrainz names differently; downloading silently is the wrong file.
+- **Nothing identified**: **Search anyway** hunts the names as typed, said to be unchecked. An
+  obscure song is not in MusicBrainz, and that is no reason to forbid its download.
+
+## The typed names decide the folder
+
+The hunt is sent the identified tags to SEARCH with and the typed names to FILE under
+(`POST /api/hunt {query, tags, fileAs}`), with the album unknown: the song lands in
+`songs/<artist>/Album inconnu/<title>`, the very folder an upload or a song without audio of the
+same names takes, and where the songbook's song of those names is looked for. Filing under the
+identified album would put one song in two places depending on how its audio came, and the
+"already filed" check, which reads that folder, would miss the song added without audio.
 
 ## Closing the popin is not cancelling
 

@@ -188,7 +188,8 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **Songs are fetched from the server the pages read** (`pl8Base`, `src/fetchSong/pl8.ts`): the hunt
   files into that server's library, the track is copied from it and the cut runs where it is. On the
   tray that is the server picker's choice (`apps/k7/frontend/docs/serverPicker.md`).
-- **The library song is found by artist and title** (`src/fetchSong/match.ts`): equal once accents,
+- **The library song is found by artist and title** (`@studio/mediatek/songMatch`, shared with the
+  médiathèque's **Add a song**, `packages/mediatek/docs/songs.md`): equal once accents,
   case and punctuation are dropped, else every typed word in the entry, else the same title by an
   artist a typo away (Gonzales / González). That is how a song FINDS its track; its stems are then
   cut from the recording it links, never looked up again by name — a same-named library song (a
@@ -197,7 +198,7 @@ often than a track to play along to, so it is asked for rather than ridden along
   médiathèque names a query through MusicBrainz (Deezer when unreachable) before searching
   Soulseek, and that name can be another song: « Expedition 33 Lumières » is the band Lumières'
   « Momentary ». The page asks for the name alone (`/api/hunt/identify`), compares it with the
-  song's artist and title (each a typo away at most, `sameSong` in `match.ts`), and only then hunts
+  song's artist and title (each a typo away at most, `sameSong`), and only then hunts
   — THOSE tags, so the download is the recording that was checked. A mismatch downloads nothing and
   names what was found.
 - **"Make instrumental" never hunts.** It works on the song the library already holds: a song

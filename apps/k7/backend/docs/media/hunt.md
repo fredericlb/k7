@@ -103,7 +103,10 @@ the nearest stand-in available for what `releaseScore` does with real release ty
 
 `GET /api/hunt/identify?q=` answers what a query WOULD hunt (`HuntIdentity`,
 `packages/web-protocol/hunt.ts`) and downloads nothing, and `POST /api/hunt` takes those `tags`
-back: a hunt given tags files them as given and never identifies again. The scoring picks the
+back: a hunt given tags searches and files them as given and never identifies again. A caller that
+named the song itself also sends `fileAs`, the artist and title its folder is named from, album
+unknown (the médiathèque's **Add a song**, `packages/ui-library/docs/hunt.md`): the tags still steer
+the search, the names decide the path, and the row keeps them for the YouTube fallback. The scoring picks the
 recording that best explains the WORDS typed, which is not always the song meant — one word landing
 on a band's name (« Expedition 33 Lumières » is the band Lumières' « Momentary ») outscores a title
 that is spelt differently. A caller who knows the song (the rehearsal songbook) checks the answer first, and a
