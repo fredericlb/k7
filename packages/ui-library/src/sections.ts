@@ -7,7 +7,6 @@ import {
   Disc3,
   ListMusic,
   type LucideIcon,
-  Search,
   Waves,
 } from "@frediverse/ui/icons";
 import type { LibraryLabels } from "./labels";
@@ -26,7 +25,6 @@ export const LIBRARY_SECTIONS: LibrarySection[] = [
   { id: "samples", icon: Waves, counted: true },
   { id: "recordings", icon: AudioWaveform, counted: true },
   { id: "playlists", icon: ListMusic, counted: true },
-  { id: "find", icon: Search, counted: false },
 ];
 
 /** A section's name, in the host's words. */

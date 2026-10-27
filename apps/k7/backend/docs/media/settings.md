@@ -1,6 +1,6 @@
 # The hunt's settings — stored, sealed, tested
 
-What "Find songs" ([hunt.md](hunt.md)) needs to reach the slskd daemon and bring the bytes back:
+What the automatic download ([hunt.md](hunt.md)) needs to reach the slskd daemon and bring the bytes back:
 its address, its API key, and the SFTP access to the machine it downloads onto. The form is a card
 of k7's server page, `/settings/server` (`packages/ui-library/docs/settings.md`); this page is what
 the backend does with it, under `/api/settings`.

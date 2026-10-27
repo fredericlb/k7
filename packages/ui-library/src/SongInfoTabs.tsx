@@ -39,7 +39,7 @@ export function SongInfoTabs({
   // A new song opens on its tags; the texts are read again whenever the listing says the folder moved.
   useEffect(() => {
     setTab("info");
-  }, [entry.path]);
+  }, []);
   const wanted = shown.length > 0;
   useEffect(() => {
     if (!wanted) {
@@ -54,7 +54,7 @@ export function SongInfoTabs({
     return () => {
       alive = false;
     };
-  }, [id, wanted, entry.mtime, onStatus]);
+  }, [id, wanted, onStatus]);
 
   const label: Record<Tab, string> = {
     info: l.tabInfo,

@@ -69,15 +69,13 @@ otherwise read as a workspace's name.
 
 ## Every section is an entry of the host's nav
 
-The five sections — the two families, the two root zones and `find` — are drawn by the host, from
+The four sections — the two families and the two root zones — are drawn by the host, from
 `LIBRARY_SECTIONS` (`src/sections.ts`); in k7 they are entries of the home sidebar. Settings are
 not a section: their two cards are sections of the host's own settings page
 ([settings.md](settings.md)).
 
-`find` draws edge to edge, because nothing it shows is on the volume, and it is a section rather
-than a dialogue for the reason the rest of this page argues: **an address**. A page reloads,
-bookmarks, and answers the back button; a modal does none of the three, and the hunt grows a
-history a dialogue would make scroll inside a scroll — see [hunt.md](hunt.md).
+Finding a song on Soulseek is not a section: it is one of the ways **Add a song** offers
+([hunt.md](hunt.md)), so an old `/find` address opens on the songs.
 
 The cost is a subtraction to keep up to date. `useLibraryData.ts` derives `FamilyId` by removing the
 non-family ids from `SECTION_IDS`, so a section added there and forgotten here silently becomes

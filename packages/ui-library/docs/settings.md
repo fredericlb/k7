@@ -2,7 +2,7 @@
 
 The package exports three cards from `@studio/ui-library/settings`, and k7 carries them on its own
 pages beside its settings: **Engines** — the engines registered with this origin — on the engine
-page, `/settings/engine`; **Engine owners** and **slskd** — what "Find songs" ([hunt.md](hunt.md))
+page, `/settings/engine`; **Engine owners** and **slskd** — what the automatic download ([hunt.md](hunt.md))
 spends — on the admins' server page, `/settings/server` (`apps/k7/frontend/docs/settings.md`). The
 library has no settings page of its own.
 

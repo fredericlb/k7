@@ -1,7 +1,7 @@
-// AddSong.tsx — the add-songs button: pick one audio file or several, their tags are read in the browser,
-// and each derived tree is shown BEFORE uploading, because that tree and not a file name is what decides
-// where a song is filed. Several are sent one after another; a song whose folder is taken stays, with its
-// own Replace, and one that failed stays with its reason. See ../docs/library.md, "Adding songs".
+// AddSong.tsx — the one way a song enters the library, as one enters the songbook: a popin asks its
+// artist and title, then where its audio comes from — a file uploaded, the automatic Soulseek download,
+// or none at all. One song at a time. The names the user typed are what file it, whichever way is
+// chosen, so the three land in the same folder. See ../docs/library.md, "Adding a song".
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -12,236 +12,245 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Loader2, Upload, X } from "@frediverse/ui/icons";
+import { Download, FileX, Loader2, Plus, Upload } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { Label } from "@frediverse/ui/label";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
-import {
-  masterName,
-  type SongTags,
-  songFolder,
-  tagsFromFilename,
-} from "@studio/mediatek/song";
+import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { useRef, useState } from "react";
-import { library, SongExists } from "./api";
+import { hunt, library, SongExists } from "./api";
+import { readsThisMachine } from "./config";
+import { HuntProgress } from "./HuntProgress";
 import { useLabels } from "./host";
 
-/** The file's tags, or a guess from its name: an unreadable file is a form to fill in, not an error. */
-async function readTags(file: File): Promise<SongTags> {
-  const guess = tagsFromFilename(file.name);
-  try {
-    // Dynamic import: music-metadata is heavy, for a button nobody clicks on every visit.
-    const { parseBlob } = await import("music-metadata");
-    const { common } = await parseBlob(file, { duration: false });
-    return {
-      artist: common.artist || common.albumartist || guess.artist || "",
-      album: common.album || "",
-      title: common.title || guess.title || "",
-    };
-  } catch {
-    return { artist: guess.artist ?? "", album: "", title: guess.title ?? "" };
-  }
+/** Where the popin stands: naming the song, choosing its audio, then following the way chosen. */
+type Step =
+  | { kind: "names" }
+  | { kind: "how" }
+  | {
+      kind: "upload";
+      file: File;
+      state: "sending" | "occupied" | "failed";
+      progress: number;
+      error?: string;
+    }
+  | { kind: "hunt"; first: HuntRecord };
+
+/** What the server says of the automatic download: whether it can run, and why not. */
+interface HuntAvailability {
+  configured: boolean;
+  reason: string | null;
+  youtube: boolean;
 }
 
-/** One picked file on its way: its tags as edited, and where its upload stands. */
-interface Item {
-  id: number;
-  file: File;
-  tags: SongTags;
-  reading: boolean;
-  state: "ready" | "sending" | "occupied" | "failed";
-  error?: string;
-  /** The share of its bytes sent, while `sending`. */
-  progress?: number;
-}
-
-type Field = "artist" | "album" | "title";
-
-let nextId = 0;
-
-export function AddSong({ onDone }: { onDone: () => void }) {
+export function AddSong({
+  onDone,
+  onOpenSettings,
+}: {
+  onDone: () => void;
+  /** Where an unconfigured download is fixed: the instance's slskd settings. */
+  onOpenSettings?: () => void;
+}) {
   const labels = useLabels();
   const l = labels.addSong;
+  const find = labels.find;
   const input = useRef<HTMLInputElement>(null);
-  const [items, setItems] = useState<Item[]>([]);
+  const [open, setOpen] = useState(false);
+  const [artist, setArtist] = useState("");
+  const [title, setTitle] = useState("");
+  const [step, setStep] = useState<Step>({ kind: "names" });
   const [busy, setBusy] = useState(false);
-  // The upload in flight, so Cancel cuts it rather than waiting on 500 MB it no longer wants; also stops the queue.
+  const [error, setError] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<HuntAvailability | null>(
+    null,
+  );
+  const [huntStatus, setHuntStatus] = useState<HuntRecord["status"] | null>(
+    null,
+  );
+  // The upload in flight, so Cancel cuts it rather than waiting on 500 MB nobody wants any more.
   const sending = useRef<AbortController | null>(null);
 
-  const update = (id: number, patch: Partial<Item>) =>
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const names = { artist: artist.trim(), title: title.trim() };
+  const named = Boolean(names.artist && names.title);
+
+  const start = () => {
+    setArtist("");
+    setTitle("");
+    setStep({ kind: "names" });
+    setError(null);
+    setHuntStatus(null);
+    setOpen(true);
+    // Asked on opening: by the time the names are typed, the download says whether it can run.
+    setAvailability(null);
+    void hunt
+      .list()
+      .then((x) =>
+        setAvailability({
+          configured: x.configured,
+          reason: x.configured ? null : x.reason,
+          youtube: x.youtube,
+        }),
+      )
+      .catch((e: Error) =>
+        setAvailability({
+          configured: false,
+          reason: e.message,
+          youtube: false,
+        }),
+      );
+  };
 
   const close = () => {
     sending.current?.abort();
-    setItems([]);
+    setOpen(false);
   };
 
-  const pick = (files: File[]) => {
-    const picked: Item[] = files.map((file) => ({
-      id: nextId++,
-      file,
-      tags: {},
-      reading: true,
-      state: "ready",
-    }));
-    setItems(picked);
-    // Each one's tags as they come: a long list fills in row by row rather than all at the end.
-    for (const it of picked)
-      void readTags(it.file).then((tags) =>
-        update(it.id, { tags, reading: false }),
-      );
-  };
-
-  /** Send `it`, replacing what its folder holds when `replace`; answers whether it went. */
-  const sendOne = async (
-    it: Item,
-    replace: boolean,
-    signal: AbortSignal,
-  ): Promise<boolean> => {
-    update(it.id, { state: "sending", error: undefined, progress: 0 });
+  /** Send the file under the names typed; `replace` overwrites the song already filed there. */
+  const upload = async (file: File, replace: boolean) => {
+    const ctl = new AbortController();
+    sending.current = ctl;
+    setError(null);
+    setStep({ kind: "upload", file, state: "sending", progress: 0 });
     try {
+      // No album: a song named by hand is filed where the songbook files one, under the unknown album.
       const added = await library.addSong(
-        it.file,
-        {
-          artist: it.tags.artist ?? "",
-          album: it.tags.album ?? "",
-          title: it.tags.title ?? "",
-        },
+        file,
+        { ...names, album: "" },
         {
           replace,
-          signal,
-          onProgress: (progress) => update(it.id, { progress }),
+          signal: ctl.signal,
+          onProgress: (progress) =>
+            setStep((s) => (s.kind === "upload" ? { ...s, progress } : s)),
         },
       );
-      // Sent: off the list. Analysed after, never awaited — the first surface that needs it computes it anyway.
-      setItems((xs) => xs.filter((x) => x.id !== it.id));
+      // Analysed after, never awaited — the first surface that needs it computes it anyway.
       void library
         .analyse(added.master)
         .then(onDone)
-        .catch(() => {
-          /* the song is filed either way; the cache is a derived thing */
-        });
-      return true;
+        .catch(() => {});
+      onDone();
+      setOpen(false);
     } catch (e) {
-      if (signal.aborted) return false;
-      if (e instanceof SongExists) update(it.id, { state: "occupied" });
-      else update(it.id, { state: "failed", error: (e as Error).message });
-      return false;
-    }
-  };
-
-  /** Send every row still to send, one after another; with `only`, that one row, replacing when it is occupied. */
-  const send = async (only?: Item) => {
-    const ctl = new AbortController();
-    sending.current = ctl;
-    setBusy(true);
-    let sent = 0;
-    try {
-      const queue = only
-        ? [only]
-        : items.filter(
-            (it) => it.state !== "occupied" && isAudio(it.file.name),
-          );
-      for (const it of queue) {
-        if (ctl.signal.aborted) break;
-        if (await sendOne(it, it.state === "occupied", ctl.signal)) sent++;
-      }
+      if (ctl.signal.aborted) return;
+      setStep(
+        e instanceof SongExists
+          ? { kind: "upload", file, state: "occupied", progress: 0 }
+          : {
+              kind: "upload",
+              file,
+              state: "failed",
+              progress: 0,
+              error: (e as Error).message,
+            },
+      );
     } finally {
       sending.current = null;
-      setBusy(false);
     }
-    if (sent) onDone();
   };
 
-  // The dialog closes on its own once every row has gone; what stays is what needs a decision.
-  const open = items.length > 0;
-  const single = items.length === 1 ? items[0] : null;
-  const reading = items.some((it) => it.reading);
-  const sendable = items.filter(
-    (it) => it.state !== "occupied" && isAudio(it.file.name),
-  );
+  /** The automatic download, filed under the names typed rather than under whatever a peer called it. */
+  const download = () => {
+    setBusy(true);
+    setError(null);
+    void hunt
+      .start(`${names.artist} ${names.title}`, names)
+      .then((first) => {
+        setHuntStatus(first.status);
+        setStep({ kind: "hunt", first });
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  };
 
-  const edit = (it: Item, key: Field, value: string) =>
-    // The edited field aims elsewhere, so a remembered "Replace" would hit a song nobody saw.
-    update(it.id, {
-      tags: { ...it.tags, [key]: value },
-      ...(it.state === "occupied" ? { state: "ready" } : {}),
-    });
+  /** The song with no audio at all: its folder and its names, which a later upload fills. */
+  const withoutAudio = () => {
+    setBusy(true);
+    setError(null);
+    void library
+      .addSongWithoutAudio(names)
+      .then(() => {
+        onDone();
+        setOpen(false);
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  };
 
-  const target = (it: Item) =>
-    isAudio(it.file.name)
-      ? `${songFolder(it.tags)}/${masterName(it.file.name)}`
-      : "";
+  /** Stop a running download; a song already filed stays filed. */
+  const stopHunt = (id: string) => {
+    void hunt.forget(id).catch(() => {});
+    setStep({ kind: "how" });
+  };
 
-  const field = (it: Item, key: Field, label: string, placeholder: string) => (
+  const field = (
+    id: string,
+    label: string,
+    placeholder: string,
+    value: string,
+    set: (v: string) => void,
+    autoFocus = false,
+  ) => (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`song-${it.id}-${key}`}>{label}</Label>
+      <Label htmlFor={`add-song-${id}`}>{label}</Label>
       <Input
-        id={`song-${it.id}-${key}`}
-        value={it.tags[key] ?? ""}
+        id={`add-song-${id}`}
+        value={value}
         placeholder={placeholder}
-        disabled={it.state === "sending"}
-        onChange={(e) => edit(it, key, e.target.value)}
+        autoFocus={autoFocus}
+        onChange={(e) => set(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && named) setStep({ kind: "how" });
+        }}
       />
     </div>
   );
 
-  const status = (it: Item) => (
-    <>
-      {it.state === "sending" && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <progress
-            className="h-1.5 flex-1 accent-primary"
-            max={1}
-            value={it.progress ?? 0}
-            aria-label={l.uploading(Math.round((it.progress ?? 0) * 100))}
-          />
-          <span className="shrink-0 tabular-nums" aria-live="polite">
-            {(it.progress ?? 0) < 1
-              ? l.uploading(Math.round((it.progress ?? 0) * 100))
-              : l.filing}
-          </span>
-        </div>
-      )}
-      {!isAudio(it.file.name) && (
-        // `accept` is only the picker's default filter — "all files" stays one click away.
-        <div className="text-xs text-destructive">
-          {l.notAudio(it.file.name)}
-        </div>
-      )}
-      {it.state === "occupied" && (
-        <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500">
-          {l.occupied}
-        </div>
-      )}
-      {it.state === "failed" && it.error && (
-        <code className="block max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
-          {it.error}
-        </code>
-      )}
-    </>
+  const choice = (
+    icon: React.ReactNode,
+    label: string,
+    hint: string,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      disabled={disabled || busy}
+      onClick={onClick}
+      className="flex items-start gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+    >
+      <span className="mt-0.5 text-muted-foreground">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </button>
   );
+
+  const unavailable = availability && !availability.configured;
+  const description =
+    step.kind === "names"
+      ? l.hint
+      : step.kind === "hunt"
+        ? l.background
+        : `${names.artist} — ${names.title}`;
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => input.current?.click()}
-      >
-        <Upload className="mr-1 h-3.5 w-3.5" /> {l.button}
+      <Button size="sm" variant="secondary" onClick={start}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> {l.button}
       </Button>
       <input
         ref={input}
         type="file"
         accept={AUDIO_ACCEPT}
-        multiple
         className="hidden"
         onChange={(e) => {
-          const files = Array.from(e.target.files ?? []);
-          // Cleared at once, or re-picking the same files after an error emits no change.
+          const file = e.target.files?.[0];
+          // Cleared at once, or re-picking the same file after an error emits no change.
           e.target.value = "";
-          if (files.length) pick(files);
+          if (!file) return;
+          if (!isAudio(file.name)) setError(l.notAudio(file.name));
+          else void upload(file, false);
         }}
       />
 
@@ -251,95 +260,186 @@ export function AddSong({ onDone }: { onDone: () => void }) {
           if (!o) close();
         }}
       >
-        <DialogContent className={single ? "max-w-lg" : "max-w-3xl"}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {single ? l.button : l.many(items.length)}
-            </DialogTitle>
-            <DialogDescription>
-              {reading ? l.readingTags : l.hint}
-            </DialogDescription>
+            <DialogTitle>{l.button}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
-          {single ? (
-            <>
-              <div className="flex flex-col gap-3">
-                {field(single, "artist", l.artist, l.artistPlaceholder)}
-                {field(single, "album", l.album, l.albumPlaceholder)}
-                {field(single, "title", l.title, l.titlePlaceholder)}
-              </div>
-              {target(single) && (
-                <code className="block overflow-x-auto rounded bg-muted px-2 py-1.5 font-mono text-xs text-muted-foreground">
-                  {target(single)}
+          {step.kind === "names" && (
+            <div className="flex flex-col gap-3">
+              {field(
+                "artist",
+                l.artist,
+                l.artistPlaceholder,
+                artist,
+                setArtist,
+                true,
+              )}
+              {field("title", l.title, l.titlePlaceholder, title, setTitle)}
+            </div>
+          )}
+
+          {step.kind === "how" && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm">{l.how}</p>
+              {choice(
+                <Upload className="h-4 w-4" />,
+                l.upload,
+                l.uploadHint,
+                () => input.current?.click(),
+              )}
+              {choice(
+                availability ? (
+                  <Download className="h-4 w-4" />
+                ) : (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ),
+                l.download,
+                l.downloadHint,
+                download,
+                !availability?.configured,
+              )}
+              {/* Said rather than hidden: an unconfigured download is a normal state of a deployment. */}
+              {unavailable && availability?.reason && (
+                <div className="flex items-center justify-between gap-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+                  <span>{availability.reason}</span>
+                  {/* Another server's slskd is its admins', set on that server's own page. */}
+                  {readsThisMachine() && onOpenSettings && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOpen(false);
+                        onOpenSettings();
+                      }}
+                    >
+                      {find.settings}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {choice(
+                <FileX className="h-4 w-4" />,
+                l.noAudio,
+                l.noAudioHint,
+                withoutAudio,
+              )}
+            </div>
+          )}
+
+          {step.kind === "upload" && (
+            <div className="flex flex-col gap-2">
+              <code className="block overflow-x-auto rounded bg-muted px-2 py-1.5 font-mono text-xs text-muted-foreground">
+                {step.file.name}
+              </code>
+              {step.state === "sending" && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <progress
+                    className="h-1.5 flex-1 accent-primary"
+                    max={1}
+                    value={step.progress}
+                    aria-label={l.uploading(Math.round(step.progress * 100))}
+                  />
+                  <span className="shrink-0 tabular-nums" aria-live="polite">
+                    {step.progress < 1
+                      ? l.uploading(Math.round(step.progress * 100))
+                      : l.filing}
+                  </span>
+                </div>
+              )}
+              {step.state === "occupied" && (
+                <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-500">
+                  {l.occupied}
+                </div>
+              )}
+              {step.state === "failed" && step.error && (
+                <code className="block max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
+                  {step.error}
                 </code>
               )}
-              {status(single)}
-            </>
-          ) : (
-            <ul className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto pr-1">
-              {items.map((it) => (
-                <li
-                  key={it.id}
-                  className="flex flex-col gap-2 rounded-md border border-border p-3"
-                >
-                  <div className="flex items-center gap-2 text-xs">
-                    {it.state === "sending" && (
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                    )}
-                    <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
-                      {target(it) || it.file.name}
-                    </span>
-                    {it.state === "occupied" && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() => void send(it)}
-                      >
-                        {l.replace}
-                      </Button>
-                    )}
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      title={l.drop}
-                      aria-label={l.drop}
-                      disabled={it.state === "sending"}
-                      onClick={() =>
-                        setItems((xs) => xs.filter((x) => x.id !== it.id))
-                      }
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {field(it, "artist", l.artist, l.artistPlaceholder)}
-                    {field(it, "album", l.album, l.albumPlaceholder)}
-                    {field(it, "title", l.title, l.titlePlaceholder)}
-                  </div>
-                  {status(it)}
-                </li>
-              ))}
-            </ul>
+            </div>
+          )}
+
+          {step.kind === "hunt" && (
+            <HuntProgress
+              first={step.first}
+              youtube={availability?.youtube ?? false}
+              onFiled={onDone}
+              onStatus={setHuntStatus}
+            />
+          )}
+
+          {error && (
+            <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </p>
           )}
 
           <DialogFooter>
-            <Button variant="secondary" onClick={close}>
-              {busy ? l.cancelUpload : labels.common.cancel}
-            </Button>
-            {single?.state === "occupied" ? (
-              <Button onClick={() => void send(single)} disabled={busy}>
-                {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {l.replace}
-              </Button>
-            ) : (
+            {step.kind === "names" && (
+              <>
+                <Button variant="secondary" onClick={close}>
+                  {labels.common.cancel}
+                </Button>
+                <Button
+                  disabled={!named}
+                  onClick={() => setStep({ kind: "how" })}
+                >
+                  {l.next}
+                </Button>
+              </>
+            )}
+            {step.kind === "how" && (
               <Button
-                onClick={() => void send()}
-                disabled={busy || reading || !sendable.length}
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setStep({ kind: "names" })}
               >
-                {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                {single ? l.send : l.sendMany(sendable.length)}
+                {labels.common.back}
               </Button>
+            )}
+            {step.kind === "upload" &&
+              (step.state === "sending" ? (
+                <Button variant="secondary" onClick={close}>
+                  {l.cancelUpload}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setStep({ kind: "how" })}
+                  >
+                    {l.otherWay}
+                  </Button>
+                  {step.state === "occupied" && (
+                    <Button onClick={() => void upload(step.file, true)}>
+                      {l.replace}
+                    </Button>
+                  )}
+                </>
+              ))}
+            {step.kind === "hunt" && (
+              <>
+                {huntStatus === "failed" && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setStep({ kind: "how" })}
+                  >
+                    {l.otherWay}
+                  </Button>
+                )}
+                {(huntStatus === "searching" ||
+                  huntStatus === "downloading") && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => stopHunt(step.first.id)}
+                  >
+                    {find.abandon}
+                  </Button>
+                )}
+                <Button onClick={close}>{l.close}</Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>

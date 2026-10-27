@@ -10,7 +10,6 @@ export interface LibraryLabels {
     samples: string;
     recordings: string;
     playlists: string;
-    find: string;
   };
   common: {
     loading: string;
@@ -27,7 +26,6 @@ export interface LibraryLabels {
   tree: {
     open: string;
     close: string;
-    findSongs: string;
     dropOnSong: string;
     notAudio: (name: string) => string;
     addVariant: string;
@@ -73,25 +71,30 @@ export interface LibraryLabels {
   addRecording: { add: string; sending: string; cancel: string };
   addSong: {
     button: string;
-    readingTags: string;
+    /** The first step's line: the names decide where the song is filed. */
     hint: string;
     artist: string;
     artistPlaceholder: string;
-    album: string;
-    albumPlaceholder: string;
     title: string;
     titlePlaceholder: string;
+    next: string;
+    /** The second step's question, over its three ways. */
+    how: string;
+    upload: string;
+    uploadHint: string;
+    download: string;
+    downloadHint: string;
+    noAudio: string;
+    noAudioHint: string;
+    /** Said while a download runs: closing the popin does not stop it. */
+    background: string;
+    /** Back to the three ways, after one failed or found the folder taken. */
+    otherWay: string;
+    close: string;
     notAudio: (name: string) => string;
     occupied: string;
     cancelUpload: string;
     replace: string;
-    send: string;
-    /** The title when several were picked. */
-    many: (count: number) => string;
-    /** …and the button that sends them, one after another. */
-    sendMany: (count: number) => string;
-    /** Take one song off the list before sending. */
-    drop: string;
     /** The share of a song's bytes sent so far, 0 to 100. */
     uploading: (percent: number) => string;
     /** Every byte sent, the server still filing it. */
@@ -175,11 +178,7 @@ export interface LibraryLabels {
     noYtdlp: string;
     youtubeButton: string;
     abandon: string;
-    forget: string;
-    placeholder: string;
-    search: string;
     settings: string;
-    empty: string;
   };
   playback: {
     targets: Record<
