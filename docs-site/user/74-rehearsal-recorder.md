@@ -28,8 +28,10 @@ a page can be opened by others through its link.
 ## Recording a session
 
 1. Click the red dot (**New session**) in the sidebar. It is there on every rehearsal page.
-2. The audio comes from your **rehearsal chain** when you chose one on k7's **Frozen chains** page
-   (see below), and from this device's microphone or audio interface otherwise. Nothing is asked.
+2. Choose where the audio comes from:
+   - **Local device**: this computer's or phone's microphone or audio interface.
+   - **K7 chain**: your rehearsal chain, chosen on k7's **Frozen chains** page (see below). It is
+     greyed out, saying so, until you choose one.
 3. Allow microphone access if the browser asks.
 
 The recorder opens in a pop-in. A session is created at once.
@@ -85,10 +87,10 @@ Sessions can record an instrument played through one of your frozen chains, as h
 engine's output:
 
 1. On k7's home page, open **Frozen chains** and press the microphone button on one of your chains:
-   it is marked **used for rehearsals**. Press it again to go back to the microphone. Only a chain
-   that can be recorded through live can be chosen.
-2. **New session** then opens that chain on k7's bench, out of sight, with the input the chain names,
-   and the take starts as soon as the chain's output reaches the recorder.
+   it is marked **used for rehearsals**. Press it again to unmark it. Only a chain that can be
+   recorded through live can be chosen.
+2. **New session** → **K7 chain** then opens that chain on k7's bench, out of sight, with the input
+   the chain names, and the take starts as soon as the chain's output reaches the recorder.
 3. If the chain names no input channel, a small dialog asks which input of the interface feeds it,
    and the take starts once one is picked.
 

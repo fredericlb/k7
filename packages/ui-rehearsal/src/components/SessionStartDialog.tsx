@@ -1,5 +1,5 @@
-// SessionStartDialog.tsx — what a session says while it starts: the source is not asked, it is the account's
-// rehearsal chain when k7 names one and this device's microphone otherwise, so the dialog only says which,
+// SessionStartDialog.tsx — what a session says while it starts: the source was picked in the New session
+// button's menu (this device, or the account's rehearsal chain), so the dialog only says what it opens,
 // how far it is, and why it failed. See ../../docs/chainSource.md.
 
 import { Button } from "@frediverse/ui/button";

@@ -1555,7 +1555,7 @@
   "frozen.rehearsalOff": "Stop recording rehearsals through this chain",
   "frozen.rehearsalBadge": "used for rehearsals",
   "frozen.rehearsalIs": "Rehearsals are recorded through {ref}.",
-  "frozen.rehearsalNone": "Rehearsals are recorded from the device's microphone — the microphone button on a chain records them through it instead.",
+  "frozen.rehearsalNone": "No chain is chosen for rehearsals: the microphone button on one of your chains makes it the recorder's K7 chain.",
   "bench.saveInto": "Save into your chain {name}",
   "bench.saveAs": "Save as one of your chains",
   "bench.saveBody": "What sits between the input and the fader becomes @account/<name>, which projects process with and the rehearsal recorder records through."

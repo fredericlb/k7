@@ -22,7 +22,7 @@ import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useRehearsalHost } from "../host";
 import { m } from "../paraglide/messages.js";
 import { micErrors, recorderLabels } from "../recorderLabels";
-import type { RecordingCtx } from "./context";
+import type { RecordingCtx, SessionSource } from "./context";
 import "../styles/index.css";
 
 type Close = { close: () => void };
@@ -32,6 +32,8 @@ interface Props {
   recOpen: boolean;
   setRecOpen: (open: boolean) => void;
   tags: string[];
+  /** What the session's button menu picked. */
+  source: SessionSource;
   sourceOpen: boolean;
   setSourceOpen: (open: boolean) => void;
   chainOpen: boolean;
@@ -50,6 +52,7 @@ export default function RecordingOverlay({
   recOpen,
   setRecOpen,
   tags,
+  source,
   sourceOpen,
   setSourceOpen,
   chainOpen,
@@ -81,9 +84,10 @@ export default function RecordingOverlay({
     }
   }, [begin]);
 
-  // No source is asked: k7's rehearsal chain when the account names one, else this device's microphone.
+  // The source the button's menu picked: this device's microphone, or the account's rehearsal chain.
   const startSession = useCallback(async () => {
     setSourceError(null);
+    if (source === "local") return startLocal();
     setStatus(m["source.starting"]());
     let ref: string | null = null;
     try {
@@ -92,12 +96,16 @@ export default function RecordingOverlay({
       setSourceError((err as Error).message);
       return;
     }
-    if (!ref) return startLocal();
+    // The menu offers the chain only when one is chosen; another tab may have let it go since.
+    if (!ref) {
+      setSourceError(m["source.noChain"]());
+      return;
+    }
     setStatus(m["source.openingChain"]({ ref }));
     setChainRef(ref);
     setAttempt((n) => n + 1);
     setChainOpen(true);
-  }, [startLocal, setChainOpen]);
+  }, [source, startLocal, setChainOpen]);
 
   // Each opening of the dialog is one start.
   useEffect(() => {

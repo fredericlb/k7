@@ -20,7 +20,11 @@ import { m } from "../paraglide/messages.js";
 import { micErrors } from "../recorderLabels";
 import { isSongPage } from "../sections";
 import type { Session } from "../types";
-import { RecordingContext, type RecordingCtx } from "./context";
+import {
+  RecordingContext,
+  type RecordingCtx,
+  type SessionSource,
+} from "./context";
 
 const RecordingOverlay = lazy(() => import("./RecordingOverlay"));
 
@@ -40,6 +44,8 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
   // The running take drawn in its pop-in; false collapses it to the bottom bar.
   const [recOpen, setRecOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
+  // What the session's button menu picked, read by the start dialog.
+  const [source, setSource] = useState<SessionSource>("local");
   // The rehearsal chain's hidden bench: mounted from the session's start to the end of its take.
   const [chainOpen, setChainOpen] = useState(false);
   const [changed, setChanged] = useState(0);
@@ -63,14 +69,18 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const start = useCallback(async () => {
-    // Only one recording at a time — bring the user back to the active one.
-    if (recording) {
-      setRecOpen(true);
-      throw new Error(m["rec.finishFirst"]());
-    }
-    setSourceOpen(true);
-  }, [recording]);
+  const start = useCallback(
+    async (from: SessionSource) => {
+      // Only one recording at a time — bring the user back to the active one.
+      if (recording) {
+        setRecOpen(true);
+        throw new Error(m["rec.finishFirst"]());
+      }
+      setSource(from);
+      setSourceOpen(true);
+    },
+    [recording],
+  );
 
   // Create the session once there is a stream, and open the recorder unless a song holds the page.
   const begin = useCallback(
@@ -198,6 +208,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
             recOpen={recOpen}
             setRecOpen={setRecOpen}
             tags={tags}
+            source={source}
             sourceOpen={sourceOpen}
             setSourceOpen={setSourceOpen}
             chainOpen={chainOpen}
