@@ -201,6 +201,7 @@ import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { useLatest } from "./hooks/useLatest";
+import { useShaderParam } from "./hooks/useShaderParam";
 import { isTyping } from "./hooks/useWindowKey";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
@@ -2179,6 +2180,8 @@ export default function App({
     return () => watchPluginParams(pluginId, false);
   }, [builderPlugin, requestPluginParams, watchPluginParams, listPresets]);
 
+  // A shader's knob, written to its node a few times a drag (hooks/useShaderParam.ts).
+  const onShaderParam = useShaderParam(quietCommand);
   // What every module card is drawn with, whichever host holds it — the chains page, the bottom panel, a lane's or a tap's cards.
   const cardProps = useMemo(
     () => ({
@@ -2199,6 +2202,8 @@ export default function App({
       pluginParamsStore,
       setPluginParam,
       moduleParams: offlineParams,
+      // A snapshot writes nothing, so its shader knobs draw read-only.
+      onShaderParam: frozen ? undefined : onShaderParam,
       trackControls,
     }),
     [
@@ -2219,6 +2224,8 @@ export default function App({
       pluginParamsStore,
       setPluginParam,
       offlineParams,
+      frozen,
+      onShaderParam,
       trackControls,
     ],
   );

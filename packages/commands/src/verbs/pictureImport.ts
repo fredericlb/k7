@@ -7,11 +7,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { laneFileFor } from "@studio/song/chainItemEdit";
-import {
-  createPictureLaneFile,
-  loadProjectRoot,
-  readYamlEntities,
-} from "@studio/song/loader";
+import { loadProjectRoot, readYamlEntities } from "@studio/song/loader";
+import { createPictureLane } from "@studio/song/pictureMixerFile";
 import type { RawClip } from "@studio/song/rawDoc";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
@@ -168,7 +165,7 @@ export const PICTURE_IMPORT_VERBS: Record<string, SidHandler> = {
       while (laneFileFor(h.songPath, `${prefix}${n}`)) n++;
       const id = `${prefix}${n}`;
       try {
-        createPictureLaneFile(h.songPath, id);
+        createPictureLane(h.songPath, id);
       } catch (e) {
         h.refuse([...lines, `picture import: ${(e as Error).message}`]);
         return;

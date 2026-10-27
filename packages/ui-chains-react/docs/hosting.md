@@ -95,6 +95,15 @@ knob stuck on its default. Passing it — or `onModuleParam` — is what turns t
 all: a host that offers neither keeps them inert rather than showing a control that turns against
 nothing.
 
+### `onShaderParam` — a shader's knob, which no surface lends
+
+A SHADER has no plugin either, but nothing lends its value: the node's own `params` are what the
+picture reads, so the card shows those and the host writes the node itself. Its knob is therefore
+a target of its own (`offline` with `shader: true`) whatever `moduleParams` says, and only
+`onShaderParam` makes it writable. Folding it into `onModuleParam` would have made writability one
+answer for both, and a deck's tempo, which the graph only borrows, would have turned against
+nothing (packages/song/docs/videoMixer.md).
+
 `trackInputs` is a plain record for the same reason, like `engineWarnings` beside it: it is what
 the HOST knows about a live input and the graph does not. The chip is drawn only where
 `onPickTrackInput` is also given, so a host that cannot change one never shows one.

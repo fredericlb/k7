@@ -13,6 +13,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "@studio/k7x/document";
+import { loadGraph } from "@studio/song/graph";
+import { hasPictureMixer } from "@studio/song/pictureMixerFile";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -200,6 +202,16 @@ describe("picture lane new", () => {
     expect(read("broll")).toContain("events([])");
     expect(read("broll")).toContain("@meta/picture-track");
     expect(trackOrder()).toEqual(["broll", "main"]);
+  });
+
+  it("gives the lane its STRIP, the video-mixer, wired on to RENDER", async () => {
+    project('project({ name: "t", viewport: [1280, 720] })\n');
+    await runCommand("picture lane new broll", host(), "cli");
+    expect(logs.join(" ")).not.toMatch(/no strip/);
+    const g = loadGraph(song);
+    expect(hasPictureMixer(g, "broll")).toBe(true);
+    const run = Object.values(g.chains).find((c) => c.from === "broll");
+    expect(run?.out.map((o) => o.to)).toEqual(["RENDER"]);
   });
 
   it("states trackOrder on a project that names none", async () => {

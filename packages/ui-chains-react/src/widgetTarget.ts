@@ -23,7 +23,7 @@ export type WidgetTarget =
   | { kind: "track"; trackId: string; control: TrackControl }
   | { kind: "module"; module: string; field: string }
   // A param of a module realised OUTSIDE the graph — see `offlineOf`.
-  | { kind: "offline"; module: string; name: string }
+  | { kind: "offline"; module: string; name: string; shader?: true }
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string }
   // …and a RECORDER's button, the second of that family — engine/k7-runtime/docs/recorder.md.
@@ -119,6 +119,9 @@ export function widgetTarget(
     return n.module ? { kind: "module", module: n.module, field } : null;
   }
   if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
+  // A SHADER's knob: no plugin, realised by the picture — always a target, the host saying whether it takes one.
+  if (n.shader !== undefined && n.module)
+    return { kind: "offline", module: n.module, name: w.bind, shader: true };
   // No plugin, and the host says it knows what such a module is set to — opt-in, docs/widgets.md.
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }

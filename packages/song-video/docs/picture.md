@@ -173,6 +173,12 @@ The other one is a **shape** — a rectangle, a circle, a line of text — which
 lands on a lane the same way. Everything it draws is in its `params:`, which is what lets a curve
 move it. [shapes.md](shapes.md) is the page.
 
+## Every lane ends on its strip
+
+A lane's colour and transparency are its STRIP's, a `video-mixer` node last in its run, as a sound
+lane's level is its mixer's: one node per lane, made with it and back-filled on open
+([../../song/docs/videoMixer.md](../../song/docs/videoMixer.md)).
+
 ## What is not there
 
 - **`video_effect` chains.** That shape of `VideoPluginDoc` is modelled and uncompiled: nothing

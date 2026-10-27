@@ -84,6 +84,7 @@ function ChainsTabView({
   watchPluginParams,
   setPluginParam,
   moduleParams,
+  onShaderParam,
   trackControls,
   onTrackToggle,
   onTrackSet,
@@ -181,6 +182,8 @@ function ChainsTabView({
   setPluginParam: (id: string, name: string, value: number) => void;
   /** What each `offline` module is currently set to — the desk's numbers lent to the graph, and what turns those widgets on at all. */
   moduleParams?: Record<string, Record<string, number>>;
+  /** A shader knob turned on a card: `node param` on its node (hooks/useShaderParam.ts). */
+  onShaderParam?: (module: string, name: string, value: number) => void;
   // Live mixer state plus the two callbacks a track node's controls actuate — pure pass-through to the canvas.
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (
@@ -793,6 +796,7 @@ function ChainsTabView({
             pluginParamsStore={pluginParamsStore}
             setPluginParam={setPluginParam}
             moduleParams={moduleParams}
+            onShaderParam={onShaderParam}
             trackControls={trackControls}
             onTrackToggle={onTrackToggle}
             onTrackSet={onTrackSet}

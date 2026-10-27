@@ -69,6 +69,7 @@ export function TrackModulesPane({
   watchPluginParams,
   setPluginParam,
   moduleParams,
+  onShaderParam,
   trackControls,
   onBypassModule,
   onAlternative,
@@ -116,6 +117,8 @@ export function TrackModulesPane({
   setPluginParam: (id: string, name: string, value: number) => void;
   /** What the modules with NO plugin are set to — a deck's tempo node hangs off a track, so it can land in this row too. */
   moduleParams?: Record<string, Record<string, number>>;
+  /** A shader knob turned on a card: `node param` on its node (hooks/useShaderParam.ts). */
+  onShaderParam?: (module: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
   /** A card's own bypass button — asks only; `pendingBypass` is what moves the card, nothing reloads. */
   onBypassModule?: (module: string) => void;
@@ -375,6 +378,7 @@ export function TrackModulesPane({
     pluginParamsStore,
     setPluginParam,
     moduleParams,
+    onShaderParam,
     trackControls,
   };
 

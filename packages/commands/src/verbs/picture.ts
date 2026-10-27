@@ -10,13 +10,13 @@ import type { K7Path } from "@studio/k7x/ast";
 import { K7Document, type K7Scope } from "@studio/k7x/document";
 import { laneFolder } from "@studio/song/chainItemEdit";
 import {
-  createPictureLaneFile,
   loadLanes,
   loadProjectRoot,
   loadVideoTracks,
   setLaneOrder,
 } from "@studio/song/loader";
 import { pictureLaneFile, pictureLaneIds } from "@studio/song/pictureLanes";
+import { createPictureLane } from "@studio/song/pictureMixerFile";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { wsData, wsEdit, wsText } from "@studio/song/yaml/workspaceDoc";
@@ -276,8 +276,12 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
       return h.reload();
     }
     try {
-      const written = createPictureLaneFile(h.songPath, id);
-      h.log([`+ picture lane ${id} (${written.join(", ")})`]);
+      // …with its STRIP, which a lane with nowhere to wire one is SAID to lack rather than refused for.
+      const { written, noStrip } = createPictureLane(h.songPath, id);
+      h.log([
+        `+ picture lane ${id} (${written.join(", ")})`,
+        ...(noStrip ? [`no strip: ${noStrip}`] : []),
+      ]);
     } catch (e) {
       h.refuse([`picture lane new: ${(e as Error).message}`]);
       return;

@@ -2,6 +2,7 @@
 // `node automate`. See docs/verbs.md.
 
 import { bindModuleCc } from "@studio/song/controllerBind";
+import { loadGraph } from "@studio/song/graph";
 import { isFileParam } from "@studio/song/loader";
 import {
   setModuleAutomationBinding,
@@ -12,8 +13,9 @@ import {
   curveRef,
   isBuiltinOutput,
   isLibraryFileParam,
+  SHADER_PARAMS,
 } from "@studio/song-schema/moduleTypes";
-import type { SidHandler } from "../commands.ts";
+import type { CommandHost, SidHandler } from "../commands.ts";
 import {
   setBuiltinOutParam,
   setFaustSound,
@@ -22,6 +24,29 @@ import {
 } from "./intrinsics.ts";
 import { collectPluginModules, mapPlugins } from "./node.ts";
 import { splitWords } from "./shared.ts";
+
+/** A shader's knob, P1..P4 and 0..1: written to its node, and the picture rebuilt from the files (packages/song-video/docs/shaders.md). */
+async function setShaderParam(
+  h: CommandHost,
+  module: string,
+  param: string,
+  value: number,
+): Promise<void> {
+  if (!(SHADER_PARAMS as readonly string[]).includes(param)) {
+    h.refuse([
+      `${module} is a shader: its knobs are ${SHADER_PARAMS.join(", ")}, not '${param}'`,
+    ]);
+    return;
+  }
+  const v = Math.min(1, Math.max(0, value));
+  try {
+    setModuleParam(h.songPath, module, param, v);
+    h.log([`${module}: ${param} = ${v}`]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`node param failed: ${(e as Error).message}`]);
+  }
+}
 
 export const NODE_PARAM_VERBS: Record<string, SidHandler> = {
   /** node param <node> <param> <value> — node, param and value may each be quoted; docs/verbs.md. */
@@ -69,6 +94,11 @@ export const NODE_PARAM_VERBS: Record<string, SidHandler> = {
     // …and one of the four BUILT-IN outputs, answered before the lookup below would misreport it.
     if (isBuiltinOutput(module)) {
       await setBuiltinOutParam(h, module, param, value);
+      return;
+    }
+    // …and a SHADER: no plugin, its knobs read by the picture's compile, so the file is the whole write.
+    if (loadGraph(h.songPath).modules[module]?.shader !== undefined) {
+      await setShaderParam(h, module, param, value);
       return;
     }
     const p = h.project();

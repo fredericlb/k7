@@ -62,6 +62,7 @@ export function GraphPanel({
   pluginParamsStore,
   setPluginParam,
   moduleParams,
+  onShaderParam,
   trackControls,
   onTrackToggle,
   onTrackSet,
@@ -117,6 +118,8 @@ export function GraphPanel({
   setPluginParam: (id: string, name: string, value: number) => void;
   /** …and the third source, for the modules the engine holds NOTHING of — without it a tempo node draws its file's number for ever. */
   moduleParams?: Record<string, Record<string, number>>;
+  /** A shader knob turned on a card: `node param` on its node (hooks/useShaderParam.ts). */
+  onShaderParam?: (module: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (
     trackId: string,
@@ -288,6 +291,7 @@ export function GraphPanel({
         pluginParamsStore={pluginParamsStore}
         setPluginParam={setPluginParam}
         moduleParams={moduleParams}
+        onShaderParam={onShaderParam}
         trackControls={trackControls}
         onTrackToggle={onTrackToggle}
         onTrackSet={onTrackSet}

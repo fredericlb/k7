@@ -23,6 +23,7 @@ import {
 import { missingModel } from "@studio/song/modelCache";
 import { assetLookup } from "@studio/song/moduleAssetChoices";
 import { stageOf } from "@studio/song/ownMix";
+import { pictureStripsOf } from "@studio/song/pictureMixerFile";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
@@ -123,6 +124,13 @@ export function buildGraphDoc(
   const moduleRefs = g.moduleRefs;
   // …and the `assets/` listings, memoised for this whole build because ancestors repeat.
   const assets = assetLookup();
+  // Each lane's strip: a sound lane's off the compile, a picture lane's off the graph, which names its `extends`.
+  const strips = {
+    ...Object.fromEntries(
+      Object.entries(mixers ?? {}).filter(([id]) => id in g.tracks),
+    ),
+    ...pictureStripsOf(g),
+  };
   const usedCurves: WebGraph["curves"] = {};
   // A chain project's unnamed nodes, by where they sit — what a card shows instead of the uuid.
   const places = nodePlaces(dir);
@@ -441,13 +449,7 @@ export function buildGraphDoc(
     // Present, empty or not, exactly in a chain project: what lets a row offer the bottom `+`.
     ...(stacks ? { stacks } : {}),
     // Only the lanes this graph really draws: a mixer named for a track the file no longer has is a card nobody would find.
-    ...(mixers && Object.keys(mixers).length
-      ? {
-          trackMixers: Object.fromEntries(
-            Object.entries(mixers).filter(([id]) => id in g.tracks),
-          ),
-        }
-      : {}),
+    ...(Object.keys(strips).length ? { trackMixers: strips } : {}),
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),

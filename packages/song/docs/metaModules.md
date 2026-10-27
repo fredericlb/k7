@@ -10,6 +10,7 @@ ship WITH k7, in `packages/song/meta/`, and answer under `@meta`:
 | `@meta/audio/mixer` | every lane's STRIP, its level and pan ([trackMixer.md](trackMixer.md)); `SHARED_STRIP` names it |
 | `@meta/audio/turntable` | a DJ set's PLATTER, the source of every deck ([setProject.md](setProject.md)) |
 | `@meta/audio/recorder` | a live rig's RECORDER on the master run, what makes a rig something you keep ([recorderNode.md](recorderNode.md)) |
+| `@meta/shaders/video-mixer` | every picture lane's STRIP, its red, green, blue and transparency ([videoMixer.md](videoMixer.md)); `PICTURE_STRIP` names it |
 
 ## Why not a library
 
