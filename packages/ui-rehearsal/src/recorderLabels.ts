@@ -17,6 +17,7 @@ export const recorderLabels = (): RecorderLabels => ({
   paused: m["recorder.paused"](),
   rec: m["recorder.rec"](),
   tempo: m["recorder.tempo"](),
+  more: m["recorder.more"](),
   metronomeStart: m["recorder.metronomeStart"](),
   metronomeStop: m["recorder.metronomeStop"](),
   metronomeOn: (bpm) => m["recorder.metronomeOn"]({ bpm }),

@@ -45,24 +45,25 @@ first."
 
 ### While recording
 
-- **The waveform** grows live in the bar. The recorder levels it automatically; the recorded audio
-  itself is not changed.
+- **The waveforms**: most of the bar shows the whole take from its start, and the small one at its
+  right scrolls the last few seconds as they are played. The recorder levels them automatically;
+  the recorded audio itself is not changed.
 - **Highlights**: everything between silences is flagged live as a highlight, shown as a chip under
   the waveform. A silence is two seconds or more below the floor (15% of the loudest level so far);
   a highlight shorter than four seconds is ignored.
 - **Listening back**: click a highlight's chip to pause the take and play that span ("Reviewing
   from – to"). A row above the bar plays it again, and you can answer "What happened here?" with
   tags. Tagged highlights become moments when the session is saved.
-- **Resume recording**, at the right of the bar, carries the take on after a pause or a highlight;
-  **Pause** stops it for a moment without ending it.
-- **Metronome**: type a tempo in BPM and start it. While it runs, changing the tempo changes the
+- **Resume** (the red dot), at the right of the bar, carries the take on after a pause or a
+  highlight; **Pause** stops it for a moment without ending it.
+- **Metronome**, in the ⋮ menu at the far right: type a tempo in BPM and start it. While it runs, changing the tempo changes the
   click. It plays on this device; it is not recorded.
 - The screen is kept awake while recording, so a phone locking itself does not cut the take.
 - Closing the tab during a take asks for confirmation.
 
 ### Stopping
 
-**Stop & save**, at the right of the bar, must be held for two seconds: no stray tap ends a long
+**Stop & save** (the square), at the right of the bar, must be held for two seconds: no stray tap ends a long
 take. The take is uploaded and analysed ("Uploading & analyzing…"), then the session's page opens.
 
 If the upload fails, the recorder offers **Retry upload** and **Download the take**.

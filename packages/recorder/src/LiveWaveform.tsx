@@ -30,6 +30,8 @@ interface Props {
   focus?: { start: number; end: number } | null;
   /** Canvas height in px — smaller for the minimized recording bar. */
   height?: number;
+  /** Frames the whole take, 0 to now, instead of the trailing window, redrawn twice a second since it reads every sample. */
+  whole?: boolean;
 }
 
 const HEIGHT = 160;
@@ -38,6 +40,7 @@ const WINDOW_SEC = 12; // seconds of history visible at once
 const PAUSED_ALPHA = 0.5;
 const BEATS_PER_BAR = 4;
 const BEAT_TICK_HEIGHT = 24; // light beat ticks are short; bar lines run full height
+const WHOLE_REDRAW_MS = 500;
 
 /** k7's spectrum waveform scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history — ui-waveform's docs/spectrum.md. */
 export function LiveWaveform({
@@ -51,6 +54,7 @@ export function LiveWaveform({
   playhead = null,
   focus = null,
   height = HEIGHT,
+  whole = false,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,7 @@ export function LiveWaveform({
 
   // The trailing window while recording, or the padded moment — never tighter — while reviewing.
   const computeTarget = () => {
+    if (whole) return { start: 0, end: Math.max(WINDOW_SEC, nowRef.current()) };
     const f = focusRef.current;
     if (f) {
       const dur = Math.max(0, f.end - f.start);
@@ -93,7 +98,7 @@ export function LiveWaveform({
     const el = wrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
-      setWidth(Math.max(200, Math.floor(entries[0].contentRect.width)));
+      setWidth(Math.max(40, Math.floor(entries[0].contentRect.width)));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -132,7 +137,8 @@ export function LiveWaveform({
     ctx.fillRect(0, 0, width, height);
 
     // Snap to the trailing window, unless the zoom animation owns viewRef right now.
-    if (!animating.current && !focus) viewRef.current = computeTarget();
+    if (!animating.current && (whole || !focus))
+      viewRef.current = computeTarget();
     const view = viewRef.current;
     const windowSec = Math.max(0.1, view.end - view.start);
     const pxPerSec = width / windowSec;
@@ -236,8 +242,10 @@ export function LiveWaveform({
   useEffect(() => {
     if (!scrolling && !hasPlayhead) return;
     let raf = 0;
-    const frame = () => {
-      if (scrolling) {
+    let drawnAt = 0;
+    const frame = (at: number) => {
+      if (scrolling && (!whole || at - drawnAt >= WHOLE_REDRAW_MS)) {
+        drawnAt = at;
         live?.pull?.();
         drawRef.current();
       } else placeRef.current();
@@ -245,12 +253,13 @@ export function LiveWaveform({
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [scrolling, hasPlayhead, live]);
+  }, [scrolling, hasPlayhead, live, whole]);
 
   // Animate the view toward its target whenever review is entered or left.
   const focusKey = focus ? `${focus.start}:${focus.end}` : "";
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the focus it was made from.
   useEffect(() => {
+    if (whole) return;
     animating.current = true;
     const step = () => {
       const tv = computeTarget();

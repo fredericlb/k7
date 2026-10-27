@@ -243,6 +243,7 @@
   "recorder.stopSave": "Stop & save",
   "recorder.taggedBadge": "tagged",
   "recorder.tempo": "Metronome tempo (BPM)",
+  "recorder.more": "More",
   "recorder.uploadFailed": "Upload failed: {message}",
   "recorder.retryUpload": "Retry upload",
   "recorder.downloadTake": "Download the take",

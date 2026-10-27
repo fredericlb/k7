@@ -124,6 +124,7 @@ export default function RecordingOverlay({
         <RecorderView
           key="active-recorder"
           labels={recorderLabels()}
+          menuClassName="rehearsal-root"
           session={recording.session}
           stream={recording.stream}
           allTags={tags}

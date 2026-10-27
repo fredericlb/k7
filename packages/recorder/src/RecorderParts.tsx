@@ -1,4 +1,4 @@
-// RecorderParts.tsx — the recorder's self-contained pieces: the bar it lives in, the highlight chips, the review row, the metronome.
+// RecorderParts.tsx — the recorder's self-contained pieces: the bar it lives in, the highlight chips, the review row, the metronome and its ⋮.
 // Each keeps its own draft, so typing a comment or a tempo re-renders that piece and not the whole recorder.
 
 import { Badge } from "@frediverse/ui/badge";
@@ -6,11 +6,17 @@ import { Button } from "@frediverse/ui/button";
 import {
   Circle,
   Diamond,
+  EllipsisVertical,
   Metronome as MetronomeIcon,
   Pause,
   Play,
 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@frediverse/ui/popover";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { fmtTime } from "./format";
 import type { RecorderLabels } from "./labels";
@@ -217,7 +223,7 @@ export function MetronomeControls({
   onStop: () => void;
   labels: RecorderLabels;
 }) {
-  const [bpmText, setBpmText] = useState("120");
+  const [bpmText, setBpmText] = useState(() => String(metronome?.bpm ?? 120));
   const toggle = () => {
     if (metronome) return onStop();
     const bpm = parseBpm(bpmText);
@@ -253,6 +259,39 @@ export function MetronomeControls({
         <MetronomeIcon className="size-4" />
       </Button>
     </>
+  );
+}
+
+/** The ⋮ at the far right of the bar: what a take rarely needs, the metronome for now. */
+export function RecorderMore({
+  className,
+  children,
+  labels: L,
+}: {
+  className?: string;
+  children: ReactNode;
+  labels: RecorderLabels;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={L.more}
+          title={L.more}
+        >
+          <EllipsisVertical className="size-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="top"
+        className={["rec-more", className].filter(Boolean).join(" ")}
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
   );
 }
 
