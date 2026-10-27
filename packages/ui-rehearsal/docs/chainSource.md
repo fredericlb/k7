@@ -61,6 +61,10 @@ a take cannot start without.
   redraws it and the engine hears it the same way.
 - **It is remembered per chain, in this browser**, and put back on every open: the bench is rebuilt
   each time, and a rig is plugged the same way from one take to the next.
+- **A frozen chain can name its input itself** (`input({ channel: … })`, written by `chain save`
+  from the bench's IN — `apps/k7/frontend/docs/frozenChains.md`). The bench then opens with IN fed
+  from it, and the browser's remembered choice, put back only on an IN that names no channel, does
+  not override it; a chain of nothing but an input records straight from that socket.
 
 ## How the sound reaches the recorder
 

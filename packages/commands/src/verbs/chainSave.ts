@@ -18,7 +18,9 @@ export const CHAIN_SAVE_VERBS: Record<string, SidHandler> = {
     try {
       const saved = h.saveBenchChain(h.songPath, name);
       h.log([
-        `saved ${saved.ref} (${saved.steps} step${saved.steps === 1 ? "" : "s"}) — clip process <clip> ${saved.ref}`,
+        saved.steps
+          ? `saved ${saved.ref} (${saved.steps} step${saved.steps === 1 ? "" : "s"}) — clip process <clip> ${saved.ref}`
+          : `saved ${saved.ref}: its input alone — the rehearsal recorder records from it`,
         // A module the person sees on the bench and the chain leaves out must be said, never dropped quietly.
         ...(saved.outside.length
           ? [

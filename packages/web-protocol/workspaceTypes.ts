@@ -340,6 +340,8 @@ export interface FrozenChain {
   /** Every step is offline: it separates a file rather than treating a signal. */
   cold: boolean;
   steps: FrozenChainStep[];
+  /** The interface input the bench's IN is fed from when it opens on the chain: channels, or a preferences label. */
+  input?: { channel: string | number[] };
   /** Why it cannot be recorded through live, null when it can. */
   liveRefusal: string | null;
   /** Why the file does not read, when it does not; its steps are then empty. */

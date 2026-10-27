@@ -35,6 +35,7 @@ export const FROZEN_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 type Modules = Record<string, LoadedModule>;
 type Item = Record<string, unknown> & { id: string; extends?: unknown };
+type ChainInput = { channel: string | number[] };
 
 /** What a step is a use of: the module it extends, else the plugin it names itself. */
 function moduleLabel(module: Record<string, unknown>): string {
@@ -77,7 +78,7 @@ function frozenOf(
     liveRefusal: live.get(c.ref) ?? null,
   };
   try {
-    const { steps } = readTemplate(c);
+    const { steps, input } = readTemplate(c);
     const cold =
       steps.length > 0 &&
       steps.every((s) =>
@@ -89,6 +90,7 @@ function frozenOf(
       ...base,
       cold,
       steps: steps.map((s) => stepOf(s.name, s.module)),
+      ...(input ? { input } : {}),
     };
   } catch (e) {
     return {
@@ -128,18 +130,21 @@ const accountChain = (name: string): LibraryChainDir => ({
   nodes: [],
 });
 
-/** Write `items` as the account's chain `name`, with each item's preset file; throws with the reason, having written nothing. */
+/** Write `items` as the account's chain `name`, with each item's preset file and the input it names; throws with the reason, having written nothing. */
 function writeAccountChain(
   dir: string,
   name: string,
   items: Item[],
   presets: Record<string, string> = {},
+  input?: ChainInput,
 ): FrozenChain {
   if (!FROZEN_NAME.test(name))
     throw new Error(
       `"${name}" is not a chain name — letters, digits, '-' and '_', starting with a letter or digit`,
     );
-  if (!items.length) throw new Error("a chain holds at least one step");
+  // An input alone is a chain: recording from that socket is what it keeps.
+  if (!items.length && !input)
+    throw new Error("a chain holds at least one step, or an input");
   const byRef = loadModuleRefs(dir);
   let offline = 0;
   for (const [i, it] of items.entries()) {
@@ -162,7 +167,10 @@ function writeAccountChain(
   const chain = accountChain(name);
   const prev = wsExists(chain.at) ? wsRead(chain.at) : "";
   const text = formatChain(
-    { steps: [...items, { to: [{ chain: "@out" }] }] } as never,
+    {
+      ...(input ? { input } : {}),
+      steps: [...items, { to: [{ chain: "@out" }] }],
+    } as never,
     prev,
   );
   // Read back BEFORE it lands: a file a chain reader would refuse is never written.
@@ -183,6 +191,7 @@ function benchRun(dir: string): {
   presets: Record<string, string>;
   ids: Record<string, string>;
   outside: string[];
+  input?: ChainInput;
 } {
   const graph = parseGraph(wsRead(join(dir, GRAPH_FILE))).value;
   if (!graph) throw new Error("the bench has a graph that does not read");
@@ -222,13 +231,20 @@ function benchRun(dir: string): {
     .map((f) => f.slice(0, -".k7x".length))
     .filter((n) => !RIG_NODES.has(n) && !seen.has(n))
     .sort();
-  if (!items.length)
+  // The socket IN is fed from is the chain's too: a chain of nothing but an input is a way to record.
+  const channel = wsExists(join(dir, "nodes", `${LIVE_INPUT}.k7x`))
+    ? (wsData(join(dir, "nodes", `${LIVE_INPUT}.k7x`)).channel as
+        | ChainInput["channel"]
+        | undefined)
+    : undefined;
+  const input = channel !== undefined ? { channel } : undefined;
+  if (!items.length && !input)
     throw new Error(
       outside.length
         ? `nothing sits between ${LIVE_INPUT} and ${LIVE_FADER}: ${outside.join(", ")} ${outside.length === 1 ? "is" : "are"} on the bench but not wired between them — insert ${outside.length === 1 ? "it" : "them"} on the ${LIVE_INPUT} → ${LIVE_FADER} cable`
-        : `the bench holds no module yet: hover the ${LIVE_INPUT} → ${LIVE_FADER} cable and click ⊕ to insert one`,
+        : `nothing to keep yet: pick ${LIVE_INPUT}'s input channel, or hover the ${LIVE_INPUT} → ${LIVE_FADER} cable and click ⊕ to insert a module`,
     );
-  return { items, presets, ids, outside };
+  return { items, presets, ids, outside, input };
 }
 
 /** `chain save [name]`: the bench's run written as the account's chain; a bench opened on one of the account's chains names itself. */
@@ -245,8 +261,8 @@ export function saveBenchChain(
     throw new Error(
       "name the chain: `chain save <name>` writes it as @account/<name>",
     );
-  const { items, presets, ids, outside } = benchRun(dir);
-  const saved = writeAccountChain(dir, chosen, items, presets);
+  const { items, presets, ids, outside, input } = benchRun(dir);
+  const saved = writeAccountChain(dir, chosen, items, presets, input);
   // The bench now holds that chain, unedited: the next open of its address rebuilds it from the file.
   writeBenchSource({ ref: saved.ref, ids });
   return { ...saved, outside };
@@ -264,13 +280,14 @@ export function copyFrozenChain(
     throw new Error(`you already have a chain "${name}"`);
   const items: Item[] = [];
   const presets: Record<string, string> = {};
-  for (const s of readTemplate(chain).steps) {
+  const read = readTemplate(chain);
+  for (const s of read.steps) {
     // Fresh ids: two chains sharing an id would share their presets' file names.
     const id = randomUUID();
     items.push({ id, ...s.module, ...(s.bypass ? { bypass: true } : {}) });
     if (s.preset) presets[id] = s.preset;
   }
-  return writeAccountChain(dir, name, items, presets);
+  return writeAccountChain(dir, name, items, presets, read.input);
 }
 
 /** Remove one of the account's chains; a library's is never this account's to remove. */

@@ -26,8 +26,10 @@ admin edits it from any project ([apps/k7/frontend/docs/sharedModules.md](../../
 **`chain save [name]` is the one way out.** It writes the run from `IN` to `fader` as
 `@account/chains/<name>.k7x`, the account's own library, each node file whole, under the id of the
 step it was copied from; a bench opened on one of the account's chains saves into it without being
-told a name. The project bar's Save button runs it (`BenchSaveButton.tsx`). A run that branches, or
-holds nothing, is refused: a template is one run. An origin library is never written from here.
+told a name. The project bar's Save button runs it (`BenchSaveButton.tsx`). IN's input channel goes
+into the chain too, and the bench sets IN to it when it opens on that chain, so a run holding no
+module is saved when IN names a channel: the chain is then that input alone. A run that branches, or
+that keeps nothing, is refused: a template is one run. An origin library is never written from here.
 
 **What the bench copied is recorded beside it**, in `Banc/bench-source.json`: the chain, which node
 came from which step, and a fingerprint of the rig as it was made. It sits outside the project so

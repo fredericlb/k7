@@ -139,6 +139,12 @@ passes that nothing feeds and whose only way out is a picture lane returns to th
 under the id it had, or under the leaf of what its head extends. Without the write-back taking it
 out first, the lane would be absorbed into the run feeding it, and its chain would lose its start.
 
+## A template's input
+
+`input({ channel: [1, 2] })` — or a preferences label — is a library TEMPLATE's: the interface input
+a bench opened on it feeds its IN from (`apps/k7/frontend/docs/frozenChains.md`). It names a socket,
+which a project's own chains get from their input nodes, so a project's compile reads nothing of it.
+
 ## Hidden chains
 
 `hidden: true` on a chain sets it aside WHOLE: `readChainProject` keeps it under `hidden` and out of

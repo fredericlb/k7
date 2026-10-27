@@ -23,6 +23,7 @@ import {
   LIVE_INPUT,
   LIVE_RECORDER,
 } from "@studio/song/scaffoldLive";
+import { setFileValue } from "@studio/song/yaml/edit";
 import { wsWriteData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsCopy, wsRead } from "@studio/song/yaml/workspaceFile";
 import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
@@ -51,14 +52,17 @@ function refusal(
   byRef: Record<string, LoadedModule>,
 ): string | null {
   let steps: TemplateStep[];
+  let input = false;
   try {
     const read = readTemplate(chain);
     if (read.missing.length) return `it lacks ${read.missing[0]}`;
     steps = read.steps;
+    input = !!read.input;
   } catch (e) {
     return `it does not read — ${(e as Error).message}`;
   }
-  if (!steps.length) return "it holds no step";
+  // A chain naming its input and no module is a straight wire from that input: recording through it is the point.
+  if (!steps.length && !input) return "it holds no step";
   for (const step of steps) {
     // A file chain's nodes are named afresh in the bench, so only a folder chain's names can collide.
     if (chain.layout === "folder" && RIG_NODES.has(step.name))
@@ -109,7 +113,14 @@ export function spliceChain(
   if (!rig.value) throw new Error("the bench has a graph that does not read");
 
   // The template is one run: the input feeds its first step, and its last feeds the fader.
-  const { steps } = readTemplate(chain);
+  const { steps, input } = readTemplate(chain);
+  // The chain's input, set on the rig's IN as the node card sets it: what plugs into the rig is part of this chain.
+  if (input)
+    setFileValue(
+      join(benchDir, "nodes", `${LIVE_INPUT}.k7x`),
+      ["channel"],
+      input.channel,
+    );
   const taken = new Set([
     ...RIG_NODES,
     ...Object.keys(rig.value.modules ?? {}),
@@ -120,7 +131,8 @@ export function spliceChain(
   const modules: Record<string, string[]> = {};
   for (const [node, dests] of Object.entries(rig.value.modules ?? {}))
     if (node !== LIVE_INPUT) modules[node] = dests;
-  modules[LIVE_INPUT] = [names[0]];
+  // No module: the input runs straight into the fader, as the bare rig's does.
+  modules[LIVE_INPUT] = [names[0] ?? LIVE_FADER];
   names.forEach((n, i) => {
     modules[n] = [names[i + 1] ?? LIVE_FADER];
   });

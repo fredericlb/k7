@@ -1550,6 +1550,7 @@
   "frozen.namePlaceholder": "warm-vocals",
   "frozen.badName": "Letters, digits, '-' and '_' only, starting with a letter or a digit.",
   "frozen.save": "Save",
+  "frozen.input": "input {channel}",
   "bench.saveInto": "Save into your chain {name}",
   "bench.saveAs": "Save as one of your chains",
   "bench.saveBody": "What sits between the input and the fader becomes @account/<name>, which projects process with and the rehearsal recorder records through."

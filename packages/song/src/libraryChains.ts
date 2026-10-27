@@ -162,6 +162,8 @@ export interface TemplateStep {
 export interface TemplateRead {
   steps: TemplateStep[];
   missing: string[];
+  /** The input a frozen chain names, which a bench opened on it feeds its IN from — a file chain's only. */
+  input?: { channel: string | number[] };
 }
 
 /** A template's steps in order; throws when its file does not read or is not a template's shape (docs/sharedFolders.md). */
@@ -247,5 +249,5 @@ export function readFileTemplate(
       ...(wsExists(preset) ? { preset } : {}),
     });
   }
-  return { steps, missing: [] };
+  return { steps, missing: [], ...(value.input ? { input: value.input } : {}) };
 }

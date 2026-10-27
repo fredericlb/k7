@@ -31,10 +31,19 @@ stays an admin's to write, which is why the libraries' chains are copied rather 
 `@account/<name>` is the spelling to use in a project. A bare name prefers the default library's
 chain of that name (`resolveChain`), so a frozen chain does not silently replace one.
 
+## A chain keeps its input
+
+What IN is fed from is part of a frozen chain: `chain save` writes IN's channel into the file as
+`input({ channel: [1, 2] })` (or a preferences label), and a bench opened on the chain sets IN to it.
+A chain that is used to record means a socket as much as a sound, so picking the channel and saving
+is a chain of its own: an input and no module, recorded straight through. The process verbs ignore
+the input, since a file has no socket; such a chain processes nothing and says so.
+
 ## The rules the file service enforces
 
 - **A chain is one run.** The bench's graph from `IN` to `fader` must be one node after another; a
-  branch, a loop or an empty run is refused by name.
+  branch or a loop is refused by name, and so is an empty run on an IN that names no channel, which
+  would keep nothing. A module on the bench but off that run is named, refused or left out aloud.
 - **A chain separates or it treats.** A separating (offline) module writes files instead of a
   signal, so nothing could follow it: a chain holding one holds nothing else.
 - **A saved file must read.** The text is read back as a chain before it is written, so a save can
