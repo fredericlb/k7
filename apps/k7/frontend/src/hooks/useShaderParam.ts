@@ -1,12 +1,15 @@
-// useShaderParam.ts — a shader's knob turned on a card: `node param` on its node, the picture rebuilt
-// from the file. A drag calls back once per frame, so each knob writes at most every WAIT ms, the
-// LAST value always landing (packages/song/docs/videoMixer.md).
+// useShaderParam.ts — a shader's knob turned on a card: the viewport takes it AT ONCE (shaderLive.ts),
+// and `node param` writes it to the node, at most every WAIT ms per knob, the LAST value always
+// landing. The picture is read back once the writes stop (packages/song/docs/videoMixer.md).
 
-import { useEffect, useMemo } from "react";
+import { pushShaderParam } from "@studio/k7-plugins/video";
+import { useEffect, useMemo, useRef } from "react";
 import { useLatest } from "./useLatest";
 
 /** How long a knob's writes are held, so a drag is a few file writes rather than one per frame. */
 const WAIT_MS = 120;
+/** How long after the last write the picture is read back — once per drag, not per write. */
+const SETTLE_MS = 300;
 
 /** One writer per knob: the value the timer finds is the one written, and nothing is left behind. */
 export function throttledParams(
@@ -44,20 +47,32 @@ export function throttledParams(
   };
 }
 
-/** The shell's `onShaderParam`, writing through `run` — the quiet command runner, since a knob is no event. */
+/** The shell's `onShaderParam`: live to the viewport, written through `run` (the QUIET runner, a knob being no event), then `settled`. */
 export function useShaderParam(
   run: (line: string) => unknown,
+  settled: () => void,
 ): (module: string, name: string, value: number) => void {
   const runRef = useLatest(run);
+  const settledRef = useLatest(settled);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const writer = useMemo(
     () =>
-      throttledParams((module, name, value) =>
-        runRef.current(
+      throttledParams(async (module, name, value) => {
+        await runRef.current(
           `node param ${JSON.stringify(module)} ${name} ${Number(value.toFixed(3))}`,
-        ),
-      ),
-    [runRef],
+        );
+        // A quiet command reloads nothing, so the picture is read back here — a strip left neutral had no pass to set live.
+        if (settle.current) clearTimeout(settle.current);
+        settle.current = setTimeout(() => settledRef.current(), SETTLE_MS);
+      }),
+    [runRef, settledRef],
   );
   useEffect(() => () => writer.flushAll(), [writer]);
-  return writer.set;
+  return useMemo(
+    () => (module: string, name: string, value: number) => {
+      pushShaderParam(module, name, value);
+      writer.set(module, name, value);
+    },
+    [writer],
+  );
 }

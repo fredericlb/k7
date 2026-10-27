@@ -218,6 +218,22 @@ export class Compositor {
     }
   }
 
+  /** One knob of every pass a NODE runs, set in place — a drag's frame, no program rebuilt; false when no pass is that node's. */
+  setParam(node: string, name: string, value: number): boolean {
+    let found = false;
+    const all = [
+      ...this.layers.flatMap((l) => l.passes),
+      ...this.framePasses,
+      ...this.stretches.passes(),
+    ];
+    for (const p of all)
+      if (p.name === node) {
+        p.params = { ...p.params, [name]: value };
+        found = true;
+      }
+    return found;
+  }
+
   /** Run a chain over the ping-pong's front texture, leaving the RESULT there and the framebuffer unbound. */
   private runPasses(
     passes: readonly ScenePass[],

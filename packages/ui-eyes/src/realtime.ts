@@ -57,6 +57,8 @@ export class RealtimeDriver {
   private uploads = new UploadMemo();
   private drawGate = new DrawGate();
   private audioRev = 0;
+  // Bumped by a knob set in place, so a stopped transport still draws the change.
+  private paramRev = 0;
   // The frame's collections, cleared and refilled each tick rather than allocated anew.
   private visible = new Set<string>();
   private blends = new Map<string, LayerBlend>();
@@ -342,7 +344,7 @@ export class RealtimeDriver {
       const b = blends.get(id);
       shown += b ? `${id}:${+b.from}${+b.to},` : `${id},`;
     }
-    const key = `${t}|${shown}|${this.audioRev}|${this.comp.revision}`;
+    const key = `${t}|${shown}|${this.audioRev}|${this.paramRev}|${this.comp.revision}`;
     if (!this.drawGate.need(this.uploaded, playing, key)) return;
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
@@ -393,6 +395,13 @@ export class RealtimeDriver {
       this.slots.set(id, t);
     }
     return t;
+  }
+
+  /** A shader knob turned by hand, drawn at the next frame without a setScene; false when that node has no pass yet. */
+  setParam(node: string, name: string, value: number): boolean {
+    const found = this.comp.setParam(node, name, value);
+    if (found) this.paramRev++;
+    return found;
   }
 
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */

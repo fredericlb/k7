@@ -23,4 +23,5 @@ export const videoPlugin: K7Plugin = definePlugin({
 });
 
 export { sceneOf } from "./scene";
+export { pushShaderParam } from "./shaderLive";
 export type { ViewportTabProps } from "./ViewportTab";
