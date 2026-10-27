@@ -112,5 +112,8 @@
   "lens.noAnswer": "la machine n'a pas répondu",
   "lens.failed": "le lien caméra a échoué : {error}",
   "lens.closed": "le lien vers la machine s'est fermé",
-  "lens.noRelay": "aucun relais caméra sur cette machine"
+  "lens.noRelay": "aucun relais caméra sur cette machine",
+  "lens.remoteNoAnswer": "la caméra distante n'a pas répondu",
+  "lens.remoteGone": "la caméra distante s'est éteinte",
+  "lens.remoteNoRelay": "ce serveur ne propose pas de caméras distantes"
 }

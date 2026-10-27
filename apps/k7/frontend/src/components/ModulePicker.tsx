@@ -5,6 +5,7 @@
 // docs/commandBar.md.
 
 import { isEngineRef } from "@studio/song-schema/moduleTypes";
+import { REMOTE_CAMERA_PREFIX } from "@studio/web-protocol/cameras";
 import { fuzzyScore } from "../fuzzy";
 import { m as msg } from "../paraglide/messages.js";
 import type { PanelSize } from "../pendingNode";
@@ -30,6 +31,8 @@ export interface ModulePick {
   name: string; // "adt" — the module's own name
   /** Its panel grid, when the listing said — the placeholder card's size. */
   panel?: PanelSize;
+  /** A camera node born naming this lens — `remote:` for the account's remote cameras (packages/web-protocol/docs/cameras.md). */
+  camera?: string;
 }
 
 /** Split a base ref into its levels — anything that does not fit keeps a null type and lands in a flat fallback group. */
@@ -90,6 +93,18 @@ const INPUT_BRANCH: TreeNode<ModulePick> = {
       label: "camera",
       hint: "io: camera — a live picture; the video input",
       entry: { ref: "io/CAM", namespace: null, type: "io", name: "CAM" },
+    },
+    {
+      key: "inputs/remote-cam",
+      label: "remote camera",
+      hint: "io: camera — a device of yours in camera mode; its card lists the ones that are on",
+      entry: {
+        ref: "io/CAM",
+        namespace: null,
+        type: "io",
+        name: "CAM",
+        camera: REMOTE_CAMERA_PREFIX,
+      },
     },
     {
       key: "inputs/file",

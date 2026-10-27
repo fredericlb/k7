@@ -235,12 +235,18 @@ export function useGraphActions({
       pendingInsert.current = box && info ? { ...info, node, ...box } : null;
       const ref = pick.namespace === null ? undefined : pick.ref;
       const spawn = born ? ` ${Math.round(born.x)},${Math.round(born.y)}` : "";
-      void runCommandRef.current(
+      const created = runCommandRef.current(
         createForGraphCommand(pick.type, pick.name) +
           node +
           nodeNewRefArg(ref) +
           spawn,
       );
+      // A camera entry that names its lens, `remote camera`: the node is born, then told which.
+      if (pick.camera)
+        void created.then(() =>
+          runCommandRef.current(`node param ${node} @camera ${pick.camera}`),
+        );
+      else void created;
     },
     [
       shell,

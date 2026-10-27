@@ -6,12 +6,14 @@
 // the EngineClock and feeds it the reported playhead.
 
 import { useEngineStore } from "@studio/engine-browser/store";
-import { localLens } from "@studio/ui-eyes/camera";
+import { type LensOpener, localLens } from "@studio/ui-eyes/camera";
 import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
+import { isRemoteLabel } from "@studio/web-protocol/cameras";
 import { useEffect, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { remoteCameraLens } from "./camera/remoteCamera";
 import { canAskForLens, remoteLens } from "./camera/remoteLens";
 import { listenPictureEdits } from "./pictureLive";
 import { levelsForPasses, smoothLevels } from "./shaderAudio";
@@ -19,10 +21,17 @@ import { levelsForPasses, smoothLevels } from "./shaderAudio";
 /** Whose camera a live lane draws: this browser's, or the machine's over a peer connection when
  *  this device may not open one — which is every device reaching the app over the LAN.
  *  Falling back to the local opener with neither leaves it to say why. See ../camera/relay.ts. */
-const lensOpener = () =>
+const machineLens = (): LensOpener =>
   typeof navigator.mediaDevices?.getUserMedia === "function" || !canAskForLens()
     ? localLens
     : remoteLens;
+
+/** …and a `remote:` label is the account's camera on another device, whichever browser draws it. */
+const lensOpener = (): LensOpener => {
+  const machine = machineLens();
+  return (label) =>
+    isRemoteLabel(label) ? remoteCameraLens(label) : machine(label);
+};
 
 // Letterbox the viewport's aspect in the host: the backing store keeps its pixel size, only CSS size changes.
 function letterbox(

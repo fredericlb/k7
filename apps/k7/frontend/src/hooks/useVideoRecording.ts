@@ -5,8 +5,10 @@
 // The MIDI capture beside it is the same shape — see useMidiRecording.ts.
 
 import type { EngineStore } from "@studio/engine-browser/store";
+import { remoteCameraLens } from "@studio/k7-plugins/video/camera/remoteCamera";
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
-import { cameraConstraint, matchCamera } from "@studio/ui-eyes/camera";
+import { type Lens, localLens } from "@studio/ui-eyes/camera";
+import { isRemoteLabel } from "@studio/web-protocol/cameras";
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
@@ -52,6 +54,8 @@ export function useVideoRecording(opts: {
   const activeRef = useRef(false);
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // What carries a remote lens beyond its tracks — its peer connection — let go with them.
+  const closeRef = useRef<(() => void) | null>(null);
   // Takes stopped but not yet filed: the page must not be left while one is, or it is lost with the tab.
   const [filing, setFiling] = useState(0);
   useUnsavedGuard(recording || filing > 0);
@@ -63,6 +67,8 @@ export function useVideoRecording(opts: {
   const release = useCallback(() => {
     for (const t of streamRef.current?.getTracks() ?? []) t.stop();
     streamRef.current = null;
+    closeRef.current?.();
+    closeRef.current = null;
     recRef.current = null;
   }, []);
 
@@ -104,25 +110,26 @@ export function useVideoRecording(opts: {
   const begin = useCallback(
     async (lane: string, label: string) => {
       const { setStatus: say } = live.current;
-      let stream: MediaStream;
-      try {
-        // The label is matched against what this machine enumerates, exactly as the lens itself is.
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const m = matchCamera(label, devices);
-        if (m.problem) say(m.problem);
-        stream = await navigator.mediaDevices.getUserMedia(cameraConstraint(m));
-      } catch (e) {
-        say(`no camera to record: ${(e as Error).message}`);
+      // The label is matched exactly as the lane's lens is: this machine's cameras, or the account's remote ones.
+      const lens: Lens = await (isRemoteLabel(label)
+        ? remoteCameraLens
+        : localLens)(label);
+      const stream = lens.stream;
+      if (!stream) {
+        say(`no camera to record: ${lens.problem ?? "none opened"}`);
         activeRef.current = false;
         setRecording(false);
         return;
       }
+      if (lens.problem) say(lens.problem);
       // Stopped while the camera was opening: a permission prompt outlives a short take.
       if (!activeRef.current) {
         for (const t of stream.getTracks()) t.stop();
+        lens.close?.();
         return;
       }
       streamRef.current = stream;
+      closeRef.current = lens.close ?? null;
       const mimeType = pickVideoMime((m) => MediaRecorder.isTypeSupported(m));
       // Chunks go to disk as they come (../takeSpool.ts): an hour of camera is gigabytes the tab need not hold.
       const spool = await openSpool(extForMime(mimeType || undefined));
@@ -139,10 +146,14 @@ export function useVideoRecording(opts: {
       };
       rec.onstop = () => {
         for (const t of stream.getTracks()) t.stop();
+        if (closeRef.current === lens.close) closeRef.current = null;
+        lens.close?.();
         if (streamRef.current === stream) streamRef.current = null;
         if (recRef.current === rec) recRef.current = null;
         setRecording(false);
-        const landed = take;
+        // Read at the stop, when it has been measured: a remote frame arrives that long after it was shot.
+        const lateSec = (lens.latencyMs?.() ?? 0) / 1000;
+        const landed = take && { ...take, at: Math.max(0, take.at - lateSec) };
         if (!landed) return spool.discard();
         setFiling((n) => n + 1);
         void spool

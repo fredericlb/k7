@@ -96,6 +96,21 @@ export const HOME_COMMANDS: {
     args: [{ name: "name", kind: "file", hint: "the same project again" }],
   },
   {
+    canonical: "camera mode",
+    readable: {
+      en: "Make this device a camera for your projects",
+      fr: "Faire de cet appareil une caméra pour vos projets",
+    },
+    args: [
+      {
+        name: "name",
+        kind: "text",
+        hint: "the name projects list it under — this device's, left blank",
+        optional: true,
+      },
+    ],
+  },
+  {
     canonical: "system workspace new",
     readable: {
       en: "Make an empty workspace",
@@ -234,6 +249,8 @@ export interface HomeDeps extends HomeContext {
   changed: () => void;
   /** The project `project delete init` named, held between the two halves — a ref, CONSUMED by every line, the confirm or not. */
   armed: { current: ArmedDelete | null };
+  /** Turn this device into a camera under that name, null for its own — or the sentence saying why it cannot. */
+  cameraMode?: (name: string | null) => string | null;
 }
 
 /** The file service, or the sentence saying why there is nothing to act on. */
@@ -397,6 +414,12 @@ export async function runHomeCommand(
         d.refuse(`project delete: ${(e as Error).message}`);
       }
       return true;
+    }
+
+    case "camera mode": {
+      if (!d.cameraMode) return use(d.refuse, msg["hc.cameraUnavailable"]());
+      const why = d.cameraMode(rest || null);
+      return use(why ? d.refuse : d.say, why ?? msg["hc.cameraStarted"]());
     }
 
     case "system workspace new": {

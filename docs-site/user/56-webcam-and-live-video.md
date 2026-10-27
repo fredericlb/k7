@@ -63,6 +63,33 @@ Recording happens in the browser: the take is written to disk while it records, 
 interrupted by a crash or a closed tab is offered back as a download the next time. A lane drawing
 shapes has no camera and no arm button.
 
+## A phone or a tablet as a camera
+
+Any device signed in to the same account on the same server can be a camera. On it, open k7's home
+page and run **`camera mode`** from the command bar (the Commands button at the foot of the page),
+optionally with a name: `camera mode Stage left`. The screen shows what the camera sees; **Switch**
+goes between its lenses (front and back on a phone) and **Stop** ends it. The device stays awake
+while it is a camera.
+
+In a project, add a **remote camera** from the graph's module menu (inputs), or pick one in any
+camera node's dropdown: the cameras that are on are listed as `remote:<name>`. It is a camera node
+like any other — wire it to a picture lane, set its `monitor:`, arm the lane and record.
+
+```js
+id("stage").extends("@meta/CAM").camera("remote:Stage left")
+```
+
+`remote:` alone takes whichever remote camera came on last. A name that is not on shows the latest
+one and says which are on.
+
+**Latency.** A remote camera's picture arrives a little late. k7 measures it, holds the quicker
+remote cameras back so that all of them match the slowest, and places a recorded take earlier by
+that much so it lines up with the music. A local camera is not held back.
+
+**Networks.** The picture goes straight from the device to your browser. Both on the same network,
+it just works; across networks the server must be configured with STUN/TURN servers
+(`K7_CAMERA_ICE_SERVERS`), or the camera stays black and the lane says the camera did not answer.
+
 ## A second device
 
 A surface opened on another device (see the external surfaces pages in the

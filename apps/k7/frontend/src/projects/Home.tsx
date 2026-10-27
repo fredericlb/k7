@@ -4,6 +4,7 @@
 // files and needs no engine. See ../../docs/projects.md.
 
 import { Terminal } from "@frediverse/ui/icons";
+import { deviceName } from "@studio/engine-browser/pairing";
 import { Toaster } from "@studio/project-shell/toast";
 import type {
   AccountLibrary,
@@ -13,6 +14,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AskHostK7 } from "../AskHostK7";
+import { CameraMode } from "../camera/CameraMode";
 import type { CommandBarHandle } from "../components/CommandBar";
 import {
   FloatingCommandBar,
@@ -40,6 +42,17 @@ import type { AccountFiles } from "./workspaceOps";
 
 /** The médiathèque's own: brisk enough that a change from another replica shows, slow enough to cost nothing on a ten-row list. */
 const POLL_MS = 3000;
+
+/** The name this device was last a camera under, so a phone on a stand keeps its name across sessions. */
+const CAMERA_NAME_KEY = "k7.cameraName";
+
+function storedCameraName(): string {
+  try {
+    return localStorage.getItem(CAMERA_NAME_KEY) || deviceName();
+  } catch {
+    return deviceName();
+  }
+}
 
 /** The open workspace travels in the QUERY, not in the path: the path belongs to launching, and a query bookmarks and answers Back. */
 const WS_PARAM = "ws";
@@ -177,6 +190,20 @@ export function Home() {
   );
   /** The project a `project delete init` named, awaiting its confirm — a ref, read by the next command and never drawn. */
   const armed = useRef<ArmedDelete | null>(null);
+  /** The name this device is a camera under, while `camera mode` is on (../camera/CameraMode.tsx). */
+  const [camera, setCamera] = useState<string | null>(null);
+  const cameraMode = useCallback((name: string | null): string | null => {
+    // getUserMedia exists only in a secure context: over plain http on a LAN there is nothing to open.
+    if (!navigator.mediaDevices?.getUserMedia) return m["hc.noCameraHere"]();
+    const chosen = name?.trim() || storedCameraName();
+    try {
+      if (name?.trim()) localStorage.setItem(CAMERA_NAME_KEY, chosen);
+    } catch {
+      // A browser that keeps nothing asks for the name again next time, which is all it costs.
+    }
+    setCamera(chosen);
+    return null;
+  }, []);
 
   /** Reload NOW after a write from here, or a just-created project would take three seconds to appear. */
   const reread = useCallback(() => {
@@ -196,6 +223,7 @@ export function Home() {
         refuse: (text) => setSaid({ text, refused: true }),
         changed: reread,
         armed,
+        cameraMode,
       });
       // A line this screen does not know is refused HERE: no service behind it to pass it to.
       if (!known)
@@ -204,7 +232,7 @@ export function Home() {
           refused: true,
         });
     },
-    [fileService, workspaces, openWs, reread],
+    [fileService, workspaces, openWs, reread, cameraMode],
   );
 
   /** Two bare Shifts summon it too, the editor's own gesture; `e.repeat` drops a held Shift. */
@@ -309,6 +337,7 @@ export function Home() {
         }
         onRun={(line) => void run(line)}
       />
+      {camera && <CameraMode name={camera} onStop={() => setCamera(null)} />}
     </HomeShell>
   );
 }

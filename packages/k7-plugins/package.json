@@ -9,6 +9,7 @@
     "./browser": "./src/browser.ts",
     "./video": "./src/video/index.ts",
     "./video/camera/relay": "./src/video/camera/relay.ts",
+    "./video/camera/remoteCamera": "./src/video/camera/remoteCamera.ts",
     "./turntables/engine": "./src/turntables/engine.ts",
     "./video/sceneFrom": "./src/video/sceneFrom.ts"
   },
