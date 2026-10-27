@@ -1,46 +1,42 @@
-# The Find page
+# The automatic download, in the add-song popin
 
-`src/FindSongs.tsx` is the screen of "Find songs": what is typed, what is asked of MusicBrainz and
-slskd, how a peer is chosen and how the bytes come back are the server's, in
+`src/HuntProgress.tsx` follows ONE automatic download, inside **Add a song** (`src/AddSong.tsx`,
+[library.md](library.md), "Adding a song"): what is asked of slskd, how a peer is chosen and how the
+bytes come back are the server's, in
 [apps/k7/backend/docs/media/hunt.md](../../../apps/k7/backend/docs/media/hunt.md). This page is
 only why the screen is the shape it is.
 
-## A page, not a dialog
+## One of three ways, not a page of its own
 
-`find` is a **section** in `routes.ts`'s sense, and the host draws it as an entry of its own nav —
-in k7, the home sidebar, beside the families. It has no tree and nothing on the volume, so it
-draws edge to edge.
+A song enters the library one way, as one enters the songbook: its artist and title first, then where
+its audio comes from — a file, the automatic download, or none. The download is the second of those
+three and has no section, no address and no history screen. Two pages for one act made the user
+choose between them before knowing which would work, and the history page grew into a queue of
+titles where the act is one song.
 
-A dialog would have been the reflex — it is what adding a song does — and it would be the wrong
-choice: **the history grows**. A hundred rows in a window 85 % of the height is a screen scrolling
-inside a screen. And a page brings three things a modal cannot: an address you can reload and
-bookmark, a back button that returns to the songs, and the full available height.
+The popin sends the hunt the names the user TYPED, as tags (`POST /api/hunt {query, tags}`), so the
+song is filed under them rather than under whatever a peer called the file, and lands in the very
+folder an upload or a song without audio of the same names would.
 
-The search field is at the top and **does not scroll**: building a library means one title after
-another, and a field you had to go looking for after thirty rows would be a round trip per song.
+## Closing the popin is not cancelling
 
-Two consequences in `useLibraryData.ts`, both easy to miss:
+The hunt lives on the server, and lasts minutes. Closing the popin stops only the watching, and says
+so; the song appears in the catalogue once filed, through the library's own poll. **Stop** is the
+cancel, offered only while it runs. A failed one offers to **choose another way** — upload a file
+instead, or keep the song without audio — beside the YouTube fallback.
 
-- `find` is **not a family**: nothing it shows is on the volume, so the poll must never ask the
-  server for a list of `find`, and the library's data hook skips it by name.
-- Refreshing the catalogue after a song is filed cannot be the general `refresh`, which invalidates
-  the **open** section's token — and that is `find`. What has just arrived is in `songs`: that is the
-  token to clear, or the song would only appear on the next section change.
+## What it says
 
-## What the rows say
+While downloading, **who** is sending and which peer number; on failure, **why** — the whole chain of
+causes the server joined; once filed, **where**, and the format obtained, said plainly, so a 128 kbps
+is not taken for a mix reference six months later.
 
-Three colours for four states, because "searching" and "downloading" are both "in progress" to
-whoever is watching. The detail shown changes with the state: while downloading it is **who** is
-sending and which peer number, on failure it is **why** — the whole chain of causes the server
-joined — once filed it is **where**, and the format obtained, said plainly, so a 128 kbps is not
-taken for a mix reference six months later.
-
-The page **only polls while it is open**, through `src/poll.ts`: the work is on the server, and a
-tab asking continuously for a closed screen would pay a round trip for nothing.
+It **only polls while the popin is open**, through `src/poll.ts`, and asks for the list and keeps
+its own row: the server has no route for one hunt.
 
 ## When it cannot run
 
 The YouTube fallback's button is greyed, with the reason, when the server says it has no `yt-dlp`
-(`GET /api/hunt` → `youtube`), rather than failing on click. And while the slskd settings are
-incomplete the page opens all the same and **says what is missing**, with a link to the settings
-([settings.md](settings.md)), instead of failing on every keystroke: a new instance is unconfigured.
+(`GET /api/hunt` → `youtube`). While the slskd settings are incomplete, the download is the one way
+greyed out, and the popin **says what is missing**, with a link to the settings
+([settings.md](settings.md)) on the machine that holds them: a new instance is unconfigured.

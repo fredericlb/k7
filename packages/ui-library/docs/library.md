@@ -206,18 +206,21 @@ library is one click away. Which of the three it shows is the BROWSER's choice, 
 `localStorage`: it is a view of the moment, not something to follow the account to another machine. The middle pane is not
 filtered — the selector belongs to the tree it sits above.
 
-## Adding songs
+## Adding a song
 
-**Add a song** takes one audio file or several (`src/AddSong.tsx`). Each file's tags are read in the
-browser and its folder — artist, album, title — is shown BEFORE anything is sent, since that tree and
-not the file's name is what files it; every field stays editable, per song.
+**Add a song** is the one way a song enters the library, and it works as adding one to the songbook
+does (`src/AddSong.tsx`): a popin asks its **artist and title**, then where its audio comes from.
 
-Several are sent **one after another**, never at once: each is a whole audio file, and a dozen
-uploads in parallel would share the line and finish together late, rather than one at a time early.
-A song that went leaves the list. One whose folder is already taken stays, with a **Replace** of its
-own — replacing is a decision made per song, never for a batch — and one that failed stays with its
-reason, sent again with the rest. Editing a song's fields drops a pending Replace, because it now aims
-at another folder. Cancel cuts the upload in flight and stops the queue; what was sent is filed.
+- **Upload a file** — one audio file, filed under the names typed (`POST /api/mediatek/song`, the
+  album left unknown). A song that already has its audio there is said, with a **Replace**.
+- **Download it automatically** — the Soulseek hunt, given the names as tags so it files the song
+  under them ([hunt.md](hunt.md)).
+- **No audio** — only the song's folder and its names (`POST /api/mediatek/songbook`), the way the
+  songbook makes a song before it has any: the catalogue lists it without a master, and a later
+  upload or download of the same names fills that folder.
+
+The NAMES come first and decide the folder, whichever way the audio comes, so the three land in the
+same place. It adds one song at a time: a batch would be a different screen, deciding per song.
 
 ## Filing variants
 

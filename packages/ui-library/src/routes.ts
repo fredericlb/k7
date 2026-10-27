@@ -3,13 +3,12 @@
 // family folder's name), and the rest is the file the screen has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The four families and zones, plus the hunt — every one an entry of the host's nav. */
+/** The four families and zones — every one an entry of the host's nav. */
 export const SECTION_IDS = [
   "songs",
   "samples",
   "recordings",
   "playlists",
-  "find",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 

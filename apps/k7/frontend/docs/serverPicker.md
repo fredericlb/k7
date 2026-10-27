@@ -18,7 +18,7 @@ How the tray's backend reaches the server is `apps/k7/backend/docs/serverPicker.
   `hostBase`, which stays this backend: the engine registry, the slskd settings and the copies placed
   against the server are this machine's whatever is browsed.
 - **Songs are found on the chosen server.** The hunt files what it finds into a library, so it runs
-  on the server whose library the page shows: Find songs and the songbook's fetch call `apiBase`.
+  on the server whose library the page shows: the add-song popin's download and the songbook's fetch call `apiBase`.
   Where that server is unreachable or has no slskd set up, the page says so; it offers the settings
   only when that server is this machine, since the server's are its admins', on its own page.
 - **The pages remount on a switch** (`HomeRoutes` is keyed by the choice): nothing read from one

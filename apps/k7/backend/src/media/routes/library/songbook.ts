@@ -107,7 +107,9 @@ songbookRoutes.post(
   express.json(),
   answer(async (req) => {
     const body = createBody.parse(req.body ?? {});
-    return readSongbookAt(createSongbook(body).path);
+    // The médiathèque names no owner: the account that made it is who created it.
+    const owner = body.owner || ((req.user as { sub?: string })?.sub ?? "");
+    return readSongbookAt(createSongbook({ ...body, owner }).path);
   }),
 );
 

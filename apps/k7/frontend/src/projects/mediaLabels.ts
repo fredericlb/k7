@@ -21,7 +21,6 @@ export function mediaLabels(): LibraryLabels {
       samples: m["media.section.samples"](),
       recordings: m["media.section.recordings"](),
       playlists: m["media.section.playlists"](),
-      find: m["media.section.find"](),
     },
     common: {
       loading: m["media.loading"](),
@@ -41,7 +40,6 @@ export function mediaLabels(): LibraryLabels {
     tree: {
       open: m["media.tree.open"](),
       close: m["media.tree.close"](),
-      findSongs: m["media.tree.findSongs"](),
       dropOnSong: m["media.tree.dropOnSong"](),
       notAudio: (name) => m["media.tree.notAudio"]({ name }),
       addVariant: m["media.tree.addVariant"](),
@@ -91,23 +89,26 @@ export function mediaLabels(): LibraryLabels {
     },
     addSong: {
       button: m["media.addSong.button"](),
-      readingTags: m["media.addSong.readingTags"](),
       hint: m["media.addSong.hint"](),
       artist: m["media.addSong.artist"](),
       artistPlaceholder: m["media.addSong.artistPlaceholder"](),
-      album: m["media.addSong.album"](),
-      albumPlaceholder: m["media.addSong.albumPlaceholder"](),
       title: m["media.addSong.title"](),
       titlePlaceholder: m["media.addSong.titlePlaceholder"](),
+      next: m["media.addSong.next"](),
+      how: m["media.addSong.how"](),
+      upload: m["media.addSong.upload"](),
+      uploadHint: m["media.addSong.uploadHint"](),
+      download: m["media.addSong.download"](),
+      downloadHint: m["media.addSong.downloadHint"](),
+      noAudio: m["media.addSong.noAudio"](),
+      noAudioHint: m["media.addSong.noAudioHint"](),
+      background: m["media.addSong.background"](),
+      otherWay: m["media.addSong.otherWay"](),
+      close: m["media.addSong.close"](),
       notAudio: (name) => m["media.addSong.notAudio"]({ name }),
       occupied: m["media.addSong.occupied"](),
       cancelUpload: m["media.addSong.cancelUpload"](),
       replace: m["media.addSong.replace"](),
-      send: m["media.addSong.send"](),
-      many: (count) => m["media.addSong.many"]({ count: String(count) }),
-      sendMany: (count) =>
-        m["media.addSong.sendMany"]({ count: String(count) }),
-      drop: m["media.addSong.drop"](),
       uploading: (percent) =>
         m["media.addSong.uploading"]({ percent: String(percent) }),
       filing: m["media.addSong.filing"](),
@@ -189,11 +190,7 @@ export function mediaLabels(): LibraryLabels {
       noYtdlp: m["media.find.noYtdlp"](),
       youtubeButton: m["media.find.youtubeButton"](),
       abandon: m["media.find.abandon"](),
-      forget: m["media.find.forget"](),
-      placeholder: m["media.find.placeholder"](),
-      search: m["media.find.search"](),
       settings: m["media.find.settings"](),
-      empty: m["media.find.empty"](),
     },
     playback: {
       targets: {
@@ -298,7 +295,6 @@ export function mediaSectionLabel(id: SectionId): string {
     samples: m["media.section.samples"],
     recordings: m["media.section.recordings"],
     playlists: m["media.section.playlists"],
-    find: m["media.section.find"],
   };
   return names[id]();
 }

@@ -150,13 +150,16 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  /** A hunt files the song into the media library and stops there; a playlist is out of its reach. */
-  start: async (query: string): Promise<HuntRecord> =>
+  /** A hunt files the song into the media library and stops there; `tags` the song already NAMED, filed under them. */
+  start: async (
+    query: string,
+    tags?: { artist: string; title: string },
+  ): Promise<HuntRecord> =>
     json(
       await request(`${apiBase()}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(tags ? { query, tags } : { query }),
       }),
       "hunt",
     ),
@@ -422,6 +425,20 @@ export const library = {
     );
     if (!res.ok) throw await failed(res, `${file.name}:`);
     return json(res, "variant");
+  },
+
+  /** A song with NO audio: its folder and its names, as the songbook makes one — mediatek's docs/songbook.md. */
+  addSongWithoutAudio: async (tags: {
+    artist: string;
+    title: string;
+  }): Promise<{ path: string }> => {
+    const res = await request(`${apiBase()}/api/mediatek/songbook`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(tags),
+    });
+    if (!res.ok) throw await failed(res, "song");
+    return json(res, "song");
   },
 
   /** A songbook song read whole by its id — its texts and sheets, what the song screen's tabs show (mediatek's docs/songbook.md). */

@@ -1,9 +1,9 @@
 # Finding songs — from what you type to a filed file
 
-"Find songs" is an entry of its own in k7's home sidebar, beside the library's sections, and opens
-**a page** (`/media/find`): a search field at the top, and below it the history of what has already
-been asked for. The screen is `packages/ui-library/docs/hunt.md`; this page is the server's half. You type
-"nirvana lithium", and the whole chain unrolls by itself:
+The automatic download is one of the three ways the médiathèque's **Add a song** popin offers, after
+the song's artist and title are typed; it follows that one hunt while it runs. The screen is
+`packages/ui-library/docs/hunt.md`; this page is the server's half. Given "nirvana lithium", the whole
+chain unrolls by itself:
 
 ```
   what you type
@@ -409,17 +409,17 @@ this way out, and the reason it is a way out rather than the main path.
 The screen asks the backend whether the binary is there (`GET /api/hunt` → `youtube`), probed once.
 Without it the button is greyed and says so, rather than failing on click.
 
-## The history
+## The rows
 
 One row per search, most recent first, in `.hunts/<slug>-<hash>.json` on the volume — a dot folder, so
 invisible to family scans and to the file API, exactly like `.prefs` and `.projects`. A hundred rows
-kept: it is a memory for recognising what has already been asked for, not an archive, and the file is
-read whole on every query.
+kept, and the file is read whole on every query. No screen lists them: they are what a caller FOLLOWS
+— the add-song popin and the songbook's fetch each poll `GET /api/hunt` for the row they started,
+there being no route for one hunt.
 
-Three colours for four states, because "searching" and "downloading" are both "in progress" to
-whoever is watching. The detail shown changes with the state: while downloading it is **who** is
-sending and which peer number, on failure it is **why**, once filed it is **where** — and the format
-obtained, said plainly, so a 128 kbps is not taken for a mix reference six months later.
+What a row carries is what a watcher is told: while downloading, **who** is sending and which peer
+number; on failure, **why**; once filed, **where** — and the format obtained, said plainly, so a
+128 kbps is not taken for a mix reference six months later.
 
 A search lives in a process's memory. A redeploy loses it while its row still says "in progress" — a
 blue line spinning for ever. `reconcile` marks as failed anything in a live state that no runner

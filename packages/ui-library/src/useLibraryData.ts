@@ -17,7 +17,7 @@ import type { SectionId } from "./routes";
 /** The ones that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
 type FamilyId = Exclude<
   SectionId,
-  typeof RECORDINGS_DIR | typeof PLAYLISTS_DIR | "find"
+  typeof RECORDINGS_DIR | typeof PLAYLISTS_DIR
 >;
 
 /** Poll interval for the revision map — cheap on the server, slow enough to cost an idle library nothing. */
@@ -26,8 +26,6 @@ const POLL_MS = 3000;
 export function useLibraryData(section: SectionId) {
   // The capture zone is a section with no family behind it: no `/list`, no entries, no module pane.
   const isZone = section === RECORDINGS_DIR;
-  // The hunt is not on the volume — nothing of its own to poll.
-  const polls = section !== "find";
   const [present, setPresent] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   // Whether removals and folder moves are this account's; false until the service says so.
@@ -51,11 +49,6 @@ export function useLibraryData(section: SectionId) {
     seen.current[section] = "";
     setError(null);
   }, [section]);
-
-  /** Reload SONGS whatever section is open, since the hunt page's finds land there. Stable — FindSongs polls on it. */
-  const refreshSongs = useCallback(() => {
-    seen.current.songs = "";
-  }, []);
 
   useEffect(() => {
     void library
@@ -110,7 +103,6 @@ export function useLibraryData(section: SectionId) {
 
   // One poll drives every section OF THE LIBRARY, the capture zone included (../docs/library.md).
   useEffect(() => {
-    if (!polls) return;
     let stop = false;
     const tick = async () => {
       try {
@@ -129,7 +121,7 @@ export function useLibraryData(section: SectionId) {
       stop = true;
       end();
     };
-  }, [polls, isZone, load, loadZone, section]);
+  }, [isZone, load, loadZone, section]);
 
   return {
     present,
@@ -142,6 +134,5 @@ export function useLibraryData(section: SectionId) {
     setError,
     notice,
     refresh,
-    refreshSongs,
   };
 }

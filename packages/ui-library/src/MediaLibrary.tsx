@@ -5,7 +5,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
-import { Cloud, Disc3, FolderTree, Search } from "@frediverse/ui/icons";
+import { Cloud, Disc3, FolderTree } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import {
   type MediatekEntry,
@@ -18,7 +18,6 @@ import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
 import { library } from "./api";
 import { FavoritesFilter, PracticeMark, StarredMark } from "./FavoritesFilter";
-import { FindSongs } from "./FindSongs";
 import { favoriteEntries, useSongLists } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
@@ -67,8 +66,6 @@ export function MediaLibrary({
   );
   // The capture zone is a section with no family behind it: no `/list`, no entries, no module pane.
   const isZone = section === RECORDINGS_DIR;
-  // The hunt, showing nothing on the volume (../docs/hunt.md).
-  const isFind = section === "find";
   // The set lists: a root zone with no family behind it either, and its own two-column screen.
   const isPlaylists = section === "playlists";
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
@@ -86,7 +83,6 @@ export function MediaLibrary({
     setError,
     notice,
     refresh,
-    refreshSongs,
   } = useLibraryData(section);
   // Where each entry lives on a machine paired with a server — ../../mediatek/docs/serverCopy.md.
   const serverCopy = useServerCopy(section, entries, setError);
@@ -269,13 +265,6 @@ export function MediaLibrary({
     ],
   );
 
-  // The hunt page draws its own scroller, because its history can be long.
-  if (isFind)
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <FindSongs onFiled={refreshSongs} onOpenSettings={onOpenSettings} />
-      </div>
-    );
   // Its own two columns — the set lists, then the open one (../docs/playlists.md).
   if (isPlaylists)
     return <Playlists file={file} vimMode={vimMode} onOpen={openFile} />;
@@ -476,15 +465,7 @@ export function MediaLibrary({
         {/* Below the tree's own scroll, not inside it — a foot that never moves. */}
         {section === "songs" ? (
           <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSection("find")}
-            >
-              <Search className="mr-1 h-4 w-4" />
-              {labels.tree.findSongs}
-            </Button>
-            <AddSong onDone={refresh} />
+            <AddSong onDone={refresh} onOpenSettings={onOpenSettings} />
           </div>
         ) : isZone ? (
           <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
@@ -518,13 +499,7 @@ export function MediaLibrary({
           onOpen={openFile}
           emptyActions={
             section === "songs" ? (
-              <>
-                <Button size="sm" onClick={() => setSection("find")}>
-                  <Search className="h-4 w-4" />
-                  {labels.tree.findSongs}
-                </Button>
-                <AddSong onDone={refresh} />
-              </>
+              <AddSong onDone={refresh} onOpenSettings={onOpenSettings} />
             ) : isZone ? (
               <AddRecording onDone={refresh} onError={setError} />
             ) : undefined

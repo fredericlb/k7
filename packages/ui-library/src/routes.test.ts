@@ -111,20 +111,13 @@ describe("fromLocation", () => {
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
       st({ section: "playlists" }),
       st({ section: "playlists", file: "live/repet.yaml" }),
-      // « Trouver des morceaux », the tabless one — a PAGE, since its history grows.
-      st({ section: "find" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);
   });
 
-  it("garde une adresse pour la recherche de morceaux, donc rechargeable", () => {
-    // What the dialog could not offer: a page that reloads, bookmarks and answers the back button.
-    expect(fromLocation("/find")).toEqual({ section: "find", file: null });
-    // Nothing to carry in the second half: the page opens no item, it IS the screen.
-    expect(fromLocation("/find/whatever")).toEqual({
-      section: "find",
-      file: null,
-    });
+  it("opens an old song-search link on the songs, where adding a song now lives", () => {
+    // The search page became the add-song popin's automatic download: a bookmark lands on the catalogue.
+    expect(fromLocation("/find").section).toBe(DEFAULT_SECTION);
   });
 
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
