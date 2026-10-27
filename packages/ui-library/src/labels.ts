@@ -162,6 +162,30 @@ export interface LibraryLabels {
     lookingForLyrics: string;
     lyricsFound: string;
     lyricsNotFound: string;
+    /** The song page's first tab, the waveform and its versions. */
+    tabWaveform: string;
+    /** The fingering of every chord the song uses, as transposed. */
+    tabDiagrams: string;
+    /** The ⋮ at the far right of the song page's header. */
+    menu: string;
+    /** `date` already formatted for the reader's locale. */
+    addedOn: (date: string) => string;
+    /** Under the date when it is the folder's newest file time, the songbook having none. */
+    addedFromFiles: string;
+    metronome: string;
+    /** The song's tags carry no tempo: the metronome starts from a default, to be set by hand. */
+    noBpm: string;
+    tempo: string;
+    slower: string;
+    faster: string;
+    metronomeStart: string;
+    metronomeStop: string;
+    transpose: string;
+    transposeDown: string;
+    transposeUp: string;
+    transposeReset: string;
+    /** What the transposition moves: the chords and the scores, not the sound. */
+    transposeHint: string;
     tagsHeading: string;
     edit: string;
     done: string;

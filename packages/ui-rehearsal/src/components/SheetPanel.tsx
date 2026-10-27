@@ -13,10 +13,12 @@ interface Props {
   urlFor: (fileId: string) => string;
   /** Absent, the sheets are read-only: a copy of a server's song. */
   onDelete?: (fileId: string) => Promise<void>;
+  /** The page's transposition, which a score starts from; its own toolbar still moves it. */
+  transpose?: number;
 }
 
 // A sheet is files, not text: this draws them and removes them; adding is the song page's bottom link.
-export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
+export function SheetPanel({ sheets, urlFor, onDelete, transpose = 0 }: Props) {
   const [busy, setBusy] = useState(false);
 
   const remove = async (file: SheetFile) => {
@@ -58,7 +60,7 @@ export function SheetPanel({ sheets, urlFor, onDelete }: Props) {
             return (
               <figure key={file.id} className="sheet-file">
                 {caption(file)}
-                <ScoreSheet url={urlFor(file.id)} />
+                <ScoreSheet url={urlFor(file.id)} transpose={transpose} />
               </figure>
             );
           if (kind === "pdf")

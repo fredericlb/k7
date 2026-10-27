@@ -1,17 +1,32 @@
-// SongEditor.tsx — a song opened: its tags and attachments on the left, its master played and scrubbed on the
-// right, the library tree still beside both. The same shape ChainEditor has, for the same
-// reason: you correct what describes the song while hearing it. See ../docs/songPlayer.md.
+// SongEditor.tsx — a song opened: a header holding its play button and its ⋮ menu, over one
+// column of tabs — the waveform first, then its tags and attachments. One column, since the
+// waveform is a tab like the rest and a phone has room for one. See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, Disc3 } from "@frediverse/ui/icons";
+import { ArrowLeft, Disc3, Pause, Play } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { useCallback, useRef, useState } from "react";
+import { clock } from "@studio/ui-mini-player";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
+import { usePlaybackPosition } from "./playback/position";
 import type { PlaybackTarget } from "./playback/targets";
 import { SongInfoTabs } from "./SongInfoTabs";
-import { SongPlayer } from "./SongPlayer";
-import { SongVariants } from "./SongVariants";
+import { SongMenu } from "./SongMenu";
+import { useSongAttachments } from "./useSongAttachments";
+import { type SongTransport, useSongTransport } from "./useSongTransport";
+
+/** The header's clock, alone in reading the position so the page does not re-render with it. */
+function HeaderClock({ transport }: { transport: SongTransport }) {
+  const { position, duration } = usePlaybackPosition(transport.songLoaded);
+  const at = transport.songLoaded ? position : transport.cursor;
+  return (
+    <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">
+      {clock(at)}
+      {transport.songLoaded && duration ? ` / ${clock(duration)}` : ""}
+    </span>
+  );
+}
 
 export function SongEditor({
   entry,
@@ -37,6 +52,12 @@ export function SongEditor({
   const folder = entry.path;
   const master = entry.meta?.master;
   const [status, setStatus] = useState("");
+  const transport = useSongTransport(entry, playbackTarget);
+  const attachments = useSongAttachments(entry, onSaved, setStatus);
+  // What is READ is transposed, never the audio; another song starts in its own key.
+  const [transpose, setTranspose] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the song's path is the trigger
+  useEffect(() => setTranspose(0), [folder]);
 
   const removeVariant = useCallback(
     (name: string) => {
@@ -51,41 +72,68 @@ export function SongEditor({
     [folder, onSaved],
   );
 
+  const nothingToPlay = transport.path
+    ? ""
+    : transport.take?.kind === "master"
+      ? l.noMaster
+      : l.fileNotInLibrary;
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex items-center gap-3 border-b border-border px-3 py-2">
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> {labels.common.back}
+      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onBack}
+          aria-label={labels.common.back}
+        >
+          <ArrowLeft className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">{labels.common.back}</span>
         </Button>
-        <div className="min-w-0">
+        <Button
+          size="sm"
+          onClick={transport.toggle}
+          disabled={!transport.path && !transport.songPlaying}
+          aria-label={
+            transport.songPlaying ? labels.common.pause : labels.common.play
+          }
+          title={nothingToPlay}
+        >
+          {transport.songPlaying ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </Button>
+        <HeaderClock transport={transport} />
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 truncate text-sm font-semibold">
-            <Disc3 className="h-4 w-4" /> {l.heading(entry.name)}
+            <Disc3 className="h-4 w-4 shrink-0" />
+            <span className="truncate">{l.heading(entry.name)}</span>
           </div>
           <div className="truncate font-mono text-xs text-muted-foreground">
             {master ? `${folder}/${master}` : folder}
           </div>
         </div>
+        <SongMenu
+          entry={entry}
+          attachments={attachments}
+          transpose={transpose}
+          onTranspose={setTranspose}
+        />
       </header>
 
-      {/* Side by side when there is room and STACKED when there is not (../docs/responsive.md). */}
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className="min-h-0 h-1/2 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
-          <SongInfoTabs entry={entry} onSaved={onSaved} onStatus={setStatus} />
-        </div>
-        {/* The player and the versions under it: one half of the screen, one question. */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1">
-            <SongPlayer entry={entry} target={playbackTarget} />
-          </div>
-          {entry.variants?.length ? (
-            <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
-              <SongVariants
-                entry={entry}
-                onRemove={manage ? removeVariant : undefined}
-              />
-            </div>
-          ) : null}
-        </div>
+      <div className="min-h-0 flex-1">
+        <SongInfoTabs
+          entry={entry}
+          attachments={attachments}
+          transport={transport}
+          target={playbackTarget}
+          transpose={transpose}
+          onSaved={onSaved}
+          onStatus={setStatus}
+          onRemoveVariant={manage ? removeVariant : undefined}
+        />
       </div>
 
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">

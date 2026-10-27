@@ -12,7 +12,7 @@ import {
   ZOOM_STEPS,
 } from "@studio/score";
 import type { ScoreState, ScoreViewHandle } from "@studio/score/ScoreView";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useElementFullscreen } from "../hooks/useElementFullscreen";
 import { m } from "../paraglide/messages.js";
 
@@ -20,14 +20,22 @@ const ScoreView = lazy(() =>
   import("@studio/score/ScoreView").then((mod) => ({ default: mod.ScoreView })),
 );
 
-export function ScoreSheet({ url }: { url: string }) {
+export function ScoreSheet({
+  url,
+  transpose: given = 0,
+}: {
+  url: string;
+  /** Where the transposition starts, and goes back to whenever the page's changes. */
+  transpose?: number;
+}) {
   const view = useRef<ScoreViewHandle>(null);
   const [state, setState] = useState<ScoreState>({
     ready: false,
     loading: false,
     playing: false,
   });
-  const [transpose, setTranspose] = useState(0);
+  const [transpose, setTranspose] = useState(() => clampTranspose(given));
+  useEffect(() => setTranspose(clampTranspose(given)), [given]);
   const [scale, setScale] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,11 +87,11 @@ export function ScoreSheet({ url }: { url: string }) {
         >
           <Plus className="size-4" />
         </Button>
-        {transpose !== 0 && (
+        {transpose !== clampTranspose(given) && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setTranspose(0)}
+            onClick={() => setTranspose(clampTranspose(given))}
             title={m["score.transposeReset"]()}
           >
             <RotateCcw className="size-4" />

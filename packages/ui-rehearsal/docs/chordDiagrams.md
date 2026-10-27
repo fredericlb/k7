@@ -26,3 +26,9 @@ The root `package.json` therefore carries an `overrides` entry pinning that pack
 and `react-dom` to the version the apps use. The library itself is `React.createElement` over
 SVG and needs nothing from React 16; only the resolution is wrong. `propTypes`, which it also
 declares, is inert under React 19 and harmless.
+
+## The médiathèque draws them too
+
+The médiathèque's song page has a Diagrams tab, drawn by `SongAttachment` as the `diagrams` kind
+(`packages/ui-library/docs/songPlayer.md`). The page hands it the chord list already transposed, so
+the cards are this package's and the choice of chords stays the médiathèque's.

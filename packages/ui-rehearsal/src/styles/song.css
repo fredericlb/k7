@@ -431,5 +431,12 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* The mobile chord popin is a shadcn Dialog now (ChordPopin.tsx). */
+  /* The mobile chord popin is a shadcn Dialog (ChordPopin.tsx). */
+
+  /* The médiathèque's Diagrams tab: every chord of the song as a card, as many per row as fit. */
+  .song-chord-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 8px;
+  }
 }
