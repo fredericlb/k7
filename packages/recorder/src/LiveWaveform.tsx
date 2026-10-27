@@ -30,8 +30,10 @@ interface Props {
   focus?: { start: number; end: number } | null;
   /** Canvas height in px — smaller for the minimized recording bar. */
   height?: number;
-  /** Frames the whole take, 0 to now, instead of the trailing window, redrawn twice a second since it reads every sample. */
+  /** Frames the take from 0 in a window that grows by steps, instead of the trailing seconds, redrawn twice a second. */
   whole?: boolean;
+  /** A click on one of `events`, by its index. */
+  onPickEvent?: (index: number) => void;
 }
 
 const HEIGHT = 160;
@@ -41,6 +43,17 @@ const PAUSED_ALPHA = 0.5;
 const BEATS_PER_BAR = 4;
 const BEAT_TICK_HEIGHT = 24; // light beat ticks are short; bar lines run full height
 const WHOLE_REDRAW_MS = 500;
+const WHOLE_FIRST_SEC = 60;
+const WHOLE_STEP_SEC = 30;
+
+/** The whole view's length: a minute, then half a minute more each time the take reaches its end. */
+function wholeLength(now: number): number {
+  if (now <= WHOLE_FIRST_SEC) return WHOLE_FIRST_SEC;
+  return (
+    WHOLE_FIRST_SEC +
+    Math.ceil((now - WHOLE_FIRST_SEC) / WHOLE_STEP_SEC) * WHOLE_STEP_SEC
+  );
+}
 
 /** k7's spectrum waveform scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history — ui-waveform's docs/spectrum.md. */
 export function LiveWaveform({
@@ -55,6 +68,7 @@ export function LiveWaveform({
   focus = null,
   height = HEIGHT,
   whole = false,
+  onPickEvent,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -76,7 +90,7 @@ export function LiveWaveform({
 
   // The trailing window while recording, or the padded moment — never tighter — while reviewing.
   const computeTarget = () => {
-    if (whole) return { start: 0, end: Math.max(WINDOW_SEC, nowRef.current()) };
+    if (whole) return { start: 0, end: wholeLength(nowRef.current()) };
     const f = focusRef.current;
     if (f) {
       const dur = Math.max(0, f.end - f.start);
@@ -180,6 +194,14 @@ export function LiveWaveform({
       const cx0 = Math.max(0, x0);
       const cx1 = Math.min(width, x1);
       ctx.fillRect(cx0, 0, Math.max(1, cx1 - cx0), height);
+    }
+    // The highlight being heard, brighter, since the whole view does not zoom onto it.
+    if (whole && focus) {
+      const x0 = Math.max(0, timeToX(focus.start));
+      const x1 = Math.min(width, timeToX(focus.end));
+      ctx.fillStyle = "rgba(245, 180, 60, 0.3)";
+      ctx.fillRect(x0, 0, Math.max(1, x1 - x0), height);
+      ctx.fillStyle = "rgba(80, 200, 120, 0.2)";
     }
 
     // Mirrored threshold lines (silence floor), on the same axis the columns are drawn on.
@@ -285,9 +307,37 @@ export function LiveWaveform({
     };
   }, [focusKey]);
 
+  // The event under a pointer's x, read on the view as last drawn.
+  const eventAt = (clientX: number): number => {
+    const canvas = canvasRef.current;
+    if (!canvas) return -1;
+    const r = canvas.getBoundingClientRect();
+    const v = viewRef.current;
+    const t =
+      v.start + ((clientX - r.left) / Math.max(1, r.width)) * (v.end - v.start);
+    return events.findIndex((ev) => t >= ev.startSec && t <= ev.endSec);
+  };
+
   return (
     <div ref={wrapRef} className="waveform-wrap">
-      <canvas ref={canvasRef} style={{ width: "100%", height }} />
+      <canvas
+        ref={canvasRef}
+        style={{ width: "100%", height }}
+        onClick={
+          onPickEvent &&
+          ((e) => {
+            const i = eventAt(e.clientX);
+            if (i >= 0) onPickEvent(i);
+          })
+        }
+        onMouseMove={
+          onPickEvent &&
+          ((e) => {
+            e.currentTarget.style.cursor =
+              eventAt(e.clientX) >= 0 ? "pointer" : "";
+          })
+        }
+      />
       <div
         ref={playheadRef}
         className="waveform-playhead"

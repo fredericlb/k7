@@ -1,6 +1,6 @@
-// RecorderView.tsx — a take, recorded and drawn in one bar at the foot of the page: the live waveform, the
-// highlights as chips, and Pause, Resume and Stop at its right. A chip pauses the take to listen back and
-// tag; Resume carries on. It is never a dialog, so the pages stay usable while it runs (../docs/recorder.md).
+// RecorderView.tsx — a take, recorded and drawn in one bar at the foot of the page: its waveforms, with the
+// highlights on them, and Pause, Resume and Stop at its right. A highlight clicked pauses the take to listen
+// back and tag; Resume carries on. It is never a dialog, so the pages stay usable while it runs (../docs/recorder.md).
 
 import { Button } from "@frediverse/ui/button";
 import { Circle, Mic, MicOff, Pause, Square } from "@frediverse/ui/icons";
@@ -12,7 +12,6 @@ import { LiveWaveform } from "./LiveWaveform";
 import { RECORDER_LABELS_EN, type RecorderLabels } from "./labels";
 import { useDisplayTimeline, useLiveEnvelope } from "./liveEnvelope";
 import {
-  HighlightChips,
   MetronomeControls,
   RecorderBar,
   RecorderMore,
@@ -148,6 +147,10 @@ export function RecorderView({
     });
     setReviewing(h);
     setPreviewTime(h.startSec);
+  };
+
+  const pickEvent = (i: number) => {
+    if (highlights[i]) pickHighlight(highlights[i]);
   };
 
   const togglePreview = () => {
@@ -366,17 +369,6 @@ export function RecorderView({
           />
         )
       }
-      highlights={
-        running && (
-          <HighlightChips
-            highlights={highlights}
-            active={reviewing?.startSec ?? null}
-            tagged={pending}
-            onPick={pickHighlight}
-            labels={L}
-          />
-        )
-      }
       actions={actions}
       labels={L}
     >
@@ -408,6 +400,8 @@ export function RecorderView({
               metronome={displayMetronome}
               paused={rec.isPaused || !!reviewing}
               playhead={reviewing ? readPreview : null}
+              focus={focus}
+              onPickEvent={running ? pickEvent : undefined}
               height={56}
             />
           </div>
@@ -421,6 +415,7 @@ export function RecorderView({
               paused={rec.isPaused || !!reviewing}
               playhead={reviewing ? readPreview : null}
               focus={focus}
+              onPickEvent={running ? pickEvent : undefined}
               height={56}
             />
           </div>

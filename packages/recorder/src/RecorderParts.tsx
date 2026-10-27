@@ -1,11 +1,10 @@
-// RecorderParts.tsx — the recorder's self-contained pieces: the bar it lives in, the highlight chips, the review row, the metronome and its ⋮.
+// RecorderParts.tsx — the recorder's self-contained pieces: the bar it lives in, the review row, the metronome and its ⋮.
 // Each keeps its own draft, so typing a comment or a tempo re-renders that piece and not the whole recorder.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
   Circle,
-  Diamond,
   EllipsisVertical,
   Metronome as MetronomeIcon,
   Pause,
@@ -30,7 +29,6 @@ export function RecorderBar({
   time,
   review,
   notice,
-  highlights,
   actions,
   labels: L,
   children,
@@ -41,9 +39,7 @@ export function RecorderBar({
   review?: ReactNode;
   /** An error, the upload's progress, or what to do about a failed one. */
   notice?: ReactNode;
-  /** The highlight chips, under the waveform once there are some. */
-  highlights?: ReactNode;
-  /** At the bar's right: the metronome, Pause or Resume, Stop. */
+  /** At the bar's right: Pause or Resume, Stop, the ⋮. */
   actions: ReactNode;
   labels: RecorderLabels;
   children: ReactNode;
@@ -81,7 +77,6 @@ export function RecorderBar({
         <div className="rec-bar-wave">{children}</div>
         <div className="rec-bar-actions">{actions}</div>
       </div>
-      {highlights}
     </section>
   );
 }
@@ -154,60 +149,6 @@ export function ReviewPanel({
         </span>
       ))}
     </div>
-  );
-}
-
-/** The moments detected so far, as chips along the bar; picking one pauses the take to listen back. */
-export function HighlightChips({
-  highlights,
-  active,
-  tagged,
-  onPick,
-  labels: L,
-}: {
-  highlights: DetectedEvent[];
-  active: number | null;
-  tagged: PendingAnnotation[];
-  onPick: (h: DetectedEvent) => void;
-  labels: RecorderLabels;
-}) {
-  const row = useRef<HTMLUListElement>(null);
-  // The newest is the one just played: kept in view as the take grows, never yanked back while one is heard.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the count is the clock it runs on.
-  useEffect(() => {
-    const el = row.current;
-    if (el && active == null) el.scrollLeft = el.scrollWidth;
-  }, [highlights.length]);
-  if (!highlights.length)
-    return <p className="rec-chips-empty muted small">{L.keepPlaying}</p>;
-  return (
-    <ul ref={row} className="rec-chips" aria-label={L.highlights}>
-      {highlights.map((h) => (
-        <li key={h.startSec}>
-          <button
-            type="button"
-            className={`rec-chip${active === h.startSec ? " is-active" : ""}`}
-            aria-pressed={active === h.startSec}
-            title={L.listenAndTag}
-            onClick={() => onPick(h)}
-          >
-            {active === h.startSec ? (
-              <Play className="size-3" />
-            ) : (
-              <Diamond className="size-3" />
-            )}
-            <span className="tabular">
-              {fmtTime(h.startSec)}–{fmtTime(h.endSec)}
-            </span>
-            {tagged.some((p) => p.startSec === h.startSec) && (
-              <span className="rec-chip-tagged" title={L.taggedBadge}>
-                #
-              </span>
-            )}
-          </button>
-        </li>
-      ))}
-    </ul>
   );
 }
 

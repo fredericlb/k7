@@ -316,44 +316,6 @@
   gap: 4px;
   font-size: 12px;
 }
-/* The highlights, one chip each, scrolled to the newest. */
-.rec-chips {
-  display: flex;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.rec-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: inherit;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.rec-chip:hover,
-.rec-chip:focus-visible {
-  border-color: var(--accent);
-}
-.rec-chip.is-active {
-  border-color: var(--amber);
-  color: var(--amber);
-}
-.rec-chip-tagged {
-  color: var(--accent);
-  font-weight: 700;
-}
-.rec-chips-empty {
-  margin: 0;
-}
 .rec-bar-status {
   flex: 0 0 auto;
   display: flex;
@@ -366,13 +328,11 @@
   min-width: 0;
   display: flex;
   align-items: center;
-}
-.rec-bar-wave {
   gap: 8px;
 }
-/* The whole take at 80%, the scrolling last seconds at 20%. */
+/* The take from its start at 90%, the scrolling last seconds at 10%. */
 .rec-bar-whole {
-  flex: 4 1 0;
+  flex: 9 1 0;
   min-width: 0;
 }
 .rec-bar-live {

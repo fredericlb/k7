@@ -37,10 +37,6 @@ export interface RecorderLabels {
   starting: string;
   start: string;
   cancel: string;
-  highlights: string;
-  keepPlaying: string;
-  taggedBadge: string;
-  listenAndTag: string;
   reviewing: (from: string, to: string) => string;
   play: string;
   pause: string;
@@ -74,10 +70,6 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   starting: "Starting recording… allow microphone access if prompted.",
   start: "Start recording",
   cancel: "Cancel",
-  highlights: "Highlights",
-  keepPlaying: "Keep playing — everything between 2s+ silences shows up here.",
-  taggedBadge: "tagged",
-  listenAndTag: "listen & tag",
   reviewing: (from, to) => `Reviewing ${from} – ${to}`,
   play: "Play",
   pause: "Pause",

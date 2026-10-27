@@ -45,13 +45,14 @@ first."
 
 ### While recording
 
-- **The waveforms**: most of the bar shows the whole take from its start, and the small one at its
-  right scrolls the last few seconds as they are played. The recorder levels them automatically;
+- **The waveforms**: most of the bar shows the take from its start, in a window of one minute that
+  grows by thirty seconds each time the take reaches its end; the small one at its right scrolls
+  the last few seconds as they are played. The recorder levels them automatically;
   the recorded audio itself is not changed.
-- **Highlights**: everything between silences is flagged live as a highlight, shown as a chip under
-  the waveform. A silence is two seconds or more below the floor (15% of the loudest level so far);
+- **Highlights**: everything between silences is flagged live as a highlight, shown as a green band
+  on the waveforms. A silence is two seconds or more below the floor (15% of the loudest level so far);
   a highlight shorter than four seconds is ignored.
-- **Listening back**: click a highlight's chip to pause the take and play that span ("Reviewing
+- **Listening back**: click a highlight on the waveform to pause the take and play that span ("Reviewing
   from – to"). A row above the bar plays it again, and you can answer "What happened here?" with
   tags. Tagged highlights become moments when the session is saved.
 - **Resume** (the red dot), at the right of the bar, carries the take on after a pause or a
