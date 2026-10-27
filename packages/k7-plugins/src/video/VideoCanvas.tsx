@@ -157,8 +157,9 @@ export function VideoCanvas({
   // A shader knob turned on a card, set on the passes at once; the document read back after the write catches up (shaderLive.ts).
   useEffect(
     () =>
-      listenShaderParams((node, name, value) =>
-        driverRef.current?.setParam(node, name, value),
+      listenShaderParams(
+        (node, name, value) =>
+          driverRef.current?.setParam(node, name, value) ?? false,
       ),
     [],
   );

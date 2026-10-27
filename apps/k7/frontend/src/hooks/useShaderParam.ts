@@ -55,22 +55,28 @@ export function useShaderParam(
   const runRef = useLatest(run);
   const settledRef = useLatest(settled);
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A knob no viewport could draw: its pass appears only with the picture read back, so that read is not left for the end.
+  const unseen = useRef(false);
   const writer = useMemo(
     () =>
       throttledParams(async (module, name, value) => {
         await runRef.current(
           `node param ${JSON.stringify(module)} ${name} ${Number(value.toFixed(3))}`,
         );
-        // A quiet command reloads nothing, so the picture is read back here — a strip left neutral had no pass to set live.
+        // A quiet command reloads nothing, so the picture is read back here — at once when the drag had no pass to move.
         if (settle.current) clearTimeout(settle.current);
-        settle.current = setTimeout(() => settledRef.current(), SETTLE_MS);
+        if (unseen.current) {
+          unseen.current = false;
+          settledRef.current();
+        } else
+          settle.current = setTimeout(() => settledRef.current(), SETTLE_MS);
       }),
     [runRef, settledRef],
   );
   useEffect(() => () => writer.flushAll(), [writer]);
   return useMemo(
     () => (module: string, name: string, value: number) => {
-      pushShaderParam(module, name, value);
+      if (!pushShaderParam(module, name, value)) unseen.current = true;
       writer.set(module, name, value);
     },
     [writer],
