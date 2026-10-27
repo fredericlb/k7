@@ -1,16 +1,23 @@
-// RecordingOverlay.tsx — what a running take DRAWS, loaded only once one starts: the source
-// chooser, the chain panel and the recorder, which is a pop-in or the bottom bar by two class swaps.
+// RecordingOverlay.tsx — what a running take DRAWS, loaded only once one starts: the start dialog, the
+// rehearsal chain's hidden bench and the recorder, which is a pop-in or the bottom bar by two class swaps.
 // Its own `.rehearsal-root`, since the host's other pages are not inside the rehearsal wrapper.
 
-import { ChevronDown, Workflow } from "@frediverse/ui/icons";
+import { ChevronDown } from "@frediverse/ui/icons";
 import {
   acquireMicrophone,
   describeMicError,
   RecorderView,
 } from "@studio/recorder";
-import { type ComponentProps, useEffect, useRef, useState } from "react";
-import { ChainSourcePanel } from "../components/ChainSourcePanel";
-import { SessionSourceDialog } from "../components/SessionSourceDialog";
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { rehearsalChain } from "../chainSource";
+import { RehearsalChainSource } from "../components/RehearsalChainSource";
+import { SessionStartDialog } from "../components/SessionStartDialog";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useRehearsalHost } from "../host";
 import { m } from "../paraglide/messages.js";
@@ -29,8 +36,6 @@ interface Props {
   setSourceOpen: (open: boolean) => void;
   chainOpen: boolean;
   setChainOpen: (open: boolean) => void;
-  chainShown: boolean;
-  setChainShown: (shown: boolean) => void;
   begin: (
     stream: MediaStream,
     release?: Close,
@@ -49,24 +54,20 @@ export default function RecordingOverlay({
   setSourceOpen,
   chainOpen,
   setChainOpen,
-  chainShown,
-  setChainShown,
   begin,
   onSave,
   onDiscard,
 }: Props) {
   const { user } = useRehearsalHost();
-  const [sourceBusy, setSourceBusy] = useState(false);
+  const [status, setStatus] = useState("");
   const [sourceError, setSourceError] = useState<string | null>(null);
+  // The rehearsal chain the take goes through, read when the session starts.
+  const [chainRef, setChainRef] = useState<string | null>(null);
+  // One per start, as the bench's key: a retry opens a fresh bench rather than the failed one.
+  const [attempt, setAttempt] = useState(0);
 
-  // A fresh chooser says nothing of the last attempt's failure.
-  useEffect(() => {
-    if (sourceOpen) setSourceError(null);
-  }, [sourceOpen]);
-
-  const startLocal = async () => {
-    setSourceBusy(true);
-    setSourceError(null);
+  const startLocal = useCallback(async () => {
+    setStatus(m["source.openingMic"]());
     try {
       const stream = await acquireMicrophone();
       try {
@@ -77,29 +78,46 @@ export default function RecordingOverlay({
       }
     } catch (err) {
       setSourceError(describeMicError(err, micErrors()));
-    } finally {
-      setSourceBusy(false);
     }
-  };
+  }, [begin]);
 
-  // The other source: the chooser gives way to the chain panel — ../../docs/chainSource.md.
-  const startChain = () => {
-    setSourceOpen(false);
-    setChainShown(true);
+  // No source is asked: k7's rehearsal chain when the account names one, else this device's microphone.
+  const startSession = useCallback(async () => {
+    setSourceError(null);
+    setStatus(m["source.starting"]());
+    let ref: string | null = null;
+    try {
+      ref = await rehearsalChain();
+    } catch (err) {
+      setSourceError((err as Error).message);
+      return;
+    }
+    if (!ref) return startLocal();
+    setStatus(m["source.openingChain"]({ ref }));
+    setChainRef(ref);
+    setAttempt((n) => n + 1);
     setChainOpen(true);
+  }, [startLocal, setChainOpen]);
+
+  // Each opening of the dialog is one start.
+  useEffect(() => {
+    if (sourceOpen) void startSession();
+  }, [sourceOpen, startSession]);
+
+  const cancel = () => {
+    setSourceOpen(false);
+    setChainOpen(false);
   };
 
-  // Record the chain's output; ending the take closes the listener AND the panel with its frame.
+  // Record the chain's output; ending the take closes the listener AND the hidden bench.
   const recordChain = async (stream: MediaStream, close: () => void) => {
     const release = {
       close: () => {
         close();
         setChainOpen(false);
-        setChainShown(false);
       },
     };
     await begin(stream, release, true);
-    setChainShown(false);
   };
 
   const minimized = recording != null && !recOpen;
@@ -134,26 +152,14 @@ export default function RecordingOverlay({
               onExpand={() => setRecOpen(true)}
               headerActions={
                 recOpen && (
-                  <>
-                    {recording.chain && (
-                      <button
-                        type="button"
-                        className="rec-popin-hide"
-                        onClick={() => setChainShown(true)}
-                        title={m["chain.showTitle"]()}
-                      >
-                        <Workflow className="size-4" /> {m["chain.show"]()}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="rec-popin-hide"
-                      onClick={() => setRecOpen(false)}
-                      title={m["rec.hideTitle"]()}
-                    >
-                      <ChevronDown className="size-4" /> {m["rec.hide"]()}
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className="rec-popin-hide"
+                    onClick={() => setRecOpen(false)}
+                    title={m["rec.hideTitle"]()}
+                  >
+                    <ChevronDown className="size-4" /> {m["rec.hide"]()}
+                  </button>
                 )
               }
               onSave={onSave}
@@ -163,26 +169,24 @@ export default function RecordingOverlay({
         </div>
       )}
 
-      <SessionSourceDialog
+      <SessionStartDialog
         open={sourceOpen}
-        busy={sourceBusy}
+        status={status}
         error={sourceError}
-        onLocal={startLocal}
-        onChain={startChain}
-        onClose={() => setSourceOpen(false)}
+        onRetry={() => void startSession()}
+        onClose={cancel}
       />
 
-      {chainOpen && (
-        <ChainSourcePanel
+      {chainOpen && chainRef && (
+        <RehearsalChainSource
+          key={attempt}
+          chainRef={chainRef}
           who={user}
           recording={!!recording?.chain}
-          shown={chainShown}
+          onStatus={setStatus}
           onRecord={recordChain}
-          onCancel={() => {
-            setChainOpen(false);
-            setChainShown(false);
-          }}
-          onHide={() => setChainShown(false)}
+          onFail={setSourceError}
+          onCancel={cancel}
         />
       )}
     </div>

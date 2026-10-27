@@ -87,7 +87,12 @@
     overflow-y: auto;
     background: rgba(0, 0, 0, 0.55);
   }
-  .chain-panel-backdrop.is-hidden {
+  /* The rehearsal chain's bench: laid out at a real size so k7 runs as it would, and seen by nobody. */
+  .chain-bench-offstage {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 960px;
     visibility: hidden;
     pointer-events: none;
   }

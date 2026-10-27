@@ -1551,6 +1551,11 @@
   "frozen.badName": "Letters, digits, '-' and '_' only, starting with a letter or a digit.",
   "frozen.save": "Save",
   "frozen.input": "input {channel}",
+  "frozen.rehearsalOn": "Record rehearsals through this chain",
+  "frozen.rehearsalOff": "Stop recording rehearsals through this chain",
+  "frozen.rehearsalBadge": "used for rehearsals",
+  "frozen.rehearsalIs": "Rehearsals are recorded through {ref}.",
+  "frozen.rehearsalNone": "Rehearsals are recorded from the device's microphone — the microphone button on a chain records them through it instead.",
   "bench.saveInto": "Save into your chain {name}",
   "bench.saveAs": "Save as one of your chains",
   "bench.saveBody": "What sits between the input and the fader becomes @account/<name>, which projects process with and the rehearsal recorder records through."

@@ -40,9 +40,8 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
   // The running take drawn in its pop-in; false collapses it to the bottom bar.
   const [recOpen, setRecOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
-  // The chain source's panel: mounted from the choice to the end of the take, drawn while `chainShown`.
+  // The rehearsal chain's hidden bench: mounted from the session's start to the end of its take.
   const [chainOpen, setChainOpen] = useState(false);
-  const [chainShown, setChainShown] = useState(false);
   const [changed, setChanged] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const bump = useCallback(() => setChanged((n) => n + 1), []);
@@ -203,8 +202,6 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
             setSourceOpen={setSourceOpen}
             chainOpen={chainOpen}
             setChainOpen={setChainOpen}
-            chainShown={chainShown}
-            setChainShown={setChainShown}
             begin={begin}
             onSave={save}
             onDiscard={discard}

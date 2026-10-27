@@ -13,9 +13,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 import {
+  chooseRehearsalChain,
   copyFrozenChain,
   deleteFrozenChain,
   listFrozenChains,
+  rehearsalChain,
   saveBenchChain,
 } from "./frozenChains.ts";
 
@@ -160,6 +162,28 @@ describe("frozen chains", () => {
     );
     expect(() => saveBenchChain("forked")).toThrow(/one run/);
     expect(listFrozenChains(benchDir()).some((c) => c.mine)).toBe(false);
+  });
+
+  it("takes one of the account's live chains for rehearsals, refuses others, and lets go when it is deleted", () => {
+    try {
+      copyFrozenChain(benchDir(), "@k7-core/vocals", "rehearse");
+      copyFrozenChain(benchDir(), "@k7-core/stems", "split");
+      expect(chooseRehearsalChain(benchDir(), "@account/rehearse")).toBe(
+        "@account/rehearse",
+      );
+      expect(rehearsalChain()).toBe("@account/rehearse");
+      expect(() => chooseRehearsalChain(benchDir(), "@k7-core/vocals")).toThrow(
+        /not one of your frozen chains/,
+      );
+      expect(() => chooseRehearsalChain(benchDir(), "@account/split")).toThrow(
+        /cannot be recorded through live/,
+      );
+      deleteFrozenChain("rehearse");
+      expect(rehearsalChain()).toBeNull();
+    } finally {
+      // The preferences file is the suite's pinned home, shared by every test.
+      chooseRehearsalChain(benchDir(), "");
+    }
   });
 
   it("copies a library chain whole with fresh ids, refuses a name already taken, and deletes", () => {

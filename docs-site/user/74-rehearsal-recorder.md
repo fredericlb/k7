@@ -28,9 +28,8 @@ a page can be opened by others through its link.
 ## Recording a session
 
 1. Click the red dot (**New session**) in the sidebar. It is there on every rehearsal page.
-2. Choose where the audio comes from:
-   - **This device**: this computer's or phone's microphone or audio interface.
-   - **k7 chain**: the output of a chain from your library, played on k7's bench (see below).
+2. The audio comes from your **rehearsal chain** when you chose one on k7's **Frozen chains** page
+   (see below), and from this device's microphone or audio interface otherwise. Nothing is asked.
 3. Allow microphone access if the browser asks.
 
 The recorder opens in a pop-in. A session is created at once.
@@ -82,18 +81,19 @@ confirmation, since it is saved nowhere else).
 
 ## Recording through a chain
 
-The **k7 chain** source records an instrument played through one of the chains of your library,
-as heard at the engine's output:
+Sessions can record an instrument played through one of your frozen chains, as heard at the
+engine's output:
 
-1. Choose **k7 chain**, then pick a chain of your library. (An empty library says: write one in
-   k7's chains builder.)
-2. k7 opens the chain on its bench, shown in a frame, with your input running through it, on an
-   engine. Wait for "The chain's output is reaching k7."
-3. **Listen here** also plays the chain's output on this device (when the engine runs on this
-   machine you already hear it through your interface). The recording takes it either way.
-4. **Record**.
+1. On k7's home page, open **Frozen chains** and press the microphone button on one of your chains:
+   it is marked **used for rehearsals**. Press it again to go back to the microphone. Only a chain
+   that can be recorded through live can be chosen.
+2. **New session** then opens that chain on k7's bench, out of sight, with the input the chain names,
+   and the take starts as soon as the chain's output reaches the recorder.
+3. If the chain names no input channel, a small dialog asks which input of the interface feeds it,
+   and the take starts once one is picked.
 
-During the take, the **Chain** button shows the bench again. If the engine changes its sample rate
+When the engine is elsewhere, the chain's output is also played on this device; when it runs on this
+machine you already hear it through your interface. If the engine changes its sample rate
 mid-stream, the take must be started again.
 
 ## Settings

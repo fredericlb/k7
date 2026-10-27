@@ -221,14 +221,24 @@ export const accountFiles = {
     ),
 
   /** The Frozen chains page's list: the account's own chains, then the libraries' cold ones (../../docs/frozenChains.md). */
-  frozenChains: async (m: AccountFiles): Promise<FrozenChain[]> =>
+  frozenChains: async (
+    m: AccountFiles,
+  ): Promise<{ chains: FrozenChain[]; rehearsalChain: string | null }> =>
+    call(m, `/account/frozen-chains`, "frozen-chains"),
+
+  /** Choose the chain rehearsals are recorded through; `""` clears it, and they record from the microphone. */
+  setRehearsalChain: async (
+    m: AccountFiles,
+    ref: string,
+  ): Promise<string | null> =>
     (
-      await call<{ chains: FrozenChain[] }>(
+      await call<{ ref: string | null }>(
         m,
-        `/account/frozen-chains`,
-        "frozen-chains",
+        `/account/rehearsal-chain`,
+        "rehearsal-chain",
+        { method: "PUT", json: { ref } },
       )
-    ).chains,
+    ).ref,
 
   /** Copy any library chain whole into the account's, as `name`; the reply is the copy as it reads. */
   copyFrozenChain: async (

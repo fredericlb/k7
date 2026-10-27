@@ -34,6 +34,8 @@ export interface Preferences {
   stemsChain?: string;
   /** …and the one that gives the record WITHOUT ITS VOICE, asked the same way — see packages/file-service/docs/processChain.md. */
   instrumentalChain?: string;
+  /** The frozen chain a rehearsal is recorded through, chosen on k7's Frozen chains page — apps/k7/frontend/docs/frozenChains.md. */
+  rehearsalChain?: string;
   /** Which output pair the `CUE` bus leaves by — a label from `channels.out`, or the numbers. See docs/cue.md. */
   cueOutput?: string | number[];
 }
@@ -89,6 +91,8 @@ export function normalizePreferences(v: any): Preferences {
       p.stemsChain = v.stemsChain.trim();
     if (typeof v.instrumentalChain === "string" && v.instrumentalChain.trim())
       p.instrumentalChain = v.instrumentalChain.trim();
+    if (typeof v.rehearsalChain === "string" && v.rehearsalChain.trim())
+      p.rehearsalChain = v.rehearsalChain.trim();
     // Either form, like a track's `input`: the numbers, or a label this file's `channels.out` names.
     if (Array.isArray(v.cueOutput)) {
       const ch = v.cueOutput
@@ -158,6 +162,15 @@ export function setInstrumentalChain(ref: string): Preferences {
   const p = loadPreferences();
   const want = ref.trim();
   p.instrumentalChain = want || undefined;
+  savePreferences(p);
+  return p;
+}
+
+/** Remember which chain rehearsals are recorded through. An empty ref clears it: they record from the microphone. */
+export function setRehearsalChain(ref: string): Preferences {
+  const p = loadPreferences();
+  const want = ref.trim();
+  p.rehearsalChain = want || undefined;
   savePreferences(p);
   return p;
 }

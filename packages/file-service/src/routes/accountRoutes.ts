@@ -16,9 +16,11 @@ import { benchDir } from "../bench.ts";
 import { liveChains } from "../benchChain.ts";
 import { pluginParams, showNativePluginUIOf } from "../engineLink.ts";
 import {
+  chooseRehearsalChain,
   copyFrozenChain,
   deleteFrozenChain,
   listFrozenChains,
+  rehearsalChain,
 } from "../frozenChains.ts";
 import { modelDownload, startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -103,7 +105,29 @@ accountRouter.get(
 accountRouter.get(
   "/account/frozen-chains",
   wrap((_req, res) => {
-    res.json({ chains: listFrozenChains(benchDir()) });
+    res.json({
+      chains: listFrozenChains(benchDir()),
+      rehearsalChain: rehearsalChain(),
+    });
+  }),
+);
+// The chain a rehearsal is recorded through, which the recorder asks before a take — apps/k7/frontend/docs/frozenChains.md.
+accountRouter.get(
+  "/account/rehearsal-chain",
+  wrap((_req, res) => {
+    res.json({ ref: rehearsalChain() });
+  }),
+);
+accountRouter.put(
+  "/account/rehearsal-chain",
+  validate(z.object({ ref: z.string() })),
+  wrap((req, res) => {
+    const { ref } = req.body as { ref: string };
+    try {
+      res.json({ ref: chooseRehearsalChain(benchDir(), ref) });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 // A copy of any library chain into the account's, whole: what the page's Duplicate does.

@@ -11,11 +11,7 @@ import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { decodeStreamFrame } from "@studio/engine-protocol/stream";
-import {
-  ENGINE_TOKEN_HEADER,
-  type LiveChain,
-  type PublicEngine,
-} from "@studio/web-protocol";
+import { ENGINE_TOKEN_HEADER, type PublicEngine } from "@studio/web-protocol";
 import {
   BENCH_REPO,
   benchProject,
@@ -56,14 +52,15 @@ function engines(): Promise<EngineAccess<PublicEngine>> {
   return access;
 }
 
-/** The library's chains, each saying whether the bench can play it live. */
-export async function listLiveChains(): Promise<LiveChain[]> {
+/** The frozen chain rehearsals are recorded through, chosen on k7's Frozen chains page; null records from the microphone. */
+export async function rehearsalChain(): Promise<string | null> {
   const hub = await (await engines()).hostedFiles();
-  if (!hub) throw new Error(m["chain.noFiles"]());
-  const res = await fetch(`${hub.fileBase}/account/live-chains`, {
+  // A server holding no files holds no chain either: the microphone it is.
+  if (!hub) return null;
+  const res = await fetch(`${hub.fileBase}/account/rehearsal-chain`, {
     headers: { [ENGINE_TOKEN_HEADER]: hub.fileToken },
   });
-  return (await readJson<{ chains: LiveChain[] }>(res, "live-chains")).chains;
+  return (await readJson<{ ref: string | null }>(res, "rehearsal-chain")).ref;
 }
 
 /** Where k7 opens the bench seeded with `ref` — what the iframe shows. */
