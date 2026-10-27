@@ -41,14 +41,17 @@ though a microphone exists.
 
 `RecorderView` is a bar at the foot of the page, whatever the take is doing, so the page above stays
 usable: the songbook is read while the band plays. The bar holds the take's status and time, two
-waveforms, the highlights as chips, **Pause** or **Resume** and **Stop & save** as bare icons, and a
-⋮ that holds the metronome: a tool a take rarely touches does not take room from the ones it does.
-The waveform over four fifths of the width is the whole take, start to now, so the shape of an hour
-reads at a glance; the last fifth scrolls the last twelve seconds, where a level is checked. The
-whole view reads every sample, so it is redrawn twice a second, not every frame; only its playhead
+waveforms with the highlights drawn on them, **Pause** or **Resume** and **Stop & save** as bare
+icons, and a ⋮ that holds the metronome: a tool a take rarely touches does not take room from the
+ones it does. The waveform over nine tenths of the width frames the take from its start in a window
+of a minute that grows by half a minute each time the take reaches its end: a window that tracked
+"now" would rescale under the eye every second, and steps keep the drawn highlights still long
+enough to aim at. The last tenth scrolls the last twelve seconds, where a level is checked. The
+framed view reads every sample, so it is redrawn twice a second, not every frame; only its playhead
 follows the frame. The ⋮ opens outside the bar, so the host hands it its scope class
-(`menuClassName`) for its palette to reach it. A chip pauses the take and plays that highlight back, with a row over the bar to play it again and
-to note what happened; **Resume** carries the take on from where it paused. Errors, the upload's
+(`menuClassName`) for its palette to reach it. A highlight clicked on either waveform pauses the
+take and plays it back, tinted on the framed view, with a row over the bar to play it again and to
+note what happened; **Resume** carries the take on from where it paused. Errors, the upload's
 progress and a failed upload's Retry and Download are said in the bar too. It publishes its own
 height as `--rec-bar-h`, which the host pads its pages and stacks its own bars by, the bar growing
 while a highlight is heard.

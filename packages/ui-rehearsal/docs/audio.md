@@ -17,7 +17,7 @@ so wrapping every home page costs them nothing; what it draws is a lazy chunk.
 A take starts from the red dot k7 draws as the rehearsal pages' action (`NewSessionButton`), or
 from resuming a session, and the page it starts on stays as it is: you record against a song in
 order to READ it while you play, and covering the tablature the instant the tape rolls is the one
-thing that use has no answer to. A bar does not cover it, and its chips, Resume and Stop are every
+thing that use has no answer to. A bar does not cover it, and its highlights, Resume and Stop are every
 control a take needs. What starts the session (`SessionStartBar.tsx`) and the input a chain may ask
 for are said in that same bar, before the recorder takes its place.
 
