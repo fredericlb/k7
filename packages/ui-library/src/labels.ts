@@ -126,6 +126,22 @@ export interface LibraryLabels {
     tabLyrics: string;
     tabTablature: string;
     tabSheet: string;
+    /** Lyrics with chords, typed by hand — a tab of its own, apart from the lyrics. */
+    tabChords: string;
+    /** The three buttons over the song's tabs, each offered while the song lacks it (a sheet always). */
+    addChords: string;
+    addTab: string;
+    addSheet: string;
+    /** What an empty text editor says before anything is typed. */
+    placeholderChords: string;
+    placeholderTab: string;
+    save: string;
+    /** The button over a chords or tab text already there. */
+    editText: string;
+    /** A file the sheets do not take: a PDF, an image or a score only. */
+    notASheet: (name: string) => string;
+    /** While the picked sheets go up, one after another. */
+    sendingSheets: string;
     tagsHeading: string;
     edit: string;
     done: string;

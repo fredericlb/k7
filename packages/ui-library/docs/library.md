@@ -221,6 +221,8 @@ does (`src/AddSong.tsx`): a popin asks its **artist and title**, then where its 
 
 The NAMES come first and decide the folder, whichever way the audio comes, so the three land in the
 same place. It adds one song at a time: a batch would be a different screen, deciding per song.
+Once added, the song's page opens — its address at once, its screen as soon as the listing has it —
+since what comes next for a new song is its chords, tab or sheet ([songPlayer.md](songPlayer.md)).
 
 ## Filing variants
 

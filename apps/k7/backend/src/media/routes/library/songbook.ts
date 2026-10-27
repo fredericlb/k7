@@ -2,7 +2,9 @@
 // folder and addressed by the sidecar's uuid. The rehearsal server is the caller, over loopback with
 // its service token — packages/mediatek/docs/songbook.md.
 
+import { existsSync } from "node:fs";
 import { wrap } from "@frediverse/http/route";
+import { writablePath } from "@studio/mediatek/layout";
 import { NotAudioError } from "@studio/mediatek/song";
 import {
   addSongbookSheet,
@@ -19,6 +21,7 @@ import {
   setSongbookMaster,
 } from "@studio/mediatek/songbook";
 import { UntaggableError } from "@studio/mediatek/tags";
+import { canonicalSheetMime } from "@studio/rehearsal-shared/sheetKind";
 import express, { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { mayManageLibrary } from "../../libraryGate.ts";
@@ -60,7 +63,24 @@ const createBody = z.object({
   artist: z.string().trim().min(1),
   title: z.string().trim().min(1),
   owner: z.string().default(""),
+  /** A library song's own folder, ADOPTED rather than a new one made — the médiathèque's song page. */
+  folder: z.string().optional(),
 });
+
+/** A folder the client names: a plain `songs/…` path, no `.` or `..` segment, already on disk. */
+function adoptable(folder: string): string {
+  const parts = folder.split("/");
+  if (
+    parts[0] !== "songs" ||
+    parts.length < 2 ||
+    folder.includes("\\") ||
+    parts.some((p) => p === "" || p === "." || p === "..")
+  )
+    throw new SongbookRefusedError(`${folder} is not a song folder`);
+  if (!existsSync(writablePath(folder)))
+    throw new SongbookRefusedError(`${folder}: no such song`);
+  return folder;
+}
 
 const fetchBody = z
   .object({
@@ -78,6 +98,7 @@ const patchBody = z
     title: z.string(),
     lyrics: z.string(),
     tablature: z.string(),
+    chords: z.string(),
     lyricsMatch: z.string(),
     fetchIgnored: z.boolean(),
     fetch: fetchBody,
@@ -106,10 +127,16 @@ songbookRoutes.post(
   "/songbook",
   express.json(),
   answer(async (req) => {
-    const body = createBody.parse(req.body ?? {});
+    const { folder, ...body } = createBody.parse(req.body ?? {});
     // The médiathèque names no owner: the account that made it is who created it.
     const owner = body.owner || ((req.user as { sub?: string })?.sub ?? "");
-    return readSongbookAt(createSongbook({ ...body, owner }).path);
+    return readSongbookAt(
+      createSongbook({
+        ...body,
+        owner,
+        ...(folder ? { folder: adoptable(folder) } : {}),
+      }).path,
+    );
   }),
 );
 
@@ -128,10 +155,20 @@ songbookRoutes.post(
   answer((req) => {
     const upload = uploadOf(req);
     if (!upload.size) throw new SongbookRefusedError("empty sheet");
+    const name = String(req.query.name ?? "sheet");
+    // The songbook's own rule, the rehearsal server's too: a PDF, an image or a score, and nothing else.
+    const mime = canonicalSheetMime(
+      name,
+      String(req.query.mime ?? "application/octet-stream"),
+    );
+    if (!mime)
+      throw new SongbookRefusedError(
+        `${name}: a sheet is a PDF, an image or a score`,
+      );
     return addSongbookSheet(req.params.id, {
       bytes: { file: upload.file },
-      name: String(req.query.name ?? "sheet"),
-      mime: String(req.query.mime ?? "application/octet-stream"),
+      name,
+      mime,
     });
   }),
 );

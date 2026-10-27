@@ -431,7 +431,7 @@ export const library = {
   addSongWithoutAudio: async (tags: {
     artist: string;
     title: string;
-  }): Promise<{ path: string }> => {
+  }): Promise<SongbookSong> => {
     const res = await request(`${apiBase()}/api/mediatek/songbook`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -439,6 +439,73 @@ export const library = {
     });
     if (!res.ok) throw await failed(res, "song");
     return json(res, "song");
+  },
+
+  /** A library song made a SONGBOOK song in its own folder, so it can carry chords, a tab and sheets. */
+  adoptSongbook: async (song: {
+    folder: string;
+    artist: string;
+    title: string;
+  }): Promise<SongbookSong> => {
+    const res = await request(`${apiBase()}/api/mediatek/songbook`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        folder: song.folder,
+        // The route wants names; they are written only for a folder with no master to name it.
+        artist: song.artist || "?",
+        title: song.title || "?",
+      }),
+    });
+    if (!res.ok) throw await failed(res, "songbook");
+    return json(res, "songbook");
+  },
+
+  /** One of a songbook song's texts written; an empty one is removed — mediatek's docs/songbook.md. */
+  patchSongbook: async (
+    id: string,
+    patch: { chords?: string; tablature?: string; lyrics?: string },
+  ): Promise<SongbookSong> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      },
+    );
+    if (!res.ok) throw await failed(res, "songbook");
+    return json(res, "songbook");
+  },
+
+  /** One sheet added at the end of the song's list; no time budget, a score or a PDF can be large. */
+  addSheet: async (
+    id: string,
+    file: File,
+    mime: string,
+  ): Promise<SongbookSong> => {
+    const q = new URLSearchParams({ name: file.name, mime });
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}/sheets?${q}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: file,
+      },
+      null,
+    );
+    if (!res.ok) throw await failed(res, `${file.name}:`);
+    return json(res, "sheet");
+  },
+
+  /** One sheet removed, its file with it. */
+  removeSheet: async (id: string, sheet: string): Promise<SongbookSong> => {
+    const res = await request(
+      `${apiBase()}/api/mediatek/songbook/${encodeURIComponent(id)}/sheets/${encodeURIComponent(sheet)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw await failed(res, "sheet");
+    return json(res, "sheet");
   },
 
   /** A songbook song read whole by its id — its texts and sheets, what the song screen's tabs show (mediatek's docs/songbook.md). */

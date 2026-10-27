@@ -164,6 +164,11 @@ export function MediaLibrary({
   }, [target]);
   // The queue and the destination are the provider's, above this screen.
   const playback = usePlayback();
+  // A song just added opens on its page: the address first, the screen once the listing has it.
+  const openCreated = useCallback(
+    (folder: string) => openFile(`${relative(folder)}/${SONG_FILE}`),
+    [openFile],
+  );
   // A tap opens the song; a double tap on a touch screen plays it instead (../docs/responsive.md).
   const tapSong = useSongTap(
     useCallback(
@@ -465,7 +470,11 @@ export function MediaLibrary({
         {/* Below the tree's own scroll, not inside it — a foot that never moves. */}
         {section === "songs" ? (
           <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
-            <AddSong onDone={refresh} onOpenSettings={onOpenSettings} />
+            <AddSong
+              onDone={refresh}
+              onCreated={openCreated}
+              onOpenSettings={onOpenSettings}
+            />
           </div>
         ) : isZone ? (
           <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
@@ -499,7 +508,11 @@ export function MediaLibrary({
           onOpen={openFile}
           emptyActions={
             section === "songs" ? (
-              <AddSong onDone={refresh} onOpenSettings={onOpenSettings} />
+              <AddSong
+                onDone={refresh}
+                onCreated={openCreated}
+                onOpenSettings={onOpenSettings}
+              />
             ) : isZone ? (
               <AddRecording onDone={refresh} onError={setError} />
             ) : undefined

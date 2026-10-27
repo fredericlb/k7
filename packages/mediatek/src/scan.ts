@@ -16,6 +16,7 @@ import { isAudio, isVideo, withoutDerived } from "./media.ts";
 import { mapLimit } from "./pool.ts";
 import { readMasterTags } from "./tags.ts";
 import {
+  CHORDS_FILE,
   type Family,
   K7_ARTIST,
   LYRICS_FILE,
@@ -187,9 +188,10 @@ async function songEntry(
       // The album position, which orders the tree's songs inside their album (ui-library's docs/library.md).
       ...(tags.track ? { track: tags.track } : {}),
       ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
-      // What the songbook lists a song by: one of these three makes it a songbook song (docs/songbook.md).
+      // What the songbook lists a song by: one of these four makes it a songbook song (docs/songbook.md).
       ...(file(LYRICS_FILE) ? { lyrics: true } : {}),
       ...(file(TABS_FILE) ? { tabs: true } : {}),
+      ...(file(CHORDS_FILE) ? { chords: true } : {}),
       ...(book.sheets ? { sheets: book.sheets } : {}),
       ...(book.owner ? { owner: book.owner } : {}),
       ...(book.origin ? { origin: book.origin } : {}),

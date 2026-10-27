@@ -46,6 +46,9 @@ export const LYRICS_FILE = "lyrics.txt";
 /** …its tablature, as plain text. */
 export const TABS_FILE = "tabs.txt";
 
+/** …and its CHORDS: lyrics with chords, typed by hand, kept apart from the lyrics for now — docs/songbook.md. */
+export const CHORDS_FILE = "chords.txt";
+
 /** …and its sheet music, one file each, ordered by the sidecar's `songbook.sheets`. */
 export const SHEETS_DIR = "sheets";
 
@@ -90,6 +93,7 @@ export interface SongbookSong {
   title: string;
   lyrics: string;
   tablature: string;
+  chords: string;
   /** The master's mediatek-relative path, null for a folder holding no audio. */
   master: string | null;
   facts: SongbookFacts;
@@ -103,6 +107,7 @@ export interface SongbookEntry {
   title: string;
   hasLyrics: boolean;
   hasTablature: boolean;
+  hasChords: boolean;
   sheetCount: number;
   owner: string;
   origin: string;
