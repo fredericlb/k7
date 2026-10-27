@@ -41,7 +41,7 @@ shell's `onShaderParam` writes it a few times a drag, the last value always land
 (`apps/k7/frontend/src/hooks/useShaderParam.ts`).
 
 A drag is SEEN before it is saved. The write is a quiet command, which reloads nothing, so the
-knob is also pushed to every viewport on the page (`shaderLive.ts`) and set on the compositor's
+knob is also pushed to every viewport on the page (`pictureLive.ts`) and set on the compositor's
 passes in place, no program rebuilt (`setParam`); the picture is read back once the writes stop.
 
 The graph names each lane's strip in `trackMixers`, read off the graph's `extends` rather than off

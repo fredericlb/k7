@@ -52,11 +52,13 @@ upload memo is forgotten, since the compositor's slots come back empty. With the
 stopped, nothing chases the clock, so an element further than a frame from where the edit moved
 its shot is seeked there; while playing, the drift control does that on its own.
 
-## A knob is set in place, not a scene
+## A knob, or a lane's rect, is set in place, not a scene
 
 A shader knob moved by hand is `setParam(node, name, value)`: the value goes onto the passes that
-node runs, and the next frame draws it. A `setScene` would compile every pass's program again for
-each step of a drag. A node with no pass yet answers false, and waits for the next scene.
+node runs, and the next frame draws it. A lane dragged on the frame is `setLayerRect(lane, rect)`:
+its clip-space rect, its pixel box and its aspect are numbers, recomputed without a texture or a
+program. A `setScene` would delete every layer's textures and compile every pass again for each
+step of a drag. A node or a lane the scene does not hold answers false, and waits for the next scene.
 
 ## A still takes no element
 

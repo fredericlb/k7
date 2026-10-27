@@ -566,3 +566,14 @@ describe("a lane's pass at its IDENTITY knobs", () => {
     expect(drawn(log)).toEqual(["uniform1f(uP1,0.5)"]);
   });
 });
+
+describe("a lane's rect set IN PLACE", () => {
+  it("moves the layer it names and allocates nothing for it", () => {
+    const { comp, log } = make(scene([clip()]));
+    const before = log.length;
+    expect(comp.setLayerRect("main", { x: 8, y: 4, w: 32, h: 16 })).toBe(true);
+    expect(comp.setLayerRect("nobody", { x: 0, y: 0, w: 1, h: 1 })).toBe(false);
+    // No texture, framebuffer or program: a drag's frame is numbers, not GL objects.
+    expect(log.slice(before)).toEqual([]);
+  });
+});

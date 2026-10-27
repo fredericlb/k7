@@ -22,6 +22,6 @@ export const videoPlugin: K7Plugin = definePlugin({
   panes: [{ type: "viewport", drawer: ViewportPane }],
 });
 
+export { pushLayerRect, pushShaderParam } from "./pictureLive";
 export { sceneOf } from "./scene";
-export { pushShaderParam } from "./shaderLive";
 export type { ViewportTabProps } from "./ViewportTab";

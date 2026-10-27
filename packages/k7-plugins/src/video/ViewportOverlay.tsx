@@ -7,6 +7,7 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebVideoTrack } from "@studio/web-protocol";
 import { useEffect, useRef, useState } from "react";
+import { pushLayerRect } from "./pictureLive";
 import {
   CURSOR,
   dragRect,
@@ -23,6 +24,9 @@ import {
 } from "./viewportRect";
 
 const rectOf = (t: WebVideoTrack): Rect => ({ x: t.x, y: t.y, w: t.w, h: t.h });
+
+/** How long a dropped rect is held for a document that has not caught up: past it, the write is taken to have failed. */
+const HELD_MS = 5000;
 
 export function ViewportOverlay({
   tracks,
@@ -52,6 +56,8 @@ export function ViewportOverlay({
     now: Rect;
   } | null>(null);
   const [hover, setHover] = useState<Grip | null>(null);
+  // The rect a drag DROPPED, drawn until the document read back after the write says the same.
+  const [held, setHeld] = useState<{ lane: string; rect: Rect } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
   // Where the press landed, in viewport px — every frame of the drag is measured from it.
@@ -61,8 +67,26 @@ export function ViewportOverlay({
   const pickable = tracks.filter((t) => !t.shapes.length);
   const scale = box && viewport[0] ? box.w / viewport[0] : 0;
   const sel = pickable.find((t) => t.id === selected) ?? null;
-  // The selected lane's rect: the drag's while one runs, so the box follows the pointer rather than the file.
-  const selRect = sel ? (drag?.lane === sel.id ? drag.now : rectOf(sel)) : null;
+  // The selected lane's rect: the drag's while one runs, then the dropped one until the file agrees.
+  const selRect = sel
+    ? drag?.lane === sel.id
+      ? drag.now
+      : held?.lane === sel.id
+        ? held.rect
+        : rectOf(sel)
+    : null;
+
+  // The document caught up — or never will, the write having failed: either way the file is what is drawn.
+  useEffect(() => {
+    if (!held) return;
+    const t = tracks.find((x) => x.id === held.lane);
+    if (!t || sameRect(rectOf(t), held.rect)) {
+      setHeld(null);
+      return;
+    }
+    const giveUp = setTimeout(() => setHeld(null), HELD_MS);
+    return () => clearTimeout(giveUp);
+  }, [tracks, held]);
 
   // Escape drops the selection, on the rung below the shell's fullscreen — the same ladder the timeline keeps.
   useEffect(() => {
@@ -128,17 +152,25 @@ export function ViewportOverlay({
     }
     // Measured from the PRESS and from the rect it started on, never frame to frame: a re-applied
     // offset makes the edge run away from the cursor, which the timeline's drags pay for once each.
-    setDrag({
-      ...d,
-      now: dragRect(d.from, d.grip, p.x - down.current.x, p.y - down.current.y),
-    });
+    const now = dragRect(
+      d.from,
+      d.grip,
+      p.x - down.current.x,
+      p.y - down.current.y,
+    );
+    setDrag({ ...d, now });
+    // The PICTURE follows the hand, not only the box: the write waits for the release.
+    pushLayerRect(d.lane, now);
   };
 
   const onUp = () => {
     const d = dragRef.current;
     setDrag(null);
     setHover(null);
-    if (d && onRect && !sameRect(d.from, d.now)) onRect(d.lane, d.now);
+    if (d && onRect && !sameRect(d.from, d.now)) {
+      setHeld({ lane: d.lane, rect: d.now });
+      onRect(d.lane, d.now);
+    }
   };
 
   const px = (n: number) => n * scale;
