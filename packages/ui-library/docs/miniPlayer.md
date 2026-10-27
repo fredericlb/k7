@@ -50,6 +50,31 @@ The duration comes from the `<audio>` element, which is mounted for whatever is 
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,
 and a metadata request is cheaper than a second source of truth.
 
+## The waveform in the bar
+
+The bar's position row is the waveform of **what plays** — the master, a variant or the
+instrumental, since `now.path` is the file and each has its own shape — drawn by the same
+`@studio/ui-waveform` canvas the song pane draws, from the same `.cache` sidecar
+(`src/songWaveform.ts`). It goes in the row's `track` slot, so the three other hosts of the row keep
+their scrubber.
+
+- **The bar never asks for an analysis.** It reads the sidecar, and a file without one keeps the
+  plain scrubber: an analysis takes an engine minutes, too much to spend on a strip nobody asked
+  for. The song pane does ask, and every shape read is remembered for the tab
+  (`src/shapeMemo.ts`), so the bar switches to the waveform as soon as the pane's analysis lands.
+- **It seeks like the scrubber it replaces**: a click seeks, a drag previews and seeks once on the
+  release, a key previews and seeks on its release — for the same burst of seeks the scrubber
+  avoids (`packages/ui-mini-player/docs/miniPlayer.md`). It is a `role="slider"` so the keyboard
+  and the accessible name stay.
+- **Hovering peeks.** A rule and the time under the pointer, and nothing moves until a click: a
+  waveform is read before it is clicked, and an intro or a drop is found by eye. A finger has no
+  hover, so on a touch screen the peek shows while dragging and goes when the finger lifts.
+- **An overlay takes every gesture, not the canvas.** The canvas's own drag makes a selection,
+  which a bar has no use for; over it, the strip's arithmetic is its own (`src/playback/peek.ts`).
+- **The strip's seconds are the shape's**, so the rule lands on the picture it points at; the
+  right clock is the transport's length once it is known.
+- **On a device without hover it is taller** (36 px against 28), as the scrubber's hit area is.
+
 ## One socket
 
 `useSongEngine` is opened once, by the provider, and by nothing else. One
