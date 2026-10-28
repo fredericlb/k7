@@ -1,6 +1,6 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { type AlbumRow, albumOf, songTable } from "./songRows";
+import { type AlbumRow, albumOf, filterTable, songTable } from "./songRows";
 
 const song = (
   path: string,
@@ -109,5 +109,55 @@ describe("songTable", () => {
       artist: "AC/DC",
       album: "Back in Black",
     });
+  });
+});
+
+describe("filterTable", () => {
+  const groups = songTable(
+    [
+      song("songs/Nirvana/Nevermind/Lithium", { track: 5 }),
+      song("songs/Nirvana/Nevermind/Polly", { track: 6 }),
+      song("songs/Céline Dion/Album inconnu/Pour que tu m'aimes encore"),
+      song("songs/Adele/25/Hello"),
+    ],
+    [],
+    new Set(["songs/Adele/25/Hello"]),
+    new Set(),
+  );
+  const titles = (q: string) =>
+    filterTable(groups, q).flatMap((g) =>
+      g.rows.map((r) =>
+        r.kind === "album"
+          ? `${r.title}: ${r.songs.map((s) => s.title).join(", ")}`
+          : r.title,
+      ),
+    );
+
+  it("keeps everything for an empty query", () => {
+    expect(filterTable(groups, "  ")).toBe(groups);
+  });
+
+  it("matches a title, an artist or an album, ignoring case and accents", () => {
+    expect(titles("HELLO")).toEqual(["Hello"]);
+    expect(titles("celine")).toEqual(["Pour que tu m'aimes encore"]);
+    expect(titles("25")).toEqual(["Hello"]);
+  });
+
+  it("keeps an album whole when its name or artist matches", () => {
+    expect(titles("nevermind")).toEqual(["Nevermind: Lithium, Polly"]);
+    expect(titles("nirvana")).toEqual(["Nevermind: Lithium, Polly"]);
+  });
+
+  it("keeps an album for the songs that match, and only those", () => {
+    expect(titles("polly")).toEqual(["Nevermind: Polly"]);
+  });
+
+  it("wants every word, each anywhere in the row", () => {
+    expect(titles("nirvana lithium")).toEqual(["Nevermind: Lithium"]);
+    expect(titles("adele lithium")).toEqual([]);
+  });
+
+  it("drops a group left empty", () => {
+    expect(filterTable(groups, "polly").map((g) => g.id)).toEqual(["others"]);
   });
 });

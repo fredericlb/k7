@@ -64,6 +64,10 @@ export interface LibraryLabels {
     songs: (count: number) => string;
     unfold: (album: string) => string;
     fold: (album: string) => string;
+    /** The search box at the table's head, and what it says when nothing matches. */
+    search: string;
+    clearSearch: string;
+    noMatch: (query: string) => string;
   };
   contents: {
     emptyLibrary: string;

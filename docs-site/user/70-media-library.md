@@ -35,6 +35,11 @@ single row; click it to unfold its songs, in the album's order. Click a song to 
 which takes the whole width too; its **Back** button returns to the table. Each row's **⋮** holds its
 menu (see [Songs and samples](./71-songs-and-samples.md)).
 
+The search box at the top of the table keeps the songs whose artist, album or title contain every
+word you type, whatever the case or the accents: `nirvana lithium` finds Lithium on Nevermind. An
+album whose own name or artist matches stays whole; otherwise it shows only its songs that match.
+Escape or the cross empties the box. The search is still there when you come back from a song.
+
 Samples and Recordings share another layout:
 
 - **The tree**, on the left: the section's folders and files. Rows are sorted alphabetically at

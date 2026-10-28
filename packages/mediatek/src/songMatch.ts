@@ -6,7 +6,8 @@ import { similarity } from "@studio/lyrics/lrc";
 import { songMatches } from "./playlistItems.ts";
 import type { MediatekEntry } from "./types.ts";
 
-const normalize = (s: string): string =>
+/** Lowercase, no accents, punctuation as spaces: how two spellings of a name are compared. */
+export const normalize = (s: string): string =>
   s
     .normalize("NFD")
     .replace(/\p{M}/gu, "")

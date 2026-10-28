@@ -1,6 +1,7 @@
 // SongTable.tsx — the songs family as a table the width of the screen: the practice list, then the
 // favorites, then the rest, an album of several songs as one row that unfolds into them. A song's
-// row opens its page; a file dropped on it becomes its master or a version, as the tree's did.
+// row opens its page; a file dropped on it becomes its master or a version, as the tree's did. The
+// search box at its head narrows it to the rows whose artist, album or title hold every word typed.
 // The grouping is songRows.ts; the ⋮ is the tree's own menu (RowMenu.tsx). See ../docs/library.md.
 
 import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
@@ -10,7 +11,10 @@ import {
   Cloud,
   Disc3,
   ListMusic,
+  Search,
+  X,
 } from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
 import {
   Table,
   TableBody,
@@ -28,7 +32,11 @@ import { RemoteDownload } from "./ServerCopy";
 import type { AlbumRow, SongRow, TableGroup } from "./songRows";
 
 export interface SongTableProps {
+  /** Already narrowed by the search (songRows.ts's `filterTable`). */
   groups: TableGroup[];
+  /** What the search box holds, kept by the host so it outlives a visit to a song's page. */
+  query: string;
+  onQuery: (query: string) => void;
   practice: ReadonlySet<string>;
   favorites: ReadonlySet<string>;
   togglePractice: (path: string) => void;
@@ -49,12 +57,26 @@ export function SongTable(p: SongTableProps) {
   const t = l.table;
   // Which albums are unfolded — this screen's, forgotten on leaving it like a tree's expansion.
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  // While searching an album shows what matched, unfolded; these are the ones folded by hand, for this query only.
+  const [shut, setShut] = useState<{
+    query: string;
+    rels: ReadonlySet<string>;
+  }>({ query: "", rels: new Set() });
+  const searching = p.query.trim() !== "";
+  const isOpen = (rel: string) =>
+    searching ? !(shut.query === p.query && shut.rels.has(rel)) : open.has(rel);
+  const flip = (set: ReadonlySet<string>, rel: string) => {
+    const next = new Set(set);
+    if (!next.delete(rel)) next.add(rel);
+    return next;
+  };
   const toggle = (rel: string) =>
-    setOpen((s) => {
-      const next = new Set(s);
-      if (!next.delete(rel)) next.add(rel);
-      return next;
-    });
+    searching
+      ? setShut((s) => ({
+          query: p.query,
+          rels: flip(s.query === p.query ? s.rels : new Set(), rel),
+        }))
+      : setOpen((s) => flip(s, rel));
   const heading = {
     practice: t.practice,
     favorites: t.favorites,
@@ -146,7 +168,7 @@ export function SongTable(p: SongTableProps) {
   );
 
   const albumRow = (a: AlbumRow) => {
-    const unfolded = open.has(a.rel);
+    const unfolded = isOpen(a.rel);
     const Chevron = unfolded ? ChevronDown : ChevronRight;
     return (
       <Fragment key={a.rel}>
@@ -201,9 +223,38 @@ export function SongTable(p: SongTableProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      {p.actionsBar ? (
-        <div className="flex flex-wrap justify-end gap-2">{p.actionsBar}</div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={p.query}
+            onChange={(e) => p.onQuery(e.target.value)}
+            // Escape empties it, the way a search field is left.
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && p.query) {
+                e.preventDefault();
+                p.onQuery("");
+              }
+            }}
+            placeholder={t.search}
+            aria-label={t.search}
+            className="pr-8 pl-8"
+          />
+          {p.query ? (
+            <button
+              type="button"
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              aria-label={t.clearSearch}
+              title={t.clearSearch}
+              onClick={() => p.onQuery("")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+        {p.actionsBar}
+      </div>
       {/* touch-manipulation: no double-tap zoom, since a double tap on a song plays it. */}
       <Table className="table-fixed touch-manipulation">
         <TableHeader>
@@ -216,6 +267,17 @@ export function SongTable(p: SongTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {/* A search that keeps nothing says so, rather than leaving a header over an empty body. */}
+          {searching && !p.groups.length ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={5}
+                className="py-6 text-center text-sm text-muted-foreground"
+              >
+                {t.noMatch(p.query.trim())}
+              </TableCell>
+            </TableRow>
+          ) : null}
           {p.groups.map((g) => (
             <Fragment key={g.id}>
               <TableRow className="hover:bg-transparent">

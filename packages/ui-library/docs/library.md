@@ -66,6 +66,16 @@ tree's drop did (Filing a dropped track, below). The paired server's songs are r
 muted, with their download in place of the menu. The unfolded albums are this screen's state, not
 the address's: they are forgotten on leaving, like a tree's expansion.
 
+**One search box at the table's head**, and it narrows rather than ranks: a row stays when every
+word typed is found in its artist, album or title, case and accents folded by the same `normalize`
+"Add a song" matches with (`packages/mediatek/src/songMatch.ts`). One box and not a field per column,
+because a person remembers "that Nirvana one with the lithium" and not which column holds which word.
+The groups keep their order, a group left empty disappears, and a search that keeps nothing says so.
+An album named by its own title or artist stays whole; one kept only for some of its songs shows just
+those, and while searching every album shows unfolded — the match is what was asked to be seen. The
+query is held by `SongsLibrary`, above the song's page, so Back returns to the same narrowed table;
+like the unfolding it is not in the address.
+
 ## What a tree row stands for
 
 The tree is derived, never stored: it IS the entry list in another shape, so a second copy could

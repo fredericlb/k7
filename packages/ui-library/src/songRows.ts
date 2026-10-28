@@ -1,9 +1,10 @@
 // songRows.ts — the songs family as the rows of the catalogue's table: the practice list first,
 // then the favorites, then the rest, and an album of more than one song drawn as ONE row that
-// unfolds into its songs. Pure, so the grouping is tested without a screen.
+// unfolds into its songs — and the same rows narrowed by a search. Pure, so both are tested alone.
 // The one thing a reader would get wrong: « Album inconnu » is where an untagged song is filed, not an album (../docs/library.md).
 
 import { UNKNOWN_ALBUM } from "@studio/mediatek/song";
+import { normalize } from "@studio/mediatek/songMatch";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { isFavorite } from "./favorites";
 import { relative } from "./libraryTree";
@@ -142,4 +143,32 @@ export function songTable(
       (a, b) => byName(a.artist, b.artist) || byName(a.title, b.title),
     );
   return groups.filter((g) => g.rows.length > 0);
+}
+
+/** Does every word of the query appear in one of these fields? Folded first, so case and accents never matter. */
+const matches = (words: string[], ...fields: (string | null)[]): boolean => {
+  const hay = normalize(fields.filter(Boolean).join(" "));
+  return words.every((w) => hay.includes(w));
+};
+
+/** The groups with only the rows a search keeps; an album kept for some of its songs keeps just those (../docs/library.md). */
+export function filterTable(groups: TableGroup[], query: string): TableGroup[] {
+  const words = normalize(query).split(" ").filter(Boolean);
+  if (!words.length) return groups;
+  const keep = (r: TableRow): TableRow | null => {
+    if (r.kind === "song")
+      return matches(words, r.title, r.artist, r.album) ? r : null;
+    // The album's own name or artist names it whole; else it stands for the songs that match.
+    if (matches(words, r.title, r.artist)) return r;
+    const songs = r.songs.filter((s) =>
+      matches(words, s.title, s.artist, s.album),
+    );
+    return songs.length ? { ...r, songs } : null;
+  };
+  return groups
+    .map((g) => ({
+      ...g,
+      rows: g.rows.map(keep).filter((r): r is TableRow => r !== null),
+    }))
+    .filter((g) => g.rows.length > 0);
 }
