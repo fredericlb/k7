@@ -34,7 +34,13 @@ release first. An installed app follows its own channel and never crosses to the
 `https://app.k7.rocks/api/app-releases/<stamp>/<file>` (one `PUT` each, raw body) and then `POST`s
 `/api/app-releases/<stamp>/publish`, which switches the channel to that build at once.
 `tray.yml`'s does the same under `/api/app-releases/tray/`, with the updater's `latest.json` among
-its files.
+its files. Both run `.github/scripts/publish-app-release.sh`, the one copy of that sequence.
+
+| choice | why |
+|---|---|
+| every request waits for `/api/health`, then is retried up to five times | `images.yml` moves `:latest` while these jobs run, and the deploy restarts the server under an upload: a `502`, then the proxy's own `404` while no container answers |
+| a `400`, `401` or `413` is never retried | the server meant it; retrying a bad token or an oversized file only delays the red |
+| a retried `PUT` sends the whole file again | the server writes it beside its name and renames it, so a cut upload leaves nothing behind |
 
 Both need `Authorization: Bearer <APP_RELEASE_TOKEN>`, a value only the repository's
 `APP_RELEASE_TOKEN` secret and the server's `APP_RELEASE_TOKEN` (`docker/.env`) know. Unset on the

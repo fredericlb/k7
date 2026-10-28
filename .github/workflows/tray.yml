@@ -152,6 +152,7 @@ jobs:
           sparse-checkout: |
             package.json
             engine/scripts
+            .github/scripts
       - name: updater manifest
         shell: bash
         env:
@@ -208,8 +209,4 @@ jobs:
             echo "::warning::APP_RELEASE_TOKEN is not set, /app_downloads/tray keeps its last build."
             exit 0
           fi
-          for f in dist/*; do
-            echo "uploading $(basename "$f")"
-            curl --fail-with-body -sS --retry 3 -H "Authorization: Bearer $APP_RELEASE_TOKEN" -T "$f" "$API/$STAMP/$(basename "$f")"
-          done
-          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $APP_RELEASE_TOKEN" "$API/$STAMP/publish"
+          bash src/.github/scripts/publish-app-release.sh "$API" "$STAMP" dist
