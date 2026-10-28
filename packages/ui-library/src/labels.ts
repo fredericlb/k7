@@ -48,16 +48,22 @@ export interface LibraryLabels {
     renameSubmit: string;
     /** The ⋮ button on a row, which opens the same menu a right-click does. */
     more: string;
-    /** The selector above the songs' tree: every song, or only the starred ones. */
-    showAll: string;
-    showFavorites: string;
     favorite: string;
     unfavorite: string;
-    noFavorites: string;
-    showPractice: string;
     practice: string;
     unpractice: string;
-    noPractice: string;
+  };
+  /** The songs' table: its columns, its three groups, and an album row's count and fold. */
+  table: {
+    title: string;
+    artist: string;
+    album: string;
+    practice: string;
+    favorites: string;
+    others: string;
+    songs: (count: number) => string;
+    unfold: (album: string) => string;
+    fold: (album: string) => string;
   };
   contents: {
     emptyLibrary: string;

@@ -1,5 +1,5 @@
 // favorites.ts — the songs and albums on this account's lists — its favorites, its practice list —
-// and the filter that shows one of them. An item is a library path (`songs/Artist/Album[/Title]`), kept by the account's server, every device alike.
+// which order the songs' table. An item is a library path (`songs/Artist/Album[/Title]`), kept by the account's server, every device alike.
 // The one thing a reader would get wrong: a song shows when IT or ANY folder above it is starred (../docs/library.md).
 
 import { fetchWithin, readJson } from "@studio/http-client/call";
@@ -16,14 +16,6 @@ export function isFavorite(
   for (let p = path; p; p = p.slice(0, Math.max(0, p.lastIndexOf("/"))))
     if (favorites.has(p)) return true;
   return false;
-}
-
-/** Only the entries a favorite covers. */
-export function favoriteEntries(
-  entries: MediatekEntry[] | null,
-  favorites: ReadonlySet<string>,
-): MediatekEntry[] {
-  return (entries ?? []).filter((e) => isFavorite(favorites, e.path));
 }
 
 /** An ALBUM row: a folder that directly holds a song, `rel` being family-relative. */
@@ -132,59 +124,7 @@ function usePathList(kind: PathList, onError: (message: string) => void) {
   return { favorites, ready, toggle };
 }
 
-/** Both lists, the tree's filter and the list it shows, for the section on screen — only the songs have lists. */
-export function useSongLists(
-  section: string,
-  onError: (message: string) => void,
-) {
-  const fav = useFavorites(onError);
-  const practice = usePractice(onError);
-  const [treeFilter, setTreeFilter] = useTreeFilter();
-  const listed =
-    section !== "songs" || treeFilter === "all"
-      ? null
-      : treeFilter === "practice"
-        ? practice
-        : fav;
-  const has = (set: ReadonlySet<string>, n: { path: string }) =>
-    section === "songs" && set.has(`${section}/${n.path}`);
-  return {
-    fav,
-    practice,
-    treeFilter,
-    setTreeFilter,
-    listed,
-    // The set alone, which keeps its identity between renders where the hook's object does not.
-    listedSet: listed?.favorites ?? null,
-    starredAt: (n: { path: string }) => has(fav.favorites, n),
-    practisedAt: (n: { path: string }) => has(practice.favorites, n),
-  };
-}
-
-/** What the songs' tree shows: every song, or only one of the account's lists. */
-export type TreeFilter = "all" | PathList;
-
-const FILTER_KEY = "k7.library.treeFilter";
-// The earlier boolean choice, read once so a browser keeps what it had picked.
-const ALL_KEY = "k7.library.showAll";
-
-/** The tree's filter, favorites by default — this browser's choice, remembered where it can be. */
-export function useTreeFilter(): [TreeFilter, (f: TreeFilter) => void] {
-  const [filter, setFilter] = useState<TreeFilter>(() => {
-    try {
-      const kept = localStorage.getItem(FILTER_KEY);
-      if (kept === "all" || kept === "favorites" || kept === "practice")
-        return kept;
-      return localStorage.getItem(ALL_KEY) === "1" ? "all" : "favorites";
-    } catch {
-      return "favorites";
-    }
-  });
-  const set = useCallback((f: TreeFilter) => {
-    setFilter(f);
-    try {
-      localStorage.setItem(FILTER_KEY, f);
-    } catch {}
-  }, []);
-  return [filter, set];
+/** Both lists, which order the songs' table and which its rows' menus toggle. */
+export function useSongLists(onError: (message: string) => void) {
+  return { fav: useFavorites(onError), practice: usePractice(onError) };
 }

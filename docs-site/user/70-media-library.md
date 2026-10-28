@@ -29,15 +29,20 @@ If your instance answers on a `play.` address, any page there sends you to the s
 
 ## The screen
 
-Songs, Samples and Recordings share one layout:
+**Songs** is a table the width of the screen: what you are practising first, then your favorites,
+then every other song, each group by artist and title. An album holding more than one song is a
+single row; click it to unfold its songs, in the album's order. Click a song to open its screen,
+which takes the whole width too; its **Back** button returns to the table. Each row's **⋮** holds its
+menu (see [Songs and samples](./71-songs-and-samples.md)).
+
+Samples and Recordings share another layout:
 
 - **The tree**, on the left: the section's folders and files. Rows are sorted alphabetically at
-  every level. Right-click a row for its menu (see [Songs and samples](./71-songs-and-samples.md)).
-- **The contents**, in the middle: the section's entries with their artist or pack, their kind and
-  their size, or, when a song is open, the song screen.
+  every level. Right-click a row for its menu.
+- **The contents**, in the middle: the section's entries with their pack, their kind and their size.
 
-On a narrow screen the tree becomes a drawer: tap the tree button at the bottom left to open it,
-tap outside it to close it. Opening a song closes the drawer.
+On a narrow screen their tree becomes a drawer: tap the tree button at the bottom left to open it,
+tap outside it to close it.
 
 An entry marked **not catalogued** is a song folder that holds audio but no `song.yaml` sidecar:
 it was put there by hand rather than added through k7. It still plays; the first edit of its
@@ -69,9 +74,9 @@ playback falls back to **This machine**; the button and the song screen say so w
 When k7 on your computer (the tray) or the Android app is paired with a server, the media library on that device is
 its own local library, and it also shows what the server holds:
 
-- An entry the server has and this machine does not is drawn in the tree with a cloud icon,
-  greyed out. Click its download button (or right-click a folder and choose
-  **Download the N missing songs**) to bring it down.
+- An entry the server has and this machine does not is drawn among the others with a cloud icon,
+  greyed out. Click its download button (or, for an album, choose **Download the N missing songs**
+  in its **⋮**) to bring it down.
 - A folder that holds only server entries shows a small cloud beside its name.
 - In the contents list, an icon says whether each entry is "Synced with" the server or "On this
   machine only".

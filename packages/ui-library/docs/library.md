@@ -1,10 +1,11 @@
 # The catalogue screen: the tree, and what a row means
 
 `src/MediaLibrary.tsx` is the médiathèque's catalogue: the current section's files as a tree down
-the side, its contents in the middle. The sections themselves are the host's nav — k7's home
-sidebar ([host.md](host.md)). It draws; four modules beside it
-hold the rest, one concern each — what it shows of the volume and the poll that reloads it
-(`useLibraryData.ts`), the rows built from a listing (`libraryTree.ts`, pure and tested alone), the
+the side, its contents in the middle — except the songs, which are a table the width of the screen
+(`src/SongsLibrary.tsx`, below). The sections themselves are the host's nav — k7's home
+sidebar ([host.md](host.md)). It draws; the modules beside it hold the rest, one concern each — what
+it shows of the volume and the poll that reloads it (`useLibraryData.ts`), the rows built from a
+listing (`libraryTree.ts` for a tree, `songTable.ts` for the songs, pure and tested alone), the
 right-click menus (`treeActions.ts`) and the middle pane (`LibraryContents.tsx`). This page holds
 the reasoning, so the code can point at it in one line.
 
@@ -34,19 +35,44 @@ server may answer `/list` with the previous listing while it rescans a family th
 (`packages/mediatek/docs/index.md`); that listing carries the older token, so the next poll still
 sees a difference and reloads.
 
+## The songs are a table, not a tree
+
+The songs have no tree. Their folders are `artist/album/title`, deduced from the tags
+(`packages/mediatek/docs/songs.md`), so a folder view only restated the tags one fold at a time, and
+took a 290-pixel column from every song's page to do it. The section is a table the width of the
+screen (`SongTable.tsx`); opening a song puts its page in the table's place, the width of the screen
+too, and the page's **Back** returns to the table. Nothing sits beside either.
+
+**Three groups, in this order: the practice list, the favorites, then every other song.** What a
+person is working on this month comes first, then what they like, then the rest of the library. A
+row goes in the FIRST list that covers it — a song, or a folder above it, being on that list — so a
+practised favorite is listed once, under practice. Within a group, rows go by artist, then by title.
+
+**An album of several songs is one row**, which unfolds into its songs on a click. Without it, an
+album starred whole would put a dozen rows at the head of the table and push everything else down.
+An album of ONE song is that song's row, since a row that only unfolds into a single row is a click
+for nothing. « Album inconnu », where a song without an album tag is filed, is not an album: those
+songs are rows of their own. An album sits in the first group any of its songs belongs to, and
+unfolds into all of them.
+
+**Unfolded, an album is in its own order**: the track number first (`meta.track`), drawn as
+`05 · Lithium`, then the songs without one by title. An album is listened to in that order, and an
+alphabetical one scatters it.
+
+The table's **⋮ on each row is the tree's menu**: the same `songActions` (`treeActions.ts`), drawn
+by `RowMenu.tsx`, so adding a version, queueing, starring, practising and removing are offered the
+same way they were. A removal asks first in a dialog. Audio dropped on a song's row files it as the
+tree's drop did (Filing a dropped track, below). The paired server's songs are rows like the others,
+muted, with their download in place of the menu. The unfolded albums are this screen's state, not
+the address's: they are forgotten on leaving, like a tree's expansion.
+
 ## What a tree row stands for
 
 The tree is derived, never stored: it IS the entry list in another shape, so a second copy could
 only ever disagree with it. Rows come in the listing's order, which the scan sorts by name.
 
-**Inside an album, the track number orders the songs.** A song whose master carries one
-(`meta.track`, `packages/mediatek/docs/songs.md`) is drawn as `03 · Lithium` and placed by that
-number, the songs without one after them in name order. An album is listened to in its own order,
-and an alphabetical one scatters it; the number is in the label because an order nobody can see
-reads as no order at all. It is zero-padded to the album's longest, so the labels line up. Only
-the drawn NAME changes: a row's `path` stays the folder's, which is what opening, dropping a
-variant and the server's rows go by. Two songs claiming one number keep the name order between
-them; nothing here guesses which tag is wrong.
+**A tree is in the listing's order**, except inside a folder whose rows carry a track number, which
+orders them (`byTrack`) — the songs' table draws an album in the same order, for the same reason.
 
 `treeOf` builds it from the entry PATHS alone: the service hands out a flat list and the shape is
 already in the strings. Directories are synthesised on the way down, so a folder holding only
@@ -54,15 +80,6 @@ folders still appears. What no entry can stand for — an empty folder, a loose 
 its own `unlisted` list and is walked in FIRST, so an entry landing later finds its folder already
 there. Without it, creating a folder answers 200 and shows nothing, which is the one thing a
 "create" must never do.
-
-A **song** is the odd row: a folder on disk, but a `dir: true` node with an ALWAYS-EMPTY
-`children: []` — folder-shaped only so the shared tree makes it a drop target (a file dropped on
-it becomes a variant), never so it folds open. Everything above it is an artist or an album — a
-segment the scan deduced from tags rather than a thing anyone made. `opensOnName` marks it as a
-row that opens rather than folds, and the shared tree drops the chevron entirely for an opens row
-with nothing under it (`commons/packages/ui/docs/file-tree.md`): one target, the whole row, onto
-the editor. A folder with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not
-a category.
 
 A song's **variants** are never drawn as tree rows — `SongVariants.tsx`, inside the editor the song
 opens to, is where they show and where one is removed (`packages/mediatek/docs/variants.md`).
@@ -84,64 +101,56 @@ the same way.
 
 ## Where the expansion comes from
 
-`revealed` is STICKY, and that is the point: the shared tree re-seeds its whole expansion whenever
-`reveal` CHANGES, so letting it fall back to null on closing the editor would collapse the tree the
-person had just been browsing. It only ever moves to a new target, and an effect carries it across
-the gap where a deep link names a file before the listing has come back.
+The tree unfolds its top level and nothing below it (`reveal` is always `TOP_LEVEL`): nothing in a
+tree family opens a page of its own, so there is no open entry for it to open down to.
 
-It starts on `TOP_LEVEL`, which is a single NUL byte. `reveal` opens a target's ANCESTORS, and the
-synthesised root's empty path is the ancestor of every path there is — so any target at all unfolds
-the top level. NUL is the one byte no path can hold, so this value names no row: the top level is
-all it unfolds, and everything below stays folded until something is actually revealed.
+`TOP_LEVEL` is a single NUL byte. `reveal` opens a target's ANCESTORS, and the synthesised root's
+empty path is the ancestor of every path there is — so any target unfolds the top level. NUL is the
+one byte no path can hold, so this value names no row: the top level is all it unfolds.
 
 ## Who may write, and where a drop lands
 
-Two sections refuse the tree's writes, for two different reasons. `songs/` has a shape deduced from
+Two sections refuse a tree's writes, for two different reasons. `songs/` has a shape deduced from
 tags, so a folder made by hand there is not a badly filed song but an invisible one
-(`packages/mediatek/docs/songs.md`). A capture is named by the clock, so a renamed one would be a
-capture at an hour it was not made (`packages/mediatek/docs/recordings.md`). Both get their button
-in the same place instead — a footer under the tree rather than a bar or the tree's last row:
-the `aside` is a flex column with the tree in a scrolling pane above and the buttons in a fixed one
-below, so scrolling a long library or a long capture history never carries them off screen.
+(`packages/mediatek/docs/songs.md`) — which is also why it has no tree at all. A capture is named by
+the clock, so a renamed one would be a capture at an hour it was not made
+(`packages/mediatek/docs/recordings.md`). Each gets its button instead: **Add a song** above the
+songs' table, at its right, and **Add a capture** in a footer under the zone's tree — the `aside` is
+a flex column with the tree in a scrolling pane above and the button in a fixed one below, so
+scrolling a long capture history never carries it off screen.
 
-`songs/` still gets a menu, and only its own: add a version, queue the morceau, remove it, and —
-on the artist or album folder above a song — remove that whole grouping. None of those touches the
-deduced shape — one writes INSIDE a song that already exists, one takes a single song away, one
-takes a whole grouping away — and each `when` accepts a row only for the kind of thing it is. The
-shared tree opens no menu at all when nothing passes, which is how the capture zone gets no menu
-at all.
+`songs/` gets a menu of its own, on each row's ⋮: add a version, queue the morceau, star it, practise
+it, remove it. None of those touches the deduced shape — one writes INSIDE a song that already
+exists, one takes a single song away — and each `when` accepts a row only for the kind of thing it
+is. The capture zone's tree gets no menu at all: the shared tree opens none when nothing passes.
 
-**Deleting a song, an artist or an album asks first**, the tree's `confirm` gate — yes/no, nothing
-typed — and every other delete in this screen does not. The difference is what goes and that it
-cannot come back: a song's delete takes its whole folder — master, variants, lyrics, chords, sheets
-— and an artist or an album can hold many songs, while a variant's takes one file. There is no
-trash here, so a wrong click has no path back. The song's confirmation names it by its listed
-title, the folder's name only when it has none. `confirm` rather than `prompt` because there is no
-name to echo back as the answer: the row IS the thing being confirmed, not a value to type again.
-The tree's own gate rather than a dialog of this screen's, so the three deletes ask the same way.
+**Deleting a song asks first**, yes/no, nothing typed — and every other delete in this screen does
+not. The difference is what goes and that it cannot come back: a song's delete takes its whole
+folder — master, variants, lyrics, chords, sheets — while a variant's takes one file. There is no
+trash here, so a wrong click has no path back. The confirmation names the song by its listed title,
+the folder's name only when it has none. The action carries it as a tree action's `confirm`, which
+the table's `RowMenu` asks as a dialog.
 
 **Every removal, and every folder rename or drag, is an admin's**, because the library is one
 folder every account shares (`apps/k7/backend/docs/media/gate.md`). The service says so as `manage`
 in its summary, and the menu entries and the folder drag are simply absent when it is false — an
 entry that would only answer 403 is a promise the screen cannot keep.
 
-That same early return is why every target needs at least one action whose `when` passes: an empty
-menu does not open, it simply never appears. Folders and the root would otherwise have none.
+That same early return is why every tree target needs at least one action whose `when` passes: an
+empty menu does not open, it simply never appears. Folders and the root would otherwise have none.
 
-Every menu here is also reached WITHOUT a right-click: the tree is given `rowMenuLabel`, so each
-row with actions carries a ⋮ button and answers a long-press (`commons/packages/ui/docs/file-tree.md`).
-A phone has no right-click, and without them adding to the queue, renaming, deleting and making a
-folder would all be out of a touch user's reach.
+Every menu here is reached WITHOUT a right-click: a tree is given `rowMenuLabel`, so each row with
+actions carries a ⋮ button and answers a long-press (`commons/packages/ui/docs/file-tree.md`), and
+the songs' table has only its ⋮. A phone has no right-click.
 
-Deleting a song goes through the TREE route, not the single-file one: a song is a folder on disk
-though a leaf in the tree, so `remove` would leave the folder — and with it a song the scan still
-finds.
+Deleting a song goes through the TREE route, not the single-file one: a song is a folder on disk, so
+`remove` would leave the folder — and with it a song the scan still finds.
 
-Drops are `onDropTree` rather than `onDropFiles` because a folder has to arrive AS a folder, which
-`dataTransfer.files` cannot carry. In `songs/` a drop lands only onto the morceau itself — as its
-MASTER when it has none, as a variant otherwise (see Filing a dropped track below); the rows above it are an artist and an album, which hold nothing. The shared tree decides
-whether a row is a target from the prop alone and has no per-row test, so those rows do highlight —
-hence the message saying why nothing landed, rather than a swallowed drop.
+A tree's drops are `onDropTree` rather than `onDropFiles` because a folder has to arrive AS a folder,
+which `dataTransfer.files` cannot carry. A song takes files, not folders: a drop on its row in the
+table files the audio as its MASTER when it has none, as variants otherwise (see Filing a dropped
+track below). Only a song of this machine is a target; an album row, holding no audio of its own, is
+not.
 
 Every write has a PICKER beside the drag, for one reason: a drag-and-drop that fails does so
 silently, which is a bad only-way-in. The folder picker needs its own hidden input because
@@ -151,23 +160,23 @@ lands. The variant picker is a second input, because that one names a directory 
 one audio file. Both reset `value` before opening, or picking the same thing twice fires no
 `change`.
 
-## The server's entries are in the same tree
+## The server's entries are filed among these
 
-On a machine paired with a server, the entries only the server holds are filed in the family's tree
-among those here (`treeOf`'s `remote`, `remoteRows`), under the same artist and album folders, rather
-than listed apart: a library is looked up by artist and album, and a separate flat list of a few
-hundred songs is not something anyone finds a song in. Such a row wears a cloud, is muted and does not
-open — there is nothing here to open — and keeps its right-click; a cloud button at its end brings it
-down. A folder holding only the server's entries says so with a cloud beside its name. A song held on
-both sides is one row, the local one. What a download takes, and why never a folder whole, is
-`../../mediatek/docs/serverCopy.md`.
+On a machine paired with a server, the entries only the server holds are filed among those here —
+in a family's tree (`treeOf`'s `remote`, `remoteRows`) under the same folders, and in the songs'
+table in the same groups and albums (`songTable`'s `remote`) — rather than listed apart: a separate
+flat list of a few hundred songs is not something anyone finds a song in. Such a row wears a cloud,
+is muted and does not open — there is nothing here to open — and a cloud button at its end brings it
+down. A song held on both sides is one row, the local one. What a download takes, and why never a
+folder whole, is `../../mediatek/docs/serverCopy.md`.
 
 ## Favorites
 
 A song or an album can be **starred** from its menu, and a starred row wears a star that unstars it
 in one click. An artist cannot: an artist is a tag the scan deduced, and starring one would star
-every album it will ever hold. A song shows under **Favorites** when it or any folder above it is
-starred, so an album starred today still covers the song added to it tomorrow.
+every album it will ever hold. A song is a favorite when it or any folder above it is starred, so an
+album starred today still covers the song added to it tomorrow; the favorites are the table's second
+group.
 
 Favorites are the ACCOUNT's, not the volume's: the library is one folder every account shares, and
 one person's favorites are nobody else's. They follow the account from one device to the next, so
@@ -194,19 +203,17 @@ A star names a path, so a song moved or renamed loses it.
 ## Practice
 
 The **practice list** is a second list of the same kind: a song or an album is added from its menu
-(« Add to practice »), a practised row wears a mark that takes it off in one click, and the tree's
-third tab, **Practice**, shows only it. Everything said of favorites above holds for it — the
-account's, kept on its server, a state per click, a path covering what is below it — through its own
-route, `/api/practice` (`apps/k7/backend/docs/media/practice.md`).
+(« Add to practice »), a practised row wears a mark that takes it off in one click, and it is the
+table's FIRST group. Everything said of favorites above holds for it — the account's, kept on its
+server, a state per click, a path covering what is below it — through its own route,
+`/api/practice` (`apps/k7/backend/docs/media/practice.md`).
 
 It is a list apart rather than a kind of star because the two answer different questions: what a
 person likes to hear, and what they are working on this month. A song moves on and off the second
 far more often than the first, and taking it off must not lose the star.
 
-The tree opens on **Favorites**: the songs a person plays are the ones they starred, and the whole
-library is one click away. Which of the three it shows is the BROWSER's choice, kept in
-`localStorage`: it is a view of the moment, not something to follow the account to another machine. The middle pane is not
-filtered — the selector belongs to the tree it sits above.
+The two lists ORDER the table rather than filter it: every song is in it, so nothing is a click
+away, and what a person is working on and what they like are at its head.
 
 ## Adding a song
 
