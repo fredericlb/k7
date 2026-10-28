@@ -1,5 +1,5 @@
-// NewSessionButton.tsx — what starts a take: the red dot the host draws wherever it puts a page's own
-// control, and the labelled button an empty timeline offers in its place. Both start on this device at
+// NewSessionButton.tsx — what starts a take: the red dot the host's sidebar carries on every page, and
+// the labelled button an empty timeline offers in its place. Both start on this device at
 // once when no rehearsal chain is chosen, else open a menu of this device and that chain, and run one
 // hook, so a start in progress or refused reads the same from either. See ../../docs/chainSource.md.
 
