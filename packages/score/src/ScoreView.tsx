@@ -18,6 +18,8 @@ export interface ScoreState {
   /** The player and its soundfont are loading, after the first Play. */
   loading: boolean;
   playing: boolean;
+  /** Each part's name as the file gives it, in score order; empty until the score is read. */
+  parts: string[];
 }
 
 export interface ScoreViewHandle {
@@ -31,6 +33,8 @@ interface Props {
   /** Semitones, applied to every pitched track. */
   transpose: number;
   scale: number;
+  /** The one part drawn, by index into `parts`; null or left out draws every part. */
+  part?: number | null;
   onState?: (state: ScoreState) => void;
   onError?: (error: Error) => void;
 }
@@ -42,16 +46,20 @@ function pitchesFor(score: model.Score, transpose: number): number[] {
   );
 }
 
+/** alphaTab's track list for a part: [-1] is its "every track", and without one it draws only the first. */
+const tracksOf = (part: number | null): number[] =>
+  part === null ? [-1] : [part];
+
 export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
-  { url, transpose, scale, onState, onError },
+  { url, transpose, scale, part = null, onState, onError },
   ref,
 ) {
   const viewport = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<AlphaTabApi | null>(null);
   // Read by the load, so a transpose or zoom chosen before the file arrived still applies.
-  const latest = useRef({ transpose, scale, onState, onError });
-  latest.current = { transpose, scale, onState, onError };
+  const latest = useRef({ transpose, scale, part, onState, onError });
+  latest.current = { transpose, scale, part, onState, onError };
 
   // Play pressed before the player was ready: honoured once it is, or dropped by a second press.
   const playWhenReady = useRef(false);
@@ -97,7 +105,9 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     let playing = false;
     let ready = false;
     let loading = false;
-    const report = () => latest.current.onState?.({ ready, loading, playing });
+    let parts: string[] = [];
+    const report = () =>
+      latest.current.onState?.({ ready, loading, playing, parts });
     playWhenReady.current = false;
     enablePlayer.current = () => {
       tab.settings.player.playerMode = PlayerMode.EnabledSynthesizer;
@@ -113,6 +123,7 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
           latest.current.transpose,
         );
         tab.updateSettings();
+        parts = score.tracks.map((t) => t.name);
         ready = true;
         report();
       }),
@@ -137,8 +148,9 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return res.arrayBuffer();
       })
-      // [-1] is alphaTab's "every track"; without it only the first part is drawn.
-      .then((bytes) => tab.load(new Uint8Array(bytes), [-1]))
+      .then((bytes) =>
+        tab.load(new Uint8Array(bytes), tracksOf(latest.current.part)),
+      )
       .catch((e: unknown) => {
         if (!aborted.signal.aborted) latest.current.onError?.(e as Error);
       });
@@ -169,6 +181,13 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     tab.updateSettings();
     tab.render();
   }, [scale]);
+
+  useEffect(() => {
+    const tab = api.current;
+    if (!tab?.score) return;
+    // The same score redrawn with other tracks: alphaTab keeps the player and its MIDI as they are.
+    tab.renderScore(tab.score, tracksOf(part));
+  }, [part]);
 
   return (
     <div ref={viewport} className="score-viewport">
