@@ -8,6 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./addresses": "./src/addresses.ts",
+    "./config": "./src/config.ts",
+    "./sections": "./src/sections.ts",
     "./pages": "./src/pages.ts",
     "./public": "./src/public.ts",
     "./settings": "./src/settings.ts",

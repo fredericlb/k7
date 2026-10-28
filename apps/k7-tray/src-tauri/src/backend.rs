@@ -104,6 +104,10 @@ fn command(app: &AppHandle, token: &str) -> Result<Command, String> {
     if let Some(engine) = paths::engine_beside(&supervisor) {
         c.env("STUDIO_ENGINE", engine);
     }
+    // node's bytecode of the bundle, kept between launches: only the first after an update parses it (docs/tray.md).
+    if let Some(cache) = paths::node_compile_cache(app) {
+        c.env("NODE_COMPILE_CACHE", cache);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

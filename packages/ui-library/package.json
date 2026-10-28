@@ -8,6 +8,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./sections": "./src/sections.ts",
     "./settings": "./src/settings.ts"
   },
   "scripts": {

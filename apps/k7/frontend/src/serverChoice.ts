@@ -2,8 +2,8 @@
 // the account's paired server reached through it (`/api/server`, the backend's forward). Kept per browser; the engine
 // and everything else stays this machine's whatever the choice. See ../docs/serverPicker.md.
 
-import { configureLibrary } from "@studio/ui-library";
-import { configureRehearsal } from "@studio/ui-rehearsal";
+import { configureLibrary } from "@studio/ui-library/config";
+import { configureRehearsal } from "@studio/ui-rehearsal/config";
 import { useSyncExternalStore } from "react";
 import { BASE } from "./api";
 

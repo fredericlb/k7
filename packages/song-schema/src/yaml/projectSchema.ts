@@ -60,15 +60,7 @@ export const ProjectSettingsSchema = z
   })
   .strict();
 
-/** The ARCHETYPES: three named after the surface they open on, the two `live` ones after what they are (docs/projectFile.md). */
-export const PROJECT_SHAPES = [
-  "arrangement",
-  "mix",
-  "video",
-  "live",
-  "live-video",
-] as const;
-export type ProjectShape = (typeof PROJECT_SHAPES)[number];
+export { PROJECT_SHAPES, type ProjectShape } from "../projectShapes";
 
 /** v1's marker key: a WALL-CLOCK position, a superset of TIMECODE where the two overlap (docs/projectFile.md). */
 const WALL_CLOCK = /^[0-9]+(\.[0-9]+)?$|^[0-9]+:[0-5][0-9](\.[0-9]+)?$/;

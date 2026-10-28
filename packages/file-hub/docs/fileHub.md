@@ -36,6 +36,8 @@ none of them. So `serviceEnv.ts` passes only what the service and the programs i
 and the hub adds each account's own values on top. The hazard runs one way: a variable the file service
 starts reading and nobody adds to the list is silently unset there, so the list is a sweep of
 every `process.env` read in the service bundle's inputs, plus what the engine it runs reads.
+`NODE_COMPILE_CACHE`, which node itself reads, is on it too: the tray and the phone set it so the
+service's bundle is compiled once per release and not at every start (`engine/k7-runtime/docs/android.md`).
 
 ### Bounded, and held off when it crashes
 

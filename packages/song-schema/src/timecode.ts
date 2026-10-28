@@ -6,6 +6,9 @@
 /** Ticks per QUARTER NOTE — 960 because it divides by 3 as readily as by 2 (docs/timecode.md). */
 export const TICKS_PER_QUARTER = 960;
 
+/** The shape a position/duration has — see docs/moduleFile.md. */
+export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
+
 // The colon chain, then optionally `.ticks`; allowed to run deeper than four fields (docs/timecode.md).
 const TC_RE = /^\d+(:\d+)*(\.\d+)?$/;
 

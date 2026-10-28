@@ -8,6 +8,7 @@ describe("the environment a file service starts with", () => {
     PATH: "/usr/bin",
     HOME: "/home/node",
     LC_ALL: "C",
+    NODE_COMPILE_CACHE: "/cache/node",
     STUDIO_MEDIATEK: "/library",
     STUDIO_DSP_EXEC: "/usr/local/libexec/dsp-exec",
     SESSION_SECRET: "s",
@@ -27,6 +28,7 @@ describe("the environment a file service starts with", () => {
       PATH: "/usr/bin",
       HOME: "/home/node",
       LC_ALL: "C",
+      NODE_COMPILE_CACHE: "/cache/node",
       STUDIO_MEDIATEK: "/library",
       STUDIO_DSP_EXEC: "/usr/local/libexec/dsp-exec",
     });

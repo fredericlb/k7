@@ -246,6 +246,8 @@ object BackendHost {
                 put("HOME", File(dirs.root, "home").absolutePath)
                 put("TMPDIR", context.cacheDir.absolutePath)
                 put("NODE_OPTIONS", "--experimental-sqlite")
+                // node's bytecode of the bundle, kept between launches: only the first after an update parses it (docs/android.md).
+                put("NODE_COMPILE_CACHE", File(context.cacheDir, "node-compile-cache").absolutePath)
                 put("SSL_CERT_FILE", cacert)
                 TrustedCas.file(context).takeIf { it.isFile }?.let { put("NODE_EXTRA_CA_CERTS", it.absolutePath) }
                 put("PORT", PORT.toString())

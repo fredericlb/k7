@@ -11,9 +11,9 @@ import {
   moduleFileOf,
   projectDir,
   rackKeyOf,
-  readScalarField,
   toProjectRelative,
 } from "./projectPaths";
+import { readScalarField } from "./scalarField";
 
 // The reported bug: the gutter ▶ on a migrated rack sent a bare filename, and the backend resolved it against the project root.
 

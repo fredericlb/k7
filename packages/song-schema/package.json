@@ -25,6 +25,7 @@
     "./renderSettings": "./src/renderSettings.ts",
     "./tasks": "./src/tasks.ts",
     "./projectTags": "./src/projectTags.ts",
+    "./projectShapes": "./src/projectShapes.ts",
     "./seqWindow": "./src/seqWindow.ts",
     "./songRef": "./src/songRef.ts",
     "./stems": "./src/stems.ts",
