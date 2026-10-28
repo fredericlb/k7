@@ -132,7 +132,7 @@ describe("a local instance's releases and pages", () => {
   it("a failed import holds the rehearsal routes, and nothing else on /api", async () => {
     // The import from a PocketBase nobody listens on has failed by now.
     await new Promise((r) => setTimeout(r, 200));
-    expect((await fetch(`${local}/api/songs`)).status).toBe(503);
+    expect((await fetch(`${local}/api/moments`)).status).toBe(503);
     expect((await fetch(`${local}/api/other`)).status).toBe(200);
   });
 });

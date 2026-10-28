@@ -31,8 +31,7 @@ refused (400), as is a `moment` field that is not JSON ([serving.md](serving.md)
 The copy keeps the machine's moment id, which is how the machine tells which of its moments the
 server holds (`../src/momentShare.ts`). Sharing a moment the server already holds REPLACES the
 server's copy: its clip, its text and its markers. This is the one way an edit made on the machine
-reaches the server. There is no live sync of moments, for the same reason as for songs
-(`songbookCopy.md`).
+reaches the server: a moment is a snapshot, never a replica, so there is no live sync of it.
 
 ## Read-only on the server
 

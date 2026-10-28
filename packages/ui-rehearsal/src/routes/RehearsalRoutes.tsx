@@ -9,7 +9,7 @@ import { RecoveredTakes } from "../components/RecoveredTakes";
 import { ServerOnly } from "../components/ServerOnly";
 import { useRehearsalHost, useRehearsalNav } from "../host";
 import { useRehearsalRecording } from "../recording/context";
-import type { HomeTab, SongListEntry, SongTab } from "../types";
+import type { HomeTab } from "../types";
 import { ExercisesView } from "../views/ExercisesView";
 import { GuitarTuner } from "../views/GuitarTuner";
 import { HomeView } from "../views/HomeView";
@@ -17,14 +17,7 @@ import { PageFormView } from "../views/PageFormView";
 import { RandomChordsExercise } from "../views/RandomChordsExercise";
 import { ReleaseFormView } from "../views/ReleaseFormView";
 import { SingingExercisesView } from "../views/SingingExercisesView";
-import { SongFormView } from "../views/SongFormView";
-import {
-  MomentRoute,
-  PageRoute,
-  ReleaseRoute,
-  SessionRoute,
-  SongRoute,
-} from "./params";
+import { MomentRoute, PageRoute, ReleaseRoute, SessionRoute } from "./params";
 import { useRehearsalData } from "./useRehearsalData";
 import "../styles/index.css";
 
@@ -32,7 +25,6 @@ import "../styles/index.css";
 const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
   { path: "sessions", tab: "sessions" },
   { path: "releases", tab: "releases" },
-  { path: "songs", tab: "songbook" },
 ];
 
 export function RehearsalRoutes() {
@@ -47,13 +39,6 @@ export function RehearsalRoutes() {
     // Its moments survive (now session-less), so the moments list refreshes too.
     await d.refreshSessions();
     if (pathname === path(`/sessions/${id}`)) go("/sessions");
-  };
-
-  const openSong = (s: SongListEntry, tab?: SongTab) =>
-    go(`/songs/${s.id}${tab ? `?tab=${tab}` : ""}`);
-
-  const toggleSongFavorite = async (s: SongListEntry) => {
-    d.patchSong(await api.setSongFavorite(s.id, !s.favorite));
   };
 
   const toSessions = <Navigate to={path("/sessions")} replace />;
@@ -77,7 +62,6 @@ export function RehearsalRoutes() {
                     sessions={d.sessions}
                     releases={d.releases}
                     pages={d.pages}
-                    songs={d.songs}
                     moments={d.moments}
                     tab={tab}
                     onOpen={(s) => go(`/sessions/${s.id}`)}
@@ -87,10 +71,6 @@ export function RehearsalRoutes() {
                     onNewRelease={() => go("/releases/new")}
                     onOpenPage={(x) => go(`/pages/${x.id}`)}
                     onNewPage={() => go("/pages/new")}
-                    onOpenSong={openSong}
-                    onNewSong={() => go("/songs/new")}
-                    onToggleSongFavorite={toggleSongFavorite}
-                    onSongsChanged={() => void d.refreshSongs()}
                     onPublicationsReachable={() => {
                       void d.refreshReleases();
                       void d.refreshPages();
@@ -180,35 +160,6 @@ export function RehearsalRoutes() {
                     onBack={() => go("/releases")}
                   />
                 </ServerOnly>
-              }
-            />
-
-            <Route
-              path="songs/new"
-              element={
-                <SongFormView
-                  onSave={async (data) => {
-                    const s = await api.createSong(data);
-                    d.patchSong(s);
-                    go(`/songs/${s.id}`);
-                    return s;
-                  }}
-                  onCancel={() => go("/songs")}
-                />
-              }
-            />
-
-            <Route
-              path="songs/:id"
-              element={
-                <SongRoute
-                  onChange={d.patchSong}
-                  onDeleted={(id) => {
-                    d.dropSong(id);
-                    go("/songs");
-                  }}
-                  onBack={() => go("/songs")}
-                />
               }
             />
 

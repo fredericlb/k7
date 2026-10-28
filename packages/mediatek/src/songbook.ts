@@ -16,10 +16,8 @@ import { readMasterTags, writeMasterTags } from "./tags.ts";
 import {
   CHORDS_FILE,
   LYRICS_FILE,
-  type MediatekEntry,
   SHEETS_DIR,
   SONG_FILE,
-  type SongbookEntry,
   type SongbookFacts,
   type SongbookSheet,
   type SongbookSong,
@@ -31,7 +29,6 @@ import {
   type OnDisk,
   putFile,
   removeFile,
-  removeTree,
 } from "./write.ts";
 
 /** A songbook request the library refuses — no such song, a folder that is not one, a target already taken; a 4xx. */
@@ -164,33 +161,6 @@ export async function readSongbookAt(rel: string): Promise<SongbookSong> {
     chords: readText(rel, CHORDS_FILE),
     facts: factsOf(data),
   };
-}
-
-/** A listing entry as a songbook row, when it is one: an id, and lyrics, a tablature, chords or a sheet. */
-export function songbookEntryOf(e: MediatekEntry): SongbookEntry | null {
-  const m = e.meta ?? {};
-  const id = typeof m.uuid === "string" ? m.uuid : "";
-  const sheets = typeof m.sheets === "number" ? m.sheets : 0;
-  if (!id || !(m.lyrics || m.tabs || m.chords || sheets)) return null;
-  return {
-    id,
-    path: e.path,
-    artist: typeof m.artist === "string" ? m.artist : "",
-    title: e.name,
-    hasLyrics: m.lyrics === true,
-    hasTablature: m.tabs === true,
-    hasChords: m.chords === true,
-    sheetCount: sheets,
-    owner: typeof m.owner === "string" ? m.owner : "",
-    origin: typeof m.origin === "string" ? m.origin : "",
-    createdAt: typeof m.createdAt === "string" ? m.createdAt : "",
-  };
-}
-
-/** Every songbook song of the library — what the songbook lists. */
-export async function listSongbook(): Promise<SongbookEntry[]> {
-  const { entries } = await listFamilyFresh("songs");
-  return entries.flatMap((e) => songbookEntryOf(e) ?? []);
 }
 
 /** A free folder for these names: the one the tags build, then ` (2)`, ` (3)`… when a songbook song is already there. */
@@ -399,106 +369,6 @@ export function setFactsAt(rel: string, facts: Partial<SongbookFacts>): void {
     doc.setIn(["songbook", k], v);
   }
   writeSidecar(rel, doc);
-}
-
-/** The songbook's files of a folder, as folder-relative paths — what a move carries. */
-function attachmentsOf(rel: string, facts: SongbookFacts): string[] {
-  const out: string[] = [];
-  for (const f of [LYRICS_FILE, TABS_FILE, CHORDS_FILE])
-    if (existsSync(writablePath(`${rel}/${f}`))) out.push(f);
-  for (const s of facts.sheets)
-    if (existsSync(writablePath(`${rel}/${s.file}`))) out.push(s.file);
-  return out;
-}
-
-/** Carry a songbook song into another library song's folder: it BECOMES that song, its texts and sheets with it. */
-export async function moveSongbook(
-  id: string,
-  toFolder: string,
-): Promise<SongbookSong> {
-  const from = await folderOrRefuse(id);
-  const to = toFolder.replace(/^\/+|\/+$/g, "");
-  if (to === from) return readSongbookAt(from);
-  if (familyOf(to) !== "songs" || to.split("/").includes(".."))
-    throw new SongbookRefusedError(`${toFolder} is not a song folder`);
-  const target = sidecarData(to);
-  if (!existingMaster(writablePath(to)) && !Object.keys(target).length)
-    throw new SongbookRefusedError(`${to} is not a song`);
-  const theirs = str(target.uuid);
-  if (theirs && theirs !== id)
-    throw new SongbookRefusedError(`${to} is already the song ${theirs}`);
-  const ours = sidecarData(from);
-  const facts = factsOf(ours);
-  // A file of the same name is the target's own: the moving one is renamed, never written over it.
-  const renamed = new Map<string, string>();
-  for (const file of attachmentsOf(from, facts)) {
-    let dest = file;
-    if (existsSync(writablePath(`${to}/${dest}`)))
-      dest = file.startsWith(`${SHEETS_DIR}/`)
-        ? sheetFile(to, basename(file))
-        : `${file.slice(0, -extname(file).length)} (${id.slice(0, 8)})${extname(file)}`;
-    putFile(`${to}/${dest}`, { file: writablePath(`${from}/${file}`) });
-    renamed.set(file, dest);
-  }
-  const doc = sidecarDoc(to);
-  doc.set("uuid", id);
-  const book = sidecarDoc(from).get("songbook", true);
-  if (book) doc.set("songbook", book);
-  doc.setIn(
-    ["songbook", "sheets"],
-    facts.sheets.map((s) => ({ ...s, file: renamed.get(s.file) ?? s.file })),
-  );
-  if (!facts.sheets.length) doc.deleteIn(["songbook", "sheets"]);
-  if (!existingMaster(writablePath(to)))
-    for (const k of FALLBACK) if (ours[k]) doc.set(k, ours[k]);
-  writeSidecar(to, doc);
-  await clearAt(from);
-  return readSongbookAt(to);
-}
-
-/** Take a folder out of the songbook: its texts, sheets and bookkeeping go, and the folder too when no audio is left. */
-async function clearAt(rel: string): Promise<void> {
-  const facts = factsOf(sidecarData(rel));
-  for (const f of attachmentsOf(rel, facts)) removeFile(`${rel}/${f}`);
-  if (!existingMaster(writablePath(rel))) {
-    removeTree(rel);
-    return;
-  }
-  const doc = sidecarDoc(rel);
-  doc.delete("uuid");
-  doc.delete("songbook");
-  writeSidecar(rel, doc);
-}
-
-/** Delete a songbook song: what it carried goes; a master stays, a library song like any other. */
-export async function deleteSongbook(id: string): Promise<void> {
-  await clearAt(await folderOrRefuse(id));
-}
-
-/** Detach a song from its audio: it moves to a folder of its own with no master, and the audio stays where it was. */
-export async function detachSongbook(id: string): Promise<SongbookSong> {
-  const song = await readSongbook(id);
-  if (!song) throw new SongbookRefusedError(`no song ${id}`);
-  if (!song.master) return song;
-  const to = freeMasterless(song.artist, song.title, song.path);
-  const doc = sidecarDoc(to);
-  doc.set("source", "k7");
-  doc.set("title", song.title);
-  doc.set("artist", song.artist);
-  writeSidecar(to, doc);
-  return moveSongbook(id, to);
-}
-
-/** A folder with no audio for these names, never `avoid` and never one holding a master or another song. */
-function freeMasterless(artist: string, title: string, avoid: string): string {
-  const base = songFolder({ artist, title });
-  for (let n = 1; ; n++) {
-    const rel = n === 1 ? base : `${base} (${n})`;
-    if (rel === avoid) continue;
-    if (existingMaster(writablePath(rel))) continue;
-    if (str(sidecarData(rel).uuid)) continue;
-    return rel;
-  }
 }
 
 /** Give a songbook song its reference track: the master of ITS folder, replaced, tagged with its names. */

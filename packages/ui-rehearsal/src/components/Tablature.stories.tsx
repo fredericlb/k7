@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Tablature } from "@studio/tablature";
 
 const meta = {
-  title: "Songbook/Tablature",
+  title: "Chords/Tablature",
   component: Tablature,
 } satisfies Meta<typeof Tablature>;
 

@@ -55,11 +55,6 @@ describe("the shared JSON parser", () => {
     expect((await send("/api/public/share/k/comments", 100)).status).toBe(413);
   });
 
-  it("lets a songbook entry's free text through at 2 MB", async () => {
-    expect((await send("/api/songs/abc", 1024)).status).toBe(200);
-    expect((await send("/api/songs/abc", 3072)).status).toBe(413);
-  });
-
   it("leaves the AI organize route its own larger limit", async () => {
     expect((await send("/api/ai/organize", 1024)).status).toBe(200);
   });

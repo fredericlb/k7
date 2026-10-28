@@ -3,7 +3,6 @@
 
 import { streamFile } from "@frediverse/http";
 import { extForMime, mimeFor } from "@studio/mediatek/media";
-import { sheetServedMime } from "@studio/rehearsal-shared/sheetKind";
 import type { Request, Response } from "express";
 
 /** Whether an upload says it is audio; anything else is refused before it is stored. */
@@ -41,22 +40,4 @@ export function streamAudio(
     filePath,
     isAudioMime(mime) ? mime : "application/octet-stream",
   );
-}
-
-// An SVG drawn by an <img> keeps working under this; opened as a page, it runs nothing.
-const SHEET_CSP =
-  "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'";
-
-/** Stream a sheet file: a PDF as itself, an image sandboxed, a score as bytes for alphaTab. */
-export function streamSheet(
-  req: Request,
-  res: Response,
-  info: { filePath: string; name: string; mime: string },
-): void {
-  const type = sheetServedMime(info.name, info.mime);
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  // A PDF viewer refuses a sandboxed document, and a browser's PDF viewer runs no script on this origin.
-  if (type !== "application/pdf")
-    res.setHeader("Content-Security-Policy", SHEET_CSP);
-  streamFile(req, res, info.filePath, type);
 }

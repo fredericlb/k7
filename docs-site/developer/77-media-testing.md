@@ -68,5 +68,5 @@ Add the route in `packages/ui-rehearsal/src/routes/RehearsalRoutes.tsx`, navigat
 ### A new sheet format
 
 Recognise it in `packages/rehearsal-shared/sheetKind.ts` (by extension when browsers send it as
-`application/octet-stream`), then decide in `packages/rehearsal-shared/epub.ts` and
-`packages/ui-rehearsal/src/export/songPdf.ts` whether exports include it.
+`application/octet-stream`), then in the library's song page (`packages/ui-library/src/useSongAttachments.ts`)
+whether it is accepted and in `packages/ui-rehearsal/src/components/SheetPanel.tsx` how it is drawn.

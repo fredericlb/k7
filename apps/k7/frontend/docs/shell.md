@@ -342,7 +342,7 @@ something, between a header and its rows.
 #### The project bar, and what a SET drops from it
 
 **The transport is the app's mini player** (`shell/ProjectBar.tsx` over `@studio/ui-mini-player`), the
-bar the médiathèque, the reference tracks and the songbook already wear: one shape for "what plays,
+bar the médiathèque and the reference tracks already wear: one shape for "what plays,
 and where in it", wherever k7 is. It sits under the panes and above the footer, full width, in every project.
 
 - **Its left slot is the project's**: the hamburger, the k7 logo and the name, aligned to the bar's

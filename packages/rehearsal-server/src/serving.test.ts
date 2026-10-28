@@ -8,12 +8,10 @@ import { dirname, join } from "node:path";
 import { songFolder } from "@studio/mediatek/song";
 import express from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { inProcessSongbook } from "./inProcessSongbook.ts";
 
-// The songbook's library answered in this process; the rest goes to the stub médiathèque below.
+// The library answered in this process; the rest goes to the stub médiathèque below.
 vi.mock("./mediatek.ts", async (actual) => ({
   ...(await actual<typeof import("./mediatek.ts")>()),
-  songbook: () => inProcessSongbook(),
   download: async (path: string, dest: string) => {
     mkdirSync(dirname(dest), { recursive: true });
     copyFileSync(join(process.env.STUDIO_MEDIATEK as string, path), dest);
@@ -30,7 +28,6 @@ const store = await import("./store.ts");
 const { linkMediatek } = await import("./mediatek.ts");
 const { releasesRouter } = await import("./routes/releases.ts");
 const { sessionsRouter } = await import("./routes/sessions.ts");
-const { songsRouter } = await import("./routes/songs.ts");
 const { jsonErrors } = await import("./errors.ts");
 
 const servers: Server[] = [];
@@ -42,7 +39,7 @@ const listen = (app: express.Express): Promise<string> =>
     servers.push(s);
   });
 
-// A médiathèque that files a song where its tags say, and remembers what was removed.
+// A médiathèque that files what it is given and remembers what was removed.
 const songs: { folder: string; title: string }[] = [];
 const removedTrees: string[] = [];
 const removedFiles: string[] = [];
@@ -85,7 +82,6 @@ beforeAll(async () => {
   });
   app.use("/releases", releasesRouter);
   app.use("/sessions", sessionsRouter);
-  app.use("/songs", songsRouter);
   app.use(jsonErrors);
   local = await listen(app);
 });
@@ -204,52 +200,5 @@ describe("a published version", () => {
     await store.deleteVersion("r-old", "drop");
     expect(removedTrees).not.toContain(legacy);
     expect(removedFiles).not.toContain(`${legacy}/m.mp3`);
-  });
-});
-
-describe("a sheet file", () => {
-  const sheetOf = async (type: string, name: string) => {
-    const song = (await (
-      await fetch(`${local}/songs`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artist: "A", title: name }),
-      })
-    ).json()) as { id: string };
-    const res = await upload(`/songs/${song.id}/sheets`, "files", type, name);
-    expect(res.status).toBe(201);
-    const { sheets } = (await res.json()) as { sheets: { id: string }[] };
-    return fetch(`${local}/songs/${song.id}/sheets/${sheets[0].id}`);
-  };
-
-  it("an SVG is served sandboxed and unsniffed", async () => {
-    const res = await sheetOf("image/svg+xml", "a.svg");
-    expect(res.headers.get("content-type")).toBe("image/svg+xml");
-    expect(res.headers.get("content-security-policy")).toMatch(/^sandbox/);
-    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-  });
-
-  it("a MusicXML score is served as bytes, never as XML", async () => {
-    const res = await sheetOf("text/xml", "p.musicxml");
-    expect(res.headers.get("content-type")).toBe("application/octet-stream");
-    expect(res.headers.get("content-security-policy")).toMatch(/^sandbox/);
-  });
-
-  it("past twenty files at once is refused", async () => {
-    const song = (await (
-      await fetch(`${local}/songs`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ artist: "A", title: "many" }),
-      })
-    ).json()) as { id: string };
-    const form = new FormData();
-    for (let i = 0; i < 21; i++)
-      form.append("files", new Blob(["x"], { type: "image/png" }), `${i}.png`);
-    const res = await fetch(`${local}/songs/${song.id}/sheets`, {
-      method: "POST",
-      body: form,
-    });
-    expect(res.status).toBe(400);
   });
 });

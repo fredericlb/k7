@@ -109,8 +109,9 @@ unknown (the médiathèque's **Add a song**, `packages/ui-library/docs/hunt.md`)
 the search, the names decide the path, and the row keeps them for the YouTube fallback. The scoring picks the
 recording that best explains the WORDS typed, which is not always the song meant — one word landing
 on a band's name (« Expedition 33 Lumières » is the band Lumières' « Momentary ») outscores a title
-that is spelt differently. A caller who knows the song (the rehearsal songbook) checks the answer first, and a
-second identification between the check and the hunt could answer otherwise.
+that is spelt differently. A caller that identified the song first (the médiathèque's Add a song)
+sends the tags it checked, and a second identification between the check and the hunt could answer
+otherwise.
 
 ## What slskd is asked: the album and the title, never the artist
 
@@ -417,8 +418,8 @@ Without it the button is greyed and says so, rather than failing on click.
 One row per search, most recent first, in `.hunts/<slug>-<hash>.json` on the volume — a dot folder, so
 invisible to family scans and to the file API, exactly like `.prefs` and `.projects`. A hundred rows
 kept, and the file is read whole on every query. No screen lists them: they are what a caller FOLLOWS
-— the add-song popin and the songbook's fetch each poll `GET /api/hunt` for the row they started,
-there being no route for one hunt.
+— the add-song popin polls `GET /api/hunt` for the row it started, there being no route for one
+hunt.
 
 What a row carries is what a watcher is told: while downloading, **who** is sending and which peer
 number; on failure, **why**; once filed, **where** — and the format obtained, said plainly, so a

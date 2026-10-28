@@ -6,7 +6,6 @@ import { loginUrl, pagesApi } from "./api/pages";
 import { releasesApi } from "./api/releases";
 import { sessionsApi } from "./api/sessions";
 import { singingApi } from "./api/singing";
-import { songsApi } from "./api/songs";
 import { tokensApi } from "./api/tokens";
 
 export {
@@ -23,7 +22,6 @@ export const api = {
   ...tokensApi,
   ...pagesApi,
   ...singingApi,
-  ...songsApi,
   // A getter, read where it is used: spread, it would read the tab's address once, at import.
   get loginUrl(): string {
     return loginUrl();

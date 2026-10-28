@@ -1,7 +1,7 @@
 # The rehearsal pages' addresses
 
-The pages live under `/rehearsal/*` on k7's origin, and nowhere else. Their own paths — `/songs`,
-`/settings`, `/@<name>` — would collide with k7's at the root, so the prefix is not optional.
+The pages live under `/rehearsal/*` on k7's origin, and nowhere else. Their own paths — `/settings`,
+`/@<name>` — would collide with k7's at the root, so the prefix is not optional.
 
 ## The prefix is the host's
 
@@ -16,8 +16,7 @@ context cannot reach them. Every navigation goes through `useRehearsalNav`, and 
 The API answers on the same origin as the pages — `/api/*`, served by k7's backend
 (`packages/rehearsal-server`) — so every call is relative to `apiBase`, which k7 sets to its own
 backend or, on the tray, to its forward to the paired server (`apps/k7/frontend/docs/serverPicker.md`).
-`hostBase` stays the machine's: "Fetch song" searches its library and hunt, and the bench its
-engines. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
+`hostBase` stays the machine's: the bench opens its engines there. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
 k7's, on the same origin; the pages draw no login screen of their own.
 
 URLs handed to the browser — an `<audio src>`, an `<img src>`, a download link — spell `apiBase`
@@ -39,7 +38,7 @@ The public page is recognised by the package's entry, which is light on purpose:
 imports it before any lazy chunk has loaded. Its screens are a lazy entry of their own, `./public`
 (`src/public.ts`), apart from `./pages`, which holds the signed-in routes: one module exporting both
 would be one chunk of both, and an anonymous visitor of a public page would download every
-signed-in screen — the songbook, the exercises, the editors — to read one page.
+signed-in screen — the sessions, the publications, the exercises — to read one page.
 
 ## The `k7.` host is a permanent former host
 

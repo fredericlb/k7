@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -19,115 +19,106 @@ afterEach(() => {
 
 describe("the SQLite store", () => {
   it("reads a field a row never set as its type's zero value", async () => {
-    await db.addRecords("Songs", [{ Uid: "u1", OwnerId: "me" }]);
-    const [rec] = await db.listRecords("Songs");
+    await db.addRecords("Sessions", [{ Uid: "u1", OwnerId: "me" }]);
+    const [rec] = await db.listRecords("Sessions");
     expect(rec.id).toMatch(/^[a-z0-9]{15}$/);
     expect(rec.fields).toMatchObject({
       Uid: "u1",
-      Lyrics: "",
-      FetchProgress: 0,
-      Private: false,
+      RecordingMime: "",
+      Duration: 0,
+      HasRecording: false,
     });
   });
 
   it("filters as an IN per key, booleans included, and projects", async () => {
-    await db.addRecords("Songs", [
-      { Uid: "a", Private: true, Title: "A" },
-      { Uid: "b", Private: false, Title: "B" },
-      { Uid: "c", Title: "C" },
+    await db.addRecords("Sessions", [
+      { Uid: "a", HasRecording: true, RecordingMime: "A" },
+      { Uid: "b", HasRecording: false, RecordingMime: "B" },
+      { Uid: "c", RecordingMime: "C" },
     ]);
     const uids = async (f: Record<string, unknown>) =>
-      (await db.listRecords("Songs", f)).map((r) => r.fields.Uid);
+      (await db.listRecords("Sessions", f)).map((r) => r.fields.Uid);
     expect(await uids({ Uid: ["a", "c"] })).toEqual(["a", "c"]);
-    expect(await uids({ Private: [true] })).toEqual(["a"]);
+    expect(await uids({ HasRecording: [true] })).toEqual(["a"]);
     expect(await uids({ Uid: [] })).toEqual([]);
     const [p] = await db.listRecords(
-      "Songs",
+      "Sessions",
       { Uid: "b" },
-      { fields: ["Title"] },
+      { fields: ["RecordingMime"] },
     );
-    expect(p.fields).toEqual({ Title: "B" });
+    expect(p.fields).toEqual({ RecordingMime: "B" });
   });
 
   it("patches by merging, and refuses a row that is not there", async () => {
-    const [{ id }] = await db.addRecords("Songs", [{ Uid: "a", Title: "x" }]);
-    await db.patchRecord("Songs", id, { Lyrics: "la" });
-    const [rec] = await db.listRecords("Songs");
-    expect(rec.fields).toMatchObject({ Title: "x", Lyrics: "la" });
-    expect(() => db.patchRecord("Songs", "nope", {})).toThrow(
+    const [{ id }] = await db.addRecords("Sessions", [
+      { Uid: "a", RecordingMime: "x" },
+    ]);
+    await db.patchRecord("Sessions", id, { RecordingPath: "p" });
+    const [rec] = await db.listRecords("Sessions");
+    expect(rec.fields).toMatchObject({
+      RecordingMime: "x",
+      RecordingPath: "p",
+    });
+    expect(() => db.patchRecord("Sessions", "nope", {})).toThrow(
       expect.objectContaining({ status: 404 }),
     );
   });
 
-  it("keeps a sheet's bytes as a file, and a deleted song takes its sheets", async () => {
-    const [{ id }] = await db.addRecords("Songs", [{ Uid: "a" }]);
-    const sheet = await db.uploadAttachment(
-      Buffer.from("pdf"),
-      "application/pdf",
-      "a.pdf",
-      id,
-    );
-    const file = db.attachmentFile(sheet);
-    expect(file).toBe(join(dir, "sheets", sheet));
-    expect(readFileSync(file as string, "utf8")).toBe("pdf");
-    await db.deleteRecords("Songs", [id]);
-    expect(db.attachmentFile(sheet)).toBeNull();
-    expect(existsSync(file as string)).toBe(false);
-  });
-
   it("keeps an id it is given, and writes all of a transaction or none", async () => {
-    await db.addRecords("Songs", [{ id: "kept", Uid: "a" }]);
-    expect((await db.listRecords("Songs"))[0].id).toBe("kept");
+    await db.addRecords("Sessions", [{ id: "kept", Uid: "a" }]);
+    expect((await db.listRecords("Sessions"))[0].id).toBe("kept");
     expect(() =>
       db.inTransaction(() => {
-        db.addRecords("Songs", [{ Uid: "b" }]);
-        db.deleteRecords("Songs", ["kept"]);
+        db.addRecords("Sessions", [{ Uid: "b" }]);
+        db.deleteRecords("Sessions", ["kept"]);
         throw new Error("halfway");
       }),
     ).toThrow("halfway");
-    expect(db.listRecords("Songs").map((r) => r.id)).toEqual(["kept"]);
+    expect(db.listRecords("Sessions").map((r) => r.id)).toEqual(["kept"]);
   });
 
   it("refuses an async function as a transaction, and rolls back what it wrote", async () => {
     expect(() =>
       db.inTransaction(async () => {
-        db.addRecords("Songs", [{ Uid: "b" }]);
+        db.addRecords("Sessions", [{ Uid: "b" }]);
       }),
     ).toThrow(/synchronous/);
-    expect(db.listRecords("Songs")).toEqual([]);
+    expect(db.listRecords("Sessions")).toEqual([]);
     // The connection is out of the failed transaction: the next write lands.
-    db.addRecords("Songs", [{ Uid: "c" }]);
-    expect(db.listRecords("Songs")).toHaveLength(1);
+    db.addRecords("Sessions", [{ Uid: "c" }]);
+    expect(db.listRecords("Sessions")).toHaveLength(1);
   });
 
   it("projects in SQL: zero values for missing fields, booleans back, filled texts as flags", () => {
-    db.addRecords("Songs", [
-      { Uid: "a", Private: true, Lyrics: "la", Tablature: " \n " },
+    db.addRecords("Sessions", [
+      { Uid: "a", HasRecording: true, RecordingPath: "la", Envelope: " \n " },
       { Uid: "b" },
     ]);
-    const rows = db.listRecords("Songs", undefined, {
-      fields: ["Uid", "Private", "FetchProgress", "Title"],
-      filled: ["Lyrics", "Tablature"],
+    const rows = db.listRecords("Sessions", undefined, {
+      fields: ["Uid", "HasRecording", "Duration", "RecordingMime"],
+      filled: ["RecordingPath", "Envelope"],
     });
     expect(rows.map((r) => r.fields)).toEqual([
       {
         Uid: "a",
-        Private: true,
-        FetchProgress: 0,
-        Title: "",
-        Lyrics: true,
-        Tablature: false,
+        HasRecording: true,
+        Duration: 0,
+        RecordingMime: "",
+        RecordingPath: true,
+        Envelope: false,
       },
       {
         Uid: "b",
-        Private: false,
-        FetchProgress: 0,
-        Title: "",
-        Lyrics: false,
-        Tablature: false,
+        HasRecording: false,
+        Duration: 0,
+        RecordingMime: "",
+        RecordingPath: false,
+        Envelope: false,
       },
     ]);
-    expect(db.listRecords("Songs", undefined, { fields: [] })).toHaveLength(2);
+    expect(db.listRecords("Sessions", undefined, { fields: [] })).toHaveLength(
+      2,
+    );
   });
 
   it("reads one row by its primary key", () => {

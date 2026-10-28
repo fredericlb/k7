@@ -1,7 +1,7 @@
 # Session audio — where the bytes go
 
 The server half of the rehearsal pages' audio. How a take is made in the browser is
-`packages/recorder/docs/recorder.md`; how the pages play, transpose and fetch a song is
+`packages/recorder/docs/recorder.md`; how the pages play and transpose it is
 `packages/ui-rehearsal/docs/audio.md`.
 
 ## The store keeps the facts, the médiathèque keeps the bytes
@@ -16,7 +16,6 @@ row keeps only the path.
 | a moment | `recordings/<day>/moment-…` |
 | a published version | `songs/K7/…` |
 | what the row points at | a path (`RecordingPath`, `ClipPath`, `AudioPath`) |
-| a songbook song — its texts, sheets and reference track | its library song folder (`packages/mediatek/docs/songbook.md`) |
 
 The store is a database, and hours of wav have no place in one. A médiathèque is made for it: a
 volume, paths, native Range, and a family whose whole role this is — see
@@ -143,9 +142,7 @@ Two visible consequences, both wanted:
 A row is a JSON document ([store.md](store.md)), so a field no longer declared stays in the rows
 that have it. Emptying it is a manual and deliberate operation.
 
-**Sheet music** is a file of the store's `sheets/` folder, linked to its song: not a recording, and
-`uploadAttachment` / `attachmentFile` serve only that. What type any of these is served under is
-[serving.md](serving.md).
+What type any of these is served under is [serving.md](serving.md).
 
 ## Moments go in the same family
 
@@ -225,27 +222,15 @@ scan takes a folder's FIRST audio file as the master, so an `original.mp3` sitti
 `original.flac` is a version that plays the file nobody chose. The old path is removed whenever it
 differs from the new one.
 
-A version's waveform is measured like a songbook track's (below) and kept in `Versions.Envelope`,
+A version's waveform is measured by `src/songEnvelope.ts` (below) and kept in `Versions.Envelope`,
 cleared when the file is replaced. `Versions.AudioPath` carries the mixdown's path, and
 `TrackMeta` carries `{id, path, name, mime}`.
 
-## A songbook song's reference track
+## A version's waveform
 
-A song in the songbook carries at most one recording — the take you play along to while
-reading its chords. A songbook song IS a library song folder, and its recording is that folder's
-master; the page streams it from the médiathèque, and this package keeps no copy.
-
-- **An upload becomes the master of the song's own folder**, tagged with its names. A song typed
-  in with no audio was filed where an upload of its names would land, so the folder is already the
-  right one.
-- **Linking a library track moves the song into that track's folder** (`src/songFetch.ts`,
-  `moveSongbook`). The hunt, the download and the stem cut are asked by the page, as the user
-  (`packages/ui-rehearsal/docs/audio.md`); what lands here is the library path of the master, and
-  of its `instrumental.wav`, which the sidecar records.
-- **Unlinking leaves the audio in the library** and moves the song to a folder of its own.
-
-The médiathèque's `/api/mediatek/stream` answers Range — without that the waveform could draw but
-not seek.
+A published version plays from the médiathèque's `songs/K7/…`, and the page streams it from there;
+this package keeps no copy. Its waveform is drawn by the release page, from the shape measured once
+and kept in the row (`Versions.Envelope`), which the player draws without decoding anything.
 
 **The shape is measured once, by the médiathèque, and kept beside the file there**
 (`src/songEnvelope.ts`): the médiathèque already holds the reference track's bytes and already

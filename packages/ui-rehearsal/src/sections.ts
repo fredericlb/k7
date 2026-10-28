@@ -1,13 +1,7 @@
 // sections.ts — the rehearsal pages' entries, as a host's sidebar draws them: which path each opens
 // and which one an address belongs to. Releases and pages are ONE entry, sessions and moments another.
 
-import {
-  BookOpen,
-  type LucideIcon,
-  Mic,
-  Radio,
-  Target,
-} from "@frediverse/ui/icons";
+import { type LucideIcon, Mic, Radio, Target } from "@frediverse/ui/icons";
 import { withinPrefix } from "./host";
 import { m } from "./paraglide/messages.js";
 import type { NavKey } from "./types";
@@ -36,12 +30,6 @@ export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
     label: () => m["nav.publications"](),
   },
   {
-    id: "songbook",
-    path: "/songs",
-    icon: BookOpen,
-    label: () => m["nav.songbook"](),
-  },
-  {
     id: "exercises",
     path: "/exercises",
     icon: Target,
@@ -58,15 +46,8 @@ export function rehearsalSectionAt(
   if (rest === null) return null;
   const seg = rest.split("/")[1] ?? "";
   if (seg === "releases" || seg === "pages") return "publications";
-  if (seg === "songs") return "songbook";
   // `exercices` is the French spelling an older address may still carry; RehearsalRoutes redirects it.
   if (seg === "exercises" || seg === "exercices") return "exercises";
   // sessions, moments and the bare prefix all land on Recordings.
   return "recordings";
-}
-
-/** One song's own page: the songbook list and the creation form are not it. */
-export function isSongPage(pathname: string, prefix: string): boolean {
-  const rest = withinPrefix(pathname, prefix);
-  return rest !== null && /^\/songs\/(?!new$)[^/]+$/.test(rest);
 }

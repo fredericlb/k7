@@ -149,7 +149,7 @@ What the app views do that a browser would do on its own:
   forgiven.
 - **A download is saved to the phone's Downloads.** The WebView's own download hands a URL to
   a listener that can neither read a `blob:` URL nor send the session's cookie, and the exports are
-  blobs (`apps/k7/frontend/src/downloadBlob.ts`, the songbook's zip, a release's files). So the
+  blobs (`apps/k7/frontend/src/downloadBlob.ts`, a release's files). So the
   PAGE fetches the file: `assets/download.js`, a document-start script for the app's origin only,
   takes an `<a download>` click on a `blob:`, `data:` or same-origin URL — before the page revokes
   the blob, which `downloadBlob` does a second later — and the download listener runs the same

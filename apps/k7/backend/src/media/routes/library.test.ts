@@ -252,19 +252,16 @@ describe("the songbook, kept in song folders", () => {
     facts: { sheets: { id: string; file: string }[] };
   };
 
-  it("creates a song, lists it once it carries lyrics, and serves its sheet as a library file", async () => {
+  it("creates a song, writes its lyrics, and serves its sheet as a library file", async () => {
     const created = (await (
       await api("", json("POST", { artist: "Nirvana", title: "Lithium" }))
     ).json()) as Song;
     expect(created.path).toBe("songs/Nirvana/Album inconnu/Lithium");
-    expect(await (await api("")).json()).toEqual([]);
 
     const patched = (await (
       await api(`/${created.id}`, json("PATCH", { lyrics: "[C]la" }))
     ).json()) as Song;
     expect(patched.lyrics).toBe("[C]la");
-    const list = (await (await api("")).json()) as { id: string }[];
-    expect(list.map((s) => s.id)).toEqual([created.id]);
 
     const withSheet = (await (
       await api(`/${created.id}/sheets?name=score.pdf&mime=application/pdf`, {
@@ -345,27 +342,6 @@ describe("the songbook, kept in song folders", () => {
       });
     expect((await sheet("name=notes.txt&mime=text/plain")).status).toBe(400);
     expect((await sheet("name=score.musicxml&mime=text/xml")).status).toBe(200);
-  });
-
-  it("answers 404 for an unknown song and 400 for a refused move", async () => {
-    expect((await api("/nope")).status).toBe(404);
-    const { id } = (await (
-      await api("", json("POST", { artist: "A", title: "T" }))
-    ).json()) as Song;
-    expect(
-      (await api(`/${id}/move`, json("POST", { to: "samples/x" }))).status,
-    ).toBe(400);
-  });
-
-  it("lets only an admin, or the rehearsal server's own service, delete one", async () => {
-    const { id, path } = (await (
-      await api("", json("POST", { artist: "A", title: "T" }))
-    ).json()) as Song;
-    groups = [];
-    expect((await api(`/${id}`, { method: "DELETE" })).status).toBe(403);
-    groups = ["admins"];
-    expect((await api(`/${id}`, { method: "DELETE" })).status).toBe(204);
-    expect(existsSync(join(root, path))).toBe(false);
   });
 });
 

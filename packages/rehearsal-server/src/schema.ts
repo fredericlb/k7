@@ -9,7 +9,7 @@ interface FieldSpec {
 export type CollectionSchema = Record<string, readonly FieldSpec[]>;
 
 // Collections the store no longer holds: their rows, left in an older file, are dropped when it opens.
-export const RETIRED_COLLECTIONS = ["Highlights"];
+export const RETIRED_COLLECTIONS = ["Highlights", "Songs", "SongFavorites"];
 
 const COLLECTIONS = {
   Sessions: [
@@ -90,43 +90,6 @@ const COLLECTIONS = {
     { name: "Description", type: "text" },
     { name: "VideoUrl", type: "text" },
     { name: "CreatedAt", type: "text" },
-  ],
-  // A song's sheets: SheetMeta orders them, the store's `sheets/` folder holds their bytes.
-  Songs: [
-    { name: "Uid", type: "text" },
-    { name: "OwnerId", type: "text" },
-    { name: "Artist", type: "text" },
-    { name: "Title", type: "text" },
-    { name: "Lyrics", type: "text" },
-    { name: "LyricTimings", type: "text" },
-    { name: "Tablature", type: "text" },
-    { name: "SheetMeta", type: "text" },
-    { name: "Envelope", type: "text" },
-    { name: "AudioPath", type: "text" },
-    { name: "AudioMime", type: "text" },
-    { name: "AudioName", type: "text" },
-    { name: "InstrumentalPath", type: "text" },
-    { name: "InstrumentalMime", type: "text" },
-    { name: "InstrumentalName", type: "text" },
-    // The auto-fetch pipeline's own state — fetchSong/run.ts's runPipeline reads and writes it.
-    { name: "FetchPhase", type: "text" },
-    { name: "FetchProgress", type: "number" },
-    { name: "FetchError", type: "text" },
-    { name: "FetchHuntId", type: "text" },
-    { name: "FetchJobId", type: "text" },
-    // "" (not attempted), "matched" (applied automatically) or "unmatched" (needs the fixer).
-    { name: "LyricsMatch", type: "text" },
-    // The insert dismissed on purpose — "Ignore" — so it never offers again for this song.
-    { name: "FetchIgnored", type: "bool" },
-    // Seen by its creator alone instead of the whole band — ../docs/ownership.md.
-    { name: "Private", type: "bool" },
-    { name: "CreatedAt", type: "text" },
-    // The server a device copied the song from; set, the song is read-only on that device — ../docs/songbookCopy.md.
-    { name: "Origin", type: "text" },
-  ],
-  SongFavorites: [
-    { name: "SongUid", type: "text" },
-    { name: "OwnerId", type: "text" },
   ],
 } as const satisfies CollectionSchema;
 

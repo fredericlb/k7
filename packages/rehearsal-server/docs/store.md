@@ -1,10 +1,8 @@
-# The rehearsal store: SQLite, and sheets on disk
+# The rehearsal store: SQLite
 
-The rehearsal pages' rows (sessions, moments, markers, releases, versions, pages, singing
-exercises, favourites) live in one SQLite file, `k7.db` under `K7_DATA_DIR`. The songbook's songs
-are not rows: they are library song folders (`../../mediatek/docs/songbook.md`), and only each
-person's star on one is kept here. `../src/sqlite.ts` is the store and `../src/db.ts`
-is the one this process opens. The server, the desktop and the phone run the same store, so a
+The rehearsal pages' rows — sessions, moments, markers, releases, versions, pages and singing
+exercises — live in one SQLite file, `k7.db` under `K7_DATA_DIR`. `../src/sqlite.ts` is the store and
+`../src/db.ts` is the one this process opens. The server, the desktop and the phone run the same store, so a
 rehearsal feature behaves the same wherever it runs.
 
 ## Why SQLite, in this process
@@ -25,7 +23,7 @@ therefore needs no migration: old rows simply lack it. Such a field reads as its
 (`""`, `0`, `false`), taken from `schema.ts`, because `store.ts` relies on getting a value rather
 than nothing. A filter is an IN-list per field, matched with `json_extract`.
 
-A row's type is read off the same file: `FieldsOf<"Songs">` is what `schema.ts` lists for that
+A row's type is read off the same file: `FieldsOf<"Sessions">` is what `schema.ts` lists for that
 collection, and `db.ts` hands each collection's rows back under it, so a field added to the schema
 is typed in every reader at once and a field misspelt in the store does not compile. The package is
 type-checked strictly and its host reads its sources, with no declaration file between them.
@@ -41,9 +39,7 @@ than bound as a parameter; the field name is checked as a plain word first. A fi
 lookups is added to that list, and `sqlite.test.ts` checks the query plan of each.
 
 A listing that names its fields reads only those, each extracted with `json_extract` in the SQL:
-the rest of the row, a session's or a song's envelope among it, is never handed to JavaScript nor
-parsed. A text the list only needs to know is there (a song's lyrics, its tablature) is read as a
-`filled` flag, computed in SQL. A row asked for by id (a moment, a marker) is read by its primary
+the rest of the row, a session's envelope among it, is never handed to JavaScript nor parsed. A row asked for by id (a moment, a marker) is read by its primary
 key and its owner or session checked afterwards, never found by scanning its owner's rows.
 
 ## Every call is synchronous, and a multi-row write is one transaction
@@ -62,41 +58,25 @@ never corrupts the file, and a commit no longer waits for its own fsync. Stateme
 once per SQL text and kept for the life of the connection; the texts are few, since values are
 always bound.
 
-## The songbook list carries no texts
-
-`GET /api/songs` answers one row per song, read from the library's catalogue: its names, its flags,
-whether it has lyrics, a tablature and sheets, and nothing of their content. A song's texts come from `GET /api/songs/:sid`,
-and every route that changes a song answers the song whole, which is what the page patches its
-list from instead of fetching the songbook again. A songbook's texts and envelopes, multiplied by
-every song, are what the list would otherwise carry on each edit.
+## Ids
 
 An id is a random 15-character string. Rows imported from PocketBase keep their PocketBase ids,
 which is what keeps the references between rows intact.
 
-## The `Songs` rows and `sheets/` are what the migration reads
-
-`Songs` rows and the `sheets/` folder (each sheet's bytes under its id, the `sheets` table naming
-it) are no longer read or written by any route: they are what
-`../scripts/migrateSongbook.ts` moves into the library, and they are left in place after it, a copy
-nothing serves. A sheet is served from the song's library folder, fetched once into the local cache
-(`ensureSheetFileCached`, `../src/store/songMedia.ts`).
-
 ## Backups
 
 `k7.db` runs in WAL mode, so copying the file while the backend writes it can capture half a
-transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop k7 first. The
-songbook is backed up with the library's volume.
+transaction. Back it up with `sqlite3 k7.db "VACUUM INTO 'backup.db'"`, or stop k7 first.
 
 ## The one-time import from PocketBase
 
 The server's rows used to live in PocketBase. At boot, when `POCKETBASE_URL`, `_EMAIL` and
 `_PASSWORD` are set and none of PocketBase's rows is in the store yet, `../src/pocketbaseImport.ts`
-copies every collection `schema.ts` names, plus every sheet with its bytes, keeping the ids. It
-never writes to PocketBase.
+copies every collection `schema.ts` names, keeping the ids. It never writes to PocketBase.
 
 - **"Already imported" is read off the ids, not off an empty store.** Any row written before the
   credentials were set (a session, a star) would otherwise close the import for good, leaving the
-  songbook empty with no error. Kept ids make the test exact: one PocketBase id present means an
+  store empty with no error. Kept ids make the test exact: one PocketBase id present means an
   earlier boot imported it, and the boot says so. Ids are random, so a row the store made itself
   does not collide with one from PocketBase.
 - **A URL without its credentials is reported.** Compose always names `POCKETBASE_URL`; with no
@@ -105,9 +85,8 @@ never writes to PocketBase.
 - **Routes wait for it.** Every rehearsal route waits until the import is done, so nothing is
   written into a store that is only half filled. Only the rehearsal paths wait: k7's other `/api`
   routes share the process and never do.
-- **All rows or none.** The sheets are written first, then every row in one transaction. A
-  PocketBase that fails partway leaves none of its rows behind, the routes answer 503 saying why,
-  and the next start tries again. A sheet written again on a retry replaces the earlier copy.
+- **All rows or none.** Every row lands in one transaction. A PocketBase that fails partway
+  leaves none of its rows behind, the routes answer 503 saying why, and the next start tries again.
 - **Only the fields `schema.ts` names.** PocketBase's own columns (`created`, `collectionId`…) and
   any field abandoned since are left behind.
 

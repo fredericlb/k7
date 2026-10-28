@@ -40,9 +40,4 @@ export const patchRecord = <C extends Collection>(
 export const deleteRecords = (coll: Collection, ids: string[]): void =>
   store.deleteRecords(coll, ids);
 
-export const {
-  uploadAttachment,
-  attachmentFile,
-  deleteAttachment,
-  inTransaction,
-} = store;
+export const { inTransaction } = store;

@@ -9,12 +9,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Manifest } from "./manifest.ts";
 import { placeFile } from "./place.ts";
-import type {
-  Family,
-  MasterTags,
-  SongbookEntry,
-  SongbookSong,
-} from "./types.ts";
+import type { Family, MasterTags } from "./types.ts";
 
 /** What a cache needs from whatever owns the library; `download` takes a destination so a video never sits in memory. */
 export interface LibrarySource {
@@ -304,89 +299,4 @@ export async function pushRecording(
       `mediatek recording: ${res.status} ${res.statusText}`,
     );
   return (await res.json()) as { path: string; day: string; name: string };
-}
-
-/** The library's songbook routes, as the rehearsal server calls them — docs/songbook.md. */
-export function remoteSongbook(cfg: RemoteConfig) {
-  const at = (path: string): string =>
-    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/songbook${path}`;
-  const auth: Record<string, string> = cfg.token
-    ? { authorization: `Bearer ${cfg.token}` }
-    : {};
-
-  /** One call; a 404 or a 204 is null, any other refusal a RemoteError carrying the library's own sentence. */
-  async function call<T>(
-    method: string,
-    path: string,
-    body?: { json: unknown } | { bytes: Uint8Array | Blob },
-  ): Promise<T | null> {
-    const json = body && "json" in body;
-    let res: Response;
-    try {
-      res = await fetch(at(path), {
-        method,
-        headers: {
-          ...auth,
-          ...(body
-            ? {
-                "content-type": json
-                  ? "application/json"
-                  : "application/octet-stream",
-              }
-            : {}),
-        },
-        // Uint8Array and Blob are valid bodies for undici's fetch; TS's lib types just predate it.
-        body: body
-          ? "json" in body
-            ? JSON.stringify(body.json)
-            : (body.bytes as unknown as string)
-          : undefined,
-        signal: AbortSignal.timeout(30 * 60_000),
-      });
-    } catch (e) {
-      throw new RemoteError(`mediatek ${method} ${at(path)}: ${why(e)}`);
-    }
-    if (res.status === 404 || res.status === 204) return null;
-    if (!res.ok) {
-      const said = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new RemoteError(
-        said.error || `mediatek songbook: ${res.status} ${res.statusText}`,
-      );
-    }
-    return (await res.json()) as T;
-  }
-
-  const id = (s: string) => `/${encodeURIComponent(s)}`;
-  return {
-    list: async () => (await call<SongbookEntry[]>("GET", "")) ?? [],
-    get: (song: string) => call<SongbookSong>("GET", id(song)),
-    create: (opts: { artist: string; title: string; owner: string }) =>
-      call<SongbookSong>("POST", "", { json: opts }),
-    patch: (song: string, patch: Record<string, unknown>) =>
-      call<SongbookSong>("PATCH", id(song), { json: patch }),
-    addSheet: (
-      song: string,
-      bytes: Uint8Array | Blob,
-      sheet: { name: string; mime: string },
-    ) =>
-      call<SongbookSong>(
-        "POST",
-        `${id(song)}/sheets?${new URLSearchParams(sheet)}`,
-        { bytes },
-      ),
-    removeSheet: (song: string, sheet: string) =>
-      call<SongbookSong>("DELETE", `${id(song)}/sheets${id(sheet)}`),
-    setMaster: (song: string, bytes: Uint8Array | Blob, filename: string) =>
-      call<SongbookSong>(
-        "POST",
-        `${id(song)}/master?${new URLSearchParams({ filename })}`,
-        { bytes },
-      ),
-    move: (song: string, to: string) =>
-      call<SongbookSong>("POST", `${id(song)}/move`, { json: { to } }),
-    detach: (song: string) => call<SongbookSong>("POST", `${id(song)}/detach`),
-    remove: async (song: string): Promise<void> => {
-      await call("DELETE", id(song));
-    },
-  };
 }

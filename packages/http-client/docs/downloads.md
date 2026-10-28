@@ -1,16 +1,16 @@
 # Downloads under way
 
-`src/downloads.ts` is the page's one list of what is coming down: the médiathèque's and the songbook's
-copies from the paired server, a model the file service fetches, an instrument the supervisor fetches.
+`src/downloads.ts` is the page's one list of what is coming down: the médiathèque's copies from the
+paired server, a model the file service fetches, an instrument the supervisor fetches.
 The sidebar's download manager (`apps/k7/frontend/src/components/DownloadsButton.tsx`) draws it, and a
 row that started a download reads its spinner from it.
 
 ## Choices
 
-- **A module-level store, not React state.** The médiathèque, the songbook and k7's sidebar are three
-  packages that cannot import each other; this package is the one all three already depend on. It stays
+- **A module-level store, not React state.** The médiathèque and k7's sidebar are two packages that
+  cannot import each other; this package is the one both already depend on. It stays
   framework-free: each screen reads it with `useSyncExternalStore`.
-- **A key names the thing, not the click.** `library:<family path>`, `songbook:<id>`, `model:<job>`,
+- **A key names the thing, not the click.** `library:<family path>`, `model:<job>`,
   `instrument:<name>`. Queuing a key already queued or running answers the same promise, so a second
   click, or an album's "download missing" over a song already coming down, fetches nothing twice.
 - **The copies are queued one entry per song, two at a time.** The backend answers a copy only once it

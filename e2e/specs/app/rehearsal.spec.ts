@@ -1,25 +1,17 @@
-// rehearsal.spec.ts — the rehearsal pages a microphone is not needed for: a songbook sheet, the exercises, a public page.
+// rehearsal.spec.ts — the rehearsal pages a microphone is not needed for: the exercises, a public page.
 // What the suite makes is named E2E and removed over the recorder's own API at start and end, so a rerun starts clean.
 import type { Page } from "@playwright/test";
 import { expect, TARGET, test } from "../../src/target.ts";
 import { watchPage } from "../../src/watch.ts";
 
-const ARTIST = "E2E Band";
-const TITLE = "E2E Sheet";
+const _ARTIST = "E2E Band";
+const _TITLE = "E2E Sheet";
 const NAMETAG = "e2etestpage";
-const LYRICS = "[Am]Hello [G]rehearsal\n[C]second line";
-
-/** Removes the suite's songbook songs and its public page, whatever a failed run left. */
+/** Removes the suite's public page, whatever a failed run left. */
 async function sweep(page: Page): Promise<void> {
   const api = page.request;
   // Absolute, off the page: a phone's WebView hands its request context no base URL.
   const at = (path: string) => new URL(path, page.url()).href;
-  const songs = await listed<{ id: string; artist: string }>(
-    page,
-    at("/api/songs"),
-  );
-  for (const s of songs.filter((x) => x.artist === ARTIST))
-    expect((await api.delete(at(`/api/songs/${s.id}`))).ok()).toBe(true);
   const pages = await listed<{ id: string; nametag: string }>(
     page,
     at("/api/pages"),
@@ -34,69 +26,6 @@ async function listed<T>(page: Page, url: string): Promise<T[]> {
   const body: unknown = res.ok() ? await res.json() : [];
   return Array.isArray(body) ? (body as T[]) : [];
 }
-
-/** The lyrics editor of a song's page, open while there is a draft. */
-const lyricsEditor = (page: Page) =>
-  page.getByRole("textbox", { name: "Lyrics", exact: true });
-
-/** Makes the suite's songbook song and types its lyrics; answers once Save has sent them. */
-async function songWithLyrics(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "New song" }).click();
-  await expect(page.getByRole("heading", { name: "New song" })).toBeVisible();
-  await page.getByRole("textbox", { name: "Artist" }).fill(ARTIST);
-  await page.getByRole("textbox", { name: "Title" }).fill(TITLE);
-  await page.getByRole("radio", { name: /^Private/ }).check();
-  await page.getByRole("button", { name: "Create song" }).click();
-  await expect(
-    page.getByRole("heading", { level: 2, name: TITLE }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/rehearsal\/songs\/[^/]+/);
-  await page.getByRole("button", { name: "Song menu" }).click();
-  await page.getByRole("menuitem", { name: "Add lyrics" }).click();
-  await lyricsEditor(page).fill(LYRICS);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-}
-
-test("a songbook song's chord sheet renders its chords and lyrics", async ({
-  k7,
-}) => {
-  const page = await k7.open("/rehearsal/songs");
-  await sweep(page);
-  await page.reload();
-  const watch = watchPage(page);
-  await songWithLyrics(page);
-  // Read back from the server, once Save has closed the editor (the next test).
-  await expect(lyricsEditor(page)).toBeHidden({ timeout: 10_000 });
-  await page.reload();
-  // A chord of the sheet is a button that opens its diagram; the words around it stay text.
-  for (const chord of ["Am", "G", "C"])
-    await expect(
-      page.getByRole("button", { name: chord, exact: true }),
-    ).toBeVisible();
-  await expect(page.getByText("rehearsal", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit lyrics" })).toBeVisible();
-  await page.getByRole("button", { name: "Back to Songbook" }).click();
-  await expect(page.getByText(TITLE)).toBeVisible();
-  watch.assertClean();
-  await sweep(page);
-});
-
-test("saving a song's first lyrics shows the rendered sheet", async ({
-  k7,
-}) => {
-  const page = await k7.open("/rehearsal/songs");
-  await sweep(page);
-  await page.reload();
-  try {
-    await songWithLyrics(page);
-    await expect(lyricsEditor(page)).toBeHidden({ timeout: 10_000 });
-    await expect(
-      page.getByRole("button", { name: "Am", exact: true }),
-    ).toBeVisible();
-  } finally {
-    await sweep(page);
-  }
-});
 
 test("the exercises open: random chords, the tuner, singing", async ({
   k7,

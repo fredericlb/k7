@@ -10,10 +10,9 @@ import express, { type RequestHandler } from "express";
 /** What any route's JSON body may weigh unless it is listed below. */
 const DEFAULT_JSON_LIMIT = "256kb";
 
-/** Routes with a limit of their own: the public comment is smaller, a songbook entry's free text larger. */
+/** Routes with a limit of their own: the public comment is smaller than the rest. */
 const ROUTE_JSON_LIMITS: Record<string, string> = {
   "/api/public/share": "64kb",
-  "/api/songs": "2mb",
 };
 
 /** Routes whose bodies this process never parses, since it only pipes them on. */

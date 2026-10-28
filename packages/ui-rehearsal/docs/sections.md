@@ -6,19 +6,18 @@ a group of its sidebar, **Rehearsal**, under the media library's
 which one an address belongs to; the host draws them. The page's own action — the red dot that
 starts a take — sits where k7 puts a page's controls (`apps/k7/frontend/src/projects/RehearsalPage.tsx`).
 
-## Four entries
+## Three entries
 
 | entry | opens | holds |
 |---|---|---|
 | Recordings | `/rehearsal/sessions` | sessions and their moments, one timeline ([recordings.md](recordings.md)) |
 | Publications | `/rehearsal/releases` | releases, grouped by the pages that list them |
-| Songbook | `/rehearsal/songs` | the shared songbook |
 | Exercises | `/rehearsal/exercises` (`/rehearsal/exercices` redirects there) | singing exercises, random chords, the tuner |
 
 Fewer entries is the choice: a moment is a stretch of a session, so it hangs under it rather than
 being an entry of its own, and a page is a selection of releases, so the releases are listed under
 their pages. `/rehearsal/moments` and `/rehearsal/pages` still land on their entry, and a detail
-page — a session, a moment, a release, a page, a song, an exercise — lights the entry it belongs
+page — a session, a moment, a release, a page, an exercise — lights the entry it belongs
 to.
 
 **The settings are a section of k7's `/settings`**, not a fifth entry: every page of the origin
@@ -53,8 +52,7 @@ scoped under it: its palette as custom properties on the wrapper, and no `:root`
 element rule — a rule that reached k7's own pages would restyle them the moment a rehearsal page
 had been opened once. The fixed docks and pop-ins are placed against the content column, which the
 host makes their containing block; the take's overlay, outside it, reads the column's place from the
-host (`audio.md`). The song's track is the host's dock's bar when there is one (`useMiniPlayerDocked`).
-
+host (`audio.md`). 
 The palette's short names (`--bg`, `--accent`…) READ the theme's `--sh-*` tokens rather than repeat
 their values: a copy is a second palette that drifts the day the theme changes. And `.main-inner` is
 the same column as k7's other home pages (`apps/k7/frontend/src/projects/PageFrame.tsx`), so moving

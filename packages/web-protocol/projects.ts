@@ -319,7 +319,7 @@ export const TASKS_PAGE = "tasks";
 /** The MEDIA library, `/media/…` — reserved as a PREFIX, its sections and open files being segments below it. */
 export const MEDIA_PAGE = "media";
 
-/** The REHEARSAL pages, `/rehearsal/…` — reserved as a PREFIX like the media library: sessions, releases, songbook, exercises and the public pages below it. */
+/** The REHEARSAL pages, `/rehearsal/…` — reserved as a PREFIX like the media library: sessions, releases, exercises and the public pages below it. */
 export const REHEARSAL_PAGE = "rehearsal";
 
 /** The segments below the mount, or null when the address is not under it. */

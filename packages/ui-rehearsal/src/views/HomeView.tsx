@@ -1,22 +1,6 @@
-import { AddFab } from "../components/AddFab";
 import { useMomentShare } from "../components/MomentServerShare";
 import { ServerOnly } from "../components/ServerOnly";
-import { SongbookExport } from "../components/SongbookExport";
-import {
-  ServerOnlySongs,
-  useSongbookCopy,
-} from "../components/SongbookServerCopy";
-import { SongbookTable } from "../components/SongbookTable";
-import { m } from "../paraglide/messages.js";
-import type {
-  HomeTab,
-  Moment,
-  Page,
-  Release,
-  Session,
-  SongListEntry,
-  SongTab,
-} from "../types";
+import type { HomeTab, Moment, Page, Release, Session } from "../types";
 import { PublicationsList } from "./PublicationsList";
 import { RecordingsTimeline } from "./RecordingsTimeline";
 
@@ -24,7 +8,6 @@ interface Props {
   sessions: Session[];
   releases: Release[];
   pages: Page[];
-  songs: SongListEntry[];
   moments: Moment[];
   tab: HomeTab;
   onOpen: (s: Session) => void;
@@ -33,11 +16,6 @@ interface Props {
   onNewRelease: () => void;
   onOpenPage: (p: Page) => void;
   onNewPage: () => void;
-  onOpenSong: (s: SongListEntry, tab?: SongTab) => void;
-  onNewSong: () => void;
-  onToggleSongFavorite: (s: SongListEntry) => void;
-  /** Called once a song came down from the paired server, to reload the list. */
-  onSongsChanged: () => void;
   /** Called when the server holding releases and pages is found reachable, to load them. */
   onPublicationsReachable: () => void;
   onOpenMoment: (m: Moment) => void;
@@ -47,7 +25,6 @@ export function HomeView({
   sessions,
   releases,
   pages,
-  songs,
   moments,
   tab,
   onOpen,
@@ -56,15 +33,9 @@ export function HomeView({
   onNewRelease,
   onOpenPage,
   onNewPage,
-  onOpenSong,
-  onNewSong,
   onOpenMoment,
-  onToggleSongFavorite,
-  onSongsChanged,
   onPublicationsReachable,
 }: Props) {
-  // Where each song lives on a machine paired with a server — ../../../rehearsal-server/docs/songbookCopy.md.
-  const copy = useSongbookCopy(songs, onSongsChanged, tab === "songbook");
   // Which moments the paired server holds; a session never leaves this machine — ../../../rehearsal-server/docs/momentShare.md.
   const share = useMomentShare(tab === "sessions", moments);
   return (
@@ -92,25 +63,6 @@ export function HomeView({
             onNewPage={onNewPage}
           />
         </ServerOnly>
-      )}
-
-      {tab === "songbook" && (
-        <div className="moments-pane">
-          <AddFab
-            actions={[{ label: m["songbook.new"](), onSelect: onNewSong }]}
-          />
-          <SongbookTable
-            songs={songs}
-            // The songbook is shared; what a person exports is their own favourites — ../../docs/export.md.
-            headerMenu={
-              <SongbookExport songs={songs.filter((s) => s.favorite)} />
-            }
-            copy={copy}
-            onOpenSong={onOpenSong}
-            onToggleSongFavorite={onToggleSongFavorite}
-          />
-          <ServerOnlySongs copy={copy} />
-        </div>
       )}
     </div>
   );

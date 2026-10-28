@@ -1,8 +1,8 @@
 # The rehearsal server
 
 `packages/rehearsal-server` (`@studio/rehearsal-server`) is the rehearsal recorder's server half:
-sessions and moments, releases and pages, the songbook and singing exercises. It is
-mounted inside k7's backend; it has no process of its own.
+sessions and moments, releases and pages, and singing exercises. It is mounted inside k7's
+backend; it has no process of its own.
 
 ## Mounting
 
@@ -36,24 +36,23 @@ Change a signature in both files.
 | `K7_DATA_DIR` | The store and cache (default `~/.studio/k7`) |
 | `K7_INSTANCE` | `server` (default) or `local` under the tray or on a phone |
 | `CACHE_MAX_GB` | Disk cache of audio copies, trimmed oldest first (default 20) |
-| `AUTH_ADMIN_GROUPS` | OIDC groups whose members may delete a public song |
 | `POCKETBASE_URL`, `POCKETBASE_EMAIL`, `POCKETBASE_PASSWORD` | When all set and the store is empty, rows are imported once at boot |
 
 ## The store
 
 `src/sqlite.ts` (`createSqlite(dir)`) is one SQLite file, `k7.db`, opened with `node:sqlite`
-(`DatabaseSync`, WAL), plus a `sheets/` folder for sheet bytes. Rows are JSON documents in one
+(`DatabaseSync`, WAL). Rows are JSON documents in one
 `records(coll, id, fields)` table: a field added to `src/schema.ts` needs no migration, and a field
 a row never set reads as its type's zero value. Ids are 15 lowercase alphanumeric characters, the
 shape imported PocketBase ids already have.
 
 `src/schema.ts` declares the collections: `Sessions`, `Highlights`, `Comments` (moments), `Markers`,
-`Releases`, `Versions`, `Pages`, `SingingExercises`, `Songs`, `SongFavorites`.
+`Releases`, `Versions`, `Pages`, `SingingExercises`. A collection dropped from that list is named in
+`RETIRED_COLLECTIONS`, and its rows are deleted when the file opens.
 
 `src/store.ts` holds every operation on them, behind a short in-memory row cache; `src/db.ts` binds
 the store to `K7_DATA_DIR`. `src/lock.ts` serialises read-modify-write per key (two appends to one
-session, two sheet uploads to one song), per process, which is right for a backend that runs as
-one. `src/cache.ts` shares first hits on the same work and trims the disk cache, which only ever
+session, a mixdown and its stems), per process, which is right for a backend that runs as one. `src/cache.ts` shares first hits on the same work and trims the disk cache, which only ever
 holds copies a miss can refill.
 
 `src/pocketbaseImport.ts` only reads PocketBase; ids are kept so every reference holds. A failed
@@ -68,21 +67,13 @@ import answers 503 on the rehearsal paths and is retried at the next start.
 - `pushVersion` files a release version as a song under the artist `K7`, its album and title
   folders tagged with the release's and the version's ids so each version has a folder of its own;
   the media library's scan hides `songs/K7/`.
-- `songbook()` is the library's songbook client: a song's texts, sheets, track and bookkeeping live
-  in its library folder (`packages/mediatek/docs/songbook.md`); only favourites stay in the store.
-- `src/songFetch.ts` makes a library song a songbook song's track by moving the song into its
-  folder, and records its `stems/instrumental.wav`.
-- `src/songEnvelope.ts` shapes the library's waveform buckets for the page.
-- `scripts/migrateSongbook.ts` (run with `tsx`) moves the store's `Songs` rows and `sheets/` into
-  the library once.
+- `src/songEnvelope.ts` shapes the library's waveform buckets for a version's page.
 
 ## Serving bytes
 
 Every byte the package streams goes through `src/serve.ts`, with a content type the SERVER chose:
 a stored MIME was picked by a client and is never trusted. Audio is typed by the extension the
 server filed it under, and an upload that does not say it is audio is refused before it is stored.
-Sheets are served with `X-Content-Type-Options: nosniff`; an image gets a sandboxing
-Content-Security-Policy, a PDF is served as itself, a score as bytes for alphaTab.
 `src/uploads.ts` removes, whatever the route answered, every uploaded file the store did not move
 into place. `src/serving.test.ts` covers both.
 
@@ -98,7 +89,6 @@ All under `/api`, behind `requireAuth` unless noted.
 | `/releases` (bearer or session) | `GET /`, `POST /`, `GET /by-song/:uuid`, `POST /import`, `GET/PATCH/DELETE /:rid`, `POST /:rid/versions`, `PATCH /:rid/versions/:vid`, `GET /:rid/versions/:vid/envelope`, `GET/PUT /:rid/versions/:vid/audio`, `DELETE /:rid/versions/:vid`, `GET /:rid/versions/:vid/download`, `GET /:rid/versions/:vid/tracks/:tid` |
 | `/pages` | `GET /`, `POST /`, `GET/PATCH/DELETE /:pid` |
 | `/public/pages` (no auth) | `GET /:nametag`, and per version `audio`, `envelope`, `download` (404 unless the release allows downloads) |
-| `/songs` | `GET /`, `POST /`, `GET/PATCH/DELETE /:sid`, `PUT /:sid/favorite`, `GET /:sid/lrclib`, `POST /:sid/sheets`, `GET /:sid/sheets/:fid[/:name]`, `DELETE /:sid/sheets/:fid`, `POST/DELETE /:sid/audio`, `POST /:sid/audio/from-library`, `POST /:sid/instrumental/from-library`, `DELETE /:sid/instrumental`, `GET /:sid/envelope` |
 | `/singing` | `GET /`, `POST /`, `PATCH/DELETE /:eid` |
 | `/token` | `GET /`: a personal API token, session only |
 | `/publications` | Whether releases and pages are reachable from this instance |
@@ -117,8 +107,6 @@ in memory. The file service reads the URL and token from `.settings.json` at the
 ## Ownership
 
 - Sessions, moments, releases, pages: their owner only (`ownerGuard`).
-- Songs: read and edited by everyone signed in, deleted by an admin (`AUTH_ADMIN_GROUPS`); there
-  are no private songs.
 - Singing exercises: everyone edits, only the author deletes.
 - Pages: `visibility` is `private`, `authenticated` or `public` (`@studio/rehearsal-shared/pageVisibility`);
   an empty value on an old row reads as public. The version a page plays is
@@ -130,9 +118,6 @@ in memory. The file service reads the URL and token from `.settings.json` at the
 - `src/publications.ts`: releases and pages live on the server only. With `K7_INSTANCE=local`,
   `PUBLICATION_ROUTES` are forwarded to the paired server as the person who paired it, and answer
   503 when it cannot be reached. The server answers devices at `DEVICE_ROUTE` (`/api/sync/k7`).
-- `src/songbookCopy.ts`: the server lists a device its songbook with each song's folder; the device
-  places its own against them by id and brings one folder down whole. A copy carries
-  `songbook.origin` in its sidecar and is read-only.
 - `src/momentShare.ts`: a device shares a moment (clip, span, text, markers) up; sharing again
   replaces the server's copy. The copy keeps the device's moment id and carries `SharedFrom`.
 
@@ -141,5 +126,4 @@ The routers mounting these sides are wired in `apps/k7/backend/src/media/routes/
 ## Tests
 
 `npm test -w @studio/rehearsal-server` runs `src/*.test.ts`: `sqlite`, `cache`, `lock`, `lrclib`,
-`momentShare`, `pocketbaseImport`, `publications`, `publicPages`, `serving`, `songbookCopy`,
-`songEnvelope`.
+`momentShare`, `pocketbaseImport`, `publications`, `publicPages`, `serving`, `songEnvelope`.

@@ -117,7 +117,7 @@ and `k7-plugins`, the desk and the viewport (`packages/k7-plugins/docs/i18n.md`)
 ## Separation chains — the machine's, not a project's
 
 `ChainsSection.tsx`. WHICH chain separates a record into stems, and which one gives it without its
-voice (the rehearsal songbook's « Make instrumental »). They were a section of the editor's I/O tab, which made them look
+voice (the library's « Make instrumental »). They were a section of the editor's I/O tab, which made them look
 like a fact about the open project; they are not. Which module separates and which model it wants is
 the same for every set list on this machine — `<state>/preferences.yaml` has always held them — so
 they are set here, with no project open, and every surface that starts a separation only reads them.

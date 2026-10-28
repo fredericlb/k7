@@ -1,5 +1,5 @@
 /* Singing exercises: the band's common practice book — a title, and what to do.
-   Shared like the songbook, and for the same reason — ../../docs/ownership.md. */
+   Shared, like the library's songs, and for the same reason — ../../docs/ownership.md. */
 
 import { sub, validate, wrap } from "@frediverse/http";
 import { isYouTubeUrl } from "@studio/rehearsal-shared/youtube";
@@ -49,7 +49,7 @@ singingRouter.patch(
   "/:eid",
   validate(patchSchema),
   wrap(async (req, res) => {
-    // Anyone may improve an entry, exactly as anyone may edit a song of the songbook.
+    // Anyone may improve an entry, exactly as anyone may edit a song of the shared library.
     const updated = await store.updateSingingExercise(
       req.params.eid,
       req.body,

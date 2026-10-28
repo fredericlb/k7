@@ -1,4 +1,4 @@
-/* publications.css — releases, pages, the songbook list, the CLI token and the singing book. Nested under .rehearsal-root like every sheet here (index.css). */
+/* publications.css — releases, pages, the CLI token and the singing book. Nested under .rehearsal-root like every sheet here (index.css). */
 
 .rehearsal-root {
   /* ---- Badges & tags ------------------------------------------------------- */
@@ -37,34 +37,6 @@
     flex: 1;
   }
 
-  /* ---- Songbook ------------------------------------------------------------ */
-
-  .song-editor {
-    width: 100%;
-    min-height: 60vh;
-    margin: 12px 0 0;
-    box-sizing: border-box;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 12px 14px;
-    border-radius: 8px;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-      "Liberation Mono", monospace;
-    font-size: 13px;
-    line-height: 1.5;
-    tab-size: 4;
-    white-space: pre;
-    overflow: auto;
-    resize: vertical;
-  }
-
-  /* Read-only rendering of a tab: same monospace box, without the editable feel. */
-  .song-view {
-    background: var(--surface-2);
-    resize: none;
-  }
-
   /* ---- CLI token ----------------------------------------------------------- */
 
   .token-field {
@@ -89,51 +61,6 @@
   }
   .source-choices > * {
     flex: 1;
-  }
-
-  /* ---- Metronome (a panel of the song page's rail) ------------------------- */
-
-  /* Each click lights the header — green on a bar's first beat, red on the others — and fades out. */
-  .rail-panel-head {
-    transition: background-color 0.12s ease-out;
-  }
-  .rail-panel-head.metro-bar,
-  .rail-panel-head.metro-beat {
-    transition: none;
-  }
-  .rail-panel-head.metro-bar {
-    background: color-mix(in srgb, var(--green) 65%, var(--surface-2));
-  }
-  .rail-panel-head.metro-beat {
-    background: color-mix(in srgb, var(--red) 65%, var(--surface-2));
-  }
-
-  .metro-bpm-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .metro-bpm {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.05;
-  }
-  .metro-bpm-val {
-    font-size: 26px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  .metro-bpm-unit {
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--muted, #888);
-  }
-  .metro-slider {
-    width: 100%;
-    margin: 10px 0;
-    accent-color: var(--accent);
   }
 
   /* ---- The drawn player (releases, pages) ---------------------------------- */

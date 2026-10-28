@@ -79,9 +79,9 @@ same song again gets a 304 decided on two `stat`s, before anything is read or co
 whether there is a decoder. That route exists because a sweep with no readout is indistinguishable
 from a sweep that died. A different question — one FILE's own measurement, not the sweep's
 progress — is `GET /api/mediatek/envelope`: `ensureAnalysedShared` under the same fingerprint check, its
-`rms`/`transients`/`sampleRate`/`seconds` returned as JSON. The rehearsal server's `songEnvelope.ts` is its first
-caller, for the songbook's reference track — a path outside `songs/`, so the sweep never reaches
-it, and the route measures it on request instead.
+`rms`/`transients`/`sampleRate`/`seconds` returned as JSON. The rehearsal server's `songEnvelope.ts`
+is its first caller, for a published version outside `songs/K7/`'s sweep — the route measures it on
+request instead.
 
 ## Why a sidecar does not disturb the catalogue
 

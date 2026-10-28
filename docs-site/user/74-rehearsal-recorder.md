@@ -2,28 +2,26 @@
 
 The rehearsal recorder is the part of k7 for playing rather than producing: you press record at
 the start of a rehearsal and let it run, then go back to the moments worth keeping. It also holds
-the band's shared songbook, your published releases and their public pages, and a few practice
-tools. It opens at `/rehearsal`.
+your published releases and their public pages, and a few practice tools. It opens at
+`/rehearsal`.
 
 If your instance answers on a `k7.` address, any page there sends you to the same page under
 `/rehearsal`.
 
 ## The sections
 
-The home sidebar's **Rehearsal** group has four entries:
+The home sidebar's **Rehearsal** group has three entries:
 
 | Entry | Address | What it holds |
 |---|---|---|
 | Recordings | `/rehearsal/sessions` | Your sessions and the moments cut out of them, by day |
 | Publications | `/rehearsal/releases` | Your releases and the pages that list them |
-| Songbook | `/rehearsal/songs` | The band's songs: lyrics with chords, tablature, sheets, a reference track |
 | Exercises | `/rehearsal/exercices` | Singing exercises, random chords, a guitar tuner |
 
 `/rehearsal` on its own opens Recordings.
 
-Sessions and moments are yours alone. The songbook and the singing exercises are shared by
-everyone signed in to the instance (a song can be made private). Releases and pages are yours, and
-a page can be opened by others through its link.
+Sessions and moments are yours alone, and so are your releases; the singing exercises are shared
+by everyone signed in to the instance. A page can be opened by others through its link.
 
 ## Recording a session
 
@@ -37,7 +35,7 @@ a page can be opened by others through its link.
 3. Allow microphone access if the browser asks.
 
 The recorder is a bar at the bottom of the window, and it stays there for the whole take: the page
-above stays usable, so you can browse other pages, including the songbook, while it records. A
+above stays usable, so you can browse other pages while it records. A
 session is created at once.
 
 Only one take runs at a time: pressing the red dot during a take says "Finish the current recording
@@ -117,5 +115,4 @@ The home **Settings** page has a **Rehearsal** section:
 
 - [Sessions and moments](./75-sessions-and-moments.md)
 - [Releases and pages](./76-releases-and-pages.md)
-- [The songbook](./77-songbook.md)
 - [Exercises](./78-exercises.md)

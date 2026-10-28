@@ -5,7 +5,7 @@
 import type { LrcCandidate } from "@studio/rehearsal-shared";
 
 const SEARCH_URL = "https://lrclib.net/api/search";
-const USER_AGENT = "k7 songbook (https://app.k7.rocks/rehearsal)";
+const USER_AGENT = "k7 (https://app.k7.rocks)";
 const TIMEOUT_MS = 10_000;
 /** More than this many candidates is a list nobody reads on a phone. */
 const MAX_CANDIDATES = 8;
@@ -112,7 +112,7 @@ export function pickRecord(
         (!artist || loose(r.artistName) === loose(artist));
   const gap = (r: LrclibRecord) =>
     duration && r.duration ? Math.abs(r.duration - duration) : 0;
-  // Timed lyrics beat plain ones at the same distance: they are what the songbook follows.
+  // Timed lyrics beat plain ones at the same distance: they are what the sheet follows.
   const best = usable
     .filter(fits)
     .sort(

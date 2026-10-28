@@ -1,11 +1,10 @@
 // DownloadsButton.tsx — the sidebar's download manager: an icon with "done/total" on it while anything comes
-// down (songs, songbook songs, the engine's models and instruments), and the list in a popover.
+// down (library songs, the engine's models and instruments), and the list in a popover.
 // Nothing at all while the list is empty. The list is @studio/http-client's (packages/http-client/docs/downloads.md).
 
 import { Button } from "@frediverse/ui/button";
 import {
   AudioLines,
-  BookOpen,
   Check,
   CircleAlert,
   Clock,
@@ -34,7 +33,6 @@ import { useDesktopEngine } from "../settings/desktopEngine";
 
 const KIND_ICON: Record<DownloadKind, LucideIcon> = {
   song: Disc3,
-  songbook: BookOpen,
   engine: AudioLines,
 };
 
