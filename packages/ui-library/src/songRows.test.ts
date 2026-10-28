@@ -1,6 +1,6 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { type AlbumRow, albumOf, songTable } from "./songTable";
+import { type AlbumRow, albumOf, songTable } from "./songRows";
 
 const song = (
   path: string,

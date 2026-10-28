@@ -19,7 +19,7 @@ import type { useServerCopy } from "./ServerCopy";
 import { SongEditor } from "./SongEditor";
 import { SongTable } from "./SongTable";
 import { fileAsMaster, splitDrop } from "./songMaster";
-import { songTable } from "./songTable";
+import { songTable } from "./songRows";
 import { songActions } from "./treeActions";
 import { useSongTap } from "./useSongTap";
 

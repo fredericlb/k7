@@ -5,7 +5,7 @@ the side, its contents in the middle — except the songs, which are a table the
 (`src/SongsLibrary.tsx`, below). The sections themselves are the host's nav — k7's home
 sidebar ([host.md](host.md)). It draws; the modules beside it hold the rest, one concern each — what
 it shows of the volume and the poll that reloads it (`useLibraryData.ts`), the rows built from a
-listing (`libraryTree.ts` for a tree, `songTable.ts` for the songs, pure and tested alone), the
+listing (`libraryTree.ts` for a tree, `songRows.ts` for the songs, pure and tested alone), the
 right-click menus (`treeActions.ts`) and the middle pane (`LibraryContents.tsx`). This page holds
 the reasoning, so the code can point at it in one line.
 

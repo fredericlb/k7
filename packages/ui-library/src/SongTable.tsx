@@ -1,7 +1,7 @@
 // SongTable.tsx — the songs family as a table the width of the screen: the practice list, then the
 // favorites, then the rest, an album of several songs as one row that unfolds into them. A song's
 // row opens its page; a file dropped on it becomes its master or a version, as the tree's did.
-// The grouping is songTable.ts; the ⋮ is the tree's own menu (RowMenu.tsx). See ../docs/library.md.
+// The grouping is songRows.ts; the ⋮ is the tree's own menu (RowMenu.tsx). See ../docs/library.md.
 
 import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
 import {
@@ -25,7 +25,7 @@ import { useLabels } from "./host";
 import { PracticeMark, StarredMark } from "./ListMarks";
 import { RowMenu, rowTarget } from "./RowMenu";
 import { RemoteDownload } from "./ServerCopy";
-import type { AlbumRow, SongRow, TableGroup } from "./songTable";
+import type { AlbumRow, SongRow, TableGroup } from "./songRows";
 
 export interface SongTableProps {
   groups: TableGroup[];

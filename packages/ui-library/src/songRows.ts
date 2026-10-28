@@ -1,4 +1,4 @@
-// songTable.ts — the songs family as the rows of the catalogue's table: the practice list first,
+// songRows.ts — the songs family as the rows of the catalogue's table: the practice list first,
 // then the favorites, then the rest, and an album of more than one song drawn as ONE row that
 // unfolds into its songs. Pure, so the grouping is tested without a screen.
 // The one thing a reader would get wrong: « Album inconnu » is where an untagged song is filed, not an album (../docs/library.md).
