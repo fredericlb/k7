@@ -1,5 +1,5 @@
 // CameraMode.tsx — the home page turned into a camera: the whole screen shows what the lens sees,
-// and the same picture is offered to the account's projects as `remote:<name>` (./cameraMode.ts).
+// and the same picture is offered to the account's projects as `remote:<name>` (./cameraLink.ts).
 // It keeps the screen awake, since a phone on a stand that dims is a camera that stops.
 // See packages/web-protocol/docs/cameras.md.
 
@@ -10,7 +10,7 @@ import {
   type CameraModeHandle,
   type CameraModeState,
   startCameraMode,
-} from "./cameraMode";
+} from "./cameraLink";
 
 /** What a phone or a webcam gives without being pushed: enough for a lane, light enough to send. */
 const CONSTRAINTS: MediaTrackConstraints = {

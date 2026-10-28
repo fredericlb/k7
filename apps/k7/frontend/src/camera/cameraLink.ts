@@ -1,4 +1,4 @@
-// cameraMode.ts — this device AS a camera: it holds the account's camera socket on k7's backend,
+// cameraLink.ts — this device AS a camera: it holds the account's camera socket on k7's backend,
 // listed under its device name, and answers each viewer that asks with a peer connection carrying
 // the one stream it shows on screen. The server only relays signalling; the picture goes peer to
 // peer. A socket that drops is dialled again with a fresh ticket. See packages/web-protocol/docs/cameras.md.
