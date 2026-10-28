@@ -26,7 +26,7 @@ export function SidebarServer({
 }: {
   /** The paired server's origin. */
   server: string;
-  /** Below `sm` the sidebar folds to its icon rail, and the block to one button that switches. */
+  /** On the sidebar's icon rail the block is one button that switches the server instead. */
   folds?: boolean;
 }) {
   const choice = useServerChoice();
@@ -41,7 +41,7 @@ export function SidebarServer({
       {folds && (
         <button
           type="button"
-          className="mx-auto mb-1 flex size-9 items-center justify-center rounded-md hover:bg-accent sm:hidden"
+          className="mx-auto mb-1 flex size-9 items-center justify-center rounded-md hover:bg-accent wide:hidden"
           title={m["serverPick.hint"]({ server: current.label })}
           aria-label={m["serverPick.section"]()}
           onClick={() =>
@@ -55,7 +55,7 @@ export function SidebarServer({
         aria-label={m["serverPick.section"]()}
         className={cn(
           "mx-2 mb-2 flex-col gap-1.5 rounded-md border border-border p-2 text-xs",
-          folds ? "hidden sm:flex" : "flex",
+          folds ? "hidden wide:flex" : "flex",
         )}
       >
         <span className="text-muted-foreground">{m["serverPick.title"]()}</span>
