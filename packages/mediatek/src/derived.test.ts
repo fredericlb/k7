@@ -1,6 +1,6 @@
 // A FLAC's derived copy is invisible to every walk and follows its FLAC on every write — docs/derived.md.
 
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -10,6 +10,7 @@ import { derivedOf, isDerived, withoutDerived } from "./media.ts";
 import { addRecording, listRecordings } from "./recordings.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { addSong, moveEntry, putFile, removeFile } from "./write.ts";
 
 describe("the name rule", () => {
@@ -46,9 +47,9 @@ describe("in the library", () => {
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
-  afterEach(() => {
+  afterEach(async () => {
     delete process.env.STUDIO_MEDIATEK;
-    rmSync(root, { recursive: true, force: true });
+    await removeLibrary(root);
   });
 
   const bytes = (s: string): Uint8Array => new TextEncoder().encode(s);

@@ -1,15 +1,10 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FileHub } from "@studio/file-hub";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import type { LibraryPlacement, MediatekEntry } from "@studio/mediatek/types";
 import express, { type RequestHandler } from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -111,7 +106,7 @@ afterEach(async () => {
   await Promise.all(servers.map((s) => new Promise((ok) => s.close(ok))));
   servers = [];
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const placement = async (): Promise<LibraryPlacement> =>

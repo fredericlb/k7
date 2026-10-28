@@ -6,7 +6,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,11 +18,12 @@ import {
   recordFoundLyrics,
   recordLyricsMiss,
 } from "./autoLyrics.ts";
-import { flushIndex } from "./catalogue.ts";
+
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
 import { readSongbookAt } from "./songbook.ts";
 import { writeMasterTags } from "./tags.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { tinyWav } from "./testWav.ts";
 
 let root: string;
@@ -44,9 +44,8 @@ beforeEach(async () => {
   });
 });
 afterEach(async () => {
-  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 describe("who is due a lookup", () => {

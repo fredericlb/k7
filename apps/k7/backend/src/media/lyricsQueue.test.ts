@@ -1,6 +1,6 @@
 // The lyrics queue against a temporary library and a lookup that never leaves the process.
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
@@ -10,6 +10,7 @@ import {
   readSongbookAt,
 } from "@studio/mediatek/songbook";
 import { writeMasterTags } from "@studio/mediatek/tags";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { tinyWav } from "@studio/mediatek/testWav";
 import { addSong } from "@studio/mediatek/write";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,9 +28,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 /** A song filed as an upload files it, tagged with its names. */

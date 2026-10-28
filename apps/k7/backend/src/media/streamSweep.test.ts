@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { transcode } from "@studio/audio-analysis/transcode";
 import { ensureLayout } from "@studio/mediatek/layout";
 import { scanFamily } from "@studio/mediatek/scan";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { copyIsFresh, ensureStreamCopy } from "./streamCopy.ts";
 import { pass, streamSweepState } from "./streamSweep.ts";
@@ -55,9 +56,9 @@ describe("the stream sweep", () => {
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
-  afterEach(() => {
+  afterEach(async () => {
     delete process.env.STUDIO_MEDIATEK;
-    rmSync(root, { recursive: true, force: true });
+    await removeLibrary(root);
   });
 
   it("puts a same-named WebM beside every FLAC, and lists none of them", async () => {

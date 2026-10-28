@@ -375,6 +375,12 @@ jobs:
             gh release create "$TAG" --title "$TAG" --generate-notes dist/*
           fi
 
+      # The publish script alone, beside dist/ rather than over it.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: src
+          sparse-checkout: .github/scripts
+
       # The same files on k7.rocks/app_downloads, the page people download from and the feed the app updates from
       # (docs/app-downloads.md): one PUT per file, then publish switches the stamp's channel to this build at once.
       - name: publish on /app_downloads
@@ -389,8 +395,4 @@ jobs:
             echo "::warning::APP_RELEASE_TOKEN is not set, /app_downloads keeps its last build."
             exit 0
           fi
-          for f in dist/*; do
-            echo "uploading $(basename "$f")"
-            curl --fail-with-body -sS --retry 3 -H "Authorization: Bearer $APP_RELEASE_TOKEN" -T "$f" "$API/$STAMP/$(basename "$f")"
-          done
-          curl --fail-with-body -sS -X POST -H "Authorization: Bearer $APP_RELEASE_TOKEN" "$API/$STAMP/publish"
+          bash src/.github/scripts/publish-app-release.sh "$API" "$STAMP" dist

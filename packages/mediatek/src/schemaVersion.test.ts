@@ -1,7 +1,7 @@
 // A library whose marker a newer k7 wrote is refused before any write; this build's own, an absent
 // one and a marker with no version pass. See ../docs/index.md.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,6 +12,7 @@ import {
   MediatekTooNewError,
   SCHEMA_VERSION,
 } from "./layout.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { makeFolder } from "./write.ts";
 
 let root: string;
@@ -19,9 +20,9 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "mediatek-v-"));
   process.env.STUDIO_MEDIATEK = root;
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const marker = (text: string) => writeFileSync(join(root, MARKER), text);

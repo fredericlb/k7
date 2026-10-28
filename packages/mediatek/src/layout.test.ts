@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,6 +10,7 @@ import {
   safePath,
   writablePath,
 } from "./layout.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { makeFolder, moveEntry, putFile, removeTree } from "./write.ts";
 
 let root: string;
@@ -24,9 +19,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const ROOTS = [

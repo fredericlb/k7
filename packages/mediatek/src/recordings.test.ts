@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import {
 import { revisions } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
 import { NotAudioError } from "./song.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { putFile } from "./write.ts";
 
 let root: string;
@@ -22,9 +23,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 // 21:05:07 local — an evening rehearsal, which is the case UTC would file under tomorrow.

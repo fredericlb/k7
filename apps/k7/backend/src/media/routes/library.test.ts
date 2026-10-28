@@ -3,7 +3,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import type { Server } from "node:http";
@@ -13,6 +12,7 @@ import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import { writeSidecar } from "@studio/audio-analysis/sidecar";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { tinyWav } from "@studio/mediatek/testWav";
 import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
@@ -50,7 +50,7 @@ afterEach(async () => {
   delete process.env.AUTH_ADMIN_GROUPS;
   delete process.env.STUDIO_LOCAL_USER;
   groups = ["admins"];
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const post = (q: Record<string, string>, body: string): Promise<Response> =>

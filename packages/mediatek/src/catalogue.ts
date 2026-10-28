@@ -95,9 +95,11 @@ function persist(): void {
   });
 }
 
-/** Resolves once the index on disk holds what memory holds — for tests, and a clean shutdown. */
+/** Resolves once no rescan is running and the index on disk holds what memory holds — for tests, and a clean shutdown. */
 export async function flushIndex(): Promise<void> {
-  while (persisting) await persisting;
+  // A rescan still running persists when it ends, so it is waited on too.
+  while (rescans.size > 0 || persisting)
+    await Promise.allSettled([...rescans.values(), persisting]);
 }
 
 /** One rescan per family in flight; a second reader joins it rather than starting another walk. */

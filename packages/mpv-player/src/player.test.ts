@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { configureMpv, play, resolveInMediatek } from "./player.ts";
 
@@ -27,9 +28,9 @@ beforeEach(() => {
   writeFileSync(join(root, "..", "secret-witness.txt"), "x");
 });
 
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
   rmSync(join(root, "..", "secret-witness.txt"), { force: true });
 });
 

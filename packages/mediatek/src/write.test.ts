@@ -3,7 +3,6 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,6 +10,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, NotWritableError, PathEscapesError } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { putFile, removeFile, removeTree } from "./write.ts";
 
 let root: string;
@@ -19,9 +19,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 /** Any `.part` leftover in a folder — the temp name carries a random suffix, so a literal

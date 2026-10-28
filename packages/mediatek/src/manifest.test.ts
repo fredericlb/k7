@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ensureLayout, PathEscapesError, safePath } from "./layout.ts";
 import { manifest, manifestAt } from "./manifest.ts";
 import { bumped } from "./revision.ts";
+import { removeLibrary } from "./testLibrary.ts";
 
 let root: string;
 
@@ -13,9 +14,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const write = (rel: string, body = "x"): void => {

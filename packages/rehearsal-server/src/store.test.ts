@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
@@ -19,11 +19,12 @@ process.env.STUDIO_MEDIATEK = join(dir, "library");
 const db = await import("./db.ts");
 const store = await import("./store.ts");
 const { ensureLayout } = await import("@studio/mediatek/layout");
+const { removeLibrary } = await import("@studio/mediatek/testLibrary");
 ensureLayout();
 
-afterAll(() => {
+afterAll(async () => {
   db.store.close();
-  rmSync(dir, { recursive: true, force: true });
+  await removeLibrary(dir);
 });
 
 describe("the store's lookups and writes", () => {

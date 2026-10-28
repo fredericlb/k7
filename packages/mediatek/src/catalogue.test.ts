@@ -2,7 +2,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   statSync,
   utimesSync,
   writeFileSync,
@@ -29,6 +28,7 @@ import {
 } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
 import { writeMasterTags } from "./tags.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { tinyWav } from "./testWav.ts";
 
 // The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.k7.
@@ -41,9 +41,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
   reset();
 });
 
@@ -400,6 +399,21 @@ describe("the persisted index", () => {
     expect((await listFamily("samples")).entries.map((e) => e.name)).toEqual([
       "bd01.wav",
     ]);
+  });
+
+  it("is flushed only once a rescan nobody waited for has written it", async () => {
+    write("samples/audio/kicks/bd01.wav");
+    await listFamily("samples");
+    await flushIndex();
+    write("samples/audio/kicks/sd01.wav");
+    bumped("samples");
+    // The reader takes the old listing at once; the rescan goes on in the background.
+    expect((await listFamily("samples", 0)).entries).toHaveLength(1);
+    await flushIndex();
+    const raw = JSON.parse(
+      readFileSync(join(root, ".cache", "index.json"), "utf8"),
+    ) as { families: Record<string, { entries: unknown[] }> };
+    expect(raw.families.samples.entries).toHaveLength(2);
   });
 
   it("still warm-starts from one this build wrote", async () => {

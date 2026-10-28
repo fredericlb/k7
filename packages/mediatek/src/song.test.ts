@@ -3,7 +3,6 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,6 +21,7 @@ import {
   VariantRefusedError,
 } from "./song.ts";
 import { readMasterTags, writeMasterTags } from "./tags.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { tinyWav } from "./testWav.ts";
 import { SONG_FILE } from "./types.ts";
 import {
@@ -112,9 +112,9 @@ describe("filing an upload", () => {
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
-  afterEach(() => {
+  afterEach(async () => {
     delete process.env.STUDIO_MEDIATEK;
-    rmSync(root, { recursive: true, force: true });
+    await removeLibrary(root);
   });
 
   const tags = {
@@ -243,9 +243,9 @@ describe("adding a variant to a song", () => {
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
-  afterEach(() => {
+  afterEach(async () => {
     delete process.env.STUDIO_MEDIATEK;
-    rmSync(root, { recursive: true, force: true });
+    await removeLibrary(root);
   });
 
   const tags = {
@@ -382,9 +382,9 @@ describe("removing a variant from a song", () => {
     process.env.STUDIO_MEDIATEK = root;
     ensureLayout();
   });
-  afterEach(() => {
+  afterEach(async () => {
     delete process.env.STUDIO_MEDIATEK;
-    rmSync(root, { recursive: true, force: true });
+    await removeLibrary(root);
   });
 
   const tags = {

@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunColdStep } from "@studio/audio-passes/coldPass";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { librariesFixture, writeDoc } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -87,11 +88,11 @@ beforeEach(() => {
   doc("chains/warm/nodes/hp.k7x", { extends: "@k7-core/audio/eq" });
 });
 
-afterEach(() => {
+afterEach(async () => {
   if (realMedia === undefined) delete process.env.STUDIO_MEDIATEK;
   else process.env.STUDIO_MEDIATEK = realMedia;
   rmSync(root, { recursive: true, force: true });
-  rmSync(media, { recursive: true, force: true });
+  await removeLibrary(media);
 });
 
 const setList = (...refs: string[]): void =>

@@ -2,20 +2,15 @@
 // song must never undo a correction, because the engine's estimate is a starting point that
 // halves an octave on fast material (packages/file-service/docs/waveformCache.md).
 
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { flushIndex, listFamilyFresh } from "./catalogue.ts";
+import { listFamilyFresh } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
 import { readMasterTags, writeMasterTags } from "./tags.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { tinyWav } from "./testWav.ts";
 import { setSongBpm, setSongKey } from "./write.ts";
 
@@ -51,10 +46,8 @@ beforeEach(() => {
   bumped("songs");
 });
 afterEach(async () => {
-  // A listing persists the index in the background; removing the root under that write fails.
-  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 describe("setSongBpm", () => {
