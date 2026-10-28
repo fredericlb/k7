@@ -40,6 +40,7 @@ the phone's app does, and the engine settings page reaches it through same-origi
 | `~/.k7` and the supervisor's own port (8765) | the tray's engine is the machine's engine, the one the command-line engine would be; servers list it, and it is what `k7.rocks` plays on through the tunnel |
 | the backend pinned first in `engine-host.json` | `$STUDIO_REGISTRY_URL` is only a fallback once the person lists another server, and the page needs this engine in its own registry |
 | node bundled, pinned and checksummed (`scripts/stage.mjs`) | the machine may have no node, or another major; the backend bundle targets Node 24 |
+| node's compile cache on (`NODE_COMPILE_CACHE`, in the OS's per-app cache folder) | the backend and the file services it starts are 14 MB of bundled JavaScript, compiled at every start otherwise; the cache is keyed by each file's contents and node's version, so an update never runs stale bytecode (`engine/k7-runtime/docs/android.md` does the same on the phone) |
 
 ## Why Tauri
 

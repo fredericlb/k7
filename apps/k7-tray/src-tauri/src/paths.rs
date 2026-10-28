@@ -42,6 +42,11 @@ pub fn backend_root(app: &AppHandle) -> PathBuf {
         .unwrap_or_else(|_| studio_dir().join("local-backend"))
 }
 
+/// Where node keeps the bytecode it compiled of the bundle: the OS's per-app cache, which it may clear.
+pub fn node_compile_cache(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_cache_dir().ok().map(|d| d.join("node-compile-cache"))
+}
+
 /// The staged resources: the bundle's when packaged, `src-tauri/resources` in a checkout.
 fn resources(app: &AppHandle) -> PathBuf {
     if let Ok(dir) = app.path().resource_dir() {

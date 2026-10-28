@@ -18,6 +18,8 @@ const SYSTEM = [
   "TZ",
   "NODE_ENV",
   "NODE_EXTRA_CA_CERTS",
+  // Where node keeps the bytecode of the bundle it compiled, so a restart skips the parse (docs/fileHub.md).
+  "NODE_COMPILE_CACHE",
   "SSL_CERT_FILE",
   "SSL_CERT_DIR",
   "HTTP_PROXY",
