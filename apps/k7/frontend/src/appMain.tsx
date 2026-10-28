@@ -30,8 +30,9 @@ import { AuthGate } from "./components/AuthGate";
 /** The four screens that are NOT the home page, split out of the entry — see docs/shell.md.
  *  Only one address is ever taken, so only one of these is ever fetched. */
 const App = lazy(() => import("./App"));
+const loadEngineGate = () => import("./components/EngineGate");
 const EngineGate = lazy(() =>
-  import("./components/EngineGate").then((m) => ({ default: m.EngineGate })),
+  loadEngineGate().then((m) => ({ default: m.EngineGate })),
 );
 const ExternalIndex = lazy(() =>
   import("./components/ExternalIndex").then((m) => ({
@@ -39,8 +40,9 @@ const ExternalIndex = lazy(() =>
   })),
 );
 /** The home page and its sibling pages, with the rehearsal take held above them: a project page never loads them. */
+const loadHomeRoutes = () => import("./projects/HomeRoutes");
 const HomeRoutes = lazy(() =>
-  import("./projects/HomeRoutes").then((m) => ({ default: m.HomeRoutes })),
+  loadHomeRoutes().then((m) => ({ default: m.HomeRoutes })),
 );
 const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
@@ -113,6 +115,12 @@ function dressPage(scope: Scope): void {
     appleTitle?.setAttribute("content", menu ? "surfaces" : PAGE_APPLE_TITLE);
 }
 dressPage(scopeOf(window.location.pathname, BASE));
+
+/** …and the first screen's files start arriving now, while AuthGate asks who you are, not once it has its answer (docs/shell.md). */
+const first = scopeOf(window.location.pathname, BASE).kind;
+// A failure here is the lazy screen's to report when it asks again, not an unhandled rejection.
+if (first === "home") loadHomeRoutes().catch(() => {});
+else if (first === "project") loadEngineGate().catch(() => {});
 
 /** …and this machine's own window offers the cameras it may open, to a device that may not — the
  *  loopback origin being both the secure context and the proof of whose machine this is. */
