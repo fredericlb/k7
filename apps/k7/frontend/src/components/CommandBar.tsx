@@ -109,15 +109,6 @@ function splitArgs(s: string): string[] {
 // A param value as a token: quoted when it contains whitespace, so the dispatcher reads it as one argument.
 const quoteArg = (v: string) => (/\s/.test(v) ? JSON.stringify(v) : v);
 
-/** The HOST's look while a command waits for its answers: orange, its edge glowing blue, padding included, faded in and out. */
-// Waiting is the accent breathing at 1 Hz on an inset ring (index.css's `animate-pending`), a still ring under reduced motion — no hue from outside the palette.
-export const barTint = (pending: boolean): string =>
-  `transition-[background-color] duration-300 ${
-    pending
-      ? "bg-primary/10 motion-safe:animate-pending motion-reduce:ring-2 motion-reduce:ring-inset motion-reduce:ring-primary"
-      : "bg-popover"
-  }`;
-
 // What a host hands the bar; FloatingCommandBar wraps it and owns autoFocus, onClose and onFocusChange.
 export interface CommandBarProps {
   commands: PaletteCommand[];
