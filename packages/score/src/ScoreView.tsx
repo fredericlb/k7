@@ -137,7 +137,8 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return res.arrayBuffer();
       })
-      .then((bytes) => tab.load(new Uint8Array(bytes)))
+      // [-1] is alphaTab's "every track"; without it only the first part is drawn.
+      .then((bytes) => tab.load(new Uint8Array(bytes), [-1]))
       .catch((e: unknown) => {
         if (!aborted.signal.aborted) latest.current.onError?.(e as Error);
       });

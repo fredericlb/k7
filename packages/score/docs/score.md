@@ -41,6 +41,12 @@ alphaTab is the heaviest dependency the rehearsal pages have. `src/ScoreView.tsx
 module that imports it, and the sheet panel loads it with `import()`, so no other screen pays for
 it (`packages/ui-rehearsal/src/components/ScoreSheet.tsx`).
 
+## Every part is drawn
+
+A score opens with all its parts stacked in one system, as a conductor's score reads. alphaTab
+draws only the first track unless told otherwise, so the viewer loads with `[-1]`, its "every
+track": on a band arrangement, the first part alone hides what the rest of the band plays.
+
 ## Transposition is one setting
 
 `notation.transpositionPitches` moves what is drawn and what is played together, so what you read
