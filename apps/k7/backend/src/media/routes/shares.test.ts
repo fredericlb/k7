@@ -3,13 +3,13 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import type { IncomingMessage, Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { SHARE_SCHEMA } from "@studio/web-protocol";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -66,7 +66,7 @@ afterEach(async () => {
   // The database is opened once and cached; the next test points at another directory entirely.
   closeComments();
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
   who = "alice";
   playerUp = true;
 });

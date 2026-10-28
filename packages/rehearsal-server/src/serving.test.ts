@@ -1,7 +1,7 @@
 // What a client sends is never what the server serves back: an upload's type is checked, a stream's
 // type is the server's, and a published version's folder is its own — ../docs/serving.md.
 
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -29,6 +29,7 @@ const { linkMediatek } = await import("./mediatek.ts");
 const { releasesRouter } = await import("./routes/releases.ts");
 const { sessionsRouter } = await import("./routes/sessions.ts");
 const { jsonErrors } = await import("./errors.ts");
+const { removeLibrary } = await import("@studio/mediatek/testLibrary");
 
 const servers: Server[] = [];
 const listen = (app: express.Express): Promise<string> =>
@@ -89,7 +90,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await Promise.all(servers.map((s) => new Promise((ok) => s.close(ok))));
   db.store.close();
-  rmSync(dir, { recursive: true, force: true });
+  await removeLibrary(dir);
 });
 
 const upload = (

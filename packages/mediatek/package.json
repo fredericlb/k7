@@ -17,6 +17,7 @@
     "./songbook": "./src/songbook.ts",
     "./tags": "./src/tags.ts",
     "./testWav": "./src/testWav.ts",
+    "./testLibrary": "./src/testLibrary.ts",
     "./recordings": "./src/recordings.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",

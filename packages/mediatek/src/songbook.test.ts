@@ -1,17 +1,11 @@
 // A song's lyrics, tablature and sheets live in its library folder, under the id its sidecar's
 // uuid names — mediatek's docs/songbook.md.
 
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { flushIndex } from "./catalogue.ts";
+
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
 import {
@@ -23,6 +17,7 @@ import {
   setSongbookMaster,
 } from "./songbook.ts";
 import { readMasterTags } from "./tags.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { tinyWav } from "./testWav.ts";
 import { addSong } from "./write.ts";
 
@@ -38,9 +33,8 @@ beforeEach(() => {
   bumped("songs");
 });
 afterEach(async () => {
-  await flushIndex();
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 describe("a song with no audio", () => {

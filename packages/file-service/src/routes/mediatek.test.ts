@@ -2,11 +2,12 @@
 // the two extensions asserted here are what such a drift costs — an .aiff or a .nam this side
 // cannot serve, a cover the hosted side cannot.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { FAMILY_ERROR } from "@studio/mediatek/types";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -32,7 +33,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await new Promise((ok) => server.close(ok));
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 const put = (rel: string, body = "x") => {

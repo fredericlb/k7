@@ -11,6 +11,7 @@ import {
   playlistPath,
 } from "./playlists.ts";
 import { scanFamily } from "./scan.ts";
+import { removeLibrary } from "./testLibrary.ts";
 import { putFile } from "./write.ts";
 
 let root: string;
@@ -19,9 +20,9 @@ beforeEach(() => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
 });
-afterEach(() => {
+afterEach(async () => {
   delete process.env.STUDIO_MEDIATEK;
-  rmSync(root, { recursive: true, force: true });
+  await removeLibrary(root);
 });
 
 describe("naming one", () => {

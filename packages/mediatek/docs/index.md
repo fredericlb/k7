@@ -165,6 +165,12 @@ showing it.
 The index is written the same way: asynchronously, one write at a time with the last state
 winning, into a sibling renamed into place, so a crash mid-write leaves the previous index.
 
+That background work lands **inside the library root**, after whoever triggered it has its answer.
+A test that removes its temp root under it fails with `ENOTEMPTY`, and only on a busy machine.
+So every test removes a library through `removeLibrary` (`@studio/mediatek/testLibrary`), never a
+bare `rmSync`. It waits on `flushIndex()`, and `flushIndex()` waits for the rescans still running
+as well as the write, because a rescan nobody waited on persists when it ends.
+
 `/manifest` walks every FILE of a family, which a listing does not, so it is held too: one walk per
 family per token (`manifestAt`), shared by every caller asking at that token.
 

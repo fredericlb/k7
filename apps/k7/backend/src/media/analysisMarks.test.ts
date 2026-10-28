@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { removeLibrary } from "@studio/mediatek/testLibrary";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: string[] = [];
@@ -36,8 +37,8 @@ beforeEach(() => {
   calls.length = 0;
 });
 
-afterEach(() => {
-  rmSync(root, { recursive: true, force: true });
+afterEach(async () => {
+  await removeLibrary(root);
   delete process.env.STUDIO_MEDIATEK;
 });
 
