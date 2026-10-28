@@ -1,9 +1,9 @@
 // RehearsalPage.tsx — `/rehearsal/…`, the rehearsal pages inside the home's frame: the sections are
-// entries of the sidebar, the red dot that starts a take is the page's action, and the screens are
-// a lazy chunk. The take itself is held above the routes (appMain.tsx), so it outlives this page.
+// entries of the sidebar, the screens are a lazy chunk, and the take's red dot is the home's own
+// control (HomeFrame.tsx), so it stays in the sidebar on every page. The take itself is held above
+// the routes (appMain.tsx), so it outlives this page.
 
 import { Loader2 } from "@frediverse/ui/icons";
-import { NewSessionButton } from "@studio/ui-rehearsal";
 import { lazy, Suspense } from "react";
 import { HomeShell } from "./HomeFrame";
 
@@ -15,7 +15,7 @@ const RehearsalRoutes = lazy(() =>
 
 export function RehearsalPage() {
   return (
-    <HomeShell actions={<NewSessionButton />}>
+    <HomeShell>
       <Suspense
         fallback={
           <div className="flex flex-1 items-center justify-center">

@@ -58,7 +58,11 @@ the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playl
 count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
 **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
 one for the page you are on is lit in the accent, and the user menu is last; below `sm` it folds to an
-icon rail, where a rule stands in for a group's title. The same entries in the same place on
+icon rail, where a rule stands in for a group's title.
+
+Its foot carries the take's red dot before the user menu, on EVERY home page: a session starts from
+whichever page one is reading, and the drawer the sidebar becomes inside a project carries none, a
+take being the home's. The same entries in the same place on
 every page say which of them you are on, so none of the others carries a back button of its own.
 
 ## The home bar

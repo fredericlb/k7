@@ -14,7 +14,7 @@ library, the projects or the settings and back. It has no route of its own and n
 start of the session to its upload. It holds nothing until a take starts — no microphone, no engine —
 so wrapping every home page costs them nothing; what it draws is a lazy chunk.
 
-A take starts from the red dot k7 draws as the rehearsal pages' action (`NewSessionButton`), or
+A take starts from the red dot k7's sidebar carries on every home page (`NewSessionButton`), or
 from resuming a session, and the page it starts on stays as it is: you may browse another page
 while the tape rolls, and covering what you were reading is the one thing that use has no answer
 to. A bar does not cover it, and its highlights, Resume and Stop are every

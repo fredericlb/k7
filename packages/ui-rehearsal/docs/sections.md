@@ -3,8 +3,9 @@
 The rehearsal pages have no bar of their own: they are pages of k7's home, and their entries are
 a group of its sidebar, **Rehearsal**, under the media library's
 (`apps/k7/frontend/src/projects/HomeSidebar.tsx`). `src/sections.ts` says what the entries are and
-which one an address belongs to; the host draws them. The page's own action — the red dot that
-starts a take — sits where k7 puts a page's controls (`apps/k7/frontend/src/projects/RehearsalPage.tsx`).
+which one an address belongs to; the host draws them. The red dot that starts a take is the
+HOST's, not this group's: k7 draws it in the sidebar's foot on every home page, so a session starts
+while one reads the media library or the settings (`apps/k7/frontend/src/projects/HomeFrame.tsx`).
 
 ## Three entries
 

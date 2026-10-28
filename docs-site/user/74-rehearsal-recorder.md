@@ -25,7 +25,8 @@ by everyone signed in to the instance. A page can be opened by others through it
 
 ## Recording a session
 
-1. Click the red dot (**New session**) in the sidebar. It is there on every rehearsal page.
+1. Click the red dot (**New session**) in the sidebar. It is on every page of k7's home, from the
+   media library to the settings — not inside a project.
 2. If you chose a rehearsal chain on k7's **Frozen chains** page (see below), a menu asks where the
    audio comes from:
    - **Local device**: this computer's or phone's microphone or audio interface.

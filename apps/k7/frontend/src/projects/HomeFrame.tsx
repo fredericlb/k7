@@ -9,6 +9,7 @@ import {
   MiniPlayerDock,
   MiniPlayerDockOutlet,
 } from "@studio/ui-mini-player/dock";
+import { NewSessionButton } from "@studio/ui-rehearsal";
 import {
   createContext,
   type ReactNode,
@@ -86,7 +87,7 @@ export function HomeShell({
   mediaCounts,
   children,
 }: {
-  /** Drawn above the user menu — a page's own control, such as a refresh. */
+  /** Drawn above the user menu, after the red dot — a page's own control, such as a refresh. */
   actions?: ReactNode;
   /** Each media section's count, known only on the media pages, which load them. */
   mediaCounts?: Partial<Record<string, number>>;
@@ -100,7 +101,13 @@ export function HomeShell({
       <div className="flex min-h-0 flex-1">
         {!folded && (
           <HomeSidebar
-            actions={actions}
+            actions={
+              <>
+                {/* The take's dot, on every home page: a session starts wherever one is reading, not on the rehearsal ones alone. */}
+                <NewSessionButton />
+                {actions}
+              </>
+            }
             mediaCounts={mediaCounts}
             onFold={() => setFolded(true)}
           />
