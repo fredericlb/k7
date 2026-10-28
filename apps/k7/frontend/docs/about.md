@@ -63,6 +63,5 @@ worker precaches like every other chunk so a deploy never leaves the page withou
 ## What it does not cover
 
 The Debian packages of the engine image keep theirs under `/usr/share/doc`: the
-page says so rather than carrying tens of megabytes. The iPhone app's NodeMobile is not listed,
-and neither are the web fonts the page links from Google Fonts, which are served, not shipped.
+page says so rather than carrying tens of megabytes. The iPhone app's NodeMobile is not listed.
 The command-line engine's archive carries no page; its notices are the engine rows here.
