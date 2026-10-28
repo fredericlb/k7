@@ -74,12 +74,14 @@ that changes nothing is a button that looks broken.
 The editor's own settings panel reaches the same value through `ui language <en|fr>`, and there is
 no second store behind it — both doors call the runtime's `setLocale`, which writes that one key.
 
-**One module per language, not per message.** The three catalogues (k7's, the rehearsal pages', the
-plugins') compile as `locale-modules` — in `vite.config.ts` and in each `paraglide-js compile` script
-alike, since both write the same `src/paraglide` folders. Per-message modules make the dev server send
-every message a page names as a request of its own, nearly two thousand on a project's first load; a
-production build is the same size either way, the bundler dropping a language module's unused exports
-as it drops unused message modules.
+**One module per language in dev, one per message in a build.** The three catalogues (k7's, the
+rehearsal pages', the plugins') follow the Vite command (`outputFor` in `vite.config.ts`).
+
+| choice | why |
+|---|---|
+| `locale-modules` for the dev server and the `paraglide-js compile` scripts | per-message modules make the dev server send every message a page names as a request of its own, nearly two thousand on a project's first load |
+| `message-modules` for a build | a language module is ONE module, so the bundler puts it in one chunk shared by every page: the first screen then loads every string of the app in both languages, 300 KB of the startup path. One module per message lets each chunk carry only the words it draws |
+| both write the same `src/paraglide` folders | the compiled API is the same either way (`m["key"]()`), so a build run by hand beside a running dev server leaves that server working, on per-message files, until it restarts |
 The page is not itself a command: the home page's command bar carries only its own verbs, the
 palette being the project shell's.
 

@@ -55,7 +55,8 @@ judge is its file kind's fixed rule, and a host may hand a fresh closure on ever
 
 ## What is held survives the pane
 
-Held text lives in a `Map` outside React, keyed by path. That is the point: an unwritable buffer
+Held text lives in a `Map` outside React, keyed by path (`src/autosaveBuffers.ts`, apart from the
+hook so a host that only flushes or forgets loads no validator). That is the point: an unwritable buffer
 is at its most fragile exactly when the pane showing it goes away — you switch file, close the
 popin, leave the view — and dropping it on the floor there would be the data loss this whole
 mechanism exists to avoid.

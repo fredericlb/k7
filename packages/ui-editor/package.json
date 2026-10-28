@@ -19,6 +19,7 @@
     "./tracker/plugin": "./src/tracker/plugin.ts",
     "./lint": "./src/lint.ts",
     "./autosave": "./src/autosave.ts",
+    "./autosave-buffers": "./src/autosaveBuffers.ts",
     "./unsaved": "./src/unsaved.ts",
     "./vim-undo": "./src/vimUndo.ts",
     "./yaml-pane": "./src/YamlPane.tsx",

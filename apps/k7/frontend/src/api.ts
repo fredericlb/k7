@@ -16,9 +16,9 @@ import { readJson as json } from "@studio/http-client/call";
 import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
+import { WIDGETS_SCRIPT } from "@studio/song-schema/moduleFiles";
 import type { NodePresets } from "@studio/song-schema/presets";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
-import { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
 import type {
   AiOrganizeEvent,
   AiOrganizeRequest,
