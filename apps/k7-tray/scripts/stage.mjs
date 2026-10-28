@@ -50,10 +50,29 @@ function nodeArchive() {
   };
 }
 
+/** A stalled download is cut at this, body included, and tried again: a CI runner otherwise hangs ten minutes then fails. */
+const DOWNLOAD_MS = 120_000;
+const DOWNLOAD_TRIES = 4;
+
 async function download(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${url}: ${r.status}`);
-  return Buffer.from(await r.arrayBuffer());
+  for (let attempt = 1; ; attempt++) {
+    let status = 0;
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_MS) });
+      status = r.status;
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return Buffer.from(await r.arrayBuffer());
+    } catch (e) {
+      // A 4xx is an answer, not a hiccup: a wrong version would only be asked for again.
+      const final = status >= 400 && status < 500;
+      if (final || attempt >= DOWNLOAD_TRIES)
+        throw new Error(`${url}: ${e.message}`);
+      console.log(
+        `  ${url}: ${e.message}, try ${attempt + 1} of ${DOWNLOAD_TRIES}`,
+      );
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
 }
 
 /** The archive, from the cache or nodejs.org, refused unless its SHA-256 is the one SHASUMS256.txt names. */
