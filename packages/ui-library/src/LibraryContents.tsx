@@ -40,10 +40,10 @@ export function LibraryContents({
   serverCopy,
   onOpen,
   emptyActions,
-  narrowHidden = false,
+  list,
 }: {
-  /** Drawn only from `md` up: below, the tree stands in for this pane. */
-  narrowHidden?: boolean;
+  /** What lists the entries, in place of the plain rows — the songs' table. */
+  list?: ReactNode;
   notice: string | null;
   error: string | null;
   present: boolean | null;
@@ -58,9 +58,7 @@ export function LibraryContents({
   const l = useLabels();
   const units = l.common.units;
   return (
-    <main
-      className={`min-w-0 flex-1 overflow-auto p-3 sm:p-6 ${narrowHidden ? "hidden md:block" : ""}`}
-    >
+    <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">
       {notice ? (
         <Card className="mb-4 p-4 text-sm text-muted-foreground">{notice}</Card>
       ) : null}
@@ -79,6 +77,8 @@ export function LibraryContents({
         </span>
       ) : entries.length === 0 ? (
         <EmptyBlock actions={emptyActions}>{l.contents.emptyFamily}</EmptyBlock>
+      ) : list ? (
+        list
       ) : (
         <ul className="flex flex-col gap-1">
           {entries.map((e) => (

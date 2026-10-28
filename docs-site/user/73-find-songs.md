@@ -1,6 +1,6 @@
 # Finding songs
 
-**Find songs** (`/media/find`, or the **Find songs** button at the foot of the Songs tree) gets a
+**Find songs** (`/media/find`, its entry in the sidebar, or **Add a song** above the Songs table) gets a
 song you do not have yet: you type an artist and a title, and the server identifies the song,
 searches the Soulseek network for it, downloads it from a peer and files it in **Songs** by itself.
 

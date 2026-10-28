@@ -1,6 +1,6 @@
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { favoriteEntries, isAlbumFolder, isFavorite } from "./favorites";
+import { isAlbumFolder, isFavorite } from "./favorites";
 
 const song = (path: string): MediatekEntry =>
   ({
@@ -29,20 +29,6 @@ describe("isFavorite", () => {
     expect(isFavorite(new Set(["songs/A/Album"]), "songs/A/Album1/T1")).toBe(
       false,
     );
-  });
-});
-
-describe("favoriteEntries", () => {
-  it("keeps only what a favorite covers", () => {
-    const kept = favoriteEntries(entries, new Set(["songs/A/Album1"]));
-    expect(kept.map((e) => e.path)).toEqual([
-      "songs/A/Album1/T1",
-      "songs/A/Album1/T2",
-    ]);
-  });
-
-  it("keeps nothing when nothing is starred", () => {
-    expect(favoriteEntries(entries, new Set())).toEqual([]);
   });
 });
 

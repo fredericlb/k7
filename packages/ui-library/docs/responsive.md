@@ -18,12 +18,12 @@ folds to an icon rail below `sm` with the counts dropped and the names kept as t
 what `aria-current` announces, and a number folded into it reads as part of the page's name and
 changes whenever the catalogue does.
 
-## The tree becomes a drawer
+## A tree becomes a drawer
 
 290 fixed pixels leave nothing for content on a phone. Below `md` the `aside` leaves the flow and
-becomes a drawer with its own floating button at the bottom left — absent where there is no tree,
-the playlists and search screens drawing their own columns because nothing they show is a family
-walk.
+becomes a drawer with its own floating button at the bottom left — absent where there is no tree:
+the songs, the playlists and search screens draw their own pages because nothing they show is a
+family walk.
 
 The playlists screen folds its two columns into one page at a time instead, with no drawer: the list
 fills the screen until a playlist is open, then the playlist does, and the section's own entry in the
@@ -44,32 +44,28 @@ that ancestor the popup's containing block instead, per the CSS Transforms spec.
 opens at the pointer's offset from the `aside`'s own box rather than the viewport's, which reads
 as "the menu appears but not where I clicked."
 
-## In the songs, the tree is the page
+## The songs: the table, then the song
 
-The songs section is the exception to the drawer. With no song open, its middle pane lists the
-same songs the tree does, so on a phone it would open on a duplicate with the real list one button
-away. Below `md`, the tree therefore takes the whole screen until a song opens; the song's editor
-then replaces it, and its Back button returns to the tree. With a song open, the drawer is there
-again, for moving to another song without going back. The other sections keep the drawer from
-the start: their middle pane shows what the tree does not.
+The songs section has no tree and no drawer: its table takes the whole width at every size, and a
+song opened from it takes the table's place, its Back button returning to the table. Below `sm` the
+artist goes under the title rather than in a column of its own, and below `md` the album column goes.
 
 ## A song row under a finger
 
 - **A double tap plays the song**, starting its master on the account's destination, and opens
-  nothing. A phone has no room for the panel and the tree at once, so playing a song should not
-  cost the list. The price is a first tap that waits 300 ms, the double-tap window, before it opens
-  the panel. Only a touch screen (`hover: none`) pays it: a mouse click opens at once, and a song
-  with no master opens at once, since there is nothing to play. The tree's column is
-  `touch-action: manipulation`, or iOS would zoom on the same gesture.
-- **A long press is the right-click.** It is the tree's own (`commons/packages/ui/docs/file-tree.md`):
-  500 ms held still opens the row's menu, and the lifting finger does not also open the song.
+  nothing: playing a song should not cost the list. The price is a first tap that waits 300 ms, the
+  double-tap window, before it opens the page. Only a touch screen (`hover: none`) pays it: a mouse
+  click opens at once, and a song with no master opens at once, since there is nothing to play. The
+  table is `touch-action: manipulation`, or iOS would zoom on the same gesture.
+- **The ⋮ is the menu.** A tree row also answers a long press (`commons/packages/ui/docs/file-tree.md`);
+  a table row has its ⋮ at the end, which a finger finds without being told.
 
 ## What stays put
 
-Adding a song and adding a capture are not in any bar — each sits below its tree, where there is room for the whole sentence at every width, so
-none collapses to an icon. The `aside` is a column and not a single scroller
-for exactly this: the tree has its OWN scrolling pane, so these buttons never travel with it — a
-long library or a long capture history scrolls the rows, never the buttons under them.
+Adding a song sits above the songs' table, and adding a capture below its tree, where there is room
+for the whole sentence at every width, so neither collapses to an icon. The `aside` is a column and
+not a single scroller for this: the tree has its OWN scrolling pane, so the button under it never
+travels with a long capture history.
 
 The song's two-pane editor **stacks** rather than splitting the width: two halves of a phone
 screen are two columns nothing fits in. The YAML takes the top half and what it describes the

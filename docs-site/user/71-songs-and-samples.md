@@ -29,14 +29,14 @@ audio format the library reads is accepted: `.wav`, `.flac`, `.aiff`, `.aif`, `.
 
 A song or an album can be added to your **favorites** (its menu's **Favorite**) or to your
 **practice** list (**Add to practice**): two lists of your own, kept on the server, the same on
-every device. The tabs above the songs' tree show **All**, only your **Favorites**, or only what you
-are practising (**Practice**). A starred row wears a star and a practised one a cap; a click on it
-takes the song off that list.
+every device. They order the Songs table: what you are practising comes first, then your favorites,
+then everything else. A starred row wears a star and a practised one a cap; a click on it takes the
+song off that list.
 
 ### Adding a song
 
 1. Open **Songs**.
-2. At the foot of the tree, click **Add a song** and pick one audio file or several.
+2. Above the table, at its right, click **Add a song** and pick one audio file or several.
 3. The dialog reads each file's tags (artist, album, title). When a file has no tags, the
    artist and title are guessed from its name: `03 - Nirvana - Lithium.mp3` gives artist
    `Nirvana`, title `Lithium` (a leading track number is dropped).
@@ -73,7 +73,7 @@ when LRCLIB cannot be reached, it is tried again an hour later.
 
 ### The song screen
 
-Click a song in the tree or in the list to open it. Its address is
+Click a song in the table to open it; **Back** returns to the table. Its address is
 `/media/songs/<artist>/<album>/<title>/song.yaml`, so you can bookmark or share it.
 
 - **Left**: the song's info — **Title**, **Artist**, **Album**, **Tempo (BPM)** and **Key** — read
@@ -104,7 +104,7 @@ What the song screen edits is written into the master's tags:
 | Title | The name shown in the list, the player and the queue. Defaults to the folder name. |
 | Artist | Shown beside the title. |
 | Album | Kept for reference. |
-| Track | The song's position on its album. In the tree, an album's songs with a track number come first, in that order, shown as `03 · Title`. |
+| Track | The song's position on its album. When an album row is unfolded, its songs with a track number come first, in that order, shown as `03 · Title`. |
 | Tempo (BPM) | Filled in by the analysis when the file has none; your own value is never overwritten. |
 | Key | The musical key, picked by you, for example `C# minor`. A key written by another tool in another spelling (`8A`) is shown as no key. |
 
@@ -125,7 +125,7 @@ variants:
   "radio edit": radio-edit.wav
 ```
 
-It has no editor in the app: a variant is added and deleted from the tree and the **Variants**
+It has no editor in the app: a variant is added and deleted from the song's row and the **Variants**
 list, and renamed by editing `song.yaml` on the library's disk.
 
 ### Variants
@@ -135,28 +135,26 @@ an audio file in the song's folder, declared under `variants:`.
 
 To add one:
 
-- Right-click the song in the tree and choose **Add a variant…**, then pick one or more audio
+- Open the song's **⋮** in the table and choose **Add a variant…**, then pick one or more audio
   files; or
-- Drag audio files from your computer onto the song's row in the tree.
+- Drag audio files from your computer onto the song's row in the table.
 
 The variant is named after the file (without its extension), and the sidecar gets a line for it.
 Each variant then has its own tab in the player. A variant whose file is missing from the folder is
 listed with **missing**. Hover a row of the **Variants** list and click the bin to delete it.
 
-Dropping a file anywhere in Songs other than on a song is refused: "A file joins the songs only as
-a variant of one of them: drop it on the song."
+A file dropped anywhere in Songs other than on a song's row is not taken.
 
-### The Songs right-click menu
+### The Songs row menu
 
 | Entry | Shown on | Does |
 |---|---|---|
-| **Download the missing song(s)** | A folder or song only the paired server holds | Copies them to this machine |
+| **Favorite** / **Add to practice** | A song or an album | Adds it to that list, or takes it off |
+| **Download the missing song(s)** | An album with songs only the paired server holds | Copies them to this machine |
 | **Add a variant…** | A song | Opens the file picker for variants |
 | **Add to the play queue** | A song with a master | Queues it in the bottom player |
-| **Delete <name>** | A song | Deletes the song folder: master, sidecar, variants. No confirmation. |
-| **Delete <name>…** | An artist or album folder | Asks "Delete “name” and everything in it?" first |
-
-The foot of the tree also has a **Find songs** button, which opens the song search.
+| **Delete <name>** | A song (admins only) | Asks first, then deletes the song folder: master, sidecar, variants |
+| **Delete <name>…** | An album (admins only) | Asks "Delete “name” and everything in it?" first |
 
 ### Stems
 
