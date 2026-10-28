@@ -76,6 +76,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf
 
+      # The pinned node's archive, kept between runs: stage.mjs names the version, and still checks the checksum.
+      - name: node archive cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: dist/cache/node/node-v*
+          key: tray-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/k7-tray/scripts/stage.mjs') }}
+
       # k7's backend bundle with the frontend in it, the engine from the job above, and a pinned node (apps/k7-tray/scripts/stage.mjs).
       - name: stage
         run: npm run stage --workspace k7-tray
