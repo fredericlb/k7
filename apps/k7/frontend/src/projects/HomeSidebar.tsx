@@ -1,8 +1,9 @@
 // HomeSidebar.tsx — the left sidebar of the home page and of the pages that hang off it, /libraries,
 // /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
 // media library's and the rehearsal pages' sections, the user menu at its foot. All are routes, so going between them reloads
-// nothing. Below `sm` it folds to an icon rail. Inside a project it is a DRAWER (`HomeDrawer`): the
-// router's basename is the project there, so its entries are full addresses (appNav.ts). See ../../docs/projects.md.
+// nothing. It is an ICON RAIL wherever the `wide` step is not reached — a phone, a tablet held upright — and folds away
+// entirely on request. Inside a project it is a DRAWER (`HomeDrawer`): the router's basename is the project there, so its
+// entries are full addresses (appNav.ts). See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -131,7 +132,7 @@ function SidebarEntry({
       <span
         className={cn(
           "min-w-0 flex-1 truncate text-left",
-          away ? "inline" : "hidden sm:inline",
+          away ? "inline" : "hidden wide:inline",
         )}
       >
         {label}
@@ -140,7 +141,7 @@ function SidebarEntry({
         <span
           className={cn(
             "shrink-0 text-muted-foreground text-xs tabular-nums",
-            away ? "inline" : "hidden sm:inline",
+            away ? "inline" : "hidden wide:inline",
           )}
         >
           {count}
@@ -156,7 +157,7 @@ function SidebarEntry({
       aria-current={active ? "page" : undefined}
       asChild
       className={cn(
-        away ? "justify-start" : "justify-center sm:justify-start",
+        away ? "justify-start" : "justify-center wide:justify-start",
         // The lit entry is the one place the sidebar wears the accent: violet means "you are here" (../../docs/projects.md).
         active &&
           "bg-primary/15 text-foreground hover:bg-primary/20 hover:text-foreground",
@@ -186,12 +187,14 @@ function SidebarGroup({
       <span
         className={cn(
           "px-3 pb-1 text-muted-foreground text-xs",
-          away ? "inline" : "hidden sm:inline",
+          away ? "inline" : "hidden wide:inline",
         )}
       >
         {title}
       </span>
-      {!away && <span className="mx-2 mb-1 border-border border-t sm:hidden" />}
+      {!away && (
+        <span className="mx-2 mb-1 border-border border-t wide:hidden" />
+      )}
       {entries.map((e) => (
         <SidebarEntry key={e.route} entry={e} away={away} />
       ))}
@@ -278,13 +281,13 @@ export function HomeSidebar({
     <aside
       className={cn(
         "z-20 flex shrink-0 flex-col bg-card",
-        away ? "h-full w-52 shadow-2xl" : "w-14 sm:w-52",
+        away ? "h-full w-52 shadow-2xl" : "w-14 wide:w-52",
       )}
     >
       <div
         className={cn(
           "flex flex-col gap-1 pt-4 pb-3",
-          away ? "px-5" : "px-3 sm:px-5",
+          away ? "px-5" : "px-3 wide:px-5",
         )}
       >
         {/* The logo alone on the rail: it is too narrow for the logo and the name together. */}
@@ -294,7 +297,7 @@ export function HomeSidebar({
         >
           <img src={k7Logo} alt="k7" className="h-6 w-auto shrink-0" />
           <span
-            className={cn("truncate", away ? "inline" : "hidden sm:inline")}
+            className={cn("truncate", away ? "inline" : "hidden wide:inline")}
           >
             k7
           </span>
@@ -305,7 +308,7 @@ export function HomeSidebar({
               // The rail is too narrow for the logo and the button together.
               className={cn(
                 "ml-auto text-muted-foreground",
-                !away && "hidden sm:inline-flex",
+                !away && "hidden wide:inline-flex",
               )}
               title={m["home.foldSidebar"]()}
               aria-label={m["home.foldSidebar"]()}
@@ -339,7 +342,9 @@ export function HomeSidebar({
       <div
         className={cn(
           "flex items-center gap-1 px-2 pb-3",
-          away ? "flex-row justify-end" : "flex-col sm:flex-row sm:justify-end",
+          away
+            ? "flex-row justify-end"
+            : "flex-col wide:flex-row wide:justify-end",
         )}
       >
         {/* First, and only while something comes down (../components/DownloadsButton.tsx). */}

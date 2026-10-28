@@ -31,7 +31,8 @@ engine is running.
 ## The sidebar
 
 The left sidebar is the same on the home page and on every page that hangs off it. Moving between
-its entries does not reload the page. On a narrow screen it folds to a rail of icons.
+its entries does not reload the page. On a phone, or a tablet held upright, it is a rail of icons
+alone.
 
 The top shows **k7** and the name of the current page. Hover **k7** to see the build version.
 

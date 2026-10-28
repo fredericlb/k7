@@ -40,6 +40,13 @@
 @source "../../../../packages/score/src";
 @source "../../../../packages/tablature/src";
 
+/* The sidebar's WIDE step: a landscape screen from 640, or any screen wider than a tablet held upright. */
+@custom-variant wide {
+  @media (min-width: 1025px), (min-width: 640px) and (orientation: landscape) {
+    @slot;
+  }
+}
+
 /* @studio/ui-waveform's own stylesheet colours its wrapper from --surface and --border, which is
    what k7 — its first host — calls them; the shared palette prefixes everything `--sh-`, so the two
    are bound here rather than hardcoded there. */

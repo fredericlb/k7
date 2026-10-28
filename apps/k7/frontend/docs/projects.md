@@ -56,14 +56,17 @@ entries are full addresses resolved against `projectsUrl` — drawn in place, no
 groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, under a title of its own,
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
 count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
-**Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
-one for the page you are on is lit in the accent, and the user menu is last; below `sm` it folds to an
-icon rail, where a rule stands in for a group's title.
+**Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The one for the
+page you are on is lit in the accent, and the user menu is last; where the `wide` step is not reached
+it is an ICON RAIL, where a rule stands in for a group's title. `wide` is a landscape screen from
+640 px, or any screen wider than a tablet held upright (`src/index.css`): a tablet in portrait is
+768–1024 px wide, so a width rule alone would hand it the full sidebar and take a fifth of the page
+from what you were reading. The same entries in the same place on every page say which of them you
+are on, so none of the others carries a back button of its own.
 
 Its foot carries the take's red dot before the user menu, on EVERY home page: a session starts from
 whichever page one is reading, and the drawer the sidebar becomes inside a project carries none, a
-take being the home's. The same entries in the same place on
-every page say which of them you are on, so none of the others carries a back button of its own.
+take being the home's.
 
 ## The home bar
 
@@ -75,8 +78,8 @@ it carries does not depend on the page: the **engine selector** in its engine sl
 right slot (`shell.md`), and the way back to a folded sidebar at its left edge.
 
 **The sidebar folds** from a button beside its brand, and the bar's left edge then holds the button
-that brings it back; the fold is kept per browser, being a habit of the screen. The rail below `sm`
-has no room for the button and does not fold.
+that brings it back; the fold is kept per browser, being a habit of the screen. The rail has no room
+for the button and does not fold.
 
 **The page column holds its own fixed boxes** (`contain: layout`), so a page's docks and pop-ins
 stop at the sidebar and at the bar without knowing either's size. The one thing fixed outside it is
@@ -556,8 +559,8 @@ violet pill, for the reason the next section gives.
 
 ### Every entry has a glyph of its own
 
-Below `sm` the sidebar is an icon rail and the glyph is all an entry has, so no two entries share
-one, across the media and rehearsal groups alike: the médiathèque's recorded FILES are a waveform,
+On the icon rail the glyph is all an entry has, so no two entries share one, across the media and
+rehearsal groups alike: the médiathèque's recorded FILES are a waveform,
 the rehearsal SESSIONS a microphone, its publications a broadcast. The rehearsal entry is named
 **Sessions** for the same reason — two entries called Recordings, one per group, read as one.
 
