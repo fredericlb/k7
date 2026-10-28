@@ -3,8 +3,10 @@
 // project, no engine session and no file open, so `LOCAL_COMMANDS` would be a catalogue of
 // things that cannot be done here. Pure but for the acts it is handed. See ../../docs/projects.md.
 
-import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
-import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
+import {
+  PROJECT_SHAPES,
+  type ProjectShape,
+} from "@studio/song-schema/projectShapes";
 import type { AccountWorkspace, RepoProject } from "@studio/web-protocol";
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
 // `m` is the file service in these branches, so the catalogue comes in under its own name.

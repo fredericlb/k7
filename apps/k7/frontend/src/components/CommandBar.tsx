@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { type ArgOption, rankOptions, toOptions } from "../argOptions";
 import {
   applyOffer,
   type CaretAim,
@@ -31,13 +32,8 @@ import {
   wantsKind,
 } from "../commandFill";
 import { emptyBarRows } from "../emptyBar";
-import {
-  type ArgOption,
-  rankCommands,
-  rankOptions,
-  toOptions,
-} from "../palette";
 import { m } from "../paraglide/messages.js";
+import { rankCommands } from "../rankCommands";
 import { recentCommands } from "../recentCommands";
 import type { ArgClass, MenuEntity } from "../types";
 import { CommandParams } from "./CommandParams";

@@ -6,9 +6,10 @@
 
 import { z } from "zod";
 import { AnimateSchema } from "../keyframes";
+import { TIMECODE } from "../timecode";
 
-/** The shape a position/duration has — see docs/moduleFile.md. */
-export const TIMECODE = /^[0-9]+(:[0-9]+)*(\.[0-9]+)?$/;
+export { TIMECODE } from "../timecode";
+
 const Timecode = z
   .string()
   .regex(TIMECODE, "expected a timecode like 25:1, 8:1:2 or 8:1:2:2.120");

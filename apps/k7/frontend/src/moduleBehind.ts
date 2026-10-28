@@ -3,7 +3,7 @@
 // restated so the popin can decide whether there is a module to show BESIDE the instance.
 // Pure, because which files sit side by side is a decision worth pinning.
 
-import { readScalarField } from "./projectPaths";
+import { readScalarField } from "./scalarField";
 
 /** Enough of the hints to resolve: the "kind:name" path map and the root it is relative to. */
 export interface PathHints {

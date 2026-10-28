@@ -1640,10 +1640,18 @@ imports statically:
 | on demand | CodeMirror ~220 KB (shared with the editor), icons ~150 KB, video export ~135 KB, builders ~45 KB, the desk ~25 KB |
 
 What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
-The gates keep the editor's dependencies out of that list by importing the light half of a module:
-`appNav` takes the autosaves' held text and flushes from `@studio/ui-editor/autosave-buffers`, never
-`autosave` itself, whose validator brings the song schema, `yaml` and the k7x printer; `api.ts` takes
-`WIDGETS_SCRIPT` from `@studio/song-schema/moduleFiles`, not from the zod schema declared beside it.
+The gates and the home page keep the editor's dependencies out of that list by importing the light half
+of a module, never a schema, a parser or a package's whole index for one constant:
+
+| the home path imports | rather than | which would bring |
+|---|---|---|
+| `@studio/ui-editor/autosave-buffers` (`appNav`) | `autosave` | its validator: the song schema, `yaml`, the k7x printer |
+| `@studio/song-schema/moduleFiles`, `projectShapes`, `timecode` | `yaml/moduleSchema`, `yaml/projectSchema`, `yaml/placementSchema` | zod and every schema |
+| `scalarField.ts`, only from the editor | `projectPaths.ts` carrying it | the k7x parser |
+| `@studio/ui-library/config`, `/sections`, `@studio/ui-rehearsal/config`, `/sections` | the packages' index | the whole médiathèque, playlists and their YAML |
+| `rankCommands.ts` (`CommandBar`) | `palette.ts` | the editor's command registry, every command's sentences in both languages |
+
+A schema re-exports what its light half holds, so a caller that already loads the schema need not know.
 
 The first screen's chunk is started as `appMain` evaluates, beside `AuthGate`'s `/auth/me`, rather than
 once that answers: on a phone the sign-in check and the download then overlap instead of following each

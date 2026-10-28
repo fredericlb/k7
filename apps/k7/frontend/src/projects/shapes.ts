@@ -13,7 +13,7 @@ import {
 import {
   PROJECT_SHAPES,
   type ProjectShape,
-} from "@studio/song-schema/yaml/projectSchema";
+} from "@studio/song-schema/projectShapes";
 import { m } from "../paraglide/messages.js";
 
 interface ShapeWords {

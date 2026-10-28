@@ -3,7 +3,6 @@
 // place so the conventions can't drift apart between features. Matched with `(^|\/)` rather
 // than an anchored `^`, since a path may carry a project-folder prefix in a workspace.
 
-import { parseValue } from "@studio/k7x/parse";
 import { docPattern, stripDocExt } from "@studio/song-schema/docExt";
 
 const kind = (folder: string): RegExp => docPattern(`(^|/)${folder}/[^/]+`);
@@ -103,19 +102,3 @@ export function inActiveProject(
 /** The generic module file beside `rel` — a node's sibling. */
 export const moduleFileOf = (rel: string): string =>
   norm(rel).replace(docPattern("/[^/]+"), "/module.k7x");
-
-/** A string field's value, a call's `key("v")` or an object's `key: "v"`, found by a scan so a half-typed file still answers. */
-export function readScalarField(text: string, key: string): string | null {
-  const m = new RegExp(
-    `(?:^|[^A-Za-z0-9_$-])${key}\\s*[(:]\\s*("(?:[^"\\\\\\n]|\\\\.)*"|'(?:[^'\\\\\\n]|\\\\.)*')`,
-  ).exec(text);
-  if (!m) return null;
-  try {
-    const node = parseValue(m[1]);
-    return node.kind === "scalar" && typeof node.value === "string"
-      ? node.value || null
-      : null;
-  } catch {
-    return null;
-  }
-}

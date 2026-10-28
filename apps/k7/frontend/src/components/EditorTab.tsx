@@ -62,10 +62,10 @@ import {
   norm,
   projectDir,
   rackKeyOf,
-  readScalarField,
   toProjectRelative,
 } from "../projectPaths";
 import { movedTheTree, movedTheVocabulary } from "../reloadScope";
+import { readScalarField } from "../scalarField";
 import type { SeqView } from "../sequenceEdit";
 import { type EditFocus, keepIfSame } from "../shellEquality";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";

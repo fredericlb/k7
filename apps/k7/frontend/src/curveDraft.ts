@@ -18,8 +18,11 @@ import {
   previewSpan,
   previewOf as specPreview,
 } from "@studio/song-schema/curveMath";
-import { beatsToPosition, parseDuration } from "@studio/song-schema/timecode";
-import { TIMECODE } from "@studio/song-schema/yaml/placementSchema";
+import {
+  beatsToPosition,
+  parseDuration,
+  TIMECODE,
+} from "@studio/song-schema/timecode";
 
 /** What the shape select offers: the four oscillators, the envelope, the drawn curve, and a boolean's on/off. */
 export type DraftShape = LfoShape | "adsr" | "custom" | "onoff";

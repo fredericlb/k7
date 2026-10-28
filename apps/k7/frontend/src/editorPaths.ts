@@ -3,11 +3,8 @@
 // keeps only the pane.
 
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
-import {
-  isRackModuleFile,
-  readScalarField,
-  toProjectRelative,
-} from "./projectPaths";
+import { isRackModuleFile, toProjectRelative } from "./projectPaths";
+import { readScalarField } from "./scalarField";
 import type { FileNode, WebProject } from "./types";
 
 // Flatten the tree to openable text paths — binaries can't be shown, which also drops .dawproject archives.

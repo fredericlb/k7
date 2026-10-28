@@ -20,8 +20,15 @@ import {
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { projectsUrl } from "@studio/project-shell/launch";
-import { LIBRARY_SECTIONS, sectionAt, sectionPath } from "@studio/ui-library";
-import { REHEARSAL_SECTIONS, rehearsalSectionAt } from "@studio/ui-rehearsal";
+import {
+  LIBRARY_SECTIONS,
+  sectionAt,
+  sectionPath,
+} from "@studio/ui-library/sections";
+import {
+  REHEARSAL_SECTIONS,
+  rehearsalSectionAt,
+} from "@studio/ui-rehearsal/sections";
 import { UserMenu } from "@studio/ui-user-menu";
 import {
   type ReactNode,
