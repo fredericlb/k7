@@ -98,14 +98,16 @@ are searching.
 ### The parameters, on the bar's row
 
 `CommandParams` replaces the input with ONE row: the command's name, then a field per parameter,
-named by its placeholder, then what Enter does this press. The bar's whole STRIP takes a violet wash while it waits, an inset ring
-of the accent breathing once a second (`animate-pending` in `src/index.css`; a still ring under reduced motion — and a ring rather
-than a fade of the whole strip, which would fade the text being typed), padding included — the host's background, from `barTint` and the bar's
-`onPending`, since only the host knows its own padding: a command half-given is the shell waiting on you, and a bar that looks the same
-asking or idle is one nobody looks at. **Every question is on screen at once**, and an answer
-given three fields ago can be changed without unwinding the ones after it. It holds no state —
-the command, the answers and the gesture inlets all live in `CommandBar`, because two
-components with two copies of that would be two commands.
+named by its placeholder, then what Enter does this press. The strip KEEPS ITS OWN OPAQUE FILL
+while it waits: the wait is an inset ring of the accent breathing once a second (`animate-pending`
+in `src/index.css`; a still ring under reduced motion). `barTint` gives that class list and the host
+applies it, through the bar's `onPending`, since only the host knows its own padding: a command
+half-given is the shell waiting on you, and a bar that looks the same asking or idle is one nobody
+looks at. A wash over the strip instead of a ring would thin the fill, and the page would then read
+through the fields being typed. **Every question is on screen at once**, and an answer given three
+fields ago can be changed without unwinding the ones after it. It holds no state — the command, the
+answers and the gesture inlets all live in `CommandBar`, because two components with two copies of
+that would be two commands.
 
 - **Tab** goes to the next question. On a field showing suggestions it takes the highlighted
   one first, so completion is still the validation, and then steps on.

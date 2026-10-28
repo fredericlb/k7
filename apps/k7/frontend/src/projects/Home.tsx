@@ -180,7 +180,7 @@ export function Home() {
     cmdRef.current?.focus();
   }, []);
   useSummonKey(summonBar);
-  // Whether the bar is waiting on a command's answers, which tints it (CommandBar's `barTint`).
+  // Whether the bar is waiting on a command's answers, which rings its edge (../barTint.ts).
   const [pending, setPending] = useState(false);
   const onBarPending = useCallback((p: unknown) => setPending(!!p), []);
   const { locale } = useLocale();

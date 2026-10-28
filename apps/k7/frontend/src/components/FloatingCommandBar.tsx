@@ -4,10 +4,10 @@
 // since a gesture in a pane may be what answers it. See ../../docs/commandBar.md.
 
 import { forwardRef, useCallback, useEffect, useRef } from "react";
+import { barTint } from "../barTint";
 import { useLatest } from "../hooks/useLatest";
 import { useWindowKey } from "../hooks/useWindowKey";
 import {
-  barTint,
   CommandBar,
   type CommandBarHandle,
   type CommandBarProps,
