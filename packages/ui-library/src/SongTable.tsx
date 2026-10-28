@@ -226,8 +226,12 @@ export function SongTable(p: SongTableProps) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {/* Text and not `search`: Chrome draws its own clear button there, a second one beside ours. */}
           <Input
-            type="search"
+            type="text"
+            role="searchbox"
+            inputMode="search"
+            enterKeyHint="search"
             value={p.query}
             onChange={(e) => p.onQuery(e.target.value)}
             // Escape empties it, the way a search field is left.
