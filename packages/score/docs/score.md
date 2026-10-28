@@ -10,8 +10,8 @@ transpose and zoom.
 draws standard notation and tablature, and plays what it draws with a cursor following —
 all in the browser. OpenSheetMusicDisplay draws MusicXML well but plays nothing and reads no
 Guitar Pro; Verovio engraves best but ships megabytes of WASM and leaves playback to us. A
-songbook that already reads tablature needs the player and the Guitar Pro files more than it
-needs engraving-grade output. MPL-2.0 is fine for a dependency used as published.
+player that already reads tablature needs the player and the Guitar Pro files more than it needs
+engraving-grade output. MPL-2.0 is fine for a dependency used as published.
 
 Its Vite plugin is the separate `@coderline/alphatab-vite` package, registered by the app that
 bundles this one — k7 (`apps/k7/frontend/vite.config.ts`): the copy inside `@coderline/alphatab`
@@ -38,8 +38,8 @@ ask that one module, so they cannot disagree about what a file is.
 ## Loaded only where a score is shown
 
 alphaTab is the heaviest dependency the rehearsal pages have. `src/ScoreView.tsx` is the only
-module that imports it, and the Sheet tab loads it with `import()`, so no other screen pays for it
-— the same choice the export generators make (`packages/ui-rehearsal/docs/export.md`).
+module that imports it, and the sheet panel loads it with `import()`, so no other screen pays for
+it (`packages/ui-rehearsal/src/components/ScoreSheet.tsx`).
 
 ## Transposition is one setting
 
@@ -74,5 +74,5 @@ first time a score is played.
 A score opens with alphaTab's player disabled, and the first press of Play turns it on: only then
 are the synth worker started and the 1.3 MB soundfont fetched, and playback starts once they are
 ready. Most scores are opened to be read, not heard, and a page that loads the soundfont on every
-mount pays for it on every song of the songbook. While the player loads, Play is greyed out
+mount pays for it on every song of the library. While the player loads, Play is greyed out
 (`ScoreState.loading`).

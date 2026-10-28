@@ -1058,7 +1058,7 @@
   "media.song.tabDiagrams": "Diagrammes",
   "media.song.menu": "Plus",
   "media.song.addedOn": "Ajoutée le {date}",
-  "media.song.addedFromFiles": "la date du fichier le plus récent du dossier — le carnet n’en a pas pour elle",
+  "media.song.addedFromFiles": "la date du fichier le plus récent du dossier — la chanson n’en a pas",
   "media.song.metronome": "Métronome",
   "media.song.noBpm": "Pas de tempo dans les tags du morceau : réglez-le ici.",
   "media.song.tempo": "Tempo",

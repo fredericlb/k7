@@ -1,25 +1,26 @@
 # The rehearsal screens
 
 `packages/ui-rehearsal` (`@studio/ui-rehearsal`) draws the rehearsal recorder: sessions and
-moments, publications, the songbook, exercises, the recorder's pop-in and the public
-page. k7 mounts it under `/rehearsal`.
+moments, publications, exercises, the recorder's pop-in and the public page. It also exports the one
+component the médiathèque's song page draws its lyrics, tablature and sheets with. k7 mounts it
+under `/rehearsal`.
 
 ## Entry points
 
 | Export | File | For |
 |---|---|---|
-| `.` | `src/index.ts` | What a host's entry imports: `configureRehearsal`, `RehearsalHostProvider`, `followLocale`, `RehearsalRecording`, `NewSessionButton`, `REHEARSAL_SECTIONS`, `rehearsalSectionAt`, `isSongPage`, `publicPageAt` |
+| `.` | `src/index.ts` | What a host's entry imports: `configureRehearsal`, `RehearsalHostProvider`, `followLocale`, `RehearsalRecording`, `NewSessionButton`, `REHEARSAL_SECTIONS`, `rehearsalSectionAt`, `publicPageAt` |
 | `./pages` | `src/pages.ts` | `RehearsalRoutes`, `RehearsalPublicPage`, loaded as a lazy chunk |
 | `./settings` | `src/settings.ts` | `RehearsalSettings`, the host settings page's section |
 
-The split keeps the heavy screens (alphaTab, pdf-lib, the EPUB generator) out of k7's first load.
+The split keeps the heavy screens (alphaTab, the recorder) out of k7's first load.
 
 ## The host contract
 
 As in the media library, two channels:
 
 - `configureRehearsal({ apiBase, pagesPrefix })` (`src/config.ts`), module-level, for `src/api.ts`
-  and `src/fetchSong/pl8.ts`.
+  and `src/chainSource.ts`.
 - `RehearsalHostProvider` (`src/host.tsx`): `{ prefix, user, onLogout?, settingsHref? }`.
 
 Every navigation goes through `useRehearsalNav()` (`path()` and `go()` under the prefix): a bare
@@ -78,30 +79,16 @@ Sources:
   and turns that into a MediaStream. It sends the engine no project. The panel is hidden during a
   take, never unmounted, or k7 would reload and drop its claim on the engine.
 
-## The songbook's track pipeline
-
-`src/fetchSong/` runs in the browser, as the user, because the hunt refuses service tokens on
-purpose:
-
-- `pl8.ts`: the calls to the media library (library search, hunt, engines, stems).
-- `match.ts`: which library song a songbook song is (normalised artist and title, then every word,
-  then a title by an artist one typo away). Pure.
-- `run.ts`: `fetchSong`, `makeInstrumental`, `syncLyrics` and `runPipeline` (search, download,
-  lyrics, stems), as resumable steps. Progress is persisted on the song (`FetchPhase`,
-  `FetchProgress`, `FetchHuntId`, `FetchJobId`…) so a reload resumes. Lyrics run before stems: a song
-  LRCLIB lists as instrumental has no voice to take out.
-
 ## Other notable modules
 
 | File | Role |
 |---|---|
-| `src/hooks/usePitchShift.ts` | Transposes the reference track through Signalsmith Stretch in live-input mode (pitch moves, tempo does not); built on demand, bypassed at zero |
 | `src/hooks/useLyricsLead.ts` | Seconds a clicked lyric line starts early, per browser |
-| `src/songTabs.ts` | Which content tabs a song shows |
-| `src/export/` | `songPdf.ts` (pdf-lib, WinAnsi transliteration, A4), `songEpub.ts` (epub-gen-memory around `@studio/rehearsal-shared/epub`), `sheets.ts` (re-encodes non JPEG/PNG images for pdf-lib), `songbookZip.ts` (fflate, one song at a time) |
+| `src/components/SongAttachment.tsx` | One of a song's lyrics, chords, tablature, sheets or chord diagrams, drawn for the médiathèque's song page (`packages/ui-library/docs/songPlayer.md`) |
+| `src/components/SheetPanel.tsx`, `ScoreSheet.tsx` | A sheet drawn by kind: a PDF, images, or a score through alphaTab |
 | `src/utils/pitch.ts`, `src/views/GuitarTuner.tsx` | Frequency to note and cents, nearest string; detection by `pitchy` |
 | `src/utils/exercises.ts`, `src/utils/chordDiagram.ts` | Random chords over `@tombatossals/chords-db`, diagrams via `@tombatossals/react-chords` |
-| `src/components/SongbookServerCopy.tsx`, `src/components/MomentServerShare.tsx` | A paired device's songbook and moment placement |
+| `src/components/MomentServerShare.tsx` | Which of a paired device's moments its server holds |
 | `src/components/RecoveredTakes.tsx` | Offers back takes left in IndexedDB |
 
 Styles are plain CSS under `src/styles/`, scoped by the `.rehearsal-root` wrapper class.
@@ -109,7 +96,6 @@ Styles are plain CSS under `src/styles/`, scoped by the `.rehearsal-root` wrappe
 ## Tests
 
 `npm test -w @studio/ui-rehearsal` (compiles the catalogue first) runs vitest over the pure modules:
-`chainSource`, `songTabs`, `export/*` (naming, zip, EPUB input, PDF), `fetchSong/match`,
-`fetchSong/run` (the pipeline against fakes), `hooks/useLyricsLead`, `utils/*`,
-`views/PublicationsList`, `views/RecordingsTimeline`. Components are not mounted; a few have
-Storybook stories (`*.stories.tsx`).
+`chainSource`, `benchInputs`, `hooks/useLyricsLead`, `utils/*`, `views/PublicationsList`,
+`views/RecordingsTimeline`. Components are not mounted; a few have Storybook stories
+(`*.stories.tsx`).

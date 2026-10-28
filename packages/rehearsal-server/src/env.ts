@@ -25,8 +25,6 @@ const raw = defineEnv(
     K7_DATA_DIR: z.string().optional(),
     // `local` on a desktop or a phone: releases and pages are the paired server's, forwarded there — ../docs/publications.md.
     K7_INSTANCE: z.enum(["server", "local"]).default("server"),
-    // The OIDC groups whose members delete a public song, comma-separated; empty, nobody does.
-    AUTH_ADMIN_GROUPS: z.string().default(""),
   },
   { service: "k7-backend" },
 );
@@ -65,8 +63,4 @@ export const env = {
     1,
     Math.floor(Number(raw.K7_FFMPEG_CONCURRENCY)) || 2,
   ),
-  // Read as k7's backend reads the same variable — ../docs/ownership.md.
-  adminGroups: raw.AUTH_ADMIN_GROUPS.split(",")
-    .map((g) => g.trim())
-    .filter(Boolean),
 };

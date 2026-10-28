@@ -34,7 +34,7 @@ instrumental: each is a sentence with a remedy, reported verbatim.
 **The best-rated engine the account may cut on**, chosen here (`src/media/stems/engine.ts`). A cut is a
 batch job, so the machine that matters is the fastest one, not the one a page happens to play on: the
 rating is the machine's performance score (`packages/web-protocol/docs/performance.md`), an engine
-that could not rate itself counting last. Every page that cuts — the songbook, the desk, the editor's
+that could not rate itself counting last. Every page that cuts — the desk, the editor's
 playlist — names none and gets that one. A caller may still name one (`engineId`); it passes the same
 rule.
 

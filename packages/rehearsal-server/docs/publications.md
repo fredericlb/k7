@@ -12,7 +12,7 @@ a server, or with one that does not answer, they are refused with a 503 that say
 screens show that sentence instead of the lists (`../../ui-rehearsal/src/components/ServerOnly.tsx`).
 The lists are asked for only once that check has found the server, never when the pages load: a
 machine with no server would otherwise answer a 503 on every visit, which reads as a fault.
-The sessions, the moments and the songbook keep working: they are the machine's own.
+The sessions, their moments and the exercises keep working: they are the machine's own.
 
 ## The machine acts as the person who paired it
 

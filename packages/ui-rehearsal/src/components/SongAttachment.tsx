@@ -1,7 +1,6 @@
-// SongAttachment.tsx — one of a song's lyrics, chords, tablature, sheets or chord diagrams, drawn
-// exactly as the songbook draws it, for a page outside the rehearsal screens: the médiathèque's
-// song page hands it the content, the transposition and the line being sung, and keeps the track
-// (packages/ui-library/docs/songPlayer.md). A tapped line starts the songbook's lead early.
+// SongAttachment.tsx — one of a song's lyrics, chords, tablature, sheets or chord diagrams, drawn for
+// the médiathèque's song page: it hands over the content, the transposition and the line being sung,
+// and keeps the track (packages/ui-library/docs/songPlayer.md). A tapped line starts the lead early.
 
 import { ChordSheet, timecodesByLine } from "@studio/lyrics";
 import { Tablature } from "@studio/tablature";
@@ -43,7 +42,7 @@ export function SongAttachment({
   onLineClick,
   chords = [],
 }: SongAttachmentProps) {
-  // The timecodes are read the way the songbook reads them, so a timed line shows as timed — the chords' too.
+  // The timecodes are read the one way the library reads them, so a timed line shows as timed — the chords' too.
   const timings = useMemo(
     () =>
       kind === "lyrics" || kind === "chords"

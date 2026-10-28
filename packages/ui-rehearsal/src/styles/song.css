@@ -1,4 +1,4 @@
-/* song.css — a song's page: the sheet panel, the chord sheet and the chords rail. Nested under .rehearsal-root like every sheet here (index.css). */
+/* song.css — what a song's lyrics, tablature and sheets draw with: the sheet panel, the chord sheet, the chord cards. Nested under .rehearsal-root like every sheet here (index.css). */
 
 .rehearsal-root {
   /* ---- Sheet panel (PDF / image files) ------------------------------------ */
@@ -89,126 +89,6 @@
     height: auto;
   }
 
-  /* The ⋮ beside a song's title, and what it is doing — floating, so the page does not jump. */
-  .song-menu {
-    position: relative;
-    flex: none;
-  }
-  .song-menu-status {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
-    max-width: min(80vw, 420px);
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
-  }
-
-  /* Under the title: download/upload when there is no track, else the pipeline's own status.
-     Solid, not the soft tint: the text and buttons on it are white / white-on-purple. */
-  .song-fetch-insert {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: 4px 0 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--accent);
-  }
-  .song-fetch-insert-text {
-    flex: 1 1 100%;
-    margin: 0 0 2px;
-    color: #fff;
-    font-size: 13px;
-  }
-  .song-fetch-btn {
-    background: #fff;
-    color: var(--accent);
-    border: none;
-  }
-  .song-fetch-btn:hover {
-    background: #fff;
-    color: var(--accent-hover);
-    opacity: 0.9;
-  }
-  .song-fetch-status {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 4px 0 10px;
-  }
-  .song-fetch-error {
-    font-weight: 600;
-  }
-  /* One bar cut into four steps, each step's name written inside its own segment. */
-  .song-fetch-stepper {
-    display: flex;
-    gap: 2px;
-    width: 100%;
-    max-width: 480px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    overflow: hidden;
-    border-radius: 6px;
-  }
-  .song-fetch-step {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    height: 24px;
-    overflow: hidden;
-    background: var(--border);
-    color: var(--muted);
-  }
-  .song-fetch-step.done {
-    background: var(--accent);
-    color: #fff;
-  }
-  .song-fetch-step.active {
-    color: var(--text);
-  }
-  .song-fetch-step-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--accent);
-    opacity: 0.45;
-    transition: width 0.3s;
-  }
-  .song-fetch-step-label {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    height: 100%;
-    padding: 0 6px;
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .song-fetch-step-num {
-    font-weight: 700;
-    opacity: 0.8;
-  }
-  /* No percent to show (searching, downloading, matching lyrics): a sliding block instead of a stall. */
-  .song-fetch-step-fill.indeterminate {
-    width: 40%;
-    animation: song-fetch-slide 1.2s ease-in-out infinite;
-  }
-
-
-
   /* A score scrolls inside its own box: alphaTab follows the cursor by scrolling this element. */
   .score-viewport {
     position: relative;
@@ -253,141 +133,12 @@
     gap: 6px;
     margin-top: 12px;
   }
-  /* The options panel: one row per setting, its name in one half and its control in the other. */
-  .options-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
-  }
-  .options-name {
-    overflow-wrap: anywhere;
-  }
-  .options-control {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-  }
-  .options-control input {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
   .cs-transpose-val {
     min-width: 24px;
     text-align: center;
     font-variant-numeric: tabular-nums;
     color: var(--accent);
     font-weight: 700;
-  }
-
-  /* ---- Chords widget (diagrams) -------------------------------------------- */
-
-  /* The right rail: the song page's floating panels, STACKED so two of them never overlap. */
-  .side-rail {
-    position: fixed;
-    top: 72px;
-    right: 0;
-    z-index: 25;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-    /* Short of the song's bar, so the last panel never slides under it. */
-    max-height: calc(100% - 96px - var(--song-bar-h, 0px));
-    /* The gap between two panels is page, not rail: a click there must reach what is behind. */
-    pointer-events: none;
-  }
-  .side-rail > * {
-    pointer-events: auto;
-    min-height: 0;
-  }
-
-  /* One panel of that rail: the chrome every rail panel shares, whatever it holds. */
-  .rail-panel {
-    width: 272px;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-right: 0;
-    border-radius: 10px 0 0 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  }
-  /* Folded panels share ONE width, so the rail reads as a stack of tabs rather than a ragged edge. */
-  .rail-panel.collapsed {
-    width: 200px;
-  }
-  .rail-panel-toggle {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  /* What a panel puts its content in, when that content is not a list of its own. */
-  .rail-panel-body {
-    overflow: auto;
-    padding: 8px;
-  }
-  /* In a panel the row IS the content, so the margin that spaces it from a chord sheet is a gap. */
-  .rail-panel .cs-transpose {
-    margin-top: 0;
-    flex-wrap: wrap;
-  }
-  /* Wide screens with many chords: widen to fit a third diagram per row. */
-  @media (min-width: 1360px) {
-    .chords-panel.three-col:not(.collapsed) {
-      width: 396px;
-    }
-  }
-  .rail-panel-toggle {
-    flex: 0 0 auto;
-    background: var(--surface-2);
-    border: 0;
-    color: var(--text);
-    font-weight: 600;
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 10px 0 0 10px;
-    text-align: left;
-  }
-  .rail-panel-toggle svg.lucide {
-    margin-right: 6px;
-  }
-  /* A header with a control of its own: the toggle takes the row, the control sits at its end. */
-  .rail-panel-head {
-    display: flex;
-    align-items: stretch;
-    background: var(--surface-2);
-    border-radius: 10px 0 0 10px;
-  }
-  .rail-panel-head .rail-panel-toggle {
-    flex: 1 1 auto;
-    min-width: 0;
-    background: none;
-  }
-  .rail-panel-action {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    background: none;
-    border: 0;
-    color: var(--text);
-    cursor: pointer;
-  }
-  .chords-panel-list {
-    overflow: auto;
-    padding: 8px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-    gap: 8px;
-  }
-  .chords-panel-item {
-    border-radius: 8px;
-    transition: box-shadow 0.15s;
-  }
-  .chords-panel-item.selected {
-    box-shadow: 0 0 0 2px var(--accent);
   }
 
   /* A single chord card: name, diagram, and alternatives pager. */
@@ -431,7 +182,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* The mobile chord popin is a shadcn Dialog (ChordPopin.tsx). */
 
   /* The médiathèque's Diagrams tab: every chord of the song as a card, as many per row as fit. */
   .song-chord-grid {

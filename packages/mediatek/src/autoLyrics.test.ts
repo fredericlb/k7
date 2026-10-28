@@ -22,7 +22,7 @@ import {
 import { flushIndex } from "./catalogue.ts";
 import { ensureLayout } from "./layout.ts";
 import { bumped } from "./revision.ts";
-import { listSongbook, readSongbook } from "./songbook.ts";
+import { readSongbookAt } from "./songbook.ts";
 import { writeMasterTags } from "./tags.ts";
 import { tinyWav } from "./testWav.ts";
 
@@ -106,9 +106,9 @@ describe("what a hit leaves", () => {
     const sidecar = readFileSync(at(`${SONG}/song.yaml`), "utf8");
     expect(sidecar).not.toContain("lyricsSearch");
     expect(sidecar).toContain('source: "upload"');
-    const [entry] = await listSongbook();
-    expect(entry).toMatchObject({ title: "Sinnerman", hasLyrics: true });
-    expect((await readSongbook(entry.id))?.facts.lyricsMatch).toBe("matched");
+    const song = await readSongbookAt(SONG);
+    expect(song.title).toBe("Sinnerman");
+    expect(song.facts.lyricsMatch).toBe("matched");
     expect(existsSync(at(`${SONG}/original.wav`))).toBe(true);
   });
 });

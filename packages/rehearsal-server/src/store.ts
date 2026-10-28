@@ -67,27 +67,6 @@ export {
   updateSingingExercise,
 } from "./store/singing.ts";
 export {
-  addSheetFiles,
-  deleteSheetFile,
-  deleteSongInstrumental,
-  ensureSheetFileCached,
-  linkSongAudio,
-  linkSongInstrumental,
-  setSongAudio,
-  songEnvelope,
-  unlinkSongAudio,
-} from "./store/songMedia.ts";
-export {
-  createSong,
-  deleteSong,
-  getSong,
-  listSongs,
-  setSongFavorite,
-  songOriginOf,
-  songVisibleTo,
-  updateSong,
-} from "./store/songs.ts";
-export {
   addVersion,
   deleteVersion,
   ensureVersionAudioCached,

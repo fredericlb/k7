@@ -2,7 +2,7 @@
   "name": "@studio/rehearsal-server",
   "version": "0.1.0",
   "private": true,
-  "description": "The rehearsal recorder's server half, mounted inside k7's backend: sessions, releases, public pages, songbook, phone-mic signaling",
+  "description": "The rehearsal recorder's server half, mounted inside k7's backend: sessions, releases, public pages, phone-mic signaling",
   "type": "module",
   "exports": {
     ".": "./src/mount.ts",
@@ -17,7 +17,6 @@
     "@frediverse/http": "*",
     "@frediverse/oidc": "*",
     "@studio/audio-analysis": "*",
-    "@studio/lyrics": "*",
     "@studio/mediatek": "*",
     "@studio/rehearsal-shared": "*",
     "express": "^4.19.2",

@@ -3,11 +3,11 @@
 // the supervisor's instruments) mirrored in. A key names one thing: queuing it twice waits on the first.
 // Framework-free; a screen reads it with useSyncExternalStore(subscribeDownloads, downloadsSnapshot). See ../docs/downloads.md.
 
-export type DownloadKind = "song" | "songbook" | "engine";
+export type DownloadKind = "song" | "engine";
 export type DownloadPhase = "queued" | "running" | "done" | "failed";
 
 export interface Download {
-  /** What is downloaded, unique across kinds: `library:<path>`, `songbook:<id>`, `model:<job>`. */
+  /** What is downloaded, unique across kinds: `library:<path>`, `model:<job>`, `instrument:<name>`. */
   key: string;
   kind: DownloadKind;
   label: string;

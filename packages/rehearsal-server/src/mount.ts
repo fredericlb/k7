@@ -1,5 +1,5 @@
 // mount.ts — the rehearsal recorder's routes, mounted inside k7's backend: sessions and moments,
-// releases and their public pages, the songbook, the singing exercises, the phone-mic signaling.
+// releases and their public pages, the singing exercises, the phone-mic signaling.
 // It mounts no auth, no body parser and no CORS: the host applies them to the whole process first.
 // What reads wrong: it must be mounted BEFORE the media library, whose catch-all `/api` guard is
 // session-only — the public pages are unguarded and the releases take k7's own bearer.
@@ -19,9 +19,9 @@ import { linkMediatek } from "./mediatek.ts";
 import { importFromPocketbase } from "./pocketbaseImport.ts";
 import {
   forwardToServer,
+  type PairedServer,
   PUBLICATION_ROUTES,
   publicationsStatus,
-  type SongbookServer,
 } from "./publications.ts";
 import { configRouter } from "./routes/config.ts";
 import { momentsRouter } from "./routes/moments.ts";
@@ -30,17 +30,15 @@ import { publicPagesRouter } from "./routes/publicPages.ts";
 import { releasesRouter } from "./routes/releases.ts";
 import { sessionsRouter } from "./routes/sessions.ts";
 import { singingRouter } from "./routes/singing.ts";
-import { songsRouter } from "./routes/songs.ts";
 import { tokenRouter } from "./routes/token.ts";
 import { startCacheSweeps } from "./store.ts";
 
 export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
-export type { SongbookServer } from "./publications.ts";
+export type { PairedServer } from "./publications.ts";
 export {
   DEVICE_ROUTE as DEVICE_PUBLICATIONS_ROUTE,
   publicationsDeviceRouter,
 } from "./publications.ts";
-export { songbookCopyRouter, songbookDeviceRouter } from "./songbookCopy.ts";
 
 export interface RehearsalMount {
   /** The boot work once the server listens: the one-time PocketBase import and the cache sweeps. */
@@ -52,7 +50,7 @@ export interface RehearsalMount {
 export interface RehearsalOptions {
   requireAuth: RequestHandler;
   /** The server this request's account is paired with, or null: where a local instance's releases and pages are. */
-  server?: (req: Request) => SongbookServer | null;
+  server?: (req: Request) => PairedServer | null;
   /** The media library a session's bytes live in: the host's own, over loopback, with a service token. */
   mediatek: RemoteConfig;
 }
@@ -65,7 +63,6 @@ const REHEARSAL_PATHS = [
   "/releases",
   "/pages",
   "/public/pages",
-  "/songs",
   "/singing",
   "/token",
   "/publications",
@@ -103,7 +100,6 @@ export const mountRehearsal = (
   api.use("/pages", requireAuth, pagesRouter);
   // No requireAuth: the nametag itself is the address — ../docs/ownership.md.
   api.use("/public/pages", publicPagesRouter);
-  api.use("/songs", requireAuth, songsRouter);
   api.use("/singing", requireAuth, singingRouter);
   // `/token/publish` only: the rest of `/api/token` falls through to the media library.
   api.use("/token", requireAuth, tokenRouter);

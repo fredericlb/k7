@@ -1,4 +1,4 @@
-// pocketbaseImport.ts — the one-time move of the server's rows and sheets out of PocketBase into the store.
+// pocketbaseImport.ts — the one-time move of the server's rows out of PocketBase into the store.
 // Runs at boot when POCKETBASE_* are set and none of its rows is here yet; ids are kept, so every reference holds.
 // What reads wrong: it only READS PocketBase, which stays untouched until removed by hand — ../docs/store.md.
 
@@ -54,14 +54,10 @@ async function reader(src: PocketbaseSource) {
         if (page >= data.totalPages) return out;
       }
     },
-    async file(coll: string, id: string, name: string): Promise<Buffer> {
-      const res = await get(`/api/files/${enc(coll)}/${enc(id)}/${enc(name)}`);
-      return Buffer.from(await res.arrayBuffer());
-    },
   };
 }
 
-/** Copy every collection schema.ts names, then every sheet with its bytes; the counts per collection, or null when a PocketBase row is already here. */
+/** Copy every collection schema.ts names; the counts per collection, or null when a PocketBase row is already here. */
 export async function importFromPocketbase(
   src: PocketbaseSource,
   store: Store,
@@ -75,16 +71,6 @@ export async function importFromPocketbase(
     items.some((item) => store.getRecord(coll, String(item.id))),
   );
   if (done) return null;
-  const sheets = await pb.records("song_sheets");
-  // One sheet at a time and before any row: a sheet written again on a retry replaces itself.
-  for (const s of sheets)
-    await store.uploadAttachment(
-      await pb.file("song_sheets", String(s.id), String(s.file)),
-      String(s.mime || "application/octet-stream"),
-      String(s.name || s.file),
-      String(s.song),
-      String(s.id),
-    );
   // In one transaction: no PocketBase row lands unless every one does, and none here is what makes the next boot retry.
   store.inTransaction(() => {
     for (const [coll, items] of Object.entries(rows)) {
@@ -102,6 +88,5 @@ export async function importFromPocketbase(
       counts[coll] = items.length;
     }
   });
-  counts.song_sheets = sheets.length;
   return counts;
 }

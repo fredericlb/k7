@@ -20,8 +20,6 @@ import {
   momentDeviceRouter,
   momentShareRouter,
   publicationsDeviceRouter,
-  songbookCopyRouter,
-  songbookDeviceRouter,
 } from "@studio/rehearsal-server";
 import {
   type Express,
@@ -185,9 +183,6 @@ export function serverCopyRouter(hub: FileHub): Router {
   return r;
 }
 
-/** Where the origin answers a paired device's songbook reads, behind the same token. */
-const DEVICE_SONGBOOK_ROUTE = "/api/sync/songbook";
-
 /** Where the origin takes a paired device's shared moments, behind the same token. */
 const DEVICE_MOMENTS_ROUTE = "/api/sync/moments";
 
@@ -199,22 +194,6 @@ export function mountServerCopy(
 ): void {
   app.use(DEVICE_LIBRARY_ROUTE, deviceLibraryRouter(hub.sync.deviceGate()));
   app.use("/api/sync/library", requireAuth, serverCopyRouter(hub));
-  app.use(DEVICE_SONGBOOK_ROUTE, songbookDeviceRouter(hub.sync.deviceGate()));
-  app.use(
-    "/api/sync/songbook-copy",
-    requireAuth,
-    songbookCopyRouter({
-      deviceRoute: DEVICE_SONGBOOK_ROUTE,
-      server: (req) => serverOf(hub, req),
-      // A songbook song IS a library song folder: it comes down whole, texts, sheets and track.
-      fetchFolder: async (req, folder) => {
-        const server = serverOf(hub, req);
-        if (!server) return;
-        if (!(await downloadEntries(server, "songs", [folder])).files)
-          throw new Error(`the server's library has no '${folder}'`);
-      },
-    }),
-  );
   // Releases and pages live here alone; a paired machine reads and writes them through this door.
   app.use(
     DEVICE_PUBLICATIONS_ROUTE,

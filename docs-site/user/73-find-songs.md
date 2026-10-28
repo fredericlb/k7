@@ -80,4 +80,3 @@ The button at the end of a row is **Abandon this search** while it runs (it stop
 ## Related pages
 
 - [Songs and samples](./71-songs-and-samples.md)
-- The rehearsal songbook uses the same search to fetch a song's track: [The songbook](./77-songbook.md)

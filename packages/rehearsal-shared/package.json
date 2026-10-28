@@ -6,12 +6,9 @@
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts",
-    "./epub": "./epub.ts",
-    "./naming": "./naming.ts",
     "./pageVersion": "./pageVersion.ts",
     "./pageVisibility": "./pageVisibility.ts",
     "./sheetKind": "./sheetKind.ts",
-    "./songList": "./songList.ts",
     "./youtube": "./youtube.ts"
   },
   "scripts": {

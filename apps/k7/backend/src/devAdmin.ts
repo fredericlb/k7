@@ -1,5 +1,5 @@
 // devAdmin.ts — in a LOCAL dev session the stub "Dev User" is an admin: it is the only account there,
-// and every admin surface (the libraries, the slskd settings, a songbook removal) must be reachable to
+// and every admin surface (the libraries, the slskd settings) must be reachable to
 // develop it. Done here, around `requireAuth`, because the commons stub signs it with no groups on
 // purpose and that package is shared. Never on: a configured OIDC, or the tray's local user (../docs/hardening.md).
 

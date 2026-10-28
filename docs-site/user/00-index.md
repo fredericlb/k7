@@ -105,7 +105,6 @@ New to k7? Read [What k7 is](./01-what-is-k7.md), then [The home page](./03-home
 - [The rehearsal recorder](./74-rehearsal-recorder.md)
 - [Sessions and moments](./75-sessions-and-moments.md)
 - [Releases and pages](./76-releases-and-pages.md)
-- [The songbook](./77-songbook.md)
 - [Exercises](./78-exercises.md)
 
 ## Engines

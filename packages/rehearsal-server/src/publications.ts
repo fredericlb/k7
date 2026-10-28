@@ -18,13 +18,13 @@ export const DEVICE_ROUTE = "/api/sync/k7";
 export const PUBLICATION_ROUTES = ["/releases", "/pages", "/public/pages"];
 
 /** The paired server a request's account reaches, and the device token to call it with. */
-export interface SongbookServer {
+export interface PairedServer {
   base: string;
   token: string;
 }
 
 /** The server this request's account is paired with, or null. */
-export type ServerOf = (req: Request) => SongbookServer | null;
+export type ServerOf = (req: Request) => PairedServer | null;
 
 /** Headers a request carries through; the session's cookie and the host are this origin's, never sent. */
 const REQUEST_HEADERS = [

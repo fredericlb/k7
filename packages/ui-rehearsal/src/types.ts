@@ -6,7 +6,7 @@
 export type { Selection } from "@studio/recorder";
 export * from "@studio/rehearsal-shared";
 
-export type HomeTab = "sessions" | "releases" | "songbook";
+export type HomeTab = "sessions" | "releases";
 
 // The header's destinations: one entry per section, sessions and their moments under Recordings, releases and pages Publications.
-export type NavKey = "recordings" | "publications" | "songbook" | "exercises";
+export type NavKey = "recordings" | "publications" | "exercises";

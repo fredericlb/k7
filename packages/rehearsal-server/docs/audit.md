@@ -37,16 +37,14 @@ requests leave no descriptor open (61 before, 56 after).
 
 ## An id from a URL reaches no other file
 
-A sheet's id names its file under `sheets/`, so the store refuses one that is not a single plain
-segment, and a filter's field name must be a plain word before it enters a JSON path
+An id names a cache file, so the store refuses one that is not a single plain segment, and a
+filter's field name must be a plain word before it enters a JSON path
 ([store.md](store.md)). Values are bound, never spliced into the SQL.
 
 ## Lists read what they show
 
 A session list projects seven fields instead of every envelope, which passes 100 KB for a long take,
-and the projection happens in SQL, so the envelope is never parsed either. The songbook list carries
-no lyrics, tablature or envelope, and a song's edit patches its row rather than refetching the
-list ([store.md](store.md)).
+and the projection happens in SQL, so the envelope is never parsed either ([store.md](store.md)).
 
 ## A take survives a failed upload, and a tab asks before it closes
 
@@ -69,14 +67,16 @@ or tab resets it; new content alone refreshes the draft only while nobody is edi
 
 ## A take is never whole in the backend's memory, and two saves never race
 
-A recording, a mixdown and its stems, a song's sheets and its reference track arrive on DISK (`@frediverse/http/upload`'s `diskUpload`, with the limits in [serving.md](serving.md)), are
+A recording, a mixdown and its stems arrive on DISK (`@frediverse/http/upload`'s `diskUpload`,
+with the limits in [serving.md](serving.md)), are
 pushed to the médiathèque as file-backed Blobs (`fs.openAsBlob`, streamed by `fetch`), and are MOVED
 into the cache; an appended take is concatenated, and a moment cut, file to file on a worker thread, a few at
 a time across the process and each killed past its deadline ([audio.md](audio.md)). Only memory the size of a
 chunk is ever held. Measured: a 5 MB upload lands on disk with no buffer, and nothing is left once the
 request is done; a 20 MB file-backed Blob arrives byte-identical. Saves and appends to one session,
-sheet uploads to one song, a favourite and a nametag each run one at a time per key (`lock.ts`) — a
-read-modify-write spans awaits (an upload, a fetch), so a transaction of the store alone would not cover it.
+a mixdown and its stems and a nametag each run one at a time per key (`lock.ts`) — a
+read-modify-write spans awaits (an upload, a fetch), so a transaction of the store alone would not
+cover it.
 
 ## Expensive work is done once, and caches stay bounded
 

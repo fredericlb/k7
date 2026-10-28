@@ -101,21 +101,6 @@ export interface SongbookSong {
   facts: SongbookFacts;
 }
 
-/** One songbook row: a library song carrying lyrics, a tablature or a sheet, and never their content. */
-export interface SongbookEntry {
-  id: string;
-  path: string;
-  artist: string;
-  title: string;
-  hasLyrics: boolean;
-  hasTablature: boolean;
-  hasChords: boolean;
-  sheetCount: number;
-  owner: string;
-  origin: string;
-  createdAt: string;
-}
-
 /** The shape a key is stored in, checked on every write path. */
 export const KEY_PATTERN = /^[A-G]#?\s+(major|minor)$/;
 

@@ -196,8 +196,8 @@ file instead of three to carry.
 That sum **grazes full scale and is clamped there**, and it is left that way on purpose. Measured
 on one record (The Antlers, *Kettering*): 145 samples of 27 million reach 0 dBFS, against 2 in the
 master, at a mean level 1.2 dB below it. Attenuating the file to clear those would make it quieter
-than the very recording it is switched against — the rehearsal songbook's player swaps one for the other on a
-single element — so the overshoot is clamped and SAID in the job's lines rather than mixed away.
+than the very recording it is switched against — the library's song player swaps one for the other
+on a single element — so the overshoot is clamped and SAID in the job's lines rather than mixed away.
 
 **Where it lives** is the one place this departs from
 [moduleAssets.md](../../song/docs/moduleAssets.md). That page argues a module carries its
@@ -349,7 +349,7 @@ cut says what is missing (`engine/k7-supervisor/docs/supervisor.md`).
 notarised `.app` carrying `libonnxruntime.dylib` is unsolved.
 
 The decode needs no ffmpeg: it is the media library's Rust decoder, built into the supervisor, which
-reads what the songbook downloads — Opus in WebM, AAC in m4a — where the engine's JUCE does not
+reads what the library downloads — Opus in WebM, AAC in m4a — where the engine's JUCE does not
 (`engine/k7-supervisor/docs/supervisor.md` has the choice). It resamples to 44.1 kHz and makes a mono
 file stereo because the model's input length is fixed — arriving at 48 kHz is not a quality
 question, it is the wrong number of samples. The way back OUT goes through the same resampler, for

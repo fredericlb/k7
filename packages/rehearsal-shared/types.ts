@@ -73,14 +73,6 @@ export interface SheetFile {
   mime: string; // e.g. "application/pdf", "image/png", "image/jpeg"
 }
 
-/** The one recording a song is played along to. The bytes are behind `/audio`. */
-export interface SongAudio {
-  name: string;
-  mime: string;
-  /** Where it is in pl8's médiathèque — what the page streams, k7 keeping no copy. */
-  path: string;
-}
-
 /** One set of timed lyrics found on LRCLIB for a song — ../ui-rehearsal/docs/lyricsTiming.md. */
 export interface LrcCandidate {
   id: number;
@@ -94,63 +86,6 @@ export interface LrcCandidate {
   /** LRCLIB lists the recording as having no lyrics at all. */
   instrumental: boolean;
 }
-
-/** When one lyric line is sung: its line index in `lyrics`, its normalised text, and seconds. */
-export interface LyricTiming {
-  line: number;
-  text: string;
-  t: number;
-}
-
-export interface Song {
-  id: string;
-  artist: string;
-  title: string;
-  lyrics: string;
-  // From an LRC file; re-aligned to the text on display, so an edit keeps the unchanged lines' times.
-  lyricTimings: LyricTiming[];
-  tablature: string;
-  // Ordered list of sheet-music files (one PDF, several images, or a mix).
-  sheets: SheetFile[];
-  // Null until one is uploaded; a song carries at most one.
-  audio: SongAudio | null;
-  // The same track without the voice, mixed from pl8's stems; null until "Fetch song" makes one.
-  instrumental: SongAudio | null;
-  // The auto-fetch pipeline's own state, so a reload finds it where it left off.
-  fetchStatus: FetchStatus;
-  // "" (not attempted), "matched" (timed automatically), "unmatched" (to time by hand), or "instrumental" (LRCLIB says there are no lyrics).
-  lyricsMatch: "" | "matched" | "unmatched" | "instrumental";
-  // The fetch insert was dismissed on purpose ("Ignore") — never offer it again for this song.
-  fetchIgnored: boolean;
-  // The asking user's own star: the songbook is shared, a favourite is not.
-  favorite: boolean;
-  // The asking user created it.
-  mine: boolean;
-  // The asking user may delete it: an admin, or anyone for a copy.
-  canDelete: boolean;
-  // The server this machine copied it from, read-only here; "" for a song of this store's own.
-  origin: string;
-  createdAt: string;
-}
-
-/** Where the auto-fetch pipeline stands — see packages/ui-rehearsal/src/fetchSong/run.ts's runPipeline. */
-export interface FetchStatus {
-  phase:
-    | ""
-    | "searching"
-    | "downloading"
-    | "stemming"
-    | "matching-lyrics"
-    | "failed";
-  // Percent, meaningful during "stemming" only.
-  progress: number | null;
-  error: string;
-  // pl8 ids, kept so a reload can resume polling instead of starting over.
-  huntId: string;
-  jobId: string;
-}
-
-export type SongTab = "lyrics" | "tablature" | "sheet";
 
 export interface Annotation {
   id: string;
@@ -245,42 +180,6 @@ export interface EventsResult {
   minSilenceSec: number;
   peak: number;
   events: DetectedEvent[];
-}
-
-/** A songbook row: what the list shows of a song, never its texts — ../rehearsal-server/docs/store.md. */
-export interface SongListEntry {
-  id: string;
-  artist: string;
-  title: string;
-  hasLyrics: boolean;
-  hasTablature: boolean;
-  sheetCount: number;
-  favorite: boolean;
-  mine: boolean;
-  canDelete: boolean;
-  origin: string;
-  createdAt: string;
-}
-
-/** A songbook song as a paired machine lists the server's: enough to name it. */
-export interface SongSummary {
-  id: string;
-  artist: string;
-  title: string;
-  /** Its library folder on the server — what a copy downloads. */
-  path: string;
-}
-
-/** A paired machine's songbook against its server's, by song id — ../rehearsal-server/docs/songbookCopy.md. */
-export interface SongbookPlacement {
-  /** False when this machine is paired with no server, or IS the server. */
-  paired: boolean;
-  /** The server's origin, for a tooltip. */
-  server: string | null;
-  /** This machine's song ids the server holds too. */
-  synced: string[];
-  /** The server's songs this machine lacks. */
-  serverOnly: SongSummary[];
 }
 
 /** Which of a paired machine's moments its server holds, by moment id — ../rehearsal-server/docs/momentShare.md. */

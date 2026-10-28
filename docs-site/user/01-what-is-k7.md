@@ -13,7 +13,7 @@ One k7 site holds several tools, all behind one sign-in and one sidebar:
 |---|---|---|
 | The editor | Arranging, mixing and sound design for one project at a time: timeline, chains graph, mixer, text editor, command bar | Opens when you open a project |
 | The media library (médiathèque) | Songs, samples, recordings and playlists stored on the server | The **Media** group of the home sidebar |
-| The rehearsal recorder | Rehearsal sessions and their takes, releases, a shared songbook, singing exercises and a tuner | The **Rehearsal** group of the home sidebar |
+| The rehearsal recorder | Rehearsal sessions and their takes, releases, singing exercises and a tuner | The **Rehearsal** group of the home sidebar |
 | The DJ desk | Two decks, a crossfade and a set list, in a `mix` project | The `turntables` pane of a mix project |
 | Picture | Video lanes on the same timeline as the sound, composited in a viewport window | `video` and `live-video` projects |
 

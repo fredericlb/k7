@@ -1,11 +1,20 @@
-// releases.ts — a release's calls and its versions'.
+// releases.ts — a release's calls and its versions', and whether the paired server holds them.
 
 import { apiBase } from "../config";
-import type { Release, ReleasePatch, SongEnvelope } from "../types";
+import type {
+  PublicationsStatus,
+  Release,
+  ReleasePatch,
+  SongEnvelope,
+} from "../types";
 import { f, fu, json, type OnProgress } from "./http";
 
 export const releasesApi = {
   // --- Releases ---
+  /** Whether releases and pages can be reached: they live on the server alone — ../../../rehearsal-server/docs/publications.md. */
+  publicationsStatus: (): Promise<PublicationsStatus> =>
+    f("/api/publications").then(json),
+
   listReleases: (): Promise<Release[]> => f("/api/releases").then(json),
 
   getRelease: (id: string): Promise<Release> =>

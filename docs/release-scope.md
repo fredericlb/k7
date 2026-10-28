@@ -21,7 +21,7 @@ holds:
 | accepted | why it would block an open instance |
 |---|---|
 | "Find songs" (yt-dlp, Soulseek) is open to every account | it downloads into the library every account shares, on the operator's Soulseek account |
-| any account may write any file of the shared library, and edit the shared songbook | a stranger could overwrite or deface what everyone plays from |
+| any account may write any file of the shared library, and edit the songs everyone plays from | a stranger could overwrite or deface what everyone plays from |
 | an account's own engine tunnel reaches the library root, private dot-folders included | share tokens and the identity index sit under it |
 | no storage quota per account | one account can fill the disk under everyone |
 | no self-service account deletion or data export, no privacy policy, no terms, no abuse contact | GDPR and the EU Digital Services Act expect them from a public service |

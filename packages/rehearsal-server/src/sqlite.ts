@@ -1,16 +1,9 @@
-// sqlite.ts — the rehearsal store: every row in one SQLite file, each sheet's bytes a plain file beside it.
+// sqlite.ts — the rehearsal store: every row in one SQLite file.
 // Rows are JSON documents keyed by collection and id, so a field schema.ts adds needs no migration.
 // What reads wrong: a field a row never set reads as its type's zero value, from schema.ts — ../docs/store.md.
 
-import { randomBytes, randomUUID } from "node:crypto";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { RETIRED_COLLECTIONS, SCHEMA } from "./schema.ts";
@@ -70,7 +63,6 @@ export const INDEXED_FIELDS = [
   "SessionUid",
   "ReleaseUid",
   "MomentId",
-  "SongUid",
   "SongUuid",
 ] as const;
 
@@ -99,7 +91,6 @@ type Bound = string | number | null;
 
 /** The store under `dir`: `k7.db` for the rows, `sheets/<id>` for each sheet's bytes; every call is synchronous. */
 export function createSqlite(dir: string) {
-  const sheetsDir = join(dir, "sheets");
   let db: DatabaseSync | null = null;
   const statements = new Map<string, StatementSync>();
   // How many inTransaction calls are open: an inner one joins the outer transaction.
@@ -108,7 +99,7 @@ export function createSqlite(dir: string) {
   // Opened on first use, never on import: a test points the folder somewhere else first.
   const open = (): DatabaseSync => {
     if (db) return db;
-    mkdirSync(sheetsDir, { recursive: true });
+    mkdirSync(dir, { recursive: true });
     const next = new DatabaseSync(join(dir, "k7.db"));
     next.exec("PRAGMA journal_mode = WAL");
     // Safe under WAL: a power cut may lose the last commits, never corrupt the file — ../docs/store.md.
@@ -120,13 +111,6 @@ export function createSqlite(dir: string) {
         fields TEXT NOT NULL,
         PRIMARY KEY (coll, id)
       );
-      CREATE TABLE IF NOT EXISTS sheets (
-        id   TEXT PRIMARY KEY,
-        song TEXT NOT NULL,
-        name TEXT NOT NULL,
-        mime TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS sheets_by_song ON sheets (song);
     `);
     for (const f of INDEXED_FIELDS)
       next.exec(
@@ -147,9 +131,6 @@ export function createSqlite(dir: string) {
     }
     return s;
   };
-
-  /** Where a sheet's bytes are; the file exists once its row does. */
-  const attachmentPath = (id: string): string => join(sheetsDir, safeId(id));
 
   /** Run `fn` as one transaction: every row it writes lands, or none does; it must not await. */
   const inTransaction = <T>(fn: () => T): T => {
@@ -290,57 +271,12 @@ export function createSqlite(dir: string) {
     );
   };
 
-  const deleteAttachment = (attachmentId: string): void => {
-    stmt("DELETE FROM sheets WHERE id = ?").run(attachmentId);
-    rmSync(attachmentPath(attachmentId), { force: true });
-  };
-
-  /** Delete rows in one transaction; a song takes its sheets, whose files go once the rows are gone. */
+  /** Delete rows in one transaction. */
   const deleteRecords = (table: string, ids: string[]): void => {
-    const files: string[] = [];
     inTransaction(() => {
       const del = stmt("DELETE FROM records WHERE coll = ? AND id = ?");
-      for (const id of ids) {
-        del.run(table, id);
-        if (table !== "Songs") continue;
-        const sheets = stmt("SELECT id FROM sheets WHERE song = ?").all(id) as {
-          id: string;
-        }[];
-        for (const s of sheets) {
-          stmt("DELETE FROM sheets WHERE id = ?").run(s.id);
-          files.push(attachmentPath(s.id));
-        }
-      }
+      for (const id of ids) del.run(table, id);
     });
-    for (const f of files) rmSync(f, { force: true });
-  };
-
-  /** Keep one sheet's bytes — a buffer, or a file on disk copied — for `songId`, the file first: a row never names a file that is not there. */
-  const uploadAttachment = (
-    bytes: Buffer | { file: string },
-    mime: string,
-    filename: string,
-    songId: string,
-    id: string = newId(),
-  ): string => {
-    const at = attachmentPath(id);
-    open();
-    const tmp = `${at}.${randomUUID()}.part`;
-    if (Buffer.isBuffer(bytes)) writeFileSync(tmp, bytes);
-    else copyFileSync(bytes.file, tmp);
-    renameSync(tmp, at);
-    // REPLACE: an import that failed halfway writes the same ids again.
-    stmt(
-      "INSERT OR REPLACE INTO sheets (id, song, name, mime) VALUES (?, ?, ?, ?)",
-    ).run(id, songId, filename, mime);
-    return id;
-  };
-
-  /** The file of a sheet this store holds, or null. */
-  const attachmentFile = (attachmentId: string): string | null => {
-    const known = stmt("SELECT 1 FROM sheets WHERE id = ?").get(attachmentId);
-    const at = attachmentPath(attachmentId);
-    return known && existsSync(at) ? at : null;
   };
 
   /** Whether the store holds no row at all: what an import waits for. */
@@ -360,9 +296,6 @@ export function createSqlite(dir: string) {
     addRecords,
     patchRecord,
     deleteRecords,
-    uploadAttachment,
-    attachmentFile,
-    deleteAttachment,
     isEmpty,
     inTransaction,
     close,

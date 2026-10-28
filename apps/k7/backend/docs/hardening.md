@@ -56,8 +56,7 @@ The shared JSON parser (`src/bodyLimits.ts`) runs ahead of `setupAuth` and every
 its limit is what a stranger can make the one process parse — and a parse is synchronous work every
 other request waits behind. It is **256 kB**. A route with other needs is named in its table and
 gets its own limit there: the public comment form **64 kB** (a parser after the shared one would
-never run, since a body is parsed only once), a songbook entry **2 MB**, for its free-text tablature
-and lyrics. The AI organize route parses ahead of it at 2 MB, a big plugin's parameters being that
+never run, since a body is parsed only once). The AI organize route parses ahead of it at 2 MB, a big plugin's parameters being that
 large.
 
 The file hub's paths (`/api/files`, `/api/files-hub/internal`) are **not parsed at all**. The hub

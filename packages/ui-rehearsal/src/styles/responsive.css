@@ -1,4 +1,4 @@
-/* responsive.css — narrow screens and touch: what folds, and the rail turned into a bar. Nested under .rehearsal-root like every sheet here (index.css). */
+/* responsive.css — narrow screens and touch: what folds, and what stays reachable under a finger. Nested under .rehearsal-root like every sheet here (index.css). */
 
 .rehearsal-root {
   /* ---- Responsive ------------------------------------------------------------
@@ -11,92 +11,14 @@
     .session-del {
       opacity: 0.6;
     }
-    /* The mini player's scrubber is taller under a finger, and so is the bar. */
-    .song-detail.has-song-bar {
-      --song-bar-h: 76px;
-    }
   }
 
-  /* On narrow screens the songbook folds its links and the rail becomes a bar at the foot. */
   @media (max-width: 760px) {
-    /* The songbook's links keep their icon and drop their word, so the row fits the screen. */
-    .song-link-label {
-      display: none;
-    }
-    .songbook-table .song-link {
-      padding: 3px 7px;
-    }
-    .songbook-table th,
-    .songbook-table td {
-      padding-left: 6px;
-      padding-right: 6px;
-    }
-    /* The song's bar sits on the panel bar, which is fixed over the foot of the page. */
-    .song-detail {
-      --rail-bar-h: 45px;
-    }
     .main {
       /* Room for the panel bar, which is fixed over the foot of the page. */
       padding: 24px 16px 96px;
     }
 
-    /* The rail becomes a BAR at the foot of the screen: one icon per panel, its body above it. */
-    .side-rail {
-      top: auto;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      max-height: none;
-      flex-direction: row;
-      align-items: stretch;
-      justify-content: space-around;
-      gap: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      pointer-events: auto;
-    }
-    .rail-panel,
-    .rail-panel.collapsed {
-      width: auto;
-      border: 0;
-      border-radius: 0;
-      background: none;
-      box-shadow: none;
-    }
-    .rail-panel-toggle {
-      padding: 11px 16px;
-      border-radius: 0;
-      background: none;
-      font-size: 17px;
-    }
-    /* On a bar the glyph IS the label; the word is what the desktop rail has room for. */
-    .rail-panel-word {
-      display: none;
-    }
-    .rail-panel-toggle svg.lucide {
-      width: 18px;
-      height: 18px;
-      margin-right: 0;
-    }
-    .rail-panel-head {
-      background: none;
-      border-radius: 0;
-    }
-    .rail-panel-action svg.lucide {
-      width: 18px;
-      height: 18px;
-    }
-    /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
-    .rail-panel-body,
-    .chords-panel-list {
-      position: fixed;
-      right: 0;
-      bottom: calc(45px + var(--song-bar-h, 0px));
-      left: 0;
-      max-height: 52vh;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-    }
   }
 
   @media (max-width: 480px) {

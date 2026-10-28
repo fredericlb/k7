@@ -448,7 +448,7 @@ describe("which addresses are the home's own pages", () => {
     expect(isHomePage("/rehearsal", "/")).toBe(true);
     expect(isHomePage("/rehearsal/sessions/abc", "/")).toBe(true);
     expect(isHomePage("/rehearsal/@lemo", "/")).toBe(true);
-    expect(isHomePage("/k7/rehearsal/songs", "/k7/")).toBe(true);
+    expect(isHomePage("/k7/rehearsal/exercises", "/k7/")).toBe(true);
     expect(isHomePage("/songs/rehearsal", "/")).toBe(false);
   });
 });

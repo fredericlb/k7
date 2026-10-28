@@ -41,7 +41,7 @@ The top shows **k7** and the name of the current page. Hover **k7** to see the b
 | **Tasks** | `/tasks` | Every workspace's task list in one place |
 | **Libraries** | `/libraries` | The site's shared libraries |
 | **Media** group: **Songs**, **Samples**, **Recordings**, **Playlists**, **Find songs** | `/media/…` | The media library. The first four show a count once the media pages have loaded them. |
-| **Rehearsal** group: **Recordings**, **Publications**, **Songbook**, **Exercises** | `/rehearsal/…` | The rehearsal recorder |
+| **Rehearsal** group: **Recordings**, **Publications**, **Exercises** | `/rehearsal/…` | The rehearsal recorder |
 
 The media library and the rehearsal recorder have their own sections in this guide.
 

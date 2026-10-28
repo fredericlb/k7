@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,37 +10,25 @@ import { createSqlite } from "./sqlite.ts";
 let dir: string;
 let server: Server;
 let url: string;
-let failSheets: boolean;
+let failRecords: boolean;
 
-// A PocketBase with one song, its sheet, and a field of its own the store does not keep.
+// A PocketBase with one session, and fields of its own the store does not keep.
 const COLLECTIONS: Record<string, Record<string, unknown>[]> = {
-  Songs: [
+  Sessions: [
     {
-      id: "pbsong00000001",
+      id: "pbsession0000001",
       collectionId: "x",
       created: "2024",
       Uid: "u1",
-      Title: "Song",
-      Private: true,
-      SheetMeta: JSON.stringify([
-        { id: "sh1", attachmentId: "pbsheet0000001", name: "a.pdf" },
-      ]),
-    },
-  ],
-  song_sheets: [
-    {
-      id: "pbsheet0000001",
-      song: "pbsong00000001",
-      name: "a.pdf",
-      mime: "application/pdf",
-      file: "a_x1.pdf",
+      RecordingMime: "audio/webm",
+      Duration: 12,
     },
   ],
 };
 
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "k7-import-"));
-  failSheets = false;
+  failRecords = false;
   const app = express();
   app.use(express.json());
   app.post("/api/collections/_superusers/auth-with-password", (req, res) =>
@@ -49,10 +37,9 @@ beforeEach(async () => {
       : res.status(400).end(),
   );
   app.get("/api/collections/:c/records", (req, res) =>
-    res.json({ items: COLLECTIONS[req.params.c] ?? [], totalPages: 1 }),
-  );
-  app.get("/api/files/song_sheets/:id/:name", (_req, res) =>
-    failSheets ? res.status(500).end() : res.send("pdf bytes"),
+    failRecords
+      ? res.status(500).end()
+      : res.json({ items: COLLECTIONS[req.params.c] ?? [], totalPages: 1 }),
   );
   url = await new Promise((ok) => {
     server = app.listen(0, () =>
@@ -76,34 +63,33 @@ afterEach(async () => {
 });
 
 describe("the import from PocketBase", () => {
-  it("copies rows and sheets with their ids, and only the fields schema.ts names", async () => {
+  it("copies rows with their ids, and only the fields schema.ts names", async () => {
     const store = openStore();
     const counts = await importFromPocketbase(
       { url, email: "a", password: "pw" },
       store,
     );
-    expect(counts).toMatchObject({ Songs: 1, song_sheets: 1, Sessions: 0 });
-    const [song] = await store.listRecords("Songs");
-    expect(song.id).toBe("pbsong00000001");
-    expect(song.fields).toMatchObject({ Uid: "u1", Private: true });
-    expect(song.fields).not.toHaveProperty("collectionId");
-    const file = store.attachmentFile("pbsheet0000001");
-    expect(readFileSync(file as string, "utf8")).toBe("pdf bytes");
-    // The sheet belongs to the song by its kept id, so removing the song removes it.
-    await store.deleteRecords("Songs", [song.id]);
-    expect(store.attachmentFile("pbsheet0000001")).toBeNull();
+    expect(counts).toMatchObject({ Sessions: 1 });
+    const [session] = await store.listRecords("Sessions");
+    expect(session.id).toBe("pbsession0000001");
+    expect(session.fields).toMatchObject({
+      Uid: "u1",
+      RecordingMime: "audio/webm",
+    });
+    expect(session.fields).not.toHaveProperty("collectionId");
+    expect(session.fields).not.toHaveProperty("created");
   });
 
   it("imports into a store that already holds rows of its own", async () => {
     const store = openStore();
-    store.addRecords("Sessions", [{ Uid: "s1" }]);
+    store.addRecords("Comments", [{ OwnerId: "me" }]);
     const counts = await importFromPocketbase(
       { url, email: "a", password: "pw" },
       store,
     );
-    expect(counts).toMatchObject({ Songs: 1 });
-    expect(store.getRecord("Songs", "pbsong00000001")).not.toBeNull();
-    expect(store.listRecords("Sessions")).toHaveLength(1);
+    expect(counts).toMatchObject({ Sessions: 1 });
+    expect(store.getRecord("Sessions", "pbsession0000001")).not.toBeNull();
+    expect(store.listRecords("Comments")).toHaveLength(1);
   });
 
   it("does nothing once one of its rows is in the store", async () => {
@@ -111,11 +97,11 @@ describe("the import from PocketBase", () => {
     const src = { url, email: "a", password: "pw" };
     await importFromPocketbase(src, store);
     expect(await importFromPocketbase(src, store)).toBeNull();
-    expect(store.listRecords("Songs")).toHaveLength(1);
+    expect(store.listRecords("Sessions")).toHaveLength(1);
   });
 
   it("leaves the store empty when PocketBase fails halfway, so the next start retries", async () => {
-    failSheets = true;
+    failRecords = true;
     const store = openStore();
     await expect(
       importFromPocketbase({ url, email: "a", password: "pw" }, store),

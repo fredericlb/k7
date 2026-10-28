@@ -55,8 +55,8 @@ entries are full addresses resolved against `projectsUrl` — drawn in place, no
 (`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries are three
 groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, under a title of its own,
 the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
-count, and **Find** — what you DRAW ON; then **Rehearsal** — **Sessions**, **Publications**,
-**Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
+count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
+**Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
 one for the page you are on is lit in the accent, and the user menu is last; below `sm` it folds to an
 icon rail, where a rule stands in for a group's title. The same entries in the same place on
 every page say which of them you are on, so none of the others carries a back button of its own.
@@ -65,7 +65,7 @@ every page say which of them you are on, so none of the others carries a back bu
 
 **Every home page has the same bar at its foot, always** (`HomeFrame.tsx`), under the sidebar and the
 page alike, so it spans the window. It is the mini player's DOCK (`packages/ui-mini-player/docs/miniPlayer.md`):
-whichever bar a page mounts is drawn there — the médiathèque's player, the songbook's track — and
+whichever bar a page mounts is drawn there — the médiathèque's player — and
 while none is, a standby bar saying nothing is playing. The row never comes and goes, because what
 it carries does not depend on the page: the **engine selector** in its engine slot, right of the
 right slot (`shell.md`), and the way back to a folded sidebar at its left edge.

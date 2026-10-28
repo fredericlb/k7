@@ -4,7 +4,7 @@ The music and stage apps of the frediverse.
 
 | app | what it is | dev site |
 |---|---|---|
-| `apps/k7` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `app.priv.k7.rocks` |
+| `apps/k7` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, tuner, under `/rehearsal`); the origin's front door | `app.priv.k7.rocks` |
 | `engine/k7-runtime` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/k7-supervisor` | the engine machine's supervisor: starts and watches the engine, holds its tunnel | — |
 | `apps/k7-tray` | k7 on a computer (Tauri, in the menu bar): runs k7's backend, which runs the supervisor and its engine; k7 opens in the browser | — |

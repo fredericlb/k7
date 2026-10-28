@@ -66,8 +66,8 @@ of copies for Range requests (`packages/rehearsal-server/src/cache.ts`), trimmed
 The same backend runs on the hosted server and, bundled, inside the tray and the Android app. On a
 device:
 
-- The media library and the songbook are local; a paired device compares its entries with the
-  server's by path or id and downloads what it lacks (`apps/k7/backend/src/media/routes/serverCopy.ts`).
+- The media library is local; a paired device compares its entries with the server's by path
+  and downloads what it lacks (`apps/k7/backend/src/media/routes/serverCopy.ts`).
 - Releases and pages exist on the server only: with `K7_INSTANCE=local`, the rehearsal server
   forwards their routes to the paired server (`packages/rehearsal-server/src/publications.ts`).
 - Moments can be pushed to the server (`packages/rehearsal-server/src/momentShare.ts`); sessions

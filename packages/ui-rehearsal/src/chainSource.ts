@@ -27,7 +27,7 @@ import {
   rememberedChannels,
   setBenchChannel,
 } from "./benchInputs";
-import { pl8Base } from "./fetchSong/pl8";
+import { apiBase } from "./config";
 import { m } from "./paraglide/messages.js";
 
 // `_what` is the access contract's call name, kept out of a sentence a musician reads.
@@ -42,7 +42,8 @@ async function readJson<T>(res: Response, _what: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// pl8 holds the registry and the account's files; its address is the backend's, asked once.
+// pl8 holds the registry and the account's files: it is the backend this page was served from.
+const pl8Base = async (): Promise<string> => apiBase();
 let access: Promise<EngineAccess<PublicEngine>> | null = null;
 function engines(): Promise<EngineAccess<PublicEngine>> {
   if (!access)

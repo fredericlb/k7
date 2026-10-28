@@ -177,7 +177,7 @@ even with media off, and threading, for the next section.
 
 ## The cut decodes with the media library's decoder, not ffmpeg
 
-A stem cut needs every format a song arrives in, and the songbook's hunt keeps YouTube's stream as
+A stem cut needs every format a song arrives in, and the song hunt keeps YouTube's stream as
 served: Opus in WebM or AAC in m4a. JUCE, the engine's decoder, reads no WebM; ffmpeg is one more
 program a musician would have to install, and the server's engine image has none. The media
 library's decoder (`packages/audio-analysis/rust`, symphonia and opus-rs) reads all of them, is held

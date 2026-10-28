@@ -75,7 +75,7 @@ of the song's folder, which the listing carries (`entry.mtime`), with a line say
 
 ## Add lyrics, chords, a tab, a sheet
 
-The ⋮'s last four entries add what the songbook's song page adds, the same way: **lyrics**,
+The ⋮'s last four entries add what the library's song page adds, the same way: **lyrics**,
 **chords** and a **tab** are typed by hand in a text box with Save and Cancel (`src/SongTextEditor.tsx`), then shown
 as drawn with an Edit over them; a **sheet** is a file picked — a PDF, an image or a score, the
 songbook's own rule (`@studio/rehearsal-shared/sheetKind`) — sent one after another and removable

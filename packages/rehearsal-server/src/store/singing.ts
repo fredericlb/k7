@@ -36,7 +36,7 @@ export async function getSingingExerciseOwner(
 }
 
 export async function listSingingExercises(viewer = "") {
-  // Everyone's, not the viewer's: the practice book is common ground, like the songbook.
+  // Everyone's, not the viewer's: the practice book is common ground, like the library.
   const recs = await db.listRecords("SingingExercises");
   return recs
     .map((rec) => publicSinging(rec, viewer))

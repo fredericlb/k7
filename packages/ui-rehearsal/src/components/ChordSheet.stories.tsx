@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ChordSheet } from "@studio/lyrics";
 
 const meta = {
-  title: "Songbook/ChordSheet",
+  title: "Chords/ChordSheet",
   component: ChordSheet,
   argTypes: {
     transpose: { control: { type: "range", min: -6, max: 6, step: 1 } },

@@ -145,7 +145,6 @@ outputs) so the same request joins the running job instead of starting another.
 |---|---|---|
 | `/api/sync/mediatek` | server, device token | A paired device reads the library |
 | `/api/sync/library` | device, session | Placement of a family against the server; `POST /download` brings entries down |
-| `/api/sync/songbook`, `/api/sync/songbook-copy` | server / device | The songbook copy (rehearsal) |
 | `/api/sync/k7` | server | Releases and pages for a device |
 | `/api/sync/moments`, `/api/sync/moments-share` | server / device | Sharing a moment up |
 

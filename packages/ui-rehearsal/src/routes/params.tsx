@@ -6,8 +6,7 @@ import { MomentDetailContainer } from "../containers/MomentDetailContainer";
 import { PageDetailContainer } from "../containers/PageDetailContainer";
 import { ReleaseDetailContainer } from "../containers/ReleaseDetailContainer";
 import { SessionDetailContainer } from "../containers/SessionDetailContainer";
-import { SongDetailContainer } from "../containers/SongDetailContainer";
-import type { Release, Session, Song, SongTab } from "../types";
+import type { Release, Session } from "../types";
 
 export function SessionRoute(props: {
   allTags: string[];
@@ -45,28 +44,6 @@ export function PageRoute(props: {
 }) {
   const { id } = useParams();
   return <PageDetailContainer key={id} pageId={id ?? ""} {...props} />;
-}
-
-export function SongRoute({
-  onDeleted,
-  ...props
-}: {
-  onChange: (song: Song) => void;
-  onDeleted: (id: string) => void;
-  onBack: () => void;
-}) {
-  const { id } = useParams();
-  const [sp] = useSearchParams();
-  const tab = sp.get("tab") as SongTab | null;
-  return (
-    <SongDetailContainer
-      key={id}
-      songId={id ?? ""}
-      initialTab={tab ?? undefined}
-      onDeleted={() => onDeleted(id ?? "")}
-      {...props}
-    />
-  );
 }
 
 export function MomentRoute(props: {

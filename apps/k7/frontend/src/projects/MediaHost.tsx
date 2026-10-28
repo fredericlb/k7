@@ -1,6 +1,6 @@
 // MediaHost.tsx — k7 as the media library's host: the fetch layer configured once, on this
-// module's import, and the labels, prefix, user, the home bar's engine choice and the songbook's
-// way of drawing lyrics, tablature and sheets handed to the screens.
+// module's import, and the labels, prefix, user, the home bar's engine choice and the way lyrics,
+// tablature and sheets are drawn handed to the screens.
 // The API is this backend's, or on the tray the paired server's through it (../serverChoice.ts).
 // See packages/ui-library/docs/host.md.
 
@@ -31,14 +31,14 @@ configureLibrary({
   noAnswer: (seconds) => m["media.noAnswer"]({ seconds }),
 });
 
-// The songbook's own drawing, fetched the first time a song with lyrics, a tab or a sheet is opened.
+// Its own drawing, fetched the first time a song with lyrics, a tab or a sheet is opened.
 const SongAttachment = lazy(() =>
   import("@studio/ui-rehearsal/songAttachment").then((mod) => ({
     default: mod.SongAttachment,
   })),
 );
 
-/** A song's attachment as the songbook draws it (packages/ui-library/docs/songPlayer.md). */
+/** A song's attachment, drawn by the rehearsal package (packages/ui-library/docs/songPlayer.md). */
 const songAttachment = (props: SongAttachmentView) => (
   <Suspense fallback={null}>
     <SongAttachment {...props} />

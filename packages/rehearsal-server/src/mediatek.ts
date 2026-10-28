@@ -9,7 +9,6 @@ import {
   type RemoteConfig,
   type RemoteEnvelope,
   remoteLibrary,
-  remoteSongbook,
   remoteWriter,
 } from "@studio/mediatek/remote";
 import { segment } from "@studio/mediatek/song";
@@ -142,11 +141,6 @@ export function streamedMime(remotePath: string): string {
   return remotePath.toLowerCase().endsWith(".flac")
     ? "audio/webm"
     : audioMimeOf(remotePath);
-}
-
-/** The songbook as the library keeps it — a song's texts and sheets in its folder (packages/mediatek/docs/songbook.md). */
-export function songbook(): ReturnType<typeof remoteSongbook> {
-  return remoteSongbook(cfg());
 }
 
 /** The library's own measurement of a médiathèque path — computed once there, kept in its cache. */

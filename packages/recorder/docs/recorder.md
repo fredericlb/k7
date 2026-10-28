@@ -40,7 +40,7 @@ though a microphone exists.
 ## One bar, never a dialog
 
 `RecorderView` is a bar at the foot of the page, whatever the take is doing, so the page above stays
-usable: the songbook is read while the band plays. The bar holds the take's status and time, two
+usable: another page is read while the band plays. The bar holds the take's status and time, two
 waveforms with the highlights drawn on them, **Pause** or **Resume** and **Stop & save** as bare
 icons, and a ⋮ that holds the metronome: a tool a take rarely touches does not take room from the
 ones it does. The waveform over nine tenths of the width frames the take from its start in a window

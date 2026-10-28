@@ -1058,7 +1058,7 @@
   "media.song.tabDiagrams": "Diagrams",
   "media.song.menu": "More",
   "media.song.addedOn": "Added on {date}",
-  "media.song.addedFromFiles": "the date of the folder’s newest file — the songbook has none for it",
+  "media.song.addedFromFiles": "the date of the folder’s newest file — the song carries none" ,
   "media.song.metronome": "Metronome",
   "media.song.noBpm": "No tempo in the song’s tags: set one here.",
   "media.song.tempo": "Tempo",
