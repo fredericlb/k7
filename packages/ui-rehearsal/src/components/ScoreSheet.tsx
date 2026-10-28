@@ -1,8 +1,15 @@
-// One score file on the Sheet tab: its toolbar — play, transpose, zoom — over alphaTab's view.
+// One score file on the Sheet tab: its toolbar — play, part, transpose, zoom — over alphaTab's view.
 // The view is imported lazily, so the library loads only when a song shows a score (../../../score/docs/score.md).
 
 import { Button } from "@frediverse/ui/button";
 import { Minus, Plus, RotateCcw } from "@frediverse/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import {
   clampTranspose,
   formatTranspose,
@@ -33,10 +40,15 @@ export function ScoreSheet({
     ready: false,
     loading: false,
     playing: false,
+    parts: [],
   });
   const [transpose, setTranspose] = useState(() => clampTranspose(given));
   useEffect(() => setTranspose(clampTranspose(given)), [given]);
   const [scale, setScale] = useState(1);
+  // Every part by default; a choice is kept with its file, so another file starts over at every part.
+  const [chosen, setChosen] = useState<{ url: string; part: number | null }>();
+  const part = chosen?.url === url ? chosen.part : null;
+  const setPart = (p: number | null) => setChosen({ url, part: p });
   const [error, setError] = useState<string | null>(null);
 
   const shift = (by: number) => setTranspose((t) => clampTranspose(t + by));
@@ -66,6 +78,26 @@ export function ScoreSheet({
         >
           {m["score.stop"]()}
         </Button>
+
+        {state.parts.length > 1 && (
+          <Select
+            value={part === null ? "all" : String(part)}
+            onValueChange={(v) => setPart(v === "all" ? null : Number(v))}
+          >
+            <SelectTrigger size="sm" aria-label={m["score.part"]()}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rehearsal-root">
+              <SelectItem value="all">{m["score.allParts"]()}</SelectItem>
+              {state.parts.map((name, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: a part is its position in the score, names repeat
+                <SelectItem key={i} value={String(i)}>
+                  {name.trim() || m["score.partNumbered"]({ n: i + 1 })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <span className="muted small">{m["score.transpose"]()}</span>
         <Button
@@ -144,6 +176,7 @@ export function ScoreSheet({
             url={url}
             transpose={transpose}
             scale={scale}
+            part={part}
             onState={setState}
             onError={(e) => setError(e.message)}
           />

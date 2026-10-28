@@ -41,6 +41,21 @@ alphaTab is the heaviest dependency the rehearsal pages have. `src/ScoreView.tsx
 module that imports it, and the sheet panel loads it with `import()`, so no other screen pays for
 it (`packages/ui-rehearsal/src/components/ScoreSheet.tsx`).
 
+## Every part, or the one you play
+
+A score opens with all its parts stacked in one system, as a conductor's score reads. alphaTab
+draws only the first track unless told otherwise, so the viewer loads with `[-1]`, its "every
+track": on a band arrangement, the first part alone hides what the rest of the band plays.
+
+A score with more than one part has a part menu in its toolbar, **All** first, so a musician
+can read their own line alone.
+
+| choice | why |
+|---|---|
+| the menu changes what is drawn, never what is played | playback stays the whole band, so the part read alone is still heard in its arrangement |
+| a part with no name is "Part n" | many MusicXML exports leave `part-name` empty, and a menu of blanks says nothing |
+| the choice is kept per file, not per song | another file of the same song has other parts, and an index into the first one's means nothing |
+
 ## Transposition is one setting
 
 `notation.transpositionPitches` moves what is drawn and what is played together, so what you read
