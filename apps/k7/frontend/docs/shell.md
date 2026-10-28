@@ -1640,6 +1640,14 @@ imports statically:
 | on demand | CodeMirror ~220 KB (shared with the editor), icons ~150 KB, video export ~135 KB, builders ~45 KB, the desk ~25 KB |
 
 What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
+The gates keep the editor's dependencies out of that list by importing the light half of a module:
+`appNav` takes the autosaves' held text and flushes from `@studio/ui-editor/autosave-buffers`, never
+`autosave` itself, whose validator brings the song schema, `yaml` and the k7x printer; `api.ts` takes
+`WIDGETS_SCRIPT` from `@studio/song-schema/moduleFiles`, not from the zod schema declared beside it.
+
+The first screen's chunk is started as `appMain` evaluates, beside `AuthGate`'s `/auth/me`, rather than
+once that answers: on a phone the sign-in check and the download then overlap instead of following each
+other. Only the home page and a project's `EngineGate` are started this way, the two a launch opens on.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
 the browser's own by then, so it only has to say "coming".
 

@@ -6,7 +6,10 @@
 
 import { resetFileApi } from "@studio/project-shell/fileApi";
 import { setAddressNavigator } from "@studio/project-shell/launch";
-import { flushAutosaves, forgetBuffers } from "@studio/ui-editor/autosave";
+import {
+  flushAutosaves,
+  forgetBuffers,
+} from "@studio/ui-editor/autosave-buffers";
 import { hasUnsavedWork } from "@studio/ui-editor/unsaved";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";

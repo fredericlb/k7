@@ -16,6 +16,7 @@
     "./libraryVersions": "./src/libraryVersions.ts",
     "./libraryVersionsLegacy": "./src/libraryVersionsLegacy.ts",
     "./mediaYaml": "./src/mediaYaml.ts",
+    "./moduleFiles": "./src/moduleFiles.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",
     "./playlist": "./src/playlist.ts",

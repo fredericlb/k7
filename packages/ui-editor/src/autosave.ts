@@ -1,7 +1,7 @@
 // autosave.ts — an editor with no Save button. The buffer is written as soon as it is a
 // document the compiler could read, and held back — visibly — for as long as it is not, so a
-// half-typed line never reaches the loader. The rule, its timer and the held text live here
-// because six panes across four apps share them. See docs/autosave.md.
+// half-typed line never reaches the loader. The rule and its timer live here because six panes
+// across four apps share them; the held text, in autosaveBuffers.ts. See docs/autosave.md.
 
 import {
   firstIssue,
@@ -10,6 +10,12 @@ import {
   validateFile,
 } from "@studio/song-schema/yaml/validate";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  addFlusher,
+  dropBuffer,
+  keepBuffer,
+  settleBuffer,
+} from "./autosaveBuffers.ts";
 import { useUnsavedGuard } from "./unsaved.ts";
 
 /** How long the keystrokes must stop before the buffer is written — a second, and why, in docs/autosave.md. */
@@ -57,37 +63,14 @@ export function baselineMemo(): (
   };
 }
 
-// Text that could not be written, by path, held OUTSIDE React so it survives the pane unmounting.
-const held = new Map<string, string>();
-
-/** Keep a buffer that could not be written. */
-export const keepBuffer = (path: string, text: string): void => {
-  held.set(path, text);
-};
-/** The unwritten buffer for a path, for an editor about to show what is on disk instead. */
-export const recallBuffer = (path: string): string | null =>
-  held.get(path) ?? null;
-/** Forget it — it landed, or the user chose disk. */
-export const dropBuffer = (path: string): void => {
-  held.delete(path);
-};
-/** Forget every held buffer — the project they belong to was left, and its paths name files in the next one too. */
-export const forgetBuffers = (): void => {
-  held.clear();
-};
-/** Forget it only if what is held is the text that just landed: anything typed since stays. */
-export const settleBuffer = (path: string, landed: string): void => {
-  if (held.get(path) === landed) held.delete(path);
-};
-
-// Every mounted autosave's "is your text on disk now?", for a host about to replace the files under it.
-const flushers = new Set<() => Promise<boolean>>();
-
-/** Write every pane's pending text now; false when one could not (held, paused on a conflict, or a manual draft) — docs/autosave.md. */
-export async function flushAutosaves(): Promise<boolean> {
-  const all = await Promise.all([...flushers].map((f) => f()));
-  return all.every(Boolean);
-}
+export {
+  dropBuffer,
+  flushAutosaves,
+  forgetBuffers,
+  keepBuffer,
+  recallBuffer,
+  settleBuffer,
+} from "./autosaveBuffers.ts";
 
 export interface Autosave {
   status: AutosaveStatus;
@@ -317,10 +300,7 @@ export function useAutosave({
       if (!s.path || s.text === s.saved) return true;
       return manual ? false : flush();
     };
-    flushers.add(f);
-    return () => {
-      flushers.delete(f);
-    };
+    return addFlusher(f);
   }, [flush, manual]);
 
   // LAST, deliberately, since everything above reads `previous` as the commit before this one.

@@ -134,8 +134,7 @@ export function rackAddBind(
 export const rackBindSymbol = (bind: string | undefined): string | null =>
   bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
 
-/** The script beside `ui.k7x` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */
-export const WIDGETS_SCRIPT = "widgets.js";
+export { WIDGETS_SCRIPT } from "../moduleFiles";
 
 // A refinement, not a union: a union would reject the half-second where the editor changed `type` but not the fields.
 const WidgetBase = z.object({
