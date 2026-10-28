@@ -6,7 +6,7 @@
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { AddSong } from "./AddSong";
 import { library } from "./api";
 import { useSongLists } from "./favorites";
@@ -19,7 +19,7 @@ import type { useServerCopy } from "./ServerCopy";
 import { SongEditor } from "./SongEditor";
 import { SongTable } from "./SongTable";
 import { fileAsMaster, splitDrop } from "./songMaster";
-import { songTable } from "./songRows";
+import { filterTable, songTable } from "./songRows";
 import { songActions } from "./treeActions";
 import { useSongTap } from "./useSongTap";
 
@@ -48,6 +48,9 @@ export function SongsLibrary(p: {
     () => songTable(entries, remote, practice.favorites, fav.favorites),
     [entries, remote, practice.favorites, fav.favorites],
   );
+  // The table's search, held HERE so Back from a song's page returns to the same narrowed table.
+  const [query, setQuery] = useState("");
+  const shown = useMemo(() => filterTable(groups, query), [groups, query]);
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
     const dir = folderOf(file);
@@ -212,7 +215,9 @@ export function SongsLibrary(p: {
           emptyActions={addSong}
           list={
             <SongTable
-              groups={groups}
+              groups={shown}
+              query={query}
+              onQuery={setQuery}
               practice={practice.favorites}
               favorites={fav.favorites}
               togglePractice={practice.toggle}

@@ -76,6 +76,9 @@ export function mediaLabels(): LibraryLabels {
       songs: plural(m["media.table.songsOne"], m["media.table.songsMany"]),
       unfold: (album) => m["media.table.unfold"]({ album }),
       fold: (album) => m["media.table.fold"]({ album }),
+      search: m["media.table.search"](),
+      clearSearch: m["media.table.clearSearch"](),
+      noMatch: (query) => m["media.table.noMatch"]({ query }),
     },
     contents: {
       emptyLibrary: m["media.contents.emptyLibrary"](),
