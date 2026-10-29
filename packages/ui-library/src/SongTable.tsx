@@ -29,7 +29,7 @@ import { useLabels } from "./host";
 import { PracticeMark, StarredMark } from "./ListMarks";
 import { RowMenu, rowTarget } from "./RowMenu";
 import { RemoteDownload } from "./ServerCopy";
-import type { AlbumRow, SongRow, TableGroup } from "./songRows";
+import type { AlbumRow, GroupId, SongRow, TableGroup } from "./songRows";
 
 export interface SongTableProps {
   /** Already narrowed by the search (songRows.ts's `filterTable`). */
@@ -51,6 +51,21 @@ export interface SongTableProps {
 }
 
 const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+
+/** A group's band: practice in the blue of its mark, favorites in the amber of their star. */
+const GROUPS: Record<GroupId, { head: string; text: string; row: string }> = {
+  practice: {
+    head: "bg-blue-950/80",
+    text: "text-blue-300/80",
+    row: "bg-blue-950/40 hover:bg-blue-900/50 has-aria-expanded:bg-blue-900/50",
+  },
+  favorites: {
+    head: "bg-yellow-950/80",
+    text: "text-yellow-300/80",
+    row: "bg-yellow-950/40 hover:bg-yellow-900/50 has-aria-expanded:bg-yellow-900/50",
+  },
+  others: { head: "", text: "text-muted-foreground", row: "" },
+};
 
 export function SongTable(p: SongTableProps) {
   const l = useLabels();
@@ -97,10 +112,10 @@ export function SongTable(p: SongTableProps) {
     );
   };
 
-  const songRow = (s: SongRow, inAlbum: boolean) => (
+  const songRow = (s: SongRow, inAlbum: boolean, tint: string) => (
     <TableRow
       key={s.rel}
-      className={`cursor-pointer ${s.remote ? "text-muted-foreground" : ""}`}
+      className={`cursor-pointer ${tint} ${s.remote ? "text-muted-foreground" : ""}`}
       onClick={() => (s.remote ? undefined : p.onOpen(s.entry))}
       onDragOver={(e) => {
         if (!s.remote && hasFiles(e)) e.preventDefault();
@@ -167,13 +182,13 @@ export function SongTable(p: SongTableProps) {
     </TableRow>
   );
 
-  const albumRow = (a: AlbumRow) => {
+  const albumRow = (a: AlbumRow, tint: string) => {
     const unfolded = isOpen(a.rel);
     const Chevron = unfolded ? ChevronDown : ChevronRight;
     return (
       <Fragment key={a.rel}>
         <TableRow
-          className={`cursor-pointer ${a.remote ? "text-muted-foreground" : ""}`}
+          className={`cursor-pointer ${tint} ${a.remote ? "text-muted-foreground" : ""}`}
           onClick={() => toggle(a.rel)}
         >
           <TableCell>
@@ -216,7 +231,7 @@ export function SongTable(p: SongTableProps) {
             />
           </TableCell>
         </TableRow>
-        {unfolded ? a.songs.map((s) => songRow(s, true)) : null}
+        {unfolded ? a.songs.map((s) => songRow(s, true, tint)) : null}
       </Fragment>
     );
   };
@@ -260,7 +275,8 @@ export function SongTable(p: SongTableProps) {
         {p.actionsBar}
       </div>
       {/* touch-manipulation: no double-tap zoom, since a double tap on a song plays it. */}
-      <Table className="table-fixed touch-manipulation">
+      {/* A 10% hairline: the group's band is what divides the table, not the line. */}
+      <Table className="table-fixed touch-manipulation [&_tr]:border-white/10">
         <TableHeader>
           <TableRow>
             <TableHead>{t.title}</TableHead>
@@ -282,21 +298,26 @@ export function SongTable(p: SongTableProps) {
               </TableCell>
             </TableRow>
           ) : null}
-          {p.groups.map((g) => (
-            <Fragment key={g.id}>
-              <TableRow className="hover:bg-transparent">
-                <TableCell
-                  colSpan={5}
-                  className="pt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  {heading[g.id]}
-                </TableCell>
-              </TableRow>
-              {g.rows.map((r) =>
-                r.kind === "album" ? albumRow(r) : songRow(r, false),
-              )}
-            </Fragment>
-          ))}
+          {p.groups.map((g) => {
+            const band = GROUPS[g.id];
+            return (
+              <Fragment key={g.id}>
+                <TableRow className={`hover:bg-transparent ${band.head}`}>
+                  <TableCell
+                    colSpan={5}
+                    className={`pt-5 text-xs font-semibold uppercase tracking-wide ${band.text}`}
+                  >
+                    {heading[g.id]}
+                  </TableCell>
+                </TableRow>
+                {g.rows.map((r) =>
+                  r.kind === "album"
+                    ? albumRow(r, band.row)
+                    : songRow(r, false, band.row),
+                )}
+              </Fragment>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

@@ -48,6 +48,11 @@ person is working on this month comes first, then what they like, then the rest 
 row goes in the FIRST list that covers it — a song, or a folder above it, being on that list — so a
 practised favorite is listed once, under practice. Within a group, rows go by artist, then by title.
 
+Each group is a BAND, tinted after the mark that put a row in it (`ListMarks.tsx`): practice on a deep
+blue, favorites on a deep yellow, the rest on the background. The band, not a rule, is what divides the
+table — the rows' separator is a hairline at a tenth of its strength, since a rule per row draws the eye
+across five lines per song and the table then reads as one striped list.
+
 **An album of several songs is one row**, which unfolds into its songs on a click. Without it, an
 album starred whole would put a dozen rows at the head of the table and push everything else down.
 An album of ONE song is that song's row, since a row that only unfolds into a single row is a click
