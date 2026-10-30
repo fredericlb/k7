@@ -62,6 +62,12 @@ before the confirm, answering the value AND which button gave it. `askText` keep
 string: a second return shape on the same function would be a type every existing caller had to
 unwrap. The extra buttons obey `validate` like the confirm does, since they act on the same value.
 
+**A `tool` fills the field rather than answering**: one button left of Cancel that rewrites the
+value in place (k7's tap tempo), with an optional key that presses it from anywhere in the dialog.
+The key is caught by the dialog and stopped there, since it is typically one the app behind already
+owns — Space is the transport — and a question that is open owns the keyboard. The button keeps
+focus in the field, so Enter after a run of taps still answers.
+
 **A dialog with no field takes focus itself**, or Escape and Enter would land on the page behind it
 and reach nothing — a choice or a confirm would then answer only to the mouse.
 

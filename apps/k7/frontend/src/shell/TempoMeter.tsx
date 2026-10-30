@@ -3,6 +3,27 @@
 import { askText } from "@studio/project-shell/ask";
 import type { RecInfo } from "../hooks/useProjectDoc";
 import { m } from "../paraglide/messages.js";
+import { tapTempo } from "./tapTempo";
+
+/** The bpm question, with a Tap button (and Space) that fills the field from the taps' tempo. */
+function askTempo(initial: number): Promise<string | null> {
+  let taps: number[] = [];
+  return askText({
+    title: m["transport.tempoAsk"](),
+    initial: String(initial),
+    validate: (v) =>
+      Number(v) >= 20 && Number(v) <= 400 ? "" : m["transport.tempoBad"](),
+    tool: {
+      label: m["transport.tempoTap"](),
+      key: " ",
+      press: (v) => {
+        const r = tapTempo(taps, performance.now());
+        taps = r.taps;
+        return r.bpm === null ? v : String(r.bpm);
+      },
+    },
+  });
+}
 
 /** The doc's tempo and meter, not the engine's: what the metronome clicks, written through `project tempo` / `project meter`. */
 export function TempoMeter({
@@ -19,14 +40,7 @@ export function TempoMeter({
         className="rounded px-0.5 hover:bg-accent hover:text-foreground"
         title={m["transport.tempoEdit"]()}
         onClick={() =>
-          void askText({
-            title: m["transport.tempoAsk"](),
-            initial: String(recInfo.tempo),
-            validate: (v) =>
-              Number(v) >= 20 && Number(v) <= 400
-                ? ""
-                : m["transport.tempoBad"](),
-          }).then((v) => {
+          void askTempo(recInfo.tempo).then((v) => {
             if (v) void runCommand(`project tempo ${v.trim()}`);
           })
         }
