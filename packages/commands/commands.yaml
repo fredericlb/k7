@@ -189,6 +189,22 @@
         hint: "the sequence's id, which is its filename — optional",
       },
     ]
+# An empty sequence over a PERIOD, on each lane named and placed at its start: what a timeline
+# selection turns into. `to` is the bar line the period ends on, excluded. Lanes are comma-separated
+# so a selection over several lanes is one command and one undo.
+- command: "sequence empty"
+  sid: sequence.empty
+  readable:
+    en: "Add an empty sequence on lanes over a period"
+    fr: "Ajouter une séquence vide sur des pistes, sur une période"
+  help: "add an empty sequence over a period on each lane (e.g. sequence empty lead,bass 5:1 9:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: tracks, complete: tracks, hint: "one lane, or several separated by commas" },
+      { name: from, type: timecode, hint: "where the period starts" },
+      { name: to, type: timecode, hint: "where it ends, excluded" },
+    ]
 # TIMELINES — another arrangement, placed WHOLE as one event on a lane, whose sound goes through
 # that lane. Its length is fixed: `timeline length` is the one way to change what every placement
 # of it plays. Its events are edited with the `event` verbs on `<timeline>><lane>`

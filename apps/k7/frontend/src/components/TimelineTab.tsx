@@ -310,6 +310,8 @@ export interface TimelineHandle {
   deleteLine: () => PasteResult;
   /** `selection split` — the cut the blade would make on the caret's lane, at `sec`, the PLAYHEAD; audio and picture alike. */
   splitLine: (sec: number) => PasteResult;
+  /** `selection sequence` — an empty sequence over the rectangle's period on each of its lanes, as one `sequence empty`. */
+  sequenceLine: () => PasteResult;
   startMove: () => void;
   // The header toggles, so `ui ruler`, `ui lanes` and `ui automation` reach what the buttons reach.
   toggleRuler: () => void;
@@ -1651,6 +1653,41 @@ function TimelineTabView({
             atTc: tc(at),
           }) ?? nothing
         );
+      },
+      sequenceLine: () => {
+        if (!proj) return { note: "no project" };
+        const s = selRef.current;
+        if (!s)
+          return {
+            note: "select a period first — draw a rectangle with v over the lanes and bars to fill",
+          };
+        const a = rowIndexOf(visRows, s.anchor.row);
+        const b = rowIndexOf(visRows, s.head.row);
+        if (a < 0 || b < 0) return { note: "the rectangle is on no row" };
+        // The cells the rectangle covers, its last one included, as every rectangle verb reads it.
+        const lo = Math.min(s.anchor.beat, s.head.beat);
+        const hi = Math.max(s.anchor.beat, s.head.beat) + 1;
+        // Sound lanes only, each once: a lane wired on two ports is one file.
+        const lanes = [
+          ...new Set(
+            visRows
+              .slice(Math.min(a, b), Math.max(a, b) + 1)
+              .flatMap((r) =>
+                r.kind === "track" && !r.track.generated
+                  ? [laneOf(r.track.id)]
+                  : [],
+              ),
+          ),
+        ];
+        if (!lanes.length)
+          return { note: "no lane under the rectangle to put a sequence on" };
+        const num = proj.timeSigNumerator;
+        const den = proj.timeSigDenominator;
+        setSel(null);
+        return {
+          line: `sequence empty ${lanes.join(",")} ${beatsToPosition(lo, num, den)} ${beatsToPosition(hi, num, den)}`,
+          note: `empty sequence${lanes.length > 1 ? "s" : ""} on ${lanes.join(", ")}`,
+        };
       },
       deleteLine: () => {
         if (!proj) return { note: "no project" };

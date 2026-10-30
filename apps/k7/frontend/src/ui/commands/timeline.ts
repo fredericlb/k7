@@ -273,6 +273,26 @@ export const TIMELINE_COMMANDS: LocalCommand[] = [
     },
   },
   {
+    // The rectangle's period, empty, on each of its lanes — one `sequence empty`, so one undo (docs/timeline.md).
+    name: "selection sequence",
+    readable: {
+      en: "Create an empty sequence on the selected period",
+      fr: "Créer une séquence vide sur la période sélectionnée",
+    },
+    run: (ctx) => {
+      const timeline =
+        ctx.activePane === "timeline" ? ctx.timelineRef.current : null;
+      if (!timeline) {
+        ctx.setStatus(m["status.noTimeline"]());
+        return true;
+      }
+      const out = timeline.sequenceLine();
+      if (out.line) void ctx.runCommand(out.line);
+      ctx.setStatus(out.note);
+      return true;
+    },
+  },
+  {
     // The blade at the PLAYHEAD, on the caret's lane — the same line the cut tool makes (docs/timeline.md).
     name: "selection split",
     readable: {
