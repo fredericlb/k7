@@ -103,6 +103,8 @@ const common = {
   plugins: [metaPlugin],
   logLevel: "warning",
   legalComments: "none",
+  // One non-ASCII character makes V8 hold the whole source as UTF-16, twice its size (../docs/standalone.md).
+  charset: "ascii",
 };
 
 if (inTree) {

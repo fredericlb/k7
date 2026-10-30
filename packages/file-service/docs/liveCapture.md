@@ -22,8 +22,8 @@ ledger of the workspace and diffs a change against it, whoever made the change.
 - **Any other text file** keeps a content hash. It travels whole anyway, and the hash is what stops a
   file rewritten with the same content from sending anything. It is live-sync's `textHash`, not a
   sha1, because the same hash is the `was` its op carries and the room must compute it without `node:`.
-- **An opaque file** — binary, or text past 5 MB — keeps its blob ref: the sha256 of its bytes and
-  their length, which is the text its ops carry (`../../file-hub/docs/blobs.md`).
+- **An opaque file** — binary, a k7x file past 5 MB, or any other text past 128 KiB — keeps its blob
+  ref: the sha256 of its bytes and their length, which is the text its ops carry (`../../file-hub/docs/blobs.md`).
 
 On the library checkout (2,142 files) the ledger holds 1.4 MB of text. Keeping every text file's
 content instead held 37 MB.
@@ -34,6 +34,12 @@ The workspace's binary list is extensions (audio, video, images, `.vstpreset`). 
 `.fxp` presets and amp models, which no extension list will ever cover. Read as UTF-8 and sent as
 text, they would arrive corrupted. So a file with a NUL byte in its first 8,000 bytes is binary
 whatever its name, which is git's own test.
+
+A text file that is not k7x is opaque past 128 KiB. Such a file is data, not something a person edits:
+the library's amp models are 150 KB to 1 MB of JSON each, with no NUL byte to give them away. As text,
+the room holds each one in memory, in its files, its merge bases and its log: about 40 MB for the
+library alone, in a backend that idles near 200 MB. As a ref, each is a line. What is lost is the line
+merge of two concurrent edits, which a model never has.
 
 ## One recursive `fs.watch`, and sweeps behind it
 
@@ -200,7 +206,7 @@ began. From then on they are two workspaces of the same name on two servers, whi
 other; bringing the copy down here lands it as `<room>.<host>`, as above. One move or copy at a time
 per workspace, since both seed the target under the room's name.
 
-## A binary's hash outlives the process
+## A file's hash outlives the process
 
 A ledger is built at every start, and an opaque file is known by its sha256, so a start would read
 every take again: about 0.4 s per gigabyte from the page cache, more from a cold disk. The hashes
@@ -208,6 +214,14 @@ are kept in `<log folder>/blob-index.json` (`../src/liveLedger.ts`), by workspac
 (size and `mtimeMs`), rewritten atomically after a start and after each batch. A file whose stamp
 matches is known by the hash recorded; any other is hashed. On the library checkout the ledger
 build went from about 95 ms to 60 ms warm, and four 256 MB takes from 360 ms to under 1 ms.
+
+A text file other than k7x is recorded there too, by its `textHash`, so a start reads only the k7x
+files, whose text the ledger keeps. The texts sit under their own key, `texts`, beside `files`: a k7
+that reads only `files` must never take a text's hash for a blob's.
+
+Against a baseline, a file whose content on disk is the baseline's keeps the walk's entry, real
+stamp included. With an empty stamp instead, the first sweep would read and hash every text file a
+second time.
 
 A stamp whose mtime has not settled is never recorded, for the same-size-rewrite hazard above. A
 file about to be SENT is still copied and hashed whole, since the ref must name the bytes uploaded.
