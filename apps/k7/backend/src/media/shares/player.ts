@@ -15,7 +15,7 @@ import { snapshotOf } from "../routes/publicShare.ts";
 import { blobDir } from "./store.ts";
 
 /** Where a visitor's socket opens: under the public share prefix, as the rest of a share is. */
-const PLAYER_ROUTE = /^\/api\/public\/share\/([0-9a-f]{64})\/play$/;
+export const PLAYER_ROUTE = /^\/api\/public\/share\/([0-9a-f]{64})\/play$/;
 
 /** What the player needs of the backend: the tunnels, and the folders a share's document may name. */
 export interface PlayerDeps {

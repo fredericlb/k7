@@ -56,6 +56,7 @@ import { readinessRoute, volumesFromEnv } from "./readiness.ts";
 import { deviceDoor } from "./remote/door.ts";
 import { forwardToPairedServer, SERVER_PATH } from "./remote/forward.ts";
 import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
+import { guardUpgrades } from "./upgradeGuard.ts";
 import { BUILD, VERSION } from "./version.ts";
 import { subjectOf } from "./who.ts";
 
@@ -325,6 +326,8 @@ const onListening = () => {
     listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);
 };
 const server = behindProxy(createServer(app));
+// Before any listener: an upgrade nobody serves is refused, and a reset socket never ends the process (../docs/upgrades.md).
+guardUpgrades(server);
 const listen = (): void => {
   if (LISTEN_HOST) server.listen(PORT, LISTEN_HOST, onListening);
   else server.listen(PORT, onListening);
