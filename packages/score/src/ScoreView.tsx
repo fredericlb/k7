@@ -110,9 +110,10 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
 
   const follow = () => {
     cancelAnimationFrame(frame.current);
+    // The view's own state, not the sequencer's: its `paused` flips only once the worklet has answered.
     const tick = () => {
       const p = player.current;
-      if (!p?.playing) return;
+      if (!p || !state.current.playing) return;
       light(p.time * 1000);
       frame.current = requestAnimationFrame(tick);
     };
@@ -163,7 +164,7 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     playPause: () => {
       const p = player.current;
       if (p) {
-        if (p.playing) {
+        if (state.current.playing) {
           p.pause();
           report({ playing: false });
         } else
