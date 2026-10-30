@@ -64,12 +64,11 @@ WebSocket upgrade is answered by its own listener and is that listener's to chec
 
 ## Memory after the start
 
-Twenty seconds after it listens, a standalone runs one full garbage collection (`../src/startMemory.ts`).
-The start allocates far more than it keeps: the library's capture, the parse cache, the first
-requests. V8 keeps the heap that grew while nothing allocates, and a phone's backend mostly waits:
-on a desktop the heap stayed near 180 MB for 34 MB in use. `gc` needs `--expose-gc`, which no host
-passes. The flag is set at run time instead, and `gc` read from a context made after it, so the
-three hosts stay as they are. A hosted server never runs it: it allocates all the time.
+Nothing forces a collection once the start is over. The start allocates far more than it keeps (the
+library's capture, the parse cache, the first requests), and V8's memory reducer hands that heap back
+on its own once allocation stops: measured on a desktop, about 280 MB private down to 110 MB within 10
+to 20 s of the first answer. A `gc()` forced at 20 s, through `--expose-gc` set at run time, came after
+it and changed nothing.
 
 ## The bundle: `scripts/bundle.mjs`
 
