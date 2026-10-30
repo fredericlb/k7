@@ -11,6 +11,7 @@ import {
   readFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import type { Readable } from "node:stream";
 import {
   scannedPluginNames,
   scannedPlugins,
@@ -147,6 +148,7 @@ import {
   renameEntryIn,
   renameWithRetry,
   uploadFileIn,
+  uploadStreamIn,
 } from "./workspaceEntries.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 import {
@@ -923,6 +925,15 @@ export class Workspace {
   /** Drop a file into `dir` under `name`, which may carry FOLDERS. Binary-safe, EEXIST rather than clobber. */
   uploadFile(dir: string, name: string, bytes: Buffer): { path: string } {
     return uploadFileIn(this.entriesHost(), dir, name, bytes);
+  }
+  /** …the same drop from a request body, streamed to disk and never held whole. */
+  uploadStream(
+    dir: string,
+    name: string,
+    body: Readable,
+    max: number,
+  ): Promise<{ path: string }> {
+    return uploadStreamIn(this.entriesHost(), dir, name, body, max);
   }
 
   /** Make an empty folder `name` inside `dir` — uploadFile's shape, and no guardMutable. */
