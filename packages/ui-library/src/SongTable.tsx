@@ -287,28 +287,21 @@ export function SongTable(p: SongTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {/* A search that keeps nothing says so, rather than leaving a header over an empty body. */}
-          {searching && !p.groups.length ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell
-                colSpan={5}
-                className="py-6 text-center text-sm text-muted-foreground"
-              >
-                {t.noMatch(p.query.trim())}
-              </TableCell>
-            </TableRow>
-          ) : null}
           {p.groups.map((g) => {
             const band = GROUPS[g.id];
             return (
               <Fragment key={g.id}>
+                {/* The same cells as a song row, no colSpan: one spanning hidden columns would add empty ones. */}
                 <TableRow className={`hover:bg-transparent ${band.head}`}>
                   <TableCell
-                    colSpan={5}
                     className={`pt-5 text-xs font-semibold uppercase tracking-wide ${band.text}`}
                   >
                     {heading[g.id]}
                   </TableCell>
+                  <TableCell className="hidden sm:table-cell" />
+                  <TableCell className="hidden md:table-cell" />
+                  <TableCell />
+                  <TableCell />
                 </TableRow>
                 {g.rows.map((r) =>
                   r.kind === "album"
@@ -320,6 +313,12 @@ export function SongTable(p: SongTableProps) {
           })}
         </TableBody>
       </Table>
+      {/* A search that keeps nothing says so, under the header rather than in a row spanning the table. */}
+      {searching && !p.groups.length ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          {t.noMatch(p.query.trim())}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -50,6 +50,11 @@ The songs section has no tree and no drawer: its table takes the whole width at 
 song opened from it takes the table's place, its Back button returning to the table. Below `sm` the
 artist goes under the title rather than in a column of its own, and below `md` the album column goes.
 
+**No row of the table spans columns.** A hidden column is `display: none`, yet a `colSpan` still
+creates the column slots it names. In a fixed-layout table those slots are empty columns that take
+their share of the width, squeezing the title into a third of a phone screen. So a group's band
+repeats a song row's cells, and the sentence for a search that keeps nothing sits under the table.
+
 ## A song row under a finger
 
 - **A double tap plays the song**, starting its master on the account's destination, and opens
