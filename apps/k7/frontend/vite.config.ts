@@ -13,12 +13,11 @@ import { noticesPlugin } from "./notices/vitePlugin.ts";
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api` or `/app_downloads` off it. */
 const OTHER_APPS = /^\/(api|auth|app_downloads)(\/|$)/;
 
-/** Heavy build files few sessions open, left out of the precache (commons/dev/vite-config/docs/pwa.md): the score engine, the docs site (its own host), the About page's notices, an SVG font nothing loads, the Cyrillic subsets. */
+/** Heavy build files few sessions open, left out of the precache (commons/dev/vite-config/docs/pwa.md): the score engine, the docs site (its own host), the About page's notices, the Cyrillic subsets. */
 const RARELY_USED = [
   "assets/verovio-module-*.js",
   "assets/mountSite-*.js",
   "assets/_virtual_k7-notices-*.js",
-  "font/Bravura.svg",
   "assets/*-cyrillic*",
 ];
 
