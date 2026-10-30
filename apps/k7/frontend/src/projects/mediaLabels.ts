@@ -89,6 +89,10 @@ export function mediaLabels(): LibraryLabels {
       noRecordings: m["media.contents.noRecordings"](),
       noneThisDay: m["media.contents.noneThisDay"](),
       noneTagged: (tag) => m["media.contents.noneTagged"]({ tag }),
+      yourTake: m["media.contents.yourTake"](),
+      deleteRecording: m["media.contents.deleteRecording"](),
+      deleteRecordingConfirm: (name) =>
+        m["media.contents.deleteRecordingConfirm"]({ name }),
       synced: (server) => m["wsync.synced"]({ server }),
       localOnly: m["wsync.local"](),
       download: m["wsync.download"](),

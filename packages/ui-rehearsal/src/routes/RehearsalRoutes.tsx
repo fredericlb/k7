@@ -15,11 +15,11 @@ import { RecoveredTakes } from "../components/RecoveredTakes";
 import { ServerOnly } from "../components/ServerOnly";
 import { useRehearsalHost, useRehearsalNav } from "../host";
 import { useRehearsalRecording } from "../recording/context";
-import type { HomeTab, Moment } from "../types";
+import type { Moment } from "../types";
 import { ExercisesView } from "../views/ExercisesView";
 import { GuitarTuner } from "../views/GuitarTuner";
-import { HomeView } from "../views/HomeView";
 import { PageFormView } from "../views/PageFormView";
+import { PublicationsList } from "../views/PublicationsList";
 import { RandomChordsExercise } from "../views/RandomChordsExercise";
 import { ReleaseFormView } from "../views/ReleaseFormView";
 import { SingingExercisesView } from "../views/SingingExercisesView";
@@ -33,15 +33,8 @@ import {
 import { useRehearsalData } from "./useRehearsalData";
 import "../styles/index.css";
 
-// The home list routes, each with the HomeView tab it selects.
-const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
-  { path: "sessions", tab: "sessions" },
-  { path: "releases", tab: "releases" },
-];
-
-/** A moment's recording at its start: its session's page when one saved it, else the capture's own. */
+/** A moment's recording at its start: one page per recording, a session's included. */
 function recordingHref(x: Moment): string {
-  if (x.sessionId) return `/sessions/${x.sessionId}?t=${x.startSec}`;
   const q = new URLSearchParams({
     path: x.recordingPath ?? "",
     t: String(x.startSec),
@@ -52,19 +45,20 @@ function recordingHref(x: Moment): string {
 export function RehearsalRoutes() {
   const { go, path } = useRehearsalNav();
   const navigate = useNavigate();
-  const { settingsHref } = useRehearsalHost();
+  const { settingsHref, recordingsHref } = useRehearsalHost();
   const { pathname } = useLocation();
   const { barShown, resume } = useRehearsalRecording();
   const d = useRehearsalData();
 
-  const handleDeleteSession = async (id: string) => {
-    await api.deleteSession(id);
-    // Its moments survive (now session-less), so the moments list refreshes too.
-    await d.refreshSessions();
-    if (pathname === path(`/sessions/${id}`)) go("/sessions");
-  };
-
-  const toSessions = <Navigate to={path("/sessions")} replace />;
+  // The recordings are the host's screen; a host without one lands on the publications (../../docs/recordings.md).
+  const toRecordings = (
+    <Navigate to={recordingsHref ?? path("/releases")} replace />
+  );
+  const leave = () =>
+    recordingsHref ? navigate(recordingsHref) : go("/releases");
+  // A recording or a moment is opened from the médiathèque as often as from here: Back is where it came from.
+  const back = () =>
+    (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : leave();
 
   return (
     <div className="rehearsal-root rehearsal-page">
@@ -74,45 +68,39 @@ export function RehearsalRoutes() {
         <RecoveredTakes />
         <div className={`main-inner${barShown ? " has-rec-bar" : ""}`}>
           <Routes>
-            <Route index element={toSessions} />
+            <Route index element={toRecordings} />
+            <Route path="sessions" element={toRecordings} />
 
-            {HOME_ROUTES.map(({ path: p, tab }) => (
-              <Route
-                key={p}
-                path={p}
-                element={
-                  <HomeView
-                    sessions={d.sessions}
+            <Route
+              path="releases"
+              element={
+                // Releases and pages are the server's alone — ../../../rehearsal-server/docs/publications.md.
+                <ServerOnly
+                  onAvailable={() => {
+                    void d.refreshReleases();
+                    void d.refreshPages();
+                  }}
+                >
+                  <PublicationsList
                     releases={d.releases}
                     pages={d.pages}
-                    moments={d.moments}
-                    tab={tab}
-                    onOpen={(s) => go(`/sessions/${s.id}`)}
-                    onOpenMoment={(x) => go(`/moments/${x.id}`)}
-                    onDeleteSession={handleDeleteSession}
                     onOpenRelease={(r) => go(`/releases/${r.id}`)}
                     onNewRelease={() => go("/releases/new")}
                     onOpenPage={(x) => go(`/pages/${x.id}`)}
                     onNewPage={() => go("/pages/new")}
-                    onPublicationsReachable={() => {
-                      void d.refreshReleases();
-                      void d.refreshPages();
-                    }}
                   />
-                }
-              />
-            ))}
+                </ServerOnly>
+              }
+            />
 
             <Route
               path="sessions/:id"
               element={
                 <SessionRoute
                   allTags={d.allTags}
-                  onBack={() => {
-                    void d.refreshSessions();
-                    go("/sessions");
-                  }}
-                  onChange={() => void d.refreshSessions()}
+                  onBack={back}
+                  onDeleted={leave}
+                  onChange={() => void d.refreshMoments()}
                   onResume={resume}
                 />
               }
@@ -190,10 +178,10 @@ export function RehearsalRoutes() {
               path="moments/:id"
               element={
                 <MomentRoute
-                  onBack={() => go("/sessions")}
+                  onBack={back}
                   onDeleted={() => {
-                    void d.refreshSessions();
-                    go("/sessions");
+                    void d.refreshMoments();
+                    back();
                   }}
                   onOpenRecording={(x) => go(recordingHref(x))}
                 />
@@ -205,21 +193,10 @@ export function RehearsalRoutes() {
               element={
                 <RecordingRoute
                   allTags={d.allTags}
-                  // Reached from the médiathèque as often as from here: Back is where it came from.
-                  onBack={() =>
-                    (window.history.state?.idx ?? 0) > 0
-                      ? navigate(-1)
-                      : go("/sessions")
-                  }
-                  onChange={() => void d.refreshSessions()}
-                  onOpenSession={(id, seekTo) =>
-                    go(
-                      `/sessions/${id}${seekTo != null ? `?t=${seekTo}` : ""}`,
-                      {
-                        replace: true,
-                      },
-                    )
-                  }
+                  onBack={back}
+                  onDeleted={leave}
+                  onChange={() => void d.refreshMoments()}
+                  onResume={resume}
                 />
               }
             />
@@ -257,16 +234,16 @@ export function RehearsalRoutes() {
             <Route
               path="settings"
               element={
-                <Navigate to={settingsHref ?? path("/sessions")} replace />
+                <Navigate to={settingsHref ?? path("/releases")} replace />
               }
             />
-            {/* Moments hang under their sessions, pages group their releases; the old list addresses still land. */}
+            {/* Moments hang under their recordings, pages group their releases; the old list addresses still land. */}
             <Route
               path="pages"
               element={<Navigate to={path("/releases")} replace />}
             />
-            <Route path="moments" element={toSessions} />
-            <Route path="*" element={toSessions} />
+            <Route path="moments" element={toRecordings} />
+            <Route path="*" element={toRecordings} />
           </Routes>
         </div>
       </main>

@@ -1,4 +1,4 @@
-# A moment names a recording, not a session
+# A moment and a marker name a recording, not a session
 
 A moment (a `Comments` row, `../src/store/moments.ts`) is a span of a **recording**: any capture
 of the médiathèque's zone, `recordings/<day>/<file>`. A rehearsal session is one way a capture gets
@@ -6,14 +6,20 @@ there, and the zone takes others: a machine pushing over the API, a batch droppe
 (`../../mediatek/docs/recordings.md`). Every one of them is worth cutting a moment from, so the
 row holds the capture's PATH (`RecordingPath`) and nothing about a session.
 
+A **marker**, a pin with a comment on a recording's timeline (`../src/store/markers.ts`), names the
+recording the same way (`Markers.RecordingPath`), so any capture can carry pins too. A moment's own
+pins are Markers rows as well, keyed by `MomentId`. The recording's routes never reach them: they
+are edited through their moment, which may be read-only ([momentShare.md](momentShare.md)).
+
 ## A session's moments are its recording's
 
-A session shows the moments cut from the recording it saved: the store matches the session's
-`RecordingPath` against the moments', for the session's owner. Nothing on the moment points back.
+A session shows the moments cut from the recording it saved, and the markers pinned on it: the
+store matches the session's `RecordingPath` against theirs, for the session's owner. Nothing on the moment points back.
 When the session's page or the library asks which session a moment belongs to, the answer is
 derived the same way (`sessionId` on a moment, and on `GET /moments/recording`), and is null for a
 capture no session of that account saved. A capture a session saved opens as that session, so its
-markers and its resume stay at hand.
+resume and its delete stay at hand. Deleting a session takes its markers with its file. Its
+moments stay, each on its own clip.
 
 A save that files the session's recording under a NEW path (an appended take re-muxed into WebM,
 `audio.md`) moves that session's moments to it in the same step. Otherwise they would stay on a
@@ -45,8 +51,8 @@ open, while hiding one that is there loses the way to it.
 ## The older rows are linked once, at boot
 
 A row from before `RecordingPath` names a session (`SessionUid`), or for a shared moment a
-session's date (`SessionCreatedAt`). `linkMomentsToRecordings` (`../src/store/captures.ts`) runs
-after the PocketBase import, which brings such rows too. It copies the session's path and start
-onto each one and empties both old fields, so it finds nothing to do on the next boot. A row whose
-session is already deleted gets no path. That row reads as a moment whose recording is gone, which
-is what it is.
+session's date (`SessionCreatedAt`). `linkToRecordings` (`../src/store/captures.ts`) runs after the
+PocketBase import, which brings such rows too. It copies the session's path and start onto each
+moment and marker and empties the old fields, so it finds nothing to do on the next boot. A moment
+whose session is already deleted gets no path. It reads as a moment whose recording is gone, which
+is what it is. A marker in that case is deleted, since its session's deletion would have taken it.

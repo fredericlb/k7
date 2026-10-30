@@ -6,7 +6,5 @@
 export type { Selection } from "@studio/recorder";
 export * from "@studio/rehearsal-shared";
 
-export type HomeTab = "sessions" | "releases";
-
-// The header's destinations: one entry per section, sessions and their moments under Recordings, releases and pages Publications.
+// Where an address belongs: the host's recordings (a recording, a session, a moment), Publications, Exercises.
 export type NavKey = "recordings" | "publications" | "exercises";

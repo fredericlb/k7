@@ -1,92 +1,132 @@
-// RecordingDetailContainer.tsx — a capture of the médiathèque as a page with its moments: the same page
-// a session has, without the markers and the resume, which are a session's (../../docs/recordings.md).
-// The one thing a reader would get wrong: a capture a session saved opens as that session instead.
+// RecordingDetailContainer.tsx — a recording's one page, by its path: the session page when a session of
+// yours saved it, else the same page over the capture, its gain and waveform measured by the médiathèque.
+// The one thing a reader would get wrong: a capture has no Continue and no delete here (../../docs/recordings.md).
 
+import { Button } from "@frediverse/ui/button";
 import { detectEvents } from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { BackButton } from "../components/BackButton";
 import {
   ActionFailure,
   LoadFailure,
   useDetailState,
 } from "../hooks/useDetailState";
 import { m } from "../paraglide/messages.js";
-import type { Annotation, Envelope, Session } from "../types";
+import type { Envelope, RecordingMoments, Session } from "../types";
 import { SessionDetailView } from "../views/SessionDetailView";
+import { SessionDetailContainer } from "./SessionDetailContainer";
 
 interface Props {
   recordingPath: string;
   seekTo?: number;
   allTags: string[];
   onBack: () => void;
+  onDeleted: () => void;
   onChange: () => void;
-  onOpenSession: (sessionId: string, seekTo?: number) => void;
+  onResume: (session: Session) => Promise<void>;
 }
 
-/** The capture in the shape the session page draws: no markers, a gain of one. */
+export function RecordingDetailContainer(props: Props) {
+  const { recordingPath } = props;
+  const [page, setPage] = useState<RecordingMoments | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loaded per recording and per retry (`attempt`)
+  useEffect(() => {
+    let alive = true;
+    api
+      .recordingMoments(recordingPath)
+      .then((got) => {
+        if (!alive) return;
+        setPage(got);
+        setLoadError(null);
+      })
+      .catch((e) => alive && setLoadError(e));
+    return () => {
+      alive = false;
+    };
+  }, [recordingPath, attempt]);
+
+  if (!page && loadError != null)
+    return (
+      <LoadFailure error={loadError} onRetry={() => setAttempt((n) => n + 1)} />
+    );
+  if (!page) return <p className="muted">{m["common.loading"]()}</p>;
+  // A take of yours: its session's page, with its markers, its Continue and its delete.
+  if (page.sessionId)
+    return (
+      <SessionDetailContainer
+        key={page.sessionId}
+        sessionId={page.sessionId}
+        seekTo={props.seekTo}
+        allTags={props.allTags}
+        onBack={props.onBack}
+        onDeleted={props.onDeleted}
+        onChange={props.onChange}
+        onResume={props.onResume}
+      />
+    );
+  return <CaptureDetail {...props} first={page} />;
+}
+
+/** The capture in the shape the session page draws. */
 function asSession(
-  path: string,
-  recordedAt: string | null,
+  page: RecordingMoments,
   duration: number,
-  moments: Annotation[],
+  gain: number,
 ): Session {
   return {
-    id: path,
-    createdAt: recordedAt ?? "",
+    id: page.path,
+    createdAt: page.recordedAt ?? "",
     duration,
     hasRecording: true,
-    recordingPath: path,
+    recordingPath: page.path,
     recordingExt: null,
     recordingMime: null,
-    gain: 1,
-    annotations: moments,
-    markers: [],
+    gain,
+    annotations: page.moments,
+    markers: page.markers,
   };
 }
 
-export function RecordingDetailContainer({
+function CaptureDetail({
   recordingPath,
   seekTo,
   allTags,
   onBack,
   onChange,
-  onOpenSession,
-}: Props) {
-  const [recordedAt, setRecordedAt] = useState<string | null>(null);
-  const [moments, setMoments] = useState<Annotation[] | null>(null);
+  first,
+}: Props & { first: RecordingMoments }) {
+  const [page, setPage] = useState(first);
   const [shape, setShape] = useState<{
     envelope: Envelope;
     duration: number;
+    gain: number;
   } | null>(null);
+  const [shapeError, setShapeError] = useState<string | null>(null);
   const [threshold, setThreshold] = useState<number | null>(null);
   const [minSilence, setMinSilence] = useState(2);
   const [validating, setValidating] = useState<string | null>(null);
-  const { loadError, setLoadError, actionError, guard } = useDetailState();
   const [attempt, setAttempt] = useState(0);
+  const { actionError, guard } = useDetailState();
 
-  const reload = useCallback(async () => {
-    setMoments((await api.recordingMoments(recordingPath)).moments);
-  }, [recordingPath]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loaded per recording and per retry (`attempt`), not per minSilence move
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured per recording and per retry (`attempt`), not per minSilence move
   useEffect(() => {
     let alive = true;
-    (async () => {
-      const page = await api.recordingMoments(recordingPath);
-      if (!alive) return;
-      if (page.sessionId) return onOpenSession(page.sessionId, seekTo);
-      setRecordedAt(page.recordedAt);
-      setMoments(page.moments);
-      setLoadError(null);
-      const got = await api.captureEnvelope(recordingPath);
-      if (!alive) return;
-      setShape(got);
-      setThreshold(
-        detectEvents(got.envelope, { minSilenceSec: minSilence }).threshold,
-      );
-    })().catch((e) => {
-      if (alive) setLoadError(e);
-    });
+    setShapeError(null);
+    api
+      .captureEnvelope(recordingPath)
+      .then((got) => {
+        if (!alive) return;
+        setShape(got);
+        setThreshold(
+          detectEvents(got.envelope, { minSilenceSec: minSilence }).threshold,
+        );
+      })
+      // No waveform is no page: the audio and the moments stay reachable.
+      .catch((e: Error) => alive && setShapeError(e.message));
     return () => {
       alive = false;
     };
@@ -104,10 +144,10 @@ export function RecordingDetailContainer({
     [shape, threshold, minSilence],
   );
 
-  const changed = async () => {
-    await reload();
+  const changed = useCallback(async () => {
+    setPage(await api.recordingMoments(recordingPath));
     onChange();
-  };
+  }, [recordingPath, onChange]);
 
   const handleValidate = guard(async (id: string) => {
     setValidating(id);
@@ -119,21 +159,42 @@ export function RecordingDetailContainer({
     }
   });
 
-  if (moments === null && loadError != null)
-    return (
-      <LoadFailure error={loadError} onRetry={() => setAttempt((n) => n + 1)} />
-    );
-  if (moments === null || !shape)
-    return <p className="muted">{m["common.loading"]()}</p>;
-
-  const session = asSession(recordingPath, recordedAt, shape.duration, moments);
   const name = recordingPath.slice(recordingPath.lastIndexOf("/") + 1);
+
+  if (shapeError)
+    return (
+      <div>
+        <div className="detail-head">
+          <BackButton to={m["recording.back"]()} onClick={onBack} />
+          <h2>{name}</h2>
+        </div>
+        <p className="muted">
+          {m["recording.noWaveform"]({ reason: shapeError })}{" "}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
+            {m["recording.retry"]()}
+          </Button>
+        </p>
+        {/* biome-ignore lint/a11y/useMediaCaption: a rehearsal take has no captions to offer */}
+        <audio
+          controls
+          preload="metadata"
+          src={api.captureUrl(recordingPath)}
+          crossOrigin="use-credentials"
+          style={{ width: "100%" }}
+        />
+      </div>
+    );
+  if (!shape) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
     <>
       <ActionFailure message={actionError} />
       <SessionDetailView
-        session={session}
+        session={asSession(page, shape.duration, shape.gain)}
         title={name}
         backTo={m["recording.back"]()}
         envelope={shape.envelope}
@@ -160,8 +221,18 @@ export function RecordingDetailContainer({
           await changed();
         })}
         onValidate={handleValidate}
-        onUpdateMarker={async () => {}}
-        onDeleteMarker={async () => {}}
+        onAddMarker={guard(async (atSec) => {
+          await api.addRecordingMarker(recordingPath, { atSec });
+          await changed();
+        })}
+        onUpdateMarker={guard(async (id, comment) => {
+          await api.updateRecordingMarker(id, { comment });
+          await changed();
+        })}
+        onDeleteMarker={guard(async (id) => {
+          await api.deleteRecordingMarker(id);
+          await changed();
+        })}
         momentClipUrl={api.momentPageClipUrl}
       />
     </>

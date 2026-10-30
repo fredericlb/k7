@@ -80,6 +80,11 @@ export interface LibraryLabels {
     noneThisDay: string;
     /** The calendar's day holds no moment with the chosen tag. */
     noneTagged: (tag: string) => string;
+    /** A capture one of the reader's own sessions recorded. */
+    yourTake: string;
+    deleteRecording: string;
+    /** Asked first, the take's file name given. */
+    deleteRecordingConfirm: (name: string) => string;
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;

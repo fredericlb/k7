@@ -1,4 +1,4 @@
-# The captures: a calendar, and each day's timeline
+# The captures: a calendar, and each day's timeline, the takes included
 
 `src/RecordingsCalendar.tsx` is the whole of the **Recordings** section: a calendar to pick a day, and
 that day's captures on a timeline, each with the account's moments indented under it. The rows are
@@ -14,7 +14,21 @@ something on them, tag chips under it, and the day's timeline beside it. Two scr
 question would teach two ways to look for a recording. The zone therefore has no tree. Nothing in
 a day folder is a folder, and the tree only restated the day before the time.
 
-**Add a capture** sits under the calendar, so it never scrolls away with a long day.
+It is also where a rehearsal take is listed once saved: the rehearsal pages have no sessions list
+(`packages/ui-rehearsal/docs/recordings.md`). Under the calendar, the host's **Record**
+(`recordButton`) starts a take, and **Add recordings** files existing ones. Both sit there so that
+they never scroll away with a long day.
+
+## Your takes, and who deletes what
+
+A capture one of your sessions recorded wears a microphone and shows its duration, which the
+session knows. Any other capture shows its size: knowing its duration means analysing the file,
+once per row. A take is yours to delete, with its session and its markers, from the row's ⋮. Any
+other capture, someone else's take included, is deleted only by an admin, because the folder is
+shared by every account and every removal in the médiathèque is an admin's
+(`apps/k7/backend/docs/media/gate.md`). Either way the moments cut from it stay, each with its
+own clip. The confirmation says so, since that is the part a person deleting a recording would
+not expect.
 
 ## A capture's time is its name
 

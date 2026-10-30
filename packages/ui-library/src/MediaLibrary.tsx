@@ -35,7 +35,7 @@ export function MediaLibrary({
   /** Each section's count, for a host whose nav shows them. */
   onCounts?: (counts: Partial<Record<string, number>>) => void;
 }) {
-  const { labels, prefix } = useLibraryHost();
+  const { labels, prefix, recordButton } = useLibraryHost();
   // The screen is mirrored in the URL both ways, and the URL is the one that holds it — see routes.ts.
   const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
   const [file, setFile] = useState<string | null>(null);
@@ -149,10 +149,18 @@ export function MediaLibrary({
           days={recordings}
           error={error}
           notice={notice}
+          manage={manage}
+          onChanged={refresh}
+          onError={setError}
           addButton={<AddRecording onDone={refresh} onError={setError} />}
           empty={
             <EmptyBlock
-              actions={<AddRecording onDone={refresh} onError={setError} />}
+              actions={
+                <>
+                  {recordButton}
+                  <AddRecording onDone={refresh} onError={setError} />
+                </>
+              }
             >
               {present === false
                 ? labels.contents.emptyLibrary

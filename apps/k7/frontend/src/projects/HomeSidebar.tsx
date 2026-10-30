@@ -266,7 +266,13 @@ export function HomeSidebar({
   // The media library's sections: active by the section the address shows, the bare prefix included.
   const onMedia =
     pathname === MEDIA_ROUTE || pathname.startsWith(`${MEDIA_ROUTE}/`);
-  const shownSection = onMedia ? sectionAt(pathname, MEDIA_ROUTE) : null;
+  // A recording's, a session's or a moment's page is a rehearsal page that belongs to the Recordings entry.
+  const shownRehearsal = rehearsalSectionAt(pathname, REHEARSAL_ROUTE);
+  const shownSection = onMedia
+    ? sectionAt(pathname, MEDIA_ROUTE)
+    : shownRehearsal === "recordings"
+      ? "recordings"
+      : null;
   const media: Entry[] = LIBRARY_SECTIONS.map((s) => ({
     label: mediaSectionLabel(s.id),
     icon: s.icon,
@@ -276,7 +282,6 @@ export function HomeSidebar({
   }));
 
   // The rehearsal pages' sections, active by the entry the address belongs to, detail pages included.
-  const shownRehearsal = rehearsalSectionAt(pathname, REHEARSAL_ROUTE);
   const rehearsal: Entry[] = REHEARSAL_SECTIONS.map((s) => ({
     label: s.label(),
     icon: s.icon,

@@ -14,6 +14,8 @@ export interface RehearsalHost {
   onLogout?: () => void;
   /** Where the host's settings page is. */
   settingsHref?: string;
+  /** Where the host lists the recordings, which replaces a sessions list here (../docs/recordings.md). */
+  recordingsHref?: string;
 }
 
 const HostContext = createContext<RehearsalHost | null>(null);

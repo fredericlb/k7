@@ -1,7 +1,7 @@
-// sessions.ts — a session's calls: its take, its envelope, its markers. Its moments are its recording's (moments.ts).
+// sessions.ts — a session's calls: its take and its envelope. Its moments and markers are its recording's (moments.ts).
 
 import { apiBase } from "../config";
-import type { Envelope, Marker, Session } from "../types";
+import type { Envelope, Session } from "../types";
 import { f, fu, json, type OnProgress } from "./http";
 
 export const sessionsApi = {
@@ -60,31 +60,4 @@ export const sessionsApi = {
 
   // Every *Url helper below spells the base out, because the BROWSER fetches it — ../../docs/routing.md.
   recordingUrl: (id: string) => `${apiBase()}/api/sessions/${id}/recording`,
-
-  // --- Markers (single-timestamp pins) ---
-  addMarker: (
-    id: string,
-    marker: { atSec: number; comment?: string },
-  ): Promise<Marker> =>
-    f(`/api/sessions/${id}/markers`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(marker),
-    }).then(json),
-
-  updateMarker: (
-    id: string,
-    markerId: string,
-    patch: Partial<Pick<Marker, "atSec" | "comment">>,
-  ): Promise<Marker> =>
-    f(`/api/sessions/${id}/markers/${markerId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    }).then(json),
-
-  deleteMarker: (id: string, markerId: string): Promise<null> =>
-    f(`/api/sessions/${id}/markers/${markerId}`, {
-      method: "DELETE",
-    }).then(json),
 };

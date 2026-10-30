@@ -1,4 +1,4 @@
-// sessions.ts — a session row, its recording and its envelope, the markers pinned on it, and the moments cut from that recording.
+// sessions.ts — a session row: the recording a take filed, its envelope and gain, and the moments and markers on that recording.
 // A recording's BYTES live in the médiathèque, the row keeping its path; cached on disk for Range (../../docs/audio.md).
 
 import { randomUUID } from "node:crypto";
@@ -10,7 +10,6 @@ import type { Row } from "../db.ts";
 import * as db from "../db.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
-import type { FieldsOf } from "../schema.ts";
 import { audioExtOf, audioMimeOf } from "../serve.ts";
 import { joinTakes } from "../transcode.ts";
 import {
@@ -20,7 +19,6 @@ import {
   mapMarker,
   ROW_TTL_MS,
   rowCache,
-  rowIn,
   safeUnlink,
 } from "./helpers.ts";
 
@@ -28,7 +26,7 @@ type SessionRow = Row<"Sessions">;
 
 const sessionCache = rowCache<SessionRow | null>();
 
-export async function getSessionRecord(
+async function getSessionRecord(
   uid: string,
 ): Promise<SessionRow | null> {
   const hit = sessionCache.get(uid);
@@ -78,23 +76,11 @@ const SESSION_LIST_FIELDS = [
   "Gain",
 ];
 
-/** Group rows by the session they belong to. */
-function bySession<T extends { fields: { SessionUid: string } }>(
+/** Group rows (moments, markers) by the recording they name. */
+function byRecording<T extends { fields: { RecordingPath: string } }>(
   rows: T[],
 ): Map<string, T[]> {
   const out = new Map<string, T[]>();
-  for (const r of rows) {
-    const key = r.fields.SessionUid;
-    const list = out.get(key);
-    if (list) list.push(r);
-    else out.set(key, [r]);
-  }
-  return out;
-}
-
-/** Group moments by the recording they were cut from. */
-function byRecording(rows: Row<"Comments">[]): Map<string, Row<"Comments">[]> {
-  const out = new Map<string, Row<"Comments">[]>();
   for (const r of rows) {
     const list = out.get(r.fields.RecordingPath);
     if (list) list.push(r);
@@ -109,23 +95,21 @@ export async function listSessions(ownerId: string) {
     { OwnerId: [ownerId] },
     { fields: SESSION_LIST_FIELDS },
   );
-  const uids = recs.map((r) => r.fields.Uid);
   const paths = recs.map((r) => r.fields.RecordingPath).filter(Boolean);
-  const comments = paths.length
-    ? db.listRecords("Comments", { RecordingPath: paths, OwnerId: [ownerId] })
-    : [];
-  const markers = uids.length
-    ? await db.listRecords("Markers", { SessionUid: uids })
-    : [];
-  const byPath = byRecording(comments);
-  const markersByUid = bySession(markers);
+  const scope = { RecordingPath: paths, OwnerId: [ownerId] };
+  const byPath = byRecording(
+    paths.length ? db.listRecords("Comments", scope) : [],
+  );
+  const markersByPath = byRecording(
+    paths.length ? db.listRecords("Markers", scope) : [],
+  );
   return recs
     .map((r) => {
       const s = publicSession(r);
       s.annotations = (byPath.get(r.fields.RecordingPath) || [])
         .map(mapComment)
         .sort((a, b) => a.startSec - b.startSec);
-      s.markers = (markersByUid.get(s.id) || [])
+      s.markers = (markersByPath.get(r.fields.RecordingPath) || [])
         .map(mapMarker)
         .sort((a, b) => a.atSec - b.atSec);
       return s;
@@ -137,17 +121,14 @@ export async function getSession(uid: string) {
   const rec = await getSessionRecord(uid);
   if (!rec) return null;
   const s = publicSession(rec);
-  const comments = rec.fields.RecordingPath
-    ? db.listRecords("Comments", {
-        RecordingPath: [rec.fields.RecordingPath],
-        OwnerId: [rec.fields.OwnerId],
-      })
-    : [];
-  s.annotations = comments
+  const path = rec.fields.RecordingPath;
+  const scope = { RecordingPath: [path], OwnerId: [rec.fields.OwnerId] };
+  s.annotations = (path ? db.listRecords("Comments", scope) : [])
     .map(mapComment)
     .sort((a, b) => a.startSec - b.startSec);
-  const markers = await db.listRecords("Markers", { SessionUid: [uid] });
-  s.markers = markers.map(mapMarker).sort((a, b) => a.atSec - b.atSec);
+  s.markers = (path ? db.listRecords("Markers", scope) : [])
+    .map(mapMarker)
+    .sort((a, b) => a.atSec - b.atSec);
   return s;
 }
 
@@ -184,14 +165,20 @@ export async function deleteSession(uid: string): Promise<boolean> {
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
       // A library that is down must not block a deletion; the orphan stays visible.
     });
-  // Moments survive on their own clips, naming a recording now gone; markers are the session's and go with it.
+  // Moments survive on their own clips, naming a recording now gone; its markers are pins on it and go with it.
+  const path = rec?.fields.RecordingPath;
   db.inTransaction(() => {
-    db.deleteRecords(
-      "Markers",
-      db
-        .listRecords("Markers", { SessionUid: [uid] }, { fields: [] })
-        .map((r) => r.id),
-    );
+    if (path)
+      db.deleteRecords(
+        "Markers",
+        db
+          .listRecords(
+            "Markers",
+            { RecordingPath: [path], OwnerId: [rec.fields.OwnerId] },
+            { fields: [] },
+          )
+          .map((r) => r.id),
+      );
     if (rec) db.deleteRecords("Sessions", [rec.id]);
   });
   invalidate(uid);
@@ -201,17 +188,17 @@ export async function deleteSession(uid: string): Promise<boolean> {
 
 // --- Recording + envelope ---------------------------------------------------
 
-/** The owner's moments follow a recording the save filed under a new path. */
+/** The owner's moments and markers follow a recording the save filed under a new path. */
 function repointMoments(rec: SessionRow, from: string, to: string): void {
   if (!from || from === to) return;
-  const moved = db.listRecords(
-    "Comments",
-    { RecordingPath: [from], OwnerId: [rec.fields.OwnerId] },
-    { fields: [] },
-  );
+  const scope = { RecordingPath: [from], OwnerId: [rec.fields.OwnerId] };
+  const moments = db.listRecords("Comments", scope, { fields: [] });
+  const markers = db.listRecords("Markers", scope, { fields: [] });
   db.inTransaction(() => {
-    for (const r of moved)
+    for (const r of moments)
       db.patchRecord("Comments", r.id, { RecordingPath: to });
+    for (const r of markers)
+      db.patchRecord("Markers", r.id, { RecordingPath: to });
   });
 }
 
@@ -416,56 +403,6 @@ async function concatRecordings(paths: string[]): Promise<string> {
     throw e;
   }
   return outPath;
-}
-
-// --- Markers (single-timestamp pins with an optional comment) ----------------
-
-export async function addMarker(
-  uid: string,
-  { atSec, comment }: { atSec?: number; comment?: string },
-  ownerId?: string,
-): Promise<Marker> {
-  const marker = {
-    atSec: Number(atSec) || 0,
-    comment: String(comment ?? ""),
-    createdAt: new Date().toISOString(),
-  };
-  const owner = ownerId || (await getOwner(uid));
-  const [{ id }] = await db.addRecords("Markers", [
-    {
-      SessionUid: uid,
-      OwnerId: owner ?? "",
-      AtSec: marker.atSec,
-      Comment: marker.comment,
-      CreatedAt: marker.createdAt,
-    },
-  ]);
-  return { id: String(id), ...marker };
-}
-
-export async function updateMarker(
-  uid: string,
-  markerId: string,
-  patch: { atSec?: number; comment?: string },
-): Promise<Marker | null> {
-  // Found in THIS session before anything is written, or a row id would edit anyone's marker.
-  const rec = rowIn("Markers", markerId, { SessionUid: uid });
-  if (!rec) return null;
-  const fields: Partial<FieldsOf<"Markers">> = {};
-  if (patch.atSec !== undefined) fields.AtSec = Number(patch.atSec);
-  if (patch.comment !== undefined) fields.Comment = String(patch.comment);
-  await db.patchRecord("Markers", rec.id, fields);
-  return mapMarker({ id: rec.id, fields: { ...rec.fields, ...fields } });
-}
-
-export async function deleteMarker(
-  uid: string,
-  markerId: string,
-): Promise<boolean> {
-  const rec = rowIn("Markers", markerId, { SessionUid: uid });
-  if (!rec) return false;
-  await db.deleteRecords("Markers", [rec.id]);
-  return true;
 }
 
 // One at a time per session — a read-modify-write here has no transaction to lean on (../lock.ts).

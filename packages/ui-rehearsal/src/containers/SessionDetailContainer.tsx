@@ -1,6 +1,7 @@
 import { detectEvents } from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { confirmLoss } from "../confirm";
 import {
   ActionFailure,
   LoadFailure,
@@ -15,6 +16,7 @@ interface Props {
   seekTo?: number;
   allTags: string[];
   onBack: () => void;
+  onDeleted: () => void;
   onChange: () => void;
   onResume: (session: Session) => Promise<void>;
 }
@@ -24,6 +26,7 @@ export function SessionDetailContainer({
   seekTo,
   allTags,
   onBack,
+  onDeleted,
   onChange,
   onResume,
 }: Props) {
@@ -119,21 +122,22 @@ export function SessionDetailContainer({
   });
 
   const handleAddMarker = guard(async (atSec: number) => {
-    await api.addMarker(sessionId, { atSec });
+    if (!session?.recordingPath) return;
+    await api.addRecordingMarker(session.recordingPath, { atSec });
     await reloadSession();
     onChange();
   });
 
   const handleUpdateMarker = guard(
     async (markerId: string, comment: string) => {
-      await api.updateMarker(sessionId, markerId, { comment });
+      await api.updateRecordingMarker(markerId, { comment });
       await reloadSession();
       onChange();
     },
   );
 
   const handleDeleteMarker = guard(async (markerId: string) => {
-    await api.deleteMarker(sessionId, markerId);
+    await api.deleteRecordingMarker(markerId);
     await reloadSession();
     onChange();
   });
@@ -159,6 +163,12 @@ export function SessionDetailContainer({
         audioSrc={`${api.recordingUrl(sessionId)}?v=${session.duration}`}
         validating={validating}
         onBack={onBack}
+        onDelete={guard(async () => {
+          if (!(await confirmLoss(m["session.confirmDelete"]()))) return;
+          await api.deleteSession(sessionId);
+          onChange();
+          onDeleted();
+        })}
         // The refusal is already on the page through guard; nothing else wants the rejection.
         onResume={() => void guard(onResume)(session).catch(() => {})}
         onThresholdChange={setThreshold}

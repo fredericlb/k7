@@ -17,6 +17,8 @@ export interface LibraryHost {
   recordingHref?: (path: string) => string;
   /** Where a moment opens; absent, a moment's row opens nothing. */
   momentHref?: (id: string) => string;
+  /** What starts a take, offered with the captures; absent, they can only be added as files. */
+  recordButton?: ReactNode;
   /** How the host draws a song's lyrics, tablature or sheets; absent, a song shows its tags alone — ../docs/songPlayer.md. */
   songAttachment?: (props: SongAttachmentView) => ReactNode;
 }

@@ -18,7 +18,7 @@ import type {
   OtherTags,
   SongbookSong,
 } from "@studio/mediatek/types";
-import type { Moment } from "@studio/rehearsal-shared";
+import type { Moment, Session } from "@studio/rehearsal-shared";
 import type {
   PublicEngine,
   SeparateJob,
@@ -296,6 +296,19 @@ export const library = {
 
   /** The raw capture zone, day by day — its own call, since a capture enters no catalogue (packages/mediatek/docs/recordings.md). */
   recordings: () => get<{ days: RecordingDay[] }>("/recordings", "recordings"),
+
+  /** The signed-in account's sessions: which captures are its own takes, and how long each runs. */
+  mySessions: async (): Promise<Session[]> =>
+    json(await request(`${apiBase()}/api/sessions`), "sessions"),
+
+  /** Delete one of the account's takes: its file, its session, its markers; its moments keep their clips. */
+  deleteSession: async (id: string): Promise<void> => {
+    const res = await request(
+      `${apiBase()}/api/sessions/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw await failed(res, "delete");
+  },
 
   /** The signed-in account's moments, every recording's: the rehearsal store keeps them (../docs/recordings.md). */
   moments: async (): Promise<Moment[]> =>

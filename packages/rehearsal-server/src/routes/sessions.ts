@@ -1,23 +1,14 @@
-/* Recording sessions and everything hung off them: the recording blob, its
-   loudness envelope and markers. Its moments are the recording's, under /moments.
+/* Recording sessions: the take a session files, its loudness envelope and gain.
+   Its moments and markers are the recording's, under /moments.
 */
 
-import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
+import { ownerGuard, sub, wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@studio/rehearsal-shared";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
 import { audioExtOf, isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
-
-const markerCreate = z.object({
-  atSec: z.coerce.number().default(0),
-  comment: z.string().default(""),
-});
-const markerPatch = z.object({
-  atSec: z.coerce.number().optional(),
-  comment: z.string().optional(),
-});
 
 export const sessionsRouter = Router();
 
@@ -133,40 +124,5 @@ sessionsRouter.get(
     const env = await store.getEnvelope(req.params.id);
     if (!env) return res.status(404).json({ error: "no envelope" });
     res.json(env);
-  }),
-);
-
-// --- Markers (single-timestamp pins) --------------------------------------
-
-sessionsRouter.post(
-  "/:id/markers",
-  validate(markerCreate),
-  wrap(async (req, res) => {
-    const marker = await store.addMarker(req.params.id, req.body, sub(req));
-    if (!marker) return res.status(404).json({ error: "not found" });
-    res.status(201).json(marker);
-  }),
-);
-
-sessionsRouter.put(
-  "/:id/markers/:markerId",
-  validate(markerPatch),
-  wrap(async (req, res) => {
-    const marker = await store.updateMarker(
-      req.params.id,
-      req.params.markerId,
-      req.body,
-    );
-    if (!marker) return res.status(404).json({ error: "not found" });
-    res.json(marker);
-  }),
-);
-
-sessionsRouter.delete(
-  "/:id/markers/:markerId",
-  wrap(async (req, res) => {
-    const ok = await store.deleteMarker(req.params.id, req.params.markerId);
-    if (!ok) return res.status(404).json({ error: "not found" });
-    res.status(204).end();
   }),
 );

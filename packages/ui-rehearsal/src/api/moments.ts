@@ -12,6 +12,9 @@ import type {
 } from "../types";
 import { f, json } from "./http";
 
+// The recorder's own ceiling on a take's playback gain.
+const MAX_GAIN = 32;
+
 export const momentsApi = {
   // --- Moments (standalone) ---
   listMoments: (): Promise<Moment[]> => f("/api/moments").then(json),
@@ -53,19 +56,48 @@ export const momentsApi = {
   captureUrl: (path: string) =>
     `${apiBase()}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
 
-  /** A capture's shape, as the médiathèque measures it, in the envelope a session stores. */
+  /** A capture's shape as the médiathèque measures it, in a session's envelope, and the gain a take would have stored. */
   captureEnvelope: async (
     path: string,
-  ): Promise<{ envelope: Envelope; duration: number }> => {
+  ): Promise<{ envelope: Envelope; duration: number; gain: number }> => {
     const raw = (await f(
       `/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
-    ).then(json)) as { seconds: number; rms: number[] };
+    ).then(json)) as { seconds: number; rms: number[]; peak?: number[] };
     const n = Math.max(1, raw.rms.length);
+    // The recorder's rule over the loudest bucket: 0.9 over the true peak, capped (packages/recorder/src/useRecorder.ts).
+    const peak = (raw.peak ?? raw.rms).reduce((a, b) => (b > a ? b : a), 0);
     return {
       envelope: { intervalMs: (raw.seconds * 1000) / n, samples: raw.rms },
       duration: raw.seconds,
+      gain: peak > 0 ? Math.min(MAX_GAIN, 0.9 / peak) : 1,
     };
   },
+
+  // --- Markers: pins on a recording's timeline ---
+  addRecordingMarker: (
+    recordingPath: string,
+    marker: { atSec: number; comment?: string },
+  ): Promise<Marker> =>
+    f("/api/moments/recording/markers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recordingPath, ...marker }),
+    }).then(json),
+
+  updateRecordingMarker: (
+    markerId: string,
+    patch: Partial<Pick<Marker, "atSec" | "comment">>,
+  ): Promise<Marker> =>
+    f(`/api/moments/recording/markers/${markerId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then(json),
+
+  deleteRecordingMarker: (markerId: string): Promise<null> =>
+    f(`/api/moments/recording/markers/${markerId}`, {
+      method: "DELETE",
+    }).then(json),
 
   getMoment: (id: string): Promise<Moment> =>
     f(`/api/moments/${id}`).then(json),
