@@ -143,9 +143,10 @@ It **replaces by id**, and can neither add nor remove a track. Three consequence
   forget the ids it last sent whenever the socket reopens, since a fresh socket can mean a fresh
   engine.
 
-Nothing sends it: pattern lanes are played by the engine itself (`patternPlugin.md`). It stays
-because it costs nothing unused and a live source of notes from outside the engine would want
-exactly this.
+One sender uses it: a shared song's player, for a visitor's mute and solo on their own session
+(`apps/k7/backend/src/media/shares/player.ts`), whole tracks at the pace of a click. Pattern lanes
+do not need it — the engine plays them itself (`patternPlugin.md`). The merge copies the held
+document once and moves it into the baseline; the diff still walks the whole song.
 
 No `busy` and no `applied` come back. This path is incremental by construction, and announcing a
 changeset six times a second would drown the one that matters — the full-document path still
