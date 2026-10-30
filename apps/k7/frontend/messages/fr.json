@@ -157,6 +157,7 @@
   "transport.tempoEdit": "Tempo — cliquer pour le changer",
   "transport.tempoAsk": "Tempo, en battements par minute",
   "transport.tempoBad": "un nombre de 20 à 400",
+  "transport.tempoTap": "Taper (Espace)",
   "transport.meterEdit": "Mesure — cliquer pour la changer",
   "transport.meterAsk": "Mesure, temps par mesure / valeur de note (4/4, 3/4, 6/8)",
   "transport.meterBad": "temps/unité, l'unité 1, 2, 4, 8, 16 ou 32 — par exemple 3/4",

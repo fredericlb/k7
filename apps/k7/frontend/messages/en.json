@@ -157,6 +157,7 @@
   "transport.tempoEdit": "Tempo — click to change it",
   "transport.tempoAsk": "Tempo, in beats per minute",
   "transport.tempoBad": "a number from 20 to 400",
+  "transport.tempoTap": "Tap (Space)",
   "transport.meterEdit": "Time signature — click to change it",
   "transport.meterAsk": "Time signature, beats per bar / note value (4/4, 3/4, 6/8)",
   "transport.meterBad": "beats/unit, the unit 1, 2, 4, 8, 16 or 32 — e.g. 3/4",

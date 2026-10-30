@@ -377,6 +377,12 @@ selected first. The region is the engine's session state, as Shift+L's is.
 `project meter`, which write `project.k7x` — the two numbers were otherwise reachable only by editing
 the file.
 
+**The tempo question has a Tap button, and Space taps too** (`shell/tapTempo.ts`): a tempo is easier
+to play than to count. Space is the transport everywhere else, but with the question open nothing is
+playing that the person means to stop, and a key held near the field beats reaching for the mouse
+in time. The field takes the taps' tempo in whole bpm, averaged over the last eight, and a pause of
+two seconds starts a new run; Enter writes it as any typed value.
+
 **One record, whatever the lane holds.** The circle flips the ENGINE's record state, and play records
 every lane armed there (`transport arm`) — and the MIDI-armed lane too, which the BROWSER captures
 (`useMidiRecording.ts`): the engine never hears a controller, so the notes are timed here, in

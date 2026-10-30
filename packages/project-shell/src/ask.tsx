@@ -34,6 +34,8 @@ export interface AskText extends Common {
   actions?: { key: string; label: string }[];
   /** Set by `askTextAction`: the answer carries which button gave it. */
   withAction?: boolean;
+  /** A button that rewrites the field in place, also pressed by `key` anywhere in the dialog — docs/ask.md. */
+  tool?: { label: string; key?: string; press: (value: string) => string };
 }
 
 export interface AskChoice extends Common {
@@ -153,6 +155,9 @@ function AskDialog({
   const invalid = text?.validate ? text.validate(value) : "";
   // A cancel is the same answer however it arrives — Escape, the backdrop, the button.
   const cancel = () => onDone(text || choice ? null : false);
+  const tool = text?.tool;
+  // Not an updater: `press` keeps state of its own, and StrictMode runs an updater twice.
+  const pressTool = () => tool && setValue(tool.press(value));
   // A text answer, wrapped with the button that gave it when the caller asked which.
   const answer = (action: string): Answer =>
     text?.withAction ? { value, action } : value;
@@ -181,6 +186,13 @@ function AskDialog({
       aria-label={pending.title}
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       onKeyDown={(e) => {
+        // The tool's key is the dialog's, not the field's nor the app's (Space would be the transport).
+        if (tool?.key && e.key === tool.key) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!e.repeat) pressTool();
+          return;
+        }
         if (e.key === "Escape") cancel();
         if (e.key === "Enter" && !invalid) accept();
       }}
@@ -215,6 +227,17 @@ function AskDialog({
           </div>
         ) : null}
         <div className="flex justify-end gap-2">
+          {tool ? (
+            <button
+              type="button"
+              // Focus stays in the field, so Enter after tapping still answers rather than pressing the tool again.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={pressTool}
+              className="mr-auto rounded border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted active:bg-accent"
+            >
+              {tool.label}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={cancel}
