@@ -22,6 +22,8 @@ export interface LibraryLabels {
     pause: string;
     /** "B", "kB", "MB" — how a size is printed on a row. */
     units: { b: string; kb: string; mb: string };
+    /** The reader's language, which a date or a clock is printed in (a BCP 47 tag). */
+    locale: string;
   };
   tree: {
     open: string;

@@ -4,6 +4,7 @@
 
 import type { LibraryLabels, SectionId } from "@studio/ui-library";
 import { m } from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
 
 /** One or many, the two catalogues spelling each form whole. */
 const plural =
@@ -36,6 +37,7 @@ export function mediaLabels(): LibraryLabels {
         kb: m["media.unit.kb"](),
         mb: m["media.unit.mb"](),
       },
+      locale: getLocale(),
     },
     tree: {
       open: m["media.tree.open"](),
