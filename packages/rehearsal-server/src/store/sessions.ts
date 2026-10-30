@@ -26,9 +26,7 @@ type SessionRow = Row<"Sessions">;
 
 const sessionCache = rowCache<SessionRow | null>();
 
-async function getSessionRecord(
-  uid: string,
-): Promise<SessionRow | null> {
+async function getSessionRecord(uid: string): Promise<SessionRow | null> {
   const hit = sessionCache.get(uid);
   if (hit && hit.exp > Date.now()) return hit.rec;
   const recs = await db.listRecords("Sessions", { Uid: [uid] });
