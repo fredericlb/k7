@@ -89,12 +89,28 @@
     height: auto;
   }
 
-  /* A score scrolls inside its own box: alphaTab follows the cursor by scrolling this element. */
+  /* A score scrolls inside its own box: the view follows the notes being played by scrolling this element. */
   .score-viewport {
     position: relative;
     max-height: 75vh;
     overflow: auto;
     background: #fff;
+    color: #000;
+  }
+  /* Verovio's pages, one under the other, each the panel's width. */
+  .score-pages svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .score-pages [data-class="note"] {
+    cursor: pointer;
+  }
+  /* The notes sounding now: the playhead a score has instead of a cursor bar. */
+  .score-pages .score-playing,
+  .score-pages .score-playing * {
+    fill: #7c3aed;
+    stroke: #7c3aed;
   }
   .score-toolbar {
     flex-wrap: wrap;

@@ -63,6 +63,19 @@ export function SheetPanel({ sheets, urlFor, onDelete, transpose = 0 }: Props) {
                 <ScoreSheet url={urlFor(file.id)} transpose={transpose} />
               </figure>
             );
+          // A file the Sheet tab no longer draws (a Guitar Pro file stored before): its name, a download and its delete.
+          if (kind === null)
+            return (
+              <figure key={file.id} className="sheet-file">
+                {caption(file)}
+                <p className="muted small">
+                  {m["sheet.notShown"]()}{" "}
+                  <a href={urlFor(file.id)} download={file.name}>
+                    {m["sheet.download"]()}
+                  </a>
+                </p>
+              </figure>
+            );
           if (kind === "pdf")
             return (
               <figure key={file.id} className="sheet-file">

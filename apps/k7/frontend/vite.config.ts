@@ -1,5 +1,4 @@
 import { fileURLToPath } from "node:url";
-import { alphaTab } from "@coderline/alphatab-vite";
 import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
@@ -74,8 +73,6 @@ export default ({ command }: ConfigEnv) => {
           strategy: STRATEGY,
           outputStructure: OUTPUT,
         }),
-        // alphaTab copies its font and soundfont into public/ and wires its worker and worklet (packages/score).
-        alphaTab(),
         // The About page's third-party notices, a chunk of their own — docs/about.md.
         noticesPlugin(),
       ],

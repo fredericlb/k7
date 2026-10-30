@@ -1,4 +1,4 @@
-// What kind of file a song's sheet holds — a PDF, an image, or a score alphaTab reads.
+// What kind of file a song's sheet holds — a PDF, an image, or a MusicXML score Verovio draws.
 // One definition for the backend's upload check, the Sheet tab and both exports.
 // What reads wrong: a score is recognised by its EXTENSION, since browsers send these files as
 // application/octet-stream or text/xml — ../score/docs/score.md.
@@ -12,11 +12,6 @@ const SCORE_MIME: Record<string, string> = {
   musicxml: "application/vnd.recordare.musicxml+xml",
   xml: "application/vnd.recordare.musicxml+xml",
   mxl: "application/vnd.recordare.musicxml",
-  gp: "application/x-guitar-pro",
-  gpx: "application/x-guitar-pro",
-  gp3: "application/x-guitar-pro",
-  gp4: "application/x-guitar-pro",
-  gp5: "application/x-guitar-pro",
 };
 
 /** What the file picker offers: everything this module accepts. */
@@ -61,7 +56,7 @@ export function sheetExt(name: string, mime: string): string {
   return "bin";
 }
 
-/** The type a sheet is SERVED under: a score is bytes for alphaTab, never an XML type a browser would render. */
+/** The type a sheet is SERVED under: a score is bytes for the viewer, never an XML type a browser would render. */
 export function sheetServedMime(name: string, mime: string): string {
   const kind = sheetKind(name, mime);
   if (kind === "pdf") return "application/pdf";

@@ -314,5 +314,7 @@
   "moment.recordingGone": "The original recording is no longer available.",
   "recording.back": "Recordings",
   "recording.noWaveform": "No waveform for this recording: {reason}",
-  "recording.retry": "Try again"
+  "recording.retry": "Try again",
+  "sheet.notShown": "This kind of file is not shown on the Sheet tab.",
+  "sheet.download": "Download it"
 }

@@ -314,5 +314,7 @@
   "moment.recordingGone": "L'enregistrement d'origine n'est plus disponible.",
   "recording.back": "Enregistrements",
   "recording.noWaveform": "Pas de forme d'onde pour cet enregistrement : {reason}",
-  "recording.retry": "Réessayer"
+  "recording.retry": "Réessayer",
+  "sheet.notShown": "Ce type de fichier n'est pas affiché dans l'onglet Partition.",
+  "sheet.download": "Le télécharger"
 }

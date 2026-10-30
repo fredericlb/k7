@@ -275,21 +275,13 @@
       "text": "directml.txt"
     },
     {
-      "name": "Bravura (music font)",
-      "versionFrom": "package:packages/score#@coderline/alphatab",
-      "license": "OFL-1.1",
-      "url": "https://github.com/steinbergmedia/bravura",
-      "where": ["web"],
-      "note": "Copied into the app by alphaTab's build plugin, for scores and tablature.",
-      "text": "bravura.txt"
-    },
-    {
       "name": "Sonivox sound font",
-      "versionFrom": "package:packages/score#@coderline/alphatab",
+      "version": "2.10",
+      "source": "apps/k7/frontend/public/score/SONIVOX-README.md",
       "license": "Apache-2.0",
-      "url": "https://github.com/CoderLine/alphaTab",
+      "url": "https://musical-artifacts.com/artifacts/1517",
       "where": ["web"],
-      "note": "Copied into the app by alphaTab's build plugin, for score playback.",
+      "note": "Served beside the app, for score playback (packages/score).",
       "text": "sonivox.txt"
     },
     {
