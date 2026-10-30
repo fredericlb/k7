@@ -91,6 +91,8 @@ export function SessionDetailView({
 }: Props) {
   const playback = useSessionPlayback(session, seekTo);
   const [selection, setSelection] = useState<Selection | null>(null);
+  // Detection runs when asked for, never on its own: a page opens on the recording alone (../docs/recordings.md).
+  const [detecting, setDetecting] = useState(false);
   // The moment whose range is being adjusted, as a live draft committed on Apply.
   const [editing, setEditing] = useState<{
     id: string;
@@ -182,6 +184,8 @@ export function SessionDetailView({
             onTogglePlay={playback.togglePlay}
             onAddMarker={onAddMarker}
             onResume={onResume}
+            detecting={detecting}
+            onToggleDetect={() => setDetecting((d) => !d)}
             onThresholdChange={onThresholdChange}
             onMinSilenceChange={onMinSilenceChange}
             onSaveSelection={saveSelectionMoment}
@@ -209,7 +213,7 @@ export function SessionDetailView({
 
           <SessionMoments
             session={session}
-            events={eventsResult?.events ?? NO_EVENTS}
+            events={detecting ? (eventsResult?.events ?? NO_EVENTS) : NO_EVENTS}
             envelope={envelope}
             allTags={allTags}
             validating={validating}

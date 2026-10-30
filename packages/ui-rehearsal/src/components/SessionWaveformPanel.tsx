@@ -1,10 +1,17 @@
-// SessionWaveformPanel.tsx — the top of a recording's page: its waveform with the detection drawn on
-// it, the transport, the two detection sliders, and the selection a moment is saved from.
+// SessionWaveformPanel.tsx — the top of a recording's page: its waveform, the transport, the detection
+// once asked for (drawn on the waveform, with its two sliders), and the selection a moment is saved from.
 // Markers and resuming are a session's: a capture of the médiathèque passes neither.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { Circle, Diamond, Flag, Pause, Play } from "@frediverse/ui/icons";
+import {
+  Circle,
+  Diamond,
+  Flag,
+  Pause,
+  Play,
+  Sparkles,
+} from "@frediverse/ui/icons";
 import type { LiveValue } from "@studio/recorder";
 import { fmtTime } from "../format";
 import { m } from "../paraglide/messages.js";
@@ -27,23 +34,30 @@ interface Props {
   onTogglePlay: () => void;
   onAddMarker?: (atSec: number) => void;
   onResume?: () => void;
+  /** Whether the detection was asked for: until then the waveform carries none (../../docs/recordings.md). */
+  detecting: boolean;
+  onToggleDetect: () => void;
   onThresholdChange: (t: number) => void;
   onMinSilenceChange: (ms: number) => void;
   onSaveSelection: () => void;
 }
 
 export function SessionWaveformPanel(p: Props) {
-  const { envelope, eventsResult, threshold, clock, selection } = p;
+  const { envelope, clock, selection, threshold } = p;
+  // The detection is drawn only once asked for; computed or not, it stays off the page until then.
+  const eventsResult = p.detecting ? p.eventsResult : null;
   return (
     <>
-      {envelope && eventsResult && (
+      {envelope && (
         <>
           <PlayheadWaveform
             clock={clock}
             envelope={envelope}
             duration={p.session.duration}
-            threshold={threshold ?? eventsResult.threshold}
-            events={eventsResult.events}
+            threshold={
+              eventsResult ? (threshold ?? eventsResult.threshold) : undefined
+            }
+            events={eventsResult?.events}
             annotations={p.session.annotations}
             markers={p.session.markers}
             selection={selection}
@@ -69,6 +83,14 @@ export function SessionWaveformPanel(p: Props) {
             <span className="muted small tabular">
               <PlaybackTime clock={clock} /> / {fmtTime(p.session.duration)}
             </span>
+            <Button
+              variant={p.detecting ? "default" : "outline"}
+              aria-pressed={p.detecting}
+              onClick={p.onToggleDetect}
+              title={m["session.detectTitle"]()}
+            >
+              <Sparkles className="size-4" /> {m["session.detect"]()}
+            </Button>
             {p.onAddMarker && (
               <Button
                 variant="outline"
@@ -91,44 +113,46 @@ export function SessionWaveformPanel(p: Props) {
             )}
           </div>
 
-          <Card className="controls">
-            <div className="control">
-              <label>
-                {m["session.floor"]()}{" "}
-                <b>
-                  {(
-                    ((threshold ?? 0) / (eventsResult.peak || 1)) *
-                    100
-                  ).toFixed(0)}
-                  %
-                </b>{" "}
-                {m["session.ofPeak"]()}
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={eventsResult.peak || 1}
-                step={(eventsResult.peak || 1) / 200}
-                value={threshold ?? 0}
-                onChange={(e) => p.onThresholdChange(Number(e.target.value))}
-              />
-            </div>
-            <div className="control">
-              <label>
-                {m["session.minGap"]()} <b>{p.minSilence}s</b>
-              </label>
-              <input
-                type="range"
-                min={0.5}
-                max={10}
-                step={0.5}
-                value={p.minSilence}
-                onChange={(e) => p.onMinSilenceChange(Number(e.target.value))}
-              />
-            </div>
-          </Card>
+          {eventsResult && (
+            <Card className="controls">
+              <div className="control">
+                <label>
+                  {m["session.floor"]()}{" "}
+                  <b>
+                    {(
+                      ((threshold ?? 0) / (eventsResult.peak || 1)) *
+                      100
+                    ).toFixed(0)}
+                    %
+                  </b>{" "}
+                  {m["session.ofPeak"]()}
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={eventsResult.peak || 1}
+                  step={(eventsResult.peak || 1) / 200}
+                  value={threshold ?? 0}
+                  onChange={(e) => p.onThresholdChange(Number(e.target.value))}
+                />
+              </div>
+              <div className="control">
+                <label>
+                  {m["session.minGap"]()} <b>{p.minSilence}s</b>
+                </label>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={10}
+                  step={0.5}
+                  value={p.minSilence}
+                  onChange={(e) => p.onMinSilenceChange(Number(e.target.value))}
+                />
+              </div>
+            </Card>
+          )}
 
-          {eventsResult.events.length === 0 && (
+          {eventsResult?.events.length === 0 && (
             <p className="muted small">{m["session.noneDetected"]()}</p>
           )}
         </>

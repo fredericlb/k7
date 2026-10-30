@@ -316,5 +316,7 @@
   "recording.noWaveform": "No waveform for this recording: {reason}",
   "recording.retry": "Try again",
   "sheet.notShown": "This kind of file is not shown on the Sheet tab.",
-  "sheet.download": "Download it"
+  "sheet.download": "Download it",
+  "session.detect": "Detect moments",
+  "session.detectTitle": "Find the passages played between silences, to save as moments"
 }
