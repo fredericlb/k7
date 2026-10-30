@@ -8,10 +8,10 @@ import { Disc3 } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
 import { useSongShape } from "../songWaveform";
-import { InstrumentalButton } from "./InstrumentalButton";
 import { usePlayback } from "./PlaybackProvider";
 import { usePlaybackPosition } from "./position";
 import { playbackTargetInfo } from "./targets";
+import { useInstrumentalMenu } from "./useInstrumentalMenu";
 import { useStartNext } from "./useQueueAdvance";
 import { WaveformTrack } from "./WaveformTrack";
 
@@ -30,6 +30,9 @@ export function MiniPlayer() {
   const startNext = useStartNext();
   // The shape of the file PLAYING — the master, a variant or the instrumental — and none means the plain scrubber.
   const shape = useSongShape(now?.path ?? null);
+
+  // Called before the early return: it is a hook, whatever the bar shows.
+  const instrumental = useInstrumentalMenu();
 
   if (!now) return null;
 
@@ -53,6 +56,7 @@ export function MiniPlayer() {
       duration={duration}
       labels={l.bar}
       onToggle={toggle}
+      playMenu={instrumental.item}
       onSeek={seek}
       onNext={queue.length ? startNext : undefined}
       track={
@@ -109,8 +113,7 @@ export function MiniPlayer() {
         {l.targets[where.id].label}
       </span>
 
-      {/* The library song's instrumental, and back. */}
-      <InstrumentalButton />
+      {instrumental.dialog}
     </Bar>
   );
 }

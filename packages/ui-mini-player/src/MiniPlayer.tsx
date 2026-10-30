@@ -7,12 +7,13 @@
 
 import { Button } from "@frediverse/ui/button";
 import type { LucideIcon } from "@frediverse/ui/icons";
-import { Pause, Play, X } from "@frediverse/ui/icons";
+import { X } from "@frediverse/ui/icons";
 import { formatClock } from "@studio/ui-timeline/ticks";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useDockSlot } from "./dock";
 import { useMediaSession } from "./mediaSession";
+import { PlayButton } from "./PlayButton";
 import { useScrub } from "./useScrub";
 
 /** mm:ss — one clock, so two readings of one transport never disagree by a rounding. */
@@ -43,6 +44,7 @@ export function MiniPlayer({
   duration,
   labels,
   onToggle,
+  playMenu,
   onSeek,
   onClose,
   onNext,
@@ -71,6 +73,8 @@ export function MiniPlayer({
   duration: number;
   labels: MiniPlayerLabels;
   onToggle: () => void;
+  /** The play button's menu, opened by a right-click or a long press: the host's items. */
+  playMenu?: ReactNode;
   onSeek: (seconds: number) => void;
   /** Absent, the bar has no close: a host whose transport is always there. */
   onClose?: () => void;
@@ -132,19 +136,13 @@ export function MiniPlayer({
         {transport !== undefined ? (
           <div className="flex shrink-0 items-center gap-1">{transport}</div>
         ) : (
-          <Button
-            size="icon"
-            variant="secondary"
-            className="shrink-0"
-            onClick={onToggle}
-            aria-label={playing ? labels.pause : labels.play}
-          >
-            {playing ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-          </Button>
+          <PlayButton
+            playing={playing}
+            onToggle={onToggle}
+            playLabel={labels.play}
+            pauseLabel={labels.pause}
+            menu={playMenu}
+          />
         )}
 
         <div className="min-w-0 flex-1">
