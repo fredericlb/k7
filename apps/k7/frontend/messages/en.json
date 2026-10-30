@@ -1060,7 +1060,7 @@
   "media.song.lookingForLyrics": "Looking for the lyrics…",
   "media.song.lyricsFound": "Lyrics found: the chords take their times.",
   "media.song.lyricsNotFound": "No lyrics found — add them by hand to time the chords.",
-  "media.song.tabWaveform": "Waveform",
+  "media.song.waveformPane": "Waveform",
   "media.song.tabDiagrams": "Diagrams",
   "media.song.menu": "More",
   "media.song.addedOn": "Added on {date}",

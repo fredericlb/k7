@@ -1,5 +1,5 @@
-// SongInfoTabs.tsx — the song page's one column of tabs: the waveform and its versions, the tags,
-// then a tab per attachment it carries — lyrics, chords, their diagrams, tablature, sheets —
+// SongInfoTabs.tsx — the song page's one column of tabs: its info (the tags, over a pane of the waveform
+// and its versions), then a tab per attachment it carries — lyrics, chords, their diagrams, tablature, sheets —
 // drawn by the host exactly as the songbook draws them. The lyrics and chords follow the track.
 // What adds an attachment is the header's menu (SongMenu.tsx). See ../docs/songPlayer.md.
 
@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { useMemo } from "react";
 import { library } from "./api";
+import { BottomSplit } from "./BottomSplit";
 import { FollowedText } from "./FollowedText";
 import { useLabels, useLibraryHost } from "./host";
 import { SongPlayer } from "./SongPlayer";
@@ -55,7 +56,7 @@ export function SongInfoTabs({
     () => songChords(song?.chords ?? "", song?.lyrics ?? "", transpose),
     [song?.chords, song?.lyrics, transpose],
   );
-  const tabs: SongTab[] = ["waveform", "info"];
+  const tabs: SongTab[] = ["info"];
   for (const k of carried) {
     tabs.push(k);
     if (k === "chords" && chords.length) tabs.push("diagrams");
@@ -63,10 +64,9 @@ export function SongInfoTabs({
   // Inline chords with no chords.txt still earn the diagrams, placed after the lyrics.
   if (songAttachment && chords.length && !tabs.includes("diagrams"))
     tabs.splice(tabs.indexOf("lyrics") + 1 || tabs.length, 0, "diagrams");
-  const current: SongTab = tabs.includes(tab) ? tab : "waveform";
+  const current: SongTab = tabs.includes(tab) ? tab : "info";
 
   const label: Record<SongTab, string> = {
-    waveform: l.tabWaveform,
     info: l.tabInfo,
     lyrics: l.tabLyrics,
     chords: l.tabChords,
@@ -75,7 +75,7 @@ export function SongInfoTabs({
     sheet: l.tabSheet,
   };
 
-  const info = entry.meta?.master ? (
+  const tags = entry.meta?.master ? (
     <SongTagsForm folder={entry.path} onSaved={onSaved} onStatus={onStatus} />
   ) : (
     <div className="flex h-full items-center justify-center p-4 text-sm text-muted-foreground">
@@ -85,7 +85,7 @@ export function SongInfoTabs({
 
   const waveform = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-[200px] flex-1">
+      <div className="min-h-0 flex-1">
         <SongPlayer entry={entry} transport={transport} />
       </div>
       {entry.variants?.length ? (
@@ -94,6 +94,17 @@ export function SongInfoTabs({
         </div>
       ) : null}
     </div>
+  );
+
+  // The tags over the waveform: what a song IS and what it sounds like, read together (../docs/songPlayer.md).
+  const info = (
+    <BottomSplit
+      top={tags}
+      bottom={waveform}
+      label={l.waveformPane}
+      storageKey="k7.songWaveformShare"
+      initial={0.55}
+    />
   );
 
   const typed = (kind: Typed) => {
@@ -172,15 +183,13 @@ export function SongInfoTabs({
   );
 
   const body =
-    current === "waveform"
-      ? waveform
-      : current === "info"
-        ? info
-        : current === "sheet"
-          ? sheet
-          : current === "diagrams"
-            ? diagrams
-            : typed(current);
+    current === "info"
+      ? info
+      : current === "sheet"
+        ? sheet
+        : current === "diagrams"
+          ? diagrams
+          : typed(current);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -195,7 +204,7 @@ export function SongInfoTabs({
         </TabsList>
       </Tabs>
       <div
-        className={`min-h-0 flex-1 ${current === "waveform" ? "overflow-hidden" : "overflow-auto"}`}
+        className={`min-h-0 flex-1 ${current === "info" ? "overflow-hidden" : "overflow-auto"}`}
       >
         {body}
       </div>

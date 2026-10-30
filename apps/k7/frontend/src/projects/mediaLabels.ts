@@ -181,7 +181,7 @@ export function mediaLabels(): LibraryLabels {
       lookingForLyrics: m["media.song.lookingForLyrics"](),
       lyricsFound: m["media.song.lyricsFound"](),
       lyricsNotFound: m["media.song.lyricsNotFound"](),
-      tabWaveform: m["media.song.tabWaveform"](),
+      waveformPane: m["media.song.waveformPane"](),
       tabDiagrams: m["media.song.tabDiagrams"](),
       menu: m["media.song.menu"](),
       addedOn: (date: string) => m["media.song.addedOn"]({ date }),
