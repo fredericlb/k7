@@ -166,7 +166,8 @@ export class EngineClient extends EngineQueries {
   broadcast(on: boolean): void {
     if (on === this.broadcasting) return;
     this.broadcasting = on;
-    this.send({ type: "broadcast", on });
+    // Sixteen bits are half the bytes and inaudibly different; an engine that predates the codec ignores the field.
+    this.send({ type: "broadcast", on, codec: "pcm16" });
   }
 
   // Meter the INTERFACE — one peak per channel set, plus the master out; it enables the devices it measures, so ask only while on screen.

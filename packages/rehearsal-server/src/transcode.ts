@@ -14,6 +14,8 @@ export interface Limiter {
 
 /** Refused at once rather than queued: the re-encodes already waiting are more than the process should hold. */
 export class TranscodeBusyError extends Error {
+  /** Answered 503 with a Retry-After by the routers' error handler (errors.ts). */
+  readonly status = 503;
   constructor() {
     super("the server is busy re-encoding audio; try again in a moment");
     this.name = "TranscodeBusyError";

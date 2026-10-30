@@ -240,8 +240,8 @@ cushion is 150 ms rather than 50 — the full reasoning is in
   little-endian int16, half the bytes (about 1.5 Mbit/s) for a sixteen-bit floor no listening
   room hears. The engine encodes each codec once per frame and only when some listener holds it,
   so float32 listeners pay nothing. The default stays float32 because a decoder that does not
-  know codec 2 rejects the frame: `packages/engine-protocol/stream.ts` has to accept it, and the
-  browser's player to convert it, before any page asks.
+  know codec 2 rejects the frame; k7's pages know it (`packages/engine-protocol/stream.ts`) and ask
+  for it.
 * **No drift correction**, for the reason in the browser doc: which fix is right depends on
   how much drift there is, and that is measurement 5.
 * **No authentication of its own.** The stream rides the existing socket and inherits

@@ -9,8 +9,10 @@ export const STREAM_VERSION = 1;
 /** Header size, and therefore the payload's offset; a multiple of 4, since the payload is a Float32Array view over the same buffer. */
 export const STREAM_HEADER_BYTES = 32;
 
-/** The only codec the first cut speaks. Opus would be 1 — ../engine-browser/docs/streaming.md says why not yet. */
+/** Float32 samples, the engine's default. Opus would be 1 — ../engine-browser/docs/streaming.md says why not yet. */
 export const STREAM_CODEC_PCM_F32 = 0;
+/** Little-endian int16 samples, half the bytes, sent to a listener that asked `codec: "pcm16"`. */
+export const STREAM_CODEC_PCM_S16 = 2;
 
 export interface StreamFrameHeader {
   version: number;
@@ -77,12 +79,14 @@ export function decodeStreamFrame(buf: ArrayBuffer): StreamFrame | null {
   const frames = dv.getUint32(12, true);
   const seq = dv.getUint32(16, true);
   const codec = dv.getUint8(20);
-  if (codec !== STREAM_CODEC_PCM_F32) return null;
+  if (codec !== STREAM_CODEC_PCM_F32 && codec !== STREAM_CODEC_PCM_S16)
+    return null;
   // A channel count of 0, or one the browser cannot lay out, would make an empty or misaligned view rather than an obvious failure.
   if (channels < 1 || channels > 2) return null;
   if (sampleRate < 8000 || sampleRate > 384000) return null;
   const count = frames * channels;
-  if (buf.byteLength !== STREAM_HEADER_BYTES + count * 4) return null;
+  const width = codec === STREAM_CODEC_PCM_S16 ? 2 : 4;
+  if (buf.byteLength !== STREAM_HEADER_BYTES + count * width) return null;
   return {
     version,
     channels,
@@ -91,8 +95,18 @@ export function decodeStreamFrame(buf: ArrayBuffer): StreamFrame | null {
     seq,
     codec,
     captureMs: dv.getFloat64(24, true),
-    samples: new Float32Array(buf, STREAM_HEADER_BYTES, count),
+    samples:
+      codec === STREAM_CODEC_PCM_S16
+        ? fromInt16(new Int16Array(buf, STREAM_HEADER_BYTES, count))
+        : new Float32Array(buf, STREAM_HEADER_BYTES, count),
   };
+}
+
+/** int16 back to the float range the player takes, as the engine scaled it (×32767). */
+function fromInt16(src: Int16Array): Float32Array {
+  const out = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i++) out[i] = src[i] / 32767;
+  return out;
 }
 
 /** How many frames were dropped between `prev` and `seq`, across the 32-bit wrap. */

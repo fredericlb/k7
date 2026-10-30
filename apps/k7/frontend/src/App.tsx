@@ -20,6 +20,7 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { setUpdateBusy } from "@frediverse/vite-config/register";
 import type { EngineUrl } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
@@ -502,6 +503,11 @@ export default function App({
   // What the recording hooks read instead: a short link drop must neither end nor split a take (engine-browser docs/reliability.md).
   const recPlaying = useHeldState(store, (s) => s.playing);
   const recRecordEnabled = useHeldState(store, (s) => s.recordEnabled);
+  // A page that plays or records holds a deploy's reload until it stops (@frediverse/vite-config docs/pwa.md).
+  useEffect(() => {
+    setUpdateBusy(recPlaying || recRecordEnabled);
+    return () => setUpdateBusy(false);
+  }, [recPlaying, recRecordEnabled]);
   // The project's change token, read here so the whole tree shares the ONE refcounted poll (docs/plugins.md).
   const rev = useRevision();
   const { logs, pushLog, clearLogs } = useLogs(panel);

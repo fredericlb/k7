@@ -3,6 +3,7 @@ import {
   decodeStreamFrame,
   encodeStreamFrame,
   STREAM_CODEC_PCM_F32,
+  STREAM_CODEC_PCM_S16,
   STREAM_HEADER_BYTES,
   STREAM_MAGIC,
   STREAM_VERSION,
@@ -89,6 +90,20 @@ describe("the decoder rejects rather than guesses", () => {
     const buf = encodeStreamFrame(frame());
     new DataView(buf).setUint8(20, 1);
     expect(decodeStreamFrame(buf)).toBeNull();
+  });
+
+  it("reads int16 samples back into the float range", () => {
+    // Built by hand as the engine writes codec 2: the float frame's header, then int16 samples.
+    const f = encodeStreamFrame(frame({ frames: 2, channels: 2 }));
+    const buf = new ArrayBuffer(STREAM_HEADER_BYTES + 4 * 2);
+    new Uint8Array(buf).set(new Uint8Array(f, 0, STREAM_HEADER_BYTES));
+    new DataView(buf).setUint8(20, STREAM_CODEC_PCM_S16);
+    new Int16Array(buf, STREAM_HEADER_BYTES, 4).set([32767, -32767, 0, 16384]);
+    const got = decodeStreamFrame(buf);
+    expect(got?.codec).toBe(STREAM_CODEC_PCM_S16);
+    expect(Array.from(got?.samples ?? [])).toEqual(
+      [1, -1, 0, 16384 / 32767].map(Math.fround),
+    );
   });
 
   it("ignores a frame whose length disagrees with its header", () => {
