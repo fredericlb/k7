@@ -1,6 +1,7 @@
 // pool.ts — a waveform's file work handed to worker threads (poolWorker.ts), so the request thread
 // only waits: a sidecar checked (one worker), a source analysed (two: each decode holds a mono copy of its file,
-// ~57 MB for five minutes). A machine where a worker will not start does it inline. See docs/analysis.md.
+// ~57 MB for five minutes). A machine where a worker will not LOAD does it inline; one that dies is
+// replaced, and the job that killed it fails. See docs/analysis.md.
 // The one thing a reader would get wrong: a deadline TERMINATES the worker, since a decode stuck inside
 // the WebAssembly module never comes back to read its abort signal.
 
@@ -35,13 +36,23 @@ export class DeadlineError extends Error {
   }
 }
 
+/** A job whose worker died under it, twice or alone: the job is what kills it, so it is not run again. */
+export class WorkerDiedError extends Error {
+  constructor(why: string) {
+    super(`the analysis worker died on this file: ${why}`);
+    this.name = "WorkerDiedError";
+  }
+}
+
 interface Job {
   resolve: (value: unknown) => void;
   reject: (e: Error) => void;
   /** The same work inline, for when the worker itself is what failed. */
   inline: () => Promise<unknown>;
-  /** The same work on another worker, for when a neighbour's deadline killed this one. */
-  again: () => Promise<unknown>;
+  /** The same work on another worker, for when a neighbour's deadline or crash killed this one. */
+  again: (died?: boolean) => Promise<unknown>;
+  /** Already on a worker that died: a second death names it the culprit. */
+  died: boolean;
   /** Run once its worker is gone, after a deadline: what the killed work left on disk. */
   after?: () => void;
   timer?: ReturnType<typeof setTimeout>;
@@ -50,11 +61,15 @@ interface Job {
 interface Slot {
   worker: Worker;
   jobs: Map<number, Job>;
+  /** Set by the worker's first message: a death before it is a worker that cannot load here. */
+  loaded: boolean;
 }
 
 const pools: Record<Kind, Slot[]> = { analyse: [], check: [], transcode: [] };
 let nextId = 0;
 let broken = false;
+/** Workers that died after loading, since boot: each one is replaced on the next job. */
+let deaths = 0;
 
 /** The worker's file: bundled, beside this bundle (the banner's own `__filename`); from source, the .ts beside this. */
 function entry(): URL {
@@ -73,7 +88,7 @@ function take(slot: Slot, id: number): Job | undefined {
   return job;
 }
 
-/** A started worker; its jobs go inline together when it dies, and the pool stays inline from then on. */
+/** A started worker: one that never loads sends its jobs inline for good; one that dies is dropped and replaced. */
 function spawn(kind: Kind): Slot {
   const slots = pools[kind];
   const url = entry();
@@ -86,21 +101,36 @@ function spawn(kind: Kind): Slot {
       : undefined,
   );
   worker.unref();
-  const slot: Slot = { worker, jobs: new Map() };
-  worker.on("message", (m: { id: number; value?: unknown; error?: string }) => {
+  const slot: Slot = { worker, jobs: new Map(), loaded: false };
+  type Reply = { id: number; value?: unknown; error?: string; ready?: true };
+  worker.on("message", (m: Reply) => {
+    if (m.ready) {
+      slot.loaded = true;
+      return;
+    }
     const job = take(slot, m.id);
     if (!job) return;
     if (m.error === undefined) job.resolve(m.value);
     else job.reject(new Error(m.error));
   });
-  // A worker that dies — or never loads, as under a test runner with no loader — is not the work failing: inline from now on.
   const fail = (e: Error) => {
     slots.splice(slots.indexOf(slot), 1);
-    broken = true;
-    console.warn(`waveform worker unavailable, working inline: ${e.message}`);
-    for (const id of [...slot.jobs.keys()]) {
-      const job = take(slot, id);
-      job?.inline().then(job.resolve, job.reject);
+    const held = [...slot.jobs.keys()].map((id) => take(slot, id));
+    // Never loaded, as under a test runner with no loader: this runtime has no worker, so inline from now on.
+    if (!slot.loaded) {
+      broken = true;
+      console.warn(`waveform worker unavailable, working inline: ${e.message}`);
+      for (const job of held) job?.inline().then(job.resolve, job.reject);
+      return;
+    }
+    deaths++;
+    console.warn(`analysis worker died (${deaths} since boot): ${e.message}`);
+    // A lone job, or one already on a dead worker, is the cause: it fails; the others start again on a fresh worker.
+    for (const job of held) {
+      if (!job) continue;
+      if (job.died || held.length === 1)
+        job.reject(new WorkerDiedError(e.message));
+      else job.again(true).then(job.resolve, job.reject);
     }
   };
   worker.on("error", fail);
@@ -126,8 +156,13 @@ function expire(kind: Kind, slot: Slot, id: number, why: Error): void {
     }
   });
   job?.reject(why);
-  for (const other of rest) other?.again().then(other.resolve, other.reject);
+  for (const other of rest)
+    other?.again(other.died).then(other.resolve, other.reject);
 }
+
+/** The workers running a kind of job — for the tests, which kill one to stand for a crash. */
+export const poolWorkers = (kind: Kind): Worker[] =>
+  pools[kind].map((s) => s.worker);
 
 /** The least busy worker of a kind, a new one while under its bound. */
 function pick(kind: Kind): Slot {
@@ -149,6 +184,7 @@ function run<T>(
     ms?: number;
     after?: () => void;
   } = {},
+  died = false,
 ): Promise<T> {
   if (broken) return inline();
   let slot: Slot;
@@ -165,7 +201,8 @@ function run<T>(
       resolve: resolve as (v: unknown) => void,
       reject,
       inline,
-      again: () => run(kind, message, inline, limits),
+      again: (again = false) => run(kind, message, inline, limits, again),
+      died,
       after: limits.after,
     };
     const { deadline, ms } = limits;

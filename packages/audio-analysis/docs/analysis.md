@@ -89,7 +89,16 @@ block. The deadline is generous on purpose — a two-hour file decodes in a frac
 one it catches is a file the decoder hangs on, which k7's backend then marks failed on the volume.
 The other jobs that worker held start again on a fresh one.
 
-A runtime where a worker will not start analyses inline, with no deadline, and says so once.
+A worker that **dies** — a crash, its heap exhausted on a pathological file — is dropped and the
+next job spawns its replacement. The job it held alone fails with a `WorkerDiedError`, since that job
+is what killed it; where it held several, each starts once more on a fresh worker, and a job whose
+second worker dies too fails. Running a killer inline instead would carry the same file onto the
+thread every other request of the process waits behind, with no deadline to stop it. A caller marks
+the file failed (k7's backend does, on the volume), so it is not decoded a third time.
+
+A runtime where a worker will not LOAD analyses inline, with no deadline, and says so once. The
+worker posts a message once its module has loaded, and that is what tells the two apart: a worker
+that ends before it never ran a job, and its replacement would not load either.
 
 ## The mono sum is the first two channels averaged
 
