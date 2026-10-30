@@ -343,6 +343,17 @@ So the engine turns Tracktion's interval to 0 and runs the same rescan from its 
 (`MidiScanTimer` in `engine/EngineHost.cpp`), skipped while any session is playing. A keyboard
 plugged in mid-song is seen at the next stop — the price of a song that keeps playing.
 
+## The engine opens no MIDI input
+
+Tracktion opens every MIDI input it finds and enables, and enables a new one by default. k7 never
+reads one there: a keyboard is read by the BROWSER, which records it and sends what is played as
+`midi-live` (`packages/song/docs/midiIn.md`). On Windows a MIDI input has one owner, so an engine
+holding the keyboard leaves the page listing it and receiving nothing from it. The engine therefore
+disables every physical MIDI input each time Tracktion applies a device list (`closePhysicalMidiInputs`
+in `engine/EngineHost.cpp`), which covers the first scan, a rescan and a keyboard plugged in later.
+Tracktion saves the setting, so a device let go of once stays closed across restarts. The outputs
+are left as Tracktion has them.
+
 ## What is still missing
 
 The device's true input and output latency is not on the wire. Until it is, the quality
