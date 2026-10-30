@@ -5,18 +5,25 @@ A song opens beside the tree as one column: a header, then tabs.
 ```
 ┌────────┬──────────────────────────────────────────────┐
 │ tree   │ ← Back  ▶ 1:02   Song · title          ⋮    │
-│        │ Waveform · Info · Lyrics · Chords · …        │
+│        │ Info · Lyrics · Chords · …                   │
+│        │ tags                                         │
+│        │ ════════ divider ════════                    │
 │        │ Original · instrumental · …   (versions)     │
 │        │ waveform                                     │
 │        │ variants (if the sidecar declares any)       │
 └────────┴──────────────────────────────────────────────┘
 ```
 
-**One column, and the waveform is a tab.** Two halves made a phone stack them, each half too short to
-read lyrics in; with the waveform a tab like the rest, every screen draws one thing at its full
-height. What kept the two side by side — correcting a song while hearing it — survives without them:
-the play button is in the HEADER, above every tab, so the song plays on whatever tab is open, and the
-lyrics follow it on theirs. The page opens on the waveform.
+**One column of tabs, and the waveform is the Info tab's bottom pane.** Two side-by-side halves made a
+phone stack them, each too short to read lyrics in, so every tab draws one thing at the column's full
+width. The waveform is not a tab of its own: a song's tags and its sound are read together, and a
+tab holding only the waveform sent you away from the tags to hear what you were tagging. Under the
+tags it is the bottom half of a split (`src/BottomSplit.tsx`): its divider is dragged, or moved with
+the arrow keys once focused, and its share of the column is kept per browser, since how much room
+the waveform gets is a habit of the screen, not of a song. Neither half shrinks under 120 px. What
+kept the lyrics beside the waveform, correcting a song while hearing it, survives without them: the
+play button is in the HEADER, above every tab, so the song plays on whatever tab is open, and the
+lyrics follow it on theirs. The page opens on Info.
 
 **The header holds what belongs to the whole song**: Back, the play button and its clock, the title,
 and at the far right a ⋮ (`src/SongMenu.tsx`) holding, in this order, the date the song was added,
@@ -27,7 +34,7 @@ metronome's click and the sheet picker live outside the popover, so closing it s
 ## A song's attachments are tabs beside its tags
 
 A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
-each after **Waveform** and **Info**, its tags (`src/SongInfoTabs.tsx`). The listing already says which it carries (`meta.lyrics`,
+each after **Info**, its tags and its waveform (`src/SongInfoTabs.tsx`). The listing already says which it carries (`meta.lyrics`,
 `meta.chords`, `meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
 `GET /api/mediatek/songbook/:id` behind them, again whenever the folder changes.
 
@@ -234,7 +241,7 @@ screen whose tab strip may point at something else entirely.
 
 ## One tab per version
 
-At the top of the Waveform tab, a strip: **Original**, then each variant the sidecar declares, in the
+At the top of the waveform pane, a strip: **Original**, then each variant the sidecar declares, in the
 sidecar's order. The open tab decides *everything* below it — the file played, the waveform drawn,
 the analysis requested, the path sent to the engine — because it is one question asked one way:
 what does this version sound like.
@@ -265,7 +272,7 @@ A song with no variant has no strip at all: a single tab is a control that does 
 
 ## The variants are under the waveform
 
-In the same tab, not in one of their own: the master and its other versions are
+In the same pane, not in a tab of their own: the master and its other versions are
 one question, and a column that only showed when *nothing* is open would be unreachable, since
 clicking a song opens something.
 

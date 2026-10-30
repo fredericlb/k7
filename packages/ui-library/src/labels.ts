@@ -187,7 +187,8 @@ export interface LibraryLabels {
     lyricsFound: string;
     lyricsNotFound: string;
     /** The song page's first tab, the waveform and its versions. */
-    tabWaveform: string;
+    /** The info tab's bottom pane, as its divider is named to a screen reader. */
+    waveformPane: string;
     /** The fingering of every chord the song uses, as transposed. */
     tabDiagrams: string;
     /** The ⋮ at the far right of the song page's header. */

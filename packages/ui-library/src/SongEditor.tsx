@@ -1,6 +1,6 @@
 // SongEditor.tsx — a song opened: a header holding its play button and its ⋮ menu, over one
-// column of tabs — the waveform first, then its tags and attachments. One column, since the
-// waveform is a tab like the rest and a phone has room for one. See ../docs/songPlayer.md.
+// column of tabs — its info first, the tags over the waveform, then its attachments. One column,
+// since a phone has room for one. See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import { ArrowLeft, Disc3, Pause, Play } from "@frediverse/ui/icons";

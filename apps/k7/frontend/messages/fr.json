@@ -1060,7 +1060,7 @@
   "media.song.lookingForLyrics": "Recherche des paroles…",
   "media.song.lyricsFound": "Paroles trouvées : les accords prennent leurs temps.",
   "media.song.lyricsNotFound": "Pas de paroles trouvées — ajoutez-les à la main pour minuter les accords.",
-  "media.song.tabWaveform": "Forme d’onde",
+  "media.song.waveformPane": "Forme d’onde",
   "media.song.tabDiagrams": "Diagrammes",
   "media.song.menu": "Plus",
   "media.song.addedOn": "Ajoutée le {date}",

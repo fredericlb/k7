@@ -10,7 +10,7 @@ import { library } from "./api";
 import { type SongAttachmentView, useLabels } from "./host";
 
 export type AttachmentKind = Exclude<SongAttachmentView["kind"], "diagrams">;
-export type SongTab = "waveform" | "info" | "diagrams" | AttachmentKind;
+export type SongTab = "info" | "diagrams" | AttachmentKind;
 /** The texts typed by hand here: the lyrics too, when none were found or they need fixing. */
 export type Typed = "lyrics" | "chords" | "tablature";
 
@@ -40,7 +40,7 @@ export function useSongAttachments(
   // The listing's id, or the one the first text or sheet gave it before the listing caught up.
   const [adopted, setAdopted] = useState("");
   const id = listedId || adopted;
-  const [tab, setTab] = useState<SongTab>("waveform");
+  const [tab, setTab] = useState<SongTab>("info");
   const [song, setSong] = useState<SongbookSong | null>(null);
   const [editing, setEditing] = useState<Typed | null>(null);
   const [sending, setSending] = useState(false);
@@ -61,10 +61,10 @@ export function useSongAttachments(
         sheet: typeof meta.sheets === "number" && meta.sheets > 0,
       };
 
-  // Another song opens on its waveform, with nothing of the last one's held.
+  // Another song opens on its info and waveform, with nothing of the last one's held.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the song's path is the trigger, read by nothing inside.
   useEffect(() => {
-    setTab("waveform");
+    setTab("info");
     setEditing(null);
     setAdopted("");
     setSong(null);
@@ -123,7 +123,7 @@ export function useSongAttachments(
       setSong(saved);
       setEditing(null);
       // An emptied text is removed, and its tab with it.
-      if (!text.trim()) setTab("waveform");
+      if (!text.trim()) setTab("info");
       onSaved();
       // Chords with no lyrics to take their times from: the lyrics are asked for, if there is audio to name them.
       if (kind === "chords" && text.trim() && !saved.lyrics && saved.master)
@@ -135,7 +135,7 @@ export function useSongAttachments(
   };
 
   const cancelTyping = () => {
-    if (editing && !has[editing]) setTab("waveform");
+    if (editing && !has[editing]) setTab("info");
     setEditing(null);
   };
 
@@ -167,7 +167,7 @@ export function useSongAttachments(
     try {
       const after = await library.removeSheet(id, sheet);
       setSong(after);
-      if (!after.facts.sheets.length) setTab("waveform");
+      if (!after.facts.sheets.length) setTab("info");
       onSaved();
     } catch (e) {
       onStatus((e as Error).message);
