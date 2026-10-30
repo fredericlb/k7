@@ -10,6 +10,7 @@ import {
   splitModuleKey,
 } from "@studio/song/loader";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadGraph } from "./graph";
 import { projectHints } from "./hints";
 import { resolveModuleMap } from "./moduleResolve";
 import { compileNodeProject } from "./nodeProject";
@@ -236,6 +237,11 @@ describe("module nodes", () => {
     expect(wsData(join(dir, "nodes", "tape.k7x")).io).toBe("file");
     // …and the first input is untouched by any of it.
     expect(loadModules(dir).IN).toMatchObject({ io: "in" });
+    // Each emits what its role gives, not the audio a module of no category falls back to.
+    const g = loadGraph(dir);
+    expect(g.modules.CAM2?.emits).toBe("video");
+    expect(g.modules.IN2?.emits).toBe("audio");
+    expect(g.modules.tape?.emits).toBe("audio");
   });
 
   it("refuses an output, an unknown io name, and a name the project already holds", () => {

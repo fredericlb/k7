@@ -264,9 +264,9 @@ function loadNodes(
       node,
       file: node,
       home: NODES_DIR, // where its .vstpreset is saved — see nodeProject's presetSave
-      // A node without `extends` has no folder to take `kind` from: io by its `io:`, else "plugin" (song-schema/docs/moduleTypes.md).
+      // A node without `extends` has no folder to take `kind` from: io by its `io:`, its category typing its signal, else "plugin" (song-schema/docs/moduleTypes.md).
       ...(typeof value.io === "string"
-        ? { kind: "io" }
+        ? { kind: "io", category: "io" }
         : typeof value.extends !== "string"
           ? { kind: "plugin" }
           : {}),
@@ -335,7 +335,7 @@ function loadChainNodes(
       nodeId: n.id,
       ...(presetName ? { presetRel: `${VSTPRESETS_DIR}/${presetName}` } : {}),
       ...(typeof value.io === "string"
-        ? { kind: "io" }
+        ? { kind: "io", category: "io" }
         : typeof value.extends !== "string"
           ? { kind: "plugin" }
           : {}),

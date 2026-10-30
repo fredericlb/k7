@@ -67,4 +67,12 @@ describe("a MIDI device wired to a lane", () => {
     expect(data.io).toBe("midi");
     expect(data).not.toHaveProperty("device");
   });
+
+  it("emits MIDI when made by its role alone, as it does extending `@meta/MIDI`", () => {
+    // The file says `io("midi")` and nothing else: its cable must not fall back to audio.
+    createNode(dir, "io", "MIDI", "pads");
+    const g = loadGraph(dir);
+    expect(g.modules.pads?.emits).toBe("midi");
+    expect(g.modules.keys?.emits).toBe("midi");
+  });
 });
