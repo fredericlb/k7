@@ -30,6 +30,7 @@ import {
   rowIn,
   safeUnlink,
 } from "./helpers.ts";
+import { listRecordingMarkers } from "./markers.ts";
 
 type CommentRow = Row<"Comments">;
 
@@ -126,6 +127,7 @@ export function recordingMoments(ownerId: string, recordingPath: string) {
     recordedAt: capture.startedAt?.toISOString() ?? null,
     sessionId: capture.sessionUid,
     moments,
+    markers: listRecordingMarkers(ownerId, recordingPath),
   };
 }
 

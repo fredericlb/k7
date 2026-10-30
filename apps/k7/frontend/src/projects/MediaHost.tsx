@@ -9,6 +9,7 @@ import {
   LibraryHostProvider,
   type SongAttachmentView,
 } from "@studio/ui-library";
+import { StartFirstSessionButton } from "@studio/ui-rehearsal";
 import {
   lazy,
   type ReactNode,
@@ -80,6 +81,8 @@ export function MediaHost({ children }: { children: ReactNode }) {
       songAttachment,
       recordingHref,
       momentHref,
+      // The red dot's start, named, beside the captures it files into.
+      recordButton: <StartFirstSessionButton />,
     }),
     [labels, user, engineId, listenHere],
   );

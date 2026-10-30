@@ -60,12 +60,15 @@ describe("the store's lookups and writes", () => {
 
   it("deletes a session with its markers, its moments kept", async () => {
     const session = await store.createSession("me");
-    await store.addMarker(session.id, { atSec: 1, comment: "" }, "me");
+    const path = "recordings/2026-08-07/20-00-00.webm";
+    const row = db.listRecords("Sessions", { Uid: [session.id] })[0];
+    db.patchRecord("Sessions", row.id, { RecordingPath: path });
+    store.addRecordingMarker("me", path, { atSec: 1 });
     const [{ id: moment }] = db.addRecords("Comments", [
-      { OwnerId: "me", RecordingPath: TAKE },
+      { OwnerId: "me", RecordingPath: path },
     ]);
     expect(await store.deleteSession(session.id)).toBe(true);
-    expect(db.listRecords("Markers", { SessionUid: [session.id] })).toEqual([]);
+    expect(db.listRecords("Markers", { RecordingPath: [path] })).toEqual([]);
     expect(db.getRecord("Comments", moment)).not.toBeNull();
   });
 });
@@ -128,7 +131,7 @@ describe("a moment names a recording, not a session", () => {
         SessionCreatedAt: "2026-01-01T20:00:00.000Z",
       },
     ]);
-    expect(store.linkMomentsToRecordings()).toBeGreaterThanOrEqual(2);
+    expect(store.linkToRecordings()).toBeGreaterThanOrEqual(2);
     expect(db.getRecord("Comments", linked)?.fields).toMatchObject({
       RecordingPath: legacyPath,
       RecordedAt: session.createdAt,
@@ -138,6 +141,57 @@ describe("a moment names a recording, not a session", () => {
       RecordingPath: "",
       RecordedAt: "2026-01-01T20:00:00.000Z",
     });
-    expect(store.linkMomentsToRecordings()).toBe(0);
+    expect(store.linkToRecordings()).toBe(0);
+  });
+
+  it("links an older pin to its session's recording, and drops one with nothing to pin", async () => {
+    const session = await store.createSession("me");
+    const row = db.listRecords("Sessions", { Uid: [session.id] })[0];
+    const legacyPath = "recordings/2026-08-08/21-00-00.webm";
+    db.patchRecord("Sessions", row.id, { RecordingPath: legacyPath });
+    const [{ id: pin }, { id: lost }] = db.addRecords("Markers", [
+      { OwnerId: "me", SessionUid: session.id, AtSec: 3 },
+      { OwnerId: "me", SessionUid: "gone", AtSec: 4 },
+    ]);
+    store.linkToRecordings();
+    expect(db.getRecord("Markers", pin)?.fields).toMatchObject({
+      RecordingPath: legacyPath,
+      SessionUid: "",
+    });
+    expect(db.getRecord("Markers", lost)).toBeNull();
+    expect(
+      (await store.getSession(session.id))?.markers.map((m) => m.atSec),
+    ).toEqual([3]);
+  });
+});
+
+describe("a recording's pins", () => {
+  const path = "recordings/2026-08-09/10-00-00.mp3";
+
+  it("pins any capture, its owner's alone, and never a moment's pin", () => {
+    const pin = store.addRecordingMarker("me", path, {
+      atSec: 2,
+      comment: "a",
+    });
+    expect(pin).not.toBeNull();
+    expect(
+      store.addRecordingMarker("me", "songs/a/b.mp3", { atSec: 1 }),
+    ).toBeNull();
+    expect(
+      store.updateRecordingMarker("you", String(pin?.id), { comment: "x" }),
+    ).toBeNull();
+    expect(
+      store.updateRecordingMarker("me", String(pin?.id), { comment: "x" })
+        ?.comment,
+    ).toBe("x");
+    expect(
+      store.recordingMoments("me", path)?.markers.map((m) => m.comment),
+    ).toEqual(["x"]);
+    expect(store.recordingMoments("you", path)?.markers).toEqual([]);
+    const [{ id: momentPin }] = db.addRecords("Markers", [
+      { OwnerId: "me", MomentId: "m1", AtSec: 1 },
+    ]);
+    expect(store.deleteRecordingMarker("me", momentPin)).toBe(false);
+    expect(store.deleteRecordingMarker("me", String(pin?.id))).toBe(true);
   });
 });

@@ -65,7 +65,48 @@ momentsRouter.post(
   }),
 );
 
-// A recording's own page: its start, the session that saved it if one did, and its moments.
+// Pins on a recording's timeline, owned like its moments.
+const recordingMarkerCreate = markerCreate.extend({
+  recordingPath: z.string().min(1),
+});
+
+momentsRouter.post(
+  "/recording/markers",
+  validate(recordingMarkerCreate),
+  wrap(async (req, res) => {
+    const { recordingPath, ...pin } = req.body as z.infer<
+      typeof recordingMarkerCreate
+    >;
+    const marker = store.addRecordingMarker(sub(req), recordingPath, pin);
+    if (!marker) return res.status(400).json({ error: "not a recording" });
+    res.status(201).json(marker);
+  }),
+);
+
+momentsRouter.put(
+  "/recording/markers/:markerId",
+  validate(markerPatch),
+  wrap(async (req, res) => {
+    const marker = store.updateRecordingMarker(
+      sub(req),
+      req.params.markerId,
+      req.body,
+    );
+    if (!marker) return res.status(404).json({ error: "not found" });
+    res.json(marker);
+  }),
+);
+
+momentsRouter.delete(
+  "/recording/markers/:markerId",
+  wrap(async (req, res) => {
+    const ok = store.deleteRecordingMarker(sub(req), req.params.markerId);
+    if (!ok) return res.status(404).json({ error: "not found" });
+    res.status(204).end();
+  }),
+);
+
+// A recording's own page: its start, the session that saved it if one did, its moments and markers.
 momentsRouter.get(
   "/recording",
   wrap(async (req, res) => {

@@ -2,6 +2,8 @@
 // moments saved and detected. A session's, or any capture's, which has no markers and no resume.
 // The playback is useSessionPlayback; each part is a component of its own.
 
+import { Button } from "@frediverse/ui/button";
+import { Trash2 } from "@frediverse/ui/icons";
 import { useCallback, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { MarkerRow } from "../components/MarkerRow";
@@ -33,6 +35,8 @@ interface Props {
   /** Where Back leads, as its label says; the sessions when absent. */
   backTo?: string;
   onBack: () => void;
+  /** Delete the recording with its session; absent, the page offers no delete. */
+  onDelete?: () => Promise<void>;
   onResume?: () => void;
   onThresholdChange: (t: number) => void;
   onMinSilenceChange: (ms: number) => void;
@@ -72,6 +76,7 @@ export function SessionDetailView({
   title,
   backTo,
   onBack,
+  onDelete,
   onResume,
   onThresholdChange,
   onMinSilenceChange,
@@ -133,8 +138,19 @@ export function SessionDetailView({
   return (
     <div>
       <div className="detail-head">
-        <BackButton to={backTo ?? m["nav.recordings"]()} onClick={onBack} />
+        <BackButton to={backTo ?? m["recording.back"]()} onClick={onBack} />
         <h2>{title ?? sessionTitle(session.createdAt)}</h2>
+        {onDelete && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            title={m["session.delete"]()}
+            onClick={() => void onDelete().catch(() => {})}
+          >
+            <Trash2 className="size-4" /> {m["session.delete"]()}
+          </Button>
+        )}
       </div>
 
       {!session.hasRecording ? (

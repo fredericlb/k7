@@ -564,16 +564,16 @@ violet pill, for the reason the next section gives.
 ### Every entry has a glyph of its own
 
 On the icon rail the glyph is all an entry has, so no two entries share one, across the media and
-rehearsal groups alike: the médiathèque's recorded FILES are a waveform,
-the rehearsal SESSIONS a microphone, its publications a broadcast. The rehearsal entry is named
-**Sessions** for the same reason — two entries called Recordings, one per group, read as one.
+rehearsal groups alike: the médiathèque's recordings are a waveform, the rehearsal publications a
+broadcast. The rehearsal takes have no entry of their own: they are listed in the médiathèque's
+Recordings (`packages/ui-rehearsal/docs/sections.md`), where a microphone marks your own.
 
 ## An empty page offers the act that fills it
 
 Every list on this side that can be empty draws the same block when it is (`EmptyState.tsx`): a
 glyph, one sentence saying what would be here in the reader's words, and the button that makes the
-first one — New workspace on Projects, Find and Add on the médiathèque's songs, Record a session on
-the rehearsal's. The button is there even when the same one exists elsewhere on the screen: an
+first one — New workspace on Projects, Find and Add on the médiathèque's songs, Record a session and Add
+recordings on its recordings. The button is there even when the same one exists elsewhere on the screen: an
 empty page is read from its middle, and a sentence telling the reader where a control is (*the red
 button at the foot of the sidebar*) is a map where an act was wanted. A page with nothing to do from
 here, Tasks, draws the block without one. The médiathèque and the rehearsal pages cannot import

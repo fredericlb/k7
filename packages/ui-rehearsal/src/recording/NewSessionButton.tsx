@@ -131,7 +131,7 @@ export function NewSessionButton() {
   );
 }
 
-/** The empty timeline's act: the same start as the dot, named, where the eye already is. */
+/** An empty recordings list's act: the same start as the dot, named, where the eye already is. */
 export function StartFirstSessionButton() {
   const { create, creating, error } = useStartSession();
   return (

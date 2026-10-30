@@ -105,14 +105,17 @@ async function captureEnvelope(
   }
 }
 
-/** Point every moment of an older row at its session's recording, once, at boot (../../docs/moments.md). */
-export function linkMomentsToRecordings(): number {
-  const legacy = db
+/** Point every older moment and marker at its session's recording, once, at boot (../../docs/moments.md). */
+export function linkToRecordings(): number {
+  const moments = db
     .listRecords("Comments", undefined, {
       fields: ["SessionUid", "SessionCreatedAt"],
     })
     .filter((r) => r.fields.SessionUid || r.fields.SessionCreatedAt);
-  if (legacy.length === 0) return 0;
+  const markers = db
+    .listRecords("Markers", undefined, { fields: ["SessionUid"] })
+    .filter((r) => r.fields.SessionUid);
+  if (moments.length + markers.length === 0) return 0;
   const sessions = new Map(
     db
       .listRecords("Sessions", undefined, {
@@ -121,7 +124,7 @@ export function linkMomentsToRecordings(): number {
       .map((s) => [s.fields.Uid, s.fields]),
   );
   db.inTransaction(() => {
-    for (const r of legacy) {
+    for (const r of moments) {
       const s = sessions.get(r.fields.SessionUid);
       db.patchRecord("Comments", r.id, {
         RecordingPath: s?.RecordingPath ?? "",
@@ -130,6 +133,18 @@ export function linkMomentsToRecordings(): number {
         SessionCreatedAt: "",
       });
     }
+    // A pin whose session holds no recording pins nothing: it goes, as it would have with its session.
+    const orphans: string[] = [];
+    for (const r of markers) {
+      const path = sessions.get(r.fields.SessionUid)?.RecordingPath;
+      if (path)
+        db.patchRecord("Markers", r.id, {
+          RecordingPath: path,
+          SessionUid: "",
+        });
+      else orphans.push(r.id);
+    }
+    db.deleteRecords("Markers", orphans);
   });
-  return legacy.length;
+  return moments.length + markers.length;
 }

@@ -12,6 +12,7 @@ import type { Moment, Release, Session } from "../types";
 export function SessionRoute(props: {
   allTags: string[];
   onBack: () => void;
+  onDeleted: () => void;
   onChange: () => void;
   onResume: (session: Session) => Promise<void>;
 }) {
@@ -60,8 +61,9 @@ export function MomentRoute(props: {
 export function RecordingRoute(props: {
   allTags: string[];
   onBack: () => void;
+  onDeleted: () => void;
   onChange: () => void;
-  onOpenSession: (sessionId: string, seekTo?: number) => void;
+  onResume: (session: Session) => Promise<void>;
 }) {
   const [params] = useSearchParams();
   const path = params.get("path") ?? "";

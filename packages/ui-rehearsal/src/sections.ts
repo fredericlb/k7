@@ -1,7 +1,8 @@
 // sections.ts — the rehearsal pages' entries, as a host's sidebar draws them: which path each opens
-// and which one an address belongs to. Releases and pages are ONE entry, sessions and moments another.
+// and which one an address belongs to. A recording's and a moment's pages have no entry here: they
+// belong to the host's recordings, which the address says as `recordings` (../docs/sections.md).
 
-import { type LucideIcon, Mic, Radio, Target } from "@frediverse/ui/icons";
+import { type LucideIcon, Radio, Target } from "@frediverse/ui/icons";
 import { withinPrefix } from "./host";
 import { m } from "./paraglide/messages.js";
 import type { NavKey } from "./types";
@@ -17,12 +18,6 @@ export interface RehearsalSection {
 
 // Glyphs the media library's entries do not use: the host draws both groups in one rail.
 export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
-  {
-    id: "recordings",
-    path: "/sessions",
-    icon: Mic,
-    label: () => m["nav.recordings"](),
-  },
   {
     id: "publications",
     path: "/releases",
@@ -48,6 +43,6 @@ export function rehearsalSectionAt(
   if (seg === "releases" || seg === "pages") return "publications";
   // `exercices` is the French spelling an older address may still carry; RehearsalRoutes redirects it.
   if (seg === "exercises" || seg === "exercices") return "exercises";
-  // sessions, moments and the bare prefix all land on Recordings.
+  // A recording, a session, a moment and the bare prefix: the host's recordings, which no entry here draws.
   return "recordings";
 }

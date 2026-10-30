@@ -28,7 +28,7 @@ const COLLECTIONS = {
     { name: "RecordingPath", type: "text" },
     // When that capture started, so a moment is placed in time once its capture is gone.
     { name: "RecordedAt", type: "text" },
-    // Older rows only: read once by `linkMomentsToRecordings`, then emptied — ../docs/moments.md.
+    // Older rows only: read once by `linkToRecordings`, then emptied — ../docs/moments.md.
     { name: "SessionUid", type: "text" },
     { name: "OwnerId", type: "text" },
     { name: "StartSec", type: "number" },
@@ -45,6 +45,9 @@ const COLLECTIONS = {
     { name: "SharedFrom", type: "text" },
   ],
   Markers: [
+    // A pin on a recording's timeline names the recording, as a moment does; a moment's own pins name the moment.
+    { name: "RecordingPath", type: "text" },
+    // Older rows only: read once by `linkToRecordings`, then emptied — ../docs/moments.md.
     { name: "SessionUid", type: "text" },
     { name: "MomentId", type: "text" },
     { name: "OwnerId", type: "text" },

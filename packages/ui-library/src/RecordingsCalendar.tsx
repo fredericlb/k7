@@ -1,19 +1,20 @@
 // RecordingsCalendar.tsx — the capture zone's screen: a calendar to pick a day, and that day's captures
 // on a timeline, each at the time it started, with the account's moments indented under it.
-// The same screen the rehearsal sessions have, for the same reason: ../docs/recordings.md.
+// It is where the takes are listed, a session's included: ../docs/recordings.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Calendar, dayKey } from "@frediverse/ui/calendar";
 import { Card } from "@frediverse/ui/card";
-import { Check } from "@frediverse/ui/icons";
+import { Check, Mic } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import type { RecordingDay } from "@studio/mediatek/recordings";
-import type { Moment } from "@studio/rehearsal-shared";
+import type { Moment, Session } from "@studio/rehearsal-shared";
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { library } from "./api";
 import { useLabels, useLibraryHost } from "./host";
 import { bytes } from "./libraryTree";
+import { RowMenu, rowTarget } from "./RowMenu";
 import { captureEntries, captureTags } from "./recordingCalendar";
 
 const clock = (locale: string, at: Date, seconds = false) =>
@@ -31,21 +32,30 @@ export function RecordingsCalendar({
   days,
   error,
   notice,
+  manage,
+  onChanged,
+  onError,
   addButton,
   empty,
 }: {
   days: RecordingDay[];
   error: string | null;
   notice: string | null;
+  /** An admin's: any capture may be deleted, not only the reader's own takes. */
+  manage: boolean;
+  onChanged: () => void;
+  onError: (message: string) => void;
   /** What files a capture by hand, under the calendar. */
   addButton: ReactNode;
   /** What stands in the place of an empty zone. */
   empty: ReactNode;
 }) {
   const l = useLabels();
-  const { recordingHref, momentHref } = useLibraryHost();
+  const { recordingHref, momentHref, recordButton } = useLibraryHost();
   const navigate = useNavigate();
   const [moments, setMoments] = useState<Moment[]>([]);
+  // The reader's own takes, by the capture each filed: a duration to show, and a delete of their own.
+  const [takes, setTakes] = useState<Map<string, Session>>(new Map());
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Which calendar day is shown (null → the newest day with something to show).
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -58,6 +68,20 @@ export function RecordingsCalendar({
       .moments()
       .then((got) => alive && setMoments(got))
       .catch(() => alive && setMoments([]));
+    library
+      .mySessions()
+      .then(
+        (got) =>
+          alive &&
+          setTakes(
+            new Map(
+              got.flatMap((x) =>
+                x.recordingPath ? [[x.recordingPath, x]] : [],
+              ),
+            ),
+          ),
+      )
+      .catch(() => alive && setTakes(new Map()));
     return () => {
       alive = false;
     };
@@ -66,6 +90,26 @@ export function RecordingsCalendar({
   if (error)
     return <Card className="p-4 text-sm text-destructive">{error}</Card>;
   if (days.length === 0) return <>{empty}</>;
+
+  // A take goes with its session, its owner's to delete; any other capture is an admin's (../docs/recordings.md).
+  const remove = (path: string) => {
+    const take = takes.get(path);
+    void (take ? library.deleteSession(take.id) : library.remove(path))
+      .then(onChanged)
+      .catch((e: Error) => onError(e.message));
+  };
+  const deleteAction = {
+    key: "delete-recording",
+    label: l.contents.deleteRecording,
+    danger: true,
+    when: (t: { path: string }) => manage || takes.has(t.path),
+    confirm: {
+      message: (t: { name: string }) =>
+        l.contents.deleteRecordingConfirm(t.name),
+      submit: l.tree.deleteSubmit,
+    },
+    run: (t: { path: string }) => remove(t.path),
+  };
 
   const tags = captureTags(days, moments);
   const entries = captureEntries(days, moments, activeTag);
@@ -113,7 +157,10 @@ export function RecordingsCalendar({
             ))}
           </div>
         )}
-        {addButton}
+        <div className="flex flex-wrap items-center gap-2">
+          {recordButton}
+          {addButton}
+        </div>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -149,13 +196,28 @@ export function RecordingsCalendar({
                     : undefined
                 }
               >
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-center gap-3">
+                  {takes.has(e.file.path) && (
+                    <Mic
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-label={l.contents.yourTake}
+                    />
+                  )}
                   <span className="min-w-0 flex-1 truncate font-mono text-sm tabular-nums">
                     {e.file.name}
                   </span>
+                  {/* A take knows how long it runs; any other capture, only its size. */}
                   <span className="shrink-0 font-mono text-muted-foreground text-xs tabular-nums">
-                    {bytes(e.file.bytes, l.common.units)}
+                    {takes.has(e.file.path)
+                      ? span(takes.get(e.file.path)?.duration ?? 0)
+                      : bytes(e.file.bytes, l.common.units)}
                   </span>
+                  <RowMenu
+                    target={rowTarget(e.file.path, e.file.name)}
+                    actions={[deleteAction]}
+                    label={l.tree.more}
+                    cancelLabel={l.common.cancel}
+                  />
                 </div>
               </TimelineItem>,
               ...e.moments.map((m) => (

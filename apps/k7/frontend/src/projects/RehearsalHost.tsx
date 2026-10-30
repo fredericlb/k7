@@ -11,7 +11,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useLocale } from "../i18n";
 import "../serverChoice";
-import { REHEARSAL_ROUTE, SETTINGS_ROUTE } from "./api";
+import { MEDIA_ROUTE, REHEARSAL_ROUTE, SETTINGS_ROUTE } from "./api";
 
 // The API base is the server picker's (../serverChoice.ts), set when that module loads.
 configureRehearsal({ pagesPrefix: REHEARSAL_ROUTE });
@@ -38,6 +38,8 @@ export function RehearsalHost({ children }: { children: ReactNode }) {
       prefix: REHEARSAL_ROUTE,
       user,
       settingsHref: SETTINGS_ROUTE,
+      // The takes are listed with every capture, in the médiathèque (packages/ui-rehearsal/docs/recordings.md).
+      recordingsHref: `${MEDIA_ROUTE}/recordings`,
       onLogout: () => void api.logout().then(() => window.location.reload()),
     }),
     [user],

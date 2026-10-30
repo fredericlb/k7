@@ -149,9 +149,9 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
         .catch((err: unknown) => console.error("annotation not saved", err));
     }
     // Pin the seam where the resumed take begins so it's easy to find later.
-    if (resumeFrom != null) {
+    if (resumeFrom != null && recordingPath) {
       await api
-        .addMarker(session.id, {
+        .addRecordingMarker(recordingPath, {
           atSec: offset,
           comment: m["rec.resumedOn"]({ at: fmtStamp() }),
         })
@@ -160,7 +160,12 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
     recording.release?.close();
     setRecording(null);
     bump();
-    go(`/sessions/${updated.id}`);
+    // The take is a recording now: its page, by its path (../../docs/recordings.md).
+    go(
+      recordingPath
+        ? `/recording?${new URLSearchParams({ path: recordingPath })}`
+        : `/sessions/${updated.id}`,
+    );
   };
 
   const discard = () => {

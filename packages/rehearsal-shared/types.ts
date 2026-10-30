@@ -126,6 +126,7 @@ export interface RecordingMoments {
   recordedAt: string | null;
   sessionId: string | null;
   moments: Annotation[];
+  markers: Marker[];
 }
 
 /** A single-timestamp pin on the session timeline, with an optional comment. */

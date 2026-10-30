@@ -3,13 +3,18 @@
 // keeping its path (../docs/audio.md). What reads wrong: a short in-memory cache of rows stands
 // between the routes and the store (store/helpers.ts).
 
-export { linkMomentsToRecordings } from "./store/captures.ts";
+export { linkToRecordings } from "./store/captures.ts";
 // Uploads land in the cache's own folder (UPLOAD_DIR), so keeping one is a rename, never a copy across filesystems.
 export {
   CACHE_DIR as UPLOAD_DIR,
   discardUploads,
   startCacheSweeps,
 } from "./store/helpers.ts";
+export {
+  addRecordingMarker,
+  deleteRecordingMarker,
+  updateRecordingMarker,
+} from "./store/markers.ts";
 export {
   addMoment,
   addMomentMarker,
@@ -46,10 +51,8 @@ export {
   updateRelease,
 } from "./store/releases.ts";
 export {
-  addMarker,
   appendRecording,
   createSession,
-  deleteMarker,
   deleteSession,
   ensureRecordingCached,
   getEnvelope,
@@ -57,7 +60,6 @@ export {
   getSession,
   listSessions,
   saveRecording,
-  updateMarker,
 } from "./store/sessions.ts";
 export {
   createSingingExercise,

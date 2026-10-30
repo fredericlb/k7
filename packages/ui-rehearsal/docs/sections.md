@@ -4,22 +4,21 @@ The rehearsal pages have no bar of their own: they are pages of k7's home, and t
 a group of its sidebar, **Rehearsal**, under the media library's
 (`apps/k7/frontend/src/projects/HomeSidebar.tsx`). `src/sections.ts` says what the entries are and
 which one an address belongs to; the host draws them. The red dot that starts a take is the
-HOST's, not this group's: k7 draws it in the sidebar's foot on every home page, so a session starts
+HOST's, not this group's: k7 draws it in the sidebar's foot on every home page, so a take starts
 while one reads the media library or the settings (`apps/k7/frontend/src/projects/HomeFrame.tsx`).
 
-## Three entries
+## Two entries
 
 | entry | opens | holds |
 |---|---|---|
-| Recordings | `/rehearsal/sessions` | sessions and their moments, one timeline ([recordings.md](recordings.md)) |
 | Publications | `/rehearsal/releases` | releases, grouped by the pages that list them |
 | Exercises | `/rehearsal/exercises` (`/rehearsal/exercices` redirects there) | singing exercises, random chords, the tuner |
 
-Fewer entries is the choice: a moment is a stretch of a session, so it hangs under it rather than
-being an entry of its own, and a page is a selection of releases, so the releases are listed under
-their pages. `/rehearsal/moments` and `/rehearsal/pages` still land on their entry, and a detail
-page — a session, a moment, a release, a page, an exercise — lights the entry it belongs
-to.
+The takes have no entry here. They are listed in the media library's **Recordings**, with every
+other capture ([recordings.md](recordings.md)), and a recording's, a session's or a moment's page
+lights that entry: `rehearsalSectionAt` answers `recordings` for them, which the host maps to its
+own section. Fewer entries is the choice: a page is a selection of releases, so the releases are
+listed under their pages. `/rehearsal/pages` still lands on its entry.
 
 **The settings are a section of k7's `/settings`**, not a fifth entry: every page of the origin
 keeps its settings in that one place (`apps/k7/frontend/docs/settings.md`), and

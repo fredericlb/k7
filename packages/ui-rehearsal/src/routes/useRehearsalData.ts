@@ -1,14 +1,13 @@
-// useRehearsalData.ts — the four lists the pages draw, loaded on mount and reloaded whenever the
-// recording provider says a session moved behind their back.
+// useRehearsalData.ts — the lists the pages draw: the releases and pages, and the moments whose tags a
+// moment's editor offers, reloaded whenever the recording provider says a take moved behind their back.
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useRehearsalRecording } from "../recording/context";
-import type { Moment, Page, Release, Session } from "../types";
+import type { Moment, Page, Release } from "../types";
 
 export function useRehearsalData() {
   const { changed } = useRehearsalRecording();
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [releases, setReleases] = useState<Release[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
@@ -30,30 +29,28 @@ export function useRehearsalData() {
         .catch(() => setPages([])),
     [],
   );
-  // A session edit moves the standalone moments list too, so both refresh together.
-  const refreshSessions = useCallback(
+  const refreshMoments = useCallback(
     () =>
-      Promise.all([
-        api.listSessions().then(setSessions),
-        api.listMoments().then(setMoments),
-      ]),
+      api
+        .listMoments()
+        .then(setMoments)
+        .catch(() => {}),
     [],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `changed` is the trigger, not an input
   useEffect(() => {
-    void refreshSessions();
-  }, [changed, refreshSessions]);
+    void refreshMoments();
+  }, [changed, refreshMoments]);
 
   const allTags = [...new Set(moments.flatMap((x) => x.tags))].sort();
 
   return {
-    sessions,
     releases,
     pages,
     moments,
     allTags,
-    refreshSessions,
+    refreshMoments,
     refreshReleases,
     refreshPages,
   };

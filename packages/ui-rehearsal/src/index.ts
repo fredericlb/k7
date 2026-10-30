@@ -6,6 +6,9 @@ export { publicPageAt } from "./addresses";
 export { configureRehearsal } from "./config";
 export { type RehearsalHost, RehearsalHostProvider } from "./host";
 export { followLocale } from "./i18n";
-export { NewSessionButton } from "./recording/NewSessionButton";
+export {
+  NewSessionButton,
+  StartFirstSessionButton,
+} from "./recording/NewSessionButton";
 export { RehearsalRecording } from "./recording/RehearsalRecording";
 export { REHEARSAL_SECTIONS, rehearsalSectionAt } from "./sections";

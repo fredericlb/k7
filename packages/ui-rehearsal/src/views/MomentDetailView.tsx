@@ -97,7 +97,7 @@ export function MomentDetailView({
   return (
     <div className="moment-detail">
       <div className="detail-head">
-        <BackButton to={m["nav.recordings"]()} onClick={onBack} />
+        <BackButton to={m["recording.back"]()} onClick={onBack} />
         <h2>
           {moment.validated && <Check className="size-5" />}
           {title}
