@@ -86,7 +86,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "record-enable", enabled: true }` | whether rolling this session records; the state frame's `recordEnabled` carries it |
 | `{ type: "get-plugin-params", id }` / `{ type: "set-plugin-param", id, name, value }` | read / move one plugin's values |
 | `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
-| `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
+| `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process; a list that has not changed answers the asker alone (`audioDevice.md`) |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue: incrementally, or from nothing with `force: true` |
 | `{ type: "plugin-scan" }` | where the plugin scan stands → a `plugin-scan` reply, to the asking socket alone ([plugins.md](plugins.md)) |
 | `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
