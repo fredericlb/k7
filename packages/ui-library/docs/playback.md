@@ -136,7 +136,7 @@ shared flag would have each clearing the other's evidence.
 `ended` is a **counter** and not a boolean: what a player wants is the event, and a flag would
 have to be cleared by whoever saw it. It exists only for the queue, the one thing here with a
 "next". `now` is deliberately not cleared at the end — "what did I just listen to" outlives the
-last sample — and only the bar's close button clears it.
+last sample — and nothing clears it but the next song started.
 
 ## The three positions
 

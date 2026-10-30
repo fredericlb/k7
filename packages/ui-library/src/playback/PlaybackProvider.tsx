@@ -48,8 +48,6 @@ export interface Playback {
   error: string;
   /** Bumped each time what was loaded reached its end BY ITSELF — a counter, not a flag. */
   ended: number;
-  /** Silence it and forget it: the bar's close button, and the only thing that clears `now`. */
-  close: () => void;
   /** An engine ANSWERED: what makes the moteur an offerable destination — ../../docs/playbackTarget.md. */
   engineAvailable: boolean;
   /** The host has mpv: what makes its speakers a destination at all — ../../docs/playbackTarget.md. */
@@ -327,24 +325,6 @@ export function PlaybackProvider({
     [viaEngine, viaHost, ours, engine, clock],
   );
 
-  const close = useCallback(() => {
-    // Otherwise the other side carries on without us: it is a process over there, not part of this page.
-    if (viaHost) {
-      weStopped.current = true;
-      void player.stop();
-    }
-    if (ours) {
-      engineWeStopped.current = true;
-      engine.stop();
-    }
-    audioRef.current?.pause();
-    setNow(null);
-    setLoadedEnginePath(null);
-    setLocalPlaying(false);
-    clock.set({ position: 0, duration: 0 });
-    setError("");
-  }, [viaHost, ours, engine, clock]);
-
   const value = useMemo<Playback>(
     () => ({
       now,
@@ -354,7 +334,6 @@ export function PlaybackProvider({
       seek,
       error,
       ended,
-      close,
       engineAvailable: engine.available,
       hostPlayerAvailable: hostPlayer,
       target,
@@ -373,7 +352,6 @@ export function PlaybackProvider({
       seek,
       error,
       ended,
-      close,
       engine.available,
       hostPlayer,
       target,

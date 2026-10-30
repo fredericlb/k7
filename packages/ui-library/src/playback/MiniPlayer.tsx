@@ -1,6 +1,6 @@
 // MiniPlayer.tsx — the bar at the bottom: what is playing, how far in, and where the sound is
-// coming out. It appears when a song starts and goes only when it is closed — including after
-// the song ends; a host's dock then draws its own bar in its place. The ROW is @studio/ui-mini-player;
+// coming out. It appears when a song starts and stays, even after the song ends: it has no close,
+// since a host's dock would only draw its own bar in its place. The ROW is @studio/ui-mini-player;
 // what is here is the médiathèque's reading of it, its position row the waveform of what plays
 // when that file has a shape. See ../../docs/miniPlayer.md.
 
@@ -52,7 +52,6 @@ export function MiniPlayer() {
     error,
     toggle,
     seek,
-    close,
     queue,
     target: wanted,
   } = usePlayback();
@@ -88,7 +87,6 @@ export function MiniPlayer() {
       labels={l.bar}
       onToggle={toggle}
       onSeek={seek}
-      onClose={close}
       onNext={queue.length ? startNext : undefined}
       track={
         shape ? (
@@ -147,7 +145,7 @@ export function MiniPlayer() {
       {/* The library song's instrumental, and back — before the queue, being about THIS song. */}
       <InstrumentalButton />
 
-      {/* What plays next — right of the row and before the close, being a playback control. */}
+      {/* What plays next — right of the row, being a playback control. */}
       <QueueButton />
     </Bar>
   );
