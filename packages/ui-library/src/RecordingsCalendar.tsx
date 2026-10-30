@@ -16,8 +16,8 @@ import { useLabels, useLibraryHost } from "./host";
 import { bytes } from "./libraryTree";
 import { captureEntries, captureTags } from "./recordingCalendar";
 
-const clock = (at: Date, seconds = false) =>
-  at.toLocaleTimeString(undefined, {
+const clock = (locale: string, at: Date, seconds = false) =>
+  at.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     ...(seconds ? { second: "2-digit" } : {}),
@@ -123,7 +123,7 @@ export function RecordingsCalendar({
           </Card>
         ) : null}
         <h2 className="mb-2 font-semibold text-sm">
-          {new Date(y, mo, d).toLocaleDateString(undefined, {
+          {new Date(y, mo, d).toLocaleDateString(l.common.locale, {
             weekday: "long",
             day: "numeric",
             month: "long",
@@ -141,7 +141,7 @@ export function RecordingsCalendar({
             {dayEntries.flatMap((e) => [
               <TimelineItem
                 key={e.file.path}
-                time={clock(e.at, true)}
+                time={clock(l.common.locale, e.at, true)}
                 activatable={!!recordingHref}
                 onClick={
                   recordingHref
@@ -163,7 +163,10 @@ export function RecordingsCalendar({
                   key={m.id}
                   className="ml-6"
                   validated={m.validated}
-                  time={clock(new Date(e.at.getTime() + m.startSec * 1000))}
+                  time={clock(
+                    l.common.locale,
+                    new Date(e.at.getTime() + m.startSec * 1000),
+                  )}
                   activatable={!!momentHref}
                   onClick={
                     momentHref ? () => navigate(momentHref(m.id)) : undefined
