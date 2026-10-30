@@ -3,7 +3,13 @@
 // the file's fingerprint: replaced bytes are a new file and are tried again.
 // See ../../docs/media/analysis.md.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join, relative } from "node:path";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import { mediatekDir } from "@studio/mediatek/layout";
@@ -20,19 +26,41 @@ const fileOf = (): string => join(mediatekDir(), ".analysis", "marks.json");
 
 const keyOf = (source: string): string => relative(mediatekDir(), source);
 
-function readAll(): Record<string, Mark> {
+/** The marks last parsed, and the file's stamp when they were: a sweep asks once per song, and a stat is all it costs. */
+let held: { stamp: string; marks: Record<string, Mark> } | null = null;
+
+const stampOf = (file: string): string | null => {
   try {
-    return JSON.parse(readFileSync(fileOf(), "utf8")) as Record<string, Mark>;
+    const st = statSync(file);
+    return `${file}:${st.size}:${st.mtimeMs}`;
+  } catch {
+    return null;
+  }
+};
+
+function readAll(): Record<string, Mark> {
+  const file = fileOf();
+  const stamp = stampOf(file);
+  if (!stamp) return {};
+  if (held?.stamp === stamp) return held.marks;
+  try {
+    const marks = JSON.parse(readFileSync(file, "utf8")) as Record<string, Mark>;
+    held = { stamp, marks };
+    return marks;
   } catch {
     return {};
   }
 }
 
 function writeAll(marks: Record<string, Mark>): void {
+  // Dropped first: a write that throws must not leave the edited object standing for the file.
+  held = null;
   mkdirSync(join(mediatekDir(), ".analysis"), { recursive: true });
   const tmp = `${fileOf()}.part`;
   writeFileSync(tmp, `${JSON.stringify(marks, null, 2)}\n`, "utf8");
   renameSync(tmp, fileOf());
+  const stamp = stampOf(fileOf());
+  if (stamp) held = { stamp, marks };
 }
 
 function fingerprintOf(source: string): string | null {

@@ -75,6 +75,8 @@ same song again gets a 304 decided on two `stat`s, before anything is read or co
   A mark is written as `running` BEFORE the decode starts, so a decode the process dies in — an
   out-of-memory kill leaves no chance to write anything after — is refused at the next boot rather
   than retried in a loop.
+  The marks are parsed once and held against the file's size and time: a pass asks about every
+  song, and a `stat` per song is what that costs, not a parse of the whole file.
 - **No library at all** — `exists()` is false and there is nothing to sweep.
 
 `GET /api/mediatek/analysis` reports the state: what it is on, how many are left, what failed, and
