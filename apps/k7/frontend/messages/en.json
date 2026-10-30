@@ -1127,7 +1127,6 @@
   "media.playback.notInLibrary": "this song is not in the media library — nothing would come out of its speakers",
   "media.playback.engineSaid": "the engine: {message}",
   "media.playback.masterFailed": "cannot play: the master could not be loaded",
-  "media.playback.done": "ended",
   "media.playback.region": "Now playing",
   "media.playback.position": "Position in the song",
   "media.playback.close": "Close the player",

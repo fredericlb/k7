@@ -1127,7 +1127,6 @@
   "media.playback.notInLibrary": "ce morceau n'est pas dans la médiathèque — rien ne sortirait de ses enceintes",
   "media.playback.engineSaid": "le moteur : {message}",
   "media.playback.masterFailed": "lecture impossible : le master n'a pas pu être chargé",
-  "media.playback.done": "terminé",
   "media.playback.region": "Lecture en cours",
   "media.playback.position": "Position dans le morceau",
   "media.playback.close": "Fermer le lecteur",

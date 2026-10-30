@@ -30,9 +30,8 @@ which its host fills in turn), so the bar must have no opinion.
 ## Three slots, because a title line is where hosts differ most
 
 `meta` sits after the title (an artist, an album, a version badge), `status` closes the line (a
-failure, or "ended"), and `children` sits right of the transport, before the close — where the médiathèque
-puts its destination indicator and its queue button. All optional: a host with none of them gets
-a bar that reads correctly with a title alone.
+failure), and `children` sits right of the transport, before the close. All optional: a host with
+none of them gets a bar that reads correctly with a title alone.
 
 ## Edge slots, and two that replace the bar's own transport
 
