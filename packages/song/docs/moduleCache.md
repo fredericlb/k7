@@ -251,6 +251,13 @@ copied from the bundle, or rewritten by the sync with the same bytes, is a hit; 
 changed is not. Measured on a phone, `01.danse` opened from a cold file service: 9.3 s with nothing
 stored, 3.7 s with the account's store, 3.8 s on a first launch with only the bundle's.
 
+The account's store is ONE file of up to 6000 parsed trees, and each write serializes it whole,
+synchronously. So it is written seldom: once parsing has been quiet for 2 s (a compile's hundreds of
+new parses are one write), at most 30 s after the oldest unwritten parse while parses keep coming,
+and once more as the process exits. And a file still SETTLING is never stored: while someone types,
+each keystroke's version would be a new key, evicting the vocabulary the store is for and earning
+a write each time.
+
 ## The walk runs on a worker, in parallel
 
 The walk is half `readdir`, half `stat`, and the `stat`s are on the files whose content is

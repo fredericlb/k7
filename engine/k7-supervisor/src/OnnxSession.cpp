@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <stdexcept>
+#include <thread>
 
 #ifdef K7_WITH_ONNX
 #define ORT_API_MANUAL_INIT
@@ -43,6 +45,18 @@ struct Runtime {
     AppendCoreML coreml = nullptr;
     AppendDml dml = nullptr;
 };
+
+/** A cut's CPU threads: half the cores, never more than all but five, so the engine keeps its render pool (docs/supervisor.md). */
+int intraOpThreads()
+{
+    if (const char* env = std::getenv("STUDIO_ONNX_THREADS"); env && *env) {
+        char* end = nullptr;
+        const long n = std::strtol(env, &end, 10);
+        if (end != nullptr && *end == '\0' && n >= 1 && n <= 256) return static_cast<int>(n);
+    }
+    const int cores = static_cast<int>(std::thread::hardware_concurrency());
+    return std::max(1, std::min(cores / 2, cores - 5));
+}
 
 /** Where a build or a package puts the library, relative to this executable, then `$STUDIO_ONNXRUNTIME_DIR`. */
 std::vector<fs::path> candidateDirs()
@@ -193,6 +207,7 @@ std::unique_ptr<OnnxSession> OnnxSession::open(const std::string& model, const s
     for (const auto& ep : providers) {
         try {
             Ort::SessionOptions o;
+            o.SetIntraOpNumThreads(intraOpThreads());
             std::string adapter;
             if (ep == "coreml") {
                 if (!rt.coreml) throw std::runtime_error("CoreML is not in this build of ONNX Runtime");

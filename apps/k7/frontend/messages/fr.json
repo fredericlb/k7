@@ -91,6 +91,7 @@
   "engine.lostStrip": "Moteur déconnecté — reconnexion…",
   "engine.retryNow": "Réessayer",
   "engine.notPlayed": "Non joué : le moteur est déconnecté",
+  "engine.cannotPlayHere": "Le son du moteur ne peut pas être joué dans cette page : {reason}",
   "engine.linkUp": "Moteur connecté",
   "engine.linkDown": "Moteur déconnecté",
   "engine.linkNone": "Aucun moteur",

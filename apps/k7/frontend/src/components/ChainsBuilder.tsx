@@ -13,7 +13,6 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
-import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { useGraphAt } from "../hooks/useGraphAt";
@@ -21,6 +20,7 @@ import { isChainFile } from "../libraryTree";
 import { m } from "../paraglide/messages.js";
 import { needsAttention, saveLabel } from "../saveLabel";
 import { templateGraph } from "../templateGraph";
+import { YamlPane } from "./LazyYamlPane";
 
 interface LibraryChain {
   ref: string;

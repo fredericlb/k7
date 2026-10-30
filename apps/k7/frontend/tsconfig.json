@@ -23,5 +23,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "notices"]
+  "include": ["src", "notices", "preload"]
 }

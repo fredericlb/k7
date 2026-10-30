@@ -73,6 +73,8 @@ COPY --from=frontend-build /app/apps/k7/frontend/dist ./apps/k7/frontend/dist
 COPY --from=frontend-build /app/server-dist ./server-dist
 # Each account's file service is started from the bundle too, not from source under tsx.
 ENV STUDIO_FILE_SERVICE_ENTRY=/app/server-dist/file-service.mjs
+# node's compile cache, in `node`'s own home: each account's service skips compiling the 14 MB bundle again (docs/images.md).
+ENV NODE_COMPILE_CACHE=/home/node/.cache/node-compile-cache
 
 # k7's per-person preferences (packages/user-prefs/docs/store.md).
 ENV STUDIO_PREFS_DIR=/data/prefs

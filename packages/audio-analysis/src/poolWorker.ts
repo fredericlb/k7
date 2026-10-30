@@ -71,3 +71,5 @@ parentPort?.on("message", (m: Message) => {
     )
     .finally(() => running.delete(m.id));
 });
+// Loaded: the pool tells a worker that dies from one that cannot start on this runtime by this message.
+parentPort?.postMessage({ ready: true });

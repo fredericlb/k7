@@ -187,6 +187,14 @@ What it costs: the message thread is busy for as long as the plugin takes to con
 socket answers late during that time, the audio thread does not notice. That is the price of a
 query not killing the engine that is making sound.
 
+Probes run one at a time — they share one lock — so each request beyond the first is a thread
+waiting its turn. At most four are in flight (`ServeContext::kMaxProbes`); past that a probe is
+refused with an error rather than queued, so a client that loops cannot pile up threads. A plugin
+whose constructor hangs still hangs the message thread, which `docs/hangWatch.md` ends with a
+restart. Loading a probe in a child process, as the scan does, would contain that too, for
+`list-plugin-params` at least: the native window of `show-native-plugin-ui-of` needs its
+instance in this process.
+
 ## The scan
 
 `scanInstalledPlugins` loads each plugin in a **child process** (`runPluginScanChild`), so a
@@ -312,3 +320,12 @@ watch runs per watched plugin per state frame, and a 138-parameter VST3 made tha
 starve the message thread. States cannot change while a plugin is loaded, so that path never needs
 them. The callers that pass `true` are the one-shot ones: `--dump-builtin-params`, `pluginParamsOf`
 and `pluginParamInfos`.
+
+**A write looks in the automatable names first.** `applyPluginParams` and a control's `setParam` find
+a name among `namedParams` — one name read per automatable parameter — and build the whole table only
+for a name that list lacks: a hidden VST3 parameter (whose walk names all 2080 `MIDI CC` ones before
+dropping them) or a built-in's ValueTree property. The answer is the same either way, since the table
+lists the automatable names first and every name in it is unique. A diff's changes to one plugin
+reach it in ONE `applyPluginParams` call, so a preset's worth of knobs builds that list once, not once
+per knob. The live watch still reads the whole table at every frame it samples; sending only what
+moved is the client's change as much as the engine's.

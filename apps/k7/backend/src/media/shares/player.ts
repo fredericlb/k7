@@ -8,7 +8,12 @@ import { readFileSync } from "node:fs";
 import type { IncomingMessage, Server } from "node:http";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
+import {
+  OVERLOAD_CLOSE,
+  sendBounded,
+} from "@studio/engine-tunnel/backpressure";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
+import { acceptSocket, heartbeat } from "@studio/engine-tunnel/upgrade";
 import { SHARE_ROOT } from "@studio/web-protocol";
 import { type RawData, type WebSocket, WebSocketServer } from "ws";
 import { snapshotOf } from "../routes/publicShare.ts";
@@ -98,9 +103,10 @@ export class SharePlayer {
       const path = (req.url ?? "").split("?")[0];
       const m = PLAYER_ROUTE.exec(path);
       if (!m) return;
-      this.wss.handleUpgrade(req, socket, head, (ws) =>
-        this.visit(ws, m[1], visitorAddress(req)),
-      );
+      acceptSocket(this.wss, req, socket, head, (ws) => {
+        heartbeat(ws);
+        this.visit(ws, m[1], visitorAddress(req));
+      });
     };
     server.on("upgrade", onUpgrade);
     return () => {
@@ -177,9 +183,15 @@ export class SharePlayer {
       toEngine({ type: "project", doc });
       toEngine({ type: "broadcast", on: true });
     });
+    // A visitor that stopped reading loses the broadcast frames first, then the visit (backpressure.ts).
+    const toVisitor = (data: Buffer | string, isBinary: boolean) =>
+      sendBounded(ws, data, isBinary, () => {
+        ws.close(OVERLOAD_CLOSE, "too slow to follow the share");
+        end();
+      });
     channel.on("message", (data: Buffer, isBinary: boolean) => {
       if (ws.readyState !== ws.OPEN) return;
-      if (isBinary) return ws.send(data, { binary: true });
+      if (isBinary) return toVisitor(data, true);
       let m: Record<string, unknown>;
       try {
         m = JSON.parse(data.toString("utf8"));
@@ -189,7 +201,7 @@ export class SharePlayer {
       if (!SHOWN.has(String(m.type))) return;
       // Sessionless to the page: its client keeps only frames for its own session or none.
       const { session: _s, ...frame } = m;
-      ws.send(JSON.stringify(frame));
+      toVisitor(JSON.stringify(frame), false);
     });
     channel.on("close", end);
 
@@ -212,7 +224,6 @@ export class SharePlayer {
       if (forward) toEngine(forward);
     });
     ws.on("close", end);
-    ws.on("error", end);
   }
 }
 

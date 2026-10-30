@@ -5,6 +5,7 @@
 #include "test_harness.h"
 
 #include <string>
+#include <thread>
 
 using namespace studio;
 
@@ -71,6 +72,29 @@ void forgetting_a_session_drops_its_warnings() {
     CHECK(standingWarnings("k7:a").empty());
 }
 
+// A load finished on a worker thread warns for the build that queued it, and not for nobody.
+void a_job_carried_to_another_thread_warns_for_its_build() {
+    clearStandingWarnings("k7:a");
+    WarningOrigin origin;
+    {
+        WarningScope scope{"k7:a"};
+        BuildScope build{"k7:a", true};
+        origin = warningOrigin();
+    }
+    CHECK(origin.session == "k7:a");
+    CHECK(origin.building);
+    std::thread worker([&origin] {
+        WarningOriginScope scope{origin};
+        warn("sfz instrument has no playable region", "keys:piano");
+    });
+    worker.join();
+    const auto kept = standingWarnings("k7:a");
+    CHECK(kept.size() == 1);
+    if (!kept.empty()) CHECK(kept[0].subject == "keys:piano");
+    CHECK(warningOrigin().session.empty());
+    CHECK(!warningOrigin().building);
+}
+
 }  // namespace
 
 int main() {
@@ -78,5 +102,6 @@ int main() {
     RUN(a_warning_outside_a_build_is_not_kept);
     RUN(a_full_build_replaces_an_incremental_one_adds);
     RUN(forgetting_a_session_drops_its_warnings);
+    RUN(a_job_carried_to_another_thread_warns_for_its_build);
     TEST_MAIN_END();
 }

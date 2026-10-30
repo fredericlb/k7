@@ -18,6 +18,11 @@ public:
     static constexpr std::chrono::seconds kQuick{60};
     static constexpr int kSafeModeAfter = 3;
     static constexpr int kBackoffMaxS = 30;
+    /** A message thread silent this long is wedged: past the engine's own 60 s exit, for the engine that cannot leave (docs/crashLoop.md). */
+    static constexpr double kWedgedMs = 90000.0;
+
+    /** Whether the `messageThreadMs` a whoami reports says the engine is up but frozen, and must be killed to be relaunched. */
+    static bool wedged(double messageThreadMs) { return messageThreadMs >= kWedgedMs; }
 
     /** The engine is up, spawned or adopted. */
     void started(Time now);

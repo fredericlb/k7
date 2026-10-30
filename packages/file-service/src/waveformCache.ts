@@ -64,6 +64,15 @@ export async function ensureFileEnvelope(
   return sharedDecode(source, checked.sensitivity, engineBin);
 }
 
+/** The decodes queued behind each other on a local install, a phone's memory bound — docs/waveformCache.md. */
+let decodeTail: Promise<unknown> = Promise.resolve();
+function oneAtATime<T>(fn: () => Promise<T>): Promise<T> {
+  if (process.env.STUDIO_LOCAL_USER !== "1") return fn();
+  const run = decodeTail.then(fn, fn);
+  decodeTail = run.catch(() => {});
+  return run;
+}
+
 /** ONE decode per source and threshold, joined by a request and the prewarm alike — docs/waveformCache.md. */
 async function sharedDecode(
   source: string,
@@ -79,10 +88,9 @@ async function sharedDecode(
   const decode = (async (): Promise<FileEnvelope> => {
     // A null engineBin is the hosted service: ffmpeg decodes, as in pl8 (docs/waveformCache.md).
     // On a worker thread: the envelope loops over every sample, which would hold every other request.
-    const env = await analyseOffThread(source, sensitivity, {
-      engineBin,
-      signal,
-    });
+    const env = await oneAtATime(() =>
+      analyseOffThread(source, sensitivity, { engineBin, signal }),
+    );
     memo.set(source, { mtimeMs, env });
     return env;
   })();

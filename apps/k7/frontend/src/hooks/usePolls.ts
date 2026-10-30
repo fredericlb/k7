@@ -132,7 +132,12 @@ export function useActiveProjectFollow(opts: {
   const optsRef = useLatest(opts);
   // undefined == no answer read yet; null == read, and there was no take — a ref, as it outlives the interval's re-creation.
   const seen = useRef<string | null | undefined>(undefined);
-  const eager = !!opts.awaitingTake || !!opts.loading;
+  // A take's picture is waited for at 200 ms; an engine load is seconds long and polled at 500 (the file service walks per ask).
+  const every = opts.awaitingTake
+    ? TAKE_POLL_MS
+    : opts.loading
+      ? LOAD_POLL_MS
+      : 2000;
   // One read at a time: at 200 ms a slow answer would overlap the next, and the older could land last, firing a take twice.
   const inFlight = useRef(false);
   // The sync state last handed on, as text: the same state every tick must not re-render the shell every tick.
@@ -171,12 +176,14 @@ export function useActiveProjectFollow(opts: {
         inFlight.current = false;
       }
     };
-    return pollWhileVisible(tick, eager ? TAKE_POLL_MS : 2000);
-  }, [eager]);
+    return pollWhileVisible(tick, every);
+  }, [every]);
 }
 
 /** How often /workspace is read while a stopped take is on its way — the gap between Stop and its picture. */
 const TAKE_POLL_MS = 200;
+/** How often it is read while the engine loads the project, a wait of seconds. */
+const LOAD_POLL_MS = 500;
 
 /** Is `clip` a take this tab has not seen? Seeding on the first answer is what makes this mean 'a take just landed' rather than 'a take exists'. */
 export const isNewTake = (

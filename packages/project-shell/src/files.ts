@@ -10,7 +10,15 @@ import type {
   ProjectSyncState,
   WorkspaceInfo,
 } from "@studio/web-protocol";
-import { fget, fsend } from "./fileApi.ts";
+import { textHash } from "@studio/web-protocol/text-hash";
+import { fget, fsend, WRITE_MS } from "./fileApi.ts";
+
+/** A write refused because the file changed on disk since its base was read — the caller asks, rather than retrying. */
+export const isStaleWrite = (e: unknown): boolean =>
+  (e as { status?: number } | null)?.status === 409;
+
+/** What `/open` may take — generous, as it brings the libraries up to date — before the gate says so instead of spinning. */
+export const OPEN_MS = 180_000;
 
 /** The change token the last `/open` answered with; null before one, or from a service too old to say. */
 let openedRev: string | null = null;
@@ -32,7 +40,12 @@ export const fileRoutes = {
   workspace: () => fget<WorkspaceInfo>("/workspace"),
   /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
   open: (path: string) =>
-    fsend<WorkspaceInfo>("POST", "/open", { path }).then((info) => {
+    fsend<WorkspaceInfo>(
+      "POST",
+      "/open",
+      { path },
+      { timeoutMs: OPEN_MS },
+    ).then((info) => {
       openedRev = info.rev ?? null;
       return info;
     }),
@@ -46,11 +59,18 @@ export const fileRoutes = {
   read: (path: string) =>
     fget<FileContent>(`/file?path=${encodeURIComponent(path)}`),
   // Saving into the shared `_modules` library forks instead; `forked` says where — docs/fileApi.md.
-  write: (path: string, content: string) =>
-    fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
-      path,
-      content,
-    }),
+  // `base` is the text the buffer was edited from: a disk that moved since answers 409 (isStaleWrite) rather than being overwritten.
+  write: (path: string, content: string, base?: string) =>
+    fsend<{ ok: true; forked?: ForkedModule }>(
+      "PUT",
+      "/file",
+      {
+        path,
+        content,
+        ...(base === undefined ? {} : { base: textHash(base) }),
+      },
+      { timeoutMs: WRITE_MS },
+    ),
   fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
   createFolder: (dir: string, name: string) =>
     fsend<{ path: string }>("POST", "/folder", { dir, name }),

@@ -12,8 +12,21 @@ export interface Limiter {
   readonly waiting: number;
 }
 
-/** At most `max` of the functions handed to `run` in flight at once; the others wait in arrival order. */
-export function createLimiter(max: number): Limiter {
+/** Refused at once rather than queued: the re-encodes already waiting are more than the process should hold. */
+export class TranscodeBusyError extends Error {
+  /** Answered 503 with a Retry-After by the routers' error handler (errors.ts). */
+  readonly status = 503;
+  constructor() {
+    super("the server is busy re-encoding audio; try again in a moment");
+    this.name = "TranscodeBusyError";
+  }
+}
+
+/** Re-encodes waiting at once, past which a new one is refused: each holds its upload on disk until it runs. */
+const MAX_WAITING = 64;
+
+/** At most `max` of the functions handed to `run` in flight at once; the others wait in arrival order, `maxWaiting` at most. */
+export function createLimiter(max: number, maxWaiting = MAX_WAITING): Limiter {
   const cap = Math.max(1, Math.floor(max) || 1);
   const queue: (() => void)[] = [];
   let active = 0;
@@ -30,6 +43,7 @@ export function createLimiter(max: number): Limiter {
           fn().then(resolve, reject).finally(release);
         };
         if (active < cap) start();
+        else if (queue.length >= maxWaiting) reject(new TranscodeBusyError());
         else queue.push(start);
       });
     },

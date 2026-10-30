@@ -86,6 +86,13 @@ frame. Painting every column every frame would cost an allocation, a colour stri
 The canvas's size comes from a `ResizeObserver`, not from `clientWidth` in the frame loop: reading
 layout there forces it, per deck per frame.
 
+**A still band schedules no frames.** After half a second of frames that would paint nothing — a
+stopped deck, no hand on the band — the loop parks, as the record's does (`Vinyl.tsx`), and only a
+look at the needle every 100 ms remains, which a seek on a stopped deck is caught by. A hand on the
+band, the deck starting, a new size and the desk coming back into sight (`inSight.ts`) wake it at
+once; hidden, it schedules nothing at all. Two decks woke the main thread 60 times a second
+otherwise, on a phone, with nothing moving.
+
 ## Bars, in thicker orange
 
 A line every four beats, wider than the yellows and in a **different hue**: at a glance you count

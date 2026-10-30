@@ -15,6 +15,7 @@ export interface HistoryDeps {
   currentFile?: () => string | null; // the file the editor shows, to avoid a needless navigate
   onApplied?: () => void; // let the app refetch after a change (bump reloadKey / poke a poll)
   strings?: HistoryStrings; // the app's wording; English when absent
+  flush?: () => Promise<unknown>; // write every pane's pending text first: a pending autosave would land over the step
 }
 
 /** What the toasts say: the ACTION undone, since a file path tells nobody what came back. */
@@ -39,6 +40,8 @@ async function run(
 ): Promise<void> {
   const s = deps.strings ?? ENGLISH;
   try {
+    // A failed flush leaves its text held and the stale-base check guards it; the step still runs.
+    await deps.flush?.().catch(() => false);
     let r = await call();
     if (r.needsConfirm) {
       const ok = await deps.confirmProcess(r.files ?? [], r.label ?? "");

@@ -5,8 +5,9 @@
 use std::io::Write;
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
@@ -19,6 +20,11 @@ pub struct Process {
     child: Mutex<Option<Child>>,
     stdin: Mutex<Option<ChildStdin>>,
     stopping: AtomicBool,
+    /// Bumped at every spawn, so a readiness watch knows when the child it watched is gone.
+    generation: AtomicU64,
+    /// The thread keeping the backend running, joined by a restart before it starts the next.
+    runner: Mutex<Option<JoinHandle<()>>>,
+    restarting: AtomicBool,
 }
 
 /// What a backend needs from standalone.json: its fixed port, its environment, and its folders under the state root.
@@ -33,6 +39,10 @@ struct Table {
 const STOP_GRACE: Duration = Duration::from_secs(15);
 /// A run this long was a healthy one: the next crash starts the backoff over.
 const HEALTHY: Duration = Duration::from_secs(60);
+/// How long a launch waits for the port to free up: a previous tray's backend may still be in its STOP_GRACE.
+const PORT_WAIT: Duration = Duration::from_secs(30);
+/// How long a started backend has to answer before the tray says it does not.
+const READY_WAIT: Duration = Duration::from_secs(90);
 
 fn set(app: &AppHandle, b: Backend) {
     app.state::<SharedState>().lock().unwrap().backend = b;
@@ -118,15 +128,67 @@ fn command(app: &AppHandle, token: &str) -> Result<Command, String> {
 
 /// Start the backend and keep it running until the tray stops it.
 pub fn spawn(app: &AppHandle) {
+    let handle = app.clone();
+    let runner = std::thread::spawn(move || run_forever(handle));
+    *app.state::<Process>().runner.lock().unwrap() = Some(runner);
+}
+
+/// The menu's Restart: stop the backend as Quit does, then start it again — the way out of every Down.
+pub fn restart(app: &AppHandle) {
+    if app.state::<Process>().restarting.swap(true, Ordering::SeqCst) {
+        return;
+    }
     let app = app.clone();
-    std::thread::spawn(move || run_forever(app));
+    std::thread::spawn(move || {
+        logbus::line("host", "restarting the backend");
+        set(&app, Backend::Starting);
+        stop(&app);
+        let proc = app.state::<Process>();
+        let runner = proc.runner.lock().unwrap().take();
+        if let Some(runner) = runner {
+            let _ = runner.join();
+        }
+        proc.stopping.store(false, Ordering::SeqCst);
+        spawn(&app);
+        proc.restarting.store(false, Ordering::SeqCst);
+    });
+}
+
+/// Sleep `d`, cut short by a stop.
+fn nap(app: &AppHandle, d: Duration) {
+    let until = Instant::now() + d;
+    while Instant::now() < until && !app.state::<Process>().stopping.load(Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Whether the port is free, waited for with a backoff: an answer that outlasts PORT_WAIT is another program's.
+fn wait_for_port(app: &AppHandle, port: u16) -> bool {
+    let until = Instant::now() + PORT_WAIT;
+    let mut pause = Duration::from_millis(500);
+    let mut said = false;
+    while http::get(port, "/", None).is_some() {
+        if Instant::now() >= until || app.state::<Process>().stopping.load(Ordering::SeqCst) {
+            return false;
+        }
+        if !said {
+            logbus::line("host", &format!("127.0.0.1:{port} answers already — waiting for it to free up"));
+            said = true;
+        }
+        nap(app, pause);
+        pause = (pause * 2).min(Duration::from_secs(4));
+    }
+    true
 }
 
 fn run_forever(app: AppHandle) {
     let token = app.state::<SharedState>().lock().unwrap().token.clone();
     let port = app.state::<SharedState>().lock().unwrap().port;
-    // An answer already there is another k7 on our port: the page would open on it, and our backend could not listen.
-    if http::get(port, "/", None).is_some() {
+    // An answer already there is another k7 on our port, or a previous tray's backend still stopping.
+    if !wait_for_port(&app, port) {
+        if app.state::<Process>().stopping.load(Ordering::SeqCst) {
+            return;
+        }
         logbus::line("host", &format!("127.0.0.1:{port} is already in use"));
         return set(&app, Backend::Down(format!("port {port} is in use by another program")));
     }
@@ -150,8 +212,13 @@ fn run_forever(app: AppHandle) {
                 }
                 *proc.stdin.lock().unwrap() = child.stdin.take();
                 *proc.child.lock().unwrap() = Some(child);
+                // A stop that came while it spawned found no pipe to close: close it now, or the wait never ends.
+                if proc.stopping.load(Ordering::SeqCst) {
+                    drop(proc.stdin.lock().unwrap().take());
+                }
                 logbus::line("host", "backend started");
-                watch_ready(&app, port);
+                let generation = proc.generation.fetch_add(1, Ordering::SeqCst) + 1;
+                watch_ready(&app, port, generation);
                 wait(&proc)
             }
             Err(why) => {
@@ -174,7 +241,7 @@ fn run_forever(app: AppHandle) {
             return set(&app, Backend::Down(format!("k7 keeps stopping ({exit}) — see the logs")));
         }
         set(&app, Backend::Down(format!("k7 stopped ({exit}), restarting…")));
-        std::thread::sleep(delay);
+        nap(&app, delay);
         delay = (delay * 2).min(Duration::from_secs(60));
     }
 }
@@ -196,19 +263,27 @@ fn wait(proc: &Process) -> String {
 }
 
 /// Ready once the registry answers, the phone's probe too; the backend listens only once its library is in place.
-fn watch_ready(app: &AppHandle, port: u16) {
+fn watch_ready(app: &AppHandle, port: u16, generation: u64) {
     let app = app.clone();
     std::thread::spawn(move || {
-        let until = Instant::now() + Duration::from_secs(90);
-        while Instant::now() < until {
-            if app.state::<Process>().stopping.load(Ordering::SeqCst) {
-                return;
-            }
+        let until = Instant::now() + READY_WAIT;
+        let current = |app: &AppHandle| {
+            let proc = app.state::<Process>();
+            !proc.stopping.load(Ordering::SeqCst) && proc.generation.load(Ordering::SeqCst) == generation
+        };
+        let mut late = false;
+        while current(&app) {
             if let Some((200, _)) = http::get(port, "/api/registry/hello", None) {
                 logbus::line("host", &format!("k7 answers on http://127.0.0.1:{port}"));
                 return set(&app, Backend::Ready);
             }
-            std::thread::sleep(Duration::from_millis(300));
+            // Still silent past the wait: said, so the menu's Restart is the way out rather than a spinner.
+            if !late && Instant::now() >= until {
+                late = true;
+                logbus::line("host", "the backend has not answered in 90 s");
+                set(&app, Backend::Down("k7 does not answer — see the logs, or Restart".into()));
+            }
+            std::thread::sleep(Duration::from_millis(if late { 2000 } else { 300 }));
         }
     });
 }

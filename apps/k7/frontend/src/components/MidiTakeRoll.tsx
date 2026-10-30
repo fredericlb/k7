@@ -74,7 +74,7 @@ export function MidiTakeRoll({
       const now = take.now();
       const { lo, hi } = viewRef.current;
       if (lineRef.current)
-        lineRef.current.style.left = `${((now - lo) / (hi - lo)) * 100}%`;
+        lineRef.current.style.transform = `translateX(${((now - lo) / (hi - lo)) * 100}%)`;
       // A held key grows and a new note appears within a quarter beat, without a React render per frame.
       const at = Math.floor(now * 4);
       if (at !== step) {
@@ -183,11 +183,16 @@ export function MidiTakeRoll({
                 }}
               />
             ))}
-          <div
-            ref={lineRef}
-            className="absolute top-0 h-full w-px bg-foreground/70"
-            style={{ left: `${x(now)}%` }}
-          />
+          {/* A full-width layer moved by a transform, so the line costs no layout per frame (docs/playhead.md). */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div
+              ref={lineRef}
+              className="absolute inset-0"
+              style={{ transform: `translateX(${x(now)}%)` }}
+            >
+              <div className="h-full w-px bg-foreground/70" />
+            </div>
+          </div>
         </div>
       </div>
     </section>

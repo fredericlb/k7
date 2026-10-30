@@ -51,6 +51,14 @@
                 <data android:scheme="${applicationId}" android:host="auth" />
             </intent-filter>
         </activity>
+        <!-- k7 opened again once the old process is gone, from a process of its own that only waits (Relaunch.kt). -->
+        <activity
+            android:name=".RelaunchActivity"
+            android:process=":relaunch"
+            android:taskAffinity="${applicationId}.relaunch"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:exported="false" />
         <!-- Holds the process in front while a page plays; MediaPlayback.kt is the session it shows. -->
         <service
             android:name=".MediaPlaybackService"

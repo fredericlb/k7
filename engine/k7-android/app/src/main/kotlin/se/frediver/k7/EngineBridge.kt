@@ -54,6 +54,10 @@ object EngineBridge {
         }, "k7-runtime").apply { start() }
     }
 
+    /** Whether the engine served in this process and stopped: only a new process starts it again (Relaunch.kt). */
+    @Synchronized
+    fun ended(): Boolean = thread?.isAlive == false
+
     /** Ask the engine to stop and wait for it, at most `timeoutMs`; true when it did. */
     fun stop(timeoutMs: Long): Boolean {
         val t = synchronized(this) { thread } ?: return true

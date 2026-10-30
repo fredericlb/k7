@@ -9,6 +9,7 @@ import { setAddressNavigator } from "@studio/project-shell/launch";
 import {
   flushAutosaves,
   forgetBuffers,
+  setBufferScope,
 } from "@studio/ui-editor/autosave-buffers";
 import { hasUnsavedWork } from "@studio/ui-editor/unsaved";
 import { useEffect } from "react";
@@ -27,7 +28,12 @@ export const currentScopeKey = (): string =>
 const listeners = new Set<() => void>();
 // The page-wide state every project leaves behind; modules holding their own register beside these.
 onLeave(resetFileApi);
-onLeave(forgetBuffers);
+// …and the held text is keyed by scope, so a pane that closes after this line keeps its text out of the next project.
+onLeave(() => {
+  forgetBuffers();
+  setBufferScope(currentScopeKey());
+});
+setBufferScope(currentScopeKey());
 onLeave(() => queryClient.clear());
 
 /** Hear the address cross into another scope — Root's re-render. */
@@ -98,7 +104,10 @@ export async function go(href: string, replace = false): Promise<void> {
 
 // Registered at import, before any router: a refused Back must be undone before a router hears it.
 window.addEventListener("popstate", (e) => {
-  if (!selfPop && currentScopeKey() !== lastKey && !mayLeave()) {
+  const crossing = !selfPop && currentScopeKey() !== lastKey;
+  // Back cannot wait, but each pane's pending write starts here, while the file API still names the project left.
+  if (crossing) void flushAutosaves().catch(() => false);
+  if (crossing && !mayLeave()) {
     window.history.pushState(lastState, "", lastHref);
     e.stopImmediatePropagation();
     return;

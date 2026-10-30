@@ -23,12 +23,15 @@ export function jsonErrors(
   _next: express.NextFunction,
 ): void {
   const status = err.status ?? err.statusCode ?? uploadStatus(err) ?? 500;
-  if (status >= 500) console.error(err);
+  // A 503 is a known, passing refusal (a full re-encode queue): said in words, retried later, not logged as a fault.
+  const busy = status === 503;
+  if (status >= 500 && !busy) console.error(err);
   if (res.headersSent) {
     res.destroy();
     return;
   }
+  if (busy) res.setHeader("Retry-After", "5");
   res
     .status(status)
-    .json({ error: status >= 500 ? "internal error" : err.message });
+    .json({ error: status >= 500 && !busy ? "internal error" : err.message });
 }

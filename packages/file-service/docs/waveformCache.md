@@ -130,6 +130,9 @@ take — would draw no waveform at all.
 
 `runWaveformBatch` rebuilds stale sidecars `WARM_DECODES` at a time rather than all at once: each
 decode holds its file's mono signal until the envelope is built, about 57 MB for five minutes.
+On a local install (`STUDIO_LOCAL_USER=1`: a phone, the tray) every decode — a request's and the
+prewarm's alike — waits for the one before it: a phone's file service is killed for memory long
+before a server's would be, and a project opening asks for many lanes at once.
 
 ## Off the request thread
 

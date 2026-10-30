@@ -95,10 +95,19 @@ void aFailedStartIsNoCrashRun()
     CHECK(c.quickCrashes() == 0);
 }
 
+void aWedgedEngineIsTheOneSilentPastTheBoundRun()
+{
+    CHECK(!CrashLoop::wedged(0.0));
+    CHECK(!CrashLoop::wedged(60000.0));
+    CHECK(!CrashLoop::wedged(CrashLoop::kWedgedMs - 1.0));
+    CHECK(CrashLoop::wedged(CrashLoop::kWedgedMs));
+}
+
 }  // namespace
 
 void runCrashLoopTests()
 {
+    RUN(aWedgedEngineIsTheOneSilentPastTheBoundRun);
     RUN(quickCrashesReachSafeModeRun);
     RUN(backoffIsCappedRun);
     RUN(aLongRunStartsTheCountAgainRun);

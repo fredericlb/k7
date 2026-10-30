@@ -9,7 +9,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey, type EnvelopeProject } from "../clipEnvelope";
 import { onLeave } from "../scopeLeave";
-import type { WebClip, WebNote, WebWaveform } from "../types";
+import type { WebClip, WebWaveform } from "../types";
+import { ClipMiniRoll } from "./ClipMiniRoll";
 
 /** Memoised: this is the most numerous thing on the surface once the lanes are expanded, and below here a waveform is fetched per clip. */
 export const ClipContent = memo(function ClipContent({
@@ -34,7 +35,7 @@ export const ClipContent = memo(function ClipContent({
       </>
     );
   return clip.type === "midi" ? (
-    <ClipMidi
+    <ClipMiniRoll
       notes={clip.notes}
       spanBeats={spanBeats}
       loopStart={clip.loopStart}
@@ -71,7 +72,7 @@ function NotesOver({
               width: `${(span / spanBeats) * 100}%`,
             }}
           >
-            <ClipMidi
+            <ClipMiniRoll
               notes={m.notes}
               spanBeats={span}
               loopStart={m.loopStart}
@@ -81,63 +82,6 @@ function NotesOver({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// The notes as a mini piano-roll, y scaled to the clip's own range; a looping clip tiles its window's notes as the engine repeats them.
-function ClipMidi({
-  notes,
-  spanBeats,
-  loopStart = 0,
-  loopEnd = 0,
-  tone = "text-foreground",
-}: {
-  notes: WebNote[];
-  spanBeats: number;
-  loopStart?: number;
-  loopEnd?: number;
-  // The notes' colour class: over a waveform they need one that is not the waveform's.
-  tone?: string;
-}) {
-  if (!notes.length || spanBeats <= 0) return null;
-  const loopLen = loopEnd > loopStart ? loopEnd - loopStart : 0;
-  const placed: WebNote[] =
-    loopLen > 0
-      ? (() => {
-          // Notes inside the loop window, re-timed to clip-space and repeated until the span is filled.
-          const win = notes.filter(
-            (n) => n.time >= loopStart && n.time < loopEnd,
-          );
-          const out: WebNote[] = [];
-          for (let k = 0; k * loopLen < spanBeats; k++)
-            for (const n of win)
-              out.push({ ...n, time: n.time - loopStart + k * loopLen });
-          return out;
-        })()
-      : notes;
-  if (!placed.length) return null;
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const n of placed) {
-    if (n.key < lo) lo = n.key;
-    if (n.key > hi) hi = n.key;
-  }
-  const rows = hi - lo + 1; // pitch rows to stack
-  return (
-    <div className={`absolute inset-0 ${tone}`}>
-      {placed.map((n, i) => (
-        <div
-          key={i}
-          className="absolute rounded-[1px] bg-current opacity-80"
-          style={{
-            left: `${Math.min(100, (n.time / spanBeats) * 100)}%`,
-            width: `${Math.max(0.8, Math.min(100, (n.duration / spanBeats) * 100))}%`,
-            top: `${((hi - n.key) / rows) * 100}%`,
-            height: `${Math.max(9, 100 / rows)}%`,
-          }}
-        />
-      ))}
     </div>
   );
 }

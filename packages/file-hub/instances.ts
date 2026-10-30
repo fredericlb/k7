@@ -168,6 +168,8 @@ export class Instances {
   /** Each start still waiting for its child to answer, by when it began. */
   private readonly starting = new Map<string, number>();
   private lastStartError: InstancesStatus["lastStartError"] = null;
+  /** Set by `stopAll`: no kept account is started again after it. */
+  private closed = false;
 
   constructor(private readonly opts: InstancesOptions) {
     this.log = opts.log ?? ((m) => console.log(`files | ${m}`));
@@ -262,6 +264,24 @@ export class Instances {
     this.crashes.set(user, { count, until: Date.now() + wait });
   }
 
+  /** A kept account's service started again once its backoff ends: with no page open, nothing else would. */
+  private revive(user: string): void {
+    if (this.closed || !this.opts.keep?.(accountKey(user))) return;
+    const until = this.crashes.get(user)?.until ?? 0;
+    const min = this.opts.backoffMinMs ?? BACKOFF_MIN_MS;
+    const timer = setTimeout(
+      () => {
+        if (this.closed || this.byUser.has(user)) return;
+        this.get(user).catch((e: Error) => {
+          this.log(`[${accountKey(user)}] not restarted: ${e.message}`);
+          this.revive(user);
+        });
+      },
+      Math.max(min, until - Date.now()),
+    );
+    timer.unref();
+  }
+
   private async start(user: string): Promise<Instance> {
     const startedAt = Date.now();
     this.starting.set(user, startedAt);
@@ -349,7 +369,10 @@ export class Instances {
       this.log(`[${slug}] exited (${code})`);
       this.forget(inst);
       // A failed start is counted by `start`; only a running service that died on its own is counted here.
-      if (up && !inst.stopping) this.crashed(user, Date.now() - inst.startedAt);
+      if (up && !inst.stopping) {
+        this.crashed(user, Date.now() - inst.startedAt);
+        this.revive(user);
+      }
       this.opts.onExit?.(inst);
     });
     await waitHealthy(port, secret, child, this.opts.readyTimeoutMs ?? 60_000);
@@ -403,6 +426,7 @@ export class Instances {
 
   /** Ask every instance to stop, all at once, and resolve when each has exited or been killed. */
   async stopAll(): Promise<void> {
+    this.closed = true;
     const all = await Promise.all(
       [...this.byUser.values()].map((p) => p.catch(() => null)),
     );

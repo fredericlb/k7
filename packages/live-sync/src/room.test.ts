@@ -209,4 +209,25 @@ describe("Room conflicts", () => {
     for (const e of room.state().log) restarted.replay(e);
     expect(restarted.conflicts.list()).toEqual(room.conflicts.list());
   });
+
+  it("is left as it was when the entry cannot be persisted, so a retry orders it", () => {
+    const room = new Room();
+    room.submit(batch("a", [{ kind: "text", file: "x.md", text: "1" }]));
+    const before = JSON.stringify(room.state());
+    const b = batch("b", [
+      { kind: "text", file: "x.md", text: "2" },
+      { kind: "text", file: "y.md", text: "new" },
+    ]);
+    expect(() =>
+      room.submit(b, () => {
+        throw new Error("ENOSPC");
+      }),
+    ).toThrow("ENOSPC");
+    expect(JSON.stringify(room.state())).toBe(before);
+    const written: number[] = [];
+    const again = room.submit(b, (e) => written.push(e.seq));
+    expect(again.fresh).toBe(true);
+    expect(written).toEqual([2]);
+    expect(room.files.get("y.md")).toBe("new");
+  });
 });

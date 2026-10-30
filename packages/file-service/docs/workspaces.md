@@ -16,6 +16,14 @@ The hub starts an account's service on that account's first request, so startup 
 and the demos are on the home page the first time it draws. The root's absence cannot be the cue:
 the service creates the root as it boots, so a check made later never sees a new account.
 
+A demo is copied again only when it would come out different. Each mirror records, in
+`Examples/.studio-demos.json`, a stamp of both trees (every file's path, size and mtime): the
+bundle's demo and the copy it made. At the next start a demo whose two stamps still match is left
+alone; a new build changes the first, an edit or a deletion in Examples the second, and either
+makes a full replace as before. Re-copying every demo on every start would cost each cold start
+of the service — the hub's spawn, a phone's launch — a delete and a copy of every demo file, all
+before the service answers.
+
 The existence check runs before the memo, on every call: a folder deleted from Finder would
 otherwise be served from cache and 500 deep in `fs`. `UnknownWorkspaceError` is carried as a type
 so the HTTP layer can answer 404 rather than lumping it in with a malformed name, which is a 400
@@ -102,6 +110,15 @@ service makes that the window would otherwise hide for the length of it. Both li
 together, since the second is built on the first: one window dropped without the other would show
 the projects and not their screens.
 
+Past the window, the listing is rebuilt per WORKSPACE, and only for one that may have moved. A row
+costs a walk of the workspace, then per project a parse of `project.k7x` and of every surface and a
+two-level stat; at the home page's 3 s poll that is the whole account re-read every few seconds. So
+a captured workspace whose watcher is up keeps its row, for up to a minute, as long as its change
+feed has reported nothing since the row was built; any path reported in it rebuilds that row alone.
+The open project is read again on every listing even then: its marker lives outside the workspace,
+where no capture hears it. A workspace with no watching capture — Examples, live sync off — is
+rebuilt at each window.
+
 ## `listSurfacedProjects` — what `/external` draws
 
 Every project on this machine that DECLARES a surface, flat, with those surfaces: the list of
@@ -177,10 +194,36 @@ nothing resolves. ONE replica rewrites each workspace, so the edit reaches the o
 several identical edits racing in the room: a server rewrites all of its own, and the account's
 library; a paired device only those that never synced, which no server would reach.
 
+The rewrite reads every source file of every workspace, so it is done once per state of the
+workspace (`namespaceStamp.ts`): it stamps the sources it read — each one's path, size and mtime,
+and the version of the rules — in the workspace's sync state, and a start that finds the same
+stamp skips it. Stamping the sources rather than "done" is what keeps a file arriving later in the
+old spelling, by the sync or by hand, from being missed: it moves the stamp, and the next start
+rewrites it. A walk of stats is what remains of the cost, which is not the read of each file.
+`NAMESPACE_RULES` is bumped with any new rule of `namespaceMigrate.ts`, or a stamped workspace
+would never meet it.
+
+**Every workspace is attached at start, but behind the first answers.** `attachAllWorkspaces`
+runs after the service is listening, each workspace on a turn of the event loop of its own: a
+learning walk, a recursive watch and a relay link per workspace is a few hundred milliseconds on a
+phone, and the hub counts the service as started only once it answers its probe — the account's
+first page waits on that. A request reaching a workspace not attached yet attaches it itself, as
+it always does through `getWorkspace`; the migration then lands on a captured workspace, which
+carries it as an ordinary edit, the same as when it runs before. The demos are mirrored before
+listening still: a mirror left as it was costs only two stat walks, and Examples must not be
+served half-copied.
+
 **On a server, a workspace a device creates is joined without waiting for a reconnect.** The server's
 own replica joins every room holding files when its link opens — and a room a device seeds later, or a
 move lands, announces itself to no reconnect. So it joins them again before answering the home page's
 lists, and every minute (`joinServerRooms`): a moved workspace is listed on the server it moved to.
+
+The home page's lists never wait on the relay, though, beyond the first one: they join from the room
+list as last known (up to 30 s old), and a staler one is answered at once and asked again behind the
+reply, one question per relay at a time. The home page polls every 3 s, and a relay slow to answer
+would otherwise hold each poll for up to the 15 s the question may take. Only a server that has no
+list at all — the first request, or the first after a move made it forget the list — waits for one;
+a move also makes an answer asked for before it unable to land after it.
 
 **The engine is unloaded first, and that is not politeness.** A project of this workspace still
 loaded holds files open, and Windows answers EPERM half-way through a delete — the same wall a

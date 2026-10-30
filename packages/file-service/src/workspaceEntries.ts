@@ -2,9 +2,18 @@
 // folder, rename, move, recycle — each through the path guards, never clobbering, and retrying a
 // rename while Windows lets go of a handle. Workspace keeps the public methods. See docs/workspace.md.
 
-import { existsSync, mkdirSync, renameSync, statSync } from "node:fs";
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { writeFileAtomic } from "@studio/song/atomicWrite";
+import { type Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { atomicTempFor, writeFileAtomic } from "@studio/song/atomicWrite";
 import {
   assertNotEngine,
   planModuleMove,
@@ -76,6 +85,61 @@ export function uploadFileIn(
   name: string,
   bytes: Buffer,
 ): { path: string } {
+  const abs = uploadTarget(h, dir, name);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileAtomic(abs, bytes);
+  h.invalidateProjectDoc();
+  return { path: h.toRel(abs) };
+}
+
+/** An upload over `max` bytes, said as the 413 the route answers. */
+export const uploadTooLarge = (max: number): Error =>
+  Object.assign(
+    new Error(
+      `larger than ${max / (1024 * 1024)} MB, the most one upload takes`,
+    ),
+    { status: 413 },
+  );
+
+/** uploadFileIn for a request body: streamed to a hidden temp beside the target, then renamed — docs/fileRoutes.md. */
+export async function uploadStreamIn(
+  h: EntriesHost,
+  dir: string,
+  name: string,
+  body: Readable,
+  max: number,
+): Promise<{ path: string }> {
+  const abs = uploadTarget(h, dir, name);
+  mkdirSync(dirname(abs), { recursive: true });
+  const tmp = atomicTempFor(abs);
+  let size = 0;
+  const count = new Transform({
+    transform(chunk: Buffer, _enc, done) {
+      size += chunk.length;
+      if (size > max) done(uploadTooLarge(max));
+      else done(null, chunk);
+    },
+  });
+  try {
+    await pipeline(body, count, createWriteStream(tmp));
+    // Checked again: another upload of the same name may have landed while this one streamed.
+    if (existsSync(abs)) throw alreadyExists(h.toRel(abs));
+    renameSync(tmp, abs);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+  h.invalidateProjectDoc();
+  return { path: h.toRel(abs) };
+}
+
+function alreadyExists(rel: string): NodeJS.ErrnoException {
+  const err = new Error(`already exists: ${rel}`) as NodeJS.ErrnoException;
+  err.code = "EEXIST";
+  return err;
+}
+
+/** Where an upload of `name` into `dir` lands, every guard passed; throws EEXIST rather than clobber. */
+function uploadTarget(h: EntriesHost, dir: string, name: string): string {
   const segs = name
     .split(/[\\/]+/)
     .map((s) => s.trim())
@@ -88,15 +152,8 @@ export function uploadFileIn(
   refuseYamlName(rel);
   const abs = h.safePath(rel);
   guardShared(h.toRel, abs, "add a file to");
-  if (existsSync(abs)) {
-    const err = new Error(`already exists: ${rel}`) as NodeJS.ErrnoException;
-    err.code = "EEXIST";
-    throw err;
-  }
-  mkdirSync(dirname(abs), { recursive: true });
-  writeFileAtomic(abs, bytes);
-  h.invalidateProjectDoc();
-  return { path: h.toRel(abs) };
+  if (existsSync(abs)) throw alreadyExists(rel);
+  return abs;
 }
 
 /** Make an empty folder `name` inside `dir` — uploadFile's shape, and no guardMutable. */

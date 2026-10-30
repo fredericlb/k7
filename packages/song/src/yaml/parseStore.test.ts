@@ -1,12 +1,19 @@
 // parseStore.test.ts — a parse outlives the process that made it, keyed by content, for the bundle that made
 // it; and the bundle's own store answers a first launch.
 
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { flush, parseKey, resetParseStore, SEED_FILE } from "./parseStore";
 import { clearYamlCache, settledParse } from "./yamlCache";
+
+/** A file written a minute ago: settled, so its parse is one the store keeps. */
+const writeOld = (path: string, text: string): void => {
+  writeFileSync(path, text);
+  const then = new Date(Date.now() - 60_000);
+  utimesSync(path, then, then);
+};
 
 describe("the parse store", () => {
   let home: string;
@@ -26,7 +33,7 @@ describe("the parse store", () => {
     bundle = join(home, "bin", "file-service.mjs");
     writeFileSync(bundle, "// the bundle");
     file = join(home, "module.k7x");
-    writeFileSync(file, "a(1)\n");
+    writeOld(file, "a(1)\n");
     process.env.STUDIO_HOME = home;
     process.env.STUDIO_PARSE_CACHE = "1";
     process.argv[1] = bundle;
@@ -55,7 +62,7 @@ describe("the parse store", () => {
     flush();
     restart();
     const copy = join(home, "copy.k7x");
-    writeFileSync(copy, "a(1)\n");
+    writeOld(copy, "a(1)\n");
     expect(settledParse(copy, "t", refuse)).toEqual({ text: "a(1)\n" });
   });
 
@@ -63,7 +70,7 @@ describe("the parse store", () => {
     settledParse(file, "t", parse);
     flush();
     restart();
-    writeFileSync(file, "a(22)\n");
+    writeOld(file, "a(22)\n");
     expect(settledParse(file, "t", parse)).toEqual({ text: "a(22)\n" });
   });
 
@@ -83,6 +90,14 @@ describe("the parse store", () => {
     );
     restart();
     expect(settledParse(file, "t", refuse)).toEqual({ text: "seeded" });
+  });
+
+  it("keeps no parse of a file still settling, as one being typed", () => {
+    writeFileSync(file, "a(3)\n");
+    settledParse(file, "t", parse);
+    flush();
+    restart();
+    expect(() => settledParse(file, "t", refuse)).toThrow("parsed again");
   });
 
   it("is off outside a bundle", () => {

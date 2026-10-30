@@ -447,12 +447,12 @@ void loadPluginFiles(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p, con
             if (!nam->loadImpulseResponse(juce::File{juce::String(p.irFile)}, err))
                 warn(err.toStdString(), p.id);
         }
-    // The SFZ instrument, on the message thread like the model: its preload reads the head of every sample.
+    // The SFZ instrument, on its own loader thread like the record: its preload reads the head of every sample.
 #if STUDIO_SFZ
     if (moved(&PluginDoc::sfzFile))
         if (auto* sfz = dynamic_cast<studio::SfzPlugin*>(&plugin)) {
             juce::String err;
-            if (!sfz->loadInstrument(juce::String(p.sfzFile), err))
+            if (!sfz->loadInstrument(juce::String(p.sfzFile), err, p.id))
                 warn(err.toStdString(), p.id);
         }
 #endif

@@ -10,6 +10,7 @@ import {
   READ_MS,
   setFileApiRevision,
   setFileApiTally,
+  WRITE_MS,
 } from "./fileApi.ts";
 
 let served: string[] = [];
@@ -240,6 +241,36 @@ describe("a read that never answers", () => {
       await both;
       void fget("/revision").catch(() => {});
       expect(asked).toBe(2);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
+  });
+});
+
+describe("a write that never answers", () => {
+  it("fails after its budget, so the autosave lets go, rather than hanging", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const c = new AbortController();
+      setTimeout(() => c.abort(new DOMException("late", "TimeoutError")), ms);
+      return c.signal;
+    });
+    vi.stubGlobal(
+      "fetch",
+      (_url: string, init?: RequestInit) =>
+        new Promise((_ok, fail) =>
+          init?.signal?.addEventListener("abort", () =>
+            fail(init.signal?.reason),
+          ),
+        ),
+    );
+    try {
+      const w = expect(
+        fsend("PUT", "/file", {}, { timeoutMs: WRITE_MS }),
+      ).rejects.toThrow("no answer after 60 s");
+      await vi.advanceTimersByTimeAsync(WRITE_MS);
+      await w;
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();

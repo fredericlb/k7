@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <map>
@@ -24,6 +25,8 @@
 
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
 #include "../engine/ScanProgress.h"   // PluginScanStatus — JUCE-free
+#include "HeldNotes.h"
+#include "PendingQueries.h"
 #include "Pairing.h"
 #include "Supersede.h"
 
@@ -85,6 +88,8 @@ struct ServeContext {
     std::mutex listenersMx;
     // Who asked for audio, by POINTER matched against server.getClients(): the stream must never reach a connection that did not ask.
     std::unordered_map<const ix::WebSocket*, std::string> listeners;
+    // …and the codec byte each of them asked for, absent for float32; pruned wherever `listeners` is (docs/broadcast.md).
+    std::unordered_map<const ix::WebSocket*, uint8_t> listenerCodecs;
     // Which sockets DRIVE a session, declared on hello with `{"role":"driver"}`, at most one session each (docs/sessions.md).
     std::unordered_map<const ix::WebSocket*, std::string> drivers;
     // WHICH project each socket is about, bound ONCE from its first real message, so a state frame reaches only those (docs/protocol.md).
@@ -92,6 +97,22 @@ struct ServeContext {
 
     // Which queued project, tracks and parameter jobs a newer message made pointless (docs/supersede.md).
     SupersedeLedger supersede;
+
+    // The notes each socket's `midi-live` holds down, released when it closes (docs/protocol.md).
+    HeldNotes heldNotes;
+
+    // The read-only queries already waiting on the message thread, which an identical one joins (docs/supersede.md).
+    PendingQueries pending;
+
+    // Plugin probes loading at once, each a thread waiting its turn at one lock; past the cap a probe is refused (docs/plugins.md).
+    static constexpr int kMaxProbes = 4;
+    std::atomic<int> probes{0};
+    // A slot for one probe, or false and nothing taken when every slot is in use.
+    bool takeProbe() {
+        if (probes.fetch_add(1) < kMaxProbes) return true;
+        probes.fetch_sub(1);
+        return false;
+    }
 
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;

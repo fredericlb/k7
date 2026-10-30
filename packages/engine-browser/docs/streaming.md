@@ -17,6 +17,11 @@ A page may also ask for it on any engine (`engineOutput(client, here)`, then `se
 **Plays on This machine**. One subscription answers both reasons, so switching one never drops the
 other's sound. The engine's own device keeps playing, being shared by every session on it.
 
+A page that cannot play the stream — no `audioWorklet` on a plain-http LAN page, a channel count
+the context refuses — closes the context it built and latches the failure for that format, until
+the format changes or the page listens again: the context is built on a frame, and ~100 frames a
+second would each build another, with an audio thread apiece. The host is told once (`onFail`).
+
 ## Why a binary frame on the existing socket
 
 The engine already serves an IXWebSocket server that every client is already connected to.

@@ -69,7 +69,14 @@ export function pipeTo(
       upRes.pipe(res);
     },
   );
+  // A client gone mid-download or mid-upload takes the upstream with it, or the hub-to-service socket stays open, paused.
+  let gone = false;
+  res.on("close", () => {
+    gone = !res.writableFinished;
+    if (gone) up.destroy();
+  });
   up.on("error", (e) => {
+    if (gone) return;
     // Past the headers a clean end would pass a cut-off body as a whole one: the browser must see the connection fail.
     if (res.headersSent) res.destroy();
     else res.status(502).json({ error: `file service: ${e.message}` });

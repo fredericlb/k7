@@ -132,10 +132,33 @@ const rooms = new Map<string, { names: string[]; at: number }>();
 export async function listRooms(
   server: SyncServer,
   maxAgeMs = 30_000,
+  // A request answering a page: a stale list is answered at once and asked again behind it (docs/workspaces.md).
+  staleOk = false,
 ): Promise<string[]> {
-  const key = hostOf(server.url);
-  const known = rooms.get(key);
+  const known = rooms.get(hostOf(server.url));
   if (known && Date.now() - known.at <= maxAgeMs) return known.names;
+  if (staleOk && known) {
+    refreshRooms(server);
+    return known.names;
+  }
+  return fetchRooms(server);
+}
+
+/** The background question a stale answer leaves behind, one per server at a time. */
+const refreshing = new Set<string>();
+function refreshRooms(server: SyncServer): void {
+  const key = hostOf(server.url);
+  if (refreshing.has(key)) return;
+  refreshing.add(key);
+  void fetchRooms(server).finally(() => refreshing.delete(key));
+}
+
+/** Bumped by forgetRooms, so an answer asked for before a move never lands after it. */
+const generation = new Map<string, number>();
+
+async function fetchRooms(server: SyncServer): Promise<string[]> {
+  const key = hostOf(server.url);
+  const gen = generation.get(key) ?? 0;
   try {
     const r = await fetch(roomsUrl(server.url), {
       headers: authHeaders(server.auth),
@@ -147,19 +170,22 @@ export async function listRooms(
     const names = workspaces.filter(
       (w) => w !== EXAMPLES_WORKSPACE && w !== ACCOUNT_LIBRARY_ROOM,
     );
-    rooms.set(key, { names, at: Date.now() });
+    if ((generation.get(key) ?? 0) === gen)
+      rooms.set(key, { names, at: Date.now() });
     return names;
   } catch (e) {
     console.warn(
       `sync | could not list the workspaces on ${originOf(server.url)}: ${(e as Error).message}`,
     );
-    return known?.names ?? [];
+    return rooms.get(key)?.names ?? [];
   }
 }
 
 /** Forget what `server`'s list said, so the next question asks it: a move just changed it. */
 export const forgetRooms = (server: SyncServer): void => {
-  rooms.delete(hostOf(server.url));
+  const key = hostOf(server.url);
+  rooms.delete(key);
+  generation.set(key, (generation.get(key) ?? 0) + 1);
 };
 
 const LINK_FILE = "server.json";

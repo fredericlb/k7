@@ -130,8 +130,10 @@ const server = app.listen(FILE_PORT, HOST, () => {
   console.log(`   root: ${rootDir()}`);
   // Examples stocked with this build's demos: a new account's first sight of k7, an old one's fixes.
   syncExamples();
-  // Every workspace is a replica from the start, so one never opened here still sends and receives.
-  attachAllWorkspaces();
+  // Every workspace is a replica from the start, attached behind the first answers — docs/workspaces.md.
+  void attachAllWorkspaces().catch((e: Error) =>
+    console.warn(`sync | attaching the workspaces failed: ${e.message}`),
+  );
   // The songs the open projects name, onto the bound engine's machine ahead of the gig.
   startPrefetch(boundJobsUrl);
   // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.

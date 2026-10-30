@@ -233,7 +233,15 @@ cushion is 150 ms rather than 50 — the full reasoning is in
 
 * **No compression.** Opus would fold its own latency and CPU into every measurement above,
   which is exactly what a transport measurement must not include. The frame header carries
-  a `codec` byte and decoders reject unknown ones, so adding it later is not a flag day.
+  a `codec` byte and decoders reject unknown ones, so adding it later is not a flag day; 1 is
+  kept for it.
+* **Float32 unless asked.** A listener that sends `codec: "pcm16"` with its `broadcast` gets
+  codec **2**: the same frame with each sample clipped to full scale and rounded to a
+  little-endian int16, half the bytes (about 1.5 Mbit/s) for a sixteen-bit floor no listening
+  room hears. The engine encodes each codec once per frame and only when some listener holds it,
+  so float32 listeners pay nothing. The default stays float32 because a decoder that does not
+  know codec 2 rejects the frame; k7's pages know it (`packages/engine-protocol/stream.ts`) and ask
+  for it.
 * **No drift correction**, for the reason in the browser doc: which fix is right depends on
   how much drift there is, and that is measurement 5.
 * **No authentication of its own.** The stream rides the existing socket and inherits

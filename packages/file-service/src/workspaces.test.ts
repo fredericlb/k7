@@ -11,12 +11,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { attachedAt, detachLiveCapture } from "./liveSync.ts";
 import { claimRoot } from "./owner.ts";
 // STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
 import { rootDir } from "./slug.ts";
 import {
   createWorkspace,
+  getWorkspace,
   joinWorkspace,
   listMachineWorkspaces,
 } from "./workspaces.ts";
@@ -89,6 +91,40 @@ describe("listMachineWorkspaces", () => {
     // An empty folder has no edit to report, and declares no surface — the `live` archetype's shape.
     expect(vide?.editedAt).toBeUndefined();
     expect(vide?.surfaces).toEqual([]);
+  });
+
+  // A captured workspace's row is kept while its feed stands still; a project made on disk still shows.
+  it("lists a project made on disk in a captured workspace, and the open one as it moves", async () => {
+    const root = myRoot();
+    mkdirSync(join(root, "ws", "a.k7"), { recursive: true });
+    const ws = getWorkspace(USER, "ws");
+    try {
+      const capture = attachedAt(ws.root)?.capture;
+      await vi.waitFor(() => expect(capture?.watching).toBe(true));
+      expect((await listMachineWorkspaces(USER))[0].projects).toHaveLength(1);
+      const t0 = Date.now();
+      vi.useFakeTimers({ now: t0, toFake: ["Date"] });
+      vi.setSystemTime(t0 + 6_000);
+      ws.setActiveProject("a.k7");
+      const [row] = await listMachineWorkspaces(USER);
+      expect(row.projects[0].active).toBe(true);
+      const gen = capture?.generation ?? 0;
+      mkdirSync(join(root, "ws", "b.k7"));
+      writeFileSync(join(root, "ws", "b.k7", "project.k7x"), 'project("b")\n');
+      vi.useRealTimers();
+      await vi.waitFor(
+        () => expect(capture?.generation ?? 1).toBeGreaterThan(gen),
+        { timeout: 5000, interval: 50 },
+      );
+      vi.useFakeTimers({ now: Date.now() + 12_000, toFake: ["Date"] });
+      const paths = (await listMachineWorkspaces(USER))[0].projects.map(
+        (p) => p.path,
+      );
+      expect(paths).toEqual(["a.k7", "b.k7"]);
+    } finally {
+      vi.useRealTimers();
+      detachLiveCapture(ws.root);
+    }
   });
 });
 

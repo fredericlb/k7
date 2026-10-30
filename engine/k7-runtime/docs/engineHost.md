@@ -17,7 +17,8 @@ language: all JUCE threading stays behind that API. Almost everything else here 
   Bluetooth interface. Playback is silent until it runs.
 - `applyFull()` builds a fresh Edit from the document and keeps a copy as the "current"
   state for later diffing. `baseDir` resolves clip and plugin paths (empty when they are
-  already absolute).
+  already absolute). A build that throws or gets no Edit leaves the session `halfBuilt`, and
+  the next `apply` rebuilds rather than diff against a baseline the Edit does not match.
 - `apply(target)` moves the engine to `target` by the smallest set of changes: it diffs
   internally, applies incrementally — falling back to a full rebuild when a change requires
   it, such as a sample-rate change — updates the baseline, and returns the changeset for

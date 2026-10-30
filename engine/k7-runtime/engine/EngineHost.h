@@ -67,7 +67,8 @@ public:
     void applyFull(const std::string& session, const ProjectDoc& doc, const std::string& baseDir);
 
     // Move the engine to `target` by the smallest set of changes, falling back to a full rebuild when one demands it; returns the changeset for logging.
-    ProjectDiff apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir);
+    // By value, so a caller done with its document MOVES it into the baseline rather than have it copied there.
+    ProjectDiff apply(const std::string& session, ProjectDoc target, const std::string& baseDir);
 
     // Forget the project entirely, leaving the engine alive with its audio device and scan cache, so the next apply rebuilds fully. Message-thread only.
     void reset(const std::string& session);
@@ -307,6 +308,9 @@ public:
         double sampleRate = 0.0;
     };
     AudioTiming audioTiming() const;
+
+    // Milliseconds since the message thread last ticked, 0 before the first tick. An atomic, so ANY thread: `whoami` reports it (docs/hangWatch.md).
+    double messageThreadAgeMs() const;
 
     // Re-read the open device and publish what it costs, after anything that opens, closes or re-buffers one. MESSAGE THREAD ONLY: it dereferences the device.
     void publishAudioTiming();

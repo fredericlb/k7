@@ -82,6 +82,13 @@ reload is remembered and asked for only when it is shown; App's own read of the 
 when a reload could have moved the chains (`movedTheChains`), and otherwise stays on the key it
 already has. Sharing the cache changes how often a key is asked, never which key a pane reads.
 
+**A new key's compiled project keeps what did not change.** Each key is its own query, so
+TanStack's structural sharing, which works within one key, never meets the previous answer. The
+project document's query function shares the fresh answer deep with the latest earlier key's
+(`replaceEqualDeep`), so an unchanged track, clip or note list keeps its identity, and every memo
+on it — a clip's activity mask, its mini-roll, the open piano roll — holds across a mute or a
+nudge elsewhere in the song.
+
 **A writing command's answer is put in the cache.** `runCommand` stores the graph the service
 built for the key its reload is about to move to, and a bypass for the key in force, so the reads
 that reload would cause are already answered (`shell.md`, "A graph only when one is on screen").

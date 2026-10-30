@@ -1,4 +1,5 @@
-// pool.test.ts — the worker pool: an analysis past its deadline is refused and its worker killed, and the pool goes on.
+// pool.test.ts — the worker pool: an analysis past its deadline is refused and its worker killed, a job whose
+// worker dies under it fails, and the pool goes on with a fresh worker either way.
 
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,6 +8,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   analyseOffThread,
   DeadlineError,
+  poolWorkers,
   TranscodeDeadlineError,
   transcodeOffThread,
 } from "./pool.ts";
@@ -71,5 +73,17 @@ describe("the analysis pool", () => {
       { deadlineMs: 60_000 },
     );
     expect(r.frames).toBe(30 * 48_000);
+  });
+
+  it("fails the job whose worker died, and analyses the next one on a fresh worker", async () => {
+    const src = wav("crash.wav", 60);
+    await analyseOffThread(src, 0.5, { engineBin: null });
+    const doomed = analyseOffThread(src, 0.5, { engineBin: null });
+    const [worker] = poolWorkers("analyse");
+    void worker.terminate();
+    await expect(doomed).rejects.toMatchObject({ name: "WorkerDiedError" });
+    const env = await analyseOffThread(src, 0.5, { engineBin: null });
+    expect(env.seconds).toBeCloseTo(60, 1);
+    expect(poolWorkers("analyse")).not.toContain(worker);
   });
 });

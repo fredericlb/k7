@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeLibrary } from "@studio/mediatek/testLibrary";
@@ -54,6 +54,13 @@ describe("decode failures on the volume", () => {
   it("refuses a file a decode was still running on when the process died", () => {
     markRunning(song);
     expect(markedFailed(song)).toMatch(/stopped while decoding/);
+  });
+
+  it("reads the marks again once the file changed under it", () => {
+    markRunning(song);
+    expect(markedFailed(song)).not.toBeNull();
+    rmSync(join(root, ".analysis", "marks.json"));
+    expect(markedFailed(song)).toBeNull();
   });
 
   it("tries the file again once its bytes changed", async () => {

@@ -113,6 +113,29 @@ way, reach `WarpTimeManager` (`WarpMarkers.h`, tested in `tests/WarpMarkers_test
 far off is an import artifact, not a re-timing anyone can hear as intended. Dropping its marker moves
 at most that segment's few milliseconds, and the markers on either side still pin the timing.
 
+## Stretched live, in the server too
+
+Every warped clip is stretched on the audio thread, block by block — SoundTouch "better" where
+Elastique is not linked — in the live server as in `--render`. Tracktion's alternative is a
+**proxy**: with `setUsesProxy(true)`, `AudioClipBase::getPlaybackFile()` hands the playback graph a
+pre-stretched wav under the edit's temp directory, rendered by a background job a 600 ms timer
+starts. The engine refuses it everywhere, the live server included, because of what that file is:
+
+* **it does not exist until rendered**, and a clip whose playback file has no sample rate plays
+  silence — after every song open, for as long as the stems take to stretch offline;
+* **its hash carries the clip's segment list, so the tempo**: a tempo edit in k7 is a new proxy for
+  every warped clip, and the same silence again while they render;
+* **interior warp points turn into a `WarpTimeRenderJob`** once a proxy is allowed (`needsRender()`
+  is `warpTime && canUseProxy()`), another render the playback waits on;
+* `--render` never pumps the timer that starts the job, so it must keep refusing proxies whatever
+  the server does (`editBuilder.md`).
+
+The live cost is real — one stretcher per warped clip, every block — and largest on a phone with many
+stems. What would remove it without the silent window is a stretched copy the engine renders ITSELF
+before the clip is swapped to it, the live stretch playing meanwhile: a cache keyed like Tracktion's
+hash, filled off the message thread. It is not built; nothing has measured the live stretch's share
+of a block yet (`audio-cost` on a song of warped stems would).
+
 ## Verifying it
 
 `scripts/warp-points.ts` is the proof, and it is a **render measured**, not a unit test — this is

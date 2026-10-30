@@ -9,7 +9,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
-import { migrateNamespaceIn } from "@studio/song/namespaceMigrate";
+
 import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
@@ -28,12 +28,14 @@ import { loadHead } from "./liveRelay.ts";
 import { isPaired } from "./liveServers.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
+  attachedAt,
   attachLiveCapture,
   detachLiveCapture,
   endWorkspace,
   roomAt,
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
+import { migrateNamespaceOnce } from "./namespaceStamp.ts";
 import { rootOwner } from "./owner.ts";
 import { projectEditedAt } from "./projectEdited.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
@@ -90,10 +92,17 @@ export function joinWorkspace(name: string): void {
 }
 
 /** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
-export function attachAllWorkspaces(): void {
+export async function attachAllWorkspaces(): Promise<void> {
+  // Each step on a turn of its own, so the hub's readiness probe and the first requests answer between them — docs/workspaces.md.
+  const turn = (): Promise<void> => new Promise((r) => setImmediate(r));
+  await turn();
   // Before joining: a server's sync then carries the rewrite to every device as an ordinary edit.
   migrateLegacyNamespaces();
-  for (const name of workspaceNames(rootDir())) joinWorkspace(name);
+  for (const name of workspaceNames(rootDir())) {
+    await turn();
+    joinWorkspace(name);
+  }
+  await turn();
   attachAccountLibrary();
   // A workspace kept as `room.host` while its name was taken here gets it back once it is free.
   for (const name of workspaceNames(rootDir())) void restoreRoomName(name);
@@ -107,13 +116,13 @@ function migrateLegacyNamespaces(): void {
     const root = workspaceRoot(name);
     // A paired device leaves a synced workspace to its server, so one rewrite reaches every replica rather than several racing.
     if (paired && loadHead(liveLogFor(root)) > 0) continue;
-    const changed = migrateNamespaceIn(root, true);
+    const changed = migrateNamespaceOnce(root);
     if (changed.length)
       console.log(
         `library | ${name}: ${changed.length} file(s) rewritten from @st0 to @k7-core`,
       );
   }
-  if (!paired) migrateNamespaceIn(accountLibraryHome(), true);
+  if (!paired) migrateNamespaceOnce(accountLibraryHome());
 }
 
 /** Rename workspace folder `from` to `to` with everything filed by its path: its sync history, its active marker. */
@@ -293,33 +302,71 @@ export async function listMachineWorkspaces(
   const names = workspaceNames(dir);
   const rows = names.map((name): AccountWorkspace => {
     const abs = join(dir, name);
-    const single = isProjectDir(abs);
     const active = activeOf(abs);
-    return {
-      name,
-      isSingleProject: single,
-      projects: (single ? ["."] : projectDirsUnder(abs)).flatMap((path) => {
-        // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
-        const app = projectApp(path === "." ? name : path.split("/").pop()!);
-        if (!app) return [];
-        const at = join(abs, path);
-        const tags = tagsOf(at);
-        // What the home page's row says beyond the name: the archetype, the open one, the last change (docs/workspaces.md).
-        const facts = {
-          surfaces: projectSurfaces(at).surfaces.map((s) => s.surface.type),
-          active: active !== null && active === resolve(at),
-          editedAt: projectEditedAt(at),
-          // A demo is overwritten on the next start, so the home page marks it rather than letting edits vanish.
-          ...(isManagedDemo(name, path) ? { demo: true } : {}),
-        };
-        return [
-          tags.length ? { path, app, tags, ...facts } : { path, app, ...facts },
-        ];
-      }),
-    };
+    // A workspace whose capture heard nothing since its row was built is not walked again (docs/workspaces.md).
+    const capture = attachedAt(abs)?.capture;
+    const gen = capture?.watching ? capture.generation : -1;
+    const kept = rowsKept.get(abs);
+    if (
+      kept &&
+      gen >= 0 &&
+      kept.gen === gen &&
+      Date.now() - kept.at < LISTING_STILL_MS
+    )
+      return withActive(kept.row, abs, active);
+    const row = workspaceRow(name, abs, active);
+    if (gen >= 0) rowsKept.set(abs, { gen, at: Date.now(), row });
+    else rowsKept.delete(abs);
+    return row;
   });
   listings.set(slug, { at: Date.now(), rows });
   return rows;
+}
+
+/** One workspace's row of the home page, walked and read afresh. */
+function workspaceRow(
+  name: string,
+  abs: string,
+  active: string | null,
+): AccountWorkspace {
+  const single = isProjectDir(abs);
+  return {
+    name,
+    isSingleProject: single,
+    projects: (single ? ["."] : projectDirsUnder(abs)).flatMap((path) => {
+      // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
+      const app = projectApp(path === "." ? name : path.split("/").pop()!);
+      if (!app) return [];
+      const at = join(abs, path);
+      const tags = tagsOf(at);
+      // What the home page's row says beyond the name: the archetype, the open one, the last change (docs/workspaces.md).
+      const facts = {
+        surfaces: projectSurfaces(at).surfaces.map((s) => s.surface.type),
+        active: active !== null && active === resolve(at),
+        editedAt: projectEditedAt(at),
+        // A demo is overwritten on the next start, so the home page marks it rather than letting edits vanish.
+        ...(isManagedDemo(name, path) ? { demo: true } : {}),
+      };
+      return [
+        tags.length ? { path, app, tags, ...facts } : { path, app, ...facts },
+      ];
+    }),
+  };
+}
+
+/** A kept row with its open project read again: the marker lives outside the workspace, where no capture hears it. */
+function withActive(
+  row: AccountWorkspace,
+  abs: string,
+  active: string | null,
+): AccountWorkspace {
+  return {
+    ...row,
+    projects: row.projects.map((p) => ({
+      ...p,
+      active: active !== null && active === resolve(join(abs, p.path)),
+    })),
+  };
 }
 
 /** A k7 project's tags, read from its project.k7x; none when there is no such file. */
@@ -334,10 +381,17 @@ function tagsOf(projectDir: string): string[] {
 /** The window under the listing above, so a polling home page does not walk every tree per tick (docs/workspaces.md). */
 const LISTING_RESCAN_MS = 5_000;
 const listings = new Map<string, { at: number; rows: AccountWorkspace[] }>();
+/** …and how long one workspace's row is kept while its capture hears nothing move. */
+const LISTING_STILL_MS = 60_000;
+const rowsKept = new Map<
+  string,
+  { gen: number; at: number; row: AccountWorkspace }
+>();
 // Both listings, since the second is built on the first — see docs/workspaces.md.
 export const forgetListing = (slug: string) => {
   listings.delete(slug);
   surfaced.delete(slug);
+  rowsKept.clear();
 };
 
 /** Every project that DECLARES a surface, flat — what k7's `/external` page draws (docs/workspaces.md). */

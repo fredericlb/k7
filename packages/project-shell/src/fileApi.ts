@@ -182,6 +182,12 @@ function route(path: string): string {
 /** What a read may take: past this it is dropped, and every caller waiting on it with it — docs/fileApi.md. */
 export const READ_MS = 120_000;
 
+/** A call dropped for taking past its budget: the far side may be there, so no probe can say why. */
+export class NoAnswer extends Error {}
+
+/** What a file write may take: past this the autosave lets go, says so, and tries again — docs/fileApi.md. */
+export const WRITE_MS = 60_000;
+
 /** A read whose answer broke off, asked once more before anyone is told: the service was most likely restarting (docs/fileApi.md). */
 async function getOnce(
   path: string,
@@ -200,7 +206,7 @@ async function getOnce(
     text = await res.text();
   } catch (e) {
     if ((e as Error).name === "TimeoutError")
-      throw new Error(`GET ${path}: no answer after ${READ_MS / 1000} s`);
+      throw new NoAnswer(`GET ${path}: no answer after ${READ_MS / 1000} s`);
     if (!retried) return getOnce(path, true, renewed);
     throw e;
   }
@@ -233,10 +239,11 @@ export async function fsend<T>(
   method: string,
   path: string,
   body: unknown,
-  /** `fence: false` for a POST that changes no project file (a waveform prewarm): reads around it stay shareable. */
-  options: { fence?: boolean } = {},
+  /** `fence: false` for a POST that changes no project file (a waveform prewarm): reads around it stay shareable; `timeoutMs` gives up on a call that never answers. */
+  options: { fence?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const fence = options.fence !== false;
+  const { timeoutMs } = options;
   // THE choke point: every write in every app that mounts this shell — see docs/fileApi.md.
   const frozen = cfg().frozen;
   if (frozen) throw new ReadOnlyDocument(frozen.why);
@@ -247,6 +254,12 @@ export async function fsend<T>(
       method,
       headers: fileHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+    }).catch((e: Error) => {
+      if (e.name !== "TimeoutError") throw e;
+      throw new NoAnswer(
+        `${method} ${path}: no answer after ${timeoutMs! / 1000} s`,
+      );
     });
   let res = await post().finally(() => {
     if (fence) epoch++;
@@ -279,6 +292,9 @@ export function mediaUrl(path: string): string {
   return `${c.base}/media?${q.toString()}`;
 }
 
+/** How long the gate waits on a question that answers at once when anything is there: `/auth/me` and the probe below. */
+export const PROBE_MS = 5000;
+
 /** Why a call failed, when fetch() won't say — the no-cors probe, see docs/fileApi.md. */
 export type FileServiceFault = "blocked" | "unreachable";
 
@@ -288,7 +304,12 @@ export async function diagnoseFileService(
   const target = base ?? fileCfg?.base;
   if (!target) return "unreachable";
   try {
-    await fetch(`${target}/health`, { mode: "no-cors", cache: "no-store" });
+    // Bounded: the error screen waits on this answer, and a half-open path would keep it a spinner.
+    await fetch(`${target}/health`, {
+      mode: "no-cors",
+      cache: "no-store",
+      signal: AbortSignal.timeout(PROBE_MS),
+    });
     return "blocked";
   } catch {
     return "unreachable";

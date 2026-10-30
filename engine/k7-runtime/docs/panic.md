@@ -113,3 +113,12 @@ half-reset model or convolver.
 
 Tracktion also calls `reset()` from `initialise()` when the rate or block size changes; the flag
 makes that one land on the first block too, which is where it belongs.
+
+Tracktion's own Reverb, Delay, Impulse Response and 4OSC raise no flag: their `reset()` clears
+their buffers in place, which on a seek while playing races the block being rendered — a click, or
+garbage in the tail. They are not ours to change, so `releaseOnSeek` resets them holding the audio
+device's callback lock (`AudioDeviceManager::getAudioCallbackLock`). The graph renders inside that
+callback, so while the lock is held no block runs, and what the message thread waits for is at most
+one block plus a few clears. A callback hung inside a plugin would hold it for ever, which is the
+hang `docs/hangWatch.md` ends. A stop's or a panic's `te::midiPanic` on those same four is not
+covered by this.

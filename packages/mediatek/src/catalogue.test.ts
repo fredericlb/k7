@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   flushIndex,
   listFamily,
@@ -24,6 +24,7 @@ import {
   bumped,
   familyRevision,
   refreshRevisions,
+  startRevisionRefresh,
   stopRevisionRefresh,
 } from "./revision.ts";
 import { scanFamily } from "./scan.ts";
@@ -263,6 +264,18 @@ describe("the refreshed token", () => {
     expect(familyRevision("samples")).toBe(before);
     await refreshRevisions();
     expect(familyRevision("samples")).not.toBe(before);
+  });
+
+  it("stops walking while nobody reads a token, and walks again at the next read", async () => {
+    write("samples/audio/kicks/bd01.wav");
+    startRevisionRefresh(1, 0);
+    await vi.waitFor(() => expect(familyRevision("samples")).toMatch(/:1:/));
+    await new Promise((r) => setTimeout(r, 50));
+    write("samples/audio/kicks/sn01.wav");
+    await new Promise((r) => setTimeout(r, 50));
+    // Paused: the first read answers the last walk, and is what starts the next one.
+    expect(familyRevision("samples")).toMatch(/:1:/);
+    await vi.waitFor(() => expect(familyRevision("samples")).toMatch(/:2:/));
   });
 
   it("still moves on our OWN write, before any walk confirms it", async () => {

@@ -204,8 +204,18 @@ void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
     std::cerr << "\n";
 }
 
+// From the cache while nothing changed: a scan of every backend takes tens to hundreds of ms on the message thread (docs/audioDevice.md).
 std::vector<AudioDeviceInfo> EngineHost::listAudioDevices() {
-    return enumerateDevices(impl_->engine.getDeviceManager().deviceManager);
+    auto& jdm = impl_->engine.getDeviceManager().deviceManager;
+    auto& cache = impl_->deviceList;
+    if (cache == nullptr) cache = std::make_unique<DeviceListCache>(jdm);
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (cache->stale || now - cache->readMs > DeviceListCache::kMaxAgeMs) {
+        cache->devices = enumerateDevices(jdm);
+        cache->readMs = now;
+        cache->stale = false;
+    }
+    return cache->devices;
 }
 
 // Open a specific interface (input + output); an empty `type` means the first backend offering the name, and an unknown name warns rather than crashes.
@@ -293,6 +303,8 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
 }
 
 void EngineHost::publishAudioTiming() {
+    // Every open, close and switch passes here, and the list's `current` flags and channel counts move with them.
+    if (impl_->deviceList != nullptr) impl_->deviceList->stale = true;
     auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
     impl_->audioBufferFrames.store(dev ? dev->getCurrentBufferSizeSamples() : 0,
                                    std::memory_order_relaxed);
@@ -321,12 +333,8 @@ void EngineHost::resetCallbackCost() {
     impl_->engine.getDeviceManager().restCPUStatistics();
 }
 
-// A callback inside the graph this long is not slow, it is stuck: past it the process leaves, for the supervisor to start a fresh one.
-constexpr juce::uint32 kStuckCallbackMs = 10000;
-// …and one inside this long is busy rather than stalled: the watchdog leaves it alone. Longer than any block takes.
+// A callback inside this long is busy rather than stalled: the watchdog leaves it alone. Longer than any block takes.
 constexpr juce::uint32 kBusyCallbackMs = 500;
-// The exit code that says so, distinct from a crash's.
-constexpr int kStuckExitCode = 5;
 
 // Reopen the OPEN device when its callback has stopped: the same device, never the remembered one — docs/audioDevice.md.
 void EngineHost::checkAudioCallback() {
@@ -336,25 +344,10 @@ void EngineHost::checkAudioCallback() {
     auto* dev = jdm.getCurrentAudioDevice();
     const std::string name = dev != nullptr ? dev->getName().toStdString() : std::string{};
 
-    // A callback still INSIDE is not a stalled driver: reopening would wait for ever on the lock it holds (docs/audioDevice.md).
+    // A callback still INSIDE is not a stalled driver: reopening would wait for ever on the lock it holds; one HUNG there is HangWatch's (docs/hangWatch.md).
     if (const juce::uint32 entered = te::studioCallbackEnteredMs.load(std::memory_order_relaxed); dev != nullptr && entered != 0) {
-        // Signed: `entered` has its low bit forced (0 means "none"), so it reads up to 1 ms AHEAD of now — unsigned, that was 49 days.
-        const auto ahead = static_cast<juce::int32>(juce::Time::getMillisecondCounter() - entered);
-        const juce::uint32 inside = ahead > 0 ? static_cast<juce::uint32>(ahead) : 0;
-        if (inside >= kStuckCallbackMs) {
-            std::cerr << "[fatal] the audio callback has been inside the graph for " << inside / 1000
-                      << " s — a plugin is hung, and nothing short of a restart frees the audio thread\n";
-            std::cerr.flush();
-#ifdef STUDIO_ENGINE_IN_APP
-            // Inside the app's own process, where exiting takes the app with it: said, and left alone.
-            if (!impl_->stuckReported) warn("the audio engine is hung inside a plugin — restart the app");
-            impl_->stuckReported = true;
-            return;
-#else
-            std::_Exit(kStuckExitCode);   // the supervisor relaunches; unwinding would join a thread that never returns
-#endif
-        }
-        if (inside >= kBusyCallbackMs) return;   // busy, not stalled: no check counted, no reopen
+        // Signed: `entered` has its low bit forced (0 means "none"), so it reads up to 1 ms AHEAD of now.
+        if (ageMs(juce::Time::getMillisecondCounter(), entered) >= kBusyCallbackMs) return;   // busy, not stalled: no check counted, no reopen
     }
 
     switch (watchdog.check(dev != nullptr, callbackCost().runs)) {

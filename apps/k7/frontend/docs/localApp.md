@@ -16,5 +16,8 @@ flag (`src/localApp.ts`).
 | a phone app answers these itself | its shell already signs in, pairs and drives its engine natively; the page asks it, not the backend |
 | a server's page pairs too, with no sign-in control (`src/projects/AccountBar.tsx`) | an account there may sync with other servers beside the one it is signed in to, which stays the main one (`packages/file-hub/docs/syncRelay.md`, "A server's accounts"); its sign-in is the user menu's |
 
-The service worker the hosted build registers serves here too: it makes the page installable, and the backend
-being on the same machine is what makes it work offline.
+The service worker the hosted build registers serves on the tray too: it makes the page installable, and the
+backend being on the same machine is what makes it work offline. A phone app's view registers none
+(`src/appMain.tsx`) and drops any it holds: its files already sit on the device, served from loopback, and a
+precache would copy them to flash again at every first start and every update, while the app starts. The
+phone shell is what is installed, so nothing is lost.

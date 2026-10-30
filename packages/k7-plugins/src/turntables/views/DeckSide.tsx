@@ -365,6 +365,7 @@ export function DeckSide({
             height={layout.waveform}
             // Draggable only with a record on and a tempo measured: `place` needs a ratio to convert by.
             onShove={load && tempo ? onShove : undefined}
+            running={spinning && !!load}
           />
           {/* Edge to edge, nothing flanking them: eight cues are eight targets, and a target wants width. */}
           <CueButtons

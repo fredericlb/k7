@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <iostream>
@@ -58,6 +59,11 @@ json audioDevicesMsg(EngineHost& host) {
     return json{{"type", "audio-devices"}, {"devices", arr}};
 }
 
+// The list as last sent to every client, message thread only: a poll that finds it unchanged answers its asker alone.
+std::string g_devicesSent;
+// Set by an asker that joined a waiting list-audio-devices job; read by that job on the message thread.
+std::atomic<bool> g_devicesJoined{false};
+
 }  // namespace
 
 void addMachineHandlers(HandlerTable& t) {
@@ -86,6 +92,9 @@ void addMachineHandlers(HandlerTable& t) {
                 if (auto it = listeners.find(&ws); it != listeners.end() && it->second != target) left = it->second;
             if (on) listeners[&ws] = target;
             else listeners.erase(&ws);
+            // `"codec": "pcm16"` halves the stream; anything else, or nothing, is float32 (docs/broadcast.md).
+            if (on && j.value("codec", std::string{}) == "pcm16") ctx.listenerCodecs[&ws] = AudioSender::kCodecPcm16;
+            else ctx.listenerCodecs.erase(&ws);
             if (!left.empty() && std::none_of(listeners.begin(), listeners.end(),
                                               [&](const auto& kv) { return kv.second == left; }))
                 host.post([left, &host] { host.enableBroadcast(left, false); });
@@ -115,7 +124,10 @@ void addMachineHandlers(HandlerTable& t) {
                 ++ears[sid];
             }
         }
-        host.post([&host, &broadcast, ears] {
+        // One listing waiting is enough: it is broadcast, so it answers this asker too.
+        if (!ctx.pending.admit("list-sessions")) return;
+        host.post([&ctx, &host, &broadcast, ears] {
+            ctx.pending.started("list-sessions");
             json arr = json::array();
             for (const auto& s : host.sessionInfos()) {
                 const auto hit = ears.find(s.id);
@@ -154,11 +166,28 @@ void addMachineHandlers(HandlerTable& t) {
                         .dump());
     });
 
-    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string& session, const std::string&) {
+    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket& ws, const json&, const std::string&, const std::string&) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
-        // Enumerate audio interfaces (message thread — touches JUCE devices).
-        host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
+        auto& sendTo = ctx.sendTo;
+        // A second asker joins the job already waiting, so that job's reply must reach it too: a broadcast (docs/supersede.md).
+        if (!ctx.pending.admit("list-audio-devices")) {
+            g_devicesJoined = true;
+            return;
+        }
+        // On the message thread (JUCE devices); to EVERYONE only when the list moved or someone joined, else to the asker alone (docs/audioDevice.md).
+        host.post([&ctx, asker = static_cast<const ix::WebSocket*>(&ws), &host, &broadcast, &sendTo] {
+            ctx.pending.started("list-audio-devices");
+            const bool joined = g_devicesJoined.exchange(false);
+            auto msg = audioDevicesMsg(host);
+            auto text = msg.dump();
+            if (text == g_devicesSent && !joined) {
+                sendTo(asker, msg);
+                return;
+            }
+            g_devicesSent = std::move(text);
+            broadcast(msg);
+        });
     });
 
     t.add({"io-levels"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
@@ -166,12 +195,24 @@ void addMachineHandlers(HandlerTable& t) {
         auto& broadcastTo = ctx.broadcastTo;
         // Meter the interface itself, one peak per `channels` entry plus the master — asked for rather than ridden on the state frame, since the pitch estimate is real work per channel; it ENABLES nothing (channelLevelsDb).
         std::vector<std::vector<int>> sets;
-        for (const auto& s : j.value("channels", json::array())) {
-            std::vector<int> ch;
-            for (const auto& c : s) ch.push_back(c.get<int>());
-            sets.push_back(std::move(ch));
+        // Read in place, never through j.value(), which COPIES the array; an entry that is not a list of numbers is skipped.
+        if (const auto it = j.find("channels"); it != j.end() && it->is_array())
+            for (const auto& s : *it) {
+                if (!s.is_array()) continue;
+                std::vector<int> ch;
+                for (const auto& c : s)
+                    if (c.is_number()) ch.push_back(c.get<int>());
+                sets.push_back(std::move(ch));
+            }
+        // Keyed by the channel sets too: two panels on one session meter different inputs.
+        std::string key = "io-levels\n" + session + "\n";
+        for (const auto& s : sets) {
+            for (const int c : s) key += std::to_string(c) + ",";
+            key += ";";
         }
-        host.post([session, &host, &broadcastTo, sets] {
+        if (!ctx.pending.admit(key)) return;
+        host.post([&ctx, key, session, &host, &broadcastTo, sets] {
+            ctx.pending.started(key);
             json levels = json::array();
             json found = json::array();
             for (const auto& l : host.channelLevelsDb(sets)) {
@@ -228,8 +269,11 @@ void addMachineHandlers(HandlerTable& t) {
                       << (deviceType.empty() ? std::string{} : " [" + deviceType + "]")
                       << "\n";
             // The new device list goes to EVERYONE, one interface per process meaning every session must learn a switch; the refusal goes only to whoever asked.
-            if (host.setAudioDevice(name, deviceType))
-                broadcast(audioDevicesMsg(host));
+            if (host.setAudioDevice(name, deviceType)) {
+                auto msg = audioDevicesMsg(host);
+                g_devicesSent = msg.dump();
+                broadcast(msg);
+            }
             else
                 broadcastTo(session, json{{"type", "error"}, {"message", "audio device not available: " + name}});
         });
@@ -261,7 +305,9 @@ void addMachineHandlers(HandlerTable& t) {
                    {"build", buildStamp()},
                    {"bufferSize", timing.bufferFrames},
                    {"sampleRate", timing.sampleRate},
-                   {"audioToBrowser", ctx.audioToBrowser}};
+                   {"audioToBrowser", ctx.audioToBrowser},
+                   // How long the message thread has been silent: the supervisor restarts an engine wedged there (docs/hangWatch.md).
+                   {"messageThreadMs", host.messageThreadAgeMs()}};
         if (ctx.safeModeCrashes > 0) reply["safeMode"] = safeModeOf(ctx.safeModeCrashes);
         ws.send(reply.dump());
 

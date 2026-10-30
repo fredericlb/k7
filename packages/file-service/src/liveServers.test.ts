@@ -1,11 +1,14 @@
 // liveServers.test.ts — the servers a service syncs with, from its environment, and the folder a workspace from
 // a second server takes when its name is already used here. See docs/liveCapture.md, "Several servers".
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  forgetRooms,
   fromPage,
+  listRooms,
   localNameFor,
   mainServer,
+  type SyncServer,
   syncServers,
   toPage,
 } from "./liveServers.ts";
@@ -96,5 +99,47 @@ describe("localNameFor", () => {
     expect(localNameFor("band", server, (n) => taken.has(n))).toBe(
       "band.app.priv.k7.rocks-8443-2",
     );
+  });
+});
+
+describe("listRooms", () => {
+  const server: SyncServer = {
+    url: "wss://rooms.test/api/sync",
+    auth: { token: "t" },
+    main: true,
+    own: true,
+  };
+  const answering = (lists: string[][]): number[] => {
+    let n = 0;
+    const calls: number[] = [];
+    vi.stubGlobal("fetch", async () => {
+      calls.push(n);
+      const workspaces = lists[Math.min(n++, lists.length - 1)];
+      return new Response(JSON.stringify({ workspaces }));
+    });
+    return calls;
+  };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    forgetRooms(server);
+  });
+
+  it("answers a page from a stale list at once and asks again behind it", async () => {
+    const calls = answering([["a"], ["a", "b"]]);
+    expect(await listRooms(server, 30_000, true)).toEqual(["a"]);
+    vi.useFakeTimers({ now: Date.now() + 60_000, toFake: ["Date"] });
+    expect(await listRooms(server, 30_000, true)).toEqual(["a"]);
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    await vi.waitFor(async () =>
+      expect(await listRooms(server, 30_000, true)).toEqual(["a", "b"]),
+    );
+  });
+
+  it("waits for the relay once a move made it forget the list", async () => {
+    answering([["a"], ["a", "moved"]]);
+    await listRooms(server, 30_000, true);
+    forgetRooms(server);
+    expect(await listRooms(server, 30_000, true)).toEqual(["a", "moved"]);
   });
 });

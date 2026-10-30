@@ -75,7 +75,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "transport", action: "loop", start: 4, end: 8, enabled: true }` | loop region, in seconds |
 | `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample; a `length` of 0 plays to the end of the file, at most 30 s ([engineHost.md](engineHost.md)) |
 | `{ type: "note-preview", track: "melody", key: 60, vel: 1 }` | audition ONE note through that track's own chain — the piano roll's click. Transport-independent like `preview`, but not the same thing: `preview` loads a FILE into a hidden sampler and bypasses every chain, while this plays a note into the track the loaded song already names, so what you hear is the instrument you are writing for. The engine releases it after 100 ms, which is why there is no note-off on the wire: a release that has to arrive is a hanging voice whenever it does not |
-| `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. Sysex and system bytes are dropped |
+| `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. A socket that CLOSES with notes or the pedal down — a tablet off the Wi-Fi sends nothing more — has them released by the engine, which follows each socket's held notes per track (`server/HeldNotes.h`). Sysex and system bytes are dropped |
 | `{ type: "watch-plugin-params", id: "chain:module", on: true }` | follow a plugin's values live |
 | `{ type: "subscribe-waveform", id, side: "input"\|"output", trackIndex }` | tap a module's audio |
 | `{ type: "unsubscribe-waveform", id, side }` | drop that tap |
@@ -86,10 +86,10 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "record-enable", enabled: true }` | whether rolling this session records; the state frame's `recordEnabled` carries it |
 | `{ type: "get-plugin-params", id }` / `{ type: "set-plugin-param", id, name, value }` | read / move one plugin's values |
 | `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
-| `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
+| `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process; a list that has not changed answers the asker alone (`audioDevice.md`) |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue: incrementally, or from nothing with `force: true` |
 | `{ type: "plugin-scan" }` | where the plugin scan stands → a `plugin-scan` reply, to the asking socket alone ([plugins.md](plugins.md)) |
-| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)); `messageThreadMs` is how long the message thread has been silent, what the supervisor restarts a wedged engine on ([hangWatch.md](hangWatch.md)) |
 | `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
 | `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |
@@ -101,7 +101,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
 | `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
-| `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
+| `{ type: "broadcast", on: true, codec? }` | send me the master audio (this connection only); `codec: "pcm16"` asks for int16 samples, anything else float32 (`broadcast.md`) |
 
 ### Two `ProjectDoc` fields that are not self-evident
 
@@ -143,9 +143,10 @@ It **replaces by id**, and can neither add nor remove a track. Three consequence
   forget the ids it last sent whenever the socket reopens, since a fresh socket can mean a fresh
   engine.
 
-Nothing sends it: pattern lanes are played by the engine itself (`patternPlugin.md`). It stays
-because it costs nothing unused and a live source of notes from outside the engine would want
-exactly this.
+One sender uses it: a shared song's player, for a visitor's mute and solo on their own session
+(`apps/k7/backend/src/media/shares/player.ts`), whole tracks at the pace of a click. Pattern lanes
+do not need it — the engine plays them itself (`patternPlugin.md`). The merge copies the held
+document once and moves it into the baseline; the diff still walks the whole song.
 
 No `busy` and no `applied` come back. This path is incremental by construction, and announcing a
 changeset six times a second would drown the one that matters — the full-document path still
@@ -177,6 +178,12 @@ per track. The renaming is deterministic, so a re-sent document diffs as the sam
 
 `EditBuilder` bounds the one count that is DERIVED rather than sent: a clip's unrolled passes, at
 4096. `tests/DocJson_test.cpp` pins the table.
+
+Before any of that, EVERY message is held to 64 levels of nesting (`parseMessage` in `DocJson.cpp`),
+refused while it is parsed. The parser itself is iterative, but copying or walking a JSON value
+recurses, and a few kilobytes of brackets is enough to overflow a connection thread's stack — an
+overflow no `catch` sees, which a client re-sending the message turns into a crash loop. A project
+document nests about ten deep.
 
 ## server → client
 
@@ -222,6 +229,15 @@ whatever the engine is doing, turning the ping into a measure of its queue. That
 because `audioTiming()` reads two atomics the message thread publishes: dereferencing the live
 device here would race a concurrent `set-audio-device`, which destroys it — and this keepalive
 fires every few seconds on every socket.
+
+### The state frame's numbers are rounded
+
+A waveform or recorder point is a `−1..1` peak sent to **four decimals**, a track or input level is
+dB to **a hundredth**. Printed whole, each float went out as its 17-digit double, and the envelopes
+are most of the frame: a point is now a third of its text, at a precision below a pixel and below
+any meter's step. A client reads the same numbers, and an identical frame stays identical. The
+frame is still built as a JSON tree; the playhead and the platters' needles keep full precision,
+since a scratch reads them as positions.
 
 ### The state frame slows to 4 Hz when a session is idle
 
@@ -274,6 +290,6 @@ socket's own filter drops.
 
 One message type, and the only binary this socket carries: a frame of master audio, sent
 only to connections that asked with `broadcast`. A 32-byte header then interleaved
-float32 — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
+float32, or little-endian int16 for a connection that asked for `pcm16` (codec byte 2) — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
 `server/AudioSender.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
 checks that they do but a listener. See docs/broadcast.md.

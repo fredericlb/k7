@@ -147,9 +147,60 @@ void a_take_drained_by_the_writer_is_whole() {
     CHECK(ordered);
 }
 
+/** A job whose pump stalls like a slow disk, and which counts its finishes. */
+struct SlowJob : CountingJob {
+    std::atomic<int> finishes{0};
+    std::atomic<int> pumpsAtFinish{-1};
+    void finish() override {
+        pumpsAtFinish = pumps.load();
+        finishes.fetch_add(1);
+    }
+};
+
+void finish_never_waits_on_a_slow_pump() {
+    RecorderWriter w(0ms);
+    auto job = std::make_shared<SlowJob>();
+    job->busy = 50ms;
+    w.add(job);
+    while (job->inside.load() == 0) std::this_thread::sleep_for(100us);
+    const auto asked = std::chrono::steady_clock::now();
+    w.finish(job.get());
+    // A stop on the message thread: back long before the stalled pump is.
+    CHECK(std::chrono::steady_clock::now() - asked < 20ms);
+    CHECK(w.holds(job.get()));
+    const int pumpsWhenAsked = job->pumps.load();
+    const auto until = std::chrono::steady_clock::now() + 5s;
+    while (w.holds(job.get()) && std::chrono::steady_clock::now() < until) std::this_thread::sleep_for(1ms);
+    CHECK(!w.holds(job.get()));
+    CHECK(job->finishes.load() == 1);
+    // At least one whole pump began after the ask, so the ring's tail reaches the take.
+    CHECK(job->pumpsAtFinish.load() >= pumpsWhenAsked + 1);
+    const int after = job->pumps.load();
+    std::this_thread::sleep_for(60ms);
+    CHECK(job->pumps.load() == after);
+}
+
+void stop_finishes_a_job_being_finished() {
+    auto finishing = std::make_shared<SlowJob>();
+    auto running = std::make_shared<SlowJob>();
+    {
+        RecorderWriter w(1h);   // the thread never gets a pass in: only stop() can finish it
+        w.add(finishing);
+        w.add(running);
+        w.finish(finishing.get());
+        w.stop();
+        CHECK(w.size() == 0);
+    }
+    CHECK(finishing->finishes.load() == 1);
+    CHECK(finishing->pumps.load() == 1);
+    CHECK(running->finishes.load() == 0);
+}
+
 }  // namespace
 
 void runRecorderWriterTests() {
+    RUN(finish_never_waits_on_a_slow_pump);
+    RUN(stop_finishes_a_job_being_finished);
     RUN(a_registered_job_is_pumped);
     RUN(after_remove_the_job_is_never_entered_again);
     RUN(the_writer_holds_the_job_alive);

@@ -25,6 +25,8 @@ class RecorderNode : public RecorderWriter::Job {
 public:
     RecorderTap ring;
     bool recording = false;   // message thread only
+    bool closing = false;     // …stopped, the writer still closing the take; filed once it lets go
+    bool discardOnClose = false;   // …and a `clear` asked meanwhile: the take is deleted rather than filed
     std::atomic<bool> damaged{false};   // the take IN PROGRESS lost frames; latched onto it when it closes
     std::vector<RecorderTake> takes;
 
@@ -39,6 +41,8 @@ public:
     void closeTake();
     /** Move whatever the ring holds onto disk: the writer thread's, or the owner's once removed from it. */
     void pump() override;
+    /** The writer's, after the last pump of a stopped take: the flush and close that may wait on the disk. */
+    void finish() override { closeTake(); }
     /** The points not handed out yet, and their offset — the client APPENDS them. */
     EnvelopeSlice drainEnvelope();
     /** Hand the WHOLE picture out on the next drain: what a client that just connected needs. */

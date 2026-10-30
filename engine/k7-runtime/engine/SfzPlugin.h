@@ -1,6 +1,6 @@
 // SfzPlugin.h — an SFZ instrument as a Tracktion built-in: sfizz plays the `.sfz` a module names, with the
-// samples it references read from disk around it. Loaded like NamPlugin's model: on the message thread, into a
-// fresh synth swapped in under a lock the audio thread only ever tries. `@instruments/<name>/…` is THIS
+// samples it references read from disk around it. Loaded on a thread of its own, like TurntablePlugin's record, into
+// a fresh synth swapped in under a lock the audio thread only ever tries. `@instruments/<name>/…` is THIS
 // machine's `<state>/instruments`, filled by the supervisor; one not there yet is waited for. docs/sfzPlugin.md.
 
 #pragma once
@@ -8,8 +8,11 @@
 // The module header, not a path into a build tree — same reason as WaveformTapPlugin.h.
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "Warnings.h"
+
 #include <atomic>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace sfz {
@@ -69,9 +72,9 @@ public:
 
     // --- instrument ----------------------------------------------------------
 
-    // Load the instrument `path` names into a new synth and swap it in — MESSAGE thread only: parsing and preloading
-    // read from disk. An `@instruments/` one not downloaded yet is waited for, and true is answered: it is coming.
-    bool loadInstrument(const juce::String& path, juce::String& error);
+    // Load the instrument `path` names into a new synth and swap it in, OFF the message thread: a missing or quarantined
+    // file answers false at once, a load that fails later warns for `subject`. One not downloaded yet is waited for.
+    bool loadInstrument(const juce::String& path, juce::String& error, const std::string& subject = {});
 
     /** Where `path` is on this machine: an `@instruments/…` ref under `<state>/instruments`, anything else as written. */
     static juce::File resolve(const juce::String& path);
@@ -85,7 +88,7 @@ private:
     std::unique_ptr<sfz::Sfizz> synth_;
     juce::String path_;
 
-    // What the synth was last prepared with, so one loaded AFTER initialise() gets the same shape.
+    // What the synth was last prepared with, so one loaded AFTER initialise() gets the same shape; written under `lock_`.
     double sampleRate_ = 44100.0;
 
     // Set off the audio thread, answered on it: a panic silences the synth between two blocks.
@@ -103,6 +106,17 @@ private:
 
     void prepare(sfz::Sfizz& synth) const;
     bool loadNow(const juce::File& file, juce::String& error);
+    // The parse and preload, on `loader_`; it swaps the synth in only if `gen` is still the latest request.
+    void loadOnWorker(const juce::File& file, int gen, double rate, std::vector<std::pair<int, int>> keyOuts,
+                      const std::string& subject);
+
+    // One load at a time, off the message thread; the generation says which request is the latest (docs/sfzPlugin.md).
+    juce::ThreadPool loader_{1};
+    std::atomic<int> loadGen_{0};
+    std::atomic<int> loadsPending_{0};
+    // Who a failed load is reported for: the module's id, as the builder passed it, and the project it is in.
+    std::string subject_;
+    WarningOrigin origin_;
 
     // An `@instruments/` file still downloading: checked every 2 s, and loaded the moment it is there.
     juce::String waitingFor_;

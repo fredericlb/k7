@@ -925,6 +925,16 @@ another editor — which is exactly the set of events worth reacting to. It is a
 app, at once when the relay pushes a change notice and on a slow poll otherwise; see
 `hooks/useRevision.ts` and `conflicts.md`.
 
+The poll alone leaves a window: an autosave due in under a second, and a drag or an undo that
+rewrites the same file inside it. So the editor's write names its BASE — the text it last read or
+wrote, `saved` — and the file service refuses it with a 409 when the disk has moved
+(`packages/file-service/docs/fileRoutes.md`). A refusal raises the same banner the poll would
+(`useDiskSync`'s `raise`), with the buffer held. "Keep editing" makes the disk's text the new base,
+so the next write goes over it, which is what the person chose; "take the disk" drops the buffer.
+The project journal flushes every pane before it moves (`HistoryDeps.flush`), so Ctrl+Z never
+lands under a pending autosave. A write that lands after the pane moved to another file updates
+nothing of the file now shown.
+
 ### Space is the transport, wherever the last click landed
 
 The key listener draws a line between two groups rather than standing aside for one list of tag names
@@ -1635,6 +1645,11 @@ the editor arrives; an `import App` there would make every gate wait for the who
 Inside the editor, what opens on demand loads on demand: the module and assembly builders, the video export
 (its muxer is the largest dependency there is), the icon set (above), and the drawers of the DJ desk and of
 the viewport, which only a project declaring that surface fetches (`packages/k7-plugins/docs/plugins.md`).
+The code editor is its own chunk too (`components/EditorPane.tsx`): it mounts the first time its pane
+is on screen and then stays mounted like every pane, and the chunk is fetched at idle so that first
+show rarely waits — a project opened on its timeline no longer builds a CodeMirror view nobody sees.
+The playlist and chains builders' YAML panes (`components/LazyYamlPane.tsx`), the help page's
+`marked` and the camera take's `fix-webm-duration` are fetched where they are first used.
 The médiathèque fetches CodeMirror only when a song or a playlist is opened as text
 (`packages/ui-library/docs/audit.md`). Measured on a production build, in gzip, each page with every chunk it
 imports statically:
@@ -1662,7 +1677,20 @@ A schema re-exports what its light half holds, so a caller that already loads th
 
 The first screen's chunk is started as `appMain` evaluates, beside `AuthGate`'s `/auth/me`, rather than
 once that answers: on a phone the sign-in check and the download then overlap instead of following each
-other. Only the home page and a project's `EngineGate` are started this way, the two a launch opens on.
+other. Only the home page and a project's `EngineGate` are started this way, the two a launch opens on —
+and a project address starts `App` too, the longest download and parse of any start, which would
+otherwise wait for `ProjectGate` to mount behind the sign-in check and the engine gate. Beside them
+goes the file hub's hello (`engines.hostedFiles()`), which needs only the cookie: the home page's
+workspace list and a project's engine probe both wait on it. `/auth/me` is asked once per start
+however many screens ask (`api.getMe` shares a signed-in answer for a minute), and the home page's
+workspace list is asked as soon as the hello answers, from its chunk's evaluation rather than from
+its first render (`settings/accountFiles.ts`, `prefetchHome`).
+
+**The built page names `appMain`'s chunks.** `main.tsx` reaches `appMain` through a dynamic import —
+it is what keeps the docs host off the editor — so the browser would learn of it only once the entry
+has run, a third hop after the HTML. `preload/vitePlugin.ts` writes a `modulepreload` for `appMain`
+and its static imports into the built `index.html`, and they arrive beside the entry. The docs host
+serves the same page, so it downloads that set without running it, the price of one page for both.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
 the browser's own by then, so it only has to say "coming".
 

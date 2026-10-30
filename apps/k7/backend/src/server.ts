@@ -7,6 +7,7 @@
 // Runs under tsx to import the brain's TS.
 
 import { createServer } from "node:http";
+import type { Socket } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
@@ -34,7 +35,7 @@ import { camerasRouter } from "./cameras/routes.ts";
 import { cameraTickets, iceServersFromEnv } from "./cameras/ticket.ts";
 import { withDevAdmin } from "./devAdmin.ts";
 import { devFrontend } from "./devFrontend.ts";
-import { mountHandoff } from "./handoff.ts";
+import { LOCAL_USER as LOCAL_SESSION_USER, mountHandoff } from "./handoff.ts";
 import {
   jsonErrorHandler,
   securityHeaders,
@@ -132,6 +133,15 @@ app.use(sitePage(siteHostsFromEnv()));
 const scopes = (process.env.OIDC_SCOPES || "openid profile email groups")
   .split(/[\s,]+/)
   .filter((s) => s !== "");
+
+// A page asks who is signed in before it lists anything: that account's file service starts on the question (../docs/media/projects.md).
+app.get("/auth/me", (req, res, next) => {
+  res.once("finish", () => {
+    const email = res.statusCode === 200 ? auth.sessionUser(req)?.email : "";
+    if (email) media.warmFiles(email);
+  });
+  next();
+});
 
 // This backend OWNS /auth/* for the whole origin, being the service with no prefix (../../AGENTS.md).
 const auth = await setupAuth(app, {
@@ -312,6 +322,7 @@ else {
 // Mounted LAST: a JSON answer for every error, and never a 5xx's message or stack.
 app.use(jsonErrorHandler);
 
+let detachCameras: (() => void) | undefined;
 const onListening = () => {
   const url = `http://${LISTEN_HOST ?? "localhost"}:${PORT}`;
   // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
@@ -319,11 +330,16 @@ const onListening = () => {
   media.serve(server, url);
   // After the library's serve: the rehearsal signaling sits in front of the registry's upgrade listener.
   rehearsal.serve();
-  cameras.attach(server);
+  detachCameras = cameras.attach(server);
   localEngine?.start();
+  // One person here: their workspaces are ready before the first page asks for them.
+  if (LOCAL_USER && LOCAL_SESSION_USER.email)
+    media.warmFiles(LOCAL_SESSION_USER.email);
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)
     listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);
+  // A host that asked is told on stdout that requests are answered now, rather than polling (engine/k7-runtime/docs/android.md).
+  if (process.env.STUDIO_READY_LINE) console.log(process.env.STUDIO_READY_LINE);
 };
 const server = behindProxy(createServer(app));
 // Before any listener: an upgrade nobody serves is refused, and a reset socket never ends the process (../docs/upgrades.md).
@@ -341,6 +357,13 @@ else listen();
 // Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
 server.requestTimeout = 30 * 60_000;
 
+// Every socket, upgraded ones included: `server.close` waits for each, and a relay or tunnel socket never ends by itself.
+const sockets = new Set<Socket>();
+server.on("connection", (s: Socket) => {
+  sockets.add(s);
+  s.once("close", () => sockets.delete(s));
+});
+
 // A stop lets the requests in flight finish, within the 10 s Docker allows before its SIGKILL.
 let stopping = false;
 const stop = (): void => {
@@ -348,16 +371,33 @@ const stop = (): void => {
   stopping = true;
   console.log("stopping: the file services, then the requests in flight");
   setTimeout(() => process.exit(0), 8_000).unref();
-  // The supervisor first: it deregisters from this backend, which must still be up to hear it.
-  void (localEngine?.stop() ?? Promise.resolve())
-    .catch((e) => console.error("supervisor stop:", e))
+  detachCameras?.();
+  const bounded = (p: Promise<unknown>, ms: number) =>
+    Promise.race([p, new Promise((r) => setTimeout(r, ms).unref())]);
+  // The supervisor first, for 3 s at most: it deregisters from this backend, which must still be up to hear it.
+  void bounded(
+    (localEngine?.stop() ?? Promise.resolve()).catch((e) =>
+      console.error("supervisor stop:", e),
+    ),
+    3_000,
+  )
     .then(() =>
-      Promise.all([
-        media.stop().catch((e) => console.error("media stop:", e)),
-        rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
-      ]),
+      bounded(
+        Promise.all([
+          media.stop().catch((e) => console.error("media stop:", e)),
+          rehearsal.stop().catch((e) => console.error("rehearsal stop:", e)),
+        ]),
+        3_000,
+      ),
     )
-    .finally(() => server.close(() => process.exit(0)));
+    .finally(() => {
+      server.close(() => process.exit(0));
+      server.closeIdleConnections();
+      // What is still open a second later is a socket nobody will end: cut, so the close completes inside the budget.
+      setTimeout(() => {
+        for (const s of sockets) s.destroy();
+      }, 1_000).unref();
+    });
 };
 for (const signal of ["SIGTERM", "SIGINT"] as const) process.on(signal, stop);
 // Under the tray, stdin closing is the stop Windows has no signal for, and how a dead tray takes us down elsewhere.

@@ -156,7 +156,12 @@ export async function createSession(ownerId: string) {
   };
 }
 
-export async function deleteSession(uid: string): Promise<boolean> {
+/** Under the session's lock: a save or an append running meanwhile would write a recording the deletion never sees. */
+export function deleteSession(uid: string): Promise<boolean> {
+  return serialized(`session:${uid}`, () => deleteSessionUnlocked(uid));
+}
+
+async function deleteSessionUnlocked(uid: string): Promise<boolean> {
   const rec = await getSessionRecord(uid);
   // The bytes go BEFORE the row that holds their path — see ../../docs/audio.md.
   if (rec?.fields.RecordingPath)

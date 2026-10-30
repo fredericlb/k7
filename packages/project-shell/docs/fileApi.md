@@ -78,9 +78,12 @@ stops noticing changes for the rest of the session. Nothing between the browser 
 service bounds it either — the images carry no nginx, and a half-open connection after a laptop
 sleeps can hang for minutes. So `fget` gives a read `READ_MS` (two minutes, past `/git/status`'s
 own 30 s fetch and a first waveform decode) and then drops it with a sentence, freeing the key for
-the next caller. `fsend` gets no budget: a write that timed out may still have landed, and a
-command may legitimately run long; saying "failed" about a write that happened is worse than
-waiting on it.
+the next caller. `fsend` gets no budget by default: a command may legitimately run long. The one
+exception is `PUT /file`, given `WRITE_MS` (60 s): an autosave waiting on a write that never
+answers holds every later edit in the tab only, for as long as TCP takes to give up. A write that
+timed out may still have landed, so "no answer" is not "failed": the autosave keeps the text and
+tries again, and the file service takes a retry that finds its own text already on disk as no
+conflict with its base (`packages/file-service/docs/fileRoutes.md`).
 
 ### A broken-off read is asked once more, and never comes from the browser's cache
 
@@ -129,6 +132,13 @@ Both `fget` and `fsend` carry the HTTP `status` onto the thrown `Error`, for the
 to tell "nothing there" from "it went wrong" — the gate's `missing` screen is the main one. A
 status also means the service answered, so the gate runs the origin probe above only when there is
 none: a 401 or a 503 is not a refused origin, and saying so sends the reader to the wrong fix.
+
+**Nothing the gate waits on is unbounded**: a backend or a hub that hangs, or a path left
+half-open by a sleep, would otherwise keep the gate on its spinner until a reload. `/auth/me` and
+the probe get `PROBE_MS` (5 s: both answer at once when anything is there, and a probe that hangs
+is `unreachable`); `/open` gets `OPEN_MS` (three minutes, since it brings the libraries up to
+date). A call dropped for its budget throws `NoAnswer`, and the gate runs no probe on it: the far
+side may be there, only slow, and Retry is the action either way.
 
 **A hub ticket lives twelve hours, and a session can outlive it.** With `renewTicket` configured —
 k7 passes its access's `freshTicket` when the files are hosted — a 401 asks for a new ticket once,

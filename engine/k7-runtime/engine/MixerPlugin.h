@@ -57,6 +57,8 @@ private:
         studio::Biquad ch[2];
     };
     Band low_, mid_, high_;
+    // Whether each band ran last block: most strips sit flat for hours, and a flat band costs nothing.
+    bool bandRan_[3] = {false, false, false};
     // Set once per block from the parameters, so the per-sample path reads no Tracktion objects.
     float lastLowDb_ = 0.0f, lastMidDb_ = 0.0f, lastHighDb_ = 0.0f;
     // The gains the last block ENDED on, so a moving fader ramps rather than steps; negative until a first block has run.

@@ -102,7 +102,9 @@ by the hub and released before the child binds it, so another account's child st
 moment may hold it; that one answers 401 to a secret not its own, and the start fails rather than
 forwarding one account's requests to another's process. The accounts paired with a remote server —
 a tray's or a phone's main one, or a server's secondary — start with the hub and are never reaped:
-they are replicas that must keep syncing.
+they are replicas that must keep syncing. For the same reason one that crashes is started again by
+the hub itself once its backoff ends, and again after each failed start: no page may be open to
+ask for it.
 
 An account's folder is `accountKey(email)`: the readable slug **and** a hash of the exact email,
 since a slug alone folds `a.b@` and `a_b@` into one folder. The same key names its copy on an

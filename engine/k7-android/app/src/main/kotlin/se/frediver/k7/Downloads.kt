@@ -141,6 +141,11 @@ class DownloadRoutes(
         scripts[id] = origin to WebViewCompat.addDocumentStartJavaScript(view, downloadJs, setOf(origin))
     }
 
+    /** `id`'s view destroyed: its script went with it, and the next view needs its own. */
+    fun forget(id: String) {
+        scripts.remove(id)
+    }
+
     /** What the WebView itself would download: the app's own files are fetched by its page and saved, the rest go outside. */
     fun fromListener(view: WebView, id: String, url: Uri, disposition: String?, mime: String?) {
         val onApp = view.url?.let { appOf(Uri.parse(it)) } == id

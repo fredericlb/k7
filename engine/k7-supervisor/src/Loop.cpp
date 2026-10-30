@@ -3,7 +3,25 @@
 
 #include "Loop.h"
 
+#include "Log.h"
+
+#include <exception>
+#include <string>
+
 namespace k7 {
+
+bool Loop::guarded(const char* what, const std::function<void()>& fn)
+{
+    try {
+        fn();
+        return true;
+    } catch (const std::exception& e) {
+        log::host(std::string(what) + " failed: " + e.what());
+    } catch (...) {
+        log::host(std::string(what) + " failed (unknown exception)");
+    }
+    return false;
+}
 
 void Loop::post(Fn fn)
 {
@@ -57,7 +75,8 @@ void Loop::run()
             Fn fn = std::move(tasks_.front());
             tasks_.pop_front();
             lock.unlock();
-            fn();
+            // One net for every task and timer: an exception out of run() would end the supervisor, and with it the engine its job object holds.
+            guarded("a task", fn);
             lock.lock();
             continue;
         }
@@ -69,7 +88,7 @@ void Loop::run()
             Fn fn = timer.fn;
             if (timer.period.count() > 0) timers_.emplace(due + timer.period, std::move(timer));
             lock.unlock();
-            fn();
+            guarded("a timer", fn);
             lock.lock();
             continue;
         }

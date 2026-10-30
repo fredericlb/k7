@@ -63,12 +63,26 @@ An offline render cannot wait — it runs no message loop — so it renders the 
 
 ## Loading off the audio thread
 
-The instrument is named by the document (`PluginDoc::sfzFile`) and loaded by `loadPluginFiles` on
-the message thread like a NAM model — never from the plugin's stored state, so the file the song
-names is the one that plays. Loading parses the `.sfz` and preloads the head of every sample, which
-takes seconds on a big instrument, so it happens in a FRESH synth that is swapped in under a lock
-the audio thread only ever tries: a block that finds it taken renders silence rather than waiting.
-The old synth is destroyed after the swap, on the message thread.
+The instrument is named by the document (`PluginDoc::sfzFile`) and asked for by `loadPluginFiles`
+— never from the plugin's stored state, so the file the song names is the one that plays. Loading
+parses the `.sfz` and preloads the head of every sample, which takes seconds on a big instrument,
+and the message thread is every session's: a DJ desk's crossfader must not wait on k7's piano. So
+the plugin loads on **a loader thread of its own**, as a turntable decodes its record
+(`turntable.md`): the file's presence and its quarantine are checked on the message thread, so a
+missing file still answers at once, and the parse runs on the loader into a FRESH synth that is
+swapped in under a lock the audio thread only ever tries — a block that finds it taken renders
+silence rather than waiting. Until the swap the node plays the previous instrument, or nothing.
+
+- **The latest request wins.** Each load takes a generation; one superseded before it starts is
+  skipped, and one superseded while it loads is dropped rather than swapped in.
+- **A failure is a warning, for the module and the project that asked**: the build's session and
+  standing flag travel with the job (`WarningOrigin`, `Warnings.h`).
+- **The rate is the one at the request**; a graph prepared at another rate in the meantime
+  re-prepares the new synth under the lock, as `initialise` does the live one.
+- **A plugin being destroyed waits for its load** — the job writes into it — and the old synth
+  dies on the loader thread, never on the audio one.
+- **An offline render waits for the load** in its first block, since nobody hears a late
+  instrument there and a render owes the whole sound.
 
 **An offline render free-wheels.** sfizz streams most of each sample from disk while it plays; a
 render runs faster than real time and would reach a note before its sample did, so while

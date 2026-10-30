@@ -44,7 +44,14 @@ export function rawToDisk(
     const at = dir();
     mkdirSync(at, { recursive: true });
     const file = join(at, `tmp-upload-${randomUUID()}`);
-    res.on("close", () => rmSync(file, { force: true }));
+    // Windows refuses to remove a file another handle still holds (EPERM): a throw here would end the backend.
+    res.on("close", () => {
+      try {
+        rmSync(file, { force: true });
+      } catch (e) {
+        console.warn(`upload: cannot remove ${file}: ${(e as Error).message}`);
+      }
+    });
     let size = 0;
     const count = new Transform({
       transform(chunk: Buffer, _enc, done) {

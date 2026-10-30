@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -290,6 +291,17 @@ studio::TrackDoc trackFromJson(const json& t) {
         }
 
     return tr;
+}
+
+json parseMessage(const std::string& text) {
+    // Refused while parsing, before the nesting exists: a copy or a walk of a few thousand levels overflows a connection thread's stack.
+    const json::parser_callback_t bound = [](int depth, json::parse_event_t event, json&) {
+        if ((event == json::parse_event_t::object_start || event == json::parse_event_t::array_start) &&
+            depth >= kMaxMessageDepth)
+            throw std::runtime_error("message nested deeper than " + std::to_string(kMaxMessageDepth) + " levels");
+        return true;
+    };
+    return json::parse(text, bound);
 }
 
 }  // namespace studio
