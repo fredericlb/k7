@@ -114,7 +114,9 @@ void EngineHost::openAudioDevice() {
 
 EngineHost::~EngineHost() {
     if (impl_) {
-        // The tuner FIRST: a live audio callback must stop being called before anything it reads through goes away.
+        // The hang watch first: a teardown that takes its time is not a hang, and its readers die below.
+        impl_->hangWatchdog.stop();
+        // The tuner next: a live audio callback must stop being called before anything it reads through goes away.
         if (impl_->tunerAttached)
             impl_->engine.getDeviceManager().deviceManager.removeAudioCallback(&impl_->tuner);
         // EVERY session, the destructor being nobody's in particular: the teardown an apply does before its Edit dies, since ~Edit calls the record listener it would otherwise outlive.
@@ -982,10 +984,12 @@ namespace {
 // A message-thread timer that snapshots engine state and hands it to a callback.
 class StateTimer : public juce::Timer {
 public:
-    StateTimer(EngineHost& h, std::function<void(const EngineHost::EngineState&)> cb)
-        : host_(h), cb_(std::move(cb)) {}
+    StateTimer(EngineHost& h, std::function<void(const EngineHost::EngineState&)> cb, std::atomic<juce::uint32>& heartbeat)
+        : host_(h), cb_(std::move(cb)), heartbeat_(heartbeat) {}
 
     void timerCallback() override {
+        // The pulse HangWatch reads from its own thread: stamped first, so a tick that throws still says the thread is alive.
+        heartbeat_.store(juce::Time::getMillisecondCounter() | 1u, std::memory_order_relaxed);
         // Not posted, so post()'s net does not cover it: an exception out of a timer callback is std::terminate.
         try {
             tick();
@@ -1115,8 +1119,36 @@ private:
 
     EngineHost& host_;
     std::function<void(const EngineHost::EngineState&)> cb_;
+    std::atomic<juce::uint32>& heartbeat_;
 };
+
+// The process leaves on a hang, for the supervisor to start a fresh one; the exit code says so, distinct from a crash's.
+constexpr int kHungExitCode = 5;
+
+// HangWatch's thread, never the message thread: said on stderr, then the exit, or inside the app a warning once (docs/hangWatch.md).
+void onHang(Hang h) {
+    if (h == Hang::callback)
+        std::cerr << "[fatal] the audio callback has been inside the graph for " << kStuckCallbackMs / 1000
+                  << " s — a plugin is hung, and nothing short of a restart frees the audio thread\n";
+    else
+        std::cerr << "[fatal] the message thread has not ticked for " << kStuckMessageThreadMs / 1000
+                  << " s — the engine is wedged, and nothing short of a restart frees it\n";
+    std::cerr.flush();
+#ifdef STUDIO_ENGINE_IN_APP
+    // Inside the app's own process, where exiting takes the app with it: said, and left alone.
+    warn(h == Hang::callback ? "the audio engine is hung inside a plugin — restart the app"
+                             : "the audio engine stopped responding — restart the app");
+#else
+    std::_Exit(kHungExitCode);   // unwinding would join a thread that never returns
+#endif
+}
 }  // namespace
+
+double EngineHost::messageThreadAgeMs() const {
+    // Two atomics, so the socket thread may ask: what lets the supervisor tell a wedged engine from a live one.
+    return static_cast<double>(ageMs(juce::Time::getMillisecondCounter(),
+                                     impl_->messageHeartbeatMs.load(std::memory_order_relaxed)));
+}
 
 std::map<std::string, double> EngineHost::platterPositions(const std::string& session) const {
     std::map<std::string, double> out;
@@ -1186,9 +1218,16 @@ void EngineHost::post(std::function<void()> fn) {
 }
 
 void EngineHost::onState(std::function<void(const EngineState&)> cb, int intervalMs) {
-    auto timer = std::make_unique<StateTimer>(*this, std::move(cb));
+    auto timer = std::make_unique<StateTimer>(*this, std::move(cb), impl_->messageHeartbeatMs);
     timer->startTimer(intervalMs);            // must be started on the message thread
     impl_->stateTimer = std::move(timer);
+    // Only a serving engine is watched: its timer is the heartbeat, and a CLI mode has neither (docs/hangWatch.md).
+    auto* impl = impl_.get();
+    impl_->hangWatchdog.start(std::chrono::milliseconds(1000),
+                              {[] { return static_cast<std::uint32_t>(juce::Time::getMillisecondCounter()); },
+                               [] { return static_cast<std::uint32_t>(te::studioCallbackEnteredMs.load(std::memory_order_relaxed)); },
+                               [impl] { return static_cast<std::uint32_t>(impl->messageHeartbeatMs.load(std::memory_order_relaxed)); }},
+                              onHang);
 }
 
 #if JUCE_ANDROID

@@ -265,7 +265,9 @@ void addMachineHandlers(HandlerTable& t) {
                    {"build", buildStamp()},
                    {"bufferSize", timing.bufferFrames},
                    {"sampleRate", timing.sampleRate},
-                   {"audioToBrowser", ctx.audioToBrowser}};
+                   {"audioToBrowser", ctx.audioToBrowser},
+                   // How long the message thread has been silent: the supervisor restarts an engine wedged there (docs/hangWatch.md).
+                   {"messageThreadMs", host.messageThreadAgeMs()}};
         if (ctx.safeModeCrashes > 0) reply["safeMode"] = safeModeOf(ctx.safeModeCrashes);
         ws.send(reply.dump());
 

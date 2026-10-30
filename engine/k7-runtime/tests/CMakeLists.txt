@@ -136,6 +136,13 @@ target_include_directories(studio_watchdog_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_watchdog_tests COMMAND studio_watchdog_tests)
 
+# --- Hang watch tests ---------------------------------------------------------
+# Fast for the same reason: HangWatch.h is header-only and JUCE-free, so WHEN a hung engine leaves is tested without Tracktion (../docs/hangWatch.md).
+add_executable(studio_hangwatch_tests HangWatch_test.cpp)
+target_include_directories(studio_hangwatch_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_hangwatch_tests COMMAND studio_hangwatch_tests)
+
 # --- Render pool tests --------------------------------------------------------
 # Fast for the same reason: RenderPool.h is header-only and JUCE-free, the settings read from the environment (../docs/renderPool.md).
 add_executable(studio_renderpool_tests RenderPool_test.cpp)

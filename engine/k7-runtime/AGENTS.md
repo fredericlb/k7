@@ -46,6 +46,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             device whose callback stopped
   CallbackWatchdog.h        WHEN that reopen happens, and when it gives up: JUCE-free and header-only,
                             so tests/ has it in a FAST binary (docs/audioDevice.md)
+  HangWatch.h               the thread that leaves when the audio callback or the message thread is HUNG —
+                            JUCE-free, FAST binary (docs/hangWatch.md)
   RenderPool.h              how many threads render a playing Edit — four on a desktop, every core on a phone —
                             and how its idle workers wait; JUCE-free, FAST binary (docs/renderPool.md)
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()

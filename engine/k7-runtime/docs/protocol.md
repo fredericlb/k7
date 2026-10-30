@@ -89,7 +89,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue: incrementally, or from nothing with `force: true` |
 | `{ type: "plugin-scan" }` | where the plugin scan stands → a `plugin-scan` reply, to the asking socket alone ([plugins.md](plugins.md)) |
-| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)); `messageThreadMs` is how long the message thread has been silent, what the supervisor restarts a wedged engine on ([hangWatch.md](hangWatch.md)) |
 | `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
 | `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |

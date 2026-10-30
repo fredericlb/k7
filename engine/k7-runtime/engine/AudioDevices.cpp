@@ -321,12 +321,8 @@ void EngineHost::resetCallbackCost() {
     impl_->engine.getDeviceManager().restCPUStatistics();
 }
 
-// A callback inside the graph this long is not slow, it is stuck: past it the process leaves, for the supervisor to start a fresh one.
-constexpr juce::uint32 kStuckCallbackMs = 10000;
-// …and one inside this long is busy rather than stalled: the watchdog leaves it alone. Longer than any block takes.
+// A callback inside this long is busy rather than stalled: the watchdog leaves it alone. Longer than any block takes.
 constexpr juce::uint32 kBusyCallbackMs = 500;
-// The exit code that says so, distinct from a crash's.
-constexpr int kStuckExitCode = 5;
 
 // Reopen the OPEN device when its callback has stopped: the same device, never the remembered one — docs/audioDevice.md.
 void EngineHost::checkAudioCallback() {
@@ -336,25 +332,10 @@ void EngineHost::checkAudioCallback() {
     auto* dev = jdm.getCurrentAudioDevice();
     const std::string name = dev != nullptr ? dev->getName().toStdString() : std::string{};
 
-    // A callback still INSIDE is not a stalled driver: reopening would wait for ever on the lock it holds (docs/audioDevice.md).
+    // A callback still INSIDE is not a stalled driver: reopening would wait for ever on the lock it holds; one HUNG there is HangWatch's (docs/hangWatch.md).
     if (const juce::uint32 entered = te::studioCallbackEnteredMs.load(std::memory_order_relaxed); dev != nullptr && entered != 0) {
-        // Signed: `entered` has its low bit forced (0 means "none"), so it reads up to 1 ms AHEAD of now — unsigned, that was 49 days.
-        const auto ahead = static_cast<juce::int32>(juce::Time::getMillisecondCounter() - entered);
-        const juce::uint32 inside = ahead > 0 ? static_cast<juce::uint32>(ahead) : 0;
-        if (inside >= kStuckCallbackMs) {
-            std::cerr << "[fatal] the audio callback has been inside the graph for " << inside / 1000
-                      << " s — a plugin is hung, and nothing short of a restart frees the audio thread\n";
-            std::cerr.flush();
-#ifdef STUDIO_ENGINE_IN_APP
-            // Inside the app's own process, where exiting takes the app with it: said, and left alone.
-            if (!impl_->stuckReported) warn("the audio engine is hung inside a plugin — restart the app");
-            impl_->stuckReported = true;
-            return;
-#else
-            std::_Exit(kStuckExitCode);   // the supervisor relaunches; unwinding would join a thread that never returns
-#endif
-        }
-        if (inside >= kBusyCallbackMs) return;   // busy, not stalled: no check counted, no reopen
+        // Signed: `entered` has its low bit forced (0 means "none"), so it reads up to 1 ms AHEAD of now.
+        if (ageMs(juce::Time::getMillisecondCounter(), entered) >= kBusyCallbackMs) return;   // busy, not stalled: no check counted, no reopen
     }
 
     switch (watchdog.check(dev != nullptr, callbackCost().runs)) {

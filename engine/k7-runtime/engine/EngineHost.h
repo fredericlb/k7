@@ -308,6 +308,9 @@ public:
     };
     AudioTiming audioTiming() const;
 
+    // Milliseconds since the message thread last ticked, 0 before the first tick. An atomic, so ANY thread: `whoami` reports it (docs/hangWatch.md).
+    double messageThreadAgeMs() const;
+
     // Re-read the open device and publish what it costs, after anything that opens, closes or re-buffers one. MESSAGE THREAD ONLY: it dereferences the device.
     void publishAudioTiming();
 

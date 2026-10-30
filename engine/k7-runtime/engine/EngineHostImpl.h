@@ -10,6 +10,7 @@
 #include "EngineTypes.h"
 #include "BroadcastTap.h"
 #include "CallbackWatchdog.h"
+#include "HangWatch.h"
 #include "RecorderNode.h"
 #include "RecorderWriter.h"
 #include "RenderPool.h"
@@ -178,8 +179,10 @@ struct EngineHost::Impl {
 
     // Whether the open device still calls back, checked once a second by the state timer — message thread only (docs/audioDevice.md).
     CallbackWatchdog callbackWatchdog;
-    // Android only: the hung-plugin warning was given, where the process cannot leave (docs/audioDevice.md).
-    bool stuckReported = false;
+    // When the state timer last ticked, by juce::Time::getMillisecondCounter, 0 before its first: the message thread's pulse (docs/hangWatch.md).
+    std::atomic<juce::uint32> messageHeartbeatMs{0};
+    // The thread that reads that pulse and the audio callback's, and leaves when either stopped (docs/hangWatch.md).
+    HangWatchdog hangWatchdog;
     // The open device's underrun count at the last check, -1 = no baseline yet; and whether the buffer cap was already reported (checkXRuns).
     int xruns = -1;
     bool xrunsAtCap = false;

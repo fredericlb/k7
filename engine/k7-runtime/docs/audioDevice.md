@@ -326,7 +326,8 @@ So Tracktion's callback records when it entered, and clears it as it returns (a 
 A callback inside for half a second is BUSY, and the check is skipped — not counted towards a stall,
 not reopened. One inside for ten seconds is HUNG, and nothing frees an audio thread a plugin never
 gives back: the engine logs why and leaves with exit code 5, for the supervisor to start a fresh one.
-On Android, where leaving takes the app with it, it warns once instead.
+On Android, where leaving takes the app with it, it warns once instead. That verdict is reached on a
+thread of its own, since a hung callback is exactly what wedges the message thread (`docs/hangWatch.md`).
 
 Which plugin hung is not known — the graph runs many — so a project that hangs every time it plays
 hangs every time it is restarted too. The log line is what tells that loop apart from a crash.

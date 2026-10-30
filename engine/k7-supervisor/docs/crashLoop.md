@@ -56,3 +56,13 @@ The warning says the first way, since it is the one a person reaches for.
 On Android and iOS the engine is a thread of the app, so it dies WITH the supervisor and there is
 no relaunch to count. The start frame carries `safeMode` all the same, for one wire everywhere;
 the phones host no external plugin, so there it changes nothing.
+
+## An engine that is up but frozen is killed
+
+A process that stays up is no crash, so nothing above sees an engine whose message thread is wedged:
+it answers `whoami` from its socket thread while nothing else moves. The engine leaves by itself
+after 60 s of silence (`engine/k7-runtime/docs/hangWatch.md`), but not where it runs inside an app.
+So `hangWatch` asks `whoami` every 10 s and, past `kWedgedMs` (90 s) of `messageThreadMs`, stops an
+engine it owns — on a phone that is the stop request the app is sent. The death is then counted like
+any other: relaunched with the backoff above, and in safe mode at the third quick one. An adopted
+engine is never killed here, as nothing foreign is.
