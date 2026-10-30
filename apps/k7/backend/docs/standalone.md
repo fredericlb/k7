@@ -62,6 +62,14 @@ would mean lifting all three locks, and a login of its own for the tablet. The s
 services and the page all reach this backend on `127.0.0.1`. The locks cover HTTP routes; a
 WebSocket upgrade is answered by its own listener and is that listener's to check.
 
+## Memory after the start
+
+Nothing forces a collection once the start is over. The start allocates far more than it keeps (the
+library's capture, the parse cache, the first requests), and V8's memory reducer hands that heap back
+on its own once allocation stops: measured on a desktop, about 280 MB private down to 110 MB within 10
+to 20 s of the first answer. A `gc()` forced at 20 s, through `--expose-gc` set at run time, came after
+it and changed nothing.
+
 ## The bundle: `scripts/bundle.mjs`
 
 The backend and the file service it starts, each one ESM file, plus the files they read at run time —

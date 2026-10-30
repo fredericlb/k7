@@ -89,7 +89,7 @@ describe("LiveCapture at start", () => {
     expect(saved.texts["NOTES.md"].hash).toBe(textHash(NOTES));
     // Never under `files`, where a k7 that knows only blobs would read it as one.
     expect(saved.files["NOTES.md"]).toBeUndefined();
-    expect(saved.texts["song.k7/nodes/mix.k7x"]).toBeUndefined();
+    expect(saved.texts["song.k7/nodes/mix.k7x"].hash).toBe(textHash(MIX));
     expect(readsDuring(w.root, () => capture(w).start())).toEqual([
       "song.k7/nodes/mix.k7x",
     ]);
@@ -116,6 +116,48 @@ describe("LiveCapture at start", () => {
     // The first sweep trusts the walk's stamps: nothing is read again.
     expect(readsDuring(w.root, () => c.flushNow({ full: true }))).toEqual([]);
     expect(batches).toEqual([]);
+  });
+});
+
+describe("LiveCapture at start against a baseline", () => {
+  it("reads no workspace file the index knows, and still diffs a later k7x edit path by path", () => {
+    const files = { "song.k7/nodes/mix.k7x": MIX, "NOTES.md": NOTES };
+    const w = workspace(files);
+    const baseline = new MemoryConfirmed();
+    for (const [f, t] of Object.entries(files)) baseline.set(f, t);
+    capture(w).start(baseline);
+    for (const c of open.splice(0)) c.stop();
+    const batches: Batch[] = [];
+    const c = capture(w, batches);
+    expect(readsDuring(w.root, () => c.start(baseline))).toEqual([]);
+    writeFileSync(
+      join(w.root, "song.k7/nodes/mix.k7x"),
+      MIX.replace("0.5", "0.7"),
+    );
+    c.flushNow({ full: true });
+    // A k7x op, not a whole text: the text before came back from the baseline.
+    expect(batches.flatMap((b) => b.ops.map((o) => o.kind))).toEqual(["k7x"]);
+  });
+
+  it("sends the whole text when the baseline no longer holds what the ledger knew", () => {
+    const files = { "song.k7/nodes/mix.k7x": MIX };
+    const w = workspace(files);
+    const baseline = new MemoryConfirmed();
+    baseline.set("song.k7/nodes/mix.k7x", MIX);
+    capture(w).start(baseline);
+    for (const c of open.splice(0)) c.stop();
+    const batches: Batch[] = [];
+    const c = capture(w, batches);
+    c.start(baseline);
+    baseline.set("song.k7/nodes/mix.k7x", 'plugin("other")\n');
+    writeFileSync(
+      join(w.root, "song.k7/nodes/mix.k7x"),
+      MIX.replace("0.5", "0.7"),
+    );
+    c.flushNow({ full: true });
+    expect(batches.flatMap((b) => b.ops)).toMatchObject([
+      { kind: "text", was: textHash(MIX) },
+    ]);
   });
 });
 

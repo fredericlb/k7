@@ -74,7 +74,7 @@ export class BlobIndex {
     return e && e.stamp === stamp ? e.hash : null;
   }
 
-  /** Rewrite the index from the ledger's files whose stamp has settled, k7x ones aside; nothing is written when nothing moved. */
+  /** Rewrite the index from the ledger's files whose stamp has settled; nothing is written when nothing moved. */
   save(ledger: Map<string, Known>, now = Date.now()): void {
     const files: Record<string, Indexed> = {};
     const texts: Record<string, IndexedText> = {};
@@ -83,9 +83,7 @@ export class BlobIndex {
       if (now - Number(k.stamp.split(":")[1]) <= SETTLE_MS) continue;
       const blob = parseBlobRef(k.ref ?? null);
       if (blob) files[rel] = { stamp: k.stamp, ...blob };
-      // A k7x file is read at start anyway: the ledger keeps its text.
-      else if (!k.ref && !keepsText(rel))
-        texts[rel] = { stamp: k.stamp, hash: k.hash };
+      else if (!k.ref) texts[rel] = { stamp: k.stamp, hash: k.hash };
     }
     const text = JSON.stringify({ files, texts });
     if (text === this.written) return;

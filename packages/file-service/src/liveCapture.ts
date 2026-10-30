@@ -109,6 +109,8 @@ export class LiveCapture implements ChangeFeed {
   /** The ledger was built by `prepare`; `start` goes straight to watching. */
   private prepared = false;
   private halted = false;
+  /** What the room last confirmed, where a k7x file the ledger knows only by hash finds its text (docs/liveCapture.md). */
+  private baseline: Baseline | null = null;
 
   constructor(private readonly o: CaptureOptions) {
     this.quietMs = o.quietMs ?? 100;
@@ -498,7 +500,8 @@ export class LiveCapture implements ChangeFeed {
         text: now.ref,
         was: known ? known.hash : null,
       };
-    return fileOpFor(rel, known?.text ?? null, text, known ? known.hash : null);
+    const before = known?.text ?? this.confirmedText(rel, known);
+    return fileOpFor(rel, before, text, known ? known.hash : null);
   }
 
   private opaqueByName(rel: string, size: number): boolean {
@@ -544,6 +547,7 @@ export class LiveCapture implements ChangeFeed {
 
   /** The ledger built from the disk, or from `baseline`: one step per file, which `prepare` spreads over the event loop. */
   private *learning(baseline?: Baseline): Generator<void> {
+    this.baseline = baseline ?? null;
     if (baseline) yield* this.learnBaseline(baseline);
     else
       for (const rel of this.walk("")) {
@@ -592,14 +596,23 @@ export class LiveCapture implements ChangeFeed {
     else this.ledger.delete(rel);
   }
 
+  /** The text of a k7x file the ledger knows by hash alone, from the baseline when it holds those very bytes; null otherwise. */
+  private confirmedText(rel: string, known: Known | undefined): string | null {
+    if (!known || known.ref || !keepsText(rel) || !this.baseline) return null;
+    const text = this.baseline.get(rel);
+    return text !== null && textHash(text) === known.hash ? text : null;
+  }
+
   /** The ledger entry for `rel` as it is, or null when absent; a text file whose stamp the index knows is not read (k7x ones are, for their text). */
   private look(rel: string): Known | null {
     const abs = this.pathOf(rel);
     const st = statSync(abs, { throwIfNoEntry: false });
     if (!st) return null;
     const stamp = stampOf(st.size, st.mtimeMs);
+    // A k7x file's text is needed to diff its next change: known by hash only when the baseline can give it back.
+    const byHash = !keepsText(rel) || this.baseline !== null;
     const hash =
-      keepsText(rel) || this.opaqueByName(rel, st.size)
+      !byHash || this.opaqueByName(rel, st.size)
         ? null
         : this.index?.textHash(rel, stamp);
     if (hash) return { stamp, hash, text: null };

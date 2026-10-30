@@ -3,7 +3,6 @@
 // pushed by the other machine. See ../../../docs/media/hunt.md.
 
 import { isPlainSegment } from "@studio/web-protocol/paths";
-import SftpClient from "ssh2-sftp-client";
 
 /** The library's own upload route stops here, so anything past it is a transfer spent on nothing. */
 const MAX_BYTES = 512 * 1024 * 1024;
@@ -59,7 +58,12 @@ export interface SftpLike {
   end(): Promise<unknown>;
 }
 
-const newClient = (): SftpLike => new SftpClient() as unknown as SftpLike;
+/** A client, its module loaded on first use: ssh2 costs every start its evaluation, and few accounts ever hunt. */
+type MakeClient = () => SftpLike | Promise<SftpLike>;
+const newClient: MakeClient = async () => {
+  const { default: SftpClient } = await import("ssh2-sftp-client");
+  return new SftpClient() as unknown as SftpLike;
+};
 
 /** The options `connect` takes, the same for a download and for the settings screen's test. */
 const connectOptions = (cfg: SftpConfig) => ({
@@ -129,9 +133,9 @@ async function findByName(
 export async function fetchDownload(
   cfg: SftpConfig,
   remoteFilename: string,
-  make: () => SftpLike = newClient,
+  make: MakeClient = newClient,
 ): Promise<{ bytes: Buffer; path: string }> {
-  const sftp = make();
+  const sftp = await make();
   // BEFORE connecting, since a `connect` exception carries none of it. Never the key itself.
   log(
     `→ ${cfg.username}@${cfg.host}:${cfg.port} (${cfg.privateKey ? "clé" : cfg.password ? "mot de passe" : "sans identifiant !"})`,
@@ -192,9 +196,9 @@ export async function fetchDownload(
 /** The settings screen's test: sign in and look at the download folder, then hang up. */
 export async function checkSftp(
   cfg: SftpConfig,
-  make: () => SftpLike = newClient,
+  make: MakeClient = newClient,
 ): Promise<string> {
-  const sftp = make();
+  const sftp = await make();
   try {
     await sftp.connect(connectOptions(cfg));
     const rows = await sftp.list(cfg.downloadsDir);
