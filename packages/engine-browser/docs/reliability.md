@@ -46,6 +46,16 @@ So the host resets its store on disconnect (`EngineStore.offline`): stopped, met
 the playhead left where it stood. A dead engine plays nothing, and the screen must not pretend it
 does.
 
+**A drop is not a stop, though, for what records.** The engine on the other side of a stalled relay
+keeps rolling and keeps recording; a MIDI or camera take ended on the drop would be committed, and a
+second one started on the reconnect. So the store keeps the two apart: `linkDown()` says the link
+is gone, and `held()` keeps answering with the last live frame for `LINK_GRACE_MS` (the outbox's own
+reach) after a drop that cut a rolling transport. The recording hooks read `held()`
+(`useHeldState`); the transport and the playhead read the state, and show offline. The next frame
+the link delivers is the truth either way — still rolling, the take goes on; stopped, it ends then.
+Nothing that TOGGLES engine state is sent while the link is down: the takes view, ending a take
+offline, switches back the browser's own state and leaves the engine's arm alone.
+
 ## The backoff, and why it doubles
 
 A fixed one-second backoff means a tab forgotten in the background, on a machine whose engine is

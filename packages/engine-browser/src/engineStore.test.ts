@@ -7,8 +7,8 @@
 // recorders would call two such frames identical, and the take would never appear to grow.
 
 import type { EngineState, RecorderState } from "@studio/engine-protocol";
-import { describe, expect, it } from "vitest";
-import { EngineStore } from "./engineStore";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EngineStore, LINK_GRACE_MS } from "./engineStore";
 
 const IDLE: EngineState = {
   playing: false,
@@ -220,5 +220,75 @@ describe("offline", () => {
     expect(s.playing).toBe(false);
     expect(s.playhead).toBe(12.5);
     expect(s.levels).toEqual([]);
+  });
+});
+
+describe("a recording across a dropped link", () => {
+  afterEach(() => vi.useRealTimers());
+  const ROLLING = { ...IDLE, playing: true, recordEnabled: true, playhead: 4 };
+
+  it("is still rolling for a recording while the grace runs, and the link reads down", () => {
+    vi.useFakeTimers();
+    const store = new EngineStore();
+    store.set(ROLLING);
+    expect(store.linkDown()).toBe(false);
+    store.offline();
+    expect(store.linkDown()).toBe(true);
+    expect(store.getSnapshot().playing).toBe(false);
+    expect(store.held().playing).toBe(true);
+    expect(store.held().recordEnabled).toBe(true);
+  });
+
+  it("follows the engine's own word once the link is back", () => {
+    vi.useFakeTimers();
+    const store = new EngineStore();
+    store.set(ROLLING);
+    store.offline();
+    store.set({ ...ROLLING, playhead: 9 });
+    expect(store.linkDown()).toBe(false);
+    expect(store.held().playhead).toBe(9);
+    store.offline();
+    store.set({ ...IDLE, playhead: 9 });
+    expect(store.held().playing).toBe(false);
+  });
+
+  it("ends when the grace runs out with no link, and says so", () => {
+    vi.useFakeTimers();
+    const store = new EngineStore();
+    let told = 0;
+    store.set(ROLLING);
+    store.offline();
+    store.subscribe(() => {
+      told++;
+    });
+    vi.advanceTimersByTime(LINK_GRACE_MS - 1);
+    expect(store.held().playing).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(store.held().playing).toBe(false);
+    expect(told).toBe(1);
+  });
+
+  it("holds nothing for a transport that was stopped, nor past a second drop", () => {
+    vi.useFakeTimers();
+    const store = new EngineStore();
+    store.set(IDLE);
+    store.offline();
+    expect(store.held().playing).toBe(false);
+    store.offline();
+    expect(store.held().playing).toBe(false);
+  });
+
+  it("tells the subscribers when the first frame after a drop says what offline() did", () => {
+    vi.useFakeTimers();
+    const store = new EngineStore();
+    store.set(ROLLING);
+    store.offline();
+    let told = 0;
+    store.subscribe(() => {
+      told++;
+    });
+    store.set({ ...IDLE, playhead: 4 });
+    expect(store.held().playing).toBe(false);
+    expect(told).toBe(1);
   });
 });
