@@ -2,15 +2,30 @@
 // fenced info strings are more than a hand-rolled parser should be asked to get right).
 // dangerouslySetInnerHTML is safe HERE and only here: the input is our own .md files,
 // bundled at build time, with no path by which anything user-controlled reaches it.
-// Do not point this component at anything fetched.
+// Do not point this component at anything fetched. `marked` is fetched the first time a page renders.
 
-import { marked } from "marked";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
-marked.setOptions({ gfm: true, breaks: false });
+type Parse = (body: string) => string;
+let parse: Parse | null = null;
+const loadParse = (): Promise<Parse> =>
+  import("marked").then(({ marked }) => {
+    marked.setOptions({ gfm: true, breaks: false });
+    parse = (body) => marked.parse(body) as string;
+    return parse;
+  });
 
 export function Markdown({ body }: { body: string }) {
-  const html = useMemo(() => marked.parse(body) as string, [body]);
+  const [html, setHtml] = useState(() => (parse ? parse(body) : ""));
+  useEffect(() => {
+    let live = true;
+    void (parse ? Promise.resolve(parse) : loadParse()).then((p) => {
+      if (live) setHtml(p(body));
+    });
+    return () => {
+      live = false;
+    };
+  }, [body]);
   return (
     // The app has no global prose styles (it is an editor), so element styles are scoped here rather than leaked.
     <div

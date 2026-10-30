@@ -9,7 +9,6 @@ import { remoteCameraLens } from "@studio/k7-plugins/video/camera/remoteCamera";
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import { type Lens, localLens } from "@studio/ui-eyes/camera";
 import { isRemoteLabel } from "@studio/web-protocol/cameras";
-import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
 import { downloadBlob } from "../downloadBlob";
@@ -82,10 +81,11 @@ export function useVideoRecording(opts: {
       const seconds = (performance.now() - take.from) / 1000;
       let bytes: Blob = blob;
       // MediaRecorder leaves the duration out of a WebM, and an unseekable file is one the frame cannot scrub.
+      // Fetched at the stop, the one moment it is needed, rather than in the app's first parse.
       if (blob.type.includes("webm"))
-        bytes = await fixWebmDuration(blob, seconds * 1000, {
-          logger: false,
-        }).catch(() => blob);
+        bytes = await import("fix-webm-duration")
+          .then((m) => m.default(blob, seconds * 1000, { logger: false }))
+          .catch(() => blob);
       const id = takeId(take.lane, fileStamp(new Date()));
       const upload = `${id}${extForMime(blob.type || undefined)}`;
       let filedId = id;
