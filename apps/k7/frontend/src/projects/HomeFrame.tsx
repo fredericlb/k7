@@ -23,6 +23,11 @@ import {
 } from "react";
 import { HomeEngine } from "../components/HomeEngine";
 import { m } from "../paraglide/messages.js";
+import {
+  HomeCommandBar,
+  HomeCommandsButton,
+  HomeCommandsSaid,
+} from "./HomeCommandBar";
 import { HomeSidebar } from "./HomeSidebar";
 
 // Per browser: folding is a habit of this screen, not a setting of the account.
@@ -71,13 +76,24 @@ export function HomeFrame({ children }: { children: ReactNode }) {
       <PanelLeftOpen className="h-4 w-4" />
     </button>
   ) : undefined;
-  // Folded, the sidebar's engine comes to the bar: the médiathèque's engine destination is what it shows.
-  const end = useMemo(() => (folded ? <HomeEngine /> : undefined), [folded]);
+  // Folded, the sidebar's engine and the command bar's opener come to the bar: neither may leave the screen.
+  const end = useMemo(
+    () =>
+      folded ? (
+        <>
+          <HomeEngine />
+          <HomeCommandsButton />
+        </>
+      ) : undefined,
+    [folded],
+  );
   return (
     <FrameContext.Provider value={frame}>
-      <MiniPlayerDock lead={lead} end={end}>
-        {children}
-      </MiniPlayerDock>
+      <HomeCommandBar>
+        <MiniPlayerDock lead={lead} end={end}>
+          {children}
+        </MiniPlayerDock>
+      </HomeCommandBar>
     </FrameContext.Provider>
   );
 }
@@ -85,14 +101,11 @@ export function HomeFrame({ children }: { children: ReactNode }) {
 /** The page frame: the sidebar on the left, the page's own column on the right, the bar under both. */
 export function HomeShell({
   actions,
-  commands,
   mediaCounts,
   children,
 }: {
   /** Drawn above the user menu, after the red dot — a page's own control, such as a refresh. */
   actions?: ReactNode;
-  /** The page's command bar button, when it has a bar: the last control, right before the account. */
-  commands?: ReactNode;
   /** Each media section's count, known only on the media pages, which load them. */
   mediaCounts?: Partial<Record<string, number>>;
   children: ReactNode;
@@ -112,7 +125,8 @@ export function HomeShell({
                 {actions}
                 {/* Right above the user menu, the sidebar's last control (../../docs/projects.md, "The home bar"). */}
                 <HomeEngine inSidebar />
-                {commands}
+                {/* The command bar's opener, the last control before the account (../../docs/commandBar.md). */}
+                <HomeCommandsButton />
               </>
             }
             mediaCounts={mediaCounts}
@@ -125,6 +139,7 @@ export function HomeShell({
           className="flex min-w-0 flex-1 flex-col [contain:layout]"
         >
           {children}
+          <HomeCommandsSaid />
         </div>
       </div>
       {/* The mini player of whichever page plays, else the standby bar: always there, the whole width, docked by `HomeFrame`. */}

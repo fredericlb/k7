@@ -22,6 +22,9 @@ import {
 } from "./workspaceOps";
 
 /** The catalogue, in the same shape the editor's is — imperative, no example, no full stop, 60 characters at most in each language. */
+/** The open workspace travels in the QUERY, not in the path: the path belongs to launching, and a query bookmarks and answers Back. */
+export const WS_PARAM = "ws";
+
 export const HOME_COMMANDS: {
   canonical: string;
   readable: { en: string; fr: string };
