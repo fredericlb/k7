@@ -2,7 +2,8 @@
 // own id and scoped by owner, so they keep working after their recording is gone (../../docs/moments.md).
 
 import { sub, validate, wrap } from "@frediverse/http";
-import { Router } from "express";
+import { isCapturePath } from "@studio/mediatek/recordingName";
+import { type Request, type RequestHandler, Router } from "express";
 import { z } from "zod";
 import { streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
@@ -209,3 +210,20 @@ momentsRouter.delete(
     res.status(204).end();
   }),
 );
+
+/** Delete a recording: its owner's take, or any capture for whoever may manage the library — ../../docs/moments.md. */
+export const deleteRecordingRoute = (
+  mayManage: (req: Request) => boolean,
+): RequestHandler =>
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!isCapturePath(path))
+      return res.status(400).json({ error: "not a recording" });
+    const own = store.recordingMoments(sub(req), path)?.sessionId;
+    if (!own && !mayManage(req))
+      return res.status(403).json({
+        error: "only its owner or an admin may delete a recording",
+      });
+    await store.deleteRecording(path);
+    res.status(204).end();
+  });

@@ -988,6 +988,8 @@
   "media.contents.noneThisDay": "Aucun enregistrement ce jour-là.",
   "media.contents.noneTagged": "Rien d'étiqueté #{tag} ce jour-là.",
   "media.contents.yourTake": "Votre prise",
+  "media.contents.momentShared": "Partagé avec {server}",
+  "media.contents.momentLocal": "Sur cette machine seulement",
   "media.contents.deleteRecording": "Supprimer l'enregistrement",
   "media.contents.deleteRecordingConfirm": "Supprimer {name} ? Ses moments restent, chacun avec son extrait.",
   "media.addRecording.add": "Ajouter des enregistrements",

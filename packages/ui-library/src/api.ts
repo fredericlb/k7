@@ -18,7 +18,11 @@ import type {
   OtherTags,
   SongbookSong,
 } from "@studio/mediatek/types";
-import type { Moment, Session } from "@studio/rehearsal-shared";
+import type {
+  Moment,
+  MomentPlacement,
+  Session,
+} from "@studio/rehearsal-shared";
 import type {
   PublicEngine,
   SeparateJob,
@@ -301,14 +305,29 @@ export const library = {
   mySessions: async (): Promise<Session[]> =>
     json(await request(`${apiBase()}/api/sessions`), "sessions"),
 
-  /** Delete one of the account's takes: its file, its session, its markers; its moments keep their clips. */
-  deleteSession: async (id: string): Promise<void> => {
+  /** Delete a capture through the rehearsal store, which takes the sessions that saved it too; its moments stay (../docs/recordings.md). */
+  deleteRecording: async (path: string): Promise<void> => {
     const res = await request(
-      `${apiBase()}/api/sessions/${encodeURIComponent(id)}`,
+      `${apiBase()}/api/moments/recording?path=${encodeURIComponent(path)}`,
       { method: "DELETE" },
     );
     if (!res.ok) throw await failed(res, "delete");
   },
+
+  /** How long a capture runs, read off the médiathèque's measure of it — measured once, then cached there. */
+  captureSeconds: async (path: string): Promise<number> =>
+    (
+      await json<{ seconds: number }>(
+        await request(
+          `${apiBase()}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
+        ),
+        "envelope",
+      )
+    ).seconds,
+
+  /** Which of the account's moments the paired server holds; `paired` false on any other machine. */
+  momentPlacement: async (): Promise<MomentPlacement> =>
+    json(await request(`${apiBase()}/api/sync/moments-share`), "moments-share"),
 
   /** The signed-in account's moments, every recording's: the rehearsal store keeps them (../docs/recordings.md). */
   moments: async (): Promise<Moment[]> =>

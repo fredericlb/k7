@@ -53,6 +53,7 @@ export {
 export {
   appendRecording,
   createSession,
+  deleteRecording,
   deleteSession,
   ensureRecordingCached,
   getEnvelope,

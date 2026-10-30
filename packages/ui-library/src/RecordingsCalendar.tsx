@@ -5,13 +5,18 @@
 import { Badge } from "@frediverse/ui/badge";
 import { Calendar, dayKey } from "@frediverse/ui/calendar";
 import { Card } from "@frediverse/ui/card";
-import { Check, Mic } from "@frediverse/ui/icons";
+import { Check, CloudCheck, HardDrive, Mic } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import type { RecordingDay } from "@studio/mediatek/recordings";
-import type { Moment, Session } from "@studio/rehearsal-shared";
+import type {
+  Moment,
+  MomentPlacement,
+  Session,
+} from "@studio/rehearsal-shared";
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { library } from "./api";
+import { useCaptureSeconds } from "./captureSeconds";
 import { useLabels, useLibraryHost } from "./host";
 import { bytes } from "./libraryTree";
 import { RowMenu, rowTarget } from "./RowMenu";
@@ -24,7 +29,7 @@ const clock = (locale: string, at: Date, seconds = false) =>
     ...(seconds ? { second: "2-digit" } : {}),
   });
 
-// A span of the capture, as the rehearsal pages print one.
+// A span or a duration, as the rehearsal pages print one.
 const span = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -56,6 +61,8 @@ export function RecordingsCalendar({
   const [moments, setMoments] = useState<Moment[]>([]);
   // The reader's own takes, by the capture each filed: a duration to show, and a delete of their own.
   const [takes, setTakes] = useState<Map<string, Session>>(new Map());
+  // Which moments the paired server holds a copy of; null off a paired machine, which shows no icon.
+  const [placement, setPlacement] = useState<MomentPlacement | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Which calendar day is shown (null → the newest day with something to show).
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -82,10 +89,29 @@ export function RecordingsCalendar({
           ),
       )
       .catch(() => alive && setTakes(new Map()));
+    library
+      .momentPlacement()
+      .then((p) => alive && setPlacement(p.paired ? p : null))
+      .catch(() => alive && setPlacement(null));
     return () => {
       alive = false;
     };
   }, [days]);
+
+  const tags = captureTags(days, moments);
+  const entries = captureEntries(days, moments, activeTag);
+  const markedDays = new Set(entries.map((e) => e.day));
+  const shownDay = selectedDay ?? entries[0]?.day ?? dayKey(new Date());
+  const dayEntries = entries.filter((e) => e.day === shownDay);
+  const [y, mo, d] = shownDay.split("-").map(Number);
+  // A take is timed by its session; any other capture of the day shown is measured (captureSeconds.ts).
+  const seconds = useCaptureSeconds(
+    dayEntries.filter((e) => !takes.has(e.file.path)).map((e) => e.file.path),
+  );
+  const durationOf = (path: string): number | null | undefined =>
+    takes.get(path)?.duration ?? seconds.get(path);
+  const shared = new Set(placement?.shared ?? []);
+  const serverHost = placement?.server ? new URL(placement.server).host : "";
 
   if (error)
     return <Card className="p-4 text-sm text-destructive">{error}</Card>;
@@ -93,8 +119,8 @@ export function RecordingsCalendar({
 
   // A take goes with its session, its owner's to delete; any other capture is an admin's (../docs/recordings.md).
   const remove = (path: string) => {
-    const take = takes.get(path);
-    void (take ? library.deleteSession(take.id) : library.remove(path))
+    void library
+      .deleteRecording(path)
       .then(onChanged)
       .catch((e: Error) => onError(e.message));
   };
@@ -110,13 +136,6 @@ export function RecordingsCalendar({
     },
     run: (t: { path: string }) => remove(t.path),
   };
-
-  const tags = captureTags(days, moments);
-  const entries = captureEntries(days, moments, activeTag);
-  const markedDays = new Set(entries.map((e) => e.day));
-  const shownDay = selectedDay ?? entries[0]?.day ?? dayKey(new Date());
-  const dayEntries = entries.filter((e) => e.day === shownDay);
-  const [y, mo, d] = shownDay.split("-").map(Number);
 
   // A new filter lands on its newest match rather than on a day it may have emptied.
   const pickTag = (t: string) => {
@@ -206,10 +225,10 @@ export function RecordingsCalendar({
                   <span className="min-w-0 flex-1 truncate font-mono text-sm tabular-nums">
                     {e.file.name}
                   </span>
-                  {/* A take knows how long it runs; any other capture, only its size. */}
+                  {/* Its duration once known; its size until then, or for good when it cannot be measured. */}
                   <span className="shrink-0 font-mono text-muted-foreground text-xs tabular-nums">
-                    {takes.has(e.file.path)
-                      ? span(takes.get(e.file.path)?.duration ?? 0)
+                    {durationOf(e.file.path) != null
+                      ? span(durationOf(e.file.path) ?? 0)
                       : bytes(e.file.bytes, l.common.units)}
                   </span>
                   <RowMenu
@@ -235,6 +254,27 @@ export function RecordingsCalendar({
                   }
                 >
                   <div className="flex items-center gap-1 text-sm">
+                    {placement && (
+                      <span
+                        role="img"
+                        title={
+                          shared.has(m.id)
+                            ? l.contents.momentShared(serverHost)
+                            : l.contents.momentLocal
+                        }
+                        aria-label={
+                          shared.has(m.id)
+                            ? l.contents.momentShared(serverHost)
+                            : l.contents.momentLocal
+                        }
+                      >
+                        {shared.has(m.id) ? (
+                          <CloudCheck className="size-3.5 text-primary" />
+                        ) : (
+                          <HardDrive className="size-3.5 text-muted-foreground" />
+                        )}
+                      </span>
+                    )}
                     {m.validated && <Check className="size-3.5" />}
                     {span(m.startSec)}–{span(m.endSec)}
                     {m.text ? ` · ${m.text}` : ""}

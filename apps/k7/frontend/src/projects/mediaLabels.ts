@@ -90,6 +90,9 @@ export function mediaLabels(): LibraryLabels {
       noneThisDay: m["media.contents.noneThisDay"](),
       noneTagged: (tag) => m["media.contents.noneTagged"]({ tag }),
       yourTake: m["media.contents.yourTake"](),
+      momentShared: (host) =>
+        m["media.contents.momentShared"]({ server: host }),
+      momentLocal: m["media.contents.momentLocal"](),
       deleteRecording: m["media.contents.deleteRecording"](),
       deleteRecordingConfirm: (name) =>
         m["media.contents.deleteRecordingConfirm"]({ name }),

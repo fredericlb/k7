@@ -19,16 +19,29 @@ It is also where a rehearsal take is listed once saved: the rehearsal pages have
 (`recordButton`) starts a take, and **Add recordings** files existing ones. Both sit there so that
 they never scroll away with a long day.
 
-## Your takes, and who deletes what
+## Your takes, durations, and who deletes what
 
-A capture one of your sessions recorded wears a microphone and shows its duration, which the
-session knows. Any other capture shows its size: knowing its duration means analysing the file,
-once per row. A take is yours to delete, with its session and its markers, from the row's ⋮. Any
-other capture, someone else's take included, is deleted only by an admin, because the folder is
-shared by every account and every removal in the médiathèque is an admin's
-(`apps/k7/backend/docs/media/gate.md`). Either way the moments cut from it stay, each with its
-own clip. The confirmation says so, since that is the part a person deleting a recording would
-not expect.
+A capture one of your sessions recorded wears a microphone. Every row shows how long it runs: a take
+from its session, any other capture from the médiathèque's own measure of it
+(`src/captureSeconds.ts`). Measuring decodes the whole file the first time, so only the shown day's
+captures are asked for, one at a time. The médiathèque keeps its measure, and the tab remembers the
+answer. A row shows its size until its duration comes, and keeps it when the file cannot be measured.
+
+A take is yours to delete from the row's ⋮. Any other capture, someone else's take included, is
+deleted only by whoever may remove from the shared library (an admin, or the machine's own user on a
+desktop), as every removal in the médiathèque is (`apps/k7/backend/docs/media/gate.md`). Both go
+through the rehearsal store (`DELETE /api/moments/recording`), never the library's own file route.
+The store removes the file and every session that saved it, with their markers, so no session is
+left pointing at a file that is gone (`packages/rehearsal-server/docs/moments.md`). The moments cut
+from it stay, each with its own clip. The confirmation says so, since that is the part a person
+deleting a recording would not expect.
+
+## Shared moments, on a paired machine
+
+On a machine paired with a server, each moment says whether the server holds a copy of it, as the
+moment's own page does (`packages/rehearsal-server/docs/momentShare.md`): a cloud with a check for
+one it holds, a drive for one only here. Anywhere else, or when the server is away, nothing is drawn,
+since no icon is better than a wrong one.
 
 ## A capture's time is its name
 

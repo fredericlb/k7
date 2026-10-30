@@ -82,6 +82,9 @@ export interface LibraryLabels {
     noneTagged: (tag: string) => string;
     /** A capture one of the reader's own sessions recorded. */
     yourTake: string;
+    /** On a machine paired with a server: a moment the server holds a copy of, `host` being the server's. */
+    momentShared: (host: string) => string;
+    momentLocal: string;
     deleteRecording: string;
     /** Asked first, the take's file name given. */
     deleteRecordingConfirm: (name: string) => string;

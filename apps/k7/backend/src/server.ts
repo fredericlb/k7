@@ -50,6 +50,7 @@ import {
 } from "./localEngine/routes.ts";
 import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
+import { mayManageLibrary } from "./media/libraryGate.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
 import { deviceDoor } from "./remote/door.ts";
@@ -210,6 +211,8 @@ const rehearsal = mountRehearsal(app, {
     base: `http://127.0.0.1:${PORT}`,
     token: tokens.issueApiToken("service:k7", { ephemeral: true }),
   },
+  // The library's own rule: a capture that is not the caller's take goes as any removal does (../docs/media/gate.md).
+  mayManageLibrary,
 });
 // Mounted before the prefs below: their `/api` guard is session-only, and a bearer or a ticket must reach these first.
 const media = mountMedia(app, {
