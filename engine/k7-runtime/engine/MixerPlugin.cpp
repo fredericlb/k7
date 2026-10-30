@@ -108,11 +108,17 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
         updateCoefficients(lowDb, midDb, highDb);
 
     // Tone first, then level: a fader after the EQ is what a strip is, and what downstream metering reads.
-    for (int ch = 0; ch < numChans; ++ch) {
-        auto* d = buffer.getWritePointer(ch, ctx.bufferStartSample);
-        low_.ch[ch].processSamples(d, n);
-        mid_.ch[ch].processSamples(d, n);
-        high_.ch[ch].processSamples(d, n);
+    Band* bands[3] = {&low_, &mid_, &high_};
+    const float gains[3] = {lowDb, midDb, highDb};
+    for (int b = 0; b < 3; ++b) {
+        // A band at 0 dB is the identity and is skipped; one coming back starts clean rather than from history it never saw.
+        const bool on = gains[b] != 0.0f;
+        if (on && !bandRan_[b])
+            for (auto& f : bands[b]->ch) f.reset();
+        bandRan_[b] = on;
+        if (!on) continue;
+        for (int ch = 0; ch < numChans; ++ch)
+            bands[b]->ch[ch].processSamples(buffer.getWritePointer(ch, ctx.bufferStartSample), n);
     }
 
     // Tracktion's own fader maths, so the curve and the project's pan law are reproduced rather than invented.
