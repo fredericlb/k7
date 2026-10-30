@@ -72,6 +72,13 @@ saying why. It is forgotten when it lands — and only if what landed is what is
 made *while a write was in flight* is not thrown away by that write's completion. Closing a pane
 mid-write hits exactly that case, which is why `settleBuffer` compares rather than deleting.
 
+The key carries a SCOPE too — the project, for a host that moves between projects without a page
+load (k7 names it with `setBufferScope`). A path names a file in every project, and a pane of the
+project left closes in a passive cleanup, after the host has already forgotten everything at the
+crossing: keyed by path alone, its text would come back in the next project's file of the same
+name, and be saved there. Each `useAutosave` captures the scope it was mounted in and keeps under
+that one, so the order of React's cleanups decides nothing; `recallBuffer` reads the scope now.
+
 ### …but it does not survive the PAGE
 
 That `Map` is module state, so a reload, an F5 or a closed tab takes it with them, and for a long

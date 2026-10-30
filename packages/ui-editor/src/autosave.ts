@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addFlusher,
+  bufferScope,
   dropBuffer,
   keepBuffer,
   settleBuffer,
@@ -158,6 +159,8 @@ export function useAutosave({
   // The values of the PREVIOUS commit, so the cleanup below flushes the file that is closing — see docs/autosave.md.
   const previous = useRef<Live>(live.current);
 
+  // The scope this pane was mounted in: what it holds is kept there, even when it closes after the page moved on.
+  const at = useRef(bufferScope()).current;
   const busy = useRef(false);
   // Failed writes in a row, for the retry's backoff; zero once one lands.
   const failures = useRef(0);
@@ -187,18 +190,18 @@ export function useAutosave({
       if (!s.path) return false;
       // Paused — a conflict being asked about: nothing is written, and the text is kept rather than dropped on a close.
       if (!s.enabled) {
-        if (s.text !== s.saved) keepBuffer(s.path, s.text);
+        if (s.text !== s.saved) keepBuffer(s.path, s.text, at);
         return false;
       }
       if (busy.current) {
         // A write is in flight and a second would race it, but this may be the text's last chance, so it is kept.
-        if (s.text !== s.saved) keepBuffer(s.path, s.text);
+        if (s.text !== s.saved) keepBuffer(s.path, s.text, at);
         return false;
       }
       // Only the pane still showing this file may repaint the status.
       const showing = () => live.current.path === s.path;
       if (s.text === s.saved) {
-        dropBuffer(s.path);
+        dropBuffer(s.path, at);
         if (showing()) {
           setStatus("clean");
           setReason(null);
@@ -218,7 +221,7 @@ export function useAutosave({
           !!baseline.current?.(s.validate, s.path, s.saved),
       });
       if (decision.act !== "write") {
-        keepBuffer(s.path, s.text);
+        keepBuffer(s.path, s.text, at);
         if (showing()) {
           setStatus("held");
           setReason(decision.reason);
@@ -234,13 +237,13 @@ export function useAutosave({
       let retry = true;
       try {
         await s.write(s.text);
-        settleBuffer(s.path, s.text);
+        settleBuffer(s.path, s.text, at);
         wrote = true;
         failures.current = 0;
         if (showing())
           setStatus(live.current.text === s.text ? "clean" : "pending");
       } catch (e) {
-        keepBuffer(s.path, s.text);
+        keepBuffer(s.path, s.text, at);
         failures.current++;
         retry = retriable(e);
         if (showing()) {
@@ -259,7 +262,7 @@ export function useAutosave({
       }
       return wrote;
     },
-    [delayMs, arm, manual],
+    [delayMs, arm, manual, at],
   );
   runRef.current = run;
 
@@ -275,7 +278,7 @@ export function useAutosave({
     }
     if (text === saved) {
       disarm();
-      dropBuffer(path);
+      dropBuffer(path, at);
       setStatus((s) => (s === "saving" ? s : "clean"));
       setReason(null);
       setIssues([]);
@@ -286,7 +289,7 @@ export function useAutosave({
     if (manual) return;
     arm(delayMs);
     return disarm;
-  }, [path, text, saved, enabled, manual, delayMs, arm, disarm]);
+  }, [path, text, saved, enabled, manual, delayMs, arm, disarm, at]);
 
   // The file is closing, so whatever is pending gets its chance now, and what cannot be written is kept.
 
@@ -296,12 +299,12 @@ export function useAutosave({
       const s = previous.current;
       // MANUAL: closing is not permission to write, so the buffer is kept and comes back with the file.
       if (manual) {
-        if (s.path && s.text !== s.saved) keepBuffer(s.path, s.text);
+        if (s.path && s.text !== s.saved) keepBuffer(s.path, s.text, at);
         return;
       }
       void run(s);
     },
-    [path, run, manual],
+    [path, run, manual, at],
   );
 
   // Anything but `clean` is text this pane holds and the disk does not — the reload has to ask first.

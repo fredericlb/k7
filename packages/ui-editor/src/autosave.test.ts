@@ -9,6 +9,7 @@ import {
   retriable,
   retryDelayMs,
 } from "./autosave";
+import { bufferScope, forgetBuffers, setBufferScope } from "./autosaveBuffers";
 
 const at = (path: string, text: string) => validateFile(path, text);
 const MODULE = "modules/audio/cab/module.k7x";
@@ -83,6 +84,19 @@ describe("the held buffers", () => {
     expect(recallBuffer("tracks/lead.k7x")).toBe('type("singl")\n');
     dropBuffer("tracks/lead.k7x");
     expect(recallBuffer("tracks/lead.k7x")).toBeNull();
+  });
+
+  it("stay with the project they were typed in, even when kept after the page moved on", () => {
+    setBufferScope("/@local/a/song.k7");
+    const at = bufferScope();
+    setBufferScope("/@local/b/song.k7");
+    // A's pane closes AFTER B's scope was named: what it keeps is A's, and B never recalls it.
+    keepBuffer("song.k7/project.k7x", "A's text\n", at);
+    expect(recallBuffer("song.k7/project.k7x")).toBeNull();
+    setBufferScope("/@local/a/song.k7");
+    expect(recallBuffer("song.k7/project.k7x")).toBe("A's text\n");
+    forgetBuffers();
+    setBufferScope("");
   });
 });
 
