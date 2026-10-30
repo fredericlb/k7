@@ -311,7 +311,7 @@ static void removeClipFor(te::AudioTrack& t, const ClipDoc& c) {
         }
 }
 
-ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
+ProjectDiff EngineHost::apply(const std::string& session, ProjectDoc target, const std::string& baseDir) {
     WarningScope ws{session};   // same reason as applyFull, for the incremental path
     BuildScope build{session, false};   // …adding to the standing warnings rather than replacing them
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
@@ -546,8 +546,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
     // A recorder added in place needs its ring as much as a rebuilt one, and one removed mid-take has its take filed (docs/recorder.md).
     attachRecorderTaps(session);
 
-    // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline.
-    impl_->session(session).current = target;
+    // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline; nothing reads `target` past here.
+    impl_->session(session).current = std::move(target);
     impl_->session(session).baseDir = baseDir;
 
     // Re-assert the click: the metronome flag is not a tracked ChangeKind, so a toggle arrives as an otherwise-empty diff, applied here like solo and mute above.
