@@ -5,7 +5,7 @@
 # The accounts' WORKSPACES live here, in k7, one file service per account
 # (packages/file-hub/docs/fileHub.md).
 #
-# THREE containers: Traefik routes k7 by Host() straight to its own backend port (no nginx to
+# THREE containers, and autoheal beside them: Traefik routes k7 by Host() straight to its own backend port (no nginx to
 # hand off to), and k7 answers everything on that hostname; the engine is reached on the container network only, and so is pocketbase,
 # the rehearsal recorder's former store, until k7 has imported it. k7 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
 # URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
@@ -88,6 +88,8 @@ services:
     networks:
       - traefik
     labels:
+      # The autoheal service below restarts it when the image's HEALTHCHECK says unhealthy.
+      - autoheal=true
       - traefik.enable=true
       # docs. is the same app showing its documentation. The st0.app hosts are former ones, kept: saved share links, registries, publish URLs and public pages name them.
       - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-app.k7.rocks}`) || Host(`${DOCS_DOMAIN:-docs.k7.rocks}`) || Host(`${LEGACY_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_ALIAS_DOMAIN:-k7.st0.app}`)
@@ -142,6 +144,23 @@ services:
       - engine-home:/engine-home
     networks:
       - traefik
+
+  # Docker's `restart:` acts on an exit only: a wedged k7 that keeps answering errors is never restarted
+  # without this, which watches the `autoheal=true` containers' health (docs/images.md).
+  autoheal:
+    # Pinned, and small: a shell loop over the Docker API.
+    image: willfarrell/autoheal:1.2.0
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
+      # Past the image's own start period, so a slow first start is not cut short.
+      AUTOHEAL_START_PERIOD: 120
+    volumes:
+      # Root-equivalent on the host, which a restart needs; nothing else is mounted, and it has no network.
+      - /var/run/docker.sock:/var/run/docker.sock
+    network_mode: none
 
 networks:
   traefik:

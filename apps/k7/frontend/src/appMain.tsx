@@ -136,7 +136,19 @@ if (first === "home" || first === "project") void engines.hostedFiles();
 if (canServeLenses()) serveLenses();
 
 /** …and the worker that makes either an installable app — a SECOND opening, not offline; its scope is `/`, and each deploy replaces it (@frediverse/vite-config/register). */
-if ("serviceWorker" in navigator) registerWorker();
+// Not in a phone app's view: its files are already on the device, and the precache would copy them to flash again (docs/localApp.md).
+const phone = window as { k7Android?: unknown; k7Ios?: unknown };
+const inPhoneApp = !!(phone.k7Android ?? phone.k7Ios);
+if ("serviceWorker" in navigator) {
+  if (!inPhoneApp) registerWorker();
+  else void dropWorkers();
+}
+
+/** A phone app's view drops any registration it still holds, and the precache goes with it. */
+async function dropWorkers(): Promise<void> {
+  const all = await navigator.serviceWorker.getRegistrations();
+  await Promise.all(all.map((r) => r.unregister()));
+}
 
 /** What is on screen while a split-out screen arrives: at startup, under the splash; later, the bar alone (apps/k7/frontend/docs/shell.md). */
 function Booting() {

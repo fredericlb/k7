@@ -133,6 +133,30 @@ without a `docker login`; making one private means that host needs a login to `g
 holding `read:packages`. `.onedev-buildspec.yml` keeps the same jobs pushing to OneDev's registry,
 with no trigger: nothing deploys from it.
 
+## Deploying, and rolling back
+
+A deploy is `docker/deploy.sh <APP_VERSION>`, run on the host beside the compose file and its `.env`.
+It writes the version into `.env`, pulls k7 and the engine, restarts the stack, and waits up to
+`READY_TIMEOUT` (180 s) for k7's `/api/ready`. If k7 does not get there, it writes the previous
+`APP_VERSION` back, restarts on it, and exits non-zero with k7's last log lines.
+
+| choice | why |
+|---|---|
+| `/api/ready`, not "the container is up" | a container that runs but cannot write its volumes, or whose file hub is wedged, serves errors — and with them `/app_downloads`, the apps' update feed, so a bad deploy also stalls every app's next update |
+| the previous version kept in `.env`, the one file the stack reads it from | the rollback is the same `up -d` as the deploy; nothing to remember beside the files already there |
+| the images only, never the volumes | a build may rewrite what it stores when it starts, and nothing promises an older build reads it back; a rollback past such a change needs the volumes' backup, not a tag |
+
+**Rolling back by hand**, when the script is not the one that deployed, or a problem shows only later:
+read `docker compose ps` and k7's log, set `APP_VERSION` in `.env` to the last version that worked (the
+script prints it as `was:`; `docker image ls ghcr.io/fredericlb/k7-webapp` lists those still on the host),
+then `docker compose up -d` and `docker compose exec -T k7 wget -qO- http://127.0.0.1:8789/api/ready`.
+Or simply `./deploy.sh <that version>`, which checks and reverts the same way.
+
+**Between deploys**, `autoheal` (`willfarrell/autoheal`, pinned) restarts a container labelled
+`autoheal=true` once its healthcheck says unhealthy: Docker's own `restart:` acts on an exit only, so a
+backend wedged but alive stays wedged. Only k7 carries the label, the engine having no healthcheck; it
+reaches the Docker socket, which is root on the host, and has no network.
+
 ## The process runs as `node`, and its volumes must be `node`'s
 
 The runtime stage ends on `USER node`: the code under `/app` stays root's, so a flaw in a route

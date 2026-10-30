@@ -14,6 +14,14 @@ import { entryPreloadPlugin } from "./preload/vitePlugin.ts";
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api` or `/app_downloads` off it. */
 const OTHER_APPS = /^\/(api|auth|app_downloads)(\/|$)/;
 
+/** Heavy build files few sessions open, left out of the precache (commons/dev/vite-config/docs/pwa.md): the score engine, the docs site (its own host), the About page's notices, the Cyrillic subsets. */
+const RARELY_USED = [
+  "assets/verovio-module-*.js",
+  "assets/mountSite-*.js",
+  "assets/_virtual_k7-notices-*.js",
+  "assets/*-cyrillic*",
+];
+
 /** The language every catalogue resolves the same way, so the rehearsal pages' and the plugins' follow k7's — docs/settings.md. */
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
 
@@ -56,6 +64,7 @@ export default ({ command }: ConfigEnv) => {
     poll: !!process.env.STUDIO_POLL,
     // The one thing about the shared service worker that is k7's: see OTHER_APPS above.
     pwaDenylist: [OTHER_APPS],
+    pwaPrecacheIgnore: RARELY_USED,
     extend: {
       // Compiled into src/paraglide/; no `preferredLanguage`, this app defaulting to ENGLISH — docs/settings.md.
       plugins: [
