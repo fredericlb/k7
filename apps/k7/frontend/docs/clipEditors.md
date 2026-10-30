@@ -400,6 +400,15 @@ is reached by opening the view, not by a second setting nobody would find. It is
 caret resets when the unit changes — column 12 is a different MOMENT once the step halves, and
 that is not where you put it.
 
+### The roll lights the row and the column under the pointer
+
+Hovering the roll lays a faint band across the pitch the pointer is on and another down the
+column, and lights that key in the gutter with its name (`src/hooks/useRollHover.ts`). On a grid
+of 128 rows of a few pixels each, reading which key a note or a click lands on along the row is
+what takes the time. The cell is a CELL as the caret's is, the column one step of the ruler's
+unit, so the band says where a click lands, not where the pointer happens to be within it. It is
+a mark and nothing else: it moves no caret, and it goes when the pointer leaves the grid.
+
 ### The selection reaches the transport
 
 **Shift+L loops it**, exactly as on the timeline, and that is what a rectangle over one bar of a

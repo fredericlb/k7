@@ -38,6 +38,7 @@ import {
 } from "../gridCaret";
 import { useGridCaret } from "../hooks/useGridCaret";
 import { useRollGestures } from "../hooks/useRollGestures";
+import { useRollHover } from "../hooks/useRollHover";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { isBlack, noteName, pc } from "../noteNames";
 import { m } from "../paraglide/messages.js";
@@ -341,6 +342,28 @@ export function PianoRoll({
   const colOfBeat = useCallback(
     (beat: number) => Math.floor((beat - origin) / gridUnit + 1e-9),
     [origin, gridUnit],
+  );
+  // The cell under the pointer, by the gestures' own rule: the lane's left edge is the origin, a row is one key.
+  const {
+    hover,
+    onPointerMove: onHoverMove,
+    onPointerLeave: onHoverLeave,
+  } = useRollHover(
+    useCallback(
+      (e: React.PointerEvent) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const beat = Math.min(
+          origin + canvasBeats,
+          Math.max(origin, origin + (e.clientX - r.left) / ppb),
+        );
+        const row = Math.min(
+          127,
+          Math.max(0, Math.floor((e.clientY - r.top) / rowH)),
+        );
+        return { row, col: colOfBeat(beat) };
+      },
+      [origin, canvasBeats, ppb, rowH, colOfBeat],
+    ),
   );
 
   /** What the shell's three region verbs act on: the rectangle, or the caret's own cell when there is none. */
@@ -666,6 +689,7 @@ export function PianoRoll({
                     : undefined
                 }
                 onSelectKey={(k) => grid.selectRow(127 - k)}
+                hoverKey={hover ? 127 - hover.row : null}
               />
               <div
                 ref={laneRef}
@@ -673,6 +697,8 @@ export function PianoRoll({
                 className={`relative overflow-hidden ${onCreateNote ? "cursor-crosshair" : ""}`}
                 style={{ width: laneW }}
                 onPointerDown={onLanePointerDown}
+                onPointerMove={onHoverMove}
+                onPointerLeave={onHoverLeave}
               >
                 {KEYS.filter(isBlack).map((k) => (
                   <div
@@ -706,6 +732,25 @@ export function PianoRoll({
                   // Bars as solid lines: a dense roll swallows the faint dashed ones the timeline's lanes can afford.
                   strongBars
                 />
+                {/* The row and the column under the pointer, faint and under everything drawn on the grid: where a click lands (docs/clipEditors.md). */}
+                {hover && (
+                  <>
+                    <div
+                      className="pointer-events-none absolute left-0 right-0 bg-foreground/[0.05]"
+                      style={{
+                        top: hover.row * rowH,
+                        height: Math.max(1, rowH),
+                      }}
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-y-0 bg-foreground/[0.05]"
+                      style={{
+                        left: (beatOfCol(hover.col) - origin) * ppb,
+                        width: Math.max(1, gridUnit * ppb),
+                      }}
+                    />
+                  </>
+                )}
                 {/* The caret cell and its rectangle, under the notes and `pointer-events-none`: both are marks, not targets (docs/clipEditors.md). */}
                 {active && !box && (
                   <div
