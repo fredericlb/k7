@@ -78,8 +78,9 @@ export function WaveformFill({
     onSeek(t);
   };
 
+    // Important: the waveform's own stylesheet is unlayered, so it beats a plain utility.
   return (
-    <div className="relative h-full min-w-0 [&_.waveform-wrap]:rounded [&_.waveform-wrap]:border-0">
+    <div className="relative h-full min-w-0 [&_.waveform-wrap]:rounded! [&_.waveform-wrap]:border-0!">
       <Waveform
         envelope={shape.envelope}
         duration={total}
