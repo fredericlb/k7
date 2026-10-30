@@ -16,6 +16,8 @@ import {
 /** Reconnect delay after the socket drops, doubling to the cap. */
 const RETRY_MS = 1000;
 const RETRY_MAX_MS = 30_000;
+/** How long each step may stay unanswered before it is retried: the ticket, then the socket's `hello`. */
+const STEP_MS = 10_000;
 
 export interface CameraModeState {
   /** Connected and listed, or still dialling. */
@@ -123,7 +125,13 @@ export function startCameraMode(opts: {
     if (stopped) return;
     let ticket: string;
     try {
-      const t = await cameraTicket();
+      // Bounded: a request nobody answers would otherwise hold this on "connecting" for good.
+      const t = await Promise.race([
+        cameraTicket(),
+        new Promise<never>((_, fail) =>
+          setTimeout(() => fail(new Error("no answer for a ticket")), STEP_MS),
+        ),
+      ]);
       ticket = t.ticket;
       ice = t.iceServers as RTCIceServer[];
     } catch (e) {
@@ -134,19 +142,38 @@ export function startCameraMode(opts: {
       camerasSocketUrl({ ticket, role: "camera", name: opts.name }),
     );
     ws = socket;
+    // An upgrade nobody takes is never refused, only left open: no `hello` in time is a failed dial.
+    let listed = false;
+    const unanswered = window.setTimeout(() => {
+      if (listed || socket !== ws) return;
+      ws = null;
+      socket.close();
+      retry(
+        socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CLOSING
+          ? "the server did not list this camera"
+          : "the server did not take the camera socket",
+      );
+    }, STEP_MS);
     socket.onopen = () => {
       wait = RETRY_MS;
     };
     socket.onmessage = (e) => {
       if (socket !== ws) return;
       const f = readCameraFrame(e.data);
+      if (f?.type === "hello") {
+        listed = true;
+        clearTimeout(unanswered);
+      }
       if (f) onFrame(socket, f);
     };
-    socket.onclose = () => {
+    socket.onclose = (e) => {
+      clearTimeout(unanswered);
       if (socket !== ws) return;
       ws = null;
       for (const id of [...peers.keys()]) drop(id);
-      retry(null);
+      // A refused upgrade closes with 1006 and no reason: say so rather than nothing.
+      retry(e.reason || (listed ? null : `the socket closed (${e.code})`));
     };
     // An error is followed by a close, which is where the retry lives.
     socket.onerror = () => undefined;

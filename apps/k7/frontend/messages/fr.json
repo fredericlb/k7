@@ -1616,6 +1616,7 @@
   "hc.cameraStarted": "mode caméra activé",
   "hc.noCameraHere": "ce navigateur ne peut pas ouvrir de caméra ici — il faut https et une caméra",
   "cameraMode.connecting": "connexion au serveur…",
+  "cameraMode.openingLens": "ouverture de la caméra…",
   "cameraMode.retrying": "le serveur est injoignable, nouvel essai… {error}",
   "cameraMode.on": "active sous « {name} » · {count} en train de regarder",
   "cameraMode.switch": "Changer",

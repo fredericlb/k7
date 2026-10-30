@@ -84,3 +84,10 @@ watching, a **Switch** between the device's lenses (front and back on a phone: e
 is replaced in place) and **Stop**. It holds a screen wake lock: a phone on a stand that dims is a
 camera that stops. It needs a secure context, as any camera does; over plain http on a LAN the
 command says so.
+
+**Every wait is named and bounded** (`apps/k7/frontend/src/camera/cameraLink.ts`). The status line
+says which step it is on: the lens opening (a permission prompt nobody answered stays there, and it
+is not the server's fault), then the server. Each server step has ten seconds: the ticket, then the
+socket's `hello`. A step that times out is retried like a dropped socket, with its reason on the
+line. The reason it is bounded is that an upgrade nobody takes is never refused, only left open: a
+proxy or a server that routes the socket nowhere would otherwise hold "connecting" for good.
