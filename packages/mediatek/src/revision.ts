@@ -156,11 +156,7 @@ export async function refreshRevisions(): Promise<void> {
     walked.set(key, await walkAsync(dirOf(key)));
 }
 
-/**
- * Start answering every token from a background walk instead of walking per request. Idempotent,
- * and `unref`ed so it never holds a process open. What it costs in freshness: docs/index.md.
- * With `idleMs`, walking pauses once nobody read a token for that long; the next read resumes it.
- */
+/** Answer every token from a background walk, idempotent and `unref`ed; `idleMs` pauses it while unread (docs/index.md). */
 export function startRevisionRefresh(
   everyMs = 10_000,
   idleMs = Number.POSITIVE_INFINITY,

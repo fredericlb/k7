@@ -114,10 +114,7 @@ async function pass(): Promise<void> {
   }
 }
 
-/**
- * Start sweeping, and keep sweeping every `PASS_MS`. Idempotent and `unref`ed, so it never holds
- * the process open and never runs two passes at once. `demand` waits for `nudgeAnalysisSweep` instead.
- */
+/** Sweep every `PASS_MS`, idempotent, `unref`ed, one pass at a time; with `demand`, only when `nudgeAnalysisSweep` asks. */
 export function startAnalysisSweep(demand = false): void {
   if (timer || onDemand) return;
   if (demand) {
