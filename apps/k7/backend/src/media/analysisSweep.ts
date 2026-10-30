@@ -44,6 +44,9 @@ const state: SweepState = {
 const failed = new Set<string>();
 
 let timer: ReturnType<typeof setInterval> | null = null;
+/** Set on a standalone host: no timer, a pass when the library is asked for and the last one is old enough. */
+let onDemand = false;
+let lastPass = 0;
 
 export const sweepState = (): SweepState & ReturnType<typeof gateLoad> => ({
   ...state,
@@ -81,6 +84,7 @@ async function missing(): Promise<string[]> {
 async function pass(): Promise<void> {
   if (!state.decoder || state.running || !exists()) return;
   state.running = true;
+  lastPass = Date.now();
   try {
     const todo = await missing();
     state.pending = todo.length;
@@ -112,11 +116,21 @@ async function pass(): Promise<void> {
 
 /**
  * Start sweeping, and keep sweeping every `PASS_MS`. Idempotent and `unref`ed, so it never holds
- * the process open and never runs two passes at once.
+ * the process open and never runs two passes at once. `demand` waits for `nudgeAnalysisSweep` instead.
  */
-export function startAnalysisSweep(): void {
-  if (timer) return;
+export function startAnalysisSweep(demand = false): void {
+  if (timer || onDemand) return;
+  if (demand) {
+    onDemand = true;
+    return;
+  }
   timer = setInterval(() => void pass(), PASS_MS);
   timer.unref?.();
+  void pass();
+}
+
+/** Somebody opened the library on a standalone host: a pass, unless one ran in the last `PASS_MS`. */
+export function nudgeAnalysisSweep(): void {
+  if (!onDemand || state.running || Date.now() - lastPass < PASS_MS) return;
   void pass();
 }

@@ -37,6 +37,12 @@ Passes repeat every five minutes, which is only for **files that arrive without 
 this backend** — dropped on the volume by hand, or restored from a backup. An upload is already
 analysed by the surface that made it.
 
+A phone or the tray (`STUDIO_LOCAL_USER=1`) starts no timer: a pass runs when the library is asked
+for and the last one is more than five minutes old. The device also runs the engine, a decode there
+competes with playback for its CPU, and its one person is the only reader of the waveforms anyway.
+Nothing in this backend knows whether the engine is playing, so a pass is tied to the library
+being open rather than to the transport being still.
+
 ## One gate for every decode
 
 The sweep, `/analyse` and `/envelope` all decode through `../../src/media/analysisGate.ts`: one decode

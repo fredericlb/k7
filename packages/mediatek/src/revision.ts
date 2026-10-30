@@ -117,6 +117,10 @@ let refresher: ReturnType<typeof setTimeout> | null = null;
 // Which start the running cycle belongs to: a walk finishing after a stop never re-arms the timer.
 let cycleId = 0;
 let refreshing = false;
+/** With an idle limit, the cycle stops once no token was read for that long, and the next read starts it again. */
+let idleLimit = Number.POSITIVE_INFINITY;
+let lastRead = 0;
+let resume: (() => void) | null = null;
 
 /** The mutation counter is read HERE, not stored: our own write must move the token before any walk confirms it. */
 const token = (
@@ -126,6 +130,12 @@ const token = (
 
 /** One key's token: the refresher's last walk when there is one, else a walk right now. */
 function revisionOf(key: RevisionKey): string {
+  lastRead = Date.now();
+  if (resume) {
+    const again = resume;
+    resume = null;
+    again();
+  }
   const held = walked.get(key);
   return token(key, held ?? walk(dirOf(key)));
 }
@@ -149,10 +159,16 @@ export async function refreshRevisions(): Promise<void> {
 /**
  * Start answering every token from a background walk instead of walking per request. Idempotent,
  * and `unref`ed so it never holds a process open. What it costs in freshness: docs/index.md.
+ * With `idleMs`, walking pauses once nobody read a token for that long; the next read resumes it.
  */
-export function startRevisionRefresh(everyMs = 10_000): void {
+export function startRevisionRefresh(
+  everyMs = 10_000,
+  idleMs = Number.POSITIVE_INFINITY,
+): void {
   if (refreshing) return;
   refreshing = true;
+  idleLimit = idleMs;
+  lastRead = Date.now();
   const id = ++cycleId;
   // Re-armed only once a walk has FINISHED: on a slow volume, walks never stack up behind each other.
   const cycle = (): void => {
@@ -160,6 +176,10 @@ export function startRevisionRefresh(everyMs = 10_000): void {
       .catch(() => {})
       .finally(() => {
         if (!refreshing || id !== cycleId) return;
+        if (Date.now() - lastRead >= idleLimit) {
+          resume = cycle;
+          return;
+        }
         refresher = setTimeout(cycle, everyMs);
         refresher.unref?.();
       });
@@ -173,6 +193,8 @@ export function stopRevisionRefresh(): void {
   cycleId++;
   if (refresher) clearTimeout(refresher);
   refresher = null;
+  resume = null;
+  idleLimit = Number.POSITIVE_INFINITY;
   walked.clear();
 }
 

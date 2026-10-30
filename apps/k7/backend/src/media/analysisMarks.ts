@@ -44,7 +44,10 @@ function readAll(): Record<string, Mark> {
   if (!stamp) return {};
   if (held?.stamp === stamp) return held.marks;
   try {
-    const marks = JSON.parse(readFileSync(file, "utf8")) as Record<string, Mark>;
+    const marks = JSON.parse(readFileSync(file, "utf8")) as Record<
+      string,
+      Mark
+    >;
     held = { stamp, marks };
     return marks;
   } catch {
