@@ -52,15 +52,28 @@ namespace {
 // How often the MIDI devices are looked at for one plugged or unplugged: Tracktion's own default interval.
 constexpr int kMidiScanMs = 4000;
 
-// The rescan Tracktion would run on its own timer, run only when `quiet` says nothing is playing.
-class MidiScanTimer : public juce::Timer {
+// The keyboards are the BROWSER's to read; on Windows a MIDI input open here is closed to it (docs/audioDevice.md).
+void closePhysicalMidiInputs(te::DeviceManager& dm) {
+    for (const auto& in : dm.getMidiInDevices())
+        if (in && in->isEnabled() && dynamic_cast<te::PhysicalMidiInputDevice*>(in.get()) != nullptr)
+            in->setEnabled(false);
+}
+
+// The rescan Tracktion would run on its own timer, run only when `quiet` says nothing is playing;
+// and after every list it applies, the physical MIDI inputs are let go of, a new keyboard included.
+class MidiScanTimer : public juce::Timer, private juce::ChangeListener {
 public:
-    MidiScanTimer(te::DeviceManager& dm, std::function<bool()> quiet) : dm_(dm), quiet_(std::move(quiet)) {}
+    MidiScanTimer(te::DeviceManager& dm, std::function<bool()> quiet) : dm_(dm), quiet_(std::move(quiet)) {
+        dm_.addChangeListener(this);
+        closePhysicalMidiInputs(dm_);
+    }
+    ~MidiScanTimer() override { dm_.removeChangeListener(this); }
     void timerCallback() override {
         if (quiet_()) dm_.rescanMidiDeviceList();
     }
 
 private:
+    void changeListenerCallback(juce::ChangeBroadcaster*) override { closePhysicalMidiInputs(dm_); }
     te::DeviceManager& dm_;
     std::function<bool()> quiet_;
 };
