@@ -9,7 +9,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
-import { migrateNamespaceIn } from "@studio/song/namespaceMigrate";
+
 import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
@@ -34,6 +34,7 @@ import {
   roomAt,
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
+import { migrateNamespaceOnce } from "./namespaceStamp.ts";
 import { rootOwner } from "./owner.ts";
 import { projectEditedAt } from "./projectEdited.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
@@ -107,13 +108,13 @@ function migrateLegacyNamespaces(): void {
     const root = workspaceRoot(name);
     // A paired device leaves a synced workspace to its server, so one rewrite reaches every replica rather than several racing.
     if (paired && loadHead(liveLogFor(root)) > 0) continue;
-    const changed = migrateNamespaceIn(root, true);
+    const changed = migrateNamespaceOnce(root);
     if (changed.length)
       console.log(
         `library | ${name}: ${changed.length} file(s) rewritten from @st0 to @k7-core`,
       );
   }
-  if (!paired) migrateNamespaceIn(accountLibraryHome(), true);
+  if (!paired) migrateNamespaceOnce(accountLibraryHome());
 }
 
 /** Rename workspace folder `from` to `to` with everything filed by its path: its sync history, its active marker. */

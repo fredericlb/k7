@@ -185,6 +185,15 @@ nothing resolves. ONE replica rewrites each workspace, so the edit reaches the o
 several identical edits racing in the room: a server rewrites all of its own, and the account's
 library; a paired device only those that never synced, which no server would reach.
 
+The rewrite reads every source file of every workspace, so it is done once per state of the
+workspace (`namespaceStamp.ts`): it stamps the sources it read — each one's path, size and mtime,
+and the version of the rules — in the workspace's sync state, and a start that finds the same
+stamp skips it. Stamping the sources rather than "done" is what keeps a file arriving later in the
+old spelling, by the sync or by hand, from being missed: it moves the stamp, and the next start
+rewrites it. A walk of stats is what remains of the cost, which is not the read of each file.
+`NAMESPACE_RULES` is bumped with any new rule of `namespaceMigrate.ts`, or a stamped workspace
+would never meet it.
+
 **On a server, a workspace a device creates is joined without waiting for a reconnect.** The server's
 own replica joins every room holding files when its link opens — and a room a device seeds later, or a
 move lands, announces itself to no reconnect. So it joins them again before answering the home page's
