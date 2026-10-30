@@ -43,7 +43,7 @@ What stays here is what the médiathèque has to say: "ended" against an error, 
 indicator and the play button's menu. The strings too — they are props, filled from the host's
 labels ([host.md](host.md)).
 
-**The row carries the song's title and nothing beside it.** The artist, the album and the version
+**The row carries the song's title and nothing beside it**, not even a glyph before it. The artist, the album and the version
 playing head the play button's menu instead: on a phone the row has room for one line, and the
 title is what is glanced at; the rest is looked up, and is one right-click or long press away. The
 system's media controls still get the artist and album, which they draw themselves.

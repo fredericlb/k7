@@ -57,8 +57,8 @@ export function MiniPlayer({
   standby = false,
   children,
 }: {
-  /** The glyph before the title — a record, a headphone: what KIND of thing this is. */
-  icon: LucideIcon;
+  /** The glyph before the title — a headphone: what KIND of thing this is; absent, the title stands alone. */
+  icon?: LucideIcon;
   title: string;
   /** Plain text for the system's media controls, which cannot show `meta`; the bar does not draw them. */
   artist?: string;
@@ -148,7 +148,9 @@ export function MiniPlayer({
         <div className="min-w-0 flex-1">
           {titled && (
             <div className="mb-1 flex min-w-0 items-baseline gap-2">
-              <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
+              {Icon && (
+                <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
+              )}
               <span className="min-w-0 truncate font-medium text-sm">
                 {title}
               </span>

@@ -8,7 +8,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@frediverse/ui/dropdown-menu";
-import { Disc3 } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
 import { songRow } from "../songRows";
@@ -69,7 +68,6 @@ export function MiniPlayer() {
 
   return (
     <Bar
-      icon={Disc3}
       title={entry.name}
       artist={artist}
       album={album}
