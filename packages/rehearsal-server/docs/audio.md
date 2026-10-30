@@ -109,8 +109,9 @@ nothing names any more.
 The removal is never fatal. If the library is unreachable the row goes anyway: an orphan in the
 family can be seen and deleted, a session that refuses to disappear cannot.
 
-Moments **survive** the session they came from — they have their own extract and their own view;
-they only lose the link back. Markers, which exist only on a session's timeline, go with it.
+Moments **survive** the recording they came from: they have their own extract and their own view,
+and keep naming a recording that is gone ([moments.md](moments.md)). Markers, which exist only on a
+session's timeline, go with the session.
 
 ## `mp4` becomes `.m4a`
 
@@ -146,8 +147,9 @@ What type any of these is served under is [serving.md](serving.md).
 
 ## Moments go in the same family
 
-A moment is an extract cut out of a session. It is filed in **that session's day folder**, beside
-it, under a name carrying the three things it is:
+A moment is an extract cut out of a recording: a session's, or any other capture of the zone
+([moments.md](moments.md)). It is filed in **that recording's day folder**, beside it, under a name
+carrying the three things it is:
 
 ```
 recordings/2026-08-03/21-00-00.webm                       ← the session
@@ -155,7 +157,7 @@ recordings/2026-08-03/moment-21-01-30--15--The solo.webm   ← 90 s later, 15 s,
 recordings/2026-08-03/moment-21-01-30--15.webm            ← the same one, unnamed
 ```
 
-The time is when the extract was **played** — `Sessions.CreatedAt` plus `StartSec` — not when it
+The time is when the extract was **played** (the recording's start plus `StartSec`), not when it
 was annotated, which may be three days later. The name is the moment's text when there is one.
 
 Re-extracting replaces: the bound or the name may have moved, so the file name already written is

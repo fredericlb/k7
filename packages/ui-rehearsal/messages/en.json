@@ -120,10 +120,7 @@
   "moment.noClip": "No clip has been extracted for this moment yet.",
   "moment.noWaveform": "No waveform available for this clip.",
   "moment.nudgeHelp": "Drag the handles on the waveform above, or nudge:",
-  "moment.openInSession": "Open in session at {at}",
   "moment.playInSession": "Play in the session",
-  "moment.sessionDeleted": "session deleted",
-  "moment.sessionGone": "The original session is no longer available.",
   "moment.start": "Start",
   "moment.validate": "Validate",
   "moment.validateTitle": "Extract a standalone clip of this timespan",
@@ -318,5 +315,11 @@
   "source.local": "Local device",
   "source.chain": "K7 chain",
   "source.noChain": "No chain is chosen for rehearsals: pick one on k7's Frozen chains page.",
-  "recorder.region": "Recorder"
+  "recorder.region": "Recorder",
+  "moment.openInRecording": "Open in the recording at {at}",
+  "moment.recordingGone": "The original recording is no longer available.",
+  "moment.recordingDeleted": "recording deleted",
+  "moment.fromLibrary": "library recording",
+  "recording.back": "Recordings",
+  "recording.notFound": "This is not a recording of the media library."
 }

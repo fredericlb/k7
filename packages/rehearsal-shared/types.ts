@@ -97,13 +97,16 @@ export interface Annotation {
   createdAt: string;
 }
 
-// A moment stands alone, in its own view, and outlives the session it was captured in.
+// A moment is a span of a recording — a session's or any capture of the médiathèque — and outlives it.
 export interface Moment {
   id: string;
-  sessionUid: string | null;
-  // That session's own createdAt, since sessions have no name; null once it is deleted.
-  sessionCreatedAt: string | null;
-  sessionAvailable: boolean;
+  // The recording's mediatek path; null for one shared from a machine, whose recording stayed there.
+  recordingPath: string | null;
+  // When that recording started, which places the moment in time; null when nothing said.
+  recordedAt: string | null;
+  // The owner's session that saved the recording, when one did.
+  sessionId: string | null;
+  recordingAvailable: boolean;
   startSec: number;
   endSec: number;
   text: string;
@@ -115,6 +118,14 @@ export interface Moment {
   // Detail endpoint only: the clip's own envelope and markers, on a timeline starting at 0.
   envelope?: Envelope | null;
   markers?: Marker[];
+}
+
+/** A recording as its own page reads it: when it started, the session that saved it, its moments. */
+export interface RecordingMoments {
+  path: string;
+  recordedAt: string | null;
+  sessionId: string | null;
+  moments: Annotation[];
 }
 
 /** A single-timestamp pin on the session timeline, with an optional comment. */
@@ -130,6 +141,8 @@ export interface Session {
   createdAt: string;
   duration: number;
   hasRecording: boolean;
+  // Where its recording is filed in the médiathèque: what its moments name.
+  recordingPath: string | null;
   recordingExt: string | null;
   recordingMime: string | null;
   gain: number; // playback normalization gain

@@ -77,7 +77,9 @@ export function SessionDetailContainer({
       text: string;
       tags: string[];
     }) => {
-      await api.addAnnotation(sessionId, ann);
+      // A session without a recording has nothing to cut a moment from.
+      if (!session?.recordingPath) return;
+      await api.addMoment(session.recordingPath, ann);
       await reloadSession();
       onChange();
     },
@@ -93,14 +95,14 @@ export function SessionDetailContainer({
         endSec?: number;
       },
     ) => {
-      await api.updateAnnotation(sessionId, annId, patch);
+      await api.updateMoment(annId, patch);
       await reloadSession();
       onChange();
     },
   );
 
   const handleDeleteAnnotation = guard(async (annId: string) => {
-    await api.deleteAnnotation(sessionId, annId);
+    await api.deleteMoment(annId);
     await reloadSession();
     onChange();
   });
@@ -108,7 +110,7 @@ export function SessionDetailContainer({
   const handleValidate = guard(async (annId: string) => {
     setValidating(annId);
     try {
-      await api.validateMoment(sessionId, annId);
+      await api.validateMoment(annId);
       await reloadSession();
       onChange();
     } finally {
@@ -168,7 +170,7 @@ export function SessionDetailContainer({
         onAddMarker={handleAddMarker}
         onUpdateMarker={handleUpdateMarker}
         onDeleteMarker={handleDeleteMarker}
-        momentClipUrl={(annId) => api.momentClipUrl(sessionId, annId)}
+        momentClipUrl={api.momentPageClipUrl}
       />
     </>
   );

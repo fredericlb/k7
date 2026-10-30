@@ -1,9 +1,11 @@
-// moments.ts — a moment (a `Comments` row): annotated in its session, then standing alone with its
-// own clip, envelope and markers once the session is gone. The clip is cut and re-encoded off the request thread (../../docs/audio.md).
+// moments.ts — a moment (a `Comments` row): a span of a recording, a session's or any other capture's,
+// standing alone with its own clip, envelope and markers once that recording is gone.
+// The clip is cut and re-encoded off the request thread (../../docs/audio.md, ../../docs/moments.md).
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { isCapturePath } from "@studio/mediatek/recordingName";
 import type { Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
@@ -14,6 +16,12 @@ import type { FieldsOf } from "../schema.ts";
 import { SAFE_ID } from "../sqlite.ts";
 import { cutClip } from "../transcode.ts";
 import {
+  type CachedFile,
+  type Capture,
+  captureOf,
+  sessionsByPath,
+} from "./captures.ts";
+import {
   CACHE_DIR,
   fetching,
   mapComment,
@@ -22,33 +30,25 @@ import {
   rowIn,
   safeUnlink,
 } from "./helpers.ts";
-import {
-  ensureRecordingCached,
-  getEnvelope,
-  getOwner,
-  getSessionRecord,
-} from "./sessions.ts";
 
 type CommentRow = Row<"Comments">;
 
-/** A cached clip on disk and the type it streams as. */
-interface CachedClip {
-  filePath: string;
-  mime: string;
-}
+// --- Moments on a recording ----------------------------------------------
 
-// --- Comments (annotations) -------------------------------------------------
+type MomentFields = {
+  startSec: number;
+  endSec: number;
+  text?: string;
+  tags?: unknown;
+};
 
-export async function addAnnotation(
-  uid: string,
-  {
-    startSec,
-    endSec,
-    text,
-    tags,
-  }: { startSec: number; endSec: number; text?: string; tags?: unknown },
-  ownerId?: string,
+/** A moment cut from the capture at `recordingPath`; null for a path that is no capture (../../docs/moments.md). */
+export async function addMoment(
+  ownerId: string,
+  recordingPath: string,
+  { startSec, endSec, text, tags }: MomentFields,
 ) {
+  if (!isCapturePath(recordingPath)) return null;
   const ann = {
     startSec: Number(startSec),
     endSec: Number(endSec),
@@ -56,12 +56,12 @@ export async function addAnnotation(
     tags: normalizeTags(tags),
     createdAt: new Date().toISOString(),
   };
-  // OwnerId sits on the moment itself so it stays addressable after its session goes.
-  const owner = ownerId || (await getOwner(uid));
-  const [{ id }] = await db.addRecords("Comments", [
+  const started = captureOf(ownerId, recordingPath).startedAt;
+  const [{ id }] = db.addRecords("Comments", [
     {
-      SessionUid: uid,
-      OwnerId: owner ?? "",
+      RecordingPath: recordingPath,
+      RecordedAt: started ? started.toISOString() : "",
+      OwnerId: ownerId,
       StartSec: ann.startSec,
       EndSec: ann.endSec,
       Text: ann.text,
@@ -70,21 +70,19 @@ export async function addAnnotation(
     },
   ]);
   // Extract now so a saved moment plays on its own; best-effort, a failure leaves it be.
-  const validated = await extractMomentClip(uid, String(id)).catch(
-    (e: Error) => {
-      console.error("moment auto-extract failed:", e.message);
-      return false;
-    },
-  );
-  return { id: String(id), ...ann, validated };
+  const validated = await extractMomentClip(String(id)).catch((e: Error) => {
+    console.error("moment auto-extract failed:", e.message);
+    return false;
+  });
+  return { id: String(id), recordingPath, ...ann, validated };
 }
 
-export async function updateAnnotation(
-  uid: string,
-  annId: string,
+export async function updateMoment(
+  ownerId: string,
+  momentId: string,
   patch: { startSec?: number; endSec?: number; text?: string; tags?: unknown },
 ) {
-  const before = rowIn("Comments", annId, { SessionUid: uid });
+  const before = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!before) return null;
 
   const fields: Partial<FieldsOf<"Comments">> = {};
@@ -93,7 +91,7 @@ export async function updateAnnotation(
   if (patch.text !== undefined) fields.Text = String(patch.text);
   if (patch.tags !== undefined)
     fields.Tags = normalizeTags(patch.tags).join(",");
-  await db.patchRecord("Comments", annId, fields);
+  db.patchRecord("Comments", momentId, fields);
 
   // A moved timespan makes the extracted clip wrong — drop it and re-extract.
   const rangeChanged =
@@ -102,59 +100,67 @@ export async function updateAnnotation(
     (fields.EndSec !== undefined &&
       fields.EndSec !== Number(before.fields.EndSec));
   if (rangeChanged) {
-    safeUnlink(clipCachePath(annId));
-    await extractMomentClip(uid, annId).catch((e: Error) =>
+    safeUnlink(clipCachePath(momentId));
+    await extractMomentClip(momentId).catch((e: Error) =>
       console.error("moment auto re-extract failed:", e.message),
     );
   }
 
-  const rec = rowIn("Comments", annId, { SessionUid: uid });
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   return rec ? mapComment(rec) : null;
 }
 
-export async function deleteAnnotation(
-  uid: string,
-  annId: string,
-): Promise<boolean> {
-  // Only a moment of THIS session: the row id alone would reach anyone's — ../../docs/ownership.md.
-  const rec = rowIn("Comments", annId, { SessionUid: uid });
-  if (!rec) return false;
-  await forgetClip(rec);
-  await db.deleteRecords("Comments", [rec.id]);
-  safeUnlink(clipCachePath(rec.id));
-  return true;
+/** The capture at `recordingPath` as its page reads it: its start, the session that saved it, its moments. */
+export function recordingMoments(ownerId: string, recordingPath: string) {
+  if (!isCapturePath(recordingPath)) return null;
+  const capture = captureOf(ownerId, recordingPath);
+  const moments = db
+    .listRecords("Comments", {
+      RecordingPath: [recordingPath],
+      OwnerId: [ownerId],
+    })
+    .map(mapComment)
+    .sort((a, b) => a.startSec - b.startSec);
+  return {
+    path: recordingPath,
+    recordedAt: capture.startedAt?.toISOString() ?? null,
+    sessionId: capture.sessionUid,
+    moments,
+  };
 }
 
 // --- Standalone moments -----------------------------------------------------
 
-// A moment has its own owner-addressable view, independent of the session it came from.
-function publicMoment(rec: CommentRow, createdAtByUid: Map<string, string>) {
-  const uid = rec.fields.SessionUid;
+interface OwnerContext {
+  sessions: ReturnType<typeof sessionsByPath>;
+  /** Every capture the zone lists; null when the library could not say, which reads as all there. */
+  captures: Set<string> | null;
+}
+
+async function ownerContext(ownerId: string): Promise<OwnerContext> {
+  const captures = await mediatek.capturePaths().catch(() => null);
+  return { sessions: sessionsByPath(ownerId), captures };
+}
+
+// A moment has its own owner-addressable view, whichever recording it came from.
+function publicMoment(rec: CommentRow, ctx: OwnerContext) {
+  const recordingPath = rec.fields.RecordingPath;
+  const session = recordingPath ? ctx.sessions.get(recordingPath) : undefined;
   return {
     ...mapComment(rec),
-    // Sessions have no name, so the client labels a moment with its session's date; a shared one carries it.
-    sessionCreatedAt:
-      createdAtByUid.get(uid) ?? (rec.fields.SessionCreatedAt || null),
-    sessionAvailable: createdAtByUid.has(uid),
+    recordedAt: rec.fields.RecordedAt || null,
+    sessionId: session?.uid ?? null,
+    recordingAvailable:
+      !!recordingPath &&
+      (!!session || (ctx.captures?.has(recordingPath) ?? true)),
   };
 }
 
-async function ownerSessionCreatedAt(
-  ownerId: string,
-): Promise<Map<string, string>> {
-  const sessions = await db.listRecords(
-    "Sessions",
-    { OwnerId: [ownerId] },
-    { fields: ["Uid", "CreatedAt"] },
-  );
-  return new Map(sessions.map((s) => [s.fields.Uid, s.fields.CreatedAt || ""]));
-}
-
 export async function listMoments(ownerId: string) {
-  const recs = await db.listRecords("Comments", { OwnerId: [ownerId] });
-  const createdAtByUid = await ownerSessionCreatedAt(ownerId);
+  const recs = db.listRecords("Comments", { OwnerId: [ownerId] });
+  const ctx = await ownerContext(ownerId);
   return recs
-    .map((r) => publicMoment(r, createdAtByUid))
+    .map((r) => publicMoment(r, ctx))
     .sort(
       (a, b) =>
         String(b.createdAt).localeCompare(String(a.createdAt)) ||
@@ -166,10 +172,9 @@ export async function listMoments(ownerId: string) {
 export async function getMoment(ownerId: string, momentId: string) {
   const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return null;
-  const createdAtByUid = await ownerSessionCreatedAt(ownerId);
-  const base = publicMoment(rec, createdAtByUid);
+  const base = publicMoment(rec, await ownerContext(ownerId));
 
-  // The stored slice, or one cut live from the session when the moment carries none.
+  // The stored slice, or one cut live from the recording when the moment carries none.
   let envelope: Envelope | null = null;
   if (rec.fields.Envelope) {
     try {
@@ -178,10 +183,9 @@ export async function getMoment(ownerId: string, momentId: string) {
       envelope = null;
     }
   }
-  if (!envelope && base.sessionAvailable && rec.fields.SessionUid) {
-    const sessionEnv = await getEnvelope(rec.fields.SessionUid);
-    if (sessionEnv)
-      envelope = sliceEnvelope(sessionEnv, base.startSec, base.endSec);
+  if (!envelope && base.recordingAvailable && rec.fields.RecordingPath) {
+    const full = await captureOf(ownerId, rec.fields.RecordingPath).envelope();
+    if (full) envelope = sliceEnvelope(full, base.startSec, base.endSec);
   }
 
   const markers = await listMomentMarkers(ownerId, momentId);
@@ -195,7 +199,7 @@ export async function deleteMoment(
   const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return false;
   await forgetClip(rec);
-  await db.deleteRecords("Comments", [rec.id]);
+  db.deleteRecords("Comments", [rec.id]);
   safeUnlink(clipCachePath(rec.id));
   return true;
 }
@@ -210,14 +214,14 @@ async function forgetClip(rec: CommentRow): Promise<void> {
 export async function ensureMomentClipCached(
   ownerId: string,
   momentId: string,
-): Promise<CachedClip | null> {
+): Promise<CachedFile | null> {
   // The owner is checked BEFORE the cache: a cached file must not answer for someone else's moment.
   const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   return rec ? clipOnDisk(rec) : null;
 }
 
 /** A row's clip, fetched into the cache unless it is already there; null when it has none. */
-async function clipOnDisk(rec: CommentRow): Promise<CachedClip | null> {
+async function clipOnDisk(rec: CommentRow): Promise<CachedFile | null> {
   const remote = rec.fields.ClipPath;
   if (!remote) return null;
   const filePath = clipCachePath(rec.id);
@@ -301,30 +305,25 @@ export async function deleteMomentMarker(
 // --- Moment validation (extract a standalone clip) --------------------------
 
 // One cut per moment at a time, each reading the row afresh: two quick drags end on the clip of the LAST span — ../../docs/audio.md.
-function extractMomentClip(
-  sessionUid: string,
-  momentId: string,
-): Promise<boolean> {
+function extractMomentClip(momentId: string): Promise<boolean> {
   return serialized(`clip:${momentId}`, async () => {
-    const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
-    if (!rec) return false;
-    return extractMomentClipUnlocked(sessionUid, rec);
+    const rec = db.getRecord("Comments", momentId);
+    if (!rec?.fields.RecordingPath) return false;
+    return extractMomentClipUnlocked(rec);
   });
 }
 
-// A moment's timespan cut out of the session recording into its own clip — ../../docs/audio.md.
-async function extractMomentClipUnlocked(
-  sessionUid: string,
-  rec: CommentRow,
-): Promise<boolean> {
-  const info = await ensureRecordingCached(sessionUid);
+// A moment's timespan cut out of its recording into its own clip — ../../docs/audio.md.
+async function extractMomentClipUnlocked(rec: CommentRow): Promise<boolean> {
+  const capture = captureOf(rec.fields.OwnerId, rec.fields.RecordingPath);
+  const info = await capture.file();
   if (!info) return false;
 
   const start = Number(rec.fields.StartSec);
   const end = Number(rec.fields.EndSec);
   const clip = await extractClip(info.filePath, start, end);
   try {
-    await publishMomentClip(sessionUid, rec, clip, start, end);
+    await publishMomentClip(capture, rec, clip, start, end);
   } catch (e) {
     safeUnlink(clip);
     throw e;
@@ -334,15 +333,15 @@ async function extractMomentClipUnlocked(
 
 // The cut file pushed from disk, then RENAMED into the cache: never whole in memory, never half-written where it is served.
 async function publishMomentClip(
-  sessionUid: string,
+  capture: Capture,
   rec: CommentRow,
   clip: string,
   start: number,
   end: number,
 ): Promise<void> {
-  // The moment's own envelope, so its view still draws a waveform once the session is gone.
-  const sessionEnv = await getEnvelope(sessionUid);
-  const sliced = sessionEnv ? sliceEnvelope(sessionEnv, start, end) : null;
+  // The moment's own envelope, so its view still draws a waveform once the recording is gone.
+  const full = await capture.envelope();
+  const sliced = full ? sliceEnvelope(full, start, end) : null;
 
   // Re-extracting replaces: the span or the name may have moved, so the old name is a lie.
   const previous = rec.fields.ClipPath;
@@ -350,14 +349,14 @@ async function publishMomentClip(
     await fs.openAsBlob(clip),
     "webm",
     {
-      at: momentPlayedAt(await getSessionRecord(sessionUid), start),
+      at: momentPlayedAt(capture.startedAt, start),
       durationSec: end - start,
       label: rec.fields.Text,
     },
   );
   if (previous && previous !== clipPath) await mediatek.remove(previous);
 
-  await db.patchRecord("Comments", rec.id, {
+  db.patchRecord("Comments", rec.id, {
     Validated: true,
     ClipPath: clipPath,
     Envelope: sliced ? JSON.stringify(sliced) : "",
@@ -367,19 +366,16 @@ async function publishMomentClip(
   fs.renameSync(clip, clipCachePath(rec.id));
 }
 
-/** When a moment was PLAYED: session start plus offset, not the annotation's CreatedAt. */
+/** When a moment was PLAYED: the recording's start plus its offset, not the annotation's CreatedAt. */
 function momentPlayedAt(
-  sessionRec: Row<"Sessions"> | null,
+  started: Date | null,
   startSec: number,
 ): Date | undefined {
-  const started = sessionRec?.fields.CreatedAt
-    ? new Date(sessionRec.fields.CreatedAt)
-    : null;
-  if (!started || Number.isNaN(started.getTime())) return undefined;
+  if (!started) return undefined;
   return new Date(started.getTime() + Math.max(0, startSec) * 1000);
 }
 
-// The session envelope over [startSec, endSec], re-based to a clip timeline starting at 0.
+// The recording's envelope over [startSec, endSec], re-based to a clip timeline starting at 0.
 function sliceEnvelope(
   env: Envelope,
   startSec: number,
@@ -395,22 +391,12 @@ function sliceEnvelope(
 }
 
 // Manual re-extract, for a moment whose automatic one could not run.
-export async function validateMoment(sessionUid: string, momentId: string) {
-  const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
+export async function validateMoment(ownerId: string, momentId: string) {
+  const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return null;
-  const ok = await extractMomentClip(sessionUid, rec.id);
-  if (!ok) throw new Error("session has no recording to clip");
+  const ok = await extractMomentClip(rec.id);
+  if (!ok) throw new Error("this moment's recording is gone");
   return mapComment({ id: rec.id, fields: { ...rec.fields, Validated: true } });
-}
-
-/** Ensure a validated moment's clip is on disk; returns { filePath, mime }. */
-export async function ensureClipCached(
-  sessionUid: string,
-  momentId: string,
-): Promise<CachedClip | null> {
-  // The moment must be THIS session's before the cache answers: a cached file has no owner of its own.
-  const rec = rowIn("Comments", momentId, { SessionUid: sessionUid });
-  return rec ? clipOnDisk(rec) : null;
 }
 
 /** The machine an owner's moment was shared from, "" for one of this server's own — ../../docs/momentShare.md. */

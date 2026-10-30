@@ -3,13 +3,19 @@
 // Every navigation goes through useRehearsalNav: a bare "/sessions" would leave the prefix.
 
 import { AskHost } from "@frediverse/ui/ask";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { api } from "../api";
 import { RecoveredTakes } from "../components/RecoveredTakes";
 import { ServerOnly } from "../components/ServerOnly";
 import { useRehearsalHost, useRehearsalNav } from "../host";
 import { useRehearsalRecording } from "../recording/context";
-import type { HomeTab } from "../types";
+import type { HomeTab, Moment } from "../types";
 import { ExercisesView } from "../views/ExercisesView";
 import { GuitarTuner } from "../views/GuitarTuner";
 import { HomeView } from "../views/HomeView";
@@ -17,7 +23,13 @@ import { PageFormView } from "../views/PageFormView";
 import { RandomChordsExercise } from "../views/RandomChordsExercise";
 import { ReleaseFormView } from "../views/ReleaseFormView";
 import { SingingExercisesView } from "../views/SingingExercisesView";
-import { MomentRoute, PageRoute, ReleaseRoute, SessionRoute } from "./params";
+import {
+  MomentRoute,
+  PageRoute,
+  RecordingRoute,
+  ReleaseRoute,
+  SessionRoute,
+} from "./params";
 import { useRehearsalData } from "./useRehearsalData";
 import "../styles/index.css";
 
@@ -27,8 +39,19 @@ const HOME_ROUTES: { path: string; tab: HomeTab }[] = [
   { path: "releases", tab: "releases" },
 ];
 
+/** A moment's recording at its start: its session's page when one saved it, else the capture's own. */
+function recordingHref(x: Moment): string {
+  if (x.sessionId) return `/sessions/${x.sessionId}?t=${x.startSec}`;
+  const q = new URLSearchParams({
+    path: x.recordingPath ?? "",
+    t: String(x.startSec),
+  });
+  return `/recording?${q}`;
+}
+
 export function RehearsalRoutes() {
   const { go, path } = useRehearsalNav();
+  const navigate = useNavigate();
   const { settingsHref } = useRehearsalHost();
   const { pathname } = useLocation();
   const { barShown, resume } = useRehearsalRecording();
@@ -172,9 +195,29 @@ export function RehearsalRoutes() {
                     void d.refreshSessions();
                     go("/sessions");
                   }}
-                  onOpenSession={(sessionUid, seekTo) =>
+                  onOpenRecording={(x) => go(recordingHref(x))}
+                />
+              }
+            />
+
+            <Route
+              path="recording"
+              element={
+                <RecordingRoute
+                  allTags={d.allTags}
+                  // Reached from the médiathèque as often as from here: Back is where it came from.
+                  onBack={() =>
+                    (window.history.state?.idx ?? 0) > 0
+                      ? navigate(-1)
+                      : go("/sessions")
+                  }
+                  onChange={() => void d.refreshSessions()}
+                  onOpenSession={(id, seekTo) =>
                     go(
-                      `/sessions/${sessionUid}${seekTo != null ? `?t=${seekTo}` : ""}`,
+                      `/sessions/${id}${seekTo != null ? `?t=${seekTo}` : ""}`,
+                      {
+                        replace: true,
+                      },
                     )
                   }
                 />

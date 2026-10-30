@@ -13,6 +13,10 @@ export interface LibraryHost {
   user: string;
   /** The host's own engine selector, when it has one: the engine "The engine" plays on, and where it is heard. */
   engine?: HostEngine;
+  /** Where a capture opens, to cut moments from it; absent, a capture's row opens nothing — ../docs/recordings.md. */
+  recordingHref?: (path: string) => string;
+  /** Where a moment opens; absent, a moment's row opens nothing. */
+  momentHref?: (id: string) => string;
   /** How the host draws a song's lyrics, tablature or sheets; absent, a song shows its tags alone — ../docs/songPlayer.md. */
   songAttachment?: (props: SongAttachmentView) => ReactNode;
 }

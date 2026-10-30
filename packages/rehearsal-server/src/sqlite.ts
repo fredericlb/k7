@@ -61,6 +61,7 @@ export const INDEXED_FIELDS = [
   "Uid",
   "OwnerId",
   "SessionUid",
+  "RecordingPath",
   "ReleaseUid",
   "MomentId",
   "SongUuid",

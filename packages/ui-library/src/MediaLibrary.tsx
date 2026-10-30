@@ -13,9 +13,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { library } from "./api";
 import { useLibraryHost } from "./host";
-import { LibraryContents } from "./LibraryContents";
-import { dayNodes, remoteRows, TOP_LEVEL, treeOf } from "./libraryTree";
+import { EmptyBlock, LibraryContents } from "./LibraryContents";
+import { remoteRows, TOP_LEVEL, treeOf } from "./libraryTree";
 import { Playlists } from "./Playlists";
+import { RecordingsCalendar } from "./RecordingsCalendar";
 import { DEFAULT_SECTION, type SectionId } from "./routes";
 import { RemoteDownload, useServerCopy } from "./ServerCopy";
 import { SongsLibrary } from "./SongsLibrary";
@@ -55,7 +56,7 @@ export function MediaLibrary({
   // The songs have no tree: a table, then a song's page, each the width of the screen (../docs/library.md).
   const isSongs = section === "songs";
   // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
-  const editable = !isSongs && !isZone;
+  const editable = !isSongs;
   const {
     present,
     manage,
@@ -91,12 +92,10 @@ export function MediaLibrary({
         path: "",
         dir: true,
         // Alphabetical all the way down: a listing arrives in scan order, which nobody can look something up in.
-        children: sortNodes(
-          isZone ? dayNodes(recordings) : treeOf(entries, unlisted, remote),
-        ),
+        children: sortNodes(treeOf(entries, unlisted, remote)),
       },
     ],
-    [entries, isZone, recordings, section, unlisted, remote],
+    [entries, section, unlisted, remote],
   );
   /** Where a drop lands, family-relative: the section, plus the folder the drop resolved to. */
   const assetsTarget = useCallback(
@@ -137,10 +136,31 @@ export function MediaLibrary({
         error={error}
         setError={setError}
         refresh={refresh}
-        recordings={recordings}
         serverCopy={serverCopy}
         onOpenSettings={onOpenSettings}
       />
+    );
+
+  // The captures: a calendar and the day's timeline, as the rehearsal sessions have (../docs/recordings.md).
+  if (isZone)
+    return (
+      <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">
+        <RecordingsCalendar
+          days={recordings}
+          error={error}
+          notice={notice}
+          addButton={<AddRecording onDone={refresh} onError={setError} />}
+          empty={
+            <EmptyBlock
+              actions={<AddRecording onDone={refresh} onError={setError} />}
+            >
+              {present === false
+                ? labels.contents.emptyLibrary
+                : labels.contents.noRecordings}
+            </EmptyBlock>
+          }
+        />
+      </main>
     );
 
   return (
@@ -274,28 +294,15 @@ export function MediaLibrary({
             }
           />
         </div>
-        {/* Below the tree's own scroll, not inside it — a foot that never moves. */}
-        {isZone ? (
-          <div className="mt-2 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
-            <AddRecording onDone={refresh} onError={setError} />
-          </div>
-        ) : null}
       </aside>
 
       <LibraryContents
         notice={notice}
         error={error}
         present={present}
-        isZone={isZone}
-        recordings={recordings}
         entries={entries}
         serverCopy={serverCopy}
         onOpen={openFile}
-        emptyActions={
-          isZone ? (
-            <AddRecording onDone={refresh} onError={setError} />
-          ) : undefined
-        }
       />
     </div>
   );

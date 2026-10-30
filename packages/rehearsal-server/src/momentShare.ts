@@ -1,5 +1,5 @@
 // momentShare.ts — a paired machine shares one of its moments with its server: the clip, the span, the
-// text, the markers, never the session, which stays on the machine. Sharing again replaces the server's copy.
+// text, the markers, never the recording, which stays on the machine. Sharing again replaces the server's copy.
 // What reads wrong: the copy keeps the machine's moment id, which is how "shared" is told — ../docs/momentShare.md.
 
 import { openAsBlob } from "node:fs";
@@ -25,7 +25,9 @@ const sharedMoment = z.object({
   text: z.string(),
   tags: z.array(z.string()),
   createdAt: z.string(),
-  sessionCreatedAt: z.string().nullable(),
+  // When its recording started; a machine older than the field sends `sessionCreatedAt` alone.
+  recordedAt: z.string().nullable().optional(),
+  sessionCreatedAt: z.string().nullable().optional(),
   envelope: z
     .object({ intervalMs: z.number(), samples: z.array(z.number()) })
     .nullable(),
@@ -55,9 +57,14 @@ const deviceOf = (res: ExpressResponse): string =>
   (res.locals.syncCaller as { device?: string | null } | undefined)?.device ||
   "a machine";
 
-/** When the moment was PLAYED: its session's start plus its offset, the name its clip is filed under. */
+/** When its recording started, from whichever field the machine sent. */
+const recordedAt = (m: SharedMoment): string =>
+  m.recordedAt || m.sessionCreatedAt || "";
+
+/** When the moment was PLAYED: its recording's start plus its offset, the name its clip is filed under. */
 function playedAt(m: SharedMoment): Date | undefined {
-  const t = m.sessionCreatedAt ? Date.parse(m.sessionCreatedAt) : Number.NaN;
+  const at = recordedAt(m);
+  const t = at ? Date.parse(at) : Number.NaN;
   return Number.isNaN(t) ? undefined : new Date(t + m.startSec * 1000);
 }
 
@@ -128,7 +135,9 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
           },
         );
         const fields = {
-          SessionUid: "",
+          // The recording stays on the machine: here the moment is its clip alone.
+          RecordingPath: "",
+          RecordedAt: recordedAt(m),
           OwnerId: person,
           StartSec: m.startSec,
           EndSec: m.endSec,
@@ -138,7 +147,6 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
           Validated: true,
           ClipPath: clipPath,
           Envelope: m.envelope ? JSON.stringify(m.envelope) : "",
-          SessionCreatedAt: m.sessionCreatedAt ?? "",
           SharedFrom: deviceOf(res),
         };
         if (existing) {
@@ -228,13 +236,13 @@ export const momentShareRouter = (opts: {
       const id = req.params.id;
       let moment = await store.getMoment(owner, id);
       if (!moment) return res.status(404).json({ error: "no such moment" });
-      // A moment with no clip of its own is cut out of its session first: the session itself never leaves.
+      // A moment with no clip of its own is cut out of its recording first: the recording itself never leaves.
       if (!moment.validated) {
-        if (!moment.sessionUid || !moment.sessionAvailable)
+        if (!moment.recordingAvailable)
           return res.status(409).json({
-            error: "this moment has no clip, and its session is gone",
+            error: "this moment has no clip, and its recording is gone",
           });
-        await store.validateMoment(moment.sessionUid, id);
+        await store.validateMoment(owner, id);
         moment = await store.getMoment(owner, id);
       }
       const clip = await store.ensureMomentClipCached(owner, id);
@@ -247,7 +255,9 @@ export const momentShareRouter = (opts: {
         text: moment.text,
         tags: moment.tags,
         createdAt: moment.createdAt,
-        sessionCreatedAt: moment.sessionCreatedAt,
+        recordedAt: moment.recordedAt,
+        // What a server older than `recordedAt` requires.
+        sessionCreatedAt: moment.recordedAt,
         envelope: moment.envelope ?? null,
         markers: (moment.markers ?? []).map((x) => ({
           atSec: x.atSec,

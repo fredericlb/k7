@@ -985,6 +985,8 @@
   "media.contents.emptyFamily": "Nothing here yet.",
   "media.contents.notCatalogued": "not catalogued",
   "media.contents.noRecordings": "No recordings yet. Machines push here through the API; the button sends a batch by hand.",
+  "media.contents.noneThisDay": "No recordings on this day.",
+  "media.contents.noneTagged": "Nothing tagged #{tag} on this day.",
   "media.addRecording.add": "Add recordings",
   "media.addRecording.sending": "Sending…",
   "media.addRecording.cancel": "cancel",

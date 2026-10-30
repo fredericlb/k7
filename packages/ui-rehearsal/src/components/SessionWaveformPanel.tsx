@@ -1,5 +1,6 @@
-// SessionWaveformPanel.tsx — the top of a session's page: its waveform with the detection drawn on
+// SessionWaveformPanel.tsx — the top of a recording's page: its waveform with the detection drawn on
 // it, the transport, the two detection sliders, and the selection a moment is saved from.
+// Markers and resuming are a session's: a capture of the médiathèque passes neither.
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
@@ -24,8 +25,8 @@ interface Props {
   onSelect: (sel: Selection | null) => void;
   onEditRange: (range: Selection) => void;
   onTogglePlay: () => void;
-  onAddMarker: (atSec: number) => void;
-  onResume: () => void;
+  onAddMarker?: (atSec: number) => void;
+  onResume?: () => void;
   onThresholdChange: (t: number) => void;
   onMinSilenceChange: (ms: number) => void;
   onSaveSelection: () => void;
@@ -68,22 +69,26 @@ export function SessionWaveformPanel(p: Props) {
             <span className="muted small tabular">
               <PlaybackTime clock={clock} /> / {fmtTime(p.session.duration)}
             </span>
-            <Button
-              variant="outline"
-              onClick={() => p.onAddMarker(clock.get())}
-              title={m["marker.addTitle"]()}
-            >
-              <Flag className="size-4" /> {m["marker.add"]()}
-            </Button>
-            <Button
-              variant="outline"
-              className="ml-auto"
-              onClick={p.onResume}
-              title={m["session.continueTitle"]()}
-            >
-              <Circle className="size-3 fill-current text-destructive" />{" "}
-              {m["session.continue"]()}
-            </Button>
+            {p.onAddMarker && (
+              <Button
+                variant="outline"
+                onClick={() => p.onAddMarker?.(clock.get())}
+                title={m["marker.addTitle"]()}
+              >
+                <Flag className="size-4" /> {m["marker.add"]()}
+              </Button>
+            )}
+            {p.onResume && (
+              <Button
+                variant="outline"
+                className="ml-auto"
+                onClick={p.onResume}
+                title={m["session.continueTitle"]()}
+              >
+                <Circle className="size-3 fill-current text-destructive" />{" "}
+                {m["session.continue"]()}
+              </Button>
+            )}
           </div>
 
           <Card className="controls">

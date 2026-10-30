@@ -9,6 +9,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Manifest } from "./manifest.ts";
 import { placeFile } from "./place.ts";
+import type { RecordingDay } from "./recordings.ts";
 import type { Family, MasterTags } from "./types.ts";
 
 /** What a cache needs from whatever owns the library; `download` takes a destination so a video never sits in memory. */
@@ -259,6 +260,24 @@ export async function putTags(
   if (!res.ok)
     throw new RemoteError(`mediatek tags: ${res.status} ${res.statusText}`);
   return ((await res.json()) as { tags: MasterTags }).tags;
+}
+
+/** The raw zone's listing, day by day, as the library's `/recordings` answers it — docs/recordings.md. */
+export async function listRemoteRecordings(
+  cfg: RemoteConfig,
+): Promise<RecordingDay[]> {
+  const res = await fetch(
+    `${cfg.base.replace(/\/+$/, "")}${cfg.route ?? "/api/mediatek"}/recordings`,
+    {
+      headers: cfg.token ? { authorization: `Bearer ${cfg.token}` } : {},
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  if (!res.ok)
+    throw new RemoteError(
+      `mediatek recordings: ${res.status} ${res.statusText}`,
+    );
+  return ((await res.json()) as { days: RecordingDay[] }).days;
 }
 
 /** Push one capture into the raw zone: bytes plus a moment, and the library names the file — docs/recordings.md. */

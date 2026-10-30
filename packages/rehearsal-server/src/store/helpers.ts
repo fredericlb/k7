@@ -84,7 +84,7 @@ export function mapComment(rec: Row<"Comments">) {
   const f = rec.fields;
   return {
     id: String(rec.id),
-    sessionUid: f.SessionUid || null,
+    recordingPath: f.RecordingPath || null,
     startSec: Number(f.StartSec),
     endSec: Number(f.EndSec),
     text: f.Text || "",
@@ -92,7 +92,7 @@ export function mapComment(rec: Row<"Comments">) {
     validated: Boolean(f.Validated),
     createdAt: f.CreatedAt || "",
     sharedFrom: f.SharedFrom || "",
-  } satisfies Annotation & { sessionUid: string | null; sharedFrom: string };
+  } satisfies Annotation & { recordingPath: string | null; sharedFrom: string };
 }
 
 function parseTags(value: unknown): string[] {

@@ -1,5 +1,6 @@
-// SessionDetailView.tsx — a session's page: the take's waveform and transport, its markers, and its
-// moments saved and detected. The playback is useSessionPlayback; each part is a component of its own.
+// SessionDetailView.tsx — a recording's page: the take's waveform and transport, its markers, and its
+// moments saved and detected. A session's, or any capture's, which has no markers and no resume.
+// The playback is useSessionPlayback; each part is a component of its own.
 
 import { useCallback, useState } from "react";
 import { BackButton } from "../components/BackButton";
@@ -27,8 +28,12 @@ interface Props {
   seekTo?: number;
   audioSrc: string;
   validating: string | null;
+  /** What the page is titled; a session's date when absent. */
+  title?: string;
+  /** Where Back leads, as its label says; the sessions when absent. */
+  backTo?: string;
   onBack: () => void;
-  onResume: () => void;
+  onResume?: () => void;
   onThresholdChange: (t: number) => void;
   onMinSilenceChange: (ms: number) => void;
   onAddAnnotation: (ann: {
@@ -48,7 +53,7 @@ interface Props {
   ) => Promise<void>;
   onDeleteAnnotation: (annId: string) => Promise<void>;
   onValidate: (annId: string) => Promise<void>;
-  onAddMarker: (atSec: number) => Promise<void>;
+  onAddMarker?: (atSec: number) => Promise<void>;
   onUpdateMarker: (markerId: string, comment: string) => Promise<void>;
   onDeleteMarker: (markerId: string) => Promise<void>;
   momentClipUrl: (annId: string) => string;
@@ -64,6 +69,8 @@ export function SessionDetailView({
   seekTo,
   audioSrc,
   validating,
+  title,
+  backTo,
   onBack,
   onResume,
   onThresholdChange,
@@ -126,8 +133,8 @@ export function SessionDetailView({
   return (
     <div>
       <div className="detail-head">
-        <BackButton to={m["nav.recordings"]()} onClick={onBack} />
-        <h2>{sessionTitle(session.createdAt)}</h2>
+        <BackButton to={backTo ?? m["nav.recordings"]()} onClick={onBack} />
+        <h2>{title ?? sessionTitle(session.createdAt)}</h2>
       </div>
 
       {!session.hasRecording ? (

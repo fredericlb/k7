@@ -96,7 +96,7 @@ beforeAll(async () => {
     {
       id: "m-shared",
       OwnerId: "me",
-      SessionUid: "s1",
+      RecordingPath: "recordings/2026-10-01/22-00-00.webm",
       StartSec: 10,
       EndSec: 15,
       Text: "chorus",
@@ -106,7 +106,8 @@ beforeAll(async () => {
     {
       id: "m-local",
       OwnerId: "me",
-      SessionUid: "s1",
+      RecordingPath: "recordings/2026-10-01/22-00-00.webm",
+      RecordedAt: "2026-10-01T20:00:00.000Z",
       StartSec: 20,
       EndSec: 30,
       Text: "bridge",
@@ -116,7 +117,12 @@ beforeAll(async () => {
     },
   ]);
   await db.addRecords("Sessions", [
-    { Uid: "s1", OwnerId: "me", CreatedAt: "2026-10-01T20:00:00.000Z" },
+    {
+      Uid: "s1",
+      OwnerId: "me",
+      CreatedAt: "2026-10-01T20:00:00.000Z",
+      RecordingPath: "recordings/2026-10-01/22-00-00.webm",
+    },
   ]);
 });
 
@@ -156,8 +162,9 @@ describe("the server's door for shared moments", () => {
     );
     expect(rec.fields).toMatchObject({
       OwnerId: "p1",
-      SessionUid: "",
-      SessionCreatedAt: MOMENT.sessionCreatedAt,
+      // A machine older than `recordedAt` sends the session's date, which dates the moment all the same.
+      RecordingPath: "",
+      RecordedAt: MOMENT.sessionCreatedAt,
       Validated: true,
       Tags: "soft",
     });
@@ -244,7 +251,7 @@ describe("sharing from this machine", () => {
     expect(p.shared).toEqual(["m-shared"]);
   });
 
-  it("sends the moment, its clip and its session's date, never the session", async () => {
+  it("sends the moment, its clip and its recording's date, never the recording", async () => {
     const r = await fetch(`${local}/share/m-local/share`, { method: "POST" });
     expect(r.status).toBe(200);
     expect(received).toMatchObject({
@@ -254,9 +261,10 @@ describe("sharing from this machine", () => {
         startSec: 20,
         text: "bridge",
         tags: ["loud", "fast"],
+        recordedAt: "2026-10-01T20:00:00.000Z",
         sessionCreatedAt: "2026-10-01T20:00:00.000Z",
       },
     });
-    expect(received?.moment).not.toHaveProperty("sessionUid");
+    expect(received?.moment).not.toHaveProperty("recordingPath");
   });
 });
