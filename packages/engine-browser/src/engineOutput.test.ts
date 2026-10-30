@@ -2,7 +2,12 @@
 // broadcast, and only that one: the client learns the flag from `whoami`, and the page subscribes
 // when it is raised and lets go when it is lowered or the page leaves.
 
-import { describe, expect, it } from "vitest";
+import {
+  encodeStreamFrame,
+  STREAM_CODEC_PCM_F32,
+  STREAM_VERSION,
+} from "@studio/engine-protocol/stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineClient } from "./engine";
 import { engineOutput, playEngineOutput } from "./engineOutput";
 
@@ -58,6 +63,54 @@ describe("playing an engine's output here", () => {
     expect(asked).toEqual([true, false]);
     stop();
     expect(asked).toEqual([true, false]);
+  });
+});
+
+describe("a page that cannot play the stream", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("closes the context it built, tries the format once, and says so once", async () => {
+    let built = 0;
+    let closed = 0;
+    // No `audioWorklet`, as on a plain-http LAN page: building the sink throws.
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        sampleRate = 48000;
+        constructor() {
+          built++;
+        }
+        close() {
+          closed++;
+          return Promise.resolve();
+        }
+      },
+    );
+    const { c, feed } = client();
+    const told: unknown[] = [];
+    const out = engineOutput(c, false, (e) => told.push(e));
+    feed({ type: "whoami", id: "e1", boot: "1", audioToBrowser: true });
+    const frame = encodeStreamFrame({
+      version: STREAM_VERSION,
+      channels: 2,
+      sampleRate: 48000,
+      frames: 480,
+      seq: 0,
+      codec: STREAM_CODEC_PCM_F32,
+      captureMs: 0,
+      samples: new Float32Array(960),
+    });
+    const cbs = (c as unknown as { streamCbs: Set<(f: ArrayBuffer) => void> })
+      .streamCbs;
+    for (let i = 0; i < 5; i++) {
+      for (const cb of cbs) cb(frame.slice(0));
+      await Promise.resolve();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(built).toBe(1);
+    expect(closed).toBe(1);
+    expect(told).toHaveLength(1);
+    out.stop();
   });
 });
 

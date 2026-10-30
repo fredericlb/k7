@@ -8,6 +8,9 @@ import type { EngineClient } from "./engine.ts";
 import { StreamPlayer } from "./streamPlayer.ts";
 import { createWorkletSink } from "./streamSink.ts";
 
+const formatKey = (sampleRate: number, channels: number): string =>
+  `${sampleRate}/${channels}`;
+
 /** What a page needs of the client: the flag, the frames, the subscription. */
 type OutputClient = Pick<
   EngineClient,
@@ -23,10 +26,14 @@ export function playEngineOutput(client: OutputClient): () => void {
 export function engineOutput(
   client: OutputClient,
   here = false,
+  /** Told once per stream format this page cannot play — no AudioWorklet on a plain-http page, a channel count it refuses. */
+  onFail?: (e: unknown) => void,
 ): { setHere: (on: boolean) => void; stop: () => void } {
   let ctx: AudioContext | null = null;
   let player: StreamPlayer | null = null;
   let building = false;
+  // The format that failed to build, latched: ~100 frames a second would each build another context otherwise.
+  let failed: string | null = null;
   let on = false;
   let unheard = false;
   let wanted = here;
@@ -48,8 +55,9 @@ export function engineOutput(
 
   const build = async (sampleRate: number, channels: number) => {
     building = true;
+    let c: AudioContext | null = null;
     try {
-      const c = new AudioContext({ sampleRate, latencyHint: "interactive" });
+      c = new AudioContext({ sampleRate, latencyHint: "interactive" });
       // Capped: playback over a relay gathers every stall as latency it never gives back (docs/streaming.md).
       const sink = await createWorkletSink(c, {
         channels,
@@ -65,7 +73,11 @@ export function engineOutput(
       player = new StreamPlayer(sink);
       resume();
     } catch (e) {
+      // A context left open is an audio thread for nothing: closed here, and the format not tried again.
+      c?.close().catch(() => {});
+      failed = formatKey(sampleRate, channels);
       console.warn("engine output: cannot play here", e);
+      onFail?.(e);
     } finally {
       building = false;
     }
@@ -82,7 +94,9 @@ export function engineOutput(
     }
     if (building) return;
     const frame = decodeStreamFrame(data);
-    if (frame) void build(frame.sampleRate, frame.channels);
+    if (!frame || failed === formatKey(frame.sampleRate, frame.channels))
+      return;
+    void build(frame.sampleRate, frame.channels);
   });
 
   // One decision for both reasons to listen here: the broadcast is subscribed once, and let go once.
@@ -90,6 +104,8 @@ export function engineOutput(
     const next = unheard || wanted;
     if (next === on) return;
     on = next;
+    // Listening again is asking again: the failure is forgotten with the subscription.
+    failed = null;
     client.broadcast(on);
     if (!on) teardown();
   };
