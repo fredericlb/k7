@@ -41,6 +41,14 @@ BuildScope::BuildScope(const std::string& session, bool fresh) : previous_(g_bui
 
 BuildScope::~BuildScope() { g_building = previous_; }
 
+WarningOrigin warningOrigin() { return WarningOrigin{g_session, g_building}; }
+
+WarningOriginScope::WarningOriginScope(const WarningOrigin& origin) : session_(origin.session), previous_(g_building) {
+    g_building = origin.building;
+}
+
+WarningOriginScope::~WarningOriginScope() { g_building = previous_; }
+
 std::vector<Warning> standingWarnings(const std::string& session) {
     std::lock_guard<std::mutex> lk(g_standingMx);
     const auto it = g_standing.find(session);
