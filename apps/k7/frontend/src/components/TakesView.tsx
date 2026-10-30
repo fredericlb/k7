@@ -309,135 +309,144 @@ export function TakesView({
           ))}
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
-        {ev.rows.map((r, i) => {
-          const heard = heardOf.get(r.ref) ?? [];
-          const label = r.own
-            ? m["takes.eventRow"]()
-            : m["takes.takeRow"]({ n: i + 1 });
-          return (
-            <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
-              <div className="flex w-24 shrink-0 items-center gap-1 px-1 text-xs">
-                <span
-                  className={
-                    heard.length ? "text-foreground" : "text-muted-foreground"
-                  }
-                >
-                  {label}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="ml-auto h-6 w-6 p-0"
-                  onClick={() => pick(r.ref, { from: r.start, to: rowEnd(r) })}
-                  title={sel ? m["takes.useOverSpan"]() : m["takes.useWhole"]()}
-                  aria-label={m["takes.use"]({ label })}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-                {!r.own && (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="relative flex flex-1 flex-col gap-px">
+          {ev.rows.map((r, i) => {
+            const heard = heardOf.get(r.ref) ?? [];
+            const label = r.own
+              ? m["takes.eventRow"]()
+              : m["takes.takeRow"]({ n: i + 1 });
+            return (
+              <div key={r.ref} className="flex min-h-10 flex-1 basis-0">
+                <div className="flex w-24 shrink-0 items-center gap-1 px-1 text-xs">
+                  <span
+                    className={
+                      heard.length ? "text-foreground" : "text-muted-foreground"
+                    }
+                  >
+                    {label}
+                  </span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0"
-                    onClick={() => {
-                      // Gone from the view at once, with every span it played — the writer's own rule.
-                      setLocal((l) => ({
-                        ...l,
-                        rows: ev.rows.filter((x) => x.ref !== r.ref),
-                        comp: ev.comp.filter((x) => x.take !== r.ref),
-                      }));
-                      void command(
-                        `event take remove ${ev.track} ${ev.at} ${r.ref}`,
-                      );
-                    }}
-                    title={m["takes.removeHint"]()}
-                    aria-label={m["takes.remove"]({ label })}
+                    className="ml-auto h-6 w-6 p-0"
+                    onClick={() =>
+                      pick(r.ref, { from: r.start, to: rowEnd(r) })
+                    }
+                    title={
+                      sel ? m["takes.useOverSpan"]() : m["takes.useWhole"]()
+                    }
+                    aria-label={m["takes.use"]({ label })}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Check className="h-3.5 w-3.5" />
                   </Button>
-                )}
-              </div>
-              <div
-                ref={i === 0 ? area : undefined}
-                className={`relative min-w-0 flex-1 rounded-sm bg-muted/30 ${wholeOnly ? "cursor-pointer" : "cursor-crosshair"}`}
-                onPointerDown={(e) => onDown(e, r)}
-                role="presentation"
-              >
-                <TakeRow
-                  row={r}
-                  kind={ev.kind}
-                  label={label}
-                  view={view}
-                  heard={heard}
-                  tempo={tempo}
-                  num={num}
-                  den={den}
-                  prefix={
-                    host.projectPath === "." ? "" : `${host.projectPath}/`
-                  }
-                  reloadKey={reloadKey}
-                  color={takeColor(ev, r.ref)}
-                  onLength={onLength}
-                />
-                {shown && (
-                  <div
-                    className="pointer-events-none absolute inset-y-0 bg-amber-400/20 ring-1 ring-amber-400/60"
-                    style={{
-                      left: pct(shown.from),
-                      width: `calc(${pct(shown.to)} - ${pct(shown.from)})`,
-                    }}
+                  {!r.own && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        // Gone from the view at once, with every span it played — the writer's own rule.
+                        setLocal((l) => ({
+                          ...l,
+                          rows: ev.rows.filter((x) => x.ref !== r.ref),
+                          comp: ev.comp.filter((x) => x.take !== r.ref),
+                        }));
+                        void command(
+                          `event take remove ${ev.track} ${ev.at} ${r.ref}`,
+                        );
+                      }}
+                      title={m["takes.removeHint"]()}
+                      aria-label={m["takes.remove"]({ label })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <div
+                  ref={i === 0 ? area : undefined}
+                  className={`relative min-w-0 flex-1 rounded-sm bg-muted/30 ${wholeOnly ? "cursor-pointer" : "cursor-crosshair"}`}
+                  onPointerDown={(e) => onDown(e, r)}
+                  role="presentation"
+                >
+                  <TakeRow
+                    row={r}
+                    kind={ev.kind}
+                    label={label}
+                    view={view}
+                    heard={heard}
+                    tempo={tempo}
+                    num={num}
+                    den={den}
+                    prefix={
+                      host.projectPath === "." ? "" : `${host.projectPath}/`
+                    }
+                    reloadKey={reloadKey}
+                    color={takeColor(ev, r.ref)}
+                    onLength={onLength}
                   />
-                )}
-                {/* The crossfades at the seams, across every row: the span where one take hands over to the next. */}
-                {[
-                  ...ev.crossfades.filter(
-                    (x) => !xfDrag || Math.abs(x.at - xfDrag.seam) > 1e-6,
-                  ),
-                  ...(xfDrag
-                    ? [{ at: xfDrag.seam, length: xfDrag.length }]
-                    : []),
-                ].map((x) => (
-                  <svg
-                    key={`xf${x.at}`}
-                    className="pointer-events-none absolute inset-y-0 h-full text-amber-300"
-                    style={{
-                      left: pct(x.at - x.length / 2),
-                      width: `calc(${pct(x.at + x.length / 2)} - ${pct(x.at - x.length / 2)})`,
-                    }}
-                    viewBox="0 0 1 1"
-                    preserveAspectRatio="none"
-                    role="img"
-                    aria-label={m["takes.crossfade"]()}
-                  >
-                    <path
-                      d="M0 1 L1 0 M0 0 L1 1"
-                      stroke="currentColor"
-                      strokeWidth={0.04}
-                      vectorEffect="non-scaling-stroke"
-                      fill="none"
-                    />
-                  </svg>
-                ))}
-                {xfTool &&
-                  seams.map((sm) => (
+                  {shown && (
                     <div
-                      key={`seam${sm}`}
-                      className="pointer-events-none absolute inset-y-0 w-px border-l border-dashed border-amber-400/70"
-                      style={{ left: pct(sm) }}
+                      className="pointer-events-none absolute inset-y-0 bg-amber-400/20 ring-1 ring-amber-400/60"
+                      style={{
+                        left: pct(shown.from),
+                        width: `calc(${pct(shown.to)} - ${pct(shown.from)})`,
+                      }}
                     />
+                  )}
+                  {/* The crossfades at the seams, across every row: the span where one take hands over to the next. */}
+                  {[
+                    ...ev.crossfades.filter(
+                      (x) => !xfDrag || Math.abs(x.at - xfDrag.seam) > 1e-6,
+                    ),
+                    ...(xfDrag
+                      ? [{ at: xfDrag.seam, length: xfDrag.length }]
+                      : []),
+                  ].map((x) => (
+                    <svg
+                      key={`xf${x.at}`}
+                      className="pointer-events-none absolute inset-y-0 h-full text-amber-300"
+                      style={{
+                        left: pct(x.at - x.length / 2),
+                        width: `calc(${pct(x.at + x.length / 2)} - ${pct(x.at - x.length / 2)})`,
+                      }}
+                      viewBox="0 0 1 1"
+                      preserveAspectRatio="none"
+                      role="img"
+                      aria-label={m["takes.crossfade"]()}
+                    >
+                      <path
+                        d="M0 1 L1 0 M0 0 L1 1"
+                        stroke="currentColor"
+                        strokeWidth={0.04}
+                        vectorEffect="non-scaling-stroke"
+                        fill="none"
+                      />
+                    </svg>
                   ))}
-                <TakesPlayhead view={view} tempo={tempo} />
+                  {xfTool &&
+                    seams.map((sm) => (
+                      <div
+                        key={`seam${sm}`}
+                        className="pointer-events-none absolute inset-y-0 w-px border-l border-dashed border-amber-400/70"
+                        style={{ left: pct(sm) }}
+                      />
+                    ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+          {/* One line across every row's track area, beside the 6rem label column. */}
+          <div className="pointer-events-none absolute inset-y-0 left-24 right-0 overflow-hidden">
+            <TakesPlayhead view={view} tempo={tempo} />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/** The transport line over one row, written per animation frame onto its node, so the view never renders at the engine's rate (docs/playhead.md). */
+/** The transport line over the rows, a transform written per animation frame onto its node, so the view never renders at the engine's rate (docs/playhead.md). */
 function TakesPlayhead({
   view,
   tempo,
@@ -452,15 +461,15 @@ function TakesPlayhead({
         const el = ref.current;
         if (!el) return;
         const beat = (seconds * tempo) / 60;
-        el.style.left = `${((beat - view.from) / (view.to - view.from)) * 100}%`;
+        // A percentage of this full-width layer is a percentage of the track area, and a transform is no layout.
+        el.style.transform = `translateX(${((beat - view.from) / (view.to - view.from)) * 100}%)`;
       },
       [tempo, view],
     ),
   );
   return (
-    <div
-      ref={ref}
-      className="pointer-events-none absolute inset-y-0 w-px bg-playhead"
-    />
+    <div ref={ref} className="absolute inset-0">
+      <div className="h-full w-px bg-playhead" />
+    </div>
   );
 }
