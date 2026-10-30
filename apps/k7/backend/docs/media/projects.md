@@ -22,3 +22,19 @@ has one. `apps/k7/frontend/docs/projects.md` is the page for the screen that lis
 The médiathèque, the shares ([shares.md](shares.md)), and the `email → subject` directory the
 shares need (`apps/k7/backend/src/media/projects/identities.ts` — identity, not git;
 [sshKeyForService.md](sshKeyForService.md) says why it exists).
+
+## The account's service starts before its first list
+
+A file service is a node process per account, and its cold start — parsing the bundle, then
+readying its workspaces — is what the first list of projects would otherwise wait for. So it is
+started EARLIER, at a moment that already says a list is coming:
+
+- **On a server, `/auth/me`.** Every page asks who is signed in before it asks for anything else,
+  and an answer naming a user starts that account's service (`FileHub.warm`, from `src/server.ts`).
+  The hook only reads the answer, after it went out, so it costs `/auth/me` nothing. A service
+  already running is merely counted as used.
+- **On a phone or the tray, the boot.** The machine has one person, the local user, whose service
+  starts once the backend listens — and is never stopped for being idle (`idleMs` infinite in
+  `src/media/fileHub.ts`): reaping only frees memory for another account, and there is none, while
+  a screen left off for ten minutes would otherwise pay a cold start on the next open.
+

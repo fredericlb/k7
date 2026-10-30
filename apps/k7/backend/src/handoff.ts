@@ -29,7 +29,7 @@ import { isLoopbackRequest } from "./loopback.ts";
 const CODE_TTL_MS = 120_000;
 
 /** The desktop's signed-out user: the dev stub's identity, so its workspaces stay where they were. */
-const LOCAL_USER: SessionUser = {
+export const LOCAL_USER: SessionUser = {
   sub: "dev-user",
   name: "Local user",
   email: "dev@example.com",

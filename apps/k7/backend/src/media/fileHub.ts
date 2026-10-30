@@ -61,6 +61,11 @@ export function mountFileHub(
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
     // The tray and the phones follow a main server; a server stays its accounts' main one, others beside it (docs/fileHub.md).
     remotePairing: process.env.STUDIO_LOCAL_USER === "1",
+    // One person and no account competing for memory: their service is never stopped for being idle (../../docs/media/projects.md).
+    idleMs:
+      process.env.STUDIO_LOCAL_USER === "1"
+        ? Number.POSITIVE_INFINITY
+        : undefined,
     isLocal: (req) => (req.user as SessionUser | undefined)?.local === true,
     // Under the tray, the machine's engine follows each pairing (../localEngine/followPairings.ts).
     onRemote,

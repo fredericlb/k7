@@ -89,7 +89,16 @@ block. The deadline is generous on purpose — a two-hour file decodes in a frac
 one it catches is a file the decoder hangs on, which k7's backend then marks failed on the volume.
 The other jobs that worker held start again on a fresh one.
 
-A runtime where a worker will not start analyses inline, with no deadline, and says so once.
+A worker that **dies** — a crash, its heap exhausted on a pathological file — is dropped and the
+next job spawns its replacement. The job it held alone fails with a `WorkerDiedError`, since that job
+is what killed it; where it held several, each starts once more on a fresh worker, and a job whose
+second worker dies too fails. Running a killer inline instead would carry the same file onto the
+thread every other request of the process waits behind, with no deadline to stop it. A caller marks
+the file failed (k7's backend does, on the volume), so it is not decoded a third time.
+
+A runtime where a worker will not LOAD analyses inline, with no deadline, and says so once. The
+worker posts a message once its module has loaded, and that is what tells the two apart: a worker
+that ends before it never ran a job, and its replacement would not load either.
 
 ## The mono sum is the first two channels averaged
 
@@ -103,6 +112,14 @@ A bucket boundary is arithmetic on the total frame count, and ffprobe reports a 
 containers round. The mono signal is therefore accumulated in chunks and measured after, which
 costs one float per frame — about 57 MB for five minutes — and is what keeps the geometry exact.
 It is also why the file service decodes only a few files at once.
+
+The reduction cannot be done chunk by chunk without changing every sidecar: a bucket's width is
+`frames / MAX_BUCKETS` past the short files, so a bucket boundary is unknown until the last frame
+arrived, and summaries of fixed blocks merged afterwards would cut the buckets elsewhere — a new
+`CACHE_VERSION`, and the WebAssembly module and the iOS addon rebuilt to match, since the Rust
+measure holds the same mono signal. The memory is bounded by the callers instead: each one gates
+its decodes (k7's backend runs one at a time on a standalone host,
+`apps/k7/backend/docs/media/analysis.md`).
 
 And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours at 48 kHz, about
 1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked

@@ -137,6 +137,12 @@ The timer is re-armed only once a walk has FINISHED: on a slow volume a walk can
 interval, and walks started on a clock would then pile up behind each other, each holding its own
 share of the thread pool.
 
+**An idle limit** (`startRevisionRefresh(everyMs, idleMs)`) stops the walking once no token was
+read for that long, and the next read starts it again. That read is answered from the last walk,
+so it can be late by however long nobody looked; the poll after it is not. k7's backend sets it on
+a phone or the tray, where the walk shares the device with the engine and a page polls only
+while it is visible; a server, read by many people, keeps walking.
+
 A reader that never starts the refresher — every test in this package, and any consumer that
 wants the exact answer — walks per call exactly as before. The refresher is opt-in, and being
 opt-in is what keeps the tests honest about what a walk sees.

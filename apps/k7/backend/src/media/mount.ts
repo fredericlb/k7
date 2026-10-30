@@ -19,7 +19,7 @@ import { startRevisionRefresh } from "@studio/mediatek/revision";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
 import { isAdminRequest } from "./admin.ts";
-import { startAnalysisSweep } from "./analysisSweep.ts";
+import { nudgeAnalysisSweep, startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { engineLocalRouter } from "./routes/engineLocal.ts";
 import {
@@ -62,11 +62,18 @@ export interface MediaMount {
   pairedServer(req: Request): { base: string; token: string } | null;
   /** Who a device token signs in as through the device door (../remote/door.ts), or null. */
   deviceUser(token: string): { email: string; person: string } | null;
+  /** Start the account's file service ahead of its first request: a signed-in page, or a standalone's boot. */
+  warmFiles(user: string): void;
   /** How full the accounts' file hub is, for the readiness probe (../readiness.ts). */
   fileStatus(): ReturnType<FileHub["status"]>;
   /** The hub's first library ensure, started on the first call: what a standalone waits for before it listens (../listenGate.ts). */
   librariesSettled(): ReturnType<FileHub["libraries"]["firstEnsure"]>;
 }
+
+/** A phone or the tray: one person, and an engine sharing the device, so the library's background work waits to be wanted. */
+const STANDALONE = process.env.STUDIO_LOCAL_USER === "1";
+/** On a standalone host, the change tokens stop being walked once nobody read one for this long. */
+const REVISION_IDLE_MS = 60_000;
 
 /** Mount every media route on `app`; call it after setupAuth and before the SPA fallback. */
 export function mountMedia(
@@ -102,6 +109,10 @@ export function mountMedia(
     "/api/mediatek",
     bearerOrSession(requireAuth),
     refuseTooNew,
+    (_req, _res, next) => {
+      nudgeAnalysisSweep();
+      next();
+    },
     libraryRouter,
   );
 
@@ -211,6 +222,7 @@ export function mountMedia(
     issueApiToken,
     pairedServer: (req) => serverOf(fileHub, req),
     deviceUser: (token) => fileHub.deviceUser(token),
+    warmFiles: (user) => fileHub.warm(user),
     fileStatus: () => fileHub.status(),
     librariesSettled: () => fileHub.libraries.firstEnsure(),
     serve(server, url) {
@@ -223,10 +235,13 @@ export function mountMedia(
         const dropped = dropLegacyShares();
         if (dropped)
           console.log(`   shares: dropped ${dropped} frozen share(s)`);
-        // A poll costs a map lookup from here on, and the walk that fills it runs off the loop.
-        startRevisionRefresh();
-        // …and the waveforms nobody has asked for yet, one at a time — ../../docs/media/analysis.md.
-        startAnalysisSweep();
+        // A poll costs a map lookup from here on, and the walk that fills it runs off the loop; a standalone pauses it unread.
+        startRevisionRefresh(
+          undefined,
+          STANDALONE ? REVISION_IDLE_MS : undefined,
+        );
+        // …and the waveforms nobody has asked for yet, one at a time; a standalone waits for the library to be opened — ../../docs/media/analysis.md.
+        startAnalysisSweep(STANDALONE);
         // …and every FLAC's Opus copy beside it, for a browser to stream — ../../docs/media/derivedStream.md.
         startStreamSweep();
       } catch (e) {

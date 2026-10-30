@@ -52,6 +52,13 @@ account: that cost was paid per account, at every first request and every deploy
 with which the file service transpiles and jails a user's TypeScript DSP (`packages/song/docs/jsdspJail.md`). Its target is node 24, like the desktop and phone
 bundles.
 
+`NODE_COMPILE_CACHE` points node's compile cache at `/home/node/.cache`, as the tray and the phone
+do (`apps/k7-tray/docs/tray.md`): the hub hands it on to every file service (`packages/file-hub/serviceEnv.ts`),
+so the bytecode of the bundle is compiled by the first account's start and read by every later one.
+The folder is in the container's own layer, not on a volume: the cache is keyed by each file's
+contents and node's version, so a new image could not use the old one's, and a volume would only
+pile them up. A `dsp` child starts with an empty environment and so without it.
+
 ## tini is PID 1, in the image
 
 The backend starts a file service per account, and each of those starts ffmpeg for a video or an

@@ -37,10 +37,18 @@ Passes repeat every five minutes, which is only for **files that arrive without 
 this backend** — dropped on the volume by hand, or restored from a backup. An upload is already
 analysed by the surface that made it.
 
+A phone or the tray (`STUDIO_LOCAL_USER=1`) starts no timer: a pass runs when the library is asked
+for and the last one is more than five minutes old. The device also runs the engine, a decode there
+competes with playback for its CPU, and its one person is the only reader of the waveforms anyway.
+Nothing in this backend knows whether the engine is playing, so a pass is tied to the library
+being open rather than to the transport being still.
+
 ## One gate for every decode
 
 The sweep, `/analyse` and `/envelope` all decode through `../../src/media/analysisGate.ts`: one decode
-per file at a time, shared by whoever asks during it, and at most two at once. A decode holds the
+per file at a time, shared by whoever asks during it, and at most two at once — **one** on a
+phone or the tray (`STUDIO_LOCAL_USER=1`), whose memory is the engine's too, so a second long
+take never doubles the peak to 2.8 GB. A decode holds the
 file's whole mono signal — about 1.4 GB for two hours at 48 kHz — and a listener flipping through
 songs asks for one per song, so an ungated route is a memory ceiling the users set. The same
 holding is why one decode stops at two hours at 48 kHz (`MAX_DECODE_FRAMES`,
@@ -73,6 +81,8 @@ same song again gets a 304 decided on two `stat`s, before anything is read or co
   A mark is written as `running` BEFORE the decode starts, so a decode the process dies in — an
   out-of-memory kill leaves no chance to write anything after — is refused at the next boot rather
   than retried in a loop.
+  The marks are parsed once and held against the file's size and time: a pass asks about every
+  song, and a `stat` per song is what that costs, not a parse of the whole file.
 - **No library at all** — `exists()` is false and there is nothing to sweep.
 
 `GET /api/mediatek/analysis` reports the state: what it is on, how many are left, what failed, and

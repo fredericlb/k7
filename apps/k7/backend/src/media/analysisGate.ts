@@ -27,8 +27,12 @@ export class MarkedFailedError extends Error {
   }
 }
 
+/** Decodes in flight at once: two on a server, one on a phone or the tray, whose memory the engine shares (../../docs/media/analysis.md). */
+export const decodesFor = (env: NodeJS.ProcessEnv): number =>
+  env.STUDIO_LOCAL_USER === "1" ? 1 : 2;
+
 /** Decodes in flight at once, across the routes and the background sweep. */
-export const MAX_DECODES = 2;
+export const MAX_DECODES = decodesFor(process.env);
 
 /** Decodes waiting for a slot: past it a request is answered 503 rather than held open. */
 export const MAX_WAITING = 16;
