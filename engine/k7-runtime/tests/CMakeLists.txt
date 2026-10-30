@@ -54,6 +54,12 @@ add_executable(studio_supersede_tests Supersede_test.cpp)
 target_include_directories(studio_supersede_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../server)
 add_test(NAME studio_supersede_tests COMMAND studio_supersede_tests)
 
+# --- Held notes tests ---------------------------------------------------------
+# What a socket that drops mid-note leaves to release: HeldNotes.h is header-only and JUCE-free.
+add_executable(studio_heldnotes_tests HeldNotes_test.cpp)
+target_include_directories(studio_heldnotes_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../server)
+add_test(NAME studio_heldnotes_tests COMMAND studio_heldnotes_tests)
+
 # --- Session registry tests ---------------------------------------------------
 # A THIRD fast binary, kept apart only because each test file owns a main(). SessionRegistry.h is
 # header-only and JUCE-free, so this links nothing and shares the "builds in seconds" property.

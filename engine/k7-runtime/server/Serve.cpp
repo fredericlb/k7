@@ -242,6 +242,11 @@ int serve(int port) {
                     // And stop addressing state frames to it; the raw-pointer key costs at most one dropped frame if reused (docs/protocol.md).
                     subscribers.erase(&ws);
                 }
+                // A keyboard that dropped mid-note never sends its note-off: what it held is released for it.
+                for (auto& r : ctx.heldNotes.closed(&ws))
+                    host.post([&host, r = std::move(r)] {
+                        for (const auto& m : r.messages) host.liveMidi(r.session, r.track, m);
+                    });
                 // Its trust goes with it: a pointer reused by the next connection must earn its own.
                 forgetSocket(ctx, &ws);
                 bool announced;

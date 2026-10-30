@@ -24,6 +24,7 @@
 
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
 #include "../engine/ScanProgress.h"   // PluginScanStatus — JUCE-free
+#include "HeldNotes.h"
 #include "Pairing.h"
 #include "Supersede.h"
 
@@ -92,6 +93,9 @@ struct ServeContext {
 
     // Which queued project, tracks and parameter jobs a newer message made pointless (docs/supersede.md).
     SupersedeLedger supersede;
+
+    // The notes each socket's `midi-live` holds down, released when it closes (docs/protocol.md).
+    HeldNotes heldNotes;
 
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;
