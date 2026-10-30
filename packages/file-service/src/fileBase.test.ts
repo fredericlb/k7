@@ -15,15 +15,23 @@ import { Workspace } from "./workspace.ts";
 
 describe("assertBase", () => {
   it("lets through a write with no base, or onto a missing file", () => {
-    expect(() => assertBase(() => "x", "a", undefined)).not.toThrow();
-    expect(() => assertBase(() => null, "a", textHash("y"))).not.toThrow();
+    expect(() => assertBase(() => "x", "a", undefined, "m")).not.toThrow();
+    expect(() => assertBase(() => null, "a", textHash("y"), "m")).not.toThrow();
   });
 
   it("refuses a base the disk no longer holds", () => {
-    expect(() => assertBase(() => "new", "a", textHash("old"))).toThrow(
+    expect(() => assertBase(() => "new", "a", textHash("old"), "m")).toThrow(
       StaleBase,
     );
-    expect(() => assertBase(() => "old", "a", textHash("old"))).not.toThrow();
+    expect(() =>
+      assertBase(() => "old", "a", textHash("old"), "m"),
+    ).not.toThrow();
+  });
+
+  it("takes a retry whose first try already landed as no conflict", () => {
+    expect(() =>
+      assertBase(() => "mine", "a", textHash("old"), "mine"),
+    ).not.toThrow();
   });
 });
 

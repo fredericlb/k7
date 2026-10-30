@@ -78,9 +78,12 @@ stops noticing changes for the rest of the session. Nothing between the browser 
 service bounds it either — the images carry no nginx, and a half-open connection after a laptop
 sleeps can hang for minutes. So `fget` gives a read `READ_MS` (two minutes, past `/git/status`'s
 own 30 s fetch and a first waveform decode) and then drops it with a sentence, freeing the key for
-the next caller. `fsend` gets no budget: a write that timed out may still have landed, and a
-command may legitimately run long; saying "failed" about a write that happened is worse than
-waiting on it.
+the next caller. `fsend` gets no budget by default: a command may legitimately run long. The one
+exception is `PUT /file`, given `WRITE_MS` (60 s): an autosave waiting on a write that never
+answers holds every later edit in the tab only, for as long as TCP takes to give up. A write that
+timed out may still have landed, so "no answer" is not "failed": the autosave keeps the text and
+tries again, and the file service takes a retry that finds its own text already on disk as no
+conflict with its base (`packages/file-service/docs/fileRoutes.md`).
 
 ### A broken-off read is asked once more, and never comes from the browser's cache
 

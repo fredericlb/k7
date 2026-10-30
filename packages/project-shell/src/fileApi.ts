@@ -182,6 +182,9 @@ function route(path: string): string {
 /** What a read may take: past this it is dropped, and every caller waiting on it with it — docs/fileApi.md. */
 export const READ_MS = 120_000;
 
+/** What a file write may take: past this the autosave lets go, says so, and tries again — docs/fileApi.md. */
+export const WRITE_MS = 60_000;
+
 /** A read whose answer broke off, asked once more before anyone is told: the service was most likely restarting (docs/fileApi.md). */
 async function getOnce(
   path: string,
@@ -233,10 +236,11 @@ export async function fsend<T>(
   method: string,
   path: string,
   body: unknown,
-  /** `fence: false` for a POST that changes no project file (a waveform prewarm): reads around it stay shareable. */
-  options: { fence?: boolean } = {},
+  /** `fence: false` for a POST that changes no project file (a waveform prewarm): reads around it stay shareable; `timeoutMs` gives up on a call that never answers. */
+  options: { fence?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const fence = options.fence !== false;
+  const { timeoutMs } = options;
   // THE choke point: every write in every app that mounts this shell — see docs/fileApi.md.
   const frozen = cfg().frozen;
   if (frozen) throw new ReadOnlyDocument(frozen.why);
@@ -247,6 +251,12 @@ export async function fsend<T>(
       method,
       headers: fileHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+    }).catch((e: Error) => {
+      if (e.name !== "TimeoutError") throw e;
+      throw new Error(
+        `${method} ${path}: no answer after ${timeoutMs! / 1000} s`,
+      );
     });
   let res = await post().finally(() => {
     if (fence) epoch++;

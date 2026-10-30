@@ -6,6 +6,8 @@ import {
   dropBuffer,
   keepBuffer,
   recallBuffer,
+  retriable,
+  retryDelayMs,
 } from "./autosave";
 
 const at = (path: string, text: string) => validateFile(path, text);
@@ -108,5 +110,26 @@ describe("baselineMemo", () => {
     expect(baseline(judge, MODULE, "extends([\n")).toBe(false);
     baseline(judge, "modules/audio/amp/module.k7x", "extends([\n");
     expect(calls).toBe(3);
+  });
+});
+
+describe("a failed write", () => {
+  it("is tried again later each time, and never more than 30 s apart", () => {
+    expect([1, 2, 3, 4, 5, 9].map(retryDelayMs)).toEqual([
+      2000, 4000, 8000, 16000, 30000, 30000,
+    ]);
+  });
+
+  it("is retried after a blip or a server fault, not after a refusal", () => {
+    expect(retriable(new TypeError("Failed to fetch"))).toBe(true);
+    expect(retriable(Object.assign(new Error("x"), { status: 502 }))).toBe(
+      true,
+    );
+    expect(retriable(Object.assign(new Error("x"), { status: 409 }))).toBe(
+      false,
+    );
+    expect(retriable(Object.assign(new Error("x"), { status: 400 }))).toBe(
+      false,
+    );
   });
 });

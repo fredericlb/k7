@@ -139,6 +139,15 @@ and answers false when one could not be written: held, paused, or a `manual` dra
 saved on somebody else's behalf. The host refuses its operation on false rather than run it over
 text that is not on disk.
 
+## A failed write is tried again, further apart each time
+
+A write that fails keeps its text and shows `error`; the text is tried again on its own, 2 s
+later, then 4, 8, 16, capped at 30 s (`retryDelayMs`), and the count starts over once one lands.
+Not every second: a service that is down would be asked once a second by every open pane. Not
+after a refusal (a 4xx, `retriable`): the same text would be refused again, and a stale base
+(409) is a question for the person, asked by the pane's conflict banner. The next keystroke
+re-arms the ordinary timer either way.
+
 ## Ctrl+S still exists
 
 `Mod-s` and vim's `:w` mean **now** rather than **at all**. They flush the timer; they do not

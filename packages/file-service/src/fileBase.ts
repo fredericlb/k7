@@ -9,15 +9,17 @@ export class StaleBase extends Error {
   readonly stale = true;
 }
 
-/** Refuse a write whose base is not what `read` finds on disk; a missing file has nothing to overwrite. */
+/** Refuse a write whose base is not what `read` finds on disk; a missing file, or one already holding `content`, is no conflict. */
 export function assertBase(
   read: () => string | null,
   path: string,
   base: string | undefined,
+  content: string,
 ): void {
   if (base === undefined) return;
   const now = read();
-  if (now === null || textHash(now) === base) return;
+  // Already there: the retry of a write whose answer was lost (a timeout) is not a conflict with itself.
+  if (now === null || now === content || textHash(now) === base) return;
   throw new StaleBase(
     `${path} changed on disk since it was opened — not overwritten`,
   );

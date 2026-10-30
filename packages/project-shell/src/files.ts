@@ -11,7 +11,7 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { textHash } from "@studio/web-protocol/text-hash";
-import { fget, fsend } from "./fileApi.ts";
+import { fget, fsend, WRITE_MS } from "./fileApi.ts";
 
 /** A write refused because the file changed on disk since its base was read — the caller asks, rather than retrying. */
 export const isStaleWrite = (e: unknown): boolean =>
@@ -53,11 +53,16 @@ export const fileRoutes = {
   // Saving into the shared `_modules` library forks instead; `forked` says where — docs/fileApi.md.
   // `base` is the text the buffer was edited from: a disk that moved since answers 409 (isStaleWrite) rather than being overwritten.
   write: (path: string, content: string, base?: string) =>
-    fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
-      path,
-      content,
-      ...(base === undefined ? {} : { base: textHash(base) }),
-    }),
+    fsend<{ ok: true; forked?: ForkedModule }>(
+      "PUT",
+      "/file",
+      {
+        path,
+        content,
+        ...(base === undefined ? {} : { base: textHash(base) }),
+      },
+      { timeoutMs: WRITE_MS },
+    ),
   fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
   createFolder: (dir: string, name: string) =>
     fsend<{ path: string }>("POST", "/folder", { dir, name }),

@@ -43,7 +43,12 @@ fileRouter.put(
     try {
       // Checked INSIDE the journalled write, the same tick as it — see docs/fileRoutes.md.
       const r = await req.ws!.recordChange(`edit ${path}`, () => {
-        assertBase(() => diskText(() => req.ws!.read(path)), path, base);
+        assertBase(
+          () => diskText(() => req.ws!.read(path)),
+          path,
+          base,
+          content,
+        );
         // `forked` says the save landed on a project-local copy of a shared module — see docs/fileRoutes.md.
         return req.ws!.write(path, content);
       });
