@@ -616,6 +616,10 @@ hold that number and that rate down.
   split into more: a 17-lane song with 32 audio clips on screen reached 107 layers, and every
   frame of playback spent ~8 ms re-layering them. As software canvases the page holds 8. The
   canvas is drawn once per envelope, so drawing it on the CPU costs nothing that recurs.
+- **A MIDI clip's mini-roll is a software canvas too** (`ClipMiniRoll.tsx`), not a div per note: a
+  one-bar pattern looped over 64 bars is a thousand notes in one block. It is drawn at the box's
+  own pixel size, so its notes stay sharp at any zoom, and redrawn when its notes or its box
+  change, every mini-roll on the page sharing one `ResizeObserver`.
 - **The playhead moves without repainting** (`playhead.md`). A transform written per frame was,
   by itself, a full re-layerization per frame even with nothing else on screen moving.
 
