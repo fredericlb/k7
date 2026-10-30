@@ -69,10 +69,6 @@ export class ScorePlayer {
     this.seq.currentTime = seconds;
   }
 
-  get playing(): boolean {
-    return !this.seq.paused;
-  }
-
   /** Where playback is, in seconds, smoothed for a cursor. */
   get time(): number {
     return this.seq.currentHighResolutionTime;
