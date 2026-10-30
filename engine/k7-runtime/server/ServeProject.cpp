@@ -162,7 +162,7 @@ void addProjectHandlers(HandlerTable& t) {
                                  "tracks");
                 }
                 // No `busy` and no `applied`: this path is incremental by construction, and announcing six times a second would drown the changeset that matters.
-                host.apply(session, doc, "");
+                host.apply(session, std::move(doc), "");
             });
         });
     });

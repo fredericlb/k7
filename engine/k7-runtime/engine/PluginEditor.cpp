@@ -259,7 +259,12 @@ void PluginEditorController::setParam(const std::string& id, const std::string& 
         warn("'" + name + "' is held by the engine's own stage: turn its @mix, @input-volume or @output-volume instead", id);
         return;
     }
-    // pluginParams, not namedParams: a built-in registering nothing is addressed through its ValueTree properties.
+    // The automatable names first, which pluginParams lists first anyway; the whole table only for a ValueTree property or a hidden one.
+    for (const auto& [key, param] : namedParams(*it->second))
+        if (key.toStdString() == name) {
+            param->setParameter((float)value, juce::dontSendNotification);
+            return;
+        }
     for (const auto& p : pluginParams(*it->second))
         if (p.name.toStdString() == name) {
             p.set(value);

@@ -317,7 +317,7 @@ static void removeClipFor(te::AudioTrack& t, const ClipDoc& c) {
         }
 }
 
-ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& target, const std::string& baseDir) {
+ProjectDiff EngineHost::apply(const std::string& session, ProjectDoc target, const std::string& baseDir) {
     WarningScope ws{session};   // same reason as applyFull, for the incremental path
     BuildScope build{session, false};   // …adding to the standing warnings rather than replacing them
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
@@ -500,19 +500,28 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 wireSidechain(edit, *it->second, c.plugin->sidechainFrom, target);
                 break;
             }
-            case ChangeKind::PluginParamChanged:
-                // One per differing parameter, keyed by the display name applyPluginParams() and namedParams() share; an id absent from the edit failed to instantiate.
+            case ChangeKind::PluginParamChanged: {
+                // One plugin's RUN of changes goes in one call, at its first: the parameter table is built once, not once per knob.
+                const auto at = static_cast<size_t>(&c - d.data());
+                const auto sameRun = [&](size_t i) {
+                    return d[i].kind == ChangeKind::PluginParamChanged && d[i].pluginId == c.pluginId;
+                };
+                if (at > 0 && sameRun(at - 1)) break;
+                std::unordered_map<std::string, double> run;
+                for (size_t i = at; i < d.size() && sameRun(i); ++i) run[d[i].paramName] = d[i].paramValue;
+                // Keyed by the display name applyPluginParams() and namedParams() share; an id absent from the edit failed to instantiate.
                 if (auto it = impl_->session(session).pluginsById.find(c.pluginId);
                     it != impl_->session(session).pluginsById.end() && it->second != nullptr) {
-                    applyPluginParams(*it->second, {{c.paramName, c.paramValue}});
+                    applyPluginParams(*it->second, run);
                     // A bipolar curve rides around the knob and was baked around its OLD value, so it is baked again (docs/editBuilder.md).
                     for (const auto& t : target.tracks)
                         if (t.id == c.trackId)
                             for (const auto& lane : t.automation)
-                                if (lane.bipolar && lane.pluginId == c.pluginId && lane.param == c.paramName)
+                                if (lane.bipolar && lane.pluginId == c.pluginId && run.count(lane.param) != 0)
                                     applyAutomationLane(edit, *it->second, lane);
                 }
                 break;
+            }
             case ChangeKind::PluginEnabledChanged:
                 // Bypass on the LIVE plugin, which stays in the chain passing its input through; deliberately not a rebuild, which would restart every other plugin.
                 if (c.plugin)
@@ -545,8 +554,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
     // A recorder added in place needs its ring as much as a rebuilt one, and one removed mid-take has its take filed (docs/recorder.md).
     attachRecorderTaps(session);
 
-    // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline.
-    impl_->session(session).current = target;
+    // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline; nothing reads `target` past here.
+    impl_->session(session).current = std::move(target);
     impl_->session(session).baseDir = baseDir;
 
     // Re-assert the click: the metronome flag is not a tracked ChangeKind, so a toggle arrives as an otherwise-empty diff, applied here like solo and mute above.

@@ -65,6 +65,8 @@ SfzPlugin::SfzPlugin(tracktion::engine::PluginCreationInfo info)
 
 SfzPlugin::~SfzPlugin()
 {
+    // A load in flight writes into this plugin, so it is waited for; one not started is dropped.
+    loader_.removeAllJobs(true, -1);
     stopTimer();
     notifyListenersOfDeletion();
     volumeDb->detachFromCurrentValue();
@@ -96,9 +98,9 @@ void SfzPlugin::prepare(sfz::Sfizz& synth) const
 
 void SfzPlugin::initialise(const tracktion::engine::PluginInitialisationInfo& info)
 {
-    sampleRate_ = info.sampleRate;
     out_.setSize(2 * pairs_, MAX_BLOCK, false, true, false);
     const juce::SpinLock::ScopedLockType sl(lock_);
+    sampleRate_ = info.sampleRate;
     if (synth_ != nullptr) prepare(*synth_);
 }
 
@@ -133,9 +135,11 @@ bool SfzPlugin::installed(const juce::String& path)
 
 bool instrumentInstalled(const std::string& ref) { return SfzPlugin::installed(juce::String::fromUTF8(ref.c_str())); }
 
-bool SfzPlugin::loadInstrument(const juce::String& path, juce::String& error)
+bool SfzPlugin::loadInstrument(const juce::String& path, juce::String& error, const std::string& subject)
 {
     const auto file = resolve(path);
+    subject_ = subject;
+    origin_ = warningOrigin();
     stopTimer();
     waitingFor_ = {};
     // Not here: downloaded by the supervisor, and loaded the moment it lands (k7-supervisor docs/instruments.md).
@@ -155,7 +159,9 @@ void SfzPlugin::timerCallback()
     juce::String error;
     const auto file = resolve(waitingFor_);
     waitingFor_ = {};
-    if (!loadNow(file, error)) std::cerr << "[sfz] " << error << "\n";
+    // Said for the project that asked for it, as if the build that named it were still running.
+    const WarningOriginScope scope{origin_};
+    if (!loadNow(file, error)) warn(error.toStdString(), subject_);
 }
 
 bool SfzPlugin::loadNow(const juce::File& file, juce::String& error)
@@ -164,34 +170,61 @@ bool SfzPlugin::loadNow(const juce::File& file, juce::String& error)
         error = "sfz instrument not found: " + file.getFullPathName();
         return false;
     }
-    const auto path = file.getFullPathName().toStdString();
-    if (std::string why; loadQuarantined(path, why)) {
+    if (std::string why; loadQuarantined(file.getFullPathName().toStdString(), why)) {
         error = juce::String(why);
         return false;
     }
-    // Built and loaded OFF the lock: preloading reads the head of every sample, which takes seconds.
+    double rate = 0.0;
+    {
+        const juce::SpinLock::ScopedLockType sl(lock_);
+        rate = sampleRate_;
+    }
+    // Queued, not run: preloading reads the head of every sample, seconds the message thread owes every session.
+    const int gen = ++loadGen_;
+    ++loadsPending_;
+    loader_.addJob([this, file, gen, rate, outs = keyOuts_, subject = subject_, origin = warningOrigin()]() mutable {
+        const WarningOriginScope scope{origin};
+        // Caught here, or a bad_alloc on a huge instrument skips the count an offline render waits on.
+        try {
+            if (gen == loadGen_.load()) loadOnWorker(file, gen, rate, std::move(outs), subject);
+        } catch (const std::exception& e) {
+            warn(std::string("could not load the sfz instrument: ") + e.what(), subject);
+        }
+        --loadsPending_;
+    });
+    return true;
+}
+
+void SfzPlugin::loadOnWorker(const juce::File& file, int gen, double rate, std::vector<std::pair<int, int>> keyOuts,
+                             const std::string& subject)
+{
+    const auto path = file.getFullPathName().toStdString();
     auto fresh = std::make_unique<sfz::Sfizz>();
-    prepare(*fresh);
+    fresh->setSampleRate((float)rate);
+    fresh->setSamplesPerBlock(MAX_BLOCK);
     bool loaded = false;
     {
         const LoadGuard guard{"instrument", path};
         loaded = fresh->loadSfzFile(path);
     }
     if (!loaded || fresh->getNumRegions() == 0) {
-        error = "sfz instrument has no playable region: " + file.getFullPathName();
-        return false;
+        warn("sfz instrument has no playable region: " + path, subject);
+        return;
     }
     std::cerr << "[sfz] " << file.getFileName() << ": " << fresh->getNumRegions() << " regions\n";
     // Each routed key's output, off the lock and before the synth goes live: setting one may add its buses.
-    for (const auto& [key, pair] : keyOuts_) fresh->setKeyOutput(key, pair);
+    for (const auto& [key, pair] : keyOuts) fresh->setKeyOutput(key, pair);
     {
         const juce::SpinLock::ScopedLockType sl(lock_);
+        // A later request superseded this one while it loaded: the newer synth is the one to keep.
+        if (gen != loadGen_.load()) return;
+        // The graph was prepared at another rate while this one loaded.
+        if (sampleRate_ != rate) prepare(*fresh);
         std::swap(synth_, fresh);
         path_ = file.getFullPathName();
         freeWheeling_ = false;
     }
-    // The previous synth dies here, on the message thread, never on the audio one.
-    return true;
+    // The previous synth dies here, on the loader thread, never on the audio one.
 }
 
 void SfzPlugin::getChannelNames(juce::StringArray* ins, juce::StringArray* outs)
@@ -218,6 +251,9 @@ void SfzPlugin::setKeyOutputs(const std::vector<std::pair<int, int>>& noteToPair
 
 void SfzPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
 {
+    // An offline render has no one to hear a late instrument: it waits for the load, which runs on its own thread.
+    if (ctx.isRendering)
+        while (loadsPending_.load() > 0) juce::Thread::sleep(5);
     if (ctx.destBuffer == nullptr) return;
     const int n = ctx.bufferNumSamples;
     const int start = ctx.bufferStartSample;

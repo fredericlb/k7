@@ -44,6 +44,26 @@ private:
     bool previous_;
 };
 
+// What THIS thread's warnings belong to, taken where a job is queued so the thread that runs it warns for the same project.
+struct WarningOrigin {
+    std::string session;
+    bool building = false;
+};
+WarningOrigin warningOrigin();
+
+// Warnings raised on THIS thread are attributed as they would have been where `origin` was taken.
+class WarningOriginScope {
+public:
+    explicit WarningOriginScope(const WarningOrigin& origin);
+    ~WarningOriginScope();
+    WarningOriginScope(const WarningOriginScope&) = delete;
+    WarningOriginScope& operator=(const WarningOriginScope&) = delete;
+
+private:
+    WarningScope session_;
+    bool previous_;
+};
+
 // What the project `session` holds was built with, one per subject (or per message when it has none), oldest first.
 std::vector<Warning> standingWarnings(const std::string& session);
 

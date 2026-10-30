@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <iostream>
@@ -58,6 +59,11 @@ json audioDevicesMsg(EngineHost& host) {
     return json{{"type", "audio-devices"}, {"devices", arr}};
 }
 
+// The list as last sent to every client, message thread only: a poll that finds it unchanged answers its asker alone.
+std::string g_devicesSent;
+// Set by an asker that joined a waiting list-audio-devices job; read by that job on the message thread.
+std::atomic<bool> g_devicesJoined{false};
+
 }  // namespace
 
 void addMachineHandlers(HandlerTable& t) {
@@ -86,6 +92,9 @@ void addMachineHandlers(HandlerTable& t) {
                 if (auto it = listeners.find(&ws); it != listeners.end() && it->second != target) left = it->second;
             if (on) listeners[&ws] = target;
             else listeners.erase(&ws);
+            // `"codec": "pcm16"` halves the stream; anything else, or nothing, is float32 (docs/broadcast.md).
+            if (on && j.value("codec", std::string{}) == "pcm16") ctx.listenerCodecs[&ws] = AudioSender::kCodecPcm16;
+            else ctx.listenerCodecs.erase(&ws);
             if (!left.empty() && std::none_of(listeners.begin(), listeners.end(),
                                               [&](const auto& kv) { return kv.second == left; }))
                 host.post([left, &host] { host.enableBroadcast(left, false); });
@@ -157,14 +166,27 @@ void addMachineHandlers(HandlerTable& t) {
                         .dump());
     });
 
-    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string&, const std::string&) {
+    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket& ws, const json&, const std::string&, const std::string&) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
-        // Enumerate audio interfaces (message thread — touches JUCE devices).
-        if (!ctx.pending.admit("list-audio-devices")) return;
-        host.post([&ctx, &host, &broadcast] {
+        auto& sendTo = ctx.sendTo;
+        // A second asker joins the job already waiting, so that job's reply must reach it too: a broadcast (docs/supersede.md).
+        if (!ctx.pending.admit("list-audio-devices")) {
+            g_devicesJoined = true;
+            return;
+        }
+        // On the message thread (JUCE devices); to EVERYONE only when the list moved or someone joined, else to the asker alone (docs/audioDevice.md).
+        host.post([&ctx, asker = static_cast<const ix::WebSocket*>(&ws), &host, &broadcast, &sendTo] {
             ctx.pending.started("list-audio-devices");
-            broadcast(audioDevicesMsg(host));
+            const bool joined = g_devicesJoined.exchange(false);
+            auto msg = audioDevicesMsg(host);
+            auto text = msg.dump();
+            if (text == g_devicesSent && !joined) {
+                sendTo(asker, msg);
+                return;
+            }
+            g_devicesSent = std::move(text);
+            broadcast(msg);
         });
     });
 
@@ -247,8 +269,11 @@ void addMachineHandlers(HandlerTable& t) {
                       << (deviceType.empty() ? std::string{} : " [" + deviceType + "]")
                       << "\n";
             // The new device list goes to EVERYONE, one interface per process meaning every session must learn a switch; the refusal goes only to whoever asked.
-            if (host.setAudioDevice(name, deviceType))
-                broadcast(audioDevicesMsg(host));
+            if (host.setAudioDevice(name, deviceType)) {
+                auto msg = audioDevicesMsg(host);
+                g_devicesSent = msg.dump();
+                broadcast(msg);
+            }
             else
                 broadcastTo(session, json{{"type", "error"}, {"message", "audio device not available: " + name}});
         });

@@ -109,7 +109,10 @@ have it: the tunnel copies every file a document names under a shared root
 
 **A new patch is a new synth.** It is built and loaded on the message thread and swapped in under a
 lock the audio thread only tries, as SfzPlugin swaps instruments. Loading into the live synth would
-mean the audio thread waits on a file read.
+mean the audio thread waits on a file read. It stays on the message thread, unlike SfzPlugin's, which loads on
+a thread of its own: a patch SETS every parameter, and the document's own values go on top right after
+(`loadPluginFiles`, then `applyPluginParams`). A patch landing later from another thread would put
+its values back over the document's. The build and the parse are milliseconds, not an SFZ's seconds.
 
 **Every parameter of Surge's is one of the plugin's, except the MIDI ones**: 758 of them, then the
 eight macros. What is left out is what the engine does itself with notes — the scene split, the

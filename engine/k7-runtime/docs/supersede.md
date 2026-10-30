@@ -68,8 +68,9 @@ The read-only queries a panel polls — `list-sessions`, `list-audio-devices`, `
 first apply of several seconds holds that thread. A client that reconnects in a loop and polls
 meanwhile would queue every one of them, in order, ahead of the play the musician presses next.
 
-Their answers are broadcast, to every client or to the session, never to the asker alone. So an
-identical query — same verb, same session, same arguments — already waiting is enough:
+Their answers are broadcast, to every client or to the session. `list-audio-devices` answers the
+asker alone when the list has not moved (docs/audioDevice.md), unless another asker joined its job,
+in which case it broadcasts. So an identical query — same verb, same session, same arguments — already waiting is enough:
 `PendingQueries.h` refuses to queue a second, and the first one's reply answers both. The key leaves
 as its job STARTS, so a query asked while one runs is queued again: it may want what that one read
 before a change.

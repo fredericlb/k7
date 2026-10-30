@@ -1,8 +1,8 @@
 // SurgePlugin.h — Surge XT as a Tracktion built-in: the synth plays the .fxp patch a module names, and every
-// parameter of it but the MIDI ones is an automatable parameter here. Loaded like SfzPlugin's instrument: on the
-// message thread, into a fresh synth swapped in under a lock the audio thread only ever tries. docs/surgePlugin.md.
+// parameter of it but the MIDI ones is an automatable parameter here. Loaded on the message thread, since the patch
+// sets the parameters the document then overrides, into a fresh synth swapped in under a lock the audio thread tries.
 //
-// The parameters FOLLOW the synth: a patch load, or a type change resetting its slots, is read back onto them.
+// The parameters FOLLOW the synth: a patch load, or a type change resetting its slots, is read back onto them. docs/surgePlugin.md.
 
 #pragma once
 

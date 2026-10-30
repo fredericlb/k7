@@ -1,4 +1,4 @@
-# The render pool — four threads on a desktop, not every core
+# The render pool — four threads, not every core
 
 A playing Edit is rendered by Tracktion's node player: the audio thread plus a pool of workers that
 take the graph's independent branches. Tracktion sizes that pool from
@@ -12,8 +12,14 @@ a spin in front of it. `ServerBehaviour` (`engine/EngineHostImpl.h`) says otherw
 | | value | why |
 |---|---|---|
 | threads, desktop | **`min(cores, 4)`** | the callback costs the same as with every core, and the engine about half |
-| threads, phone | every core | never measured there, and a phone's cores are not alike (big.LITTLE) |
-| strategy | `lightweightSemHybrid`, Tracktion's own | at four threads the strategies are within noise of each other |
+| threads, phone | **`min(cores, 4)`** | a typical big.LITTLE chip has four big cores; one thread per core puts the LITTLE ones to spinning |
+| strategy, desktop | `lightweightSemHybrid`, Tracktion's own | at four threads the strategies are within noise of each other |
+| strategy, phone | **`semaphore`** | a worker that spins burns battery and the big cores' thermal budget, at every one of Oboe's short bursts |
+
+**The phone rows are unmeasured.** They follow the desktop's lesson (the waiting is the cost) and a phone's
+constraints (battery, heat, cores that are not alike), not a run on a device. Four is a guess at the big
+cores, not a count of them: the engine does not read the CPU topology. Measuring it is `audio-cost` on a
+device, with the overrides below, against `cores` threads and `lightweightSemHybrid`.
 
 The audio thread counts as one of the four, as it does in Tracktion's own figure.
 
@@ -69,6 +75,7 @@ How to read it:
 - **Stopped is most of playing.** The callback still costs 0.60–0.75 ms a block with the transport
   stopped: the Edit keeps processing — every amp, reverb and synth on silence — which is what a live
   input monitored through its chain needs. No pool size changes that; it is the graph, not the pool.
+  Why a stopped session is not taken out of the callback: `multiEdit.md`.
 
 ## The run has two traps
 

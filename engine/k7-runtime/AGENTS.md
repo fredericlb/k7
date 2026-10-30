@@ -48,7 +48,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             so tests/ has it in a FAST binary (docs/audioDevice.md)
   HangWatch.h               the thread that leaves when the audio callback or the message thread is HUNG —
                             JUCE-free, FAST binary (docs/hangWatch.md)
-  RenderPool.h              how many threads render a playing Edit — four on a desktop, every core on a phone —
+  RenderPool.h              how many threads render a playing Edit — four on a desktop, four sleeping ones on a phone —
                             and how its idle workers wait; JUCE-free, FAST binary (docs/renderPool.md)
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()
   ParamDump.cpp             --dump-params / --dump-params-ext / --dump-builtin-params

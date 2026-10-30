@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <csignal>
 #include <exception>
 #include <cstdlib>
@@ -218,6 +219,7 @@ int serve(int port) {
                 {
                     // The post happens UNDER the lock, so a departing listener's false cannot land after an arriving one's true and silence a listener that is still there.
                     std::lock_guard<std::mutex> lk(listenersMx);
+                    ctx.listenerCodecs.erase(&ws);
                     if (auto gone = listeners.find(&ws); gone != listeners.end()) {
                         const std::string sid = gone->second;
                         listeners.erase(gone);
@@ -362,11 +364,18 @@ int serve(int port) {
         // Nobody asked about this session, so the frame is not even built.
         if (targets.empty()) return;
 
+        // A peak to four decimals and a level to a hundredth of a dB: below anything drawn, and a third of the text (docs/protocol.md).
+        const auto peak = [](float v) { return std::round(static_cast<double>(v) * 1e4) / 1e4; };
+        const auto levels = [](const std::vector<float>& db) {
+            json arr = json::array();
+            for (const float v : db) arr.push_back(std::round(static_cast<double>(v) * 100.0) / 100.0);
+            return arr;
+        };
         json wf = json::object();
         for (const auto& [key, envelopes] : s.waveformEnvelopes) {
             json arr = json::array();
             for (const auto& e : envelopes)
-                arr.push_back({{"min", e.min}, {"max", e.max}});
+                arr.push_back({{"min", peak(e.min)}, {"max", peak(e.max)}});
             wf[key] = std::move(arr);
         }
         json recs = json::object();
@@ -376,7 +385,7 @@ int serve(int port) {
                 takes.push_back({{"file", t.file}, {"seconds", t.seconds}, {"damaged", t.damaged}});
             json env = json::array();
             for (const auto& e : r.envelope)
-                env.push_back({{"min", e.min}, {"max", e.max}});
+                env.push_back({{"min", peak(e.min)}, {"max", peak(e.max)}});
             recs[key] = json{{"recording", r.recording},
                              {"seconds", r.seconds},
                              {"takes", std::move(takes)},
@@ -404,8 +413,8 @@ int serve(int port) {
             {"playhead", s.playheadSeconds},
             // The loop the transport wraps in, in seconds — so a client that reconnects draws the one that is playing.
             {"loop", {{"on", s.loop.on}, {"start", s.loop.startSeconds}, {"end", s.loop.endSeconds}}},
-            {"levels", s.trackLevelsDb},
-            {"inputLevels", s.trackInputLevelsDb},
+            {"levels", levels(s.trackLevelsDb)},
+            {"inputLevels", levels(s.trackInputLevelsDb)},
             {"armed", s.armedTracks},
             {"recordEnabled", s.recordEnabled},
             // The master output and whether it overloaded since the last frame — the same number `io-levels` carries, read through a second client (docs/meterClients.md).

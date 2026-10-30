@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 #include <utility>
@@ -17,7 +18,6 @@ namespace {
 constexpr uint32_t kStreamMagic = 0x4c535452;   // "LSTR"
 constexpr uint8_t kStreamVersion = 1;
 constexpr size_t kStreamHeaderBytes = 32;
-constexpr uint8_t kStreamCodecPcmF32 = 0;
 
 // 480 frames = 10 ms at 48 kHz: smaller means more syscalls for the same audio, larger puts its own duration under the latency.
 constexpr size_t kBroadcastMaxFrames = 480;
@@ -39,10 +39,11 @@ void putU32(std::string& out, size_t at, uint32_t v) {
     out[at + 3] = static_cast<char>((v >> 24) & 0xff);
 }
 
-std::string encodeStreamFrame(const EngineHost::BroadcastChunk& chunk, uint32_t seq, double captureMs) {
+std::string encodeStreamFrame(const EngineHost::BroadcastChunk& chunk, uint32_t seq, double captureMs, uint8_t codec) {
     const int channels = EngineHost::broadcastChannels();
     const size_t count = chunk.frames * static_cast<size_t>(channels);
-    std::string out(kStreamHeaderBytes + count * 4, '\0');
+    const size_t bytesPerSample = codec == AudioSender::kCodecPcm16 ? 2 : 4;
+    std::string out(kStreamHeaderBytes + count * bytesPerSample, '\0');
 
     putU32(out, 0, kStreamMagic);
     out[4] = static_cast<char>(kStreamVersion);
@@ -51,12 +52,23 @@ std::string encodeStreamFrame(const EngineHost::BroadcastChunk& chunk, uint32_t 
     putU32(out, 8, static_cast<uint32_t>(chunk.sampleRate));
     putU32(out, 12, static_cast<uint32_t>(chunk.frames));
     putU32(out, 16, seq);
-    out[20] = static_cast<char>(kStreamCodecPcmF32);
+    out[20] = static_cast<char>(codec);
     // 21..23 reserved, already zero
     static_assert(sizeof(double) == 8, "the header's captureMs is an IEEE-754 binary64");
     std::memcpy(&out[24], &captureMs, 8);
-    if (count > 0)
+    if (count == 0) return out;
+    if (codec != AudioSender::kCodecPcm16) {
         std::memcpy(&out[kStreamHeaderBytes], chunk.samples.data(), count * 4);
+        return out;
+    }
+    // Clipped to full scale and rounded, written low byte first like the rest of the header.
+    for (size_t i = 0; i < count; ++i) {
+        const float x = std::clamp(chunk.samples[i], -1.0f, 1.0f);
+        const auto v = static_cast<int16_t>(std::lround(x * 32767.0f));
+        const auto u = static_cast<uint16_t>(v);
+        out[kStreamHeaderBytes + 2 * i] = static_cast<char>(u & 0xff);
+        out[kStreamHeaderBytes + 2 * i + 1] = static_cast<char>((u >> 8) & 0xff);
+    }
     return out;
 }
 
@@ -85,7 +97,7 @@ void AudioSender::markArrived(const std::string& session) {
     arrived_.insert(session);
 }
 
-void AudioSender::pump(const std::string& sid, const std::vector<std::shared_ptr<ix::WebSocket>>& targets) {
+void AudioSender::pump(const std::string& sid, const std::vector<Target>& targets) {
     // Drain everything waiting, not one frame per pass: a ceiling equal to the production rate has NO headroom.
     for (int guard = 0; guard < kBroadcastFramesPerPass; ++guard) {
         auto chunk = ctx_.host.drainBroadcast(sid, kBroadcastMaxFrames);
@@ -102,12 +114,20 @@ void AudioSender::pump(const std::string& sid, const std::vector<std::shared_ptr
         // A hole the tap overwrote becomes a JUMP in the sequence number, so the listener re-cushions; rounded UP.
         const uint32_t seq = nextSeq(
             sid, 1 + static_cast<uint32_t>((chunk.lostFrames + kBroadcastMaxFrames - 1) / kBroadcastMaxFrames));
-        const auto payload = encodeStreamFrame(chunk, seq, sinceBoot_());
+        const double captureMs = sinceBoot_();
+        // Each codec encoded once per frame, and only if some listener asked for it.
+        std::string f32, pcm16;
+        const auto payloadFor = [&](uint8_t codec) -> const std::string& {
+            const bool half = codec == kCodecPcm16;
+            auto& p = half ? pcm16 : f32;
+            if (p.empty()) p = encodeStreamFrame(chunk, seq, captureMs, half ? kCodecPcm16 : kCodecPcmF32);
+            return p;
+        };
 
         // Sent OUTSIDE the listener lock, since this send blocks and holding the lock would stall every connection thread.
-        for (auto& client : targets) {
-            if (client->bufferedAmount() > kBroadcastMaxQueuedBytes) continue;
-            client->sendBinary(payload);
+        for (const auto& t : targets) {
+            if (t.socket->bufferedAmount() > kBroadcastMaxQueuedBytes) continue;
+            t.socket->sendBinary(payloadFor(t.codec));
         }
         if (chunk.frames < kBroadcastMaxFrames) break;   // ring is empty
     }
@@ -131,7 +151,7 @@ void AudioSender::run() {
         }
 
         // WHO IS LISTENING TO WHAT: a session's audio goes only to the sockets listening to that session.
-        std::map<std::string, std::vector<std::shared_ptr<ix::WebSocket>>> bySession;
+        std::map<std::string, std::vector<Target>> bySession;
         {
             const auto clients = server_.getClients();
             std::lock_guard<std::mutex> lk(ctx_.listenersMx);
@@ -139,11 +159,15 @@ void AudioSender::run() {
             for (auto it = ctx_.listeners.begin(); it != ctx_.listeners.end();) {
                 const bool live = std::any_of(clients.begin(), clients.end(),
                                               [&](const std::shared_ptr<ix::WebSocket>& c) { return c.get() == it->first; });
+                if (!live) ctx_.listenerCodecs.erase(it->first);
                 it = live ? std::next(it) : ctx_.listeners.erase(it);
             }
             for (auto& client : clients)
-                if (auto hit = ctx_.listeners.find(client.get()); hit != ctx_.listeners.end())
-                    bySession[hit->second].push_back(client);
+                if (auto hit = ctx_.listeners.find(client.get()); hit != ctx_.listeners.end()) {
+                    const auto codec = ctx_.listenerCodecs.find(client.get());
+                    bySession[hit->second].push_back(
+                        {client, codec == ctx_.listenerCodecs.end() ? kCodecPcmF32 : codec->second});
+                }
         }
 
         for (const auto& [sid, targets] : bySession) pump(sid, targets);
