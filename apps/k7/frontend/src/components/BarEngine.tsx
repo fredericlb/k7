@@ -54,11 +54,14 @@ export function BarEngine({
   status,
   choice,
   toolSize,
+  align = "end",
 }: EngineSelectorProps & {
   status: EngineStatus;
   choice: EngineChoice;
   /** The bar's button size, so the icon matches the pages' buttons beside it. */
   toolSize: "icon" | "icon-xs";
+  /** The menu's edge against the button's: the end at a bar's right end, the start in a sidebar. */
+  align?: "start" | "end";
 }) {
   const listenHere = useListenHere();
   // An engine with no speakers is heard here whatever the radio says.
@@ -103,7 +106,7 @@ export function BarEngine({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side="top"
-        align="end"
+        align={align}
         className="w-80 max-w-[calc(100vw-2rem)]"
       >
         <div className="flex flex-col gap-1 px-2 py-1.5 text-xs" title={hint}>
