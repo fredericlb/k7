@@ -16,6 +16,14 @@ The hub starts an account's service on that account's first request, so startup 
 and the demos are on the home page the first time it draws. The root's absence cannot be the cue:
 the service creates the root as it boots, so a check made later never sees a new account.
 
+A demo is copied again only when it would come out different. Each mirror records, in
+`Examples/.studio-demos.json`, a stamp of both trees (every file's path, size and mtime): the
+bundle's demo and the copy it made. At the next start a demo whose two stamps still match is left
+alone; a new build changes the first, an edit or a deletion in Examples the second, and either
+makes a full replace as before. Re-copying every demo on every start would cost each cold start
+of the service — the hub's spawn, a phone's launch — a delete and a copy of every demo file, all
+before the service answers.
+
 The existence check runs before the memo, on every call: a folder deleted from Finder would
 otherwise be served from cache and 500 deep in `fs`. `UnknownWorkspaceError` is carried as a type
 so the HTTP layer can answer 404 rather than lumping it in with a malformed name, which is a 400

@@ -87,6 +87,16 @@ describe("mirrorDemos", () => {
     expect(existsSync(join(examples, "demoC", "project.k7x"))).toBe(true);
   });
 
+  it("copies nothing when bundle and Examples are as the last mirror left them", () => {
+    mirrorDemos(examples);
+    expect(mirrorDemos(examples)).toEqual([]);
+    writeFileSync(join(bundle, "demoB", "project.k7x"), "B v2, a new build");
+    expect(mirrorDemos(examples)).toEqual(["demoB"]);
+    expect(readFileSync(join(examples, "demoB", "project.k7x"), "utf8")).toBe(
+      "B v2, a new build",
+    );
+  });
+
   it("is a no-op (no throw) when there is no bundle", () => {
     delete process.env.STUDIO_DEMOS;
     // A bare temp path makes `demosDir()` null; in this repo the walk-up may still find the real songs.
