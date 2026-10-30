@@ -47,7 +47,7 @@ workspacesRouter.get(
   "/workspaces",
   wrap(async (req, res) => {
     // On a server, a workspace a device created or moved here is joined before it is listed (docs/workspaces.md).
-    await joinServerRooms();
+    await joinServerRooms(true);
     const reply: WorkspaceList = { workspaces: listWorkspaces(req.userEmail!) };
     res.json(reply);
   }),
@@ -130,7 +130,7 @@ workspacesRouter.post(
 workspacesRouter.get(
   "/workspaces/projects",
   wrap(async (req, res) => {
-    await joinServerRooms();
+    await joinServerRooms(true);
     const reply: AccountWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
     };

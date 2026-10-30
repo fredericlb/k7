@@ -182,6 +182,13 @@ own replica joins every room holding files when its link opens — and a room a 
 move lands, announces itself to no reconnect. So it joins them again before answering the home page's
 lists, and every minute (`joinServerRooms`): a moved workspace is listed on the server it moved to.
 
+The home page's lists never wait on the relay, though, beyond the first one: they join from the room
+list as last known (up to 30 s old), and a staler one is answered at once and asked again behind the
+reply, one question per relay at a time. The home page polls every 3 s, and a relay slow to answer
+would otherwise hold each poll for up to the 15 s the question may take. Only a server that has no
+list at all — the first request, or the first after a move made it forget the list — waits for one;
+a move also makes an answer asked for before it unable to land after it.
+
 **The engine is unloaded first, and that is not politeness.** A project of this workspace still
 loaded holds files open, and Windows answers EPERM half-way through a delete — the same wall a
 person hits removing the folder by hand, where Explorer reports it as a request for admin rights

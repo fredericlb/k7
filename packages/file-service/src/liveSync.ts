@@ -74,13 +74,20 @@ const ROOMS_EVERY_MS = 60_000;
 let roomsTimer: ReturnType<typeof setInterval> | null = null;
 
 /** On a SERVER: join every room of its own relay holding files — one a device seeded or a move landed included, which no reconnect announces. */
-export async function joinServerRooms(): Promise<void> {
+export async function joinServerRooms(
+  // A page's request takes the list as known, refreshed behind it; the timer and a reconnect ask the relay.
+  fromRequest = false,
+): Promise<void> {
   if (isPaired() || !liveSyncOn()) return;
   // Imported late: workspaces.ts loads this module to attach what it opens.
   const { joinWorkspace } = await import("./workspaces.ts");
   // A server it is paired with beside its own is like a paired machine's: its rooms come down when asked.
-  for (const server of syncServers().filter((s) => s.own))
-    for (const name of await listRooms(server, 0)) joinWorkspace(name);
+  for (const server of syncServers().filter((s) => s.own)) {
+    const names = fromRequest
+      ? await listRooms(server, 30_000, true)
+      : await listRooms(server, 0);
+    for (const name of names) joinWorkspace(name);
+  }
 }
 
 /** A link (re)connected: on a SERVER every room its own relay lists is joined, since it holds them all — and again every minute. */
