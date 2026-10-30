@@ -76,6 +76,24 @@ engine. The tray waits 15 s for that, then kills what remains; `pidkill::backsto
 supervisor left, since an engine that survives the app holds the audio device and is adopted by nobody next
 launch. SIGTERM and SIGINT quit the same way: launchd stops a login item with SIGTERM.
 
+The backstop kills only what the pidfile **proves** is the engine: the pid on its first line, then the
+`start=` and `exe=` the supervisor writes beside it, checked against what the OS says of that pid now — the
+verdict of `engine/k7-supervisor/src/PidFile.cpp` and of `packages/supervisor-host/src/enginePid.ts`. A pid is a
+number the OS reuses, and a kill of the wrong tree is worse than an orphan. A file it cannot prove (a bare pid,
+an OS that would not say) is left in place with its process, for the supervisor's next start to judge; a file
+whose process is gone, or is not the engine, is removed.
+
+## When the backend will not come up
+
+Every state the tray can end in has a way out short of quitting it: the menu's **Restart k7** stops the
+backend as Quit does and starts it again.
+
+| choice | why |
+|---|---|
+| a port that answers is waited for, with a backoff, for 30 s | a tray relaunched at once finds the previous backend still in its 15 s stop; only an answer that outlasts that is another program's |
+| a backend silent for 90 s is shown down, and still watched | a spinner that never ends tells nothing; the status says to look at the logs or restart, and turns ready if the backend answers late |
+| six quick deaths in a row stop the retries | a backend that cannot start would otherwise restart forever; Restart is the deliberate retry |
+
 ## Launch at login
 
 The autostart plugin: a login item on macOS and Windows, an XDG autostart entry on Linux.
