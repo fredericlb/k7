@@ -28,7 +28,7 @@ import {
   keepsText,
   looksBinary,
   stampOf,
-  TEXT_CEILING,
+  textCeiling,
 } from "./liveLedger.ts";
 import type { Batch } from "./liveLog.ts";
 import { confinedPath } from "./livePath.ts";
@@ -481,7 +481,7 @@ export class LiveCapture implements ChangeFeed {
   }
 
   private opaqueByName(rel: string, size: number): boolean {
-    return this.o.isBinary(rel) || size > TEXT_CEILING;
+    return this.o.isBinary(rel) || size > textCeiling(rel);
   }
 
   /** The file as it is: its ledger entry, and its text, or its blob ref when it is opaque (binary, or too big). */
@@ -520,24 +520,25 @@ export class LiveCapture implements ChangeFeed {
     };
   }
 
-  /** The ledger as the baseline says the text files were, opaque files as they are on disk. */
+  /** The ledger as the baseline says the files were; one the disk still holds as it was keeps the walk's entry. */
   private learnBaseline(baseline: {
     files(): string[];
     get(file: string): string | null;
   }): void {
-    const opaque = new Map<string, Known>();
-    for (const rel of this.walk("")) {
-      const { now } = this.probe(rel);
-      if (now.ref) opaque.set(rel, now);
-    }
+    const walk = new Map<string, Known>();
+    for (const rel of this.walk("")) walk.set(rel, this.look(rel));
     for (const rel of baseline.files()) {
       const text = baseline.get(rel);
       if (text === null || rel.split("/").some((s) => this.o.skip(s))) continue;
       const hash = textHash(text);
       const ref = parseBlobRef(text) ? text : undefined;
-      // The same bytes as on disk: the walk's entry, with its real stamp, spares hashing them again.
-      const walked = opaque.get(rel);
-      if (ref && walked?.ref === ref) {
+      // The same content as on disk: the walk's entry, with its real stamp, spares the first sweep reading it again.
+      const walked = walk.get(rel);
+      if (
+        walked &&
+        walked.hash === hash &&
+        (walked.ref ?? null) === (ref ?? null)
+      ) {
         this.ledger.set(rel, walked);
         continue;
       }
@@ -552,8 +553,21 @@ export class LiveCapture implements ChangeFeed {
   }
 
   private learn(rel: string): void {
-    if (existsSync(this.pathOf(rel))) this.ledger.set(rel, this.probe(rel).now);
+    if (existsSync(this.pathOf(rel))) this.ledger.set(rel, this.look(rel));
     else this.ledger.delete(rel);
+  }
+
+  /** The ledger entry for `rel` as it is; a text file whose stamp the index knows is not read (k7x ones are, for their text). */
+  private look(rel: string): Known {
+    if (!keepsText(rel) && this.index) {
+      const st = statSync(this.pathOf(rel));
+      const stamp = stampOf(st.size, st.mtimeMs);
+      const hash = this.opaqueByName(rel, st.size)
+        ? null
+        : this.index.textHash(rel, stamp);
+      if (hash) return { stamp, hash, text: null };
+    }
+    return this.probe(rel).now;
   }
 
   /** Every file under `scope` (a file or a folder, workspace-relative), minus what `skip` hides. */

@@ -84,6 +84,14 @@ A replica says hello at the last `seq` it applied:
   the room's, and only a state lets it back up the ones that differ before they are overwritten.
 - **An empty room:** asks its first replica for everything, as one batch of whole-file ops.
 
+## Memory
+
+A room holds its canonical texts in memory, and the same text in up to three places: the files,
+the merge bases, and the log entry that wrote it (the first replica's seed is every file at once).
+While the room runs these are one string. Restored from `room.json` they would be three, since each
+is parsed apart, so `Room.from` keeps one per distinct content. Large data texts stay out of the
+room altogether: a capture sends them as blob refs (`../../file-service/docs/liveCapture.md`).
+
 ## Versions
 
 Desktops and phones run whatever k7 they were last updated to, against a server updated on its own

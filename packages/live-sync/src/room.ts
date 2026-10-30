@@ -43,10 +43,24 @@ export class Room {
   static from(saved: RoomState): Room {
     const room = new Room();
     room.head = saved.head;
-    for (const [f, t] of Object.entries(saved.files)) room.files.set(f, t);
+    // Parsed, a text the files, the log and the bases share is three strings: one is kept (docs/sync.md, "Memory").
+    const pool = new Map<string, string>();
+    const one = (t: string): string => {
+      const kept = pool.get(t);
+      if (kept !== undefined) return kept;
+      pool.set(t, t);
+      return t;
+    };
+    for (const [f, t] of Object.entries(saved.files)) room.files.set(f, one(t));
+    for (const entry of saved.log)
+      for (const op of entry.batch.ops)
+        if (op.kind === "text") op.text = one(op.text);
     room.log = saved.log;
     room.conflicts.reset(saved.conflicts ?? []);
-    room.bases = TextBases.from(saved.bases);
+    const bases = Object.fromEntries(
+      Object.entries(saved.bases ?? {}).map(([f, v]) => [f, v.map(one)]),
+    );
+    room.bases = TextBases.from(bases);
     return room;
   }
 

@@ -8,6 +8,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -105,6 +106,20 @@ const common = {
   legalComments: "none",
 };
 
+/** Escape what esbuild leaves non-ASCII (regex literals, comments): one such character makes V8 hold a whole bundle as UTF-16. */
+function asciiOnly(dir) {
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith(".mjs")) continue;
+    const file = join(dir, name);
+    const text = readFileSync(file, "utf8");
+    const ascii = text.replace(
+      /[^\0-\x7f]/g,
+      (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+    );
+    if (ascii !== text) writeFileSync(file, ascii);
+  }
+}
+
 if (inTree) {
   if (relative(repo, dirname(resolve(out))) !== "")
     throw new Error("--in-tree wants a folder directly in the checkout");
@@ -121,6 +136,7 @@ if (inTree) {
     outExtension: { ".js": ".mjs" },
     banner: { js: banner("..") },
   });
+  asciiOnly(out);
   if (process.argv.includes("--list"))
     console.log([...metaUsers].sort().join("\n"));
   console.log(`backend bundled in ${out}, reading the checkout around it`);
@@ -142,6 +158,7 @@ await build({
   outExtension: { ".js": ".mjs" },
   banner: { js: banner("..") },
 });
+asciiOnly(join(out, BIN));
 
 if (process.argv.includes("--list"))
   console.log([...metaUsers].sort().join("\n"));
