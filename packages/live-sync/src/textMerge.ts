@@ -60,6 +60,18 @@ export class TextBases {
     this.byFile.set(file, kept);
   }
 
+  /** A copy of the versions kept for `file`, for `restore`. */
+  versions(file: string): string[] | undefined {
+    const kept = this.byFile.get(file);
+    return kept ? [...kept] : undefined;
+  }
+
+  /** Put back what `versions` returned. */
+  restore(file: string, kept: string[] | undefined): void {
+    if (kept) this.byFile.set(file, kept);
+    else this.byFile.delete(file);
+  }
+
   /** The kept version of `file` whose hash is `hash`, or null. */
   find(file: string, hash: string): string | null {
     const kept = this.byFile.get(file) ?? [];

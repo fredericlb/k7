@@ -185,12 +185,23 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     return l;
   };
 
+  /** Save a room, said rather than thrown: its entries are on disk already, and a later save retries. */
+  const save = (l: Live): void => {
+    try {
+      snapshot(l, historyEvery);
+    } catch (e) {
+      log(`cannot save ${l.dir}: ${(e as Error).message}`);
+    }
+  };
+
   /** Order a batch: on disk first, then relayed to every replica in the room, the sender included. */
   const order = (l: Live, workspace: string, batch: Batch): Sequenced => {
-    const { entry, fresh } = l.room.submit(batch);
+    // The room takes the entry only once it is appended: a failed write leaves it unordered, and a retry orders it.
+    const { entry, fresh } = l.room.submit(batch, (e) =>
+      appendFileSync(join(l.dir, ENTRIES), entryLine(e)),
+    );
     if (!fresh) return entry;
-    appendFileSync(join(l.dir, ENTRIES), entryLine(entry));
-    if (++l.sinceSnapshot >= snapshotEvery) snapshot(l, historyEvery);
+    if (++l.sinceSnapshot >= snapshotEvery) save(l);
     l.editedAt = Date.now();
     for (const [peer, as] of l.sockets)
       send(peer, { t: "seq", workspace: as, entry });
@@ -203,21 +214,26 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     () => {
       const now = Date.now();
       for (const [key, l] of rooms) {
-        if (l.editedAt !== null && now - l.editedAt >= idleMs) {
-          l.editedAt = null;
-          if (readCheckpoints(l.dir).at(-1)?.seq !== l.room.head)
-            addCheckpoint(l.dir, {
-              seq: l.room.head,
-              name: "auto",
-              ts: now,
-              by: "auto",
-            });
+        // A room whose files cannot be read or written is said and kept; the timer must not throw.
+        try {
+          if (l.editedAt !== null && now - l.editedAt >= idleMs) {
+            l.editedAt = null;
+            if (readCheckpoints(l.dir).at(-1)?.seq !== l.room.head)
+              addCheckpoint(l.dir, {
+                seq: l.room.head,
+                name: "auto",
+                ts: now,
+                by: "auto",
+              });
+          }
+          // An edit still waiting for its checkpoint keeps the room, so the checkpoint is not lost with it.
+          if (l.sockets.size || l.editedAt !== null || now - l.usedAt < evictMs)
+            continue;
+          if (l.sinceSnapshot) snapshot(l, historyEvery);
+          rooms.delete(key);
+        } catch (e) {
+          log(`idle ${l.dir}: ${(e as Error).message}`);
         }
-        // An edit still waiting for its checkpoint keeps the room, so the checkpoint is not lost with it.
-        if (l.sockets.size || l.editedAt !== null || now - l.usedAt < evictMs)
-          continue;
-        if (l.sinceSnapshot) snapshot(l, historyEvery);
-        rooms.delete(key);
       }
     },
     Math.max(10, Math.min(60_000, Math.min(idleMs, evictMs) / 4)),
@@ -382,8 +398,7 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const stop = () => {
     clearInterval(beat);
     clearInterval(idleCheck);
-    for (const l of rooms.values())
-      if (l.sinceSnapshot) snapshot(l, historyEvery);
+    for (const l of rooms.values()) if (l.sinceSnapshot) save(l);
     for (const ws of wss.clients) ws.terminate();
     wss.close();
   };

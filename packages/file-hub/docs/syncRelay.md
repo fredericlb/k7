@@ -148,6 +148,13 @@ kept whole under `snapshots/`. Loading a room is the saved state plus `entries.j
 segments, the snapshots and `checkpoints.json` are the workspace's history (`history.md`), never
 read to catch up.
 
+The room takes an entry only once its append succeeded (`Room.submit`'s `persist`): on a full disk
+or an I/O error the room is left exactly as it was and the sender hears an error, so its retry is a
+new entry with the same seq rather than a duplicate the room "knows" and never writes. A whole-room
+save that fails is logged and retried at the next one, since the entries it covers are on disk
+already; the idle timer and the stop catch the same way, room by room, because a throw there ends
+the backend.
+
 A room nobody is joined to, untouched for ten minutes and with its automatic checkpoint taken, is
 saved and dropped from memory; the next hello loads it as a restart would. Without that, every
 workspace ever opened stayed resident with its texts, its 2,000-entry log and its text bases, for
