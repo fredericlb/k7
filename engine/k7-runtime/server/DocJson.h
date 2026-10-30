@@ -7,7 +7,15 @@
 
 #include <nlohmann/json.hpp>
 
+#include <string>
+
 namespace studio {
+
+/** The deepest nesting a message off the wire may have; a project document needs about ten. */
+constexpr int kMaxMessageDepth = 64;
+
+/** One message off the socket, parsed — throws like json::parse, and on nesting past kMaxMessageDepth (docs/protocol.md). */
+nlohmann::json parseMessage(const std::string& text);
 
 /** A whole document — throws on a shape it cannot read, which callers report as a bad project. */
 ProjectDoc docFromJson(const nlohmann::json& j);

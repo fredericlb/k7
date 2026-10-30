@@ -5,6 +5,7 @@
 
 #include "Serve.h"
 #include "AudioSender.h"
+#include "DocJson.h"
 #include "Outbox.h"
 #include "ServeContext.h"
 
@@ -262,7 +263,7 @@ int serve(int port) {
             if (screenFrameSize(ctx, ws, conn->getRemoteIp(), msg->str.size())) return;
             json j;
             try {
-                j = json::parse(msg->str);
+                j = parseMessage(msg->str);
             } catch (const std::exception& e) {
                 ws.send(json{{"type", "error"}, {"message", std::string("bad json: ") + e.what()}}.dump());
                 return;

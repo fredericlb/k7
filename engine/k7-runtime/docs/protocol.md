@@ -178,6 +178,12 @@ per track. The renaming is deterministic, so a re-sent document diffs as the sam
 `EditBuilder` bounds the one count that is DERIVED rather than sent: a clip's unrolled passes, at
 4096. `tests/DocJson_test.cpp` pins the table.
 
+Before any of that, EVERY message is held to 64 levels of nesting (`parseMessage` in `DocJson.cpp`),
+refused while it is parsed. The parser itself is iterative, but copying or walking a JSON value
+recurses, and a few kilobytes of brackets is enough to overflow a connection thread's stack — an
+overflow no `catch` sees, which a client re-sending the message turns into a crash loop. A project
+document nests about ten deep.
+
 ## server → client
 
 Every JSON push to a client goes through `Outbox.h`'s single writer thread, never out of the thread

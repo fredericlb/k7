@@ -166,11 +166,15 @@ void addMachineHandlers(HandlerTable& t) {
         auto& broadcastTo = ctx.broadcastTo;
         // Meter the interface itself, one peak per `channels` entry plus the master — asked for rather than ridden on the state frame, since the pitch estimate is real work per channel; it ENABLES nothing (channelLevelsDb).
         std::vector<std::vector<int>> sets;
-        for (const auto& s : j.value("channels", json::array())) {
-            std::vector<int> ch;
-            for (const auto& c : s) ch.push_back(c.get<int>());
-            sets.push_back(std::move(ch));
-        }
+        // Read in place, never through j.value(), which COPIES the array; an entry that is not a list of numbers is skipped.
+        if (const auto it = j.find("channels"); it != j.end() && it->is_array())
+            for (const auto& s : *it) {
+                if (!s.is_array()) continue;
+                std::vector<int> ch;
+                for (const auto& c : s)
+                    if (c.is_number()) ch.push_back(c.get<int>());
+                sets.push_back(std::move(ch));
+            }
         host.post([session, &host, &broadcastTo, sets] {
             json levels = json::array();
             json found = json::array();
