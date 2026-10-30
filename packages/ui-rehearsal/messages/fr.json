@@ -316,5 +316,7 @@
   "recording.noWaveform": "Pas de forme d'onde pour cet enregistrement : {reason}",
   "recording.retry": "Réessayer",
   "sheet.notShown": "Ce type de fichier n'est pas affiché dans l'onglet Partition.",
-  "sheet.download": "Le télécharger"
+  "sheet.download": "Le télécharger",
+  "session.detect": "Détecter les moments",
+  "session.detectTitle": "Trouver les passages joués entre deux silences, à enregistrer comme moments"
 }

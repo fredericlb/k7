@@ -48,6 +48,12 @@ browser that is arithmetic over an array already in memory, where a server round
 needed a debounce and still lagged. Over the stored envelope means the whole timeline, an appended
 take included, never the segment just uploaded.
 
+**It runs when asked for.** A page opens on the recording alone, with no threshold line, no
+highlighted spans and no "detected" rows: **Detect moments**, in the transport row, turns it on,
+and the sliders and the detected rows come with it. Pressed again, it hides them. A recording is
+opened as often to listen or to mark one passage by hand as to sift it, and twenty suggestions
+nobody asked for bury the moments already saved. The choice is not kept: each page opens without it.
+
 ## A take exists nowhere but the tab until it is saved
 
 The recorder keeps its chunks in memory and uploads the whole take in one request when it stops, so
