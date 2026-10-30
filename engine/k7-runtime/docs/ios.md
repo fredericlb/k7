@@ -79,6 +79,7 @@ Where iOS does a thing itself, the app lets it:
 | `back.js` and the Back button | the edge swipe, over the view's own history |
 | `CertTrust.kt` checking the leaf's name and dates | iOS's own trust evaluation with the imported CAs as anchors (`TrustedCas.swift`): a wrong name, an expired date or a certificate iOS's TLS rules refuse is refused here too. Android's rule stands: an imported non-CA is trusted as that exact leaf and never as an issuer, read from its DER since iOS has no public API for extensions (`CertTrust.swift`) |
 | the window's insets | the safe area; the strip under the status bar is painted the app's top colour, and the status bar's icons follow its luminance |
+| a renderer lost: the view destroyed, the shell's Retry makes a new one (`RendererLoss.kt`) | WebKit keeps the view usable, so a view whose content process died reloads, twice in a minute at most; past that the shell page is told with a `loadError` and its Retry reloads, since a page that runs out of memory as it loads would otherwise reload forever |
 
 The microphone goes to the studio's apps only, asked when first needed (`MicAccess.swift`). A refusal iOS
 remembers offers the app's Settings. A grant that comes after the engine started reaches it at the next start, and
