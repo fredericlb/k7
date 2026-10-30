@@ -11,6 +11,8 @@
     "./frames": "./frames.ts",
     "./rtc": "./rtc.ts",
     "./backpressure": "./backpressure.ts",
+    "./upgrade": "./upgrade.ts",
+    "./test-bad-frame": "./testBadFrame.ts",
     "./jobs-client": "./jobsClient.ts",
     "./job-spelling": "./jobSpelling.ts"
   },

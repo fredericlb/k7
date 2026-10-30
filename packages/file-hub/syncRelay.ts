@@ -7,6 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { join } from "node:path";
+import { acceptSocket } from "@studio/engine-tunnel/upgrade";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import {
   type FromRelay,
@@ -353,7 +354,7 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
           socket.destroy();
           return;
         }
-        wss.handleUpgrade(req, socket, head, (ws) => {
+        acceptSocket(wss, req, socket, head, (ws) => {
           alive.set(ws, true);
           ws.on("pong", () => alive.set(ws, true));
           serve(ws, slug);

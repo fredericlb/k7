@@ -17,6 +17,14 @@ hours at most, so a forgotten tab does not keep a slot.
 The session is `share:<random>`, never anything a visitor chose. It is dropped (`drop-session`) when
 the visitor's socket closes, which also frees its slot against the 64.
 
+A visitor on a weak link, or one gone without a FIN, must not hold a slot nor grow the backend at
+the broadcast's bitrate. What the engine sends a visitor goes through `sendBounded`
+(`packages/engine-tunnel/docs/backpressure.md`): past 8 MiB unsent the audio and `state` frames are
+dropped, past 64 MiB the visit ends with 1013. The socket is pinged every 30 s and terminated after
+one unanswered ping (`packages/engine-tunnel/docs/upgrade.md`), which ends the visit. The socket is
+accepted with an error listener first, since a refused visitor still reads frames until its close
+completes, and a malformed one would otherwise end the process.
+
 ## The visitor never touches the engine's socket
 
 The engine refuses nothing on a socket it trusts, and a tunnel channel arrives as a trusted

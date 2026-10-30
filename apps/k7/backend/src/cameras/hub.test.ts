@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { sendBadFrame } from "@studio/engine-tunnel/test-bad-frame";
 import {
   CAMERAS_WS_PATH,
   type CameraFrame,
@@ -151,5 +152,17 @@ describe("CameraHub", () => {
     viewer.ws.close();
     cam.ws.close();
     await settle();
+  });
+});
+
+describe("a malformed frame", () => {
+  it("terminates the camera's socket and unlists it, the hub staying up", async () => {
+    const port = (server.address() as AddressInfo).port;
+    const status = await sendBadFrame(
+      port,
+      `${CAMERAS_WS_PATH}?ticket=${tickets.issue("rsv1@x")}&role=camera&name=bad`,
+    );
+    expect(status).toContain("101");
+    expect(hub.list("rsv1@x")).toEqual([]);
   });
 });

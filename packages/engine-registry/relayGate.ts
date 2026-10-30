@@ -2,8 +2,9 @@
 // probe a picker needs (whoami, this device's key, the plugin list and its scan) and their answers, nothing
 // else. Anything more is HELD while a claim may still be landing — a page opens its socket and
 // claims at the same moment — and the socket is closed when none comes. The claim is asked again
-// on every frame, so a takeover stops the loser at its next one. A `whoami` loses its token for an
-// account that may not use the engine (docs/ownership.md). See docs/proxy.md.
+// on every browser frame, so a takeover stops the loser at its next one; the engine's stream reuses
+// a claim seen in the last CLAIM_REUSE_MS. A `whoami` loses its token for an account that may not
+// use the engine (docs/ownership.md). See docs/proxy.md.
 
 import type { RawData } from "ws";
 
@@ -27,6 +28,8 @@ const CLAIM_GRACE_MS = 10_000;
 /** The close code a socket gets when it never held a claim — 4403, the 403 of a WebSocket. */
 export const NO_CLAIM_CLOSE = 4403;
 const POLL_MS = 200;
+/** How long a claim seen holding is trusted for the engine's frames: its audio comes far faster than that. */
+const CLAIM_REUSE_MS = 250;
 const MAX_HELD_FRAMES = 256;
 const MAX_HELD_BYTES = 8 * 1024 * 1024;
 /** A probe is a few bytes; nothing larger is parsed to find its type. */
@@ -88,6 +91,8 @@ export class RelayGate {
   private since = 0;
   private timer: NodeJS.Timeout | undefined;
   private closed = false;
+  /** When `holds()` last answered true, for the engine's frames alone. */
+  private heldAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     private readonly sinks: GateSinks,
@@ -114,9 +119,20 @@ export class RelayGate {
   /** The frame from the engine as it may reach the browser, or null when it may not. */
   fromEngine(f: Frame): Frame | null {
     if (this.closed) return null;
-    const pass = this.sinks.holds() || PROBE_ANSWERS.has(frameType(f) ?? "");
+    const pass = this.holdsRecently() || PROBE_ANSWERS.has(frameType(f) ?? "");
     if (!pass) return null;
+    // Only a text `whoami` carries the token, so a binary frame needs no second question.
+    if (f.binary) return f;
     return this.sinks.mayReadToken() ? f : withoutToken(f);
+  }
+
+  /** `holds()`, its true answer reused for CLAIM_REUSE_MS; a false one is asked again each time. */
+  private holdsRecently(): boolean {
+    const now = this.now();
+    if (now - this.heldAt < CLAIM_REUSE_MS) return true;
+    if (!this.sinks.holds()) return false;
+    this.heldAt = now;
+    return true;
   }
 
   dispose(): void {
