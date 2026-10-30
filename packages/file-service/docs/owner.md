@@ -19,6 +19,11 @@ rather than hand one account's workspaces to another. The email is compared exac
 It sits **beside** the root and never in it: the root holds the account's workspaces and nothing
 else.
 
+The gate stands in front of every workspace request, so the record is read once and kept: a
+recorded owner never changes while the process runs. An absent record is read again each time,
+since the next request may be the one that claims it. Editing or removing `owner.json` by hand
+therefore takes effect when the service restarts — which the hub does after its idle timeout.
+
 The engine session a root's projects play in is named after its owner, set from the record at
 boot and by the gate — never by whoever made the last request.
 
