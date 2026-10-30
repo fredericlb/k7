@@ -1616,6 +1616,7 @@
   "hc.cameraStarted": "camera mode on",
   "hc.noCameraHere": "this browser cannot open a camera here — it needs https and a camera",
   "cameraMode.connecting": "connecting to the server…",
+  "cameraMode.openingLens": "opening the camera…",
   "cameraMode.retrying": "the server is out of reach, trying again… {error}",
   "cameraMode.on": "on as \"{name}\" · {count} watching",
   "cameraMode.switch": "Switch",

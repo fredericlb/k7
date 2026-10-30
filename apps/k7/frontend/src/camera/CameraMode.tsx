@@ -125,16 +125,19 @@ export function CameraMode({
     }
   };
 
+  // No state yet is the LENS still opening: a permission nobody answered must not read as the server.
   const status = error
     ? error
-    : !state || state.status === "connecting"
-      ? m["cameraMode.connecting"]()
-      : state.status === "retrying"
-        ? m["cameraMode.retrying"]({ error: state.error ?? "" })
-        : m["cameraMode.on"]({
-            name: state.name ?? name,
-            count: state.viewers,
-          });
+    : !state
+      ? m["cameraMode.openingLens"]()
+      : state.status === "connecting"
+        ? m["cameraMode.connecting"]()
+        : state.status === "retrying"
+          ? m["cameraMode.retrying"]({ error: state.error ?? "" })
+          : m["cameraMode.on"]({
+              name: state.name ?? name,
+              count: state.viewers,
+            });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
