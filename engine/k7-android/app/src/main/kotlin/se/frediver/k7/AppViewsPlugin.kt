@@ -31,6 +31,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -316,6 +317,8 @@ class AppViewsPlugin : Plugin() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun create(id: String): WebView = WebView(context).apply {
+        // The splash's colour until the page paints, not the WebView's black between the shell and k7's splash.
+        setBackgroundColor(ContextCompat.getColor(context, R.color.splash_background))
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false

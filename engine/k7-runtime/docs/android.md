@@ -97,6 +97,9 @@ studio page is dark-only (`@frediverse/ui/theme.css`, and k7's `color-scheme: da
 change is the window behind a loading page and the native dialogs, a white flash and white boxes
 over a dark app.
 
+Each app's WebView is painted #07031F (`R.color.splash_background`) until its page draws: between the
+shell's "launching" and k7's own splash it would otherwise show a black frame, which reads as a crash.
+
 Two ways from the page to the native half:
 
 - **The shell page** uses two plugins `MainActivity` registers itself, typed once in
