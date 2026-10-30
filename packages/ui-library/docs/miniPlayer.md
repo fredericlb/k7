@@ -22,9 +22,10 @@ local `cursor`, and pressing play starts from there.
 
 ## The bar stays when the song ends
 
-`close()` is the only thing that clears `now`, and it is on the button top right. A song
-running out does not clear it, because "what was that" outlives the last sample — the bar then
-reads as ended, and the play button restarts it from the top.
+Nothing in the bar clears `now`: it has no close, because closing it only uncovered the host's
+dock drawing its own bar in the same place. A song running out does not clear it either, because
+"what was that" outlives the last sample — the bar then reads as ended, and the play button
+restarts it from the top.
 
 For the browser that is free: `play()` on an element sitting at the end rewinds itself. For the
 engine it is not — the engine resumes from where its playhead was left, and never rewinds
@@ -33,10 +34,9 @@ unless it is looping — so the position past the end is turned back into 0 expl
 
 ## The ROW belongs to `@studio/ui-mini-player`
 
-The bar's layout — play/pause, the title line, the scrubber between two clocks, the close top
-right — is the shared component k7 mounts for its reference tracks
-(`packages/ui-mini-player/docs/miniPlayer.md`). It owns no transport, which is what makes it
-shareable: the library plays over three destinations and the editor plays a file in the browser beside a
+The bar's layout — play/pause, the title line, the scrubber between two clocks — is the shared
+component k7 mounts for its reference tracks (`packages/ui-mini-player/docs/miniPlayer.md`). It
+owns no transport, which is what makes it shareable: the library plays over three destinations and the editor plays a file in the browser beside a
 running engine, and neither of those fits in a bar.
 
 What stays here is what the médiathèque has to say: the version badge, the artist and album,
@@ -141,8 +141,7 @@ sit there indefinitely — which no player does. A second effect starts the head
 null and the queue is not empty.
 
 It never fires between two tracks: `now` is not cleared when a song ends ("what I have just
-heard" outlives the last sample), so the case only arises before the first play or after closing
-the bar.
+heard" outlives the last sample), so the case only arises before the first play.
 
 And the bar appears for a non-empty queue, not only for a loaded song: otherwise the button that
 shows the queue would live in a bar the queue is not enough to raise, and you would add a song
