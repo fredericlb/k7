@@ -25,8 +25,10 @@ interface StoreFile {
 
 /** How many entries the account's store keeps. */
 const MAX_ENTRIES = 6000;
-/** How long new parses wait to be written, so a compile's hundreds are ONE write. */
+/** How long the store must stay quiet before it is written, so a compile's hundreds are ONE write. */
 const FLUSH_MS = 2000;
+/** …and the longest a new parse waits all the same, while parses keep coming. */
+const MAX_WAIT_MS = 30_000;
 /** The bundle's own store, beside `bin/`. */
 export const SEED_FILE = "parse-cache.json";
 
@@ -36,6 +38,9 @@ let entries: Record<string, unknown> | null = null;
 let seed: Record<string, unknown> | null | undefined;
 let dirty = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
+/** When the oldest unwritten parse came, or 0 when everything is written. */
+let dirtySince = 0;
+let exitHooked = false;
 
 /** The running bundle file, or null for a source run under a loader, or a test. */
 function bundleFile(): string | null {
@@ -105,15 +110,25 @@ export function storeParse(key: string, value: unknown): void {
   delete mine[key]; // re-inserted at the young end: insertion order is the eviction order
   mine[key] = value;
   dirty = true;
-  if (!timer) {
-    timer = setTimeout(flush, FLUSH_MS);
-    timer.unref?.();
+  const now = Date.now();
+  if (!dirtySince) dirtySince = now;
+  // Whatever is unwritten when the process ends cleanly is written then.
+  if (!exitHooked) {
+    exitHooked = true;
+    process.once("exit", flush);
   }
+  // Rearmed on every parse, so the whole serialization runs once things go quiet — docs/moduleCache.md.
+  if (timer) clearTimeout(timer);
+  const wait = Math.min(FLUSH_MS, dirtySince + MAX_WAIT_MS - now);
+  timer = setTimeout(flush, Math.max(0, wait));
+  timer.unref?.();
 }
 
 /** Write the account's store, the oldest entries past the bound dropped; atomic, so a crash leaves the old one. */
 export function flush(): void {
+  if (timer) clearTimeout(timer);
   timer = null;
+  dirtySince = 0;
   if (!dirty || !file || !entries) return;
   dirty = false;
   const keys = Object.keys(entries);
@@ -135,6 +150,7 @@ export function resetParseStore(): void {
   entries = null;
   seed = undefined;
   dirty = false;
+  dirtySince = 0;
   if (timer) clearTimeout(timer);
   timer = null;
 }
