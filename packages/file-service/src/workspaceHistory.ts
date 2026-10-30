@@ -113,13 +113,76 @@ function diffBin(
   return blobs;
 }
 
+/** A record's "before" side, rebased by every record that lands while it runs — docs/history.md. */
+interface Inflight {
+  text: Map<string, string>;
+  bin: Map<string, string>;
+  pre: Map<string, Buffer>;
+}
+
 export class WorkspaceHistory {
   // One ProjectHistory per active project, cached so the on-disk journal is read once.
   private cache: { dir: string; h: ProjectHistory } | null = null;
   // The last text image, so the next one only re-reads what moved. See textOf.
   private textCache = new Map<string, { stamp: string; text: string }>();
+  // Records run side by side; an undo or redo runs alone — docs/history.md.
+  private readonly records = new Set<Promise<unknown>>();
+  private readonly inflight = new Set<Inflight>();
+  private exclusiveWaiting = 0;
+  private exclusiveTail: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly host: HistoryHost) {}
+
+  /** Run `fn` beside other records, but never while an undo or redo is pending or running. */
+  private async shared<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.exclusiveWaiting > 0) await this.exclusiveTail;
+    const run = fn();
+    const settled = run.catch(() => {});
+    this.records.add(settled);
+    try {
+      return await run;
+    } finally {
+      this.records.delete(settled);
+    }
+  }
+
+  /** Run `fn` alone: after every record in flight, before any that starts later. */
+  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    this.exclusiveWaiting++;
+    const run = this.exclusiveTail
+      .then(async () => {
+        while (this.records.size) await Promise.all(this.records);
+        return fn();
+      })
+      .finally(() => {
+        this.exclusiveWaiting--;
+      });
+    this.exclusiveTail = run.catch(() => {});
+    return run;
+  }
+
+  /** What one landed record wrote becomes the starting point of every record still running. */
+  private rebase(
+    changes: FileChange[],
+    blobs: { path: string; after: Buffer | null }[],
+    afterBin: Map<string, string>,
+  ): void {
+    for (const other of this.inflight) {
+      for (const c of changes)
+        if (c.after === null) other.text.delete(c.path);
+        else other.text.set(c.path, c.after);
+      for (const b of blobs) {
+        const stamp = afterBin.get(b.path);
+        if (stamp === undefined || b.after === null) {
+          other.bin.delete(b.path);
+          other.pre.delete(b.path);
+        } else {
+          other.bin.set(b.path, stamp);
+          other.pre.set(b.path, b.after);
+        }
+      }
+    }
+  }
 
   private history(dir: string): ProjectHistory {
     if (this.cache?.dir !== dir)
@@ -139,6 +202,14 @@ export class WorkspaceHistory {
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
     mode: JournalMode = "step",
+  ): Promise<Recorded<T>> {
+    return this.shared(() => this.recordNow(label, mutate, mode));
+  }
+
+  private async recordNow<T>(
+    label: string,
+    mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
+    mode: JournalMode,
   ): Promise<Recorded<T>> {
     const dir = this.host.activeProject();
     if (!dir) {
@@ -162,7 +233,14 @@ export class WorkspaceHistory {
       }
     };
     const before = this.treeShot(dir);
-    const result = await mutate(snapshot);
+    const self: Inflight = { text: before.text, bin: before.bin, pre };
+    this.inflight.add(self);
+    let result: T;
+    try {
+      result = await mutate(snapshot);
+    } finally {
+      this.inflight.delete(self);
+    }
     const after = this.treeShot(dir);
     // Null until the diff is taken: a throw below must never read as a false "nothing changed".
     let files: ChangedFile[] | null = null;
@@ -170,6 +248,8 @@ export class WorkspaceHistory {
       const changes = diffText(before.text, after.text);
       const blobs = diffBin(this.host.root, before.bin, after.bin, pre);
       files = changedFiles(this.host.toRel(dir), changes, blobs);
+      // Even a `skip` write is not the others' to undo.
+      this.rebase(changes, blobs, after.bin);
       const h = this.history(dir);
       // A `skip` write is still diffed, for `files` and the tokens, and simply not kept.
       if ((changes.length || blobs.length) && mode !== "skip") {
@@ -233,21 +313,25 @@ export class WorkspaceHistory {
   }
 
   /** Undo the most recent journalled change on the active project. */
-  async undo(): Promise<HistoryPeek | null> {
-    const dir = this.host.activeProject();
-    if (!dir) return null;
-    const r = await this.history(dir).undo();
-    if (r) this.host.invalidateProjectDoc();
-    return r;
+  undo(): Promise<HistoryPeek | null> {
+    return this.exclusive(async () => {
+      const dir = this.host.activeProject();
+      if (!dir) return null;
+      const r = await this.history(dir).undo();
+      if (r) this.host.invalidateProjectDoc();
+      return r;
+    });
   }
 
   /** Redo the change undo just reverted. */
-  async redo(): Promise<HistoryPeek | null> {
-    const dir = this.host.activeProject();
-    if (!dir) return null;
-    const r = await this.history(dir).redo();
-    if (r) this.host.invalidateProjectDoc();
-    return r;
+  redo(): Promise<HistoryPeek | null> {
+    return this.exclusive(async () => {
+      const dir = this.host.activeProject();
+      if (!dir) return null;
+      const r = await this.history(dir).redo();
+      if (r) this.host.invalidateProjectDoc();
+      return r;
+    });
   }
 
   /** The open project's journal for the History panel, its paths PROJECT-relative like a commit's. */
