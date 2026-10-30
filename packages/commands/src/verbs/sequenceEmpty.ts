@@ -89,6 +89,8 @@ export function writeEmptySequences(
         (doc) => {
           doc.at([]).setIn(["from"], "1:1");
           doc.at([]).setIn(["to"], end);
+          // Empty, not absent: a sequence without its `notes` list does not load, and nor does the project.
+          doc.at([]).setIn(["notes"], []);
         },
         { create: true },
       );
