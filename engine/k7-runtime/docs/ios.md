@@ -43,7 +43,7 @@ interface it has as a program:
 - **The engine** opens its device without inputs until the microphone is granted (`STUDIO_ENGINE_INPUTS`). JUCE's
   iOS device asks for the microphone the moment inputs open, and JUCE's `RuntimePermissions` answers "granted"
   on iOS whatever the truth.
-- **Spawning anything** — ffmpeg, mpv, the engine's `--decode`, a stem cut — fails at once with a reason, in the
+- **Spawning anything** — ffmpeg, the engine's `--decode`, a stem cut — fails at once with a reason, in the
   simulator too (`Processes.cpp`). The simulator would let it through, and it must not promise what a phone refuses.
 
 **stdout and stderr go to the system log** (`StdioLog.swift`), subsystem `se.frediver.k7`, with each line keeping

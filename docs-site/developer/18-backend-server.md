@@ -35,7 +35,8 @@ The **zod schema in `server.ts` is the gate**, not a description:
 const prefsSchema = z.object({
   engineId: z.string().optional(),
   commands: z.record(z.string(), commandPrefSchema).optional(),
-  playbackTarget: z.string().optional(),
+  playbackTarget: z.string().optional(), // read by nothing, declared so a stored document still saves
+  favorites: z.array(z.string()).optional(),
 });
 ```
 

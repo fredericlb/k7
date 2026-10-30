@@ -66,7 +66,7 @@ export function useSongTap(
         open: (entry) => latest.current.open(entry),
         play: (entry, master) => {
           const p = latest.current.playback;
-          p.start({ entry, path: `${entry.path}/${master}`, target: p.target });
+          p.start({ entry, path: `${entry.path}/${master}` });
         },
         touch: touchScreen,
       }),

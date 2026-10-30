@@ -96,8 +96,8 @@ origin, one nav. "Libraries" is already the module libraries' page, which is why
 is titled after the médiathèque and not after a library. Their counts are known only on the media
 pages, which load the volume's summary; elsewhere the entries carry none rather than a stale
 number. Only `/media/…` mounts the library's playback (`MediaPage.tsx`): it probes and leases an
-engine, which the other home pages deliberately do not, and it puts the playback picker in the
-sidebar's actions, beside the user menu. They are
+engine, which the other home pages deliberately do not, and it puts the queue button in the
+sidebar's actions, above the engine selector. They are
 routes, so going between them reloads nothing — and a rehearsal take outlives all of them:
 `RehearsalRecording` wraps their `<Routes>` (`apps/k7/frontend/src/appMain.tsx`), holding nothing
 until a take starts, so a take begun on a song page keeps recording while you open the media

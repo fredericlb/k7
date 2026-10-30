@@ -1,6 +1,6 @@
 // mount.ts — the media library's routes, mounted inside k7's backend: a folder on a volume
 // scanned by @studio/mediatek, the shares, the hunt, the engine registry, the accounts' file hub,
-// the host's mpv player and the stems. The filesystem is the index; the one exception is the
+// and the stems. The filesystem is the index; the one exception is the
 // comments on a share, which have many writers (../../docs/media/comments.md).
 // It mounts no auth and no CORS: server.ts applies both to the whole process before calling this.
 // A library token is valid only while listed in its store under the auth dir (../authState.ts).
@@ -16,11 +16,8 @@ import {
   mediatekDir,
 } from "@studio/mediatek/layout";
 import { startRevisionRefresh } from "@studio/mediatek/revision";
-import { configureMpv } from "@studio/mpv-player/player";
-import { createPlayerRouter } from "@studio/mpv-player/router";
 import type { Express, Request, RequestHandler } from "express";
 import { authDir } from "../authState.ts";
-import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
@@ -184,18 +181,8 @@ export function mountMedia(
     favoritesRouter(practice, (req) => serverOf(fileHub, req)),
   );
 
-  // Play on THIS host's outputs under a dot-directory no family scan sees — packages/mpv-player/docs/mpvPlayer.md.
-  configureMpv({
-    mediaRoot: mediatekDir,
-    socketDir: () => join(mediatekDir(), ".player"),
-  });
   // Guards every `/api` route mounted after it, so the unguarded ones above must stay above.
-  app.use(
-    "/api",
-    bearerOrSession(requireAuth),
-    // Email first: mpv-player names each listener's socket directory after it.
-    createPlayerRouter((req) => emailOf(req) ?? subOf(req) ?? ""),
-  );
+  app.use("/api", bearerOrSession(requireAuth));
 
   // Cutting a song into stems, driven from HERE because the bytes are here — ../../docs/media/stems.md.
   app.use(

@@ -1,7 +1,6 @@
 // useSongEngine.ts — the engine, seen from the médiathèque: the host's selector's when it has one,
-// else the account's; whether it ANSWERS, which puts the moteur in the destinations menu, and — only
-// while that destination is the chosen one — the single socket this tab drives it through. Looking
-// costs no socket; playing somewhere else must not hold one. See ../../docs/playbackTarget.md.
+// else the account's; whether it ANSWERS, which makes it where a song plays, and the single socket
+// this tab drives it through. See ../../docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
 import { engineOutput } from "@studio/engine-browser/engine-output";
@@ -15,7 +14,7 @@ import { engines } from "../api";
 import { useLibraryHost } from "../host";
 
 export interface SongEngine {
-  /** An engine answered: the menu row is offerable, whether or not anything is connected to it. */
+  /** An engine answered: songs play on it rather than in this tab. */
   available: boolean;
   /** Which engine answered: what the server is asked about when a song must reach its machine. */
   engineId: string | null;
@@ -35,11 +34,7 @@ export interface SongEngine {
 /** Every state frame's transport, ~20 Hz: handed out rather than held, so it re-renders nothing by itself. */
 export type EngineFrame = (playing: boolean, playhead: number) => void;
 
-/** @param connected whether the account's destination IS the engine — see ../../docs/playbackTarget.md. */
-export function useSongEngine(
-  connected: boolean,
-  onFrame?: EngineFrame,
-): SongEngine {
+export function useSongEngine(onFrame?: EngineFrame): SongEngine {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   // In a ref: the socket's subscription must call the latest one without being reopened.
@@ -59,7 +54,7 @@ export function useSongEngine(
   // Stops the renew loop and says goodbye, in a ref because the lease is taken async.
   const lease = useRef<(() => void) | null>(null);
 
-  // Looking, always: the menu has to say whether the moteur is offerable before anything is chosen.
+  // Looking, always: whether an engine answers decides where the next song plays.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` is a trigger, not a value read here — a probe is a snapshot.
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +72,7 @@ export function useSongEngine(
 
   useEffect(() => {
     const found = pick.current;
-    if (!connected || !chosenId || !found) return;
+    if (!chosenId || !found) return;
     // `project: null`: pl8 opens no project, so it must not compete for one.
     lease.current = engines().hold(found, { project: null });
     // Per SERVICE and per PERSON — two people may choose one machine, and k7 must keep its slot.
@@ -109,7 +104,7 @@ export function useSongEngine(
       client.current = undefined;
       setPlaying(false);
     };
-  }, [connected, chosenId, user]);
+  }, [chosenId, user]);
 
   // The host's radio moved: subscribe or let go on the open socket, without reconnecting.
   useEffect(() => {

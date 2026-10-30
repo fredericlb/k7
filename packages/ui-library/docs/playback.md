@@ -110,8 +110,7 @@ on the same session, driving the same document.
 
 The `<audio>` element stays mounted for the engine as well as for the browser, silent in the first
 case: it is what reports the master's **duration**, the engine's state frame carrying a playhead
-and no length. When mpv plays, it is not mounted at all — that host has already read the file and
-reports a duration of its own.
+and no length.
 
 What is loaded is identified by a **path**, never a name: two tracks can share a name, not a path.
 And the document name sent to the engine carries the variant (`track · instrumental`), because the
@@ -120,38 +119,30 @@ indistinguishable lines in its log.
 
 ## Knowing a track ended by itself
 
-The three destinations do not say so the same way, and a queue must only advance on a real end:
+The two destinations do not say so the same way, and a queue must only advance on a real end:
 
 | destination | signal | what to make of it |
 |---|---|---|
 | the browser | `onEnded` | exact: it only fires for an end |
 | the engine | `playing` goes false | ambiguous: that is also what a requested stop does |
-| mpv | `idle` | plain, but a requested stop looks like it too |
 
-Hence the "we stopped" flags, set by **every** deliberate transition (start, toggle, close) and
-cleared by the effect that reads them. Without them, pressing pause chains to the next track. The
-engine keeps its own, separate from mpv's: the two are read by two effects on two clocks, and one
-shared flag would have each clearing the other's evidence.
+Hence the engine's "we stopped" flag, set by **every** deliberate transition (start, toggle) and
+cleared by the effect that reads it. Without it, pressing pause chains to the next track.
 
 `ended` is a **counter** and not a boolean: what a player wants is the event, and a flag would
 have to be cleared by whoever saw it. It exists only for the queue, the one thing here with a
 "next". `now` is deliberately not cleared at the end — "what did I just listen to" outlives the
 last sample — and nothing clears it but the next song started.
 
-## The three positions
+## The two positions
 
 - The browser is tracked in `requestAnimationFrame` while it plays: `timeupdate` only fires about
   four times a second, which reads as stutter on a waveform.
 - The engine pushes its frame fast enough to need no loop; what is kept aside is **where it was
   asked to be**, because between the request and the first frame (~20 Hz) that is the only honest
   answer. It is read only while `loadedEnginePath` says the document on that machine is ours.
-- mpv is **polled** twice a second: it is elsewhere and has no way to push its position here. A
-  missed tick is silent — a busy machine is not an error to show someone who is listening. Cursor
-  movement is optimistic and the next tick tells the truth: waiting for the round trip would make
-  the cursor jump back under the mouse.
-
-Past the end, neither mpv nor the engine rewinds by itself — mpv is `idle`, the engine replays
-nothing — so the button asks for the file again from zero. The `<audio>` element rewinds on its
+Past the end, the engine does not rewind by itself — it replays nothing — so the button asks for
+the file again from zero. The `<audio>` element rewinds on its
 own, which is exactly the behaviour a bar that outlives a track needs.
 
 A document the session never held needs a `reset` before being sent: an apply is a diff, and a
@@ -164,11 +155,11 @@ the transport.
 `usePlayback()` carries what plays and how to drive it; WHERE the transport is lives in a store of
 its own (`src/playback/position.ts`), read with `usePlaybackPosition()`. The position moves up to
 60 times a second, and a value in the context re-renders every consumer of it — the library with
-its tree, the playlists, the queue, the destination picker — none of which draws a playhead. Only
+its tree, the playlists, the queue — none of which draws a playhead. Only
 the bar and the open song's waveform read the store, and the waveform reads it only while its own
 version is the one playing.
 
-Every source writes into that store and none into React state: the browser's animation-frame loop,
-mpv's poll, and the engine's frames, which `useSongEngine` hands to a callback instead of holding —
+Every source writes into that store and none into React state: the browser's animation-frame loop
+and the engine's frames, which `useSongEngine` hands to a callback instead of holding —
 a playhead in its state would re-render the provider twenty times a second for nothing. The store
-drops a write that changes nothing, so a poll repeating the same duration notifies nobody.
+drops a write that changes nothing, so a frame repeating the same duration notifies nobody.

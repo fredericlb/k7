@@ -27,7 +27,7 @@ or hold secrets.
 | `/api/settings/*` | session only, and an admin (`isAdminRequest` in `apps/k7/backend/src/media/admin.ts`: the session's `groups` against `AUTH_ADMIN_GROUPS`, which empty admits nobody); 403 otherwise |
 | `/api/stems/*` | bearer or session |
 | `/api/engine-local` | session |
-| `/api/player*` (mpv) | bearer or session, and the catch-all guard for every `/api` route mounted after it |
+| every `/api` route mounted after `/api/practice` | bearer or session: a catch-all guard |
 | `POST /api/token` | session only: mints a bearer for the signed-in user |
 | `GET /api/token/pair?return=…` | session; redirects a token to a loopback address only (`isLoopbackReturn`) |
 
@@ -130,9 +130,6 @@ outputs) so the same request joins the running job instead of starting another.
 
 ## Playback
 
-- **The media library destination** is `@studio/mpv-player` (`packages/mpv-player/src/router.ts`):
-  `GET /api/player`, `POST /api/player/play`, `/pause`, `/seek`, `/stop`, per person, with mpv's
-  sockets under `.player/` on the volume.
 - **The engine destination** uses `POST /api/engine-local` `{engineId, path}`
   (`routes/engineLocal.ts`): the song is brought down to the engine's machine through the tunnel
   first, and the answer is its path there, which the browser then hands the engine.

@@ -112,7 +112,7 @@ workspaces to another.
 
 A hosted process listens on **loopback only** and its one gate is a secret the hub generated for
 it. What only makes sense on an engine's machine is off: CORS (the hub answers the browser), the
-machine's speakers (mpv), the médiathèque puller (the library is already on this disk) and the
+médiathèque puller (the library is already on this disk) and the
 dial to a local engine at boot.
 
 ### In dev, an edit stops them

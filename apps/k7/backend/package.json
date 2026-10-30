@@ -23,7 +23,6 @@
     "@studio/file-hub": "*",
     "@studio/lyrics": "*",
     "@studio/mediatek": "*",
-    "@studio/mpv-player": "*",
     "@studio/panel-rules": "*",
     "@studio/rehearsal-server": "*",
     "@studio/rehearsal-shared": "*",

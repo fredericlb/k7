@@ -52,12 +52,6 @@ account: that cost was paid per account, at every first request and every deploy
 with which the file service transpiles and jails a user's TypeScript DSP (`packages/song/docs/jsdspJail.md`). Its target is node 24, like the desktop and phone
 bundles.
 
-## No `mpv` in the runtime stage
-
-The container has no sound device, and alpine's `mpv` pulls X, Wayland and mesa libraries for a
-player that could never be heard. Without it the backend mounts no host-player routes and the
-library does not offer the host's speakers (`packages/mpv-player/docs/mpvPlayer.md`).
-
 ## tini is PID 1, in the image
 
 The backend starts a file service per account, and each of those starts ffmpeg for a video or an

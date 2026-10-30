@@ -11,7 +11,6 @@ backend process and drawn by k7's frontend; neither has a server or an app of it
 | `packages/mediatek` | The media library as a library: the volume layout, the scan, the catalogue, every write. No HTTP. |
 | `apps/k7/backend/src/media` | The media library's HTTP surface (`mountMedia`), the hunt, the stems cut, the sweeps |
 | `packages/stem-separation` | The seam a stem separation is handed through, and the job id |
-| `packages/mpv-player` | Playing on the server's own outputs (the "media library" playback destination) |
 | `packages/ui-library` | The media library's screens, mounted by k7 |
 | `packages/ui-mini-player` | The transport bar at the bottom of a page |
 | `packages/rehearsal-server` | The rehearsal recorder's routes (`mountRehearsal`) and its SQLite store |
@@ -53,7 +52,7 @@ Frontend, in `apps/k7/frontend/src/appMain.tsx` and `apps/k7/frontend/src/projec
 | Data | Where | Owner |
 |---|---|---|
 | Songs, samples, recordings, playlists | The media library volume, `$STUDIO_MEDIATEK` (default `<state>/mediatek`, see `packages/engine-client/src/paths.ts`) | `packages/mediatek` |
-| Derived state (index, waveform caches, mpv sockets, hunt history, slskd settings) | Dot-directories on the same volume: `.cache/`, `.player/`, `.hunts/`, `.settings/` | the backend |
+| Derived state (index, waveform caches, hunt history, slskd settings) | Dot-directories on the same volume: `.cache/`, `.hunts/`, `.settings/` | the backend |
 | Rehearsal rows and sheet files | `k7.db` and `sheets/` under `K7_DATA_DIR` (default `~/.studio/k7`) | `packages/rehearsal-server` |
 | Session audio, moment clips, published versions | The media library: `recordings/` and `songs/K7/` | written by the rehearsal server through the library's HTTP API |
 

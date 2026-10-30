@@ -8,7 +8,7 @@ that mount it play things that have nothing in common —
 | | the médiathèque | k7's references | a release's page | a k7 project |
 |---|---|---|---|---|
 | what plays | a song of the médiathèque | a reference track in the workspace | a published version | the arrangement |
-| through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always | this tab's `<audio>` | the engine, over its socket |
+| through what | the engine, or this tab's `<audio>` while none answers | this tab's `<audio>`, always | this tab's `<audio>` | the engine, over its socket |
 | beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered | the waveform player it drives | a reference track, which keeps the system's controls |
 
 — so a bar that owned a transport could serve exactly one of them. What is shared is the row: a
@@ -65,8 +65,8 @@ and a progress bar that cannot be scrubbed is one people try to scrub anyway. It
 until a duration exists, since a range with no maximum is a control that lies about where you are.
 
 **It seeks once, when it is let go** (`useScrub.ts`). A range fires `input` on every pixel of a
-drag, and a host that seeks on each sends a burst of seeks — to mpv on the host, or through the
-engine — that the far end works through long after the finger has stopped. So while it moves the
+drag, and a host that seeks on each sends a burst of seeks — through the engine, say — that the far
+end works through long after the finger has stopped. So while it moves the
 bar shows the thumb's position locally, clock included, and `onSeek` is called on the release:
 the pointer let go (anywhere, not only over the range), the native `change`, a key released, or
 focus leaving. Each is the same idempotent commit, so a keyboard's arrows still seek, one step per
@@ -124,6 +124,6 @@ so every host is a media player without doing anything — and the system's butt
   player drives nothing.
 
 The browser shows these controls only for a page that is itself making sound — the médiathèque
-playing in the tab, a reference track. Playing on mpv or the engine, the page is silent, and
+playing in the tab, a reference track. Playing on the engine, the page is silent, and
 only the Android app, which relays the session itself, shows them then
 (`engine/k7-runtime/docs/android.md`).

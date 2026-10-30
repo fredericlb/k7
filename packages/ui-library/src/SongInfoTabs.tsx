@@ -10,7 +10,6 @@ import { useMemo } from "react";
 import { library } from "./api";
 import { FollowedText } from "./FollowedText";
 import { useLabels, useLibraryHost } from "./host";
-import type { PlaybackTarget } from "./playback/targets";
 import { SongPlayer } from "./SongPlayer";
 import { SongTagsForm } from "./SongTagsForm";
 import { SongTextEditor } from "./SongTextEditor";
@@ -28,7 +27,6 @@ export function SongInfoTabs({
   entry,
   attachments: a,
   transport,
-  target,
   transpose,
   onSaved,
   onStatus,
@@ -37,7 +35,6 @@ export function SongInfoTabs({
   entry: MediatekEntry;
   attachments: SongAttachments;
   transport: SongTransport;
-  target: PlaybackTarget;
   transpose: number;
   onSaved: () => void;
   onStatus: (status: string) => void;
@@ -89,7 +86,7 @@ export function SongInfoTabs({
   const waveform = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-[200px] flex-1">
-        <SongPlayer entry={entry} target={target} transport={transport} />
+        <SongPlayer entry={entry} transport={transport} />
       </div>
       {entry.variants?.length ? (
         <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">

@@ -30,7 +30,7 @@ The stages:
 | `deps` | `toolchain` | `npm ci` of the whole workspace, with an npm cache mount. |
 | `frontend-build` | `deps` | Copies the sources, sets `VITE_APP_VERSION` from the `APP_VERSION` build argument, runs `vite build` for `k7-frontend`. No typecheck here: CI typechecks separately. |
 | `backend-deps` | `toolchain` | `npm ci --workspace k7-backend --omit=dev`: the backend's production dependency closure only. |
-| `runtime` | `node:24-alpine` | Adds `yt-dlp` and `ffmpeg` (no `mpv`: a container has no speakers); copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
+| `runtime` | `node:24-alpine` | Adds `yt-dlp` and `ffmpeg`; copies the backend's `node_modules`, **the whole repository**, and the built frontend into `apps/k7/frontend/dist`. |
 
 The whole repository is copied because the `@studio/*` and `@frediverse/*` entries in
 `node_modules` are symlinks to workspace source folders, consumed as TypeScript: a package left out

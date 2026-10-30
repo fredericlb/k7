@@ -47,7 +47,7 @@ RUN gcc -O2 -static -DDSP_UID=10001 -DDSP_GID=10001 -o /src/dsp-exec /src/dsp-ex
 
 # ---- final image --------------------------------------------------------------
 FROM node:24-alpine AS runtime
-# yt-dlp for the hunt; ffmpeg for video and an mp3 mixdown — audio is decoded and encoded in WebAssembly. No mpv: no speakers.
+# yt-dlp for the hunt; ffmpeg for video and an mp3 mixdown — audio is decoded and encoded in WebAssembly.
 RUN apk add --no-cache yt-dlp ffmpeg
 # tini as PID 1: it reaps whatever a dead file service left re-parented to it, and forwards the stop (docs/images.md).
 RUN apk add --no-cache tini

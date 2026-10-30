@@ -10,7 +10,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
 import { usePlaybackPosition } from "./playback/position";
-import type { PlaybackTarget } from "./playback/targets";
 import { SongInfoTabs } from "./SongInfoTabs";
 import { SongMenu } from "./SongMenu";
 import { useSongAttachments } from "./useSongAttachments";
@@ -30,14 +29,11 @@ function HeaderClock({ transport }: { transport: SongTransport }) {
 
 export function SongEditor({
   entry,
-  playbackTarget,
   onBack,
   onSaved,
   manage,
 }: {
   entry: MediatekEntry;
-  /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
-  playbackTarget: PlaybackTarget;
   onBack: () => void;
   onSaved: () => void;
   /** Whether this account may remove a variant — apps/k7/backend/docs/media/gate.md. */
@@ -52,7 +48,7 @@ export function SongEditor({
   const folder = entry.path;
   const master = entry.meta?.master;
   const [status, setStatus] = useState("");
-  const transport = useSongTransport(entry, playbackTarget);
+  const transport = useSongTransport(entry);
   const attachments = useSongAttachments(entry, onSaved, setStatus);
   // What is READ is transposed, never the audio; another song starts in its own key.
   const [transpose, setTranspose] = useState(0);
@@ -128,7 +124,6 @@ export function SongEditor({
           entry={entry}
           attachments={attachments}
           transport={transport}
-          target={playbackTarget}
           transpose={transpose}
           onSaved={onSaved}
           onStatus={setStatus}

@@ -234,15 +234,15 @@ const commandPrefSchema = z.object({
   menu: z.union([z.boolean(), z.array(z.string())]).optional(),
 });
 
-/** What this service remembers about a person — the GATE, not a description; `playbackTarget` is ../docs/media/playbackTarget.md. */
+/** What this service remembers about a person — the GATE, not a description. */
 const prefsSchema = z.object({
   engineId: z.string().optional(),
   commands: z.record(z.string(), commandPrefSchema).optional(),
+  // Read by nothing: declared so an account's stored document still passes this gate on its next save.
   playbackTarget: z.string().optional(),
   // Kept so a page's wholesale save still passes; it only seeds the favorites store (./media/routes/favorites.ts).
   favorites: z.array(z.string()).optional(),
 });
-// Only `/preferences`, which the mpv player's `/player/*` routes above never shadow.
 app.use(
   "/api",
   requireAuth,

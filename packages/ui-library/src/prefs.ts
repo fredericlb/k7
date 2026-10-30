@@ -1,6 +1,6 @@
 // prefs.ts — the account's médiathèque preferences, read once and PATCHED. The route replaces
 // wholesale, so this is the one place that holds the whole object; a caller that PUT its own
-// field alone would clear everybody else's. See docs/playbackTarget.md.
+// field alone would clear everybody else's.
 
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import { engines } from "./api";
@@ -9,8 +9,6 @@ import { engines } from "./api";
 export interface Pl8Prefs extends EnginePrefs {
   /** Which engine auditions a module. The registry's own field. */
   engineId?: string;
-  /** Where playback happens, typed `string` because the backend stores whatever it is given. */
-  playbackTarget?: string;
 }
 
 /** The last known whole object, at module level because two hooks share a DOCUMENT, not a subtree. */

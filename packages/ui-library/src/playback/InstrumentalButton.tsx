@@ -42,10 +42,7 @@ export function InstrumentalButton() {
   /** Play the same song from `path`, where the transport is now — the variant tabs' switch. */
   const playFrom = (path: string, version?: string) => {
     if (!now) return;
-    start(
-      { entry: now.entry, path, target: now.target, version },
-      positions?.get().position ?? 0,
-    );
+    start({ entry: now.entry, path, version }, positions?.get().position ?? 0);
   };
 
   // A cut asked for here lands: the song switches to it — only if it is still this song playing its master.

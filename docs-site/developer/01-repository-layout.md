@@ -124,7 +124,7 @@ Four packages are published by version for consumers outside this repository: `w
 | Audio processing | `audio-analysis`, `audio-probe`, `audio-passes`, `take-render`, `dsp`, `stem-separation` |
 | Engine connection | `engine-protocol`, `engine-client`, `engine-browser`, `engine-registry`, `engine-tunnel`, `supervisor-host` |
 | Disk and sync | `file-service`, `file-hub`, `live-sync`, `user-prefs` |
-| Media library | `mediatek`, `mpv-player`, `ui-library`, `ui-mini-player` |
+| Media library | `mediatek`, `ui-library`, `ui-mini-player` |
 | App shell and views | `project-shell`, `ui-chains`, `ui-chains-react`, `ui-editor`, `ui-eyes`, `ui-timeline`, `ui-waveform`, `ui-module-builder`, `ui-user-menu` |
 | Shared types | `web-protocol`, `graph-model` |
 | Plugin contract | `k7-sdk`, `k7-plugins` |

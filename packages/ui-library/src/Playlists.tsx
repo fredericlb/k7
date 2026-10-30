@@ -381,7 +381,6 @@ export function Playlists({
                       ...(r.take.kind === "master"
                         ? {}
                         : { version: r.take.name }),
-                      target: playback.target,
                     });
                   }}
                   playingPath={

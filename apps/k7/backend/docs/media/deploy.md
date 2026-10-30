@@ -60,8 +60,7 @@ the body before it**.
 
 `yt-dlp` and `ffmpeg` for the hunt's fallback and the decodes ([hunt.md](hunt.md),
 [analysis.md](analysis.md)), and `git`, `git-lfs` and `openssh-client` for the file
-hub's clones. Not `mpv`: a container has no speakers, so the host-player routes are simply
-absent there (`packages/mpv-player/docs/mpvPlayer.md`).
+hub's clones.
 
 The backend's install is `--workspace k7-backend --omit=dev`, and `node_modules/@studio/*` are
 symlinks into the workspace: a package the media routes import and `k7-backend`'s `package.json`

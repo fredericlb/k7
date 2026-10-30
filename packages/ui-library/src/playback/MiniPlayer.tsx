@@ -4,14 +4,13 @@
 // what is here is the médiathèque's reading of it, its position row the waveform of what plays
 // when that file has a shape. See ../../docs/miniPlayer.md.
 
-import { Disc3, ListVideo } from "@frediverse/ui/icons";
+import { Disc3 } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
 import { useSongShape } from "../songWaveform";
 import { InstrumentalButton } from "./InstrumentalButton";
 import { usePlayback } from "./PlaybackProvider";
 import { usePlaybackPosition } from "./position";
-import { QueueButton } from "./QueueButton";
 import { playbackTargetInfo } from "./targets";
 import { useStartNext } from "./useQueueAdvance";
 import { WaveformTrack } from "./WaveformTrack";
@@ -22,49 +21,17 @@ function albumOf(path: string): string {
   return parts.length >= 4 ? parts[parts.length - 2] : "";
 }
 
-/** The bar cut down to what it says when nothing plays but the queue waits: no transport, no scrubber. */
-function QueueOnly() {
-  const { queue } = usePlayback();
-  const l = useLabels().playback;
-  return (
-    <Bar
-      icon={ListVideo}
-      title={l.queueWaiting(queue.length)}
-      playing={false}
-      position={0}
-      duration={0}
-      labels={{ ...l.bar, region: l.queueRegion }}
-      onToggle={() => {}}
-      onSeek={() => {}}
-      mediaSession={false}
-      transport={null}
-      track={null}
-    >
-      <QueueButton />
-    </Bar>
-  );
-}
-
 export function MiniPlayer() {
-  const {
-    now,
-    playing,
-    error,
-    toggle,
-    seek,
-    queue,
-    target: wanted,
-  } = usePlayback();
+  const { now, playing, error, toggle, seek, queue } = usePlayback();
   // The bar is what follows the playhead, so it alone re-renders with it.
   const { position, duration } = usePlaybackPosition();
   const l = useLabels().playback;
   // The skip the queue's own advance takes, offered to the system's controls while there is a next.
-  const startNext = useStartNext(wanted);
+  const startNext = useStartNext();
   // The shape of the file PLAYING — the master, a variant or the instrumental — and none means the plain scrubber.
   const shape = useSongShape(now?.path ?? null);
 
-  /** The bar appears for a NON-EMPTY queue too, or the queue could not bring up its own button. */
-  if (!now) return queue.length ? <QueueOnly /> : null;
+  if (!now) return null;
 
   const { entry, target, version } = now;
   const artist =
@@ -142,11 +109,8 @@ export function MiniPlayer() {
         {l.targets[where.id].label}
       </span>
 
-      {/* The library song's instrumental, and back — before the queue, being about THIS song. */}
+      {/* The library song's instrumental, and back. */}
       <InstrumentalButton />
-
-      {/* What plays next — right of the row, being a playback control. */}
-      <QueueButton />
     </Bar>
   );
 }

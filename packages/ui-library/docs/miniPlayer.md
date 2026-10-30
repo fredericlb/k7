@@ -36,15 +36,12 @@ unless it is looping — so the position past the end is turned back into 0 expl
 
 The bar's layout — play/pause, the title line, the scrubber between two clocks — is the shared
 component k7 mounts for its reference tracks (`packages/ui-mini-player/docs/miniPlayer.md`). It
-owns no transport, which is what makes it shareable: the library plays over three destinations and the editor plays a file in the browser beside a
-running engine, and neither of those fits in a bar.
+owns no transport, which is what makes it shareable: the library plays over two destinations and
+the editor plays a file in the browser beside a running engine, and neither of those fits in a bar.
 
 What stays here is what the médiathèque has to say: the version badge, the artist and album,
-"ended" against an error, the destination indicator and the queue button. The strings too —
+"ended" against an error, the destination indicator and the instrumental button. The strings too —
 they are props, filled from the host's labels ([host.md](host.md)).
-
-The queue waiting with nothing loaded is the same component with no transport and no scrubber,
-so that inside a host's dock it is drawn where every other bar is, with the host's edge slots.
 
 The duration comes from the `<audio>` element, which is mounted for whatever is loaded **even
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,
@@ -85,7 +82,7 @@ socket is a second client on the same session, driving the same project.
 ## The play queue
 
 Open a song's menu in the tree — a right-click, its ⋮ button, or a long-press on a touch screen — and pick "Add to queue". A song that ends chains into
-the next. The button right of the bar opens it: rows can be moved and removed there.
+the next. The queue button the host draws above its engine selector opens it: rows can be moved and removed there.
 
 The system's skip button — a lock screen's, a headset's — is offered while the queue holds
 something, and starts the next track exactly as an ending does: `useStartNext` is the one step
@@ -143,9 +140,9 @@ null and the queue is not empty.
 It never fires between two tracks: `now` is not cleared when a song ends ("what I have just
 heard" outlives the last sample), so the case only arises before the first play.
 
-And the bar appears for a non-empty queue, not only for a loaded song: otherwise the button that
-shows the queue would live in a bar the queue is not enough to raise, and you would add a song
-with nowhere to see it.
+**The queue's button is not in the bar** (`QueueButton`, which the host draws in its chrome — k7:
+above the sidebar's engine). A queue waits before anything plays, and a button in a bar that only a
+playing song raises would leave a song added to the queue with nowhere to see it.
 
 ### What is skipped and what stops
 
@@ -178,7 +175,7 @@ song plays. A songbook song's fact is set to the cut too, so rehearsal plays the
 
 ## Where a failure is said
 
-One field, `error`, carries every account of silence: a master the browser could not load, mpv
-refusing, and the moteur's own complaint about a clip it could not open. They are one field
+One field, `error`, carries every account of silence: a master the browser could not load and
+the moteur's own complaint about a clip it could not open. They are one field
 because the bar has one line for them and a reader has one question — why is there no sound —
 and the song's pane draws the same string for the song it has on screen.

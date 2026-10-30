@@ -95,4 +95,3 @@ bytes.
 | `packages/file-service/src/pictureRender.ts` | the server render |
 | `apps/k7/frontend/src/` | the timeline's picture lanes, drops, camera recording, `project export video` |
 
-`packages/mpv-player` is not part of the picture pipeline: it plays audio on a host's own outputs.

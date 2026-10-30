@@ -13,7 +13,7 @@ export {
 export type { LibraryLabels } from "./labels";
 export { MediaLibrary } from "./MediaLibrary";
 export { MediaPlayback } from "./MediaPlayback";
-export { PlaybackPicker } from "./playback/PlaybackPicker";
+export { QueueButton } from "./playback/QueueButton";
 export { SECTION_IDS, type SectionId } from "./routes";
 export {
   LIBRARY_SECTIONS,

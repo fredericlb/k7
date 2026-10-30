@@ -3,11 +3,7 @@
 // which probes and leases an engine — the others deliberately do not (Home.tsx).
 // See packages/ui-library/docs/host.md.
 
-import {
-  MediaLibrary,
-  MediaPlayback,
-  PlaybackPicker,
-} from "@studio/ui-library";
+import { MediaLibrary, MediaPlayback, QueueButton } from "@studio/ui-library";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SERVER_SETTINGS_ROUTE } from "./api";
@@ -20,9 +16,9 @@ export function MediaPage() {
   const [counts, setCounts] = useState<Partial<Record<string, number>>>({});
   return (
     <MediaHost>
-      {/* Around the whole frame: the picker sits in the sidebar, the bar under both. */}
+      {/* Around the whole frame: the queue button sits in the sidebar, above the engine, the bar under both. */}
       <MediaPlayback>
-        <HomeShell actions={<PlaybackPicker />} mediaCounts={counts}>
+        <HomeShell actions={<QueueButton />} mediaCounts={counts}>
           <div className="flex min-h-0 flex-1 flex-col">
             <MediaLibrary
               onOpenSettings={() => navigate(SERVER_SETTINGS_ROUTE)}
