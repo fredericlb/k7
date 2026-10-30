@@ -2,7 +2,7 @@
 # win-verify.sh — run one command on Windows, in the verify worktree C:\Users\flb\Src\k7-verify, from WSL.
 # `scripts/agent/win-verify.sh <branch> <command...>`, e.g. `... my-branch npm run test --workspace=@studio/song`.
 # It pushes the branch to `win`, checks it out detached there, then runs the command under Git Bash.
-# Not from a session isolated in a worktree: the guard refuses Windows commands there (CLAUDE.md).
+# Not from a session isolated in a worktree: the guard refuses Windows commands there (AGENTS.md).
 set -euo pipefail
 
 [ $# -ge 2 ] || { echo "usage: win-verify.sh <branch> <command...>" >&2; exit 2; }

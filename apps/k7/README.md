@@ -64,7 +64,7 @@ packages/                  studio's shared tier (consumed as raw TS source):
 The C++ engine is described in
 [../../engine/k7-runtime/docs/design.md](../../engine/k7-runtime/docs/design.md) (diff-apply strategy and
 threading rules). Development conventions for future Claude Code sessions are in
-[CLAUDE.md](CLAUDE.md).
+[AGENTS.md](AGENTS.md).
 
 ## The song format — a k7x folder
 

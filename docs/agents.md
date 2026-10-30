@@ -1,7 +1,7 @@
 # Agents in this repo
 
 What an agent (Claude Code, mostly) is given to work here quickly, and why each piece is shaped the
-way it is. The rules an agent follows are `AGENTS.md` and `CLAUDE.md`; this page is the tooling.
+way it is. The rules an agent follows are in `AGENTS.md`; this page is the tooling.
 
 ## A worktree is made ready by a script, not by memory
 
@@ -48,7 +48,7 @@ the plan.
 
 ## `scripts/agent/win-verify.sh` runs one command on Windows
 
-`scripts/agent/win-verify.sh <branch> <command...>` is the procedure of `CLAUDE.md` in one call: it
+`scripts/agent/win-verify.sh <branch> <command...>` is the procedure of `AGENTS.md` in one call: it
 pushes the branch to `win`, checks it out detached in `C:\Users\flb\Src\k7-verify`, runs `npm ci`
 when the lockfile changed since its last run, then the command, under Git Bash, from a script file
 in `%TEMP%\k7-verify`. Never PowerShell, never a `cmd.exe` command line, for the encoding reasons
