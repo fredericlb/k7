@@ -39,6 +39,10 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
     private var localSignInAt = Date.distantPast
     private var backendWatch: UUID?
     private var scripts: [WKUserScript] = []
+    // When each view's content process died lately, for the reload cap.
+    private var contentLost: [String: [Date]] = [:]
+    private static let maxReloads = 2
+    private static let reloadWindow: TimeInterval = 60
 
     override public func load() {
         guard let host = bridge?.viewController?.view else { return }
@@ -334,7 +338,16 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
         if let id = (webView as? AppWebView)?.appId { loadFailed(id, e.localizedDescription) }
     }
 
+    // A page killed as it loads would reload forever: past two reloads in a minute, the shell's Retry takes over.
     public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        let id = (webView as? AppWebView)?.appId ?? ""
+        let now = Date()
+        let recent = (contentLost[id] ?? []).filter { now.timeIntervalSince($0) < Self.reloadWindow }
+        if recent.count >= Self.maxReloads {
+            contentLost[id] = []
+            return loadFailed(id, "the page stopped again as it loaded")
+        }
+        contentLost[id] = recent + [now]
         webView.reload()
     }
 
