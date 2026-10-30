@@ -129,6 +129,15 @@ job and happens once, where `now` is read. The two flags have opposite polarity 
 writers delete rather than write the default — which is why the aspect selects the writer instead
 of the two sharing one.
 
+## `sequence empty` fills a period, on every lane at once
+
+`sequence empty <tracks> <from> <to>` writes an empty sequence of exactly `to - from` per lane and
+places it at `from`. `to` is excluded: it is the bar line the period ends on, so `5:1 9:1` is four
+bars in 4/4. The lanes come comma-joined in one command, because the timeline's selection covers
+several lanes and one gesture should be one undo. Every lane's file is found before anything is
+written: a selection only half filled is not what anybody asked for. `sequence new` stays the
+verb for a sequence placed nowhere.
+
 ## `sequence note repeat|skip` — a pad's two effects
 
 ONE implementation for both, taking the word it writes, because they are the same act on the same

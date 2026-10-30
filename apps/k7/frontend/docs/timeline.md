@@ -191,6 +191,12 @@ same line the cut tool would make there, through the same `toolLine`/`pictureToo
 two ways of cutting cannot disagree about what a cut is. The lane comes from the CARET and the
 time from the PLAYHEAD: you scrub to the frame by eye, and you choose the lane by hand.
 
+`selection sequence` turns the rectangle into empty sequences: one per sound lane it covers, each as
+long as the rectangle's period and placed where that period starts, written by one
+`sequence empty` so the lot is one undo. The period is the rectangle's cells, its last one
+included, as for `copy` and `delete`. It asks for a rectangle rather than falling back on the
+caret: a period has two ends, and a caret gives one.
+
 ## Live state is drawn by LEAVES, never by the body
 
 **The timeline body must not subscribe to the engine's state.** `EngineStore.set()` hands out

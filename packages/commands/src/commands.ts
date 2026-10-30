@@ -45,6 +45,7 @@ import { PRESET_VERBS } from "./verbs/preset.ts";
 import { PROJECT_VERBS } from "./verbs/project.ts";
 import { PROJECT_TAG_VERBS } from "./verbs/projectTags.ts";
 import { SEQUENCE_VERBS } from "./verbs/sequence.ts";
+import { SEQUENCE_EMPTY_VERBS } from "./verbs/sequenceEmpty.ts";
 import { SEQUENCE_NOTE_VERBS } from "./verbs/sequenceNotes.ts";
 import { SEQUENCE_RECORD_VERBS } from "./verbs/sequenceRecord.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
@@ -186,6 +187,7 @@ export const VERB_TABLES: readonly Record<string, SidHandler>[] = [
   CROSSFADE_VERBS,
   TRACK_DELETE_VERBS,
   SEQUENCE_RECORD_VERBS,
+  SEQUENCE_EMPTY_VERBS,
   EVENTS_REMOVE_VERBS,
   CURVE_VERBS,
   ENGINE_VERBS,
