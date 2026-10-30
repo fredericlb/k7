@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace studio {
 
@@ -35,9 +36,19 @@ public:
     /** ANY THREAD. The session's first listener just arrived: start it from live, on the next pass. */
     void markArrived(const std::string& session);
 
+    // The frame's codec byte: interleaved little-endian float32, or int16 at half the bytes. 1 is kept for Opus.
+    static constexpr uint8_t kCodecPcmF32 = 0;
+    static constexpr uint8_t kCodecPcm16 = 2;
+
+    // One listener of a session, and the codec it asked for.
+    struct Target {
+        std::shared_ptr<ix::WebSocket> socket;
+        uint8_t codec = kCodecPcmF32;
+    };
+
 private:
     void run();
-    void pump(const std::string& sid, const std::vector<std::shared_ptr<ix::WebSocket>>& targets);
+    void pump(const std::string& sid, const std::vector<Target>& targets);
     uint32_t nextSeq(const std::string& s, uint32_t by) { return seq_[s] += by; }
 
     ServeContext& ctx_;

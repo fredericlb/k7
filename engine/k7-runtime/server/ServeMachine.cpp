@@ -89,6 +89,9 @@ void addMachineHandlers(HandlerTable& t) {
                 if (auto it = listeners.find(&ws); it != listeners.end() && it->second != target) left = it->second;
             if (on) listeners[&ws] = target;
             else listeners.erase(&ws);
+            // `"codec": "pcm16"` halves the stream; anything else, or nothing, is float32 (docs/broadcast.md).
+            if (on && j.value("codec", std::string{}) == "pcm16") ctx.listenerCodecs[&ws] = AudioSender::kCodecPcm16;
+            else ctx.listenerCodecs.erase(&ws);
             if (!left.empty() && std::none_of(listeners.begin(), listeners.end(),
                                               [&](const auto& kv) { return kv.second == left; }))
                 host.post([left, &host] { host.enableBroadcast(left, false); });

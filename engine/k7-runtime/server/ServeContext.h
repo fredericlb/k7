@@ -10,6 +10,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <map>
@@ -85,6 +86,8 @@ struct ServeContext {
     std::mutex listenersMx;
     // Who asked for audio, by POINTER matched against server.getClients(): the stream must never reach a connection that did not ask.
     std::unordered_map<const ix::WebSocket*, std::string> listeners;
+    // …and the codec byte each of them asked for, absent for float32; pruned wherever `listeners` is (docs/broadcast.md).
+    std::unordered_map<const ix::WebSocket*, uint8_t> listenerCodecs;
     // Which sockets DRIVE a session, declared on hello with `{"role":"driver"}`, at most one session each (docs/sessions.md).
     std::unordered_map<const ix::WebSocket*, std::string> drivers;
     // WHICH project each socket is about, bound ONCE from its first real message, so a state frame reaches only those (docs/protocol.md).

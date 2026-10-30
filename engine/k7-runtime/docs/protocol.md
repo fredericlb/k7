@@ -101,7 +101,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
 | `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
-| `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
+| `{ type: "broadcast", on: true, codec? }` | send me the master audio (this connection only); `codec: "pcm16"` asks for int16 samples, anything else float32 (`broadcast.md`) |
 
 ### Two `ProjectDoc` fields that are not self-evident
 
@@ -284,6 +284,6 @@ socket's own filter drops.
 
 One message type, and the only binary this socket carries: a frame of master audio, sent
 only to connections that asked with `broadcast`. A 32-byte header then interleaved
-float32 — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
+float32, or little-endian int16 for a connection that asked for `pcm16` (codec byte 2) — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
 `server/AudioSender.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
 checks that they do but a listener. See docs/broadcast.md.

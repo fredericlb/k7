@@ -218,6 +218,7 @@ int serve(int port) {
                 {
                     // The post happens UNDER the lock, so a departing listener's false cannot land after an arriving one's true and silence a listener that is still there.
                     std::lock_guard<std::mutex> lk(listenersMx);
+                    ctx.listenerCodecs.erase(&ws);
                     if (auto gone = listeners.find(&ws); gone != listeners.end()) {
                         const std::string sid = gone->second;
                         listeners.erase(gone);
