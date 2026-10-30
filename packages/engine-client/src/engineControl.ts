@@ -87,7 +87,8 @@ export class EngineControl extends EventEmitter {
   }
 
   connect(): void {
-    const ws = new WebSocket(this.url);
+    // An upgrade never answered ends as an error and a close, which its owner reconnects on; nothing else would end it.
+    const ws = new WebSocket(this.url, { handshakeTimeout: 10_000 });
     this.ws = ws;
 
     ws.on("open", () => {
