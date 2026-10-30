@@ -9,6 +9,7 @@ import {
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 import { noticesPlugin } from "./notices/vitePlugin.ts";
+import { entryPreloadPlugin } from "./preload/vitePlugin.ts";
 
 /** The paths on this origin that are NOT k7's shell: the worker's scope is `/`, so only this list keeps a navigation to `/api` or `/app_downloads` off it. */
 const OTHER_APPS = /^\/(api|auth|app_downloads)(\/|$)/;
@@ -75,6 +76,8 @@ export default ({ command }: ConfigEnv) => {
         }),
         // The About page's third-party notices, a chunk of their own — docs/about.md.
         noticesPlugin(),
+        // appMain's chunks named in the built page, so they arrive with the entry rather than after it — docs/shell.md.
+        entryPreloadPlugin(),
       ],
       // The docs host and the former hosts still reach these servers — see scripts/dev-hosts.mjs.
       server: {

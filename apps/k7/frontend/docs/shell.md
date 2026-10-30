@@ -1675,6 +1675,12 @@ workspace list and a project's engine probe both wait on it. `/auth/me` is asked
 however many screens ask (`api.getMe` shares a signed-in answer for a minute), and the home page's
 workspace list is asked as soon as the hello answers, from its chunk's evaluation rather than from
 its first render (`settings/accountFiles.ts`, `prefetchHome`).
+
+**The built page names `appMain`'s chunks.** `main.tsx` reaches `appMain` through a dynamic import —
+it is what keeps the docs host off the editor — so the browser would learn of it only once the entry
+has run, a third hop after the HTML. `preload/vitePlugin.ts` writes a `modulepreload` for `appMain`
+and its static imports into the built `index.html`, and they arrive beside the entry. The docs host
+serves the same page, so it downloads that set without running it, the price of one page for both.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
 the browser's own by then, so it only has to say "coming".
 
