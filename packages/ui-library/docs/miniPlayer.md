@@ -39,9 +39,14 @@ component k7 mounts for its reference tracks (`packages/ui-mini-player/docs/mini
 owns no transport, which is what makes it shareable: the library plays over two destinations and
 the editor plays a file in the browser beside a running engine, and neither of those fits in a bar.
 
-What stays here is what the médiathèque has to say: the version badge, the artist and album,
-"ended" against an error, the destination indicator and the play button's menu. The strings too —
-they are props, filled from the host's labels ([host.md](host.md)).
+What stays here is what the médiathèque has to say: "ended" against an error, the destination
+indicator and the play button's menu. The strings too — they are props, filled from the host's
+labels ([host.md](host.md)).
+
+**The row carries the song's title and nothing beside it.** The artist, the album and the version
+playing head the play button's menu instead: on a phone the row has room for one line, and the
+title is what is glanced at; the rest is looked up, and is one right-click or long press away. The
+system's media controls still get the artist and album, which they draw themselves.
 
 The duration comes from the `<audio>` element, which is mounted for whatever is loaded **even
 when the engine is what plays it**: the engine's state frame carries a playhead and no length,

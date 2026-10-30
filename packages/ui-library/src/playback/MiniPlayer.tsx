@@ -1,9 +1,13 @@
 // MiniPlayer.tsx — the bar at the bottom: what is playing, how far in, and where the sound is
 // coming out. It appears when a song starts and stays, even after the song ends: it has no close,
 // since a host's dock would only draw its own bar in its place. The ROW is @studio/ui-mini-player;
-// what is here is the médiathèque's reading of it, its position row the waveform of what plays
-// when that file has a shape. See ../../docs/miniPlayer.md.
+// what is here is the médiathèque's reading of it: the title alone on the row, the rest behind the
+// play button, and the waveform of what plays when that file has a shape. See ../../docs/miniPlayer.md.
 
+import {
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@frediverse/ui/dropdown-menu";
 import { Disc3 } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
@@ -43,6 +47,25 @@ export function MiniPlayer() {
   const album = albumOf(entry.path);
   const where = playbackTargetInfo(target);
   const WhereIcon = where.icon;
+  // The bar says the title alone; who, which record and which version are behind the play button.
+  const about = [artist, album, version].filter(Boolean);
+  const playMenu =
+    about.length || instrumental.item ? (
+      <>
+        {about.length ? (
+          <DropdownMenuLabel className="font-normal">
+            {artist ? <span className="block truncate">{artist}</span> : null}
+            {album || version ? (
+              <span className="block truncate text-muted-foreground text-xs">
+                {[album, version].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+          </DropdownMenuLabel>
+        ) : null}
+        {about.length && instrumental.item ? <DropdownMenuSeparator /> : null}
+        {instrumental.item}
+      </>
+    ) : undefined;
   const done = duration > 0 && position >= duration - 0.25 && !playing;
 
   return (
@@ -56,7 +79,7 @@ export function MiniPlayer() {
       duration={duration}
       labels={l.bar}
       onToggle={toggle}
-      playMenu={instrumental.item}
+      playMenu={playMenu}
       onSeek={seek}
       onNext={queue.length ? startNext : undefined}
       track={
@@ -69,27 +92,6 @@ export function MiniPlayer() {
             onSeek={seek}
           />
         ) : undefined
-      }
-      meta={
-        <>
-          {/* Which version, when not the master: the strip above may point elsewhere entirely. */}
-          {version ? (
-            <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {version}
-            </span>
-          ) : null}
-          {/* Artist and album, each only when there is one: a placeholder dash is noise. */}
-          {artist ? (
-            <span className="min-w-0 truncate text-muted-foreground text-xs">
-              {artist}
-            </span>
-          ) : null}
-          {album ? (
-            <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:inline">
-              · {album}
-            </span>
-          ) : null}
-        </>
       }
       status={
         // A failure outranks "done": both mean no sound, and only one of them is fine.
