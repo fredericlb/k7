@@ -86,8 +86,10 @@ reach.
 
 The engine trusts the relay's socket as it trusts its own machine (`token.md`): whatever crosses it
 can load a document, drop a session, approve a pairing. So a ticket is not enough to drive.
-`relayGate.ts` asks, on every frame, whether the ticket's account holds a live claim on the engine
-(`claim.md`):
+`relayGate.ts` asks whether the ticket's account holds a live claim on the engine (`claim.md`) on
+every frame the browser sends, and on the engine's frames at most every 250 ms (`CLAIM_REUSE_MS`):
+the engine streams audio far faster than a claim changes, and asking for each frame is a registry
+walk per audio block. A claim found missing is asked again on the next frame.
 
 | | without a claim | with one |
 |---|---|---|
@@ -97,13 +99,15 @@ can load a document, drop a session, approve a pairing. So a ticket is not enoug
 Either way a `whoami` reaches the browser without its `token` unless the ticket's account may use the
 engine — its owner, an account it is shared with, anyone for the server's own
 ([ownership.md](ownership.md)). `/engines` mints no ticket for any other engine, so this strip is the
-second lock; it is asked per frame, so a share withdrawn mid-socket takes effect at once.
+second lock; it is asked for every text frame (a binary one never carries the token), so a share
+withdrawn mid-socket takes effect at once.
 
 Anything else the browser sends is **held**, in order, rather than dropped: a page opens its driving
 socket and claims the engine at the same moment, and the claim may land a few hundred milliseconds
 after the socket's first `hello`. Held frames go through the moment the claim exists; after 10 s
 without one (`CLAIM_GRACE_MS`), or past a bound on what is held, the socket closes with 4403. A
-claim taken over by another account stops the loser at its next frame, without a reconnect.
+claim taken over by another account stops the loser at its next frame, without a reconnect; what
+the engine sends the loser stops within `CLAIM_REUSE_MS`.
 
 What this gate does not cover: a browser that reaches the engine DIRECTLY — loopback on its own
 machine, or a LAN address once paired — talks to the engine with nobody in between; the engine's
@@ -139,3 +143,11 @@ That queue is bounded like the claim gate's (256 frames, 8 MiB — `HeldFrames` 
 closed with 1013. Once both ends are up, every frame goes through the same file's `sendBounded`, so
 a browser that stops reading costs the server at most a bounded backlog
 (`packages/engine-tunnel/docs/backpressure.md`).
+
+## Both ends are pinged
+
+A phone that drops off the network sends no FIN, and the relay pair, the engine session behind it
+and the gate's timer would live until TCP gives up, hours later. The browser's socket, and the
+upstream when it is a socket the server dialled, run `heartbeat` (`packages/engine-tunnel/docs/upgrade.md`):
+one unanswered ping, 30 s, and the socket is terminated, which closes its pair. A tunnel channel
+needs none of its own: the tunnel is pinged by the hub, and its channels end with it.

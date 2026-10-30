@@ -5,6 +5,7 @@ import { createServer, type Server } from "node:http";
 import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sendBadFrame } from "@studio/engine-tunnel/test-bad-frame";
 import { SYNC_PROTO } from "@studio/live-sync/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
@@ -115,6 +116,20 @@ describe("the relay, against a hostile replica", () => {
     });
     expect(reply).toBe("closed");
     const { ws, ask } = await replica(port);
+    expect(
+      (await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO }))
+        ?.t,
+    ).toBe("welcome");
+    ws.close();
+  });
+
+  it("terminates a replica that sends an RSV1 frame, and stays up", async () => {
+    const port = await relay(mkdtempSync(join(tmpdir(), "relay-rsv1-")));
+    const status = await sendBadFrame(port, SYNC_PATH, {
+      "x-studio-hub-secret": "secret",
+    });
+    expect(status).toContain("101");
+    const { ask, ws } = await replica(port);
     expect(
       (await ask({ t: "hello", workspace: "w", since: 0, proto: SYNC_PROTO }))
         ?.t,

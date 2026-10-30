@@ -145,6 +145,27 @@ describe("the gate", () => {
     gate.fromClient(text({ type: "transport", action: "stop" }));
     expect(sent).toHaveLength(1);
   });
+
+  it("reuses a claim for the engine's frames briefly, then asks again", () => {
+    let asked = 0;
+    const g = new RelayGate({
+      holds: () => {
+        asked++;
+        return holds;
+      },
+      mayReadToken: () => true,
+      toEngine: () => {},
+      close: () => {},
+    });
+    holds = true;
+    const audio = { data: Buffer.from([1, 2, 3, 4]), binary: true };
+    for (let i = 0; i < 50; i++) expect(passes(g.fromEngine(audio))).toBe(true);
+    expect(asked).toBe(1);
+    holds = false;
+    vi.advanceTimersByTime(300);
+    expect(passes(g.fromEngine(audio))).toBe(false);
+    g.dispose();
+  });
 });
 
 describe("the relay, end to end", () => {

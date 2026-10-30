@@ -14,6 +14,7 @@ import {
 import type { TunnelChannel } from "@studio/engine-tunnel/channel";
 import { MAX_FRAME_BYTES } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
+import { acceptSocket, heartbeat } from "@studio/engine-tunnel/upgrade";
 import {
   ENGINE_DIAL_TIMEOUT_MS,
   ENGINE_PROXY_PATH,
@@ -248,7 +249,9 @@ export function attachEngineProxy(
     const engine = reg.get(id);
     if (!engine) return deny(socket, "404 Not Found");
 
-    wss.handleUpgrade(req, socket, head, (client) => {
+    acceptSocket(wss, req, socket, head, (client) => {
+      // Both ends are pinged: a phone gone without a FIN would otherwise hold the pair and its session for hours.
+      heartbeat(client);
       let upstream: Upstream | null = null;
       // Buffered, and bounded, because the browser sends `whoami` before the upstream socket is dialled — see docs/proxy.md.
       const pending = new HeldFrames<WebSocket.RawData>();
@@ -268,8 +271,6 @@ export function attachEngineProxy(
       });
       client.on("message", (data, binary) => gate.fromClient({ data, binary }));
       client.on("close", () => gate.dispose());
-      // Listened to from the start: an `error` with no listener (a frame over `maxPayload`) is thrown, and ends the process.
-      client.on("error", () => client.terminate());
 
       void dial(engine, tunnels)
         .then((up) => {
@@ -282,6 +283,7 @@ export function attachEngineProxy(
             return;
           }
           upstream = up;
+          if (up instanceof WebSocket) heartbeat(up);
           for (const f of pending.drain()) forward(up, client, f);
           pipe(client, up, gate);
         })

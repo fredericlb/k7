@@ -116,6 +116,25 @@ describe("Instances", () => {
     await expect(inst.get("a@x")).rejects.toBeInstanceOf(Unavailable);
   });
 
+  it("starts a kept account's crashed service again once its backoff ends", async () => {
+    const inst = make({
+      command: run("dies.mjs"),
+      backoffMinMs: 100,
+      healthyMs: 60_000,
+      keep: () => true,
+    });
+    const first = await inst.get("a@x");
+    await new Promise((r) => first.child.once("exit", r));
+    await vi.waitFor(
+      async () => {
+        const now = await inst.running();
+        expect(now.map((i) => i.child.pid)).not.toContain(first.child.pid);
+        expect(now).toHaveLength(1);
+      },
+      { timeout: 5000, interval: 20 },
+    );
+  });
+
   it("a stop of the hub's own is no crash", async () => {
     const inst = make({ backoffMinMs: 60_000 });
     const a = await inst.get("a@x");

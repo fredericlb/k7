@@ -33,6 +33,7 @@ import {
 import type { UploadLimits } from "./hubFiles.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 import { tunnelSpelling } from "./jobSpelling.ts";
+import { acceptSocket } from "./upgrade.ts";
 
 export interface TunnelHubOptions {
   /** Whether `id` is an engine this server lists, `token` its token and `secret` the tunnel secret it is bound to. */
@@ -271,31 +272,35 @@ export class TunnelHub {
       deny(socket, "403 Forbidden");
       return;
     }
-    this.wss.handleUpgrade(req, socket, head, (ws) => {
-      // One tunnel per engine: a reconnect, verified above, replaces the socket it outlived.
-      this.tunnels.get(id)?.ws.terminate();
-      const t = new HubTunnel(id, ws, this.log, this.opts.uploads);
-      this.tunnels.set(id, t);
-      // Re-added, so the newest render machine is the one a render reaches.
-      this.renderers.delete(id);
-      if (renders) this.renderers.add(id);
-      if (renders) this.rendered.add(id);
-      else this.rendered.delete(id);
-      this.log(`${id} up${renders ? " (render machine)" : ""}`);
-      ws.on("close", () => {
-        t.shutdown();
-        if (this.tunnels.get(id) === t) {
-          this.tunnels.delete(id);
-          this.renderers.delete(id);
-          this.log(`${id} down`);
-        }
-      });
-      // Said before cutting: a frame the socket refused is otherwise only an "Internal error" on the machine.
-      ws.on("error", (e) => {
-        this.log(`${id} socket error: ${e.message}`);
-        ws.terminate();
-      });
-    });
+    // Said before cutting: a frame the socket refused is otherwise only an "Internal error" on the machine.
+    const said = (e: Error) => this.log(`${id} socket error: ${e.message}`);
+    acceptSocket(
+      this.wss,
+      req,
+      socket,
+      head,
+      (ws) => {
+        // One tunnel per engine: a reconnect, verified above, replaces the socket it outlived.
+        this.tunnels.get(id)?.ws.terminate();
+        const t = new HubTunnel(id, ws, this.log, this.opts.uploads);
+        this.tunnels.set(id, t);
+        // Re-added, so the newest render machine is the one a render reaches.
+        this.renderers.delete(id);
+        if (renders) this.renderers.add(id);
+        if (renders) this.rendered.add(id);
+        else this.rendered.delete(id);
+        this.log(`${id} up${renders ? " (render machine)" : ""}`);
+        ws.on("close", () => {
+          t.shutdown();
+          if (this.tunnels.get(id) === t) {
+            this.tunnels.delete(id);
+            this.renderers.delete(id);
+            this.log(`${id} down`);
+          }
+        });
+      },
+      said,
+    );
   }
 
   private acceptLocal(
@@ -308,22 +313,26 @@ export class TunnelHub {
       ? this.locals.get(key)
       : undefined;
     const engineId = binding ? (binding.engineId ?? this.renderer()) : null;
-    const channel =
-      binding && engineId
-        ? this.open(engineId, binding.roots, binding.kind, binding.synced)
-        : null;
-    if (!channel) {
+    if (!binding || !engineId || !this.has(engineId)) {
       deny(socket, binding ? "503 Service Unavailable" : "403 Forbidden");
       return;
     }
     // A job names server paths the machine must map, so they leave in the tunnel's spelling (jobSpelling.ts).
     const spell =
-      binding?.kind === "jobs"
+      binding.kind === "jobs"
         ? (text: string) => tunnelSpelling(text, binding.roots)
         : undefined;
-    this.wss.handleUpgrade(req, socket, head, (client) =>
-      pipe(client, channel, spell),
-    );
+    // Opened once the handshake succeeded: a refused one leaves no channel open on the machine.
+    acceptSocket(this.wss, req, socket, head, (client) => {
+      const channel = this.open(
+        engineId,
+        binding.roots,
+        binding.kind,
+        binding.synced,
+      );
+      if (channel) pipe(client, channel, spell);
+      else client.close(1011, "the engine's tunnel went down");
+    });
   }
 
   private ping(): void {

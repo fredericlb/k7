@@ -7,6 +7,7 @@
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
+import { acceptSocket } from "@studio/engine-tunnel/upgrade";
 import {
   CAMERAS_WS_PATH,
   type CameraFrame,
@@ -97,7 +98,7 @@ export class CameraHub {
         count(this.viewers) >= (this.limits.viewers ?? 32)
       )
         return deny(socket, "429 Too Many Requests");
-      this.wss.handleUpgrade(req, socket, head, (ws) => {
+      acceptSocket(this.wss, req, socket, head, (ws) => {
         this.alive.set(ws, true);
         ws.on("pong", () => this.alive.set(ws, true));
         if (role === "camera")

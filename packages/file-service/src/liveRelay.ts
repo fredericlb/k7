@@ -366,7 +366,11 @@ export class RelayLink {
   }
 
   private connect(): void {
-    const ws = new WebSocket(this.url, { headers: authHeaders(this.auth) });
+    // A proxy that takes the TCP connection and never answers the upgrade would otherwise stall the link for good.
+    const ws = new WebSocket(this.url, {
+      headers: authHeaders(this.auth),
+      handshakeTimeout: 10_000,
+    });
     this.ws = ws;
     // The relay pings too, but only this side can tell its own socket went half-open (a laptop slept, the Wi-Fi moved).
     let answered = true;

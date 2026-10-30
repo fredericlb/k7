@@ -75,13 +75,22 @@ export class Room {
   }
 
   /** Order `batch`, applying it to the canonical files; a batch seen before answers its first ordering, one naming a path outside the workspace throws. */
-  submit(batch: Batch): { entry: Sequenced; fresh: boolean } {
+  submit(
+    batch: Batch,
+    /** Called with a fresh entry before the room takes it; a throw leaves the room as it was, and is rethrown. */
+    persist?: (entry: Sequenced) => void,
+  ): { entry: Sequenced; fresh: boolean } {
     for (const op of batch.ops) assertSyncPath(op.file);
     const known = this.log.find((e) => e.batch.id === batch.id);
     if (known) return { entry: known, fresh: false };
     const seq = this.head + 1;
     const applied: FileOp[] = [];
     const parked: Conflict[] = [];
+    // Each file's text and bases before this batch first wrote it, for the undo when `persist` throws.
+    const before = new Map<
+      string,
+      { text: string | null; bases: string[] | undefined }
+    >();
     const park = (op: FileOp, kept?: string | null) =>
       parked.push({
         id: `${seq}.${parked.length}`,
@@ -100,13 +109,29 @@ export class Room {
       for (const a of aside) park(a.op, a.kept);
       if (!apply) continue;
       try {
-        this.write(op.file, applyFileOp(current, apply));
+        const next = applyFileOp(current, apply);
+        if (!before.has(op.file))
+          before.set(op.file, {
+            text: current,
+            bases: this.bases.versions(op.file),
+          });
+        this.write(op.file, next);
         applied.push(apply);
       } catch {
         park(apply);
       }
     }
     const entry: Sequenced = { seq, batch: { ...batch, ops: applied }, parked };
+    try {
+      persist?.(entry);
+    } catch (e) {
+      for (const [file, b] of before) {
+        if (b.text === null) this.files.delete(file);
+        else this.files.set(file, b.text);
+        this.bases.restore(file, b.bases);
+      }
+      throw e;
+    }
     this.record(entry);
     return { entry, fresh: true };
   }
