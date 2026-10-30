@@ -286,6 +286,14 @@ that.
 The decode lands block by block in the per-channel buffers: no interleaved copy of the whole song
 is held beside them.
 
+**A cut does not take every core.** ONNX Runtime's default is one thread per physical core, at the
+same priority as the engine's render pool, and a cut sent while a set plays would then compete with
+the audio for every core and the memory bus. The session asks for **half the logical cores, and never
+more than all but five** — the engine's four render threads and one for the rest — at least one
+(`intraOpThreads`, `src/OnnxSession.cpp`). `$STUDIO_ONNX_THREADS` sets the count outright. A cut on a
+quiet machine is slower for it; that trade is unmeasured, as is the priority, which ONNX Runtime
+offers no option to lower.
+
 ## ONNX Runtime is loaded, never linked
 
 The library is looked for at the first separation — at `$STUDIO_ONNXRUNTIME_DIR`, then beside the
