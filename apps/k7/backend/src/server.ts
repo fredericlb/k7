@@ -324,6 +324,8 @@ const onListening = () => {
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)
     listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);
+  // A host that asked is told on stdout that requests are answered now, rather than polling (engine/k7-runtime/docs/android.md).
+  if (process.env.STUDIO_READY_LINE) console.log(process.env.STUDIO_READY_LINE);
 };
 const server = behindProxy(createServer(app));
 // Before any listener: an upgrade nobody serves is refused, and a reset socket never ends the process (../docs/upgrades.md).
