@@ -175,6 +175,11 @@ They are in this leaf rather than in `engineCatalogue.ts` because a node saying
 has to consult this table — including an editor in a browser, which cannot pay a `node:fs` import to
 find out.
 
+A node can say its role itself instead, `io("midi")` with no `extends`, which is what
+`node new io/<role>` writes. The loader gives such a node the `io` category, as the table gives
+`@meta/<role>`, because the category is what `moduleEmits` reads the role through. Without it, a
+MIDI device or a camera would emit nothing, and its cable would default to audio.
+
 ## Module status
 
 A library grows past the point where every module in it deserves equal billing: half a project's
