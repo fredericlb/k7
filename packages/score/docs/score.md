@@ -16,8 +16,8 @@ this view does. It is LGPL-3.0 and used as published.
 Verovio plays nothing. It writes the score as MIDI (`renderToMIDI`) and says which notes sound at a
 given time (`getElementsAtTime`). `spessasynth_lib` plays that MIDI through a SoundFont, its
 synthesizer running in an AudioWorklet so a busy page does not make it stutter (`src/player.ts`). It
-reads SF3, so the compressed SONiVOX bank (`apps/k7/frontend/src/public/soundfont/sonivox.sf3`,
-under 1 MB) is what is served. Apache-2.0.
+reads SF3, so the compressed SONiVOX bank (`apps/k7/frontend/public/score/sonivox.sf3`, under
+1 MB) is what is served, from the app's own public folder. Apache-2.0.
 
 The view keeps no cursor bar. The notes sounding now are lit (`.score-playing`), and the column
 scrolls when they leave it. A note clicked is where playback jumps to.
@@ -55,8 +55,9 @@ Verovio's module is about 7 MB, compiled once per page on the first score shown 
 every score after it (`src/engraver.ts`). `src/ScoreView.tsx` is the only module that imports
 either library, and the sheet panel loads it with `import()`, so no other screen pays for them
 (`packages/ui-rehearsal/src/components/ScoreSheet.tsx`). The service worker precaches that chunk
-like any other under its 8 MB ceiling. The download happens once per Verovio version, in the
-background, and a later open of a score starts from disk.
+like any other, once per Verovio version, in the background, so a later open of a score starts
+from disk. It is 8.2 MB against the preset's 8 MiB ceiling: a Verovio that grows past it is left
+out of the precache, with only a build warning, and is then fetched on the first score shown.
 
 ## Every part, or the one you play
 

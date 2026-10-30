@@ -178,7 +178,7 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
       starting.current = true;
       report({ loading: true });
       const base = import.meta.env.BASE_URL;
-      void ScorePlayer.create(`${base}soundfont/sonivox.sf3`)
+      void ScorePlayer.create(`${base}score/sonivox.sf3`)
         .then(async (created) => {
           player.current = created;
           created.onEnd(() => {

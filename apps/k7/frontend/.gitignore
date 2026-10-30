@@ -1,0 +1,3 @@
+# Font and soundfont folders an earlier score plugin wrote into checkouts; nothing serves them now, so they can be deleted.
+public/font/
+public/soundfont/

@@ -277,7 +277,7 @@
     {
       "name": "Sonivox sound font",
       "version": "2.10",
-      "source": "apps/k7/frontend/src/public/soundfont/README.md",
+      "source": "apps/k7/frontend/public/score/SONIVOX-README.md",
       "license": "Apache-2.0",
       "url": "https://musical-artifacts.com/artifacts/1517",
       "where": ["web"],
