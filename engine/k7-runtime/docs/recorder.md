@@ -107,17 +107,29 @@ any stall longer than the ring, and adds a disk write to every state tick beside
 **The writer holds the nodes, never the session map.** A node is shared between its session and the
 writer, so nothing the writer touches can be freed under it, and no lock covers the sessions.
 Ownership is one rule: a node is the writer's while registered and its owner's once `remove()` has
-returned — `remove()` waits for a pump in progress and guarantees none starts after. So a stop
-removes the node, then drains what is left in the ring itself and closes the file, on the message
-thread, with nobody else touching it. A start opens the file first and registers the node after.
+returned — `remove()` waits for a pump in progress and guarantees none starts after.
+
+**A stop never waits on the disk.** A take on a USB stick or a network share that stalls would
+otherwise freeze the message thread — every session's apply, transport and state frame — for as
+long as the disk does. So a stop hands the node back with `finish()`, which returns at once: the
+writer gives it one more pump, begun after the stop, then closes the file, and lets go. The node is
+`closing` meanwhile; the state tick files the take once the writer no longer holds it, a `clear`
+asked in between deletes it instead, and a new take on that node is refused until then. A dropped
+session hands its nodes over the same way and never waits for them. A start opens the file first
+and registers the node after.
+
+What remains shared is the one writer: a disk that stalls one node's write delays every other
+node's drain, and past the ring's ten seconds those takes are marked damaged. A writer per volume,
+or a bound on each write, would contain it.
 
 What both threads read is atomic — the frame count, `damaged`, a refused write — or the take's
 picture, under a mutex the writer takes only to append points, never across a disk write: a state
 tick never waits on the disk.
 
-A session that is dropped takes its nodes back from the writer first, so a take still recording
-there is closed with the session rather than outliving it; the writer is joined before the sessions
-are destroyed. `tests/RecorderWriter_test.cpp` checks the ownership rule and the shutdown.
+A session that is dropped hands its recording nodes to `finish()`, so a take still recording there
+is closed by the writer just after the session is gone; the writer is joined before the sessions are
+destroyed, and finishes on the way out whatever it was asked to. `tests/RecorderWriter_test.cpp`
+checks the ownership rule, that `finish()` never waits on a stalled pump, and the shutdown.
 
 ### The idle short-circuit knows about it
 

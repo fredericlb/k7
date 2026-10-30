@@ -3,7 +3,8 @@
 // header-only, so tests/ has it in the fast binary. See docs/recorder.md.
 //
 // What a reader gets wrong: it holds the NODES, never the session map. A job is either the
-// writer's (registered) or its owner's (removed), and remove() returns only once the writer is out.
+// writer's (registered) or its owner's (removed or finished), and remove() returns only once the
+// writer is out; finish() never waits, which is how a stop stays off the disk's clock.
 
 #pragma once
 
@@ -25,6 +26,8 @@ public:
     struct Job {
         virtual ~Job() = default;
         virtual void pump() = 0;
+        /** The writer's last word on a job finish() handed it, right after its last pump: close what it writes. */
+        virtual void finish() {}
     };
 
     explicit RecorderWriter(std::chrono::milliseconds period = std::chrono::milliseconds(20))
@@ -48,13 +51,21 @@ public:
         jobs_.erase(std::remove_if(jobs_.begin(), jobs_.end(),
                                    [job](const auto& j) { return j.get() == job; }),
                     jobs_.end());
+        std::erase(finishing_, job);
         idle_.wait(lock, [this, job] { return current_ != job; });
+    }
+
+    /** OWNER THREAD, never waits: the writer pumps the job once more, finishes it and lets go — holds() turns false then. */
+    void finish(const Job* job) {
+        std::lock_guard<std::mutex> lock(mx_);
+        if (!heldLocked(job)) return;
+        if (std::find(finishing_.begin(), finishing_.end(), job) == finishing_.end()) finishing_.push_back(job);
     }
 
     /** Whether the writer holds this job — the owner must not touch what the job pumps while it does. */
     bool holds(const Job* job) const {
         std::lock_guard<std::mutex> lock(mx_);
-        return std::any_of(jobs_.begin(), jobs_.end(), [job](const auto& j) { return j.get() == job; });
+        return heldLocked(job);
     }
 
     size_t size() const {
@@ -68,7 +79,7 @@ public:
         return passes_;
     }
 
-    /** Stop and join; the jobs are dropped unpumped, so an owner wanting a last write removes them first. */
+    /** Stop and join; a job being finished is finished here, the others are dropped unpumped. */
     void stop() {
         {
             std::lock_guard<std::mutex> lock(mx_);
@@ -76,8 +87,16 @@ public:
         }
         wake_.notify_all();
         if (thread_.joinable()) thread_.join();
-        std::lock_guard<std::mutex> lock(mx_);
-        jobs_.clear();
+        std::vector<std::shared_ptr<Job>> last;
+        {
+            std::lock_guard<std::mutex> lock(mx_);
+            for (auto& job : jobs_)
+                if (std::find(finishing_.begin(), finishing_.end(), job.get()) != finishing_.end()) last.push_back(job);
+            jobs_.clear();
+            finishing_.clear();
+        }
+        // A stop pressed just before the engine quit still closes its take: the one place a disk wait is the caller's.
+        for (auto& job : last) runGuarded(*job, true);
     }
 
 private:
@@ -92,17 +111,17 @@ private:
                 // A job removed since the copy is its owner's again, and must not be entered.
                 if (stopping_) break;
                 if (std::find(jobs_.begin(), jobs_.end(), job) == jobs_.end()) continue;
+                // Read BEFORE the pump, so the pump that precedes a finish started after finish() was asked.
+                const bool last = std::find(finishing_.begin(), finishing_.end(), job.get()) != finishing_.end();
                 current_ = job.get();
                 lock.unlock();
-                try {
-                    job->pump();
-                } catch (const std::exception& e) {
-                    std::cerr << "[rec] writer: " << e.what() << '\n';
-                } catch (...) {
-                    std::cerr << "[rec] writer: unknown exception\n";
-                }
+                runGuarded(*job, last);
                 lock.lock();
                 current_ = nullptr;
+                if (last) {
+                    std::erase(jobs_, job);
+                    std::erase(finishing_, job.get());
+                }
                 idle_.notify_all();
             }
             ++passes_;
@@ -113,11 +132,27 @@ private:
         }
     }
 
+    bool heldLocked(const Job* job) const {
+        return std::any_of(jobs_.begin(), jobs_.end(), [job](const auto& j) { return j.get() == job; });
+    }
+
+    static void runGuarded(Job& job, bool last) {
+        try {
+            job.pump();
+            if (last) job.finish();
+        } catch (const std::exception& e) {
+            std::cerr << "[rec] writer: " << e.what() << '\n';
+        } catch (...) {
+            std::cerr << "[rec] writer: unknown exception\n";
+        }
+    }
+
     const std::chrono::milliseconds period_;
     mutable std::mutex mx_;
     std::condition_variable wake_;   // the period, cut short by stop()
     std::condition_variable idle_;   // a remove() waiting for the job being pumped
     std::vector<std::shared_ptr<Job>> jobs_;
+    std::vector<const Job*> finishing_;   // jobs finish() handed back to the writer for a last pump
     const Job* current_ = nullptr;
     size_t passes_ = 0;
     bool stopping_ = false;

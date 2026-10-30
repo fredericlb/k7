@@ -209,9 +209,9 @@ struct EngineHost::Impl {
 
     // Forget a session entirely — its Edit, plugins, meters and taps: what `flush` means once it addresses one project.
     void drop(const std::string& id) {
-        // Taken back from the writer first, so a take recording in a dropped session closes with it rather than outliving it.
+        // Handed to the writer to close, never waited for: it holds the nodes, so a take still recording closes after the session is gone.
         if (auto* s = find(id))
-            for (auto& [_, node] : s->recorders) recorderWriter.remove(node.get());
+            for (auto& [_, node] : s->recorders) recorderWriter.finish(node.get());
         sessions.erase(id);
     }
 
