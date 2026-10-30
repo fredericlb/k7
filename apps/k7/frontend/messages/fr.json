@@ -924,7 +924,6 @@
   "syncdev.done": "Terminé",
   "syncdev.tokenOnce": "Affiché une seule fois : copiez-le maintenant. Un moteur en ligne de commande ou un conteneur serveur le prend comme STUDIO_DEVICE_TOKEN, et son moteur devient le vôtre. Retirez l'appareil pour le révoquer.",
   "home.media": "Médiathèque",
-  "home.rehearsal": "Répétitions",
   "media.subtitle": "Médiathèque",
   "media.section.songs": "Morceaux",
   "media.section.samples": "Samples",

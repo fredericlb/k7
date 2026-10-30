@@ -30,7 +30,7 @@ parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the 
 
 What you land on is your own WORK: the editor's home page, at k7's origin, lists the workspaces,
 the projects, the libraries and the shares. The catalogue is what a project draws ON, so it is the
-media library, a group of entries in that page's sidebar; the rehearsal recorder is another. The
+media library, a group of entries in that page's sidebar; the rehearsal recorder's entries close its top list. The
 shares, `/api/mediatek` and the rehearsal routes are k7's backend's; the workspaces, the libraries and the deploy key are the file service's.
 
 ### k7 is `app.`, and its documentation is `docs.` beside it

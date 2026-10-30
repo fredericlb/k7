@@ -16,7 +16,7 @@ export interface RehearsalSection {
   label: () => string;
 }
 
-// Glyphs the media library's entries do not use: the host draws both groups in one rail.
+// Glyphs the media library's entries do not use: the host draws both in one rail.
 export const REHEARSAL_SECTIONS: readonly RehearsalSection[] = [
   {
     id: "publications",

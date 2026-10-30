@@ -1,6 +1,6 @@
 // HomeSidebar.tsx — the left sidebar of the home page and of the pages that hang off it, /libraries,
-// /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks and Libraries as entries, then the
-// media library's and the rehearsal pages' sections, the user menu at its foot. All are routes, so going between them reloads
+// /tasks, /settings, /about, /media/… and /rehearsal/…: Projects, Tasks, Libraries, Frozen chains and the
+// rehearsal pages as entries, then the media library's sections, the user menu at its foot. All are routes, so going between them reloads
 // nothing. It is an ICON RAIL wherever the `wide` step is not reached — a phone, a tablet held upright — and folds away
 // entirely on request. Inside a project it is a DRAWER (`HomeDrawer`): the router's basename is the project there, so its
 // entries are full addresses (appNav.ts). See ../../docs/projects.md.
@@ -262,12 +262,19 @@ export function HomeSidebar({
       route: FROZEN_CHAINS_ROUTE,
     },
   ].map((e) => ({ ...e, active: here(e.route) }));
+  // The rehearsal pages' entries close the top list, lit by the entry the address belongs to, detail pages included.
+  const shownRehearsal = rehearsalSectionAt(pathname, REHEARSAL_ROUTE);
+  const rehearsal: Entry[] = REHEARSAL_SECTIONS.map((s) => ({
+    label: s.label(),
+    icon: s.icon,
+    route: `${REHEARSAL_ROUTE}${s.path}`,
+    active: !away && shownRehearsal === s.id,
+  }));
 
   // The media library's sections: active by the section the address shows, the bare prefix included.
   const onMedia =
     pathname === MEDIA_ROUTE || pathname.startsWith(`${MEDIA_ROUTE}/`);
   // A recording's, a session's or a moment's page is a rehearsal page that belongs to the Recordings entry.
-  const shownRehearsal = rehearsalSectionAt(pathname, REHEARSAL_ROUTE);
   const shownSection = onMedia
     ? sectionAt(pathname, MEDIA_ROUTE)
     : shownRehearsal === "recordings"
@@ -279,14 +286,6 @@ export function HomeSidebar({
     route: sectionPath(s.id, MEDIA_ROUTE),
     active: !away && shownSection === s.id,
     count: s.counted ? mediaCounts?.[s.id] : undefined,
-  }));
-
-  // The rehearsal pages' sections, active by the entry the address belongs to, detail pages included.
-  const rehearsal: Entry[] = REHEARSAL_SECTIONS.map((s) => ({
-    label: s.label(),
-    icon: s.icon,
-    route: `${REHEARSAL_ROUTE}${s.path}`,
-    active: !away && shownRehearsal === s.id,
   }));
 
   return (
@@ -335,17 +334,12 @@ export function HomeSidebar({
       {/* The entries scroll on a short screen; the brand and the user menu stay put. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-3">
         <nav className="flex flex-col gap-1 px-2">
-          {items.map((e) => (
+          {[...items, ...rehearsal].map((e) => (
             <SidebarEntry key={e.route} entry={e} away={away} />
           ))}
         </nav>
 
         <SidebarGroup title={m["home.media"]()} entries={media} away={away} />
-        <SidebarGroup
-          title={m["home.rehearsal"]()}
-          entries={rehearsal}
-          away={away}
-        />
       </div>
 
       {/* The server the pages read, on the tray once paired: a server's own page has no other to offer. */}

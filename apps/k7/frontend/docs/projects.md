@@ -52,11 +52,11 @@ entries are full addresses resolved against `projectsUrl` — drawn in place, no
 
 **One left sidebar for this page and the ones that hang off it**, `/tasks`, `/libraries`,
 `/settings`, the médiathèque's `/media/…` and the rehearsal recorder's `/rehearsal/…`
-(`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries are three
-groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, under a title of its own,
-the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
-count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
-**Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The one for the
+(`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries are two
+groups. **Projects**, **Tasks**, **Libraries**, **Frozen chains**, **Publications** and **Exercises**
+— what you WRITE, and what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`) — then, under
+a title of its own, the médiathèque's sections — **Songs**, **Samples**, **Recordings**,
+**Playlists**, each with its count, and **Find** — what you DRAW ON. The one for the
 page you are on is lit in the accent, and the user menu is last; where the `wide` step is not reached
 it is an ICON RAIL, where a rule stands in for a group's title. `wide` is a landscape screen from
 640 px, or any screen wider than a tablet held upright (`src/index.css`): a tablet in portrait is
@@ -563,8 +563,8 @@ violet pill, for the reason the next section gives.
 
 ### Every entry has a glyph of its own
 
-On the icon rail the glyph is all an entry has, so no two entries share one, across the media and
-rehearsal groups alike: the médiathèque's recordings are a waveform, the rehearsal publications a
+On the icon rail the glyph is all an entry has, so no two entries share one, across the top list and the
+media group alike: the médiathèque's recordings are a waveform, the rehearsal publications a
 broadcast. The rehearsal takes have no entry of their own: they are listed in the médiathèque's
 Recordings (`packages/ui-rehearsal/docs/sections.md`), where a microphone marks your own.
 
