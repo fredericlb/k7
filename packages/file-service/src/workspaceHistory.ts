@@ -37,7 +37,7 @@ export interface HistoryHost {
   toRel(abs: string): string;
   revision(): { rev: string };
   withWalk<T>(dir: string, fn: (files: WalkedFile[]) => T): T;
-  revisionOf(files: WalkedFile[]): string;
+  revisionOf(files: WalkedFile[], dir: string): string;
   invalidateProjectDoc(): void;
 }
 
@@ -271,7 +271,7 @@ export class WorkspaceHistory {
     return this.host.withWalk(dir, (files) => ({
       text: this.textOf(files),
       bin: this.binOf(files),
-      rev: this.host.revisionOf(files),
+      rev: this.host.revisionOf(files, dir),
     }));
   }
 

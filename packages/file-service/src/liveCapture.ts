@@ -177,6 +177,11 @@ export class LiveCapture implements ChangeFeed {
     return this.gen;
   }
 
+  /** Whether the watcher is up: a generation that stands still means something only then. */
+  get watching(): boolean {
+    return this.watcher !== null && !this.halted;
+  }
+
   onChange(fn: (rel: string, generation: number) => void): () => void {
     this.listeners.add(fn);
     return () => {

@@ -36,8 +36,9 @@ in front of it turns a constant cost into one paid per edit.
 - `mutations` — our own writes, so an edit through the API is reflected instantly, even
   inside a single filesystem-timestamp tick.
 - the files — count + newest mtime over the project's files, so an edit made OUT of
-  process (another replica's edit, another tab, an external editor) moves it too. There is no
-  watcher here; this walk is what stands in for one.
+  process (another replica's edit, another tab, an external editor) moves it too. The walk is
+  what stands in for a watcher, and skipped while the live capture's watcher vouches for it
+  (below).
 - **two files outside the project**, folded into the same "newest mtime": the engine's scan
   cache (`<state>/exts.json`) and the machine's preferences (`<state>/preferences.yaml`).
   Every view keyed on this token reads one of them — `@engine/…` modules come out of the scan,
@@ -45,6 +46,18 @@ in front of it turns a constant cost into one paid per edit.
   or a `system channel set` would leave the memoised answers stale until an unrelated edit moved
   the token. Two stats on a walk of hundreds close that hole for every view at once, which is why
   they belong in the TOKEN rather than in each cache.
+
+**The walk is skipped while the capture's feed stands still** (`revisionMemo.ts`). `/revision` is
+polled every 2 s per tab, and a project open asks for the token in a burst; each was a walk, slow
+on a phone's storage. When the workspace is captured and its watcher is up, the files' half of the
+token (count and newest mtime) is kept, and reused for as long as the capture's change feed reports
+nothing anywhere in the workspace. Our own writes still move the token at once through `mutations`,
+and a walk a mutation took to journal itself becomes the kept summary, so the poll after a save
+names the very instant the save's reply named. What the feed can miss — Linux's recursive watcher
+loses a rewrite — is bounded twice: the capture's own sweep finds the file and reports it on the
+feed, and the summary is never trusted past `REVISION_WALK_ANYWAY_MS` (10 s) without a walk. A stale
+token would hide an edit from every page; a lost event may only delay it. Without a capture
+(Examples, live sync off, a test) or with its watcher down, every token is a walk.
 
 Deliberately NOT a content hash: reading every file would cost more than some of the
 things this is meant to guard. Count+mtime misses a change that preserves both — in
@@ -134,7 +147,7 @@ calls `clipExtents()` → `cachedProjectDoc()`, which asks again: unscoped that 
 spent proving nothing has changed since the last one, microseconds earlier. It is re-entrant rather than
 plumbed through the request because the nesting is already synchronous: the outermost derivation
 opens the scope and the inner ones find it open, exactly the shape `withModuleStamp` has in
-`@studio/song`. `/revision` itself is unaffected — it is polled outside any scope and still walks.
+`@studio/song`. `/revision` itself is polled outside any scope, and walks unless the kept summary stands.
 
 Its `seed` is a token the caller ALREADY holds, taken microseconds earlier and after the same write:
 `POST /command` gets one out of `recordChange`, which walked the tree to journal the mutation and can
