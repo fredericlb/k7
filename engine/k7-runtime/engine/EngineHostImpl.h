@@ -38,18 +38,18 @@ bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm);
 // Open the default output of the first backend that has one, ASIO last, when a restored setup left none; true when it did (docs/audioDevice.md).
 bool openDefaultOutputIfNone(juce::AudioDeviceManager& jdm);
 
-// A phone keeps every core for its render pool: the desktop cap was never measured there (docs/renderPool.md).
+// A phone gets its own render pool cap and a strategy that does not spin (docs/renderPool.md).
 #if JUCE_ANDROID || JUCE_IOS
-inline constexpr bool kCapRenderPool = false;
+inline constexpr RenderPool::Machine kRenderMachine = RenderPool::phone;
 #else
-inline constexpr bool kCapRenderPool = true;
+inline constexpr RenderPool::Machine kRenderMachine = RenderPool::desktop;
 #endif
 
 // The server's engine opens NO device at construction: Tracktion would replay its own Settings.xml, a second source of truth that wedges the single-client ASIO driver (docs/audioDevice.md).
 struct ServerBehaviour : te::EngineBehaviour {
     // The render pool, decided before any Edit plays: the strategy is process-wide in Tracktion (docs/renderPool.md).
     ServerBehaviour()
-        : pool(RenderPool::fromEnv(juce::SystemStats::getNumCpus(), kCapRenderPool,
+        : pool(RenderPool::fromEnv(juce::SystemStats::getNumCpus(), kRenderMachine,
                                    std::getenv("STUDIO_ENGINE_AUDIO_THREADS"), std::getenv("STUDIO_ENGINE_AUDIO_POOL"))) {
         te::EditPlaybackContext::setThreadPoolStrategy(pool.strategy);
         std::cerr << "[audio] render pool: " << pool.threads << " threads, strategy " << pool.strategy << "\n";
