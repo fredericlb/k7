@@ -60,6 +60,11 @@ add_executable(studio_heldnotes_tests HeldNotes_test.cpp)
 target_include_directories(studio_heldnotes_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../server)
 add_test(NAME studio_heldnotes_tests COMMAND studio_heldnotes_tests)
 
+# Which read-only queries already wait on the message thread: PendingQueries.h is header-only and JUCE-free.
+add_executable(studio_pendingqueries_tests PendingQueries_test.cpp)
+target_include_directories(studio_pendingqueries_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../server)
+add_test(NAME studio_pendingqueries_tests COMMAND studio_pendingqueries_tests)
+
 # --- Session registry tests ---------------------------------------------------
 # A THIRD fast binary, kept apart only because each test file owns a main(). SessionRegistry.h is
 # header-only and JUCE-free, so this links nothing and shares the "builds in seconds" property.

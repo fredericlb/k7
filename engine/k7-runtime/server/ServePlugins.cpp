@@ -188,7 +188,9 @@ void addPluginHandlers(HandlerTable& t) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
         // Every session's plugin instances for the supervisor's plugin list, each row naming its session — ENGINE-GLOBAL, since the asker drives none (docs/sessions.md); message thread, and broadcast.
-        host.post([&host, &broadcast] {
+        if (!ctx.pending.admit("list-edit-plugins")) return;
+        host.post([&ctx, &host, &broadcast] {
+            ctx.pending.started("list-edit-plugins");
             json arr = json::array();
             for (const auto& sid : host.sessionIds())
                 for (const auto& p : host.pluginInstanceInfos(sid))
@@ -293,7 +295,11 @@ void addPluginHandlers(HandlerTable& t) {
         auto& broadcastTo = ctx.broadcastTo;
         // Every automatable parameter of a live plugin with its CURRENT value — EVERY one, unlike the editor-close broadcast's minimal preset, since a control drawn at its minimum for want of a saved value is simply wrong; `meta` rides alongside as a SEPARATE object.
         const std::string id = j.value("id", std::string{});
-        host.post([session, &host, &broadcastTo, id] {
+        // The reply goes to the whole session, so a second identical ask joins the one already waiting.
+        const std::string key = "get-plugin-params\n" + session + "\n" + id;
+        if (!ctx.pending.admit(key)) return;
+        host.post([&ctx, key, session, &host, &broadcastTo, id] {
+            ctx.pending.started(key);
             json params = json::object();
             json meta = json::object();
             for (const auto& p : host.pluginParamInfos(session, id)) {
@@ -321,7 +327,10 @@ void addPluginHandlers(HandlerTable& t) {
         auto& broadcastTo = ctx.broadcastTo;
         // The presets a MODULE's external plugin offers — programs plus .vstpreset files — for the editor's dropdown; `module` is a name the engine resolves to a live instance.
         const std::string module = j.value("module", std::string{});
-        host.post([session, &host, &broadcastTo, module] {
+        const std::string key = "list-presets\n" + session + "\n" + module;
+        if (!ctx.pending.admit(key)) return;
+        host.post([&ctx, key, session, &host, &broadcastTo, module] {
+            ctx.pending.started(key);
             json arr = json::array();
             for (const auto& p : host.listPresets(session, module))
                 arr.push_back({{"name", p.name},

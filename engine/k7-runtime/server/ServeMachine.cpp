@@ -115,7 +115,10 @@ void addMachineHandlers(HandlerTable& t) {
                 ++ears[sid];
             }
         }
-        host.post([&host, &broadcast, ears] {
+        // One listing waiting is enough: it is broadcast, so it answers this asker too.
+        if (!ctx.pending.admit("list-sessions")) return;
+        host.post([&ctx, &host, &broadcast, ears] {
+            ctx.pending.started("list-sessions");
             json arr = json::array();
             for (const auto& s : host.sessionInfos()) {
                 const auto hit = ears.find(s.id);
@@ -154,11 +157,15 @@ void addMachineHandlers(HandlerTable& t) {
                         .dump());
     });
 
-    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string& session, const std::string&) {
+    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string&, const std::string&) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
         // Enumerate audio interfaces (message thread — touches JUCE devices).
-        host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
+        if (!ctx.pending.admit("list-audio-devices")) return;
+        host.post([&ctx, &host, &broadcast] {
+            ctx.pending.started("list-audio-devices");
+            broadcast(audioDevicesMsg(host));
+        });
     });
 
     t.add({"io-levels"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
@@ -175,7 +182,15 @@ void addMachineHandlers(HandlerTable& t) {
                     if (c.is_number()) ch.push_back(c.get<int>());
                 sets.push_back(std::move(ch));
             }
-        host.post([session, &host, &broadcastTo, sets] {
+        // Keyed by the channel sets too: two panels on one session meter different inputs.
+        std::string key = "io-levels\n" + session + "\n";
+        for (const auto& s : sets) {
+            for (const int c : s) key += std::to_string(c) + ",";
+            key += ";";
+        }
+        if (!ctx.pending.admit(key)) return;
+        host.post([&ctx, key, session, &host, &broadcastTo, sets] {
+            ctx.pending.started(key);
             json levels = json::array();
             json found = json::array();
             for (const auto& l : host.channelLevelsDb(sets)) {

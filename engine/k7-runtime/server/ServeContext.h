@@ -25,6 +25,7 @@
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
 #include "../engine/ScanProgress.h"   // PluginScanStatus — JUCE-free
 #include "HeldNotes.h"
+#include "PendingQueries.h"
 #include "Pairing.h"
 #include "Supersede.h"
 
@@ -96,6 +97,9 @@ struct ServeContext {
 
     // The notes each socket's `midi-live` holds down, released when it closes (docs/protocol.md).
     HeldNotes heldNotes;
+
+    // The read-only queries already waiting on the message thread, which an identical one joins (docs/supersede.md).
+    PendingQueries pending;
 
     // Plugin probes loading at once, each a thread waiting its turn at one lock; past the cap a probe is refused (docs/plugins.md).
     static constexpr int kMaxProbes = 4;
