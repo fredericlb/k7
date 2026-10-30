@@ -151,8 +151,12 @@ void addPluginHandlers(HandlerTable& t) {
             ws.send(json{{"type", "error"},
                          {"message", "list-plugin-params needs a format and an id"}}
                         .dump());
+        } else if (!ctx.takeProbe()) {
+            ws.send(json{{"type", "error"}, {"message", "too many plugins loading at once — ask again in a moment"}}.dump());
         } else {
-            ctx.work.spawn([&broadcast, fmt, id] {
+            ctx.work.spawn([&ctx, &broadcast, fmt, id] {
+                // The slot goes back however the load ends, a throw included.
+                const struct Slot { ServeContext& c; ~Slot() { c.probes.fetch_sub(1); } } slot{ctx};
                 const auto found = studio::pluginParamsOf(fmt, id);
                 json arr = json::array();
                 for (const auto& p : found.value_or(std::vector<studio::PluginParamInfo>{})) {
@@ -216,8 +220,11 @@ void addPluginHandlers(HandlerTable& t) {
             ws.send(json{{"type", "error"},
                          {"message", "show-native-plugin-ui-of needs a format and an id"}}
                         .dump());
+        } else if (!ctx.takeProbe()) {
+            ws.send(json{{"type", "error"}, {"message", "too many plugins loading at once — ask again in a moment"}}.dump());
         } else {
-            ctx.work.spawn([&host, &broadcast, fmt, id] {
+            ctx.work.spawn([&ctx, &host, &broadcast, fmt, id] {
+                const struct Slot { ServeContext& c; ~Slot() { c.probes.fetch_sub(1); } } slot{ctx};
                 std::cerr << "[native-plugin-ui] loading '" << id << "'" << "\n";
                 // ANSWERED either way, not out of politeness: a load can hang outright, and a caller told nothing cannot tell a slow load from a dead one.
                 if (!studio::prepareNativePluginUI(fmt, id)) {

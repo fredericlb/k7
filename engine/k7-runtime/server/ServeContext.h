@@ -97,6 +97,16 @@ struct ServeContext {
     // The notes each socket's `midi-live` holds down, released when it closes (docs/protocol.md).
     HeldNotes heldNotes;
 
+    // Plugin probes loading at once, each a thread waiting its turn at one lock; past the cap a probe is refused (docs/plugins.md).
+    static constexpr int kMaxProbes = 4;
+    std::atomic<int> probes{0};
+    // A slot for one probe, or false and nothing taken when every slot is in use.
+    bool takeProbe() {
+        if (probes.fetch_add(1) < kMaxProbes) return true;
+        probes.fetch_sub(1);
+        return false;
+    }
+
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;
 

@@ -176,6 +176,8 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
         held = HeldTransport{old->getPosition(), old->getLoopRange(), (bool)old->looping,
                              old->isPlaying() && !old->isRecording()};
     teardownProjectState(session);
+    // Cleared only at the end: a build that throws or finds no edit leaves a baseline no diff may trust.
+    impl_->session(session).halfBuilt = true;
     invalidatePluginInfoMemo();   // reload the scan cache once per apply, then memoise it across this apply's per-plugin lookups
 
     // Time the phases the first play waits on — the edit graph, every plugin, the playback context — printed once per apply, so a slow start shows in the log.
@@ -203,6 +205,7 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     const double t4 = juce::Time::getMillisecondCounterHiRes();
 
     impl_->session(session).current = doc;
+    impl_->session(session).halfBuilt = false;
     // The song's output level, on the gain buildLevelMeters just put on the master list; here rather than there, because HERE is where `doc` is the truth.
     if (auto* mg = dynamic_cast<studio::MasterGainPlugin*>(
             impl_->session(session).masterGain.get()))
@@ -321,7 +324,7 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
     ProjectDiff d = diff(impl_->session(session).current, target);
 
     // No live edit yet, or a change the incremental path can't handle: rebuild.
-    if (!impl_->session(session).edit || needsFullRebuild(d)) {
+    if (!impl_->session(session).edit || impl_->session(session).halfBuilt || needsFullRebuild(d)) {
         applyFull(session, target, baseDir);   // sets impl_->session(session).current = target
         return d;
     }

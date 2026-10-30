@@ -72,6 +72,7 @@ struct Session {
 
     std::unique_ptr<te::Edit> edit;
     ProjectDoc current;     // the diff baseline — what this session's engine state IS
+    bool halfBuilt = false;   // an applyFull did not finish: the edit is not what `current` says, so the next apply rebuilds
     std::string baseDir;    // resolves this session's clip/plugin paths
 
     // Plugins in the running edit by PluginDoc id, plus the native windows kept hidden after close; both clear on rebuild, windows first.

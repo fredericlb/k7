@@ -187,6 +187,14 @@ What it costs: the message thread is busy for as long as the plugin takes to con
 socket answers late during that time, the audio thread does not notice. That is the price of a
 query not killing the engine that is making sound.
 
+Probes run one at a time — they share one lock — so each request beyond the first is a thread
+waiting its turn. At most four are in flight (`ServeContext::kMaxProbes`); past that a probe is
+refused with an error rather than queued, so a client that loops cannot pile up threads. A plugin
+whose constructor hangs still hangs the message thread, which `docs/hangWatch.md` ends with a
+restart. Loading a probe in a child process, as the scan does, would contain that too, for
+`list-plugin-params` at least: the native window of `show-native-plugin-ui-of` needs its
+instance in this process.
+
 ## The scan
 
 `scanInstalledPlugins` loads each plugin in a **child process** (`runPluginScanChild`), so a
