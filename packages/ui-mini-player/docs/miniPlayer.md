@@ -63,6 +63,11 @@ room for one more button on a phone. The menu is anchored on an inert span over 
 than on the button itself, since a menu trigger opens on every press; the click that ends a long
 press is swallowed, or lifting the finger would also toggle the transport.
 
+`fill` replaces both the title line and the position row with one node, filling the row right of
+the play button: the médiathèque's waveform, with the title and the clocks laid over it. Beside a
+fill the play button draws no background of its own, since the fill is the surface and a filled
+button would be a second one.
+
 `mediaSession={false}` leaves the system's session alone, for a bar whose sound is not this page's: two
 bars on one screen must not fight over the lock screen. `onClose` is optional, and a bar without it has
 no close.

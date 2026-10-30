@@ -39,8 +39,8 @@ component k7 mounts for its reference tracks (`packages/ui-mini-player/docs/mini
 owns no transport, which is what makes it shareable: the library plays over two destinations and
 the editor plays a file in the browser beside a running engine, and neither of those fits in a bar.
 
-What stays here is what the médiathèque has to say: "ended" against an error, the destination
-indicator and the play button's menu. The strings too — they are props, filled from the host's
+What stays here is what the médiathèque has to say: "ended" against an error, and the play
+button's menu, which also says where the sound is. The strings too — they are props, filled from the host's
 labels ([host.md](host.md)).
 
 **The row carries the song's title and nothing beside it**, not even a glyph before it. The artist, the album and the version
@@ -54,11 +54,17 @@ and a metadata request is cheaper than a second source of truth.
 
 ## The waveform in the bar
 
-The bar's position row is the waveform of **what plays** — the master, a variant or the
-instrumental, since `now.path` is the file and each has its own shape — drawn by the same
-`@studio/ui-waveform` canvas the song pane draws, from the same `.cache` sidecar
-(`src/songWaveform.ts`). It goes in the row's `track` slot, so the three other hosts of the row keep
-their scrubber.
+The bar's whole row right of the play button is the waveform of **what plays** — the master, a
+variant or the instrumental, since `now.path` is the file and each has its own shape — drawn by the
+same `@studio/ui-waveform` canvas the song pane draws, from the same `.cache` sidecar
+(`src/songWaveform.ts`, `src/playback/WaveformFill.tsx`). It goes in the row's `fill` slot, so the
+other hosts of the row keep their title line and scrubber.
+
+- **The title and the clocks lie over it**, the title at its left end and "position / length" at
+  its right, on a translucent chip so they read over a bright strip, and transparent to the pointer:
+  every gesture on the row is a seek. The waveform gets the height a title line and a scrubber
+  shared, which is what makes it readable at a glance; the play button loses its background, the
+  strip being the surface.
 
 - **The bar never asks for an analysis.** It reads the sidecar, and a file without one keeps the
   plain scrubber: an analysis takes an engine minutes, too much to spend on a strip nobody asked
@@ -75,7 +81,7 @@ their scrubber.
   which a bar has no use for; over it, the strip's arithmetic is its own (`src/playback/peek.ts`).
 - **The strip's seconds are the shape's**, so the rule lands on the picture it points at; the
   right clock is the transport's length once it is known.
-- **On a device without hover it is taller** (36 px against 28), as the scrubber's hit area is.
+- **On a device without hover it is taller** (52 px against 44), as the scrubber's hit area is.
 
 ## One socket
 

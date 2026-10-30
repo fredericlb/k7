@@ -22,6 +22,7 @@ export function PlayButton({
   playLabel,
   pauseLabel,
   menu,
+  plain = false,
 }: {
   playing: boolean;
   onToggle: () => void;
@@ -29,6 +30,8 @@ export function PlayButton({
   pauseLabel: string;
   /** The menu's items; absent, the button has none and a long press does nothing. */
   menu?: ReactNode;
+  /** No background of its own, for a bar whose row is a picture. */
+  plain?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,7 +53,7 @@ export function PlayButton({
   const button = (
     <Button
       size="icon"
-      variant="secondary"
+      variant={plain ? "ghost" : "secondary"}
       // No text selection or iOS callout under a held finger.
       className="shrink-0 select-none [-webkit-touch-callout:none]"
       onClick={(e) => {
