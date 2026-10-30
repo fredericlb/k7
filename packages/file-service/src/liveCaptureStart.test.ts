@@ -141,3 +141,38 @@ describe("a large text that is not k7x", () => {
     ]);
   });
 });
+
+describe("LiveCapture.prepare", () => {
+  const many = () => {
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 60; i++) files[`song.k7/nodes/n${i}.k7x`] = `n(${i})\n`;
+    return files;
+  };
+
+  it("builds the ledger while the event loop keeps turning, then starts without reading again", async () => {
+    const w = workspace(many());
+    const batches: Batch[] = [];
+    const c = capture(w, batches);
+    let turns = 0;
+    const tick = setInterval(() => turns++, 0);
+    const prepared = c.prepare(undefined, 0);
+    expect(await prepared).toBe(true);
+    clearInterval(tick);
+    expect(turns).toBeGreaterThan(0);
+    expect(readsDuring(w.root, () => c.start())).toEqual([]);
+    // Only the file edited is news: every other one is in the ledger as it is on disk.
+    writeFileSync(join(w.root, "song.k7/nodes/n3.k7x"), "n(33)\n");
+    c.flushNow({ full: true });
+    expect(batches.flatMap((b) => b.ops.map((o) => o.file))).toEqual([
+      "song.k7/nodes/n3.k7x",
+    ]);
+  });
+
+  it("answers false when the capture was stopped before it finished", async () => {
+    const w = workspace(many());
+    const c = capture(w);
+    const prepared = c.prepare(undefined, 0);
+    c.stop();
+    expect(await prepared).toBe(false);
+  });
+});

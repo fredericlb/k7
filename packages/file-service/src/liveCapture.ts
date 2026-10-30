@@ -12,6 +12,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  type Stats,
   statSync,
   watch,
 } from "node:fs";
@@ -33,6 +34,12 @@ import {
 import type { Batch } from "./liveLog.ts";
 import { confinedPath } from "./livePath.ts";
 import { filesUnder } from "./workspaceFilter.ts";
+
+/** The text each file had as the room last confirmed it: what a restart diffs the workspace against. */
+interface Baseline {
+  files(): string[];
+  get(file: string): string | null;
+}
 
 export interface CaptureOptions {
   root: string;
@@ -99,6 +106,9 @@ export class LiveCapture implements ChangeFeed {
   private youngTimer: NodeJS.Timeout | null = null;
   private readonly listeners = new Set<(rel: string, gen: number) => void>();
   private gen = 0;
+  /** The ledger was built by `prepare`; `start` goes straight to watching. */
+  private prepared = false;
+  private halted = false;
 
   constructor(private readonly o: CaptureOptions) {
     this.quietMs = o.quietMs ?? 100;
@@ -109,13 +119,23 @@ export class LiveCapture implements ChangeFeed {
     this.index = indexFile ? new BlobIndex(indexFile) : null;
   }
 
-  /** Read the workspace into the ledger WITHOUT emitting, or from `baseline` and emit what differs; then watch it. */
-  start(baseline?: {
-    files(): string[];
-    get(file: string): string | null;
-  }): void {
-    if (baseline) this.learnBaseline(baseline);
-    else for (const rel of this.walk("")) this.learn(rel);
+  /** Build the ledger in slices that yield to the event loop, so a large workspace never stalls the process; false once stopped meanwhile. */
+  async prepare(baseline?: Baseline, sliceMs = 10): Promise<boolean> {
+    const steps = this.learning(baseline);
+    let since = performance.now();
+    while (!steps.next().done) {
+      if (performance.now() - since < sliceMs) continue;
+      await new Promise((res) => setImmediate(res));
+      if (this.halted) return false;
+      since = performance.now();
+    }
+    this.prepared = true;
+    return !this.halted;
+  }
+
+  /** Read the workspace into the ledger WITHOUT emitting (unless `prepare` did), or from `baseline` and emit what differs; then watch it. */
+  start(baseline?: Baseline): void {
+    if (!this.prepared) for (const _ of this.learning(baseline));
     // A fetch a restart interrupted: the file waits for its bytes again rather than read as removed.
     for (const [rel, ref] of Object.entries(this.cache?.pending() ?? {}))
       this.await(rel, ref);
@@ -172,6 +192,7 @@ export class LiveCapture implements ChangeFeed {
   }
 
   stop(): void {
+    this.halted = true;
     this.index?.save(this.ledger);
     this.closeWatcher();
     if (this.timer) clearTimeout(this.timer);
@@ -488,9 +509,10 @@ export class LiveCapture implements ChangeFeed {
   private probe(
     rel: string,
     keep = false,
+    seen?: { abs: string; st: Stats },
   ): { now: Known; text: string | null; fresh?: boolean } {
-    const abs = this.pathOf(rel);
-    const st = statSync(abs);
+    const abs = seen?.abs ?? this.pathOf(rel);
+    const st = seen?.st ?? statSync(abs);
     const stamp = stampOf(st.size, st.mtimeMs);
     const opaque = (id: BlobId & { fresh?: boolean }) => {
       const ref = blobRef(id.hash, id.size);
@@ -520,14 +542,26 @@ export class LiveCapture implements ChangeFeed {
     };
   }
 
+  /** The ledger built from the disk, or from `baseline`: one step per file, which `prepare` spreads over the event loop. */
+  private *learning(baseline?: Baseline): Generator<void> {
+    if (baseline) yield* this.learnBaseline(baseline);
+    else
+      for (const rel of this.walk("")) {
+        this.learn(rel);
+        yield;
+      }
+  }
+
   /** The ledger as the baseline says the files were; one the disk still holds as it was keeps the walk's entry. */
-  private learnBaseline(baseline: {
-    files(): string[];
-    get(file: string): string | null;
-  }): void {
+  private *learnBaseline(baseline: Baseline): Generator<void> {
     const walk = new Map<string, Known>();
-    for (const rel of this.walk("")) walk.set(rel, this.look(rel));
+    for (const rel of this.walk("")) {
+      const k = this.look(rel);
+      if (k) walk.set(rel, k);
+      yield;
+    }
     for (const rel of baseline.files()) {
+      yield;
       const text = baseline.get(rel);
       if (text === null || rel.split("/").some((s) => this.o.skip(s))) continue;
       const hash = textHash(text);
@@ -553,21 +587,23 @@ export class LiveCapture implements ChangeFeed {
   }
 
   private learn(rel: string): void {
-    if (existsSync(this.pathOf(rel))) this.ledger.set(rel, this.look(rel));
+    const k = this.look(rel);
+    if (k) this.ledger.set(rel, k);
     else this.ledger.delete(rel);
   }
 
-  /** The ledger entry for `rel` as it is; a text file whose stamp the index knows is not read (k7x ones are, for their text). */
-  private look(rel: string): Known {
-    if (!keepsText(rel) && this.index) {
-      const st = statSync(this.pathOf(rel));
-      const stamp = stampOf(st.size, st.mtimeMs);
-      const hash = this.opaqueByName(rel, st.size)
+  /** The ledger entry for `rel` as it is, or null when absent; a text file whose stamp the index knows is not read (k7x ones are, for their text). */
+  private look(rel: string): Known | null {
+    const abs = this.pathOf(rel);
+    const st = statSync(abs, { throwIfNoEntry: false });
+    if (!st) return null;
+    const stamp = stampOf(st.size, st.mtimeMs);
+    const hash =
+      keepsText(rel) || this.opaqueByName(rel, st.size)
         ? null
-        : this.index.textHash(rel, stamp);
-      if (hash) return { stamp, hash, text: null };
-    }
-    return this.probe(rel).now;
+        : this.index?.textHash(rel, stamp);
+    if (hash) return { stamp, hash, text: null };
+    return this.probe(rel, false, { abs, st }).now;
   }
 
   /** Every file under `scope` (a file or a folder, workspace-relative), minus what `skip` hides. */

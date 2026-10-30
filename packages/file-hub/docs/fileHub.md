@@ -186,10 +186,18 @@ two copies would compile a song two ways.
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **Every copy is asynchronous, and they run one at a time.** A library is IR and amp-model
   binaries, and the hub lives in the one process every account is served by: a synchronous copy of
-  one on a publish or a seed stops every request until it ends. Asynchronous, two copies could
+  one on a publish or a seed stops every request until it ends. Inside one copy, eight files are in
+  flight (`../copyTree.ts`): `fs.cp` copies one at a time, and the 67 MB `k7-core` seed took 1.7 s
+  on Windows against 0.5 s, all of it on a first launch's start screen. It is a real copy, never a
+  hard link: the hub writes inside the version it installs (its manifest), and sync writes there
+  later, either of which would reach the seed's own files through a link. Asynchronous, two copies could
   decide on the same name at once — two seeds of one library, two publishes numbering the same
   version — so `set`, `ensure` and `publish` queue behind each other inside the store. At start
   the relay follows the libraries only once their folders are there.
+- **A library's capture is built in slices, and linked once built** (`LiveCapture.prepare`). Built
+  in one go, `k7-core`'s 2,000 files held the event loop about 400 ms right as a standalone began to
+  listen, so the host's first `hello` waited that long. Linked earlier, an entry from the room could
+  meet a ledger that does not know its files yet, and send them back as new.
 - **The first `ensure` is one shared promise, `firstEnsure`.** The relay waits on it, and so does a
   standalone backend before it listens (`apps/k7/backend/docs/standalone.md`, "Ready means the
   library is there"). A file service asked for a workspace with no library on disk asks the hub

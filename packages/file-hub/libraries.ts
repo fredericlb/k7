@@ -16,7 +16,6 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { writeFileAtomic } from "@studio/song/atomicWrite";
 import {
@@ -34,6 +33,7 @@ import {
   LEGACY_DEFAULT_LIBRARY,
 } from "@studio/song-schema/moduleTypes";
 import type { AccountLibrariesReply, LibraryNote } from "@studio/web-protocol";
+import { copyTree } from "./copyTree.ts";
 import {
   isCopyOfSeed,
   isHusk,
@@ -300,7 +300,7 @@ export class LibraryStore {
     if (opts.notes?.trim()) manifest.notes = opts.notes.trim();
     const partial = join(this.home, `.publishing-${Date.now()}-${process.pid}`);
     try {
-      await cp(draft, partial, { recursive: true, filter: publishable });
+      await copyTree(draft, partial, publishable);
       writeFileSync(
         join(partial, LIBRARY_MANIFEST),
         stringifyLibraryManifest(manifest),
@@ -339,7 +339,7 @@ export class LibraryStore {
       // A published seed (an installer's) installs under its own number; a bare folder is version 1.
       const first = join(partial, String(this.seedVersion(name)));
       if (from && existsSync(from)) {
-        await cp(from, first, { recursive: true, filter: publishable });
+        await copyTree(from, first, publishable);
         writeFirstManifest(name, first);
         renameSync(partial, at);
         return { name, state: "seeded", note: `copied from ${from}` };
@@ -376,7 +376,7 @@ export class LibraryStore {
     const version = taken ? Math.max(...held) + 1 : manifest.version;
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
-      await cp(from, partial, { recursive: true, filter: publishable });
+      await copyTree(from, partial, publishable);
       upgradeManifest(partial);
       if (taken)
         writeFileSync(
@@ -455,10 +455,11 @@ export class LibraryStore {
     );
     try {
       if (newest)
-        await cp(join(at, String(newest)), partial, {
-          recursive: true,
-          filter: (src) => !manifests.has(resolve(src)),
-        });
+        await copyTree(
+          join(at, String(newest)),
+          partial,
+          (src) => !manifests.has(resolve(src)),
+        );
       else mkdirSync(partial, { recursive: true });
       renameSync(partial, draft);
       return {
