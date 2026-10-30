@@ -194,6 +194,16 @@ rewrites it. A walk of stats is what remains of the cost, which is not the read 
 `NAMESPACE_RULES` is bumped with any new rule of `namespaceMigrate.ts`, or a stamped workspace
 would never meet it.
 
+**Every workspace is attached at start, but behind the first answers.** `attachAllWorkspaces`
+runs after the service is listening, each workspace on a turn of the event loop of its own: a
+learning walk, a recursive watch and a relay link per workspace is a few hundred milliseconds on a
+phone, and the hub counts the service as started only once it answers its probe — the account's
+first page waits on that. A request reaching a workspace not attached yet attaches it itself, as
+it always does through `getWorkspace`; the migration then lands on a captured workspace, which
+carries it as an ordinary edit, the same as when it runs before. The demos are mirrored before
+listening still: a mirror left as it was costs only two stat walks, and Examples must not be
+served half-copied.
+
 **On a server, a workspace a device creates is joined without waiting for a reconnect.** The server's
 own replica joins every room holding files when its link opens — and a room a device seeds later, or a
 move lands, announces itself to no reconnect. So it joins them again before answering the home page's

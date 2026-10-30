@@ -91,10 +91,17 @@ export function joinWorkspace(name: string): void {
 }
 
 /** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
-export function attachAllWorkspaces(): void {
+export async function attachAllWorkspaces(): Promise<void> {
+  // Each step on a turn of its own, so the hub's readiness probe and the first requests answer between them — docs/workspaces.md.
+  const turn = (): Promise<void> => new Promise((r) => setImmediate(r));
+  await turn();
   // Before joining: a server's sync then carries the rewrite to every device as an ordinary edit.
   migrateLegacyNamespaces();
-  for (const name of workspaceNames(rootDir())) joinWorkspace(name);
+  for (const name of workspaceNames(rootDir())) {
+    await turn();
+    joinWorkspace(name);
+  }
+  await turn();
   attachAccountLibrary();
   // A workspace kept as `room.host` while its name was taken here gets it back once it is free.
   for (const name of workspaceNames(rootDir())) void restoreRoomName(name);
