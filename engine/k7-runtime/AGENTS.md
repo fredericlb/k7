@@ -144,6 +144,7 @@ server/
   AudioSender.{h,cpp}    the audio broadcast's own thread and wire frame (docs/broadcast.md)
   Supersede.h            which queued project, tracks and parameter jobs a newer message skips (docs/supersede.md)
   HeldNotes.h            the notes each socket's `midi-live` holds down, released when the socket drops
+  PendingQueries.h       which polled queries already wait on the message thread, so an identical one joins them (docs/supersede.md)
   Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
