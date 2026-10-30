@@ -48,9 +48,9 @@ the prefix and back. The host draws them where its own nav is — k7's sidebar, 
 
 ## Playback is mounted where it plays, and only there
 
-`MediaPlayback` holds the destination, the queue, the transport and the bar at the bottom, and it
-probes an engine ([engine.md](engine.md)). A host mounts it AROUND its chrome, so a picker in the
-sidebar (`PlaybackPicker`) and the catalogue's play buttons drive one transport — and only on the
+`MediaPlayback` holds the queue, the transport and the bar at the bottom, and it probes and holds
+an engine ([engine.md](engine.md)). A host mounts it AROUND its chrome, so the queue button in its
+sidebar (`QueueButton`) and the catalogue's play buttons drive one transport — and only on the
 pages that can play: k7's other home pages deliberately look for no engine.
 
 ## What the host gives up

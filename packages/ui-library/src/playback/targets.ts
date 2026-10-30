@@ -1,67 +1,28 @@
-// targets.ts — WHERE the médiathèque makes sound. One list, so a destination is one entry here
-// and nothing else. This tab needs nothing; the host that serves the files needs mpv installed
-// there, and the moteur needs a musician's machine to be answering.
-// See ../../docs/playbackTarget.md.
+// targets.ts — WHERE the médiathèque makes sound: on the engine the host's selector shows, heard
+// where its radio says, and in this tab's <audio> element while no engine answers. Not a choice:
+// the fallback is decided here, once. See ../../docs/playbackTarget.md.
 
-import { Laptop, type LucideIcon, Radio, Speaker } from "@frediverse/ui/icons";
+import { Laptop, type LucideIcon, Radio } from "@frediverse/ui/icons";
 
-/** A destination's id. It is what is stored on the account, so these strings are permanent. */
-export type PlaybackTarget = "browser" | "library" | "engine";
+/** A destination's id; its label and hint are the host's, under `labels.playback.targets[id]`. */
+export type PlaybackTarget = "browser" | "engine";
 
-/** Its label and hint are the host's, under `labels.playback.targets[id]`. */
 export interface PlaybackTargetInfo {
   id: PlaybackTarget;
   icon: LucideIcon;
-  /** True when it needs an engine to be ANSWERING, so the menu can say so instead of offering silence. */
-  needsEngine: boolean;
-  /** True when it needs mpv on the host; a host without it does not offer this row at all. */
-  needsHostPlayer: boolean;
 }
 
-/** What the page has learned is there: an engine answering, and mpv on the host. */
-export interface Readiness {
-  engine: boolean;
-  hostPlayer: boolean;
+const TARGETS: Record<PlaybackTarget, PlaybackTargetInfo> = {
+  browser: { id: "browser", icon: Laptop },
+  engine: { id: "engine", icon: Radio },
+};
+
+/** The destination ACTUALLY used: the engine once one answers, else the browser, which needs nothing. */
+export function effectiveTarget(engineAvailable: boolean): PlaybackTarget {
+  return engineAvailable ? "engine" : "browser";
 }
 
-/** The destinations in menu order — a LIST rather than a switch (../../docs/playbackTarget.md). */
-export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
-  { id: "browser", icon: Laptop, needsEngine: false, needsHostPlayer: false },
-  { id: "library", icon: Speaker, needsEngine: false, needsHostPlayer: true },
-  { id: "engine", icon: Radio, needsEngine: true, needsHostPlayer: false },
-];
-
-/** The browser, deliberately: it is the destination that needs NOTHING to make a sound. */
-export const DEFAULT_PLAYBACK_TARGET: PlaybackTarget = "browser";
-
-/** Narrow whatever was stored back to a destination — the preference is a plain string on purpose. */
-export function asPlaybackTarget(value: unknown): PlaybackTarget {
-  return PLAYBACK_TARGETS.some((t) => t.id === value)
-    ? (value as PlaybackTarget)
-    : DEFAULT_PLAYBACK_TARGET;
-}
-
-/** Whether the menu lists a destination at all: a host without mpv has no such destination. */
-export function offered(t: PlaybackTargetInfo, ready: Readiness): boolean {
-  return !t.needsHostPlayer || ready.hostPlayer;
-}
-
-/** The destination ACTUALLY used, with the fallback decided ONCE — ../../docs/playbackTarget.md. */
-export function effectiveTarget(
-  chosen: PlaybackTarget,
-  ready: Readiness,
-): PlaybackTarget {
-  const t = playbackTargetInfo(chosen);
-  return (t.needsEngine && !ready.engine) || !offered(t, ready)
-    ? DEFAULT_PLAYBACK_TARGET
-    : chosen;
-}
-
-/** A destination's row, for drawing it. Never undefined — an unknown id narrows first. */
+/** A destination's row, for drawing it. */
 export function playbackTargetInfo(id: PlaybackTarget): PlaybackTargetInfo {
-  return (
-    PLAYBACK_TARGETS.find((t) => t.id === id) ??
-    // Unreachable through `asPlaybackTarget`, and non-optional so no caller invents a fallback.
-    (PLAYBACK_TARGETS[0] as PlaybackTargetInfo)
-  );
+  return TARGETS[id];
 }

@@ -251,12 +251,7 @@ export interface LibraryLabels {
     settings: string;
   };
   playback: {
-    targets: Record<
-      "browser" | "library" | "engine",
-      { label: string; hint: string }
-    >;
-    title: string;
-    picker: (target: string) => string;
+    targets: Record<"browser" | "engine", { label: string; hint: string }>;
     noEngine: string;
     notInLibrary: string;
     engineSaid: (message: string) => string;
@@ -264,7 +259,6 @@ export interface LibraryLabels {
     done: string;
     bar: MiniPlayerLabels;
     queueRegion: string;
-    queueWaiting: (n: number) => string;
     queueButton: (n: number) => string;
     upNext: string;
     queueEmpty: string;

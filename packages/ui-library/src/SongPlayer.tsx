@@ -20,7 +20,7 @@ import { library } from "./api";
 import { useLabels } from "./host";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { usePlaybackPosition } from "./playback/position";
-import { type PlaybackTarget, playbackTargetInfo } from "./playback/targets";
+import { playbackTargetInfo } from "./playback/targets";
 import { readSongShape, type SongShape } from "./songWaveform";
 import type { SongTransport } from "./useSongTransport";
 
@@ -30,12 +30,9 @@ const takeIcon = (kind: Take["kind"]) =>
 
 export function SongPlayer({
   entry,
-  target,
   transport,
 }: {
   entry: MediatekEntry;
-  /** Where the account WANTS sound to come out; the provider decides what it falls back to. */
-  target: PlaybackTarget;
   /** The page's hold on the transport, shared with the header's play button. */
   transport: SongTransport;
 }) {
@@ -123,7 +120,8 @@ export function SongPlayer({
 
   const where = playbackTargetInfo(actual);
   const WhereIcon = where.icon;
-  const fellBack = actual !== target;
+  // A song goes to the engine; the browser plays it only while none answers.
+  const fellBack = actual !== "engine";
   // The transport's own complaint first, then `status` — and that one only when there IS a shape.
   const complaint = (isCurrent && playback.error) || (shape ? status : "");
 
@@ -214,7 +212,7 @@ export function SongPlayer({
           className="flex items-center gap-1"
           title={
             fellBack
-              ? l.notAnswering(targetLabels[target].label)
+              ? l.notAnswering(targetLabels.engine.label)
               : targetLabels[where.id].hint
           }
         >

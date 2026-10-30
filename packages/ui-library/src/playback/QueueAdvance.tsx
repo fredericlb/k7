@@ -2,10 +2,9 @@
 // INSIDE the provider, which MediaPlayback mounts around everything.
 // See ../../docs/miniPlayer.md.
 
-import type { PlaybackTarget } from "./targets";
 import { useQueueAdvance } from "./useQueueAdvance";
 
-export function QueueAdvance({ target }: { target: PlaybackTarget }) {
-  useQueueAdvance(target);
+export function QueueAdvance() {
+  useQueueAdvance();
   return null;
 }

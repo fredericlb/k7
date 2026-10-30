@@ -1,5 +1,5 @@
-// QueueButton.tsx — the queue, right of the bottom bar: what plays next, in order, movable and
-// removable. See ../../docs/miniPlayer.md.
+// QueueButton.tsx — the queue, for the host's chrome (k7: above the sidebar's engine): what plays
+// next, in order, movable and removable. Must sit inside MediaPlayback. See ../../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -43,9 +43,9 @@ export function QueueButton() {
         </Button>
       </DropdownMenuTrigger>
 
-      {/* Aligned to the end and upwards, and capped by the WINDOW (../docs/responsive.md). */}
+      {/* Upwards from a sidebar's foot, into the page, and capped by the WINDOW (../docs/responsive.md). */}
       <DropdownMenuContent
-        align="end"
+        align="start"
         side="top"
         className="w-[min(24rem,calc(100vw-1.5rem))]"
       >

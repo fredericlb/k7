@@ -197,7 +197,6 @@ export function SongsLibrary(p: {
       {editingSong ? (
         <SongEditor
           entry={editingSong}
-          playbackTarget={playback.target}
           onBack={() => openFile(null)}
           onSaved={refresh}
           manage={manage}

@@ -44,8 +44,6 @@ export class SongExists extends Error {}
 
 /** What a call may take before it is given up on — ../docs/audit.md. */
 const TIMEOUT_MS = 30_000;
-/** The host's transport answers from memory: past this, it is not coming. */
-const PLAYER_MS = 10_000;
 /** A decode may queue behind two others on the server before it even starts. */
 const ANALYSE_MS = 10 * 60_000;
 
@@ -59,82 +57,6 @@ const request = (
 
 const get = async <T>(path: string, what: string): Promise<T> =>
   json(await request(`${apiBase()}/api/mediatek${path}`), what);
-
-/** What a machine's player reports about itself, with the path it was ASKED FOR (../docs/api.md). */
-export interface MachinePlayerState {
-  path: string | null;
-  playing: boolean;
-  position: number;
-  duration: number;
-  /** Nothing left to play — the end of a track, or nothing was ever loaded. */
-  idle: boolean;
-}
-
-/**
- * This service's own player: mpv on the HOST's outputs, same origin and on the session cookie.
- * The library is right there, so a relative path is all that crosses — packages/mpv-player/docs/mpvPlayer.md.
- */
-export const player = {
-  /** False only when the host has no player routes, i.e. no mpv; any other failure says nothing. */
-  available: async (): Promise<boolean> =>
-    request(`${apiBase()}/api/player`, {}, PLAYER_MS).then(
-      (res) => res.status !== 404,
-      () => true,
-    ),
-
-  state: async (): Promise<MachinePlayerState> =>
-    json(await request(`${apiBase()}/api/player`, {}, PLAYER_MS), "player"),
-
-  play: async (path: string, from = 0): Promise<MachinePlayerState> =>
-    json(
-      await request(
-        `${apiBase()}/api/player/play`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ path, from }),
-        },
-        PLAYER_MS,
-      ),
-      "player",
-    ),
-
-  pause: async (paused: boolean): Promise<MachinePlayerState> =>
-    json(
-      await request(
-        `${apiBase()}/api/player/pause`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ paused }),
-        },
-        PLAYER_MS,
-      ),
-      "player",
-    ),
-
-  seek: async (to: number): Promise<MachinePlayerState> =>
-    json(
-      await request(
-        `${apiBase()}/api/player/seek`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ to }),
-        },
-        PLAYER_MS,
-      ),
-      "player",
-    ),
-
-  stop: async (): Promise<void> => {
-    await request(
-      `${apiBase()}/api/player/stop`,
-      { method: "POST" },
-      PLAYER_MS,
-    ).catch(() => {});
-  },
-};
 
 type Engines = EngineAccess<PublicEngine, Pl8Prefs>;
 let access: { base: string; engines: Engines } | null = null;

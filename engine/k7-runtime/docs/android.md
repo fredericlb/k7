@@ -539,9 +539,8 @@ also catches the GL driver's chatter, which is noise.
 - **The standalone app has not been built and run as one APK yet.** Its backend and file service
   were run on the emulator as an app, with `BackendHost.kt`'s layout and environment (below); the
   APK itself, the view on the local studio and a sign-in through the browser are still to drive.
-- **No ffmpeg, yt-dlp or mpv on the phone**: waveforms are decoded by WebAssembly instead, and an mp4 or a .mov is probed from its boxes
-  (`packages/audio-analysis/docs/analysis.md`); what else needs them — transcoding, the hunt, the server-side
-  player — answers as it does on a machine without them.
+- **No ffmpeg or yt-dlp on the phone**: waveforms are decoded by WebAssembly instead, and an mp4 or a .mov is probed from its boxes
+  (`packages/audio-analysis/docs/analysis.md`); what else needs them — transcoding, the hunt — answers as it does on a machine without them.
 - **The rehearsal recorder's store is the server's**: SQLite under `K7_DATA_DIR`, as on a computer and on the server (`packages/rehearsal-server/docs/store.md`).
 - **The tunnel and WebRTC are untested on a phone.** They are the code a computer runs, built unchanged; no
   studio has driven a phone through them yet.

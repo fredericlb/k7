@@ -174,7 +174,7 @@ cut the sound. The song open is not necessarily the one playing. See [miniPlayer
 Where the sound comes out is not decided here either. The destination is an account choice — this
 browser, or the chosen machine's engine — behind **one transport**: everything below the header
 reads `playing`/`current` and never asks which side of the wire is playing. See
-[playbackTarget.md](playbackTarget.md) for the menu, the fallback when the machine does not answer,
+[playbackTarget.md](playbackTarget.md) for the fallback when the machine does not answer,
 and why a cache root is not a copy.
 
 ### Once, and cancellable

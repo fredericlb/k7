@@ -32,10 +32,7 @@ export interface SongTransport {
   playFrom: (sec: number) => void;
 }
 
-export function useSongTransport(
-  entry: MediatekEntry,
-  target: PlaybackTarget,
-): SongTransport {
+export function useSongTransport(entry: MediatekEntry): SongTransport {
   const playback = usePlayback();
   const takes = useMemo<Take[]>(() => takesOf(entry), [entry]);
   // By NAME: the listing is re-polled, so an index would come to mean another version.
@@ -52,10 +49,7 @@ export function useSongTransport(
   // biome-ignore lint/correctness/useExhaustiveDependencies: the trigger is the version changing
   useEffect(() => setCursor(0), [path]);
 
-  const actual = effectiveTarget(target, {
-    engine: playback.engineAvailable,
-    hostPlayer: playback.hostPlayerAvailable,
-  });
+  const actual = effectiveTarget(playback.engineAvailable);
 
   const startAt = useCallback(
     (from: number) => {
@@ -64,14 +58,13 @@ export function useSongTransport(
         {
           entry,
           path,
-          target: actual,
           // The master's document is the song; every other tab names its version.
           version: take?.kind === "master" ? undefined : take?.name,
         },
         from,
       );
     },
-    [path, playback, entry, actual, take?.kind, take?.name],
+    [path, playback, entry, take?.kind, take?.name],
   );
 
   const toggle = useCallback(() => {

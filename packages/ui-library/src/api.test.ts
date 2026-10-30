@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { library, player } from "./api";
+import { library } from "./api";
 
 // A server that never answers: the promise settles only when its signal aborts.
 const hang = vi.fn(
@@ -50,13 +50,6 @@ describe("a call to a server that never answers", () => {
       "no answer from the server after 30 s",
     );
     await vi.advanceTimersByTimeAsync(30_000);
-    await settled;
-  });
-
-  it("gives the host's transport a shorter one", async () => {
-    const state = player.state();
-    const settled = expect(state).rejects.toThrow("after 10 s");
-    await vi.advanceTimersByTimeAsync(10_000);
     await settled;
   });
 

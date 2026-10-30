@@ -248,17 +248,11 @@ export function mediaLabels(): LibraryLabels {
           label: m["media.target.browser"](),
           hint: m["media.target.browserHint"](),
         },
-        library: {
-          label: m["media.target.library"](),
-          hint: m["media.target.libraryHint"](),
-        },
         engine: {
           label: m["media.target.engine"](),
           hint: m["media.target.engineHint"](),
         },
       },
-      title: m["media.playback.title"](),
-      picker: (target) => m["media.playback.picker"]({ target }),
       noEngine: m["media.playback.noEngine"](),
       notInLibrary: m["media.playback.notInLibrary"](),
       engineSaid: (message) => m["media.playback.engineSaid"]({ message }),
@@ -272,10 +266,6 @@ export function mediaLabels(): LibraryLabels {
         close: m["media.playback.close"](),
       },
       queueRegion: m["media.playback.queue"](),
-      queueWaiting: plural(
-        m["media.playback.waitingOne"],
-        m["media.playback.waitingMany"],
-      ),
       queueButton: plural(
         m["media.playback.queueOne"],
         m["media.playback.queueMany"],

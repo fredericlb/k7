@@ -1,18 +1,9 @@
 # Where a song plays — the server's half
 
-Where the médiathèque makes sound is a choice the listener makes in the playback picker; the
-menu, the fallback and the transport are the screens', in
+A song plays on the engine the account chose, and in the browser while none answers; the fallback
+and the transport are the screens', in
 [packages/ui-library/docs/playbackTarget.md](../../../../../packages/ui-library/docs/playbackTarget.md).
-The backend holds three things of it.
-
-## The preference is a string, not an enum
-
-`playbackTarget` sits in the one preferences document per person (`prefsSchema` in
-`apps/k7/backend/src/server.ts`), beside `engineId` and the editor's command preferences. It is
-`z.string()` and not a `z.enum`: a new destination is an entry in the screens' list plus a branch in
-whatever plays, and an enum here would make the vocabulary something the backend and every build of
-the frontend have to agree on before either can move. An id a build has never heard of reads as
-the default on that side.
+The backend holds one thing of it.
 
 ## The moteur needs a path on ITS disk: `POST /api/engine-local`
 
@@ -27,11 +18,3 @@ Each way it can fail is its own answer, because each is fixed differently: no en
 here, a path that is not in the médiathèque, anything else in the machine's own words. An engine
 the caller holds no claim on is a 403 before any of them: anyone may register an engine, and a
 song is sent only to the one this account is driving (`packages/engine-registry/docs/claim.md`).
-
-## The host's own speakers: mpv
-
-The `library` destination plays through `mpv` on the host that serves the files
-(`packages/mpv-player/docs/mpvPlayer.md`), mounted by `mountMedia` under `/api/player/*`. A path is
-resolved against the library's root, which is also the guard: a client can name only what that
-root holds. Without mpv on the host — the hosted image has none — those routes are not there at all and
-the destination is not offered (`packages/mpv-player/docs/mpvPlayer.md`).

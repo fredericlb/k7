@@ -23,7 +23,7 @@ paraglide catalogue (`apps/k7/frontend/src/projects/mediaLabels.ts`, messages `m
 `labels.ts`, a line in `mediaLabels.ts`, and a message in both catalogues.
 
 Exports (`src/index.ts`): `configureLibrary`, `LibraryHostProvider`, `MediaLibrary`,
-`MediaPlayback`, `PlaybackPicker`, `LIBRARY_SECTIONS`, `sectionAt`, `sectionLabel`, `sectionPath`,
+`MediaPlayback`, `QueueButton`, `LIBRARY_SECTIONS`, `sectionAt`, `sectionLabel`, `sectionPath`,
 `SECTION_IDS`. `./settings` exports `EnginesSettings`, `EngineOwnersSettings` and `SlskdSettings`.
 
 ## Routing
@@ -66,21 +66,18 @@ added through the tags dialog. Recordings refuse them too. Every other family ge
 
 `MediaPlayback` wraps `PlaybackProvider` (`src/playback/PlaybackProvider.tsx`), above the screens so
 what plays outlives the screen that started it. It exposes `now`, `playing`, `position`,
-`duration`, `start`, `toggle`, `seek`, `close`, `error`, `ended`, the destination (`target`,
-`choose`, `engineAvailable`) and the queue.
+`duration`, `start`, `toggle`, `seek`, `error`, `ended`, `engineAvailable` and the queue.
 
-Destinations are one list, `PLAYBACK_TARGETS` in `src/playback/targets.ts`:
+There is no destination to choose: a song plays on the engine the host's selector shows, and in the
+browser while none answers (`src/playback/targets.ts`):
 
 | Id | Driven by |
 |---|---|
-| `browser` | An `<audio>` element this tab owns, on `/api/mediatek/stream` |
-| `library` | mpv on the server, through `/api/player/*`, polled |
-| `engine` | The account's engine: `useSongEngine` opens one socket only while this destination is chosen; `enginePlayback.ts` brings the song to the engine's machine (`/api/engine-local`) and sends a one-clip document |
+| `engine` | The engine the host's selector shows, heard where its radio says: `useSongEngine` holds one socket; `enginePlayback.ts` brings the song to the engine's machine (`/api/engine-local`) and sends a one-clip document |
+| `browser` | An `<audio>` element this tab owns, on `/api/mediatek/stream`, while no engine answers |
 
-The ids are stored on the account as `playbackTarget` and are permanent. `effectiveTarget()`
-decides the fallback once: a destination that needs an engine falls back to `browser` when none
-answers. A new destination is one entry in `PLAYBACK_TARGETS` plus its labels and its branch in the
-provider; the picker needs no change.
+`effectiveTarget()` decides the fallback once, in the provider's `start`; callers hand it a
+`Playable` and never say where.
 
 The queue (`src/playback/queue.ts`) is pure: `enqueue` without duplicates (keyed by song path),
 `removeAt`, `moveTo` with `to` as the final index. `useQueueAdvance` starts the next item when the
@@ -89,7 +86,7 @@ current one ends by itself, skipping what does not resolve.
 ## The mini player
 
 `packages/ui-mini-player` (`@studio/ui-mini-player`, `src/MiniPlayer.tsx`) is the bar only: play,
-title, meta, scrubber, close, and a slot for host controls. It holds no transport; every number is
+title, meta, scrubber, an optional close, and a slot for host controls. It holds no transport; every number is
 a prop and every button a callback, because its hosts (the media library and k7's reference
 tracks) play very different things. `src/mediaSession.ts` fills the browser's Media Session from
 the same props, so a lock screen and a headset drive the callbacks; on Android the app relays these

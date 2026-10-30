@@ -1,7 +1,7 @@
-// PlaybackProvider.tsx — the médiathèque's transport, over three destinations that share one
-// interface: an <audio> element this tab owns, mpv on the host that serves the files, or the
-// engine on the musician's own machine. Only the first plays from THIS origin's bytes, which is
-// why the other two are polled or inferred rather than read off an element.
+// PlaybackProvider.tsx — the médiathèque's transport, over two destinations that share one
+// interface: the engine the host's selector shows, or, while none answers, an <audio> element this
+// tab owns. Only the second plays from THIS origin's bytes, which is why the engine's end is
+// inferred rather than read off an element.
 // See ../../docs/playback.md and ../../docs/playbackTarget.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
@@ -15,15 +15,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { library, player } from "../api";
+import { library } from "../api";
 import { localPathOn, songPreviewDoc } from "../engine/enginePlayback";
 import { type EngineFrame, useSongEngine } from "../engine/useSongEngine";
 import { useLabels } from "../host";
-import { poll } from "../poll";
 import { PositionContext, PositionStore } from "./position";
 import type { QueueItem } from "./queue";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
-import type { PlaybackChoice } from "./usePlaybackTarget";
 import type { PlayQueue } from "./usePlayQueue";
 
 export interface NowPlaying {
@@ -32,29 +30,27 @@ export interface NowPlaying {
   path: string;
   /** The version's own name when it is not the master. */
   version?: string;
-  /** Where it is playing — the three destinations are driven differently from here down. */
+  /** Where it is playing, set by `start` — the two destinations are driven differently from here down. */
   target: PlaybackTarget;
 }
+
+/** What a caller asks to play: where it plays is the provider's to decide. */
+export type Playable = Omit<NowPlaying, "target">;
 
 /** What plays and how to drive it; WHERE in it the transport is lives apart, in `usePlaybackPosition` (position.ts). */
 export interface Playback {
   now: NowPlaying | null;
   playing: boolean;
   /** Start something — replacing whatever was playing, since one tab makes one sound. */
-  start: (what: NowPlaying, from?: number) => void;
+  start: (what: Playable, from?: number) => void;
   toggle: () => void;
   seek: (seconds: number) => void;
   /** Why nothing is coming out, the engine's own complaint about a clip included. */
   error: string;
   /** Bumped each time what was loaded reached its end BY ITSELF — a counter, not a flag. */
   ended: number;
-  /** An engine ANSWERED: what makes the moteur an offerable destination — ../../docs/playbackTarget.md. */
+  /** An engine ANSWERED, so a song plays there — ../../docs/playbackTarget.md. */
   engineAvailable: boolean;
-  /** The host has mpv: what makes its speakers a destination at all — ../../docs/playbackTarget.md. */
-  hostPlayerAvailable: boolean;
-  /** Where the account WANTS sound to come out, and changing it — the picker's two halves. */
-  target: PlaybackTarget;
-  choose: (t: PlaybackTarget) => void;
 
   /** What plays next, beside the transport because a queue outlives the screen that filled it. */
   queue: QueueItem[];
@@ -77,17 +73,13 @@ export function usePlayback(): Playback {
 }
 
 export function PlaybackProvider({
-  choice,
   playQueue,
   children,
 }: {
-  /** The account's chosen destination: it is what decides whether a socket is worth holding. */
-  choice: PlaybackChoice;
   /** The queue, held HIGHER UP, by the component that renders this provider. */
   playQueue: PlayQueue;
   children: ReactNode;
 }) {
-  const { target, choose } = choice;
   // Read when a failure is SAID, so the callbacks below need not change with the locale.
   const labels = useLabels().playback;
   const said = useRef(labels);
@@ -103,11 +95,9 @@ export function PlaybackProvider({
     },
     [clock],
   );
-  // Connected only while the moteur is the destination: looking costs nothing, holding one does.
-  const engine = useSongEngine(target === "engine", onEngineFrame);
+  const engine = useSongEngine(onEngineFrame);
   const audioRef = useRef<HTMLAudioElement>(null);
-  // A stop we ASKED for looks exactly like a song ending, so it is remembered for one poll.
-  const weStopped = useRef(false);
+  // A stop we ASKED for looks exactly like a song ending, so it is remembered for one frame.
   const engineWeStopped = useRef(false);
   // What `start` asked for, applied once the element is ready — refs, since re-rendering shows nothing.
   const pendingSeek = useRef(0);
@@ -123,49 +113,13 @@ export function PlaybackProvider({
   // The song the engine branch is currently asking its two questions about — see ../../docs/playback.md.
   const asked = useRef<string | null>(null);
 
-  // Assumed there until the host says otherwise, so a stored choice is not dropped while it is asked.
-  const [hostPlayer, setHostPlayer] = useState(true);
-  useEffect(() => {
-    let alive = true;
-    void player.available().then((ok) => alive && setHostPlayer(ok));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const viaHost = now?.target === "library";
   const viaEngine = now?.target === "engine";
   const ours = viaEngine && !!loadedEnginePath;
   oursRef.current = ours;
 
-  /** The host's transport, polled: enough that a bar does not stutter, little enough to be cheap. */
-  useEffect(() => {
-    if (!viaHost || !now) return;
-    let stop = false;
-    const tick = async () => {
-      try {
-        const s = await player.state();
-        if (stop) return;
-        clock.set({ position: s.position, duration: s.duration });
-        setLocalPlaying(s.playing);
-        // mpv goes idle at the end of a track, which is the clean signal the browser's onEnded is.
-        if (s.idle && !weStopped.current) setEnded((n) => n + 1);
-        weStopped.current = false;
-      } catch (e) {
-        if (!stop) setError((e as Error).message);
-      }
-    };
-    // Hidden too: mpv going idle is what advances the queue, and a queue plays on in a background tab.
-    const end = poll(tick, 500, { whileHidden: true });
-    return () => {
-      stop = true;
-      end();
-    };
-  }, [viaHost, now, clock]);
-
   // Follow the playhead smoothly: `timeupdate` fires ~4×/s, which reads as a stutter.
   useEffect(() => {
-    if (!localPlaying || viaHost || viaEngine) return;
+    if (!localPlaying || viaEngine) return;
     let raf = 0;
     const loop = () => {
       if (audioRef.current)
@@ -174,7 +128,7 @@ export function PlaybackProvider({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [localPlaying, viaHost, viaEngine, clock]);
+  }, [localPlaying, viaEngine, clock]);
 
   // The engine reaching the end, INFERRED: it reports a transport and not an event.
   const engineWasPlaying = useRef(false);
@@ -223,14 +177,11 @@ export function PlaybackProvider({
   );
 
   const start = useCallback(
-    (what: NowPlaying, from = 0) => {
+    (what: Playable, from = 0) => {
       // The fallback is decided HERE, once, so no caller has to know whether an engine answered.
-      const loading = {
+      const loading: NowPlaying = {
         ...what,
-        target: effectiveTarget(what.target, {
-          engine: engine.available,
-          hostPlayer,
-        }),
+        target: effectiveTarget(engine.available),
       };
       setError("");
       // Where the engine was ASKED to be is the only honest answer until its ~20 Hz frame lands.
@@ -253,15 +204,8 @@ export function PlaybackProvider({
         engine.stop();
         setLoadedEnginePath(null);
       }
-      if (loading.target !== "library") return;
-      // The path is médiathèque-relative already, which is exactly what the host will resolve.
-      weStopped.current = false;
-      void player
-        .play(loading.path, from)
-        .then((s) => setLocalPlaying(s.playing))
-        .catch((e: Error) => setError(e.message));
     },
-    [engine, hostPlayer, loadedEnginePath, startOnEngine, clock],
+    [engine, loadedEnginePath, startOnEngine, clock],
   );
 
   const playing = viaEngine ? ours && engine.playing : localPlaying;
@@ -285,44 +229,25 @@ export function PlaybackProvider({
       void startOnEngine(now, from);
       return;
     }
-    if (viaHost) {
-      const next = !localPlaying;
-      setLocalPlaying(next); // optimistic, and the next poll is the truth
-      void player.pause(!next).catch((e: Error) => setError(e.message));
-      return;
-    }
     const el = audioRef.current;
     if (!el) return;
     if (el.paused) void el.play().catch(() => {});
     else el.pause();
-  }, [
-    viaEngine,
-    viaHost,
-    now,
-    ours,
-    engine,
-    clock,
-    localPlaying,
-    startOnEngine,
-  ]);
+  }, [viaEngine, now, ours, engine, clock, startOnEngine]);
 
   const seek = useCallback(
     (seconds: number) => {
-      // Optimistic on all three: waiting for a round trip jumps the cursor back under the mouse.
+      // Optimistic on both: waiting for a round trip jumps the cursor back under the mouse.
       const to = Math.max(0, seconds);
       clock.set({ position: to });
       if (viaEngine) {
         if (ours) engine.seek(to);
         return;
       }
-      if (viaHost) {
-        void player.seek(to).catch((e: Error) => setError(e.message));
-        return;
-      }
       const el = audioRef.current;
       if (el) el.currentTime = to;
     },
-    [viaEngine, viaHost, ours, engine, clock],
+    [viaEngine, ours, engine, clock],
   );
 
   const value = useMemo<Playback>(
@@ -335,9 +260,6 @@ export function PlaybackProvider({
       error,
       ended,
       engineAvailable: engine.available,
-      hostPlayerAvailable: hostPlayer,
-      target,
-      choose,
       queue: playQueue.queue,
       enqueue: playQueue.enqueue,
       removeFromQueue: playQueue.removeFromQueue,
@@ -353,9 +275,6 @@ export function PlaybackProvider({
       error,
       ended,
       engine.available,
-      hostPlayer,
-      target,
-      choose,
       playQueue,
     ],
   );
@@ -363,7 +282,7 @@ export function PlaybackProvider({
   return (
     <PlaybackContext.Provider value={value}>
       <PositionContext.Provider value={clock}>
-        {now && !viaHost ? (
+        {now ? (
           // Mounted for the engine too, silent: it is what reports the duration of what plays there.
           // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
           <audio

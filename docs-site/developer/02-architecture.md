@@ -48,7 +48,7 @@ machine of its own.
 4. mounts the phone apps' sign-in handoff routes, then the rehearsal recorder (`@studio/rehearsal-server`)
    **before** the media library, whose catch-all `/api` guard would otherwise swallow it;
 5. mounts the media library (`apps/k7/backend/src/media/mount.ts`), which in turn mounts the
-   engine registry, the tunnel hub, the file hub, shares, stems and the mpv player;
+   engine registry, the tunnel hub, the file hub, shares and stems;
 6. mounts per-account preferences at `/api/preferences` and the module builder's AI routes at `/api/ai`;
 7. redirects pages on the `play.` and `k7.` host aliases to `/media` and `/rehearsal`;
 8. serves `apps/k7/frontend/dist` with hashed assets cached for a year and the shell never cached.

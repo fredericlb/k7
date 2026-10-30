@@ -13,7 +13,6 @@ npm test -w @studio/rehearsal-shared
 npm test -w @studio/lyrics
 npm test -w @studio/tablature
 npm test -w @studio/score
-npm test -w @studio/mpv-player
 npm test -w k7-backend                  # the media routes, hunt, stems, sweeps
 ```
 
