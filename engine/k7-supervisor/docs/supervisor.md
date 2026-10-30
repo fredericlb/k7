@@ -262,6 +262,12 @@ state needs no lock. Anything that blocks — an HTTP call, spawning the engine,
 runs in `Loop::work` and posts its result back. A task that blocked the loop would freeze every
 timer, including the one that keeps the host lock fresh.
 
+Every task, timer, `Loop::work` job, engine query and `SerialQueue` task runs under one
+`Loop::guarded` net that logs what it throws. An exception leaving any of those threads is
+`std::terminate`, and on Windows the supervisor's job object takes the engine down with it: one bad
+frame or a `filesystem` call without an `error_code` would silence the stage. A `Loop::work` job
+that throws never runs its `then`.
+
 A signal reaches the loop through a flag: the handler only stores to a lock-free atomic, and a timer
 on the loop reads it every 100 ms. Posting from the handler would take the queue's mutex, which a
 signal may interrupt while the loop holds it.

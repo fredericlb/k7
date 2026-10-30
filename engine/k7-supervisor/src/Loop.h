@@ -45,10 +45,15 @@ public:
     void work(std::function<T()> job, std::function<void(T)> then)
     {
         std::thread([this, job = std::move(job), then = std::move(then)]() mutable {
-            auto result = std::make_shared<T>(job());
+            std::shared_ptr<T> result;
+            // A job that throws is logged and its `then` never runs: an exception leaving a std::thread is std::terminate.
+            if (!guarded("a background job", [&] { result = std::make_shared<T>(job()); })) return;
             post([then = std::move(then), result]() { then(std::move(*result)); });
         }).detach();
     }
+
+    /** Run `fn`, logging what it throws under `what` instead of letting it end the process; false when it threw. */
+    static bool guarded(const char* what, const std::function<void()>& fn);
 
 private:
     struct Timer {

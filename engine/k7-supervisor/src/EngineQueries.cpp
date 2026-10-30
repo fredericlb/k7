@@ -111,7 +111,8 @@ struct EngineQueries::Worker {
                 job = std::move(jobs.front());
                 jobs.pop_front();
             }
-            job();
+            // A query that throws costs its own answer, never the worker every later query waits on.
+            Loop::guarded("an engine query", job);
         }
     }
 
