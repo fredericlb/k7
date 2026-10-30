@@ -110,6 +110,15 @@ service makes that the window would otherwise hide for the length of it. Both li
 together, since the second is built on the first: one window dropped without the other would show
 the projects and not their screens.
 
+Past the window, the listing is rebuilt per WORKSPACE, and only for one that may have moved. A row
+costs a walk of the workspace, then per project a parse of `project.k7x` and of every surface and a
+two-level stat; at the home page's 3 s poll that is the whole account re-read every few seconds. So
+a captured workspace whose watcher is up keeps its row, for up to a minute, as long as its change
+feed has reported nothing since the row was built; any path reported in it rebuilds that row alone.
+The open project is read again on every listing even then: its marker lives outside the workspace,
+where no capture hears it. A workspace with no watching capture — Examples, live sync off — is
+rebuilt at each window.
+
 ## `listSurfacedProjects` — what `/external` draws
 
 Every project on this machine that DECLARES a surface, flat, with those surfaces: the list of
