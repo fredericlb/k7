@@ -21,7 +21,7 @@ const ALLOW = [
   // The commons submodule, which a shallow checkout may not have.
   /^packages\/(http|oidc|pkg|a)\//,
   // A build output, which a checkout has only once it has built.
-  /\/dist\//,
+  /\/(dist|target)\//,
 ];
 
 /** The pages, and the source whose comments point at them (../docs/lints.md). */
