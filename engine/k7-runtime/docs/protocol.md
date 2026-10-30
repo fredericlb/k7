@@ -224,6 +224,15 @@ because `audioTiming()` reads two atomics the message thread publishes: derefere
 device here would race a concurrent `set-audio-device`, which destroys it — and this keepalive
 fires every few seconds on every socket.
 
+### The state frame's numbers are rounded
+
+A waveform or recorder point is a `−1..1` peak sent to **four decimals**, a track or input level is
+dB to **a hundredth**. Printed whole, each float went out as its 17-digit double, and the envelopes
+are most of the frame: a point is now a third of its text, at a precision below a pixel and below
+any meter's step. A client reads the same numbers, and an identical frame stays identical. The
+frame is still built as a JSON tree; the playhead and the platters' needles keep full precision,
+since a scratch reads them as positions.
+
 ### The state frame slows to 4 Hz when a session is idle
 
 `~20 Hz` is the rate while something is happening. `StateTimer` still ticks every 50 ms — the
