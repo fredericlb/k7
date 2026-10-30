@@ -24,6 +24,8 @@
 
 #include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
 #include "../engine/ScanProgress.h"   // PluginScanStatus — JUCE-free
+#include "HeldNotes.h"
+#include "PendingQueries.h"
 #include "Pairing.h"
 #include "Supersede.h"
 
@@ -92,6 +94,22 @@ struct ServeContext {
 
     // Which queued project, tracks and parameter jobs a newer message made pointless (docs/supersede.md).
     SupersedeLedger supersede;
+
+    // The notes each socket's `midi-live` holds down, released when it closes (docs/protocol.md).
+    HeldNotes heldNotes;
+
+    // The read-only queries already waiting on the message thread, which an identical one joins (docs/supersede.md).
+    PendingQueries pending;
+
+    // Plugin probes loading at once, each a thread waiting its turn at one lock; past the cap a probe is refused (docs/plugins.md).
+    static constexpr int kMaxProbes = 4;
+    std::atomic<int> probes{0};
+    // A slot for one probe, or false and nothing taken when every slot is in use.
+    bool takeProbe() {
+        if (probes.fetch_add(1) < kMaxProbes) return true;
+        probes.fetch_sub(1);
+        return false;
+    }
 
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;

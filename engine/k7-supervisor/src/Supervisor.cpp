@@ -42,6 +42,7 @@ using Ms = Loop::Ms;
 constexpr int kLibraryLevel = 1;
 constexpr Ms kHeartbeat{5000};
 constexpr Ms kWatch{2000};
+constexpr Ms kHangWatch{10000};
 constexpr Ms kDevicesPoll{10000};
 constexpr Ms kEditPluginsPoll{3000};
 constexpr Ms kSessionsPoll{2000};
@@ -90,6 +91,8 @@ struct Supervisor::Impl {
     std::map<std::string, std::shared_ptr<tunnel::TunnelAgent>> tunnels;
     /** A heartbeat is in flight: the next tick skips rather than stack a second one behind it. */
     bool beating = false;
+    /** A hang check's whoami is in flight, for the same reason. */
+    bool hangChecking = false;
     /** Per registry: how many heartbeats in a row it refused and why — what `.studio.log` says, and when. */
     struct BeatTrack {
         int failures = 0;
@@ -306,6 +309,25 @@ struct Supervisor::Impl {
         startEngine([this](bool up) {
             if (!up) crashes.startFailed(Clock::now());
         }, safe);
+    }
+
+    /** Kill an engine whose message thread is wedged — up, answering whoami, frozen for every session — and let crashWatch relaunch it (docs/crashLoop.md). */
+    void hangWatch()
+    {
+        if (hangChecking || starting || snap.status != "running" || !snap.ownsEngine) return;
+        hangChecking = true;
+        engine->whoami([this](std::optional<nlohmann::json> w) {
+            hangChecking = false;
+            if (!w || starting || snap.status != "running" || !snap.ownsEngine) return;
+            // An engine older than the field reports none, and is never judged wedged.
+            const auto age = w->find("messageThreadMs");
+            if (age == w->end() || !age->is_number() || !CrashLoop::wedged(age->get<double>())) return;
+            log::host("the engine's message thread has been silent for " + std::to_string(static_cast<int>(age->get<double>() / 1000)) +
+                      " s — killing it, to be relaunched");
+            // Killed, not stopped by the user: crashWatch counts the death and relaunches with its backoff.
+            engine::stop();
+            engine->close();
+        });
     }
 
     // --- engine queries -----------------------------------------------------------------------------
@@ -989,6 +1011,7 @@ struct Supervisor::Impl {
     {
         timers.push_back(loop.every(kHeartbeat, [this] { beat(); }));
         timers.push_back(loop.every(kWatch, [this] { crashWatch(); }));
+        timers.push_back(loop.every(kHangWatch, [this] { hangWatch(); }));
         timers.push_back(loop.every(kDevicesPoll, [this] { pollDevices(); }));
         timers.push_back(loop.every(kEditPluginsPoll, [this] { pollEditPlugins(); }));
         timers.push_back(loop.every(kSessionsPoll, [this] { pollSessions(); }));

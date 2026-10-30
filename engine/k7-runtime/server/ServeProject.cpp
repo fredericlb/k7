@@ -237,7 +237,7 @@ void addProjectHandlers(HandlerTable& t) {
             });
     });
 
-    t.add({"midi-live"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
+    t.add({"midi-live"}, [](ServeContext& ctx, ix::WebSocket& ws, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
         // A keyboard played into a track's own chain, one channel message at a time — held until its note-off (docs/protocol.md).
         const std::string track = j.value("track", std::string{});
@@ -245,8 +245,11 @@ void addProjectHandlers(HandlerTable& t) {
         if (j.contains("data") && j.at("data").is_array())
             for (const auto& b : j.at("data"))
                 if (b.is_number_integer()) bytes.push_back((uint8_t) std::clamp(b.get<int>(), 0, 255));
-        if (! track.empty() && ! bytes.empty())
+        if (! track.empty() && ! bytes.empty()) {
+            // Followed per socket only when the engine will play it, so a socket that drops mid-note has its notes released.
+            if (bytes.size() <= 3 && bytes[0] >= 0x80 && bytes[0] < 0xF0) ctx.heldNotes.sent(&ws, session, track, bytes);
             host.post([session, &host, track, bytes] { host.liveMidi(session, track, bytes); });
+        }
     });
 
     t.add({"arm"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {

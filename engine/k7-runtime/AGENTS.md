@@ -46,6 +46,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             device whose callback stopped
   CallbackWatchdog.h        WHEN that reopen happens, and when it gives up: JUCE-free and header-only,
                             so tests/ has it in a FAST binary (docs/audioDevice.md)
+  HangWatch.h               the thread that leaves when the audio callback or the message thread is HUNG —
+                            JUCE-free, FAST binary (docs/hangWatch.md)
   RenderPool.h              how many threads render a playing Edit — four on a desktop, every core on a phone —
                             and how its idle workers wait; JUCE-free, FAST binary (docs/renderPool.md)
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()
@@ -141,6 +143,8 @@ server/
   ServeMachine.cpp       …about the machine: the audio stream, sessions, the interface, identity
   AudioSender.{h,cpp}    the audio broadcast's own thread and wire frame (docs/broadcast.md)
   Supersede.h            which queued project, tracks and parameter jobs a newer message skips (docs/supersede.md)
+  HeldNotes.h            the notes each socket's `midi-live` holds down, released when the socket drops
+  PendingQueries.h       which polled queries already wait on the message thread, so an identical one joins them (docs/supersede.md)
   Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)

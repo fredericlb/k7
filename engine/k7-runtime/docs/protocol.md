@@ -75,7 +75,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "transport", action: "loop", start: 4, end: 8, enabled: true }` | loop region, in seconds |
 | `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample; a `length` of 0 plays to the end of the file, at most 30 s ([engineHost.md](engineHost.md)) |
 | `{ type: "note-preview", track: "melody", key: 60, vel: 1 }` | audition ONE note through that track's own chain — the piano roll's click. Transport-independent like `preview`, but not the same thing: `preview` loads a FILE into a hidden sampler and bypasses every chain, while this plays a note into the track the loaded song already names, so what you hear is the instrument you are writing for. The engine releases it after 100 ms, which is why there is no note-off on the wire: a release that has to arrive is a hanging voice whenever it does not |
-| `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. Sysex and system bytes are dropped |
+| `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. A socket that CLOSES with notes or the pedal down — a tablet off the Wi-Fi sends nothing more — has them released by the engine, which follows each socket's held notes per track (`server/HeldNotes.h`). Sysex and system bytes are dropped |
 | `{ type: "watch-plugin-params", id: "chain:module", on: true }` | follow a plugin's values live |
 | `{ type: "subscribe-waveform", id, side: "input"\|"output", trackIndex }` | tap a module's audio |
 | `{ type: "unsubscribe-waveform", id, side }` | drop that tap |
@@ -89,7 +89,7 @@ same session makes them pointless; every other verb fences them, so order betwee
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue: incrementally, or from nothing with `force: true` |
 | `{ type: "plugin-scan" }` | where the plugin scan stands → a `plugin-scan` reply, to the asking socket alone ([plugins.md](plugins.md)) |
-| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)); `messageThreadMs` is how long the message thread has been silent, what the supervisor restarts a wedged engine on ([hangWatch.md](hangWatch.md)) |
 | `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
 | `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |
@@ -177,6 +177,12 @@ per track. The renaming is deterministic, so a re-sent document diffs as the sam
 
 `EditBuilder` bounds the one count that is DERIVED rather than sent: a clip's unrolled passes, at
 4096. `tests/DocJson_test.cpp` pins the table.
+
+Before any of that, EVERY message is held to 64 levels of nesting (`parseMessage` in `DocJson.cpp`),
+refused while it is parsed. The parser itself is iterative, but copying or walking a JSON value
+recurses, and a few kilobytes of brackets is enough to overflow a connection thread's stack — an
+overflow no `catch` sees, which a client re-sending the message turns into a crash loop. A project
+document nests about ten deep.
 
 ## server → client
 

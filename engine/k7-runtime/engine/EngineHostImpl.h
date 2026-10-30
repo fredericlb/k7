@@ -10,6 +10,7 @@
 #include "EngineTypes.h"
 #include "BroadcastTap.h"
 #include "CallbackWatchdog.h"
+#include "HangWatch.h"
 #include "RecorderNode.h"
 #include "RecorderWriter.h"
 #include "RenderPool.h"
@@ -71,6 +72,7 @@ struct Session {
 
     std::unique_ptr<te::Edit> edit;
     ProjectDoc current;     // the diff baseline — what this session's engine state IS
+    bool halfBuilt = false;   // an applyFull did not finish: the edit is not what `current` says, so the next apply rebuilds
     std::string baseDir;    // resolves this session's clip/plugin paths
 
     // Plugins in the running edit by PluginDoc id, plus the native windows kept hidden after close; both clear on rebuild, windows first.
@@ -178,8 +180,10 @@ struct EngineHost::Impl {
 
     // Whether the open device still calls back, checked once a second by the state timer — message thread only (docs/audioDevice.md).
     CallbackWatchdog callbackWatchdog;
-    // Android only: the hung-plugin warning was given, where the process cannot leave (docs/audioDevice.md).
-    bool stuckReported = false;
+    // When the state timer last ticked, by juce::Time::getMillisecondCounter, 0 before its first: the message thread's pulse (docs/hangWatch.md).
+    std::atomic<juce::uint32> messageHeartbeatMs{0};
+    // The thread that reads that pulse and the audio callback's, and leaves when either stopped (docs/hangWatch.md).
+    HangWatchdog hangWatchdog;
     // The open device's underrun count at the last check, -1 = no baseline yet; and whether the buffer cap was already reported (checkXRuns).
     int xruns = -1;
     bool xrunsAtCap = false;
@@ -209,9 +213,9 @@ struct EngineHost::Impl {
 
     // Forget a session entirely — its Edit, plugins, meters and taps: what `flush` means once it addresses one project.
     void drop(const std::string& id) {
-        // Taken back from the writer first, so a take recording in a dropped session closes with it rather than outliving it.
+        // Handed to the writer to close, never waited for: it holds the nodes, so a take still recording closes after the session is gone.
         if (auto* s = find(id))
-            for (auto& [_, node] : s->recorders) recorderWriter.remove(node.get());
+            for (auto& [_, node] : s->recorders) recorderWriter.finish(node.get());
         sessions.erase(id);
     }
 

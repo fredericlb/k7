@@ -115,7 +115,10 @@ void addMachineHandlers(HandlerTable& t) {
                 ++ears[sid];
             }
         }
-        host.post([&host, &broadcast, ears] {
+        // One listing waiting is enough: it is broadcast, so it answers this asker too.
+        if (!ctx.pending.admit("list-sessions")) return;
+        host.post([&ctx, &host, &broadcast, ears] {
+            ctx.pending.started("list-sessions");
             json arr = json::array();
             for (const auto& s : host.sessionInfos()) {
                 const auto hit = ears.find(s.id);
@@ -154,11 +157,15 @@ void addMachineHandlers(HandlerTable& t) {
                         .dump());
     });
 
-    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string& session, const std::string&) {
+    t.add({"list-audio-devices"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string&, const std::string&) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
         // Enumerate audio interfaces (message thread — touches JUCE devices).
-        host.post([session, &host, &broadcast] { broadcast(audioDevicesMsg(host)); });
+        if (!ctx.pending.admit("list-audio-devices")) return;
+        host.post([&ctx, &host, &broadcast] {
+            ctx.pending.started("list-audio-devices");
+            broadcast(audioDevicesMsg(host));
+        });
     });
 
     t.add({"io-levels"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
@@ -166,12 +173,24 @@ void addMachineHandlers(HandlerTable& t) {
         auto& broadcastTo = ctx.broadcastTo;
         // Meter the interface itself, one peak per `channels` entry plus the master — asked for rather than ridden on the state frame, since the pitch estimate is real work per channel; it ENABLES nothing (channelLevelsDb).
         std::vector<std::vector<int>> sets;
-        for (const auto& s : j.value("channels", json::array())) {
-            std::vector<int> ch;
-            for (const auto& c : s) ch.push_back(c.get<int>());
-            sets.push_back(std::move(ch));
+        // Read in place, never through j.value(), which COPIES the array; an entry that is not a list of numbers is skipped.
+        if (const auto it = j.find("channels"); it != j.end() && it->is_array())
+            for (const auto& s : *it) {
+                if (!s.is_array()) continue;
+                std::vector<int> ch;
+                for (const auto& c : s)
+                    if (c.is_number()) ch.push_back(c.get<int>());
+                sets.push_back(std::move(ch));
+            }
+        // Keyed by the channel sets too: two panels on one session meter different inputs.
+        std::string key = "io-levels\n" + session + "\n";
+        for (const auto& s : sets) {
+            for (const int c : s) key += std::to_string(c) + ",";
+            key += ";";
         }
-        host.post([session, &host, &broadcastTo, sets] {
+        if (!ctx.pending.admit(key)) return;
+        host.post([&ctx, key, session, &host, &broadcastTo, sets] {
+            ctx.pending.started(key);
             json levels = json::array();
             json found = json::array();
             for (const auto& l : host.channelLevelsDb(sets)) {
@@ -261,7 +280,9 @@ void addMachineHandlers(HandlerTable& t) {
                    {"build", buildStamp()},
                    {"bufferSize", timing.bufferFrames},
                    {"sampleRate", timing.sampleRate},
-                   {"audioToBrowser", ctx.audioToBrowser}};
+                   {"audioToBrowser", ctx.audioToBrowser},
+                   // How long the message thread has been silent: the supervisor restarts an engine wedged there (docs/hangWatch.md).
+                   {"messageThreadMs", host.messageThreadAgeMs()}};
         if (ctx.safeModeCrashes > 0) reply["safeMode"] = safeModeOf(ctx.safeModeCrashes);
         ws.send(reply.dump());
 

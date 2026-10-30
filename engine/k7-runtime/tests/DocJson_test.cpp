@@ -6,7 +6,9 @@
 #include "Warnings.h"
 #include "test_harness.h"
 
+#include <exception>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 using namespace studio;
@@ -115,9 +117,32 @@ void paths_outside_the_roots_are_dropped() {
     fs::remove_all(root);
 }
 
+// A message nested past the bound is refused while parsing; one at the bound reads whole.
+void deep_nesting_is_refused() {
+    const auto nested = [](int levels) { return std::string(levels, '[') + std::string(levels, ']'); };
+    CHECK(parseMessage(nested(kMaxMessageDepth)).is_array());
+    bool refused = false;
+    try {
+        parseMessage(nested(kMaxMessageDepth + 1));
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    CHECK(refused);
+    refused = false;
+    try {
+        parseMessage("{\"type\":\"io-levels\",\"channels\":" + nested(5000) + "}");
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    CHECK(refused);
+    const auto ok = parseMessage(R"({"type":"io-levels","channels":[[1,2],[3]]})");
+    CHECK(ok.at("channels").size() == 2);
+}
+
 }  // namespace
 
 int main() {
+    RUN(deep_nesting_is_refused);
     RUN(timesig_zero_denominator_is_refused);
     RUN(timesig_valid_is_kept);
     RUN(note_fields_are_bounded);

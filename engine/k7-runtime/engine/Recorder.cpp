@@ -3,8 +3,8 @@
 // EngineHost member file for Recording.cpp's reason: these read impl_->session(...), which lives
 // on EngineHost. Full rationale: docs/recorder.md.
 //
-// The drain runs on the writer thread (RecorderWriter.h) while a take records; the message thread
-// only starts, stops and reads. A node is touched by its owner only once remove() has returned.
+// The drain runs on the writer thread (RecorderWriter.h) while a take records, and so does the
+// close after a stop; the message thread only starts, stops, files and reads, never waiting on disk.
 
 #include "EngineHost.h"
 
@@ -45,6 +45,19 @@ juce::String stampNow() {
     return juce::String::formatted("%02d%02d%02dT%02d%02d%02d", now.getYear() % 100,
                                    now.getMonth() + 1, now.getDayOfMonth(), now.getHours(),
                                    now.getMinutes(), now.getSeconds());
+}
+
+// A stopped take the writer has let go of: listed, or deleted when a `clear` came in while it closed.
+void fileTake(RecorderNode& node) {
+    node.closing = false;
+    if (node.discardOnClose) {
+        node.discardOnClose = false;
+        node.path().deleteFile();
+        node.resetEnvelope();
+        return;
+    }
+    node.takes.push_back({ node.path().getFullPathName().toStdString(), node.seconds(),
+                           node.damaged.load(std::memory_order_relaxed) });
 }
 
 }  // namespace
@@ -185,7 +198,7 @@ void EngineHost::attachRecorderTaps(const std::string& session) {
     for (auto it = s->recorders.begin(); it != s->recorders.end();) {
         const bool gone = s->pluginsById.find(it->first) == s->pluginsById.end();
         const bool justFiled = std::find(orphaned.begin(), orphaned.end(), it->first) != orphaned.end();
-        if (gone && !it->second->recording && !justFiled) {
+        if (gone && !it->second->recording && !it->second->closing && !justFiled) {
             it->second->closeTake();
             s->retiredRecorders.emplace_back(juce::Time::getMillisecondCounterHiRes(), std::move(it->second));
             it = s->recorders.erase(it);
@@ -211,18 +224,25 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
                            : RecorderResult{ false, "no recorder node \"" + id + "\" in this project" };
         auto& node = *held->second;
         if (!node.recording) return { true, "" };   // idempotent: two clients, one light
-        impl_->recorderWriter.remove(&node);   // the node is this thread's again once this returns
-        node.pump();          // whatever is still in the ring belongs to this take
-        node.closeTake();
         node.recording = false;
-        node.takes.push_back({ node.path().getFullPathName().toStdString(), node.seconds(),
-                               node.damaged.load(std::memory_order_relaxed) });
+        // The writer drains the ring's tail and closes the file itself; a disk that stalls stalls it, never this thread (docs/recorder.md).
+        if (impl_->recorderWriter.holds(&node)) {
+            node.closing = true;
+            impl_->recorderWriter.finish(&node);
+            return { true, "" };
+        }
+        // Only a writer already stopped at quit holds nothing: the node is this thread's, so it closes here.
+        node.pump();
+        node.closeTake();
+        fileTake(node);
         return { true, "" };
     }
 
     if (!present) return { false, "no recorder node \"" + id + "\" in this project" };
     auto& node = recorderNode(session, id);
     if (node.recording) return { true, "" };
+    // The last take is still the writer's: opening the next one now would close that file under it.
+    if (node.closing) return { false, "\"" + id + "\" is still writing its last take — try again in a moment" };
 
     if (s->current.recordDir.empty())
         return { false, "no record directory — this project cannot record" };
@@ -253,17 +273,20 @@ EngineHost::RecorderResult EngineHost::clearLastTake(const std::string& session,
     // A take being WRITTEN counts as something to clear, and this asked only about finished ones —
     // so clearing the first take of a session was refused while it was still rolling.
     if (it == s->recorders.end() ||
-        (it->second->takes.empty() && !it->second->recording))
+        (it->second->takes.empty() && !it->second->recording && !it->second->closing))
         return { false, "\"" + id + "\" has recorded nothing to clear" };
-    // Recording is stopped first, which FILES the take and so leaves one to pop below: clearing
-    // the take being written would otherwise leave an open writer pointing at a file that is
-    // about to stop existing.
+    // Recording is stopped first, so no open writer ever points at a file about to stop existing.
     if (it->second->recording) {
         const auto stopped = setRecorderRecording(session, id, false);
         if (!stopped.ok) return stopped;
     }
+    // A take the writer is still closing is deleted once it lets go, rather than filed.
+    if (it->second->closing) {
+        it->second->discardOnClose = true;
+        return { true, "" };
+    }
     auto& takes = it->second->takes;
-    // The stop above files one, so this is empty only when the node lost its plugin mid-take.
+    // Empty only when the node lost its plugin mid-take and nothing was filed since.
     if (takes.empty()) return { false, "\"" + id + "\" has recorded nothing to clear" };
     juce::File(takes.back().file).deleteFile();
     takes.pop_back();
@@ -286,8 +309,9 @@ void EngineHost::rewindRecorderEnvelopes(const std::string& session) {
 bool EngineHost::anyRecording(const std::string& session) const {
     const auto* s = impl_->find(session);
     if (s == nullptr) return false;
+    // A take still closing counts: the frames go on until it is filed, or the light would go out with no take listed.
     for (const auto& [id, node] : s->recorders)
-        if (node->recording) return true;
+        if (node->recording || node->closing) return true;
     return false;
 }
 
@@ -310,6 +334,8 @@ std::map<std::string, EngineHost::RecorderReport> EngineHost::pumpRecorders(
     for (auto& [id, node] : s->recorders) {
         // A take the disk refused is filed as it stands, damaged, rather than left lit with a clock that stopped.
         if (node->recording && node->writeFailed()) setRecorderRecording(session, id, false);
+        // A stopped take is filed once the writer has closed it: never waited for, only noticed here.
+        if (node->closing && !impl_->recorderWriter.holds(node.get())) fileTake(*node);
         RecorderReport r;
         r.recording = node->recording;
         r.seconds = node->recording ? node->seconds() : 0.0;

@@ -11,6 +11,8 @@
 #include <mutex>
 #include <thread>
 
+#include "Loop.h"
+
 namespace k7 {
 
 class SerialQueue {
@@ -56,7 +58,8 @@ private:
                 task = std::move(tasks_.front());
                 tasks_.pop_front();
             }
-            task();
+            // A task that throws costs itself, never the thread the rest of the queue runs on.
+            Loop::guarded("a queued task", task);
         }
     }
 

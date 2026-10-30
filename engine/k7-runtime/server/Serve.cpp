@@ -5,6 +5,7 @@
 
 #include "Serve.h"
 #include "AudioSender.h"
+#include "DocJson.h"
 #include "Outbox.h"
 #include "ServeContext.h"
 
@@ -241,6 +242,11 @@ int serve(int port) {
                     // And stop addressing state frames to it; the raw-pointer key costs at most one dropped frame if reused (docs/protocol.md).
                     subscribers.erase(&ws);
                 }
+                // A keyboard that dropped mid-note never sends its note-off: what it held is released for it.
+                for (auto& r : ctx.heldNotes.closed(&ws))
+                    host.post([&host, r = std::move(r)] {
+                        for (const auto& m : r.messages) host.liveMidi(r.session, r.track, m);
+                    });
                 // Its trust goes with it: a pointer reused by the next connection must earn its own.
                 forgetSocket(ctx, &ws);
                 bool announced;
@@ -262,7 +268,7 @@ int serve(int port) {
             if (screenFrameSize(ctx, ws, conn->getRemoteIp(), msg->str.size())) return;
             json j;
             try {
-                j = json::parse(msg->str);
+                j = parseMessage(msg->str);
             } catch (const std::exception& e) {
                 ws.send(json{{"type", "error"}, {"message", std::string("bad json: ") + e.what()}}.dump());
                 return;

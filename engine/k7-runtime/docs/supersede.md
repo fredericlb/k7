@@ -60,3 +60,18 @@ is marked before its handler posts, so the race can only make it fence one job t
 coalescing, never a wrong skip.
 
 The message thread reads a ticket as one atomic flag, and never takes that mutex.
+
+## A query already waiting is joined, not queued twice
+
+The read-only queries a panel polls — `list-sessions`, `list-audio-devices`, `io-levels`,
+`list-edit-plugins`, `get-plugin-params`, `list-presets` — reach the message thread as jobs, and a
+first apply of several seconds holds that thread. A client that reconnects in a loop and polls
+meanwhile would queue every one of them, in order, ahead of the play the musician presses next.
+
+Their answers are broadcast, to every client or to the session, never to the asker alone. So an
+identical query — same verb, same session, same arguments — already waiting is enough:
+`PendingQueries.h` refuses to queue a second, and the first one's reply answers both. The key leaves
+as its job STARTS, so a query asked while one runs is queued again: it may want what that one read
+before a change.
+
+What is not bounded is the number of DIFFERENT jobs one socket queues; there is no per-socket cap.
