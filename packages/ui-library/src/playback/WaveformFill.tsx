@@ -32,7 +32,7 @@ function useNoHover(): boolean {
 
 /** Over the waveform and under nothing: legible on the bright strip, and transparent to the pointer. */
 const OVERLAY =
-  "pointer-events-none absolute top-1/2 flex max-w-[60%] -translate-y-1/2 items-center gap-2 rounded bg-card/75 px-1.5 py-0.5";
+  "pointer-events-none absolute opacity-50 top-1/2 flex max-w-[60%] -translate-y-1/2 items-center gap-2 rounded bg-card/75 px-1.5 py-0.5";
 
 export function WaveformFill({
   shape,

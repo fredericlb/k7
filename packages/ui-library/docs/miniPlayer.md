@@ -24,7 +24,8 @@ local `cursor`, and pressing play starts from there.
 
 Nothing in the bar clears `now`: it has no close, because closing it only uncovered the host's
 dock drawing its own bar in the same place. A song running out does not clear it either, because
-"what was that" outlives the last sample — the bar then reads as ended, and the play button
+"what was that" outlives the last sample — the bar stays as it was, with no
+word saying it ended (the playhead at the end and the play button say it), and the play button
 restarts it from the top.
 
 For the browser that is free: `play()` on an element sitting at the end rewinds itself. For the
@@ -39,9 +40,9 @@ component k7 mounts for its reference tracks (`packages/ui-mini-player/docs/mini
 owns no transport, which is what makes it shareable: the library plays over two destinations and
 the editor plays a file in the browser beside a running engine, and neither of those fits in a bar.
 
-What stays here is what the médiathèque has to say: "ended" against an error, and the play
-button's menu, which also says where the sound is. The strings too — they are props, filled from the host's
-labels ([host.md](host.md)).
+What stays here is what the médiathèque has to say: an error beside the title, and the play
+button's menu, which also says where the sound is. The strings too — they are props, filled from
+the host's labels ([host.md](host.md)).
 
 **The row carries the song's title and nothing beside it**, not even a glyph before it. The artist, the album and the version
 playing head the play button's menu instead: on a phone the row has room for one line, and the
@@ -61,7 +62,8 @@ same `@studio/ui-waveform` canvas the song pane draws, from the same `.cache` si
 other hosts of the row keep their title line and scrubber.
 
 - **The title and the clocks lie over it**, the title at its left end and "position / length" at
-  its right, on a translucent chip so they read over a bright strip, and transparent to the pointer:
+  its right, on a translucent chip so they read over a bright strip, at half opacity so the waveform stays
+what is seen, and transparent to the pointer:
   every gesture on the row is a seek. The waveform gets the height a title line and a scrubber
   shared, which is what makes it readable at a glance; the play button loses its background, the
   strip being the surface.

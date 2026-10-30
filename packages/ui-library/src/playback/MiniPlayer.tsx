@@ -71,13 +71,9 @@ export function MiniPlayer() {
       {instrumental.item}
     </>
   );
-  const done = duration > 0 && position >= duration - 0.25 && !playing;
-
-  // A failure outranks "done": both mean no sound, and only one of them is fine.
+  // A failure is the one thing said beside the title: an ended song says nothing, the bar staying as it was.
   const status = error ? (
     <span className="min-w-0 truncate text-destructive text-xs">{error}</span>
-  ) : done ? (
-    <span className="shrink-0 text-muted-foreground text-xs">{l.done}</span>
   ) : null;
 
   return (

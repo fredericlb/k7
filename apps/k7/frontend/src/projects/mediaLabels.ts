@@ -257,7 +257,6 @@ export function mediaLabels(): LibraryLabels {
       notInLibrary: m["media.playback.notInLibrary"](),
       engineSaid: (message) => m["media.playback.engineSaid"]({ message }),
       masterFailed: m["media.playback.masterFailed"](),
-      done: m["media.playback.done"](),
       bar: {
         region: m["media.playback.region"](),
         play: m["media.play"](),

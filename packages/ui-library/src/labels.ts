@@ -256,7 +256,6 @@ export interface LibraryLabels {
     notInLibrary: string;
     engineSaid: (message: string) => string;
     masterFailed: string;
-    done: string;
     bar: MiniPlayerLabels;
     queueRegion: string;
     queueButton: (n: number) => string;
