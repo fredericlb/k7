@@ -49,7 +49,11 @@ export function MiniPlayer() {
       <>
         {about.length ? (
           <DropdownMenuLabel className="font-normal">
-            {artist ? <span className="block truncate">{artist}</span> : null}
+            {artist ? (
+              <span className="block truncate font-medium text-foreground">
+                {artist}
+              </span>
+            ) : null}
             {album || version ? (
               <span className="block truncate text-muted-foreground text-xs">
                 {[album, version].filter(Boolean).join(" · ")}
