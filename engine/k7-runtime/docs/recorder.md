@@ -87,9 +87,10 @@ mid-take must not lose the file.
 And not AT ONCE. An incremental apply removes the plugin from the Edit, but the playback graph the
 audio thread is running still holds it until Tracktion swaps a new one in, and a free-running
 recorder writes into its ring on every block of that window, transport stopped or not. Freeing the
-ring in the same message-thread job is a write into freed memory. So the node is parked in
-`retiredRecorders` and freed by the state tick two seconds later — a graph swap takes a few
-blocks. The parked nodes are declared beside the live ones, before the Edit, so a session that dies
+ring in the same message-thread job is a write into freed memory. So an incremental removal first
+points the plugin at no ring (`setTap(nullptr)`), and the node is parked in `retiredRecorders` and
+freed by the state tick two seconds later — a graph swap takes a few blocks, and the delay still
+covers a block that loaded the pointer just before it was cleared. The parked nodes are declared beside the live ones, before the Edit, so a session that dies
 frees them after the graph.
 
 ## A take is written by a thread of its own

@@ -354,6 +354,8 @@ void addPluginHandlers(HandlerTable& t) {
         const std::string wfId = j.value("id", std::string{});
         const std::string side = j.value("side", std::string{"output"});
         const bool subscribe = (type == "subscribe-waveform");
+        // `input` or `output`, nothing else: every other string would be one more tap and one more rebuild.
+        if (side != "input" && side != "output") return;
         if (!wfId.empty())
             host.post([session, &host, wfId, side, subscribe] {
                 if (subscribe)

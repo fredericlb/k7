@@ -11,6 +11,7 @@
 #include "NamPlugin.h"          // the neural amp modeller (a .nam model as a plugin)
 #include "BroadcastTapPlugin.h" // the transparent tap plugin for network broadcast
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
+#include "RecorderPlugin.h"    // a removed recorder lets go of its ring
 #include "TurntablePlugin.h"   // the platter, which carries a clock of its own
 #include "HeldMemory.h"        // what one of our plugins says it holds
 #include "MixBlend.h"          // a module's @mix pair: placed past, removed with
@@ -465,6 +466,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 // The editor window points at the plugin, so it closes first — the order teardownProjectState observes for exactly this reason.
                 s.pluginWindows.erase(c.plugin->id);
                 removeMixPair(*it->second);
+                // A recorder lets go of its ring BEFORE it leaves: the ring is retired on a timer, and the old graph may still run this plugin.
+                if (auto* rec = dynamic_cast<RecorderPlugin*>(it->second.get())) rec->setTap(nullptr);
                 it->second->deleteFromParent();
                 s.pluginsById.erase(it);
                 s.presetSaveById.erase(c.plugin->id);
@@ -815,6 +818,8 @@ float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const
 // --- Waveform taps -----------------------------------------------------------
 
 void EngineHost::enableWaveformTap(const std::string& session, const std::string& id, const std::string& side) {
+    // Two sides and no others: a module's removal takes exactly these two taps with it, so any other key would outlive it.
+    if (side != "input" && side != "output") return;
     const std::string key = id + ":" + side;
     if (impl_->session(session).waveformPlugins.count(key)) return;  // already active
     if (!impl_->session(session).edit) return;
