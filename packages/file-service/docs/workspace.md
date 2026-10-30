@@ -231,6 +231,12 @@ process, or arriving from another replica. `cachedProjectDoc` refuses that trade
 COMPILE is confidently wrong about a song. A project list five seconds behind is a picker that has
 not noticed a folder yet, which is a wait, not a lie.
 
+Past the window, a list is kept up to a minute while the workspace's capture is watching and its
+change feed has reported nothing at all: no folder can have appeared without a path moving. It is
+the idle case that polls the most — a tab left open — and the one where every scan finds the same
+list. Any path reported anywhere in the workspace drops back to the five-second window; a watcher
+that lost the event costs at most the minute, and the capture's sweep reports what it lost sooner.
+
 ## The two path gates
 
 `safePath` resolves a workspace-relative path or throws, through two checks, both needed:

@@ -1,5 +1,6 @@
 // revisionMemo.test.ts — the token's walk is skipped only while a WATCHING feed stands still, and
-// never past the ceiling; with a real capture, an edit on disk still moves the token.
+// never past the ceiling; with a real capture, an edit on disk still moves the token. The project list
+// leans on the same feed.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -80,6 +81,32 @@ describe("RevisionMemo", () => {
     now += REVISION_WALK_ANYWAY_MS;
     memo.sources("/q", walk);
     expect(walk).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe("the project list over a still feed", () => {
+  let root = "";
+  afterEach(() => {
+    vi.useRealTimers();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("is kept past the window while nothing moved, and rescanned once something did", () => {
+    root = mkdtempSync(join(tmpdir(), "projects-still-"));
+    mkdirSync(join(root, "a.k7"));
+    writeFileSync(join(root, "a.k7", "project.k7x"), 'project("a")\n');
+    const ws = new Workspace(root);
+    const feed = fakeFeed();
+    ws.liveCapture = Object.assign(feed, { hold() {}, release() {} });
+    const t0 = Date.now();
+    vi.useFakeTimers({ now: t0, toFake: ["Date"] });
+    expect(ws.workspaceInfo().projects).toEqual(["a.k7"]);
+    mkdirSync(join(root, "b.k7"));
+    writeFileSync(join(root, "b.k7", "project.k7x"), 'project("b")\n');
+    vi.setSystemTime(t0 + 10_000);
+    expect(ws.workspaceInfo().projects).toEqual(["a.k7"]);
+    feed.gen++;
+    expect(ws.workspaceInfo().projects).toEqual(["a.k7", "b.k7"]);
   });
 });
 

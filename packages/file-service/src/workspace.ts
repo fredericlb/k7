@@ -868,7 +868,10 @@ export class Workspace {
 
   /** The project list, re-scanned at most this often — see `workspaceInfo` and docs/workspace.md. */
   private static readonly PROJECTS_RESCAN_MS = 5_000;
-  private projectsCache: { at: number; list: string[] } | null = null;
+  /** …or this often, while the capture's watcher hears nothing move in the workspace. */
+  private static readonly PROJECTS_STILL_MS = 60_000;
+  private projectsCache: { at: number; gen: number; list: string[] } | null =
+    null;
 
   /** What the workspace holds and which project is open — polled every 2 s, docs/workspace.md. */
   workspaceInfo(): WorkspaceInfo {
@@ -888,12 +891,16 @@ export class Workspace {
   /** The list itself, behind the window above. */
   private projects(): string[] {
     const hit = this.projectsCache;
-    if (hit && Date.now() - hit.at < Workspace.PROJECTS_RESCAN_MS)
+    const feed = this.liveCapture?.watching ? this.liveCapture : null;
+    const gen = feed ? feed.generation : -1;
+    const age = hit ? Date.now() - hit.at : Number.POSITIVE_INFINITY;
+    if (hit && age < Workspace.PROJECTS_RESCAN_MS) return hit.list;
+    if (hit && feed && hit.gen === gen && age < Workspace.PROJECTS_STILL_MS)
       return hit.list;
     // From the ROOT, not `tree()`, and through the walk the home page's listing shares.
     const list = projectDirsUnder(this.root);
     if (this.rootIsProject) list.unshift(".");
-    this.projectsCache = { at: Date.now(), list };
+    this.projectsCache = { at: Date.now(), gen, list };
     return list;
   }
 
