@@ -68,8 +68,25 @@ export function walkProject(dir: string, sourcesOnly = false): WalkedFile[] {
   return out;
 }
 
-/** The token from a walk: the mutation counter, the SOURCE count, and the newest mtime. */
-export function revisionOf(files: WalkedFile[], mutations: number): string {
+/** What the token reads of the project's own files: how many SOURCES, and the newest mtime among them. */
+export interface SourcesSummary {
+  count: number;
+  newest: number;
+}
+
+export function sourcesOf(files: WalkedFile[]): SourcesSummary {
+  let count = 0;
+  let newest = 0;
+  for (const f of files) {
+    if (!f.source) continue;
+    count++;
+    if (f.mtimeMs > newest) newest = f.mtimeMs;
+  }
+  return { count, newest };
+}
+
+/** The token from the project's summary: the mutation counter, the SOURCE count, and the newest mtime. */
+export function tokenOf(sources: SourcesSummary, mutations: number): string {
   // …and the two files OUTSIDE the project a derived view still reads — see docs/workspace.md.
   let newest = mtimeOf(EXTS_PATH);
   const prefsAt = mtimeOf(PREFS_PATH);
@@ -77,11 +94,11 @@ export function revisionOf(files: WalkedFile[], mutations: number): string {
   // A model arriving in the machine's cache changes what the graph offers to download.
   const modelsAt = mtimeOf(modelsRoot());
   if (modelsAt > newest) newest = modelsAt;
-  let count = 0;
-  for (const f of files) {
-    if (!f.source) continue;
-    count++;
-    if (f.mtimeMs > newest) newest = f.mtimeMs;
-  }
-  return `${mutations}:${count}:${newest}`;
+  if (sources.newest > newest) newest = sources.newest;
+  return `${mutations}:${sources.count}:${newest}`;
+}
+
+/** The token from a walk. */
+export function revisionOf(files: WalkedFile[], mutations: number): string {
+  return tokenOf(sourcesOf(files), mutations);
 }

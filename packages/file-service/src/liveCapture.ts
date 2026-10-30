@@ -80,6 +80,8 @@ export interface ChangeFeed {
 /** The re-scan of an active workspace, of an idle one, and what active means — docs/liveCapture.md. */
 const RECONCILE_MS = 5000;
 const IDLE_RECONCILE_MS = 60_000;
+/** …and of an idle one whose watcher is up: it is the net, not the feed (docs/liveCapture.md). */
+const IDLE_WATCHED_MS = 5 * 60_000;
 const ACTIVE_MS = 2 * 60_000;
 
 export class LiveCapture implements ChangeFeed {
@@ -173,6 +175,11 @@ export class LiveCapture implements ChangeFeed {
 
   get generation(): number {
     return this.gen;
+  }
+
+  /** Whether the watcher is up: a generation that stands still means something only then. */
+  get watching(): boolean {
+    return this.watcher !== null && !this.halted;
   }
 
   onChange(fn: (rel: string, generation: number) => void): () => void {
@@ -422,7 +429,9 @@ export class LiveCapture implements ChangeFeed {
     const now = Date.now();
     // A watcher can miss a rewrite (Linux's recursive one does), so an ACTIVE workspace keeps the fast net.
     const idle = now - this.lastActive >= (this.o.activeMs ?? ACTIVE_MS);
-    const spacing = this.o.idleReconcileMs ?? IDLE_RECONCILE_MS;
+    const spacing =
+      this.o.idleReconcileMs ??
+      (this.watcher ? IDLE_WATCHED_MS : IDLE_RECONCILE_MS);
     if (!force && idle && now - this.lastFull < spacing) return;
     this.flushNow({ full: true });
   }

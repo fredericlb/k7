@@ -15,11 +15,18 @@ export function ownerPath(): string {
   return join(studioDir(), "owner.json");
 }
 
+/** A recorded owner never changes, so it is read once per record — docs/owner.md. */
+let known: { path: string; owner: string } | null = null;
+
 /** The recorded owner, or null when no account has claimed this root yet. */
 export function rootOwner(): string | null {
+  const path = ownerPath();
+  if (known?.path === path) return known.owner;
   try {
-    const v = JSON.parse(readFileSync(ownerPath(), "utf8"));
-    return typeof v.owner === "string" && v.owner ? v.owner : null;
+    const v = JSON.parse(readFileSync(path, "utf8"));
+    const owner = typeof v.owner === "string" && v.owner ? v.owner : null;
+    if (owner) known = { path, owner };
+    return owner;
   } catch {
     return null;
   }

@@ -11,6 +11,7 @@ import {
   readFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import type { Readable } from "node:stream";
 import {
   scannedPluginNames,
   scannedPlugins,
@@ -106,7 +107,6 @@ import {
   trackColorsOf,
   trackMixersOf,
 } from "./graphDoc.ts";
-import type { ChangeFeed } from "./liveCapture.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   compatOfNeeds,
@@ -121,7 +121,13 @@ import {
   importProjectInto,
 } from "./projectLifecycle.ts";
 import { resourcesIn } from "./projectResources.ts";
-import { revisionOf, type WalkedFile, walkProject } from "./projectWalk.ts";
+import {
+  revisionOf,
+  tokenOf,
+  type WalkedFile,
+  walkProject,
+} from "./projectWalk.ts";
+import { RevisionMemo, type WatchingFeed } from "./revisionMemo.ts";
 import { shareProgress, startShareLink } from "./shareLink.ts";
 // The export acts, behind a host of a few members — see shareOps.ts.
 import { exportMix, type ShareHost, shareK7 } from "./shareOps.ts";
@@ -147,6 +153,7 @@ import {
   renameEntryIn,
   renameWithRetry,
   uploadFileIn,
+  uploadStreamIn,
 } from "./workspaceEntries.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 import {
@@ -258,8 +265,10 @@ export class Workspace {
   readonly history: WorkspaceHistory;
   /** Live sync's capture, when on: a mutation window holds its batch open — docs/liveCapture.md. */
   liveCapture:
-    | (ChangeFeed & { hold(): void; release(label: string): void })
+    | (WatchingFeed & { hold(): void; release(label: string): void })
     | null = null;
+  // The project's half of the token, kept while the capture's feed vouches for it — revisionMemo.ts.
+  private readonly revMemo = new RevisionMemo(() => this.liveCapture);
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
   private readonly wf: WaveformOps;
@@ -290,7 +299,7 @@ export class Workspace {
       toRel: (abs) => this.toRel(abs),
       revision: () => this.revision(),
       withWalk: (dir, fn) => this.withWalk(dir, fn),
-      revisionOf: (files) => this.revisionOf(files),
+      revisionOf: (files, dir) => this.activeRevisionOf(dir, files),
       invalidateProjectDoc: () => this.invalidateProjectDoc(),
     });
   }
@@ -689,8 +698,17 @@ export class Workspace {
   private freshRevision(): string {
     const dir = this.activeProject;
     if (!dir) return `none:${this.mutations}`;
-    // The walk a mutation already has open, else its own and a NARROW one — see docs/workspace.md.
-    return this.revisionOf(this.walkScope ?? walkProject(dir, true));
+    // The walk a mutation already has open, else the kept summary or a NARROW walk — see docs/workspace.md.
+    const sources = this.walkScope
+      ? this.revMemo.remember(dir, this.walkScope)
+      : this.revMemo.sources(dir, () => walkProject(dir, true));
+    return tokenOf(sources, this.mutations);
+  }
+
+  /** The token of a walk of the ACTIVE project another reader took, kept as the freshest summary. */
+  private activeRevisionOf(dir: string, files: WalkedFile[]): string {
+    if (dir !== this.activeProject) return this.revisionOf(files);
+    return tokenOf(this.revMemo.remember(dir, files), this.mutations);
   }
 
   /** The token from a walk — projectWalk.ts — with this workspace's mutation counter. */
@@ -850,7 +868,10 @@ export class Workspace {
 
   /** The project list, re-scanned at most this often — see `workspaceInfo` and docs/workspace.md. */
   private static readonly PROJECTS_RESCAN_MS = 5_000;
-  private projectsCache: { at: number; list: string[] } | null = null;
+  /** …or this often, while the capture's watcher hears nothing move in the workspace. */
+  private static readonly PROJECTS_STILL_MS = 60_000;
+  private projectsCache: { at: number; gen: number; list: string[] } | null =
+    null;
 
   /** What the workspace holds and which project is open — polled every 2 s, docs/workspace.md. */
   workspaceInfo(): WorkspaceInfo {
@@ -870,12 +891,16 @@ export class Workspace {
   /** The list itself, behind the window above. */
   private projects(): string[] {
     const hit = this.projectsCache;
-    if (hit && Date.now() - hit.at < Workspace.PROJECTS_RESCAN_MS)
+    const feed = this.liveCapture?.watching ? this.liveCapture : null;
+    const gen = feed ? feed.generation : -1;
+    const age = hit ? Date.now() - hit.at : Number.POSITIVE_INFINITY;
+    if (hit && age < Workspace.PROJECTS_RESCAN_MS) return hit.list;
+    if (hit && feed && hit.gen === gen && age < Workspace.PROJECTS_STILL_MS)
       return hit.list;
     // From the ROOT, not `tree()`, and through the walk the home page's listing shares.
     const list = projectDirsUnder(this.root);
     if (this.rootIsProject) list.unshift(".");
-    this.projectsCache = { at: Date.now(), list };
+    this.projectsCache = { at: Date.now(), gen, list };
     return list;
   }
 
@@ -923,6 +948,15 @@ export class Workspace {
   /** Drop a file into `dir` under `name`, which may carry FOLDERS. Binary-safe, EEXIST rather than clobber. */
   uploadFile(dir: string, name: string, bytes: Buffer): { path: string } {
     return uploadFileIn(this.entriesHost(), dir, name, bytes);
+  }
+  /** …the same drop from a request body, streamed to disk and never held whole. */
+  uploadStream(
+    dir: string,
+    name: string,
+    body: Readable,
+    max: number,
+  ): Promise<{ path: string }> {
+    return uploadStreamIn(this.entriesHost(), dir, name, body, max);
   }
 
   /** Make an empty folder `name` inside `dir` — uploadFile's shape, and no guardMutable. */

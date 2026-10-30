@@ -67,7 +67,8 @@ export function settledParse<T>(
   const direct =
     stored || !fromData ? undefined : dataRead(path, raw, fromData);
   const value = stored ? (stored.value as T) : (direct ?? parse(raw));
-  if (!stored) storeParse(at, value);
+  // A file still settling is being typed: each of its versions would only churn the store.
+  if (!stored && settled) storeParse(at, value);
   if (!settled) {
     // Still inside the window where the next write could reuse this stamp — storing it would hit later.
     memo.delete(key);

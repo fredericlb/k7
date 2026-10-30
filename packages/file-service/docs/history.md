@@ -80,6 +80,20 @@ it would be what the first Ctrl+Z undoes. The next real step's `before` image al
 skipped write, so undoing past it never takes it back either; only an undo of a step OLDER than it
 rewrites that file whole, and what it drops then is a pin the drawing writes again.
 
+## Mutations side by side, undo alone
+
+A command can await for a long while — a render, a separation, a 60 s plugin rescan — and an
+editor save must not wait behind it. So records run side by side, and each one's diff stays its
+own: when a record lands, what it wrote becomes the `before` image of every record still running
+(`WorkspaceHistory.rebase`). Without that, the slow command's diff would hold the save too, and
+undoing the command would take the save back with it. Two records writing the SAME file at once
+remain ambiguous; the later to land owns what it wrote last.
+
+An undo or redo runs ALONE: it waits for every record in flight, and a record that starts while it
+is pending waits for it. An undo rewrites files and moves the cursor, possibly after awaiting a
+blob from the engine; a push landing in between would see its step cut off by the cursor, or its
+files overwritten by older images.
+
 ## Not in the project: the account's cache
 
 The journal is the session's, not the song's. Kept in the project, it is a ring of up to a thousand

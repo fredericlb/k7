@@ -5,9 +5,10 @@ import { resolve } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import { MAX_UPLOAD_BYTES } from "@studio/web-protocol";
 import { isWithin } from "@studio/web-protocol/paths";
-import express, { type RequestHandler, Router } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { startEngineForActive } from "../engineLink.ts";
+import { uploadTooLarge } from "../workspaceEntries.ts";
 
 export const fileRouter: Router = Router();
 
@@ -55,38 +56,34 @@ fileRouter.put(
   }),
 );
 
-const rawUpload = express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES });
-/** The raw parser, with a too-large body answered as JSON in words — express's own 413 is an HTML page nobody reads. */
-const uploadBody: RequestHandler = (req, res, next) =>
-  rawUpload(req, res, (err?: unknown) => {
-    if ((err as { type?: string } | undefined)?.type !== "entity.too.large")
-      return next(err);
-    res.status(413).json({
-      error: `larger than ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB, the most one upload takes`,
-    });
-  });
-
-// Drag-and-drop upload: raw body, target in the query, route-level raw parser. Refuses to overwrite (409).
+// Drag-and-drop upload: the body streamed to disk beside its target, never held in memory. Refuses to overwrite (409).
 fileRouter.post(
   "/upload",
-  uploadBody,
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const dir = String(req.query.dir ?? ".");
     const name = String(req.query.name ?? "");
     if (!name) {
       res.status(400).json({ error: "name required" });
       return;
     }
-    const bytes = req.body;
-    if (!Buffer.isBuffer(bytes)) {
-      res.status(400).json({ error: "empty upload" });
+    // Said in words: express's own 413 is an HTML page nobody reads.
+    if (Number(req.headers["content-length"]) > MAX_UPLOAD_BYTES) {
+      res.status(413).json({ error: uploadTooLarge(MAX_UPLOAD_BYTES).message });
+      return;
+    }
+    // The app-wide JSON parser got here first: the stream is spent.
+    if ((req as { _body?: boolean })._body || req.readableEnded) {
+      res
+        .status(415)
+        .json({ error: "send the bytes as application/octet-stream" });
       return;
     }
     try {
-      res.json(req.ws!.uploadFile(dir, name, bytes));
+      res.json(await req.ws!.uploadStream(dir, name, req, MAX_UPLOAD_BYTES));
     } catch (e) {
-      const code = (e as NodeJS.ErrnoException).code === "EEXIST" ? 409 : 400;
-      res.status(code).json({ error: (e as Error).message });
+      const err = e as NodeJS.ErrnoException & { status?: number };
+      const code = err.code === "EEXIST" ? 409 : (err.status ?? 400);
+      res.status(code).json({ error: err.message });
     }
   }),
 );

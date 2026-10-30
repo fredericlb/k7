@@ -402,6 +402,49 @@ describe("Workspace.recordChange", () => {
     expect(ws.history.state().canUndo).toBe(false);
   });
 
+  // A slow command and a save landing during it: undoing the command must leave the save alone.
+  it("keeps a write that lands during a slow command out of that command's step", async () => {
+    const { ws } = openProject();
+    writeFileSync(join(dir, "proj.k7", "a.k7x"), "a1");
+    writeFileSync(join(dir, "proj.k7", "b.k7x"), "b1");
+    let go = (): void => {};
+    const gate = new Promise<void>((r) => {
+      go = r;
+    });
+    const slow = ws.recordChange("slow", async () => {
+      await gate;
+      ws.write("proj.k7/a.k7x", "a2");
+    });
+    await ws.recordChange("save", () => ws.write("proj.k7/b.k7x", "b2"));
+    go();
+    await slow;
+    expect(ws.history.list().map((e) => e.label)).toEqual(["save", "slow"]);
+    await ws.history.undo();
+    expect(read("proj.k7/a.k7x")).toBe("a1");
+    expect(read("proj.k7/b.k7x")).toBe("b2");
+    await ws.history.undo();
+    expect(read("proj.k7/b.k7x")).toBe("b1");
+  });
+
+  it("holds an undo until the command in flight has been journalled", async () => {
+    const { ws } = openProject();
+    writeFileSync(join(dir, "proj.k7", "a.k7x"), "a1");
+    await ws.recordChange("first", () => ws.write("proj.k7/a.k7x", "a2"));
+    let go = (): void => {};
+    const gate = new Promise<void>((r) => {
+      go = r;
+    });
+    const slow = ws.recordChange("second", async () => {
+      await gate;
+      ws.write("proj.k7/a.k7x", "a3");
+    });
+    const undo = ws.history.undo();
+    go();
+    await slow;
+    expect((await undo)?.label).toBe("second");
+    expect(read("proj.k7/a.k7x")).toBe("a2");
+  });
+
   // The same diff said the other way: the journal's paths are workspace-relative, these the project's.
   describe("names what it changed", () => {
     it("tells a rewrite from an appearance, project-relative", async () => {
