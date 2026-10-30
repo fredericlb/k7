@@ -18,8 +18,13 @@ vi.mock("@studio/audio-analysis/pool", async () => ({
     .analyseFile,
 }));
 
-const { analyseShared, ensureAnalysedShared, gateLoad, MAX_DECODES } =
-  await import("./analysisGate.ts");
+const {
+  analyseShared,
+  decodesFor,
+  ensureAnalysedShared,
+  gateLoad,
+  MAX_DECODES,
+} = await import("./analysisGate.ts");
 
 const tick = () => new Promise((ok) => setTimeout(ok, 0));
 
@@ -29,6 +34,11 @@ beforeEach(() => {
 });
 
 describe("the decode gate", () => {
+  it("runs one decode at a time on a standalone host, two on a server", () => {
+    expect(decodesFor({ STUDIO_LOCAL_USER: "1" })).toBe(1);
+    expect(decodesFor({})).toBe(2);
+  });
+
   it("shares one decode between callers asking for the same file", async () => {
     const a = analyseShared("same");
     const b = analyseShared("same");

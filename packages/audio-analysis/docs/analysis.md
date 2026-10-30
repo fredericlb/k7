@@ -113,6 +113,14 @@ containers round. The mono signal is therefore accumulated in chunks and measure
 costs one float per frame — about 57 MB for five minutes — and is what keeps the geometry exact.
 It is also why the file service decodes only a few files at once.
 
+The reduction cannot be done chunk by chunk without changing every sidecar: a bucket's width is
+`frames / MAX_BUCKETS` past the short files, so a bucket boundary is unknown until the last frame
+arrived, and summaries of fixed blocks merged afterwards would cut the buckets elsewhere — a new
+`CACHE_VERSION`, and the WebAssembly module and the iOS addon rebuilt to match, since the Rust
+measure holds the same mono signal. The memory is bounded by the callers instead: each one gates
+its decodes (k7's backend runs one at a time on a standalone host,
+`apps/k7/backend/docs/media/analysis.md`).
+
 And why a decode for the envelope is **capped**: `MAX_DECODE_FRAMES`, two hours at 48 kHz, about
 1.4 GB. The cap is in frames rather than seconds because frames are what is held. It is checked
 three times, since none alone suffices: against the length ffprobe claims before ffmpeg starts,

@@ -40,7 +40,9 @@ analysed by the surface that made it.
 ## One gate for every decode
 
 The sweep, `/analyse` and `/envelope` all decode through `../../src/media/analysisGate.ts`: one decode
-per file at a time, shared by whoever asks during it, and at most two at once. A decode holds the
+per file at a time, shared by whoever asks during it, and at most two at once — **one** on a
+phone or the tray (`STUDIO_LOCAL_USER=1`), whose memory is the engine's too, so a second long
+take never doubles the peak to 2.8 GB. A decode holds the
 file's whole mono signal — about 1.4 GB for two hours at 48 kHz — and a listener flipping through
 songs asks for one per song, so an ungated route is a memory ceiling the users set. The same
 holding is why one decode stops at two hours at 48 kHz (`MAX_DECODE_FRAMES`,
