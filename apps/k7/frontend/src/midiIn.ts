@@ -1,6 +1,6 @@
-// midiIn.ts — which MIDI device records into a lane: the midi-in node wired to it in the graph.
-// Pure, off the graph document, so the rule is a test. The one thing a reader would get wrong: no
-// node is not "any device" — it is no MIDI at all for that lane (packages/song/docs/midiIn.md).
+// midiIn.ts — which MIDI device records into a lane, and which instruments a keyboard plays directly:
+// the midi-in nodes wired to them in the graph. Pure, off the graph document, so the rules are tests.
+// The one thing a reader would get wrong: no node is not "any device", it is no MIDI at all (packages/song/docs/midiIn.md).
 
 import type { WebGraph } from "./types";
 
@@ -20,5 +20,33 @@ export function midiInLanes(g: WebGraph): Set<string> {
   for (const c of Object.values(g.chains))
     if (c.use.some((s) => s.device !== undefined))
       for (const o of c.out ?? []) out.add(o.to);
+  return out;
+}
+
+/** An instrument a keyboard is wired straight into, no lane between: the engine track it plays and the node's label. */
+export interface PlayedTarget {
+  track: string;
+  /** The midi-in node's label, "" any device. */
+  device: string;
+}
+
+/** Every instrument a midi-in node feeds directly — played live whatever is armed, never recorded (packages/song/docs/midiIn.md). */
+export function midiInPlayed(g: WebGraph): PlayedTarget[] {
+  const lanes = new Set(g.tracks ?? []);
+  const out: PlayedTarget[] = [];
+  for (const c of Object.values(g.chains)) {
+    const step = c.use.find((s) => s.device !== undefined);
+    if (!step) continue;
+    for (const o of c.out ?? []) {
+      // `piano#midi` names a port of the piano; the track is the piano's.
+      const to = o.to.split("#")[0] ?? o.to;
+      if (lanes.has(to)) continue;
+      // The engine runs that instrument as the track of the run it starts, named after that run.
+      const run = Object.entries(g.chains).find(
+        ([, r]) => r.use[0]?.module === to,
+      )?.[0];
+      out.push({ track: run ?? to, device: step.device ?? "" });
+    }
+  }
   return out;
 }

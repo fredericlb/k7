@@ -181,7 +181,7 @@ import {
 } from "./lcdSounds";
 import { libraryModuleRef } from "./libraryTree";
 import { confirmMenuItem } from "./menuConfirm";
-import { midiInDeviceFor, midiInLanes } from "./midiIn";
+import { midiInDeviceFor, midiInLanes, midiInPlayed } from "./midiIn";
 import { chainRefFromCreate, wireCommand } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
@@ -1452,6 +1452,11 @@ export default function App({
         .some((st) => st.device !== undefined),
     [shellGraph],
   );
+  // The instruments a keyboard is wired straight into, played live with no lane armed (packages/song/docs/midiIn.md).
+  const midiPlayed = useMemo(
+    () => (shellGraph ? midiInPlayed(shellGraph) : []),
+    [shellGraph],
+  );
   const midiIn = useMemo(
     () => ({
       any: midiInAny,
@@ -1510,6 +1515,7 @@ export default function App({
       markActive();
       engineRef.current?.liveMidi(track, data);
     },
+    played: midiPlayed,
     // A take of no notes lands nothing: the live roll it was drawn on goes with it.
     onEmptyTake: () => setGraphSlot((s) => (s?.kind === "midiTake" ? null : s)),
     onLanded: (lane) => {

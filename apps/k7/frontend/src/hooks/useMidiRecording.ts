@@ -8,10 +8,12 @@
 import type { EngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { midiActivity } from "../midiActivity";
+import type { PlayedTarget } from "../midiIn";
 import {
   type CapturedNote,
   type MidiInputInfo,
   MidiRecorder,
+  matchMidiDevice,
 } from "../webmidi";
 import { useLatest } from "./useLatest";
 import type { MidiTakeTarget } from "./useTakeRecording";
@@ -43,6 +45,9 @@ export interface LiveMidiTake {
   now: () => number;
 }
 
+// One empty list, so a caller with no direct targets does not hand a new one on every render.
+const NO_TARGETS: readonly PlayedTarget[] = [];
+
 /** The access question: unasked until something needs the keyboard, then granted or not. */
 export type MidiAccess = "unasked" | "granted" | "unavailable";
 
@@ -64,6 +69,8 @@ export function useMidiRecording(opts: {
   onTakePass?: (target: MidiTakeTarget, pass: MidiPass) => void;
   /** The armed lane PLAYED: each channel message from its keyboard, handed to the engine as it arrives. */
   onLiveMidi?: (track: string, data: number[]) => void;
+  /** The instruments a keyboard is wired straight into: played as the armed lane is, whatever is armed. */
+  played?: readonly PlayedTarget[];
   /** Told when a take ends with no notes: nothing lands, so nothing will replace the live roll. */
   onEmptyTake?: () => void;
   /** Told once a take has been written as a new clip on `lane`, so the view re-reads and opens it. */
@@ -88,6 +95,7 @@ export function useMidiRecording(opts: {
     onLiveMidi,
     onLanded,
     onEmptyTake,
+    played = NO_TARGETS,
   } = opts;
   const onEmptyTakeRef = useLatest(onEmptyTake);
   // Where the take rolling now starts, in song beats — after its count-in, which rolls before it.
@@ -96,6 +104,7 @@ export function useMidiRecording(opts: {
   const onLandedRef = useLatest(onLanded);
   const onLiveMidiRef = useLatest(onLiveMidi);
   const armedRef = useLatest(midiArmed);
+  const playedRef = useLatest(played);
   const onTakePassRef = useLatest(onTakePass);
   // The take this pass belongs to, and where it started — fixed at the start, as the sequence target is.
   const takeRef = useRef<{ target: MidiTakeTarget; start: number } | null>(
@@ -149,6 +158,15 @@ export function useMidiRecording(opts: {
         const lane = armedRef.current;
         if (lane) onLiveMidiRef.current?.(lane, [...data]);
       },
+      // A keyboard wired straight to an instrument plays it, each by its own node's label (packages/song/docs/midiIn.md).
+      onPlayed: (device, data) => {
+        for (const t of playedRef.current)
+          if (
+            t.track !== armedRef.current &&
+            matchMidiDevice(t.device, [device]).length
+          )
+            onLiveMidiRef.current?.(t.track, [...data]);
+      },
     });
     midiRecRef.current = rec;
     return () => {
@@ -183,6 +201,19 @@ export function useMidiRecording(opts: {
       onLiveMidiRef.current?.(midiArmed, [0xb0, 123, 0]);
     };
   }, [midiArmed]);
+
+  // An instrument no longer played directly lets go as an unarmed lane does: all notes off, sustain up.
+  const playedKey = played.map((t) => t.track).join("\n");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `playedKey` is the list's tracks as a value; the release reads the list it was made for
+  useEffect(() => {
+    const tracks = played.map((t) => t.track);
+    return () => {
+      for (const t of tracks) {
+        onLiveMidiRef.current?.(t, [0xb0, 64, 0]);
+        onLiveMidiRef.current?.(t, [0xb0, 123, 0]);
+      }
+    };
+  }, [playedKey]);
 
   // The armed lane's node decides which device is listened to; a change mid-take re-attaches.
   useEffect(() => {

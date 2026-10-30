@@ -54,6 +54,8 @@ export class MidiRecorder {
   private onActivity?: (device: string) => void;
   // Handed every channel message from the LISTENED devices, as it arrives — what the armed lane plays.
   private onLive?: (data: Uint8Array) => void;
+  // Handed every channel message from ANY device, by its name — what a keyboard wired straight to an instrument plays.
+  private onPlayed?: (device: string, data: Uint8Array) => void;
   // Open notes keyed by `${channel}:${key}` → their onset beat + velocity.
   private open = new Map<string, { start: number; v: number }>();
   private notes: CapturedNote[] = [];
@@ -64,12 +66,14 @@ export class MidiRecorder {
       onInputsChanged?: () => void;
       onActivity?: (device: string) => void;
       onLive?: (data: Uint8Array) => void;
+      onPlayed?: (device: string, data: Uint8Array) => void;
     },
   ) {
     this.beatNow = beatNow;
     this.onInputsChanged = opts?.onInputsChanged;
     this.onActivity = opts?.onActivity;
     this.onLive = opts?.onLive;
+    this.onPlayed = opts?.onPlayed;
   }
 
   // Ask for MIDI access and attach; false when there is none, and the caller records no MIDI.
@@ -178,6 +182,7 @@ export class MidiRecorder {
     // Channel messages only: clock, active sensing and sysex are neither played nor shown.
     if (e.data[0] < 0x80 || e.data[0] >= 0xf0) return;
     this.onActivity?.(device);
+    this.onPlayed?.(device, e.data);
     if (!listened) return;
     this.onLive?.(e.data);
     if (!this.recording || e.data.length < 3) return;
