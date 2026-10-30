@@ -8,6 +8,7 @@ import {
   ProjectGate as Shared,
 } from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
+import { GateWait } from "@studio/project-shell/progress";
 import type { AccountLibrary } from "@studio/web-protocol";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { AskHostK7 } from "../AskHostK7";
@@ -142,8 +143,8 @@ export function ProjectGate({
             <AskHostK7 />
           </>
         ) : (
-          // key by workspace+project so moving between them remounts the editor cleanly.
-          <Suspense fallback={null}>
+          // key by workspace+project so moving between them remounts the editor cleanly; its code arriving is a wait, under the startup splash.
+          <Suspense fallback={<GateWait label={m["startup.opening"]()} />}>
             <App
               key={`${workspace}/${project}`}
               // A function, not the address: the editor stays open for hours and the relayed URL carries a one-minute ticket.
