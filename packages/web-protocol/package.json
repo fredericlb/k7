@@ -1,6 +1,6 @@
 {
   "name": "@studio/web-protocol",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "files": [
     "*.ts",
@@ -25,7 +25,8 @@
     "./playlists": "./playlists.ts",
     "./resources": "./resources.ts",
     "./paths": "./paths.ts",
-    "./cameras": "./cameras.ts"
+    "./cameras": "./cameras.ts",
+    "./text-hash": "./textHash.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -8,6 +8,7 @@ import { isWithin } from "@studio/web-protocol/paths";
 import express, { type RequestHandler, Router } from "express";
 import { z } from "zod";
 import { startEngineForActive } from "../engineLink.ts";
+import { assertBase, diskText, StaleBase } from "../fileBase.ts";
 
 export const fileRouter: Router = Router();
 
@@ -31,17 +32,21 @@ fileRouter.get(
 const writeBody = z.object({
   path: z.string().min(1),
   content: z.string(),
+  // The textHash of the text the buffer was edited from; absent from an older client, which writes unchecked.
+  base: z.string().optional(),
 });
 fileRouter.put(
   "/file",
   validate(writeBody),
   wrap(async (req, res) => {
-    const { path, content } = req.body as z.infer<typeof writeBody>;
+    const { path, content, base } = req.body as z.infer<typeof writeBody>;
     try {
-      // `forked` says the save landed on a project-local copy of a shared module — see docs/fileRoutes.md.
-      const r = await req.ws!.recordChange(`edit ${path}`, () =>
-        req.ws!.write(path, content),
-      );
+      // Checked INSIDE the journalled write, the same tick as it — see docs/fileRoutes.md.
+      const r = await req.ws!.recordChange(`edit ${path}`, () => {
+        assertBase(() => diskText(() => req.ws!.read(path)), path, base);
+        // `forked` says the save landed on a project-local copy of a shared module — see docs/fileRoutes.md.
+        return req.ws!.write(path, content);
+      });
       // TWO gates — the token moved AND the path is inside the open song — before the engine is pushed to.
       const active = req.ws!.activeProjectPath();
       const abs = resolve(req.ws!.root, path);
@@ -50,6 +55,10 @@ fileRouter.put(
       // `.value` because a journalled mutation also answers with the tokens either side of it.
       res.json({ ok: true, ...r.value });
     } catch (e) {
+      if (e instanceof StaleBase) {
+        res.status(409).json({ error: e.message, stale: true });
+        return;
+      }
       res.status(400).json({ error: (e as Error).message });
     }
   }),

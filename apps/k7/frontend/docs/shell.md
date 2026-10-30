@@ -925,6 +925,16 @@ another editor — which is exactly the set of events worth reacting to. It is a
 app, at once when the relay pushes a change notice and on a slow poll otherwise; see
 `hooks/useRevision.ts` and `conflicts.md`.
 
+The poll alone leaves a window: an autosave due in under a second, and a drag or an undo that
+rewrites the same file inside it. So the editor's write names its BASE — the text it last read or
+wrote, `saved` — and the file service refuses it with a 409 when the disk has moved
+(`packages/file-service/docs/fileRoutes.md`). A refusal raises the same banner the poll would
+(`useDiskSync`'s `raise`), with the buffer held. "Keep editing" makes the disk's text the new base,
+so the next write goes over it, which is what the person chose; "take the disk" drops the buffer.
+The project journal flushes every pane before it moves (`HistoryDeps.flush`), so Ctrl+Z never
+lands under a pending autosave. A write that lands after the pane moved to another file updates
+nothing of the file now shown.
+
 ### Space is the transport, wherever the last click landed
 
 The key listener draws a line between two groups rather than standing aside for one list of tag names

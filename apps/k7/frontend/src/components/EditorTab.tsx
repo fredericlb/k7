@@ -12,6 +12,7 @@ import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { FolderTree } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
+import { isStaleWrite } from "@studio/project-shell/files";
 import { showToast } from "@studio/project-shell/toast";
 import { LIBRARIES_DIR } from "@studio/song-schema/moduleTypes";
 import {
@@ -243,6 +244,9 @@ function EditorTabView({
   // What is on disk for the open file; dirty is derived from it and the buffer, never a flag that could disagree.
   const [saved, setSaved] = useState("");
   const dirty = !!file && !file.binary && file.content !== saved;
+  // The file on screen NOW, for a write that lands after the pane moved on to another one.
+  const shownPath = useRef<string | null>(null);
+  shownPath.current = file?.path ?? null;
   // Which tab of a sequence is open in the POPIN — only there: fullscreened, the note grids have their own home.
   const [tab, setTab] = useState<"text" | SeqView>("text");
   // The readers strip, shown for a lane file until dismissed — per-session and per-pane, a dock over the text.
@@ -971,15 +975,35 @@ function EditorTabView({
         }),
       [],
     ),
+    onKeep: setSaved,
     reloadKey,
   });
+  const raiseConflict = diskSync.raise;
 
   // The write autosave performs; it does NOT re-read afterwards, a re-read under a moved cursor being what useDiskSync exists to stop.
   const write = useCallback(
     async (text: string) => {
       const path = file?.path;
       if (!path) return;
-      const { forked } = await api.write(path, text);
+      let forked: Awaited<ReturnType<typeof api.write>>["forked"];
+      try {
+        // Checked against what this buffer was edited from: a disk that moved since is asked about, never overwritten.
+        ({ forked } = await api.write(path, text, saved));
+      } catch (e) {
+        if (isStaleWrite(e) && shownPath.current === path)
+          void api
+            .read(path)
+            .then((f) => {
+              if (shownPath.current === path) raiseConflict(f.content);
+            })
+            .catch(() => {});
+        throw e;
+      }
+      // A write that lands after the pane moved to another file says nothing about the file now shown.
+      if (shownPath.current !== path) {
+        onChanged();
+        return;
+      }
       setSaved(text);
       // A file in the shared `_modules` library is not written: the module is copied into the project, so open the copy.
       if (forked) {
@@ -1005,7 +1029,7 @@ function EditorTabView({
       // The reload re-reads the tree and the completions too: a second `refresh()` here fetched both twice per save.
       onChanged();
     },
-    [file?.path, refresh, open, onChanged, setStatus],
+    [file?.path, saved, raiseConflict, refresh, open, onChanged, setStatus],
   );
 
   const autosave = useAutosave({

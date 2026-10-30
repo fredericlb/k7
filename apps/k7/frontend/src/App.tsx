@@ -48,6 +48,7 @@ import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import { LcdSoundsContext, SongClockProvider } from "@studio/ui-chains-react";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
+import { flushAutosaves } from "@studio/ui-editor/autosave-buffers";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { projectLabel } from "@studio/web-protocol/projects";
@@ -718,6 +719,7 @@ export default function App({
       confirmProcess,
       currentFile: () => editorRef.current?.currentFile() ?? null,
       onApplied: bumpReload,
+      flush: flushAutosaves,
       strings: {
         undone: (what) => m["undo.undone"]({ what }),
         redone: (what) => m["undo.redone"]({ what }),

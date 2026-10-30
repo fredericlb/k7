@@ -10,7 +10,12 @@ import type {
   ProjectSyncState,
   WorkspaceInfo,
 } from "@studio/web-protocol";
+import { textHash } from "@studio/web-protocol/text-hash";
 import { fget, fsend } from "./fileApi.ts";
+
+/** A write refused because the file changed on disk since its base was read — the caller asks, rather than retrying. */
+export const isStaleWrite = (e: unknown): boolean =>
+  (e as { status?: number } | null)?.status === 409;
 
 /** The change token the last `/open` answered with; null before one, or from a service too old to say. */
 let openedRev: string | null = null;
@@ -46,10 +51,12 @@ export const fileRoutes = {
   read: (path: string) =>
     fget<FileContent>(`/file?path=${encodeURIComponent(path)}`),
   // Saving into the shared `_modules` library forks instead; `forked` says where — docs/fileApi.md.
-  write: (path: string, content: string) =>
+  // `base` is the text the buffer was edited from: a disk that moved since answers 409 (isStaleWrite) rather than being overwritten.
+  write: (path: string, content: string, base?: string) =>
     fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
       path,
       content,
+      ...(base === undefined ? {} : { base: textHash(base) }),
     }),
   fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
   createFolder: (dir: string, name: string) =>
