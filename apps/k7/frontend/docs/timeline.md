@@ -365,8 +365,17 @@ than that is silently clipped —
 further off with every notch. On a laptop pane the ceiling is some 13 000×, which is one 64th of
 a beat filling the screen on a five-minute song.
 
-`min` stays 1, and that is a different kind of bound: 1 IS fit. Below it the pane would draw the
-whole thing plus empty space, and there is nothing further out to see.
+### Zooming out goes past the song's end
+
+Below 1 the timeline keeps zooming out: the lane stays the pane's width and the beat range grows
+instead, so the song shrinks to the left and the empty bars after it come into view, down to a
+sixteenth of the pane (`MIN_ZOOM_OUT`). The song's extent is where its clips stop, and the work
+that comes next (a new section, a clip dropped after the end, `selection sequence` on an empty
+period) happens exactly where fit would stop drawing. The caret, the selection and a keyboard move
+reach the drawn range, not just the song.
+
+Only the timeline at rest zooms out. A zoomed rectangle IS its beat range, so inside one `min` is 1
+again, and pushing one lifts a zoomed-out scale back to fit.
 
 The ruler's own vertical-drag zoom reads the same `zoomCeiling` rather than a number of its own:
 a number written twice is two answers waiting to disagree, which is the same trap its

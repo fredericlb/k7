@@ -158,6 +158,8 @@ import { UploadProgress } from "./UploadProgress";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
+/** How far the wheel zooms OUT past fit: the song shrinks to a sixteenth of the pane, leaving room to work after its end. */
+const MIN_ZOOM_OUT = 1 / 16;
 // One empty list for "no tasks", so a timeline handed none does not get a new array every render.
 // A timeline's view draws no picture lane — one array, so the memo over it holds.
 const NO_VIDEO: WebVideoTrack[] = [];
@@ -691,10 +693,6 @@ function TimelineTabView({
   // The caret walks every drawn row, but holds a BEAT only on rows that can carry a clip (see docs/timeline.md).
   const rowsRef = useLatest(visRows);
 
-  // The beat range on screen, and the only bounds the caret and selection know: the song, or the zoomed rectangle.
-  const beatLo = view ? view.beatStart : 0;
-  const beatHi = view ? view.beatEnd : contentBeats - 1;
-
   // Measure the pane so the beat range fills it exactly. Keyed on `proj` — before it loads there is no pane to observe.
   const scrollRef = useRef<HTMLDivElement>(null);
   // Shadows the module constants below, so layout, zoom maths and playhead offset all follow one value.
@@ -711,8 +709,23 @@ function TimelineTabView({
   }, [proj]);
 
   // Wheel zooms past fit and middle-drag pans; the gutter is the fixed name column and does not scale.
-  const [zoomX, , zoomAtX] = useHZoom(scrollRef, { gutter: GUTTER }, [proj]);
+  // Below 1 the song is drawn past its end — only at rest, since a zoomed rectangle IS its range; see docs/timeline.md.
+  const [zoomX, setZoomX, zoomAtX] = useHZoom(
+    scrollRef,
+    { gutter: GUTTER, min: view ? 1 : MIN_ZOOM_OUT },
+    [proj],
+  );
+  // Narrowing to a rectangle leaves the zoomed-out scale behind, or the wheel would wake up below fit.
+  useEffect(() => {
+    if (view) setZoomX((z) => Math.max(1, z));
+  }, [view, setZoomX]);
   usePanScroll(scrollRef, [proj]);
+
+  // The beat range on screen, and the only bounds the caret and selection know: the song (or more, zoomed out), or the zoomed rectangle.
+  const beatLo = view ? view.beatStart : 0;
+  const beatHi = view
+    ? view.beatEnd
+    : Math.ceil(contentBeats / Math.min(1, zoomX)) - 1;
 
   // Keep the scroll offset across a pane switch — a display:none box has no layout to hold it. See docs/timeline.md.
   const savedScroll = useRef({ left: 0, top: 0 });
@@ -1028,7 +1041,7 @@ function TimelineTabView({
     [clampCell],
   );
 
-  // Nudge the pickup by `d` beats, kept inside the song. `offset` is relative to origStart, so the ghost never moves.
+  // Nudge the pickup by `d` beats, kept inside what is drawn. `offset` is relative to origStart, so the ghost never moves.
   const nudgeMove = useCallback(
     (d: number) =>
       setMove((m) =>
@@ -1036,14 +1049,12 @@ function TimelineTabView({
           ? {
               ...m,
               offset:
-                Math.max(
-                  0,
-                  Math.min(m.origStart + m.offset + d, contentBeats),
-                ) - m.origStart,
+                Math.max(0, Math.min(m.origStart + m.offset + d, beatHi + 1)) -
+                m.origStart,
             }
           : m,
       ),
-    [contentBeats],
+    [beatHi],
   );
 
   // --- dragging a clip with the mouse -------------------------------------------
@@ -2008,15 +2019,16 @@ function TimelineTabView({
 
   // Drawing extent: the view's beat range fills the pane exactly, so it never scrolls. See docs/timeline.md.
   const availW = Math.max(0, paneW - GUTTER);
-  const spanBeats = beatHi - beatLo + 1; // contentBeats when unzoomed
-  // zoomX ≥ 1 grows the lane past the pane so it can be panned; at 1 it fits exactly.
-  const ppb = availW > 0 ? (availW / spanBeats) * zoomX : PX_PER_BEAT;
-  const laneW = availW > 0 ? availW * zoomX : spanBeats * PX_PER_BEAT;
+  const spanBeats = beatHi - beatLo + 1; // contentBeats at rest and fit
+  // zoomX > 1 grows the lane past the pane so it can be panned; at or below 1 the lane is the pane and beatHi grew instead.
+  const zoomLane = Math.max(1, zoomX);
+  const ppb = availW > 0 ? (availW / spanBeats) * zoomLane : PX_PER_BEAT;
+  const laneW = availW > 0 ? availW * zoomLane : spanBeats * PX_PER_BEAT;
   // Where a beat sits. The ONE place the zoom offset is applied, so nothing positioned can drift out of step.
   ppbRef.current = ppb; // the drag reads this on pointerdown (see beginClipDrag)
   const x = (beat: number) => (beat - beatLo) * ppb;
   // The last beat drawn: the zoom's end, or the song's rounded-up extent.
-  const lastBeat = view ? beatHi : contentBeats;
+  const lastBeat = view ? beatHi : beatHi + 1;
   // Beats per second — the whole conversion between the song's unit and the picture's, exact because there is ONE tempo, clamped off zero.
   const bps = Math.max(1e-6, proj.tempo / 60);
   // The ruler's scale, from the SHARED chooser (Ruler.tsx), so this ruler and the clip editors' cannot pick different ladders.
@@ -2462,7 +2474,7 @@ function TimelineTabView({
                     if (gesture === -1) {
                       // Vertical drag → zoom, 1.005 per px; the ceiling is the pane's, not a constant of its own.
                       const next = Math.max(
-                        1,
+                        view ? 1 : MIN_ZOOM_OUT,
                         Math.min(zoomCeiling(availW), zoomStart * 1.005 ** -dy),
                       );
                       // Anchor: keep the beat under the cursor fixed after the width change, through the package — see useHZoom's `zoomAt`.
