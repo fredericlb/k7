@@ -854,6 +854,6 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   and not the neighbour's; on one that has none → the popin says so;
 - the button must **not** open the project: the whole row is a link, and `preventDefault` stops it;
 - revoke a share, then open its link → "introuvable";
-- **the bar**: hidden until Ctrl+Shift+P, double-Shift or the footer's Commands button summons it; `project new` opens a three-value field then asks
+- **the bar**: hidden until Ctrl+Shift+P, double-Shift or the Commands icon in the sidebar's foot summons it, on every home page; `project new` opens a three-value field then asks
   for the name; `project delete init` then `confirm` deletes, and `confirm` alone refuses; an
   unknown line is refused without going anywhere.

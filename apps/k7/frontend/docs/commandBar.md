@@ -1,10 +1,10 @@
 # The command palette and the module picker
 
 > **Two screens mount this component.** The editor's bar is what this page describes; the HOME
-> page runs the same one over a catalogue of its own — verbs about workspaces and projects, and `camera mode`,
+> pages run the same one over a catalogue of its own — verbs about workspaces and projects, and `camera mode`,
 > since there is no project open there to have any others (`projects.md`). Everything below about
 > matching, the form, the floating bar and its summoning is true of both; the gesture inlets and
-> the caret are the editor's alone, and the home page passes neither.
+> the caret are the editor's alone, and the home pages pass neither.
 
 ## `CommandBar.tsx` — one question, then a form
 
@@ -158,10 +158,20 @@ anywhere, the text editor included: the key is caught before CodeMirror sees it,
 cannot reach while typing is one you leave the keyboard to reach. Double-Shift summons it too, and so
 does a command icon at the bottom-left of the footer, left of the status line — the one opener a
 mouse finds without being told, and on a phone, which has neither key, the hamburger menu carries a
-second. On the home page the opener is an icon in the sidebar's foot, the last control before the
-account: the sidebar is where every other home control is, and a footer button of its own cost the
-page a row that otherwise only carries the status line. That row now shows only when the bar has
-said something. Both screens mount the same wrapper, `FloatingCommandBar.tsx`.
+second. Both screens mount the same wrapper, `FloatingCommandBar.tsx`.
+
+**On the home pages the bar is the frame's, not a page's** (`src/projects/HomeCommandBar.tsx`, held
+by `HomeFrame`): every home page has it, the médiathèque and the settings as much as Projects, and a
+`camera mode` or an armed `project delete` survives going from one page to the next. Its opener is
+an icon in the sidebar's foot, the last control before the account, since the sidebar is where every
+other home control is. With the sidebar folded away the icon moves to the bar at the bottom, beside
+the engine, because on a phone it is the only way in. What the bar says is a line at the foot of
+the page's column, shown only while there is something to read.
+
+The workspaces its verbs act on are read when the bar opens and again before a line runs, not
+polled: most home pages list no project, and a poll there would be a request every few seconds for
+a bar that is closed. A write from the bar tells the Projects page to read its list at once
+(`useHomeCommandsChanged`), rather than leaving it to its next poll.
 
 Hidden, because the panes are what the window is for: a permanent strip is a row of every pane
 spent on a prompt that is idle almost all the time. At the top, because that is where the eye
