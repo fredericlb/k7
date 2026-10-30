@@ -313,9 +313,11 @@ std::vector<std::pair<std::string, double>> allParams(te::Plugin& plugin) {
 void applyPluginParams(te::Plugin& plugin, const std::unordered_map<std::string, double>& params) {
     if (params.empty())
         return;
-    std::map<std::string, std::function<void(double)>> byName;
-    for (auto& p : pluginParams(plugin))
-        byName[p.name.toStdString()] = p.set;
+    // The automatable names first, and the whole table only for a name they lack: pluginParams lists them first, so the match is the same.
+    std::map<std::string, te::AutomatableParameter*> automatable;
+    for (const auto& [key, param] : namedParams(plugin))
+        automatable.emplace(key.toStdString(), param);
+    std::optional<std::map<std::string, std::function<void(double)>>> byName;
     for (const auto& [name, value] : params) {
         // The ENGINE's blend around the module, not one of the plugin's params — docs/mix.md.
         // The engine's own stage around the module, not the plugin's params; each one arriving at all holds what it replaces — docs/mix.md.
@@ -334,8 +336,17 @@ void applyPluginParams(te::Plugin& plugin, const std::unordered_map<std::string,
             setModuleOutputDb(plugin, value);
             continue;
         }
-        const auto it = byName.find(name);
-        if (it != byName.end())
+        if (const auto a = automatable.find(name); a != automatable.end()) {
+            a->second->setParameter((float)value, juce::dontSendNotification);
+            continue;
+        }
+        if (!byName) {
+            byName.emplace();
+            for (auto& p : pluginParams(plugin))
+                (*byName)[p.name.toStdString()] = p.set;
+        }
+        const auto it = byName->find(name);
+        if (it != byName->end())
             it->second(value);
         else
             warn("plugin '" + plugin.getName().toStdString() + "' has no parameter named '" + name + "'");
