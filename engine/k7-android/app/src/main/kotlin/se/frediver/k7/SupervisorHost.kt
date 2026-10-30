@@ -160,16 +160,21 @@ object SupervisorHost {
 
     private fun onEngine(context: Context, frame: JSONObject) {
         when (frame.optString("action")) {
-            "start" -> EngineBridge.start(
-                context,
-                frame.getString("id"),
-                frame.getString("token"),
-                frame.getInt("port"),
-                frame.optString("host", "0.0.0.0"),
-                frame.optString("origins"),
-            ) { code ->
-                synchronized(this) { engineExit = code }
-                listeners.forEach { it.onEngineExit(code) }
+            // A start after the engine stopped is one this process cannot serve: k7 restarting is offered instead.
+            "start" -> if (EngineBridge.ended()) {
+                Relaunch.offer("engine", "k7's engine stopped, and only starts again with k7. Restart k7 now?")
+            } else {
+                EngineBridge.start(
+                    context,
+                    frame.getString("id"),
+                    frame.getString("token"),
+                    frame.getInt("port"),
+                    frame.optString("host", "0.0.0.0"),
+                    frame.optString("origins"),
+                ) { code ->
+                    synchronized(this) { engineExit = code }
+                    listeners.forEach { it.onEngineExit(code) }
+                }
             }
             // Off this reader thread: the join would hold up every frame behind it.
             "stop" -> Thread({ EngineBridge.stop(ENGINE_STOP_MS) }, "k7-runtime-stop").start()

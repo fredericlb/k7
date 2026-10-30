@@ -37,8 +37,16 @@ class EngineService : Service() {
                 Log.w(TAG, "no microphone foreground, media only: ${it.message}")
                 startForeground(ID, shown, media)
             }
+            .recoverCatching {
+                // The manifest's own types, the least this service may ask, before giving up.
+                Log.w(TAG, "no media foreground: ${it.message}")
+                startForeground(ID, shown)
+            }
             .onFailure {
                 Log.w(TAG, "no foreground: ${it.message}")
+                // Refused from behind (Android 12+): the next hold must ask a foreground start again, not a plain update.
+                held = false
+                last = null
                 stopSelf()
             }
         return START_NOT_STICKY
@@ -67,7 +75,12 @@ class EngineService : Service() {
                     held = true
                     last = label to mic
                 }
-                .onFailure { Log.w(TAG, "no foreground: ${it.message}") }
+                .onFailure {
+                    Log.w(TAG, "no foreground: ${it.message}")
+                    // A plain start refused means the service is gone: the next try is a foreground start.
+                    held = false
+                    last = null
+                }
         }
 
         fun release(context: Context) {

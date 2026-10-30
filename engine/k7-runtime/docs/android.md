@@ -25,12 +25,14 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 |---|---|
 | the tray's port, environment and folders, read from `apps/k7/backend/standalone.json` | one table for both, whose values `apps/k7/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
 | the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — what a page on the tray's backend does (`apps/k7/frontend/docs/localApp.md`), with the signal the views already had |
+| k7's view opens straight on `/` when the WebView holds a `studio.sid` cookie (`BackendHost.home`) | `/auth/local` is a redirect before any app code, on every cold start; a cookie whose session is gone costs one bounce, since the page then says nobody and the fallback above loads `/auth/local` |
 | the phone's own studio pinned FIRST in the supervisor's list, before it starts | the supervisor's saved list overrides `$STUDIO_REGISTRY_URL`, so a phone that already listed a studio would never see its own otherwise |
 | Termux's arm64 node, as `lib*.so` (`engine/k7-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is the one pinned, by file and SHA-256, in `engine/k7-android/scripts/termux-packages.json`, and a download that does not match fails the build: Termux's index is unsigned as the script reads it, so it is never trusted at build time. The versions shipped are recorded in `termux-versions.json` |
 | the pinned debs fetched from the project's own `termux-debs` prerelease on GitHub first, Termux's pool after it (`engine/k7-android/scripts/termux-debs.mjs`) | Termux's pool keeps current versions only, so a pin 404s there with the package's next upgrade, and no Termux host keeps old ones on purpose — the mirrors that still have one are only behind. A source is just a place to look: the SHA-256 decides, so the order costs no trust. The release is a PRERELEASE created with `--latest=false`, since `releases/latest` must stay the project's newest version, and its tag matches no workflow's `v*.*.*`. GitHub's android job also caches the debs under a key hashed from the pin table |
 | bumping a pin: `node engine/k7-android/scripts/termux-tools.mjs --pin`, commit, then `node engine/k7-android/scripts/mirror-termux-debs.mjs` with `gh` signed in | the mirror is filled by hand, while the pool still has those versions; it only adds the debs it lacks and never replaces one, so an old pin keeps building. `--dry-run` fetches and verifies without touching the release |
 | the backend BUNDLED (`apps/k7/backend/scripts/bundle.mjs`), the one the tray runs | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/k7/backend/docs/standalone.md`) |
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
+| an update writes only the files whose CRC or size changed, and deletes those the new bundle lacks | the bundle is 68 MB unpacked, and an update rewriting all of it holds node's start back; `.entries` keeps each file's CRC and size, the ones Gradle's `Zip` writes in every local header. An entry without them is always written, and the `.installed` marker is removed first and written last, so an unpack cut short is redone |
 | node's compile cache on (`NODE_COMPILE_CACHE`, in the app's cache folder), for the backend and the file services it starts | 14 MB of bundled JavaScript is parsed at every launch otherwise, which a phone's CPU pays on the start screen; the cache is keyed by each file's contents and node's version, so an update never runs stale bytecode, and Android clearing the folder only costs one slower launch |
 | cleartext allowed for `127.0.0.1` only (`engine/k7-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as under the tray, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
@@ -49,6 +51,13 @@ starts again with the count reset, reusing a backend still running and an unpack
 run longer than a minute is no boot failure, so it resets the count too. Every step — the unpack
 and its percentage, the launch and each relaunch, ready, given up on — is reported to the shell
 page as one status (`AppViews.backend()` and its `backend` event), which is what it draws.
+
+| choice | why |
+|---|---|
+| the backend prints `$STUDIO_READY_LINE` on stdout once it listens, and the wait wakes on it, then asks the hello once | polling every 200 ms adds up to that much to every start; a bundle that never prints the line is still found, by a poll once a second |
+| a start that gets no answer within 60 s is killed, then given up on | a Retry must launch a new backend, not wait again on the same wedged one |
+| `/api/health` asked every 20 s once up; three misses in a row kill it, and the relaunch above brings it back | a backend hung after ready answers nothing and never exits, so nothing else would notice it. A frozen app freezes its children with it, so a phone asleep is no miss |
+| an exit by SIGKILL (code 137) counted apart from crashes, given up on after twenty in a row instead of six | Android 12+ kills an app's children for CPU use behind, or past 32 across the system (the phantom process killer); that is the system, not a backend failing at boot. Developer options' "Disable child process restrictions" (Android 14+), or `adb shell device_config put activity_manager max_phantom_processes 2147483647`, turns it off on a test device. Not measured on a device yet |
 
 **The engine may open the backend's workspaces and médiathèque.** Its state is `filesDir/.k7`, and
 the backend's is `filesDir/standalone`, whose files it sends the engine by their own paths, not as
@@ -233,6 +242,7 @@ notification, for as long as the app is **busy**, and the screen is kept on for 
 | `mediaPlayback\|microphone`, the microphone only with RECORD_AUDIO and while the engine's inputs or a page's microphone are open | Android 14 grants the microphone type only to a start made in front; a start refused it falls back to `mediaPlayback`, so the process stays up and only the inputs are cut |
 | its own service beside the media one, not that one widened | the media service leaves the foreground on every pause by design; the engine's must not |
 | POST_NOTIFICATIONS asked the first time the app is busy, in front, once per run | without it Android 13+ hides the notification and still runs the service |
+| a foreground refused at `onStartCommand` tries the manifest's types last, then stops, with the service marked not held | the app may go behind between the request and the start (Android 12+); the next hold must ask a foreground start again, since a plain one is refused from behind |
 
 A page that goes away reports nothing (`pagehide`), and what it last said is cleared, so nothing here outlives it.
 
@@ -258,13 +268,12 @@ only their wording differs and the restart below is the microphone's alone.
 
 The engine opens its inputs once, with its device, and a stopped engine cannot be started again in the same
 process (below). So a grant that comes after the engine started reaches it at the **next start**: the app says so,
-and offers to quit when nothing is busy. Quitting is the one restart there is; relaunching on the user's behalf
-would be an activity start from the background, which Android refuses.
+and offers Restart k7 when nothing is busy (below, "Restarting k7").
 
 ## Updates come from k7.rocks, and the person installs them
 
-A sideloaded app has no store to update it, so `Updates.kt` asks `k7.rocks/app_downloads/<channel>.json` 5 s after
-every start and every 6 hours while the process lives, and fetches a newer build's APK
+A sideloaded app has no store to update it, so `Updates.kt` asks `k7.rocks/app_downloads/<channel>.json` at
+every start, before the engine starts, and every 6 hours while the process lives, and fetches a newer build's APK
 ([docs/app-downloads.md](../../../docs/app-downloads.md) at the root). The channel and the stamp
 compared are `BuildConfig.RELEASE_STAMP`, which only a CI release build carries; a checkout's build
 and the e2e one check nothing.
@@ -278,9 +287,41 @@ and the e2e one check nothing.
 | an APK that is not this package at a higher `versionCode` is dropped | Android would refuse it anyway; the person is never offered an install that cannot happen |
 | `PackageInstaller` with `USER_ACTION_NOT_REQUIRED` | the first update still asks, and for "install unknown apps": the browser installed k7. From then on k7 is its own installer of record, and Android 12+ lets its updates through without a prompt |
 | the notification opens `MainActivity`, never a receiver | Android 12+ refuses an activity started from a notification's broadcast, and the system's confirmation is one |
+| the first check before the engine starts, at once | a build whose engine crashes in its first seconds would otherwise never ask |
+| three quick starts in a row — none lived 30 s nor ended in a quit — leave the engine off the next run, which offers Check for updates or Start the engine (`BootGuard.kt`) | a native crash at boot kills the process before any check finishes; the engine is where one most likely comes from, and the backend and the page still run without it. The count is written before the engine starts, so the crash cannot lose it, and the run without the engine sets it back to zero, so the one after tries again |
 
 Android checks the update's signature against the installed app's: an APK not signed with the
 release key never installs, whoever uploaded it.
+
+## Restarting k7, and opening it again during a quit
+
+The engine starts once per process (below), and a quit ends the process with `exitProcess` after
+a teardown of up to about 14 s. An activity opened in that window would live in the process about
+to exit, so `MainActivity` sees the teardown under way, starts nothing, and hands over to
+`Relaunch.kt`; the same path is **Restart k7**, offered when the microphone is allowed after the
+engine opened without its inputs, when the supervisor asks for an engine this process already
+stopped, and when the shell page's renderer keeps dying.
+
+| choice | why |
+|---|---|
+| `RelaunchActivity`, in a process of its own (`:relaunch`), waits for the old pid to leave `/proc`, then opens `MainActivity` and exits | the new `MainActivity` must start in a fresh process; a start scheduled from the dying one (an alarm, a pending intent) is an activity start from the background, which Android refuses |
+| started while k7 is in front, before the old activity finishes | the only moment Android lets the app open an activity |
+| it draws the splash while it waits, for at most 20 s | longer than the teardown's own bounds, so a stuck teardown still ends in k7 opening |
+
+## A renderer that dies does not take k7 with it
+
+A WebView's renderer killed for memory, or crashed, ends the app's process unless every view it
+drew claims the loss — and the engine, the backend's parent and a take in progress are in that
+process. On Android every view of an app shares the one renderer, so a loss reaches the shell page
+and every app view together (`RendererLoss.kt`).
+
+| choice | why |
+|---|---|
+| every app view claims its loss in `onRenderProcessGone`, is destroyed, and the shell page is told with a `loadError` | a dead view can never load again; the shell's Retry makes a new one |
+| the shell page's view claims its loss through a Capacitor `WebViewListener`, and the activity is made again | it is the bridge's view, which only a new activity replaces; `recreate()` is no quit, so the engine and the backend keep running |
+| the apps lost before the activity was made again say so at their next `show`, once | the new shell page would otherwise reload k7 straight into the page that ran out of memory; the person's Retry is what loads it |
+| the shell made again more than three times in a minute is offered Restart k7 instead | the shell page itself dying would loop forever |
+| the throwaway view behind `window.open` (`WindowProbe.kt`) claims its loss too | it shares the renderer, and one view left unclaimed is enough to end the process |
 
 ## Signing in happens in the browser
 
@@ -384,7 +425,7 @@ whole shape:
 - `EngineHost::quit()` posts `quitSafely()` to that Looper, from its own thread. JUCE's
   `stopDispatchLoop()` would instead finish the app's Activity.
 - **Once per process.** After the quit, JUCE is still bound to a Looper that cannot loop again, so an
-  engine is restarted by a new process. `MainActivity` exits the process when it finishes.
+  engine is restarted by a new process. `MainActivity` exits the process when it finishes, and a later start the supervisor asks for offers Restart k7 instead (`Relaunch.kt`).
   So a start must not fail: the supervisor hands the app a port it has just BOUND itself, the first
   free one of the usual ten (another app's engine — k7 and k7 e2e side by side — holds 8765), and a
   connect cannot stand in for that test, since another app's listener refuses this one's loopback.

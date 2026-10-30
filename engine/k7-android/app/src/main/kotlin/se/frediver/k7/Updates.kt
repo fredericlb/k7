@@ -1,4 +1,4 @@
-// Updates.kt — keeps the sideloaded app current from k7.rocks/app_downloads: 5 s after start, then every 6 hours while
+// Updates.kt — keeps the sideloaded app current from k7.rocks/app_downloads: at start, before the engine, then every 6 hours while
 // the process lives, asks the channel's build; a newer APK is downloaded on an unmetered network only, then offered —
 // a notification, and a dialog when the app is in front and idle. Install hands it to PackageInstaller, which restarts k7.
 // The first update always asks the person (and for "install unknown apps"); once k7 installed itself, Android 12+ lets
@@ -38,8 +38,8 @@ object Updates {
     private const val TAG = "k7-update"
     private const val CHANNEL = "updates"
     private const val NOTIFICATION = 3
-    // At every start, once the app is up; the home menu's Check for updates asks at any time (checkNow).
-    private const val FIRST_CHECK_MS = 5_000L
+    // At every start, before the engine (MainActivity), so a crash at boot does not outrun it; the home menu asks at any time (checkNow).
+    private const val FIRST_CHECK_MS = 0L
     private const val EVERY_MS = 6 * 3600_000L
     private val STAMP = BuildConfig.RELEASE_STAMP
 
