@@ -8,7 +8,7 @@ import {
   setFileApiRevision,
   setFileApiTally,
 } from "@studio/project-shell/fileApi";
-import { GateProgress } from "@studio/project-shell/progress";
+import { GateWait, releaseSplash } from "@studio/project-shell/progress";
 import { projectLabel } from "@studio/web-protocol/projects";
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -16,6 +16,7 @@ import {
   Profiler,
   type ReactNode,
   Suspense,
+  useEffect,
   useLayoutEffect,
   useState,
   useSyncExternalStore,
@@ -129,12 +130,11 @@ if (canServeLenses()) serveLenses();
 /** …and the worker that makes either an installable app — a SECOND opening, not offline; its scope is `/`, and each deploy replaces it (@frediverse/vite-config/register). */
 if ("serviceWorker" in navigator) registerWorker();
 
-/** What is on screen while a split-out screen arrives. The window is already painted in the
- *  app's colour by then (apps/k7/frontend/docs/shell.md), so this only has to say "coming". */
+/** What is on screen while a split-out screen arrives: at startup, under the splash; later, the bar alone (apps/k7/frontend/docs/shell.md). */
 function Booting() {
   return (
     <div className="min-h-screen bg-background">
-      <GateProgress label={m["startup.loading"]()} />
+      <GateWait label={m["startup.loading"]()} />
     </div>
   );
 }
@@ -168,6 +168,8 @@ function ScopeWatch() {
 
 /** What the address is, drawn — remounted between scopes, with what the last one kept forgotten in between (appNav.ts). */
 function Root() {
+  // After the first commit, the children's waits have held the splash already: none, and it goes (docs/icons.md).
+  useEffect(releaseSplash, []);
   const key = useSyncExternalStore(subscribeAddress, currentScopeKey);
   const [shown, setShown] = useState(key);
   // Two steps: the old scope unmounts on this render, the page forgets it, and only then does the new one mount.

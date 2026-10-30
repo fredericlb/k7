@@ -179,6 +179,15 @@ without the `loading` wait: the engine's copy, apply and warm-up are then the ap
 a project that is already drawn. k7 takes it; `screens` stays the default, so an app that wants the
 engine to have the project before anything is drawn keeps that.
 
+### The splash covers the waits of a start
+
+A page that starts on a splash (`#k7-splash`, k7's `index.html`) keeps it up through every
+`GateWait` until the first commit that has none (`src/splash.ts`). Those waits have nothing behind
+them, so on their own they are a black window with a line at its foot, which on a phone reads as a
+crash between the cassette and the first screen. Under the splash the bar's words replace its file
+count instead. Once the first real screen has drawn, the splash is gone for the page's life: a later
+wait is a bar over a page that is there, never the cassette again.
+
 ## The engine can change under an open project
 
 The gate reads its engine through a ref. A NEW engine — the first one found after the project

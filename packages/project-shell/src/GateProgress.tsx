@@ -3,6 +3,10 @@
 // project shows the moment it can. See docs/launch.md, "Waits as a bar".
 
 import { Loader2 } from "@frediverse/ui/icons";
+import { useEffect } from "react";
+import { holdSplash } from "./splash.ts";
+
+export { releaseSplash } from "./splash.ts";
 
 export function GateProgress({
   label,
@@ -53,8 +57,9 @@ export function GateProgress({
   );
 }
 
-/** A wait with nothing to show behind it yet: the page's own background, and the bar. */
+/** A wait with nothing to show behind it yet: the page's own background, and the bar — under the startup splash while it is up. */
 export function GateWait(props: Parameters<typeof GateProgress>[0]) {
+  useEffect(() => holdSplash(props.label), [props.label]);
   return (
     <div className="h-full bg-background">
       <GateProgress {...props} />
