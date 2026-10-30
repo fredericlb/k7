@@ -29,11 +29,21 @@ class MainActivity : BridgeActivity() {
     var camera: DeviceAccess? = null
         private set
     private var notificationsAsked = false
+    // Opened in a process that is tearing down: it only hands over to Relaunch.
+    private var doomed = false
     private val notifications by lazy {
         activityResultRegistry.register("k7-notify", ActivityResultContracts.RequestPermission()) { }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Opened again while the last quit still tears down: that process is about to exit, so k7 opens in the next (Relaunch.kt).
+        if (tearingDown) {
+            super.onCreate(savedInstanceState)
+            doomed = true
+            Relaunch.after(this)
+            finish()
+            return
+        }
         // Before super: the bridge is built there, with the plugins registered by then.
         registerPlugin(EnginePlugin::class.java)
         registerPlugin(AppViewsPlugin::class.java)
@@ -44,10 +54,12 @@ class MainActivity : BridgeActivity() {
         camera = DeviceAccess(this, Device.CAMERA)
         // The studio the views open, before the engine that lists itself there (BackendHost.kt).
         BackendHost.start(this)
-        // Never held up by the microphone: without it the engine opens its device output only (DeviceAccess.kt).
-        SupervisorHost.start(this)
-        Busy.start(this)
+        // Before the engine: a build whose engine crashes at boot still asks for the one that fixes it.
         Updates.start(this)
+        // Never held up by the microphone: without it the engine opens its device output only (DeviceAccess.kt).
+        // After quick crashes in a row the engine is left off this once, and the update offered (BootGuard.kt).
+        if (BootGuard.enter(this)) BootGuard.offer(this) else SupervisorHost.start(this)
+        Busy.start(this)
         Updates.handle(this, intent)
     }
 
@@ -90,6 +102,8 @@ class MainActivity : BridgeActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Never started anything: the teardown already running is the one that ends the process.
+        if (doomed) return
         mic?.destroy()
         camera?.destroy()
         if (current?.get() === this) current = null
@@ -98,6 +112,8 @@ class MainActivity : BridgeActivity() {
         // A paused track's notification is detached from any service, so it would outlive the process otherwise.
         MediaPlayback.clear(this)
         EngineService.release(this)
+        tearingDown = true
+        val app = applicationContext
         // Off the UI thread: the stops below wait up to seconds each, and a blocked main thread is an ANR.
         thread(name = "k7-teardown") {
             // Supervisor FIRST: it deregisters while the engine and the backend still answer, then asks the engine to stop.
@@ -106,12 +122,16 @@ class MainActivity : BridgeActivity() {
             val backend = thread(name = "k7-backend-stop") { BackendHost.stop(BACKEND_STOP_MS) }
             EngineBridge.stop(ENGINE_STOP_MS)
             backend.join()
+            // A quit is no crash at boot, however soon it came.
+            BootGuard.clean(app)
             exitProcess(0)
         }
     }
 
     companion object {
         private var current: WeakReference<MainActivity>? = null
+        // Set once a quit's teardown starts: the process exits when it ends, whatever opened meanwhile.
+        @Volatile private var tearingDown = false
 
         /** The activity alive now, for what must draw a dialog or set a window flag from elsewhere. */
         fun current(): MainActivity? = current?.get()?.takeUnless { it.isFinishing || it.isDestroyed }

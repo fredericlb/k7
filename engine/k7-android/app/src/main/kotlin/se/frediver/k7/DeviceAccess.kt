@@ -97,7 +97,7 @@ class DeviceAccess(private val activity: AppCompatActivity, private val device: 
         if (fresh) hintRestart()
     }
 
-    // The engine opened its device without inputs: only a new process gives it them, and quitting is the way there.
+    // The engine opened its device without inputs: only a new process gives it them, and a restart is the way there.
     private fun hintRestart() {
         if (device != Device.MIC || restartHinted || EngineBridge.startedWithMic != false) return
         restartHinted = true
@@ -106,9 +106,9 @@ class DeviceAccess(private val activity: AppCompatActivity, private val device: 
             return
         }
         show(
-            "The microphone is allowed. The engine started without its inputs, and gets them the next time k7 starts: quit now, then open k7 again.",
-            "Quit k7",
-            onYes = { activity.finish() },
+            "The microphone is allowed. The engine started without its inputs, and gets them the next time k7 starts.",
+            "Restart k7",
+            onYes = { Relaunch.restart(activity) },
             onNo = {},
             no = "Later",
         )

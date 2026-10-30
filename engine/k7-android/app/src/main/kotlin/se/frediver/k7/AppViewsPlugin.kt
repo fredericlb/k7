@@ -10,7 +10,6 @@ package se.frediver.k7
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.net.http.SslError
@@ -19,6 +18,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -75,8 +75,13 @@ class AppViewsPlugin : Plugin() {
     private var localSignInAt = 0L
     // A sign-in the browser answered before k7's view existed — the process was killed behind it: the view's first load.
     private var pendingRedeem: String? = null
+    // This plugin's number among those the process made, for the views lost before it (RendererLoss.kt).
+    private var generation = 0
 
     override fun load() {
+        generation = RendererLoss.nextGeneration()
+        // The shell page's renderer is every view's: the apps it drew are marked lost, and the activity made again.
+        bridge.addWebViewListener(RendererLoss.shell(activity, bridge.webView) { why -> views.keys.forEach { RendererLoss.lost(it, generation, why) } })
         // The shell page's ports too, from BuildConfig: its bundle's own are standalone.json's, and the e2e build has another (main.tsx).
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))
             WebViewCompat.addDocumentStartJavaScript(bridge.webView, "window.$PORTS_GLOBAL='${BackendHost.PORTS_SPEC}';", setOf("https://localhost"))
@@ -193,20 +198,24 @@ class AppViewsPlugin : Plugin() {
     private fun show(call: PluginCall, id: String, given: JSObject, url: String?, studio: String?) {
         apps = given.keys().asSequence().associateWith { Uri.parse(given.getString(it)) }
         val address = apps[id]?.toString() ?: return call.reject("no address for $id")
-        // On the phone's own studio a view opens as the local user, as the desktop window does.
-        val home = if (studio == BackendHost.ORIGIN && id == "k7") BackendHost.LOCAL_HOME else address
+        // Lost under the activity before this one: said once, so the page's Retry, not a reload, makes it again.
+        RendererLoss.unseen(id, generation)?.let { why ->
+            loadFailed(id, why)
+            return call.resolve()
+        }
         appBridge.setStudio(studio)
         this.studio = studio
         val view = views.getOrPut(id) { create(id) }
         downloads.inject(id, view, Uri.parse(address))
         val redeem = pendingRedeem.takeIf { id == "k7" }
         pendingRedeem = null
+        // On the phone's own studio k7 opens as the local user, as the desktop window does (BackendHost.home).
         when {
             redeem != null -> view.loadUrl(redeem)
             url != null -> view.loadUrl(url)
-            loaded[id] != home -> view.loadUrl(home)
+            loaded[id] != address -> view.loadUrl(if (studio == BackendHost.ORIGIN && id == "k7") BackendHost.home() else address)
         }
-        loaded[id] = home
+        loaded[id] = address
         views.forEach { (key, v) -> v.visibility = if (key == id) View.VISIBLE else View.GONE }
         visible = id
         frame.visibility = View.VISIBLE
@@ -373,6 +382,19 @@ class AppViewsPlugin : Plugin() {
     private fun loadFailed(id: String, why: String) =
         notifyListeners("loadError", JSObject().put("id", id).put("message", why))
 
+    /** A view whose renderer is gone, never to be used again: made anew by the next show, after the shell page's Retry. */
+    private fun drop(id: String, view: WebView, why: String) {
+        RendererLoss.lost(id, generation, why)
+        if (views[id] !== view) return
+        views.remove(id)
+        loaded.remove(id)
+        downloads.forget(id)
+        frame.removeView(view)
+        view.destroy()
+        syncBack()
+        loadFailed(id, why)
+    }
+
     /** Where a new window was headed: a sibling app's tab, or outside. */
     private fun route(url: Uri) {
         val to = appOf(url)
@@ -407,6 +429,12 @@ class AppViewsPlugin : Plugin() {
         override fun onPageFinished(view: WebView, url: String?) {
             view.evaluateJavascript(topColorJs, null)
             view.evaluateJavascript(accountJs, null)
+        }
+
+        // Every view must claim its renderer's loss, or Android ends the process, engine and all (RendererLoss.kt).
+        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+            drop(id, view, RendererLoss.why(detail))
+            return true
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -454,30 +482,9 @@ class AppViewsPlugin : Plugin() {
             return true
         }
 
-        // A new window is never opened: a throwaway view learns where it was headed, and that is routed.
+        // A new window is never opened: a throwaway view learns where it was headed, and that is routed (WindowProbe.kt).
         override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
-            val probe = WebView(context)
-            probe.webViewClient = object : WebViewClient() {
-                private var done = false
-
-                private fun once(url: Uri) {
-                    if (done) return
-                    done = true
-                    route(url)
-                    probe.post { probe.destroy() }
-                }
-
-                override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
-                    once(request.url)
-                    return true
-                }
-
-                override fun onPageStarted(v: WebView, url: String?, favicon: Bitmap?) {
-                    if (url != null && url != "about:blank") once(Uri.parse(url))
-                }
-            }
-            (resultMsg.obj as WebView.WebViewTransport).webView = probe
-            resultMsg.sendToTarget()
+            WindowProbe.answer(context, resultMsg) { route(it) }
             return true
         }
     }
