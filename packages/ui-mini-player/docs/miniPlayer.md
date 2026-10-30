@@ -54,6 +54,15 @@ around them — the title, the host's controls, the close — stays the bar's, s
 the same player. A host that passes them still passes `playing` and `onToggle`, which the system's
 controls use.
 
+## The play button's menu
+
+`playMenu` puts the host's items behind the play button (`src/PlayButton.tsx`): a right-click, the
+keyboard's menu key or a finger held still for half a second opens them, and a plain press only
+plays or pauses. The play button is where the eye already is for what plays, and the row has no
+room for one more button on a phone. The menu is anchored on an inert span over the button rather
+than on the button itself, since a menu trigger opens on every press; the click that ends a long
+press is swallowed, or lifting the finger would also toggle the transport.
+
 `mediaSession={false}` leaves the system's session alone, for a bar whose sound is not this page's: two
 bars on one screen must not fight over the lock screen. `onClose` is optional, and a bar without it has
 no close.

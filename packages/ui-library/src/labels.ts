@@ -262,9 +262,8 @@ export interface LibraryLabels {
     queueButton: (n: number) => string;
     upNext: string;
     queueEmpty: string;
-    /** The bar's instrumental button: what pressing it does, said as its title. */
-    instrumental: string;
-    instrumentalBack: string;
+    /** The play-button menu's switch to the instrumental, and back. */
+    instrumentalToggle: string;
     instrumentalMake: string;
     instrumentalMaking: string;
     instrumentalNoEngine: string;

@@ -40,7 +40,7 @@ owns no transport, which is what makes it shareable: the library plays over two 
 the editor plays a file in the browser beside a running engine, and neither of those fits in a bar.
 
 What stays here is what the médiathèque has to say: the version badge, the artist and album,
-"ended" against an error, the destination indicator and the instrumental button. The strings too —
+"ended" against an error, the destination indicator and the play button's menu. The strings too —
 they are props, filled from the host's labels ([host.md](host.md)).
 
 The duration comes from the `<audio>` element, which is mounted for whatever is loaded **even
@@ -157,14 +157,17 @@ seem dead. Both are tested in `playback/queue.test.ts`.
 
 ## The instrumental, from the bar
 
-A library song playing has a button in the bar for its **instrumental**
-(`src/playback/InstrumentalButton.tsx`): pressed, the same song plays from its instrumental at the same second, on
-whichever destination it plays — `start` with the instrumental's path and the `instrumental`
-version, as the song screen's version tabs switch — and pressed again, back to the master.
+A library song playing has an **Instrumental** switch in the menu behind the bar's play button —
+a right-click, or a long press on a touch screen (`src/playback/useInstrumentalMenu.tsx`). Switched
+on, the same song plays from its instrumental at the same second, on whichever destination it plays
+— `start` with the instrumental's path and the `instrumental` version, as the song screen's version
+tabs switch — and switched off, back to the master. It is a menu and not a button of its own
+because the bar's row is crowded on a phone, and the instrumental is a variant of the PLAYING song,
+which is what the play button stands for.
 
 The instrumental is the one the song DECLARES (a variant of that name), else the one a cut left in
 `stems/instrumental.wav`, where the songbook's cut writes it too. A song with neither ASKS before
-making one, since a cut takes an engine minutes: confirmed, `/api/stems` cuts it, the button greys
+making one, since a cut takes an engine minutes: confirmed, `/api/stems` cuts it, the switch greys
 out with the cut's percent, and the song switches to it by itself when it lands — only if that song
 is still the one playing its master, never if the listener has moved on. A cut found already running
 (a reload) is followed, but switches nothing: nobody asked for it on this page.
