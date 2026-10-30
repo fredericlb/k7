@@ -109,8 +109,8 @@ have it: the tunnel copies every file a document names under a shared root
 
 **A new patch is a new synth.** It is built and loaded on the message thread and swapped in under a
 lock the audio thread only tries, as SfzPlugin swaps instruments. Loading into the live synth would
-mean the audio thread waits on a file read. It stays on the message thread, where SfzPlugin's moved to
-a loader: a patch SETS every parameter, and the document's own values go on top right after
+mean the audio thread waits on a file read. It stays on the message thread, unlike SfzPlugin's, which loads on
+a thread of its own: a patch SETS every parameter, and the document's own values go on top right after
 (`loadPluginFiles`, then `applyPluginParams`). A patch landing later from another thread would put
 its values back over the document's. The build and the parse are milliseconds, not an SFZ's seconds.
 

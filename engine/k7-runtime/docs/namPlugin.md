@@ -77,7 +77,7 @@ the bridge's buffers, and the old model is freed after it is released. An `initi
 the rate has no such luck — it must re-prepare the model that is playing — so that one prewarm
 stays under the lock, as does a panic's (`docs/panic.md`).
 
-The load stays ON the message thread, where an SFZ instrument's moved to a loader (`sfzPlugin.md`):
+The load stays ON the message thread, unlike an SFZ instrument's, which has a loader thread (`sfzPlugin.md`):
 the model's rate is only known once it is parsed, it decides the bridge, and the bridge is latency
 the graph reads when it is BUILT. A model swapped in after `ensureContextAllocated()` would leave its
 lane uncompensated until the next rebuild, and an offline render would bake the offset in. Moving it
