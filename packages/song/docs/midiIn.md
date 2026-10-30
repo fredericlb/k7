@@ -40,6 +40,14 @@ is a new clip — sized to whole bars around the notes and placed where they wer
 the take is one undo. Arming it in the engine instead would be refused, because the engine arms
 only a lane with an audio input.
 
+**A keyboard wired straight into an instrument plays it, always.** With no lane between them
+(`keys: ["piano"]`), there is nothing to arm and nothing to record onto, so the cable means only
+"this keyboard plays this instrument": every channel message from the node's device goes to the
+engine track that instrument runs on, armed or not (`midiInPlayed`,
+`apps/k7/frontend/src/midiIn.ts`). That is the one way to sound an instrument from a keyboard
+without a lane. A take still needs one: keyboard, lane, instrument. When the cable goes, the
+instrument gets all notes off and sustain up, as a lane losing its arm does.
+
 **No node, no MIDI.** A lane no midi-in node feeds records no notes, and starting a take on one says
 so rather than capturing every keyboard on the machine. A global "any input" default would make the
 graph and the take disagree about where the notes came from.
