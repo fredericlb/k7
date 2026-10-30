@@ -6,6 +6,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { RECORDINGS_DIR, recordingsDir } from "./layout.ts";
 import { extOf, isAudio, withoutDerived } from "./media.ts";
+import { isMomentClip, MOMENT_PREFIX } from "./recordingName.ts";
 import { NotAudioError, segment } from "./song.ts";
 import { type OnDisk, putFile } from "./write.ts";
 
@@ -32,7 +33,7 @@ export function momentStem(
 ): string {
   const seconds = Math.max(0, Math.round(durationSec || 0));
   const name = segment(label, "").replace(/-{2,}/g, "-");
-  return `moment-${stampOf(at)}--${seconds}${name ? `--${name}` : ""}`;
+  return `${MOMENT_PREFIX}${stampOf(at)}--${seconds}${name ? `--${name}` : ""}`;
 }
 
 export interface RecordingFile {
@@ -108,7 +109,8 @@ export function listRecordings(): RecordingDay[] {
     // A FLAC's derived copy is no capture (docs/derived.md); `taken` above still sees it, so no capture lands on it.
     const listed = withoutDerived(names(abs).map((name) => ({ name })));
     for (const { name } of listed) {
-      if (!isAudio(name)) continue;
+      // A moment's clip is reached through its moment, under its capture, never as a capture of its own.
+      if (!isAudio(name) || isMomentClip(name)) continue;
       try {
         const s = statSync(join(abs, name));
         files.push({
@@ -122,7 +124,8 @@ export function listRecordings(): RecordingDay[] {
       }
     }
     files.sort((a, b) => a.name.localeCompare(b.name));
-    days.push({ day, files });
+    // A day holding only moments' clips has no capture to show.
+    if (files.length > 0) days.push({ day, files });
   }
   return days.sort((a, b) => b.day.localeCompare(a.day));
 }

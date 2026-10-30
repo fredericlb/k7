@@ -99,10 +99,7 @@ there. Without it, creating a folder answers 200 and shows nothing, which is the
 A song's **variants** are never drawn as tree rows — `SongVariants.tsx`, inside the editor the song
 opens to, is where they show and where one is removed (`packages/mediatek/docs/variants.md`).
 
-The capture zone gets its own builder, `dayNodes`, and not `treeOf`: `treeOf` reads
-`MediatekEntry.path` and there are no entries here to read. Its paths are zone-relative, mirroring
-how a family's rows drop their family segment, so the root row the tree synthesises names the zone
-exactly once.
+The capture zone has no tree: it is a calendar ([recordings.md](recordings.md)).
 
 The root row itself is synthesised in the component, as a real node — but never DRAWN. `rootLabel`
 looks like it would draw it and does not: the shared component uses that prop only to name the
@@ -130,14 +127,13 @@ tags, so a folder made by hand there is not a badly filed song but an invisible 
 (`packages/mediatek/docs/songs.md`) — which is also why it has no tree at all. A capture is named by
 the clock, so a renamed one would be a capture at an hour it was not made
 (`packages/mediatek/docs/recordings.md`). Each gets its button instead: **Add a song** above the
-songs' table, at its right, and **Add a capture** in a footer under the zone's tree — the `aside` is
-a flex column with the tree in a scrolling pane above and the button in a fixed one below, so
-scrolling a long capture history never carries it off screen.
+songs' table, at its right, and **Add a capture** under the zone's calendar
+([recordings.md](recordings.md)).
 
 `songs/` gets a menu of its own, on each row's ⋮: add a version, queue the morceau, star it, practise
 it, remove it. None of those touches the deduced shape — one writes INSIDE a song that already
 exists, one takes a single song away — and each `when` accepts a row only for the kind of thing it
-is. The capture zone's tree gets no menu at all: the shared tree opens none when nothing passes.
+is.
 
 **Deleting a song asks first**, yes/no, nothing typed — and every other delete in this screen does
 not. The difference is what goes and that it cannot come back: a song's delete takes its whole

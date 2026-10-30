@@ -72,8 +72,11 @@ recordings/2026-08-03/moment-21-01-30--15--The solo.webm      ← an excerpt, na
 recordings/2026-08-03/moment-21-01-30--15.webm               ← an excerpt, anonymous
 ```
 
-The same folder as the recordings, not a subfolder: **a moment IS a recording**, shorter. Separating
-them would make "what did we play that night" two places.
+The same folder as the recordings, not a subfolder: what was played that night is in one place.
+But a moment's clip is **not a capture**, and `listRecordings` leaves it out (`isMomentClip`,
+`src/recordingName.ts`). The moment is listed under the capture it was cut from, where it says what
+it is (`packages/ui-library/docs/recordings.md`). Listed beside that capture, it would read as a
+second, shorter recording of the same evening. A day holding only clips is not listed.
 
 The time is when the excerpt was **played** — the session's start plus its offset — not when someone
 annotated it, which may be three days later. The zone files by playing time; a moment is no
@@ -123,9 +126,12 @@ three — otherwise the fourth tab shows zero until it is clicked.
 
 ## What the section shows
 
-A tab beside the three families, listing days then recordings, newest first, with the size — and
-nothing else, because a recording has no title, no artist and no *kind* to show.
+A tab beside the three families: a calendar and each day's captures at the time they started, with
+the size and the moments cut from them, and nothing else, because a recording has no title, no
+artist and no *kind* to show (`packages/ui-library/docs/recordings.md`). The start is read off the
+name (`capturedAt`, `src/recordingName.ts`), which a browser parses the same way, so that module
+imports nothing from Node.
 
-The tree does not write there: renaming a recording would produce a file at a time it was not
+Nothing in the section renames a recording: that would produce a file at a time it was not
 recorded at. The same decision as for `songs/`, for a different reason, and in both cases the door is
 a header button.

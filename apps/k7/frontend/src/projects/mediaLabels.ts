@@ -85,6 +85,8 @@ export function mediaLabels(): LibraryLabels {
       emptyFamily: m["media.contents.emptyFamily"](),
       notCatalogued: m["media.contents.notCatalogued"](),
       noRecordings: m["media.contents.noRecordings"](),
+      noneThisDay: m["media.contents.noneThisDay"](),
+      noneTagged: (tag) => m["media.contents.noneTagged"]({ tag }),
       synced: (server) => m["wsync.synced"]({ server }),
       localOnly: m["wsync.local"](),
       download: m["wsync.download"](),

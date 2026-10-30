@@ -23,7 +23,7 @@ import { useLocale } from "../i18n";
 import { useListenHere } from "../listenHere";
 import { m } from "../paraglide/messages.js";
 import "../serverChoice";
-import { MEDIA_ROUTE } from "./api";
+import { MEDIA_ROUTE, REHEARSAL_ROUTE } from "./api";
 import { mediaLabels } from "./mediaLabels";
 
 // The API base is the server picker's (../serverChoice.ts), set when that module loads.
@@ -44,6 +44,12 @@ const songAttachment = (props: SongAttachmentView) => (
     <SongAttachment {...props} />
   </Suspense>
 );
+
+/** A capture opens on the rehearsal page that cuts moments from it (packages/ui-library/docs/recordings.md). */
+const recordingHref = (path: string) =>
+  `${REHEARSAL_ROUTE}/recording?${new URLSearchParams({ path })}`;
+const momentHref = (id: string) =>
+  `${REHEARSAL_ROUTE}/moments/${encodeURIComponent(id)}`;
 
 /** Who is signed in, as an engine session names them; "" until known. */
 function useSignedIn(): string {
@@ -72,6 +78,8 @@ export function MediaHost({ children }: { children: ReactNode }) {
       user,
       engine: { id: engineId, listenHere },
       songAttachment,
+      recordingHref,
+      momentHref,
     }),
     [labels, user, engineId, listenHere],
   );

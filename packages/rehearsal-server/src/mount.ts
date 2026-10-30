@@ -31,7 +31,7 @@ import { releasesRouter } from "./routes/releases.ts";
 import { sessionsRouter } from "./routes/sessions.ts";
 import { singingRouter } from "./routes/singing.ts";
 import { tokenRouter } from "./routes/token.ts";
-import { startCacheSweeps } from "./store.ts";
+import { linkMomentsToRecordings, startCacheSweeps } from "./store.ts";
 
 export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
 export type { PairedServer } from "./publications.ts";
@@ -138,6 +138,20 @@ export const mountRehearsal = (
           },
         );
       }
+      // After the import, which brings rows older than the moment's recording path — ../docs/moments.md.
+      ready = ready.then(() => {
+        try {
+          const linked = linkMomentsToRecordings();
+          if (linked)
+            console.log(
+              `   rehearsal: linked ${linked} moment(s) to their recording`,
+            );
+        } catch (e) {
+          console.error(
+            `   ⚠️  rehearsal: moments not linked to their recording: ${(e as Error).message}`,
+          );
+        }
+      });
       stopSweeps = startCacheSweeps();
     },
     async stop() {

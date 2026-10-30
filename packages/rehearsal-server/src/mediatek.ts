@@ -3,6 +3,7 @@
 // The client is the package's, not a second one written here. See ../docs/audio.md.
 
 import {
+  listRemoteRecordings,
   pushRecording,
   pushSong,
   putTags as putRemoteTags,
@@ -146,4 +147,10 @@ export function streamedMime(remotePath: string): string {
 /** The library's own measurement of a médiathèque path — computed once there, kept in its cache. */
 export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
   return remoteLibrary(cfg()).envelope(path);
+}
+
+/** Every capture the zone lists, by path: what tells a moment whose capture is gone. */
+export async function capturePaths(): Promise<Set<string>> {
+  const days = await listRemoteRecordings(cfg());
+  return new Set(days.flatMap((d) => d.files.map((f) => f.path)));
 }

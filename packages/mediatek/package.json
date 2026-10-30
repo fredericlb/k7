@@ -19,6 +19,7 @@
     "./testWav": "./src/testWav.ts",
     "./testLibrary": "./src/testLibrary.ts",
     "./recordings": "./src/recordings.ts",
+    "./recordingName": "./src/recordingName.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
     "./takes": "./src/takes.ts",

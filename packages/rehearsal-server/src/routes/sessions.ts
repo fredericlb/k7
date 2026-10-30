@@ -1,5 +1,5 @@
 /* Recording sessions and everything hung off them: the recording blob, its
-   loudness envelope, annotations, markers and moment clips.
+   loudness envelope and markers. Its moments are the recording's, under /moments.
 */
 
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
@@ -10,18 +10,6 @@ import { z } from "zod";
 import { audioExtOf, isAudioMime, streamAudio } from "../serve.ts";
 import * as store from "../store.ts";
 
-const annotationCreate = z.object({
-  startSec: z.coerce.number(),
-  endSec: z.coerce.number(),
-  text: z.string().default(""),
-  tags: z.array(z.string()).default([]),
-});
-const annotationPatch = z.object({
-  startSec: z.coerce.number().optional(),
-  endSec: z.coerce.number().optional(),
-  text: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-});
 const markerCreate = z.object({
   atSec: z.coerce.number().default(0),
   comment: z.string().default(""),
@@ -148,41 +136,6 @@ sessionsRouter.get(
   }),
 );
 
-// --- Annotations ----------------------------------------------------------
-
-sessionsRouter.post(
-  "/:id/annotations",
-  validate(annotationCreate),
-  wrap(async (req, res) => {
-    const ann = await store.addAnnotation(req.params.id, req.body, sub(req));
-    if (!ann) return res.status(404).json({ error: "not found" });
-    res.status(201).json(ann);
-  }),
-);
-
-sessionsRouter.put(
-  "/:id/annotations/:annId",
-  validate(annotationPatch),
-  wrap(async (req, res) => {
-    const ann = await store.updateAnnotation(
-      req.params.id,
-      req.params.annId,
-      req.body,
-    );
-    if (!ann) return res.status(404).json({ error: "not found" });
-    res.json(ann);
-  }),
-);
-
-sessionsRouter.delete(
-  "/:id/annotations/:annId",
-  wrap(async (req, res) => {
-    const ok = await store.deleteAnnotation(req.params.id, req.params.annId);
-    if (!ok) return res.status(404).json({ error: "not found" });
-    res.status(204).end();
-  }),
-);
-
 // --- Markers (single-timestamp pins) --------------------------------------
 
 sessionsRouter.post(
@@ -215,25 +168,5 @@ sessionsRouter.delete(
     const ok = await store.deleteMarker(req.params.id, req.params.markerId);
     if (!ok) return res.status(404).json({ error: "not found" });
     res.status(204).end();
-  }),
-);
-
-// --- Moment validation / clip ---------------------------------------------
-
-sessionsRouter.post(
-  "/:id/annotations/:annId/validate",
-  wrap(async (req, res) => {
-    const moment = await store.validateMoment(req.params.id, req.params.annId);
-    if (!moment) return res.status(404).json({ error: "not found" });
-    res.json(moment);
-  }),
-);
-
-sessionsRouter.get(
-  "/:id/annotations/:annId/clip",
-  wrap(async (req, res) => {
-    const info = await store.ensureClipCached(req.params.id, req.params.annId);
-    if (!info) return res.status(404).json({ error: "no clip" });
-    streamAudio(req, res, info.filePath, info.mime);
   }),
 );

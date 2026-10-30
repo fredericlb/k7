@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Moment, Session } from "../types";
 import { buildEntries } from "./RecordingsTimeline";
 
+const take = (id: string) => `recordings/2026-09-01/${id}.webm`;
+
 const session = (id: string, createdAt: string): Session => ({
   id,
   createdAt,
   duration: 60,
   hasRecording: true,
+  recordingPath: take(id),
   recordingExt: null,
   recordingMime: null,
   gain: 1,
@@ -16,15 +19,17 @@ const session = (id: string, createdAt: string): Session => ({
 
 const moment = (
   id: string,
-  sessionUid: string | null,
+  recording: string | null,
   startSec: number,
   tags: string[],
   createdAt = "2026-09-01T10:00:00.000Z",
+  recordedAt: string | null = null,
 ): Moment => ({
   id,
-  sessionUid,
-  sessionCreatedAt: null,
-  sessionAvailable: sessionUid != null,
+  recordingPath: recording && take(recording),
+  recordedAt,
+  sessionId: null,
+  recordingAvailable: recording != null,
   startSec,
   endSec: startSec + 5,
   text: "",
@@ -63,6 +68,22 @@ describe("buildEntries", () => {
     ).toEqual(["o1", "s1"]);
     const s = entries[1];
     expect(s.kind === "session" && s.moments.map((m) => m.id)).toEqual(["m2"]);
+  });
+
+  it("places a moment of a capture no session saved by when it was played", () => {
+    const lib = moment(
+      "l1",
+      "lib",
+      60,
+      [],
+      "2026-09-02T00:00:00.000Z",
+      "2026-09-01T09:30:00.000Z",
+    );
+    const entries = buildEntries([s1, s2], [...moments, lib], null);
+    expect(
+      entries.map((e) => (e.kind === "session" ? e.session.id : e.moment.id)),
+    ).toEqual(["s2", "o1", "l1", "s1"]);
+    expect(entries[2].at).toBe("2026-09-01T09:31:00.000Z");
   });
 
   it("drops a session none of whose moments carries the tag", () => {

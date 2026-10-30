@@ -120,7 +120,8 @@ describe("filing a capture", () => {
     expect(r.path).toBe(
       "recordings/2026-08-03/moment-21-05-07--15--Le solo.webm",
     );
-    expect(listRecordings()[0].files).toHaveLength(1);
+    // Kept beside the captures, listed as none: a moment shows under the capture it was cut from.
+    expect(listRecordings()).toEqual([]);
   });
 
   it("keeps two moments cut at the same second and the same length", () => {

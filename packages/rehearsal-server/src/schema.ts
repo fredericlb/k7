@@ -24,6 +24,11 @@ const COLLECTIONS = {
     { name: "Gain", type: "number" },
   ],
   Comments: [
+    // The capture the moment was cut from, a mediatek path: a session's recording or any other — ../docs/moments.md.
+    { name: "RecordingPath", type: "text" },
+    // When that capture started, so a moment is placed in time once its capture is gone.
+    { name: "RecordedAt", type: "text" },
+    // Older rows only: read once by `linkMomentsToRecordings`, then emptied — ../docs/moments.md.
     { name: "SessionUid", type: "text" },
     { name: "OwnerId", type: "text" },
     { name: "StartSec", type: "number" },
@@ -34,7 +39,7 @@ const COLLECTIONS = {
     { name: "Validated", type: "bool" },
     { name: "ClipPath", type: "text" },
     { name: "Envelope", type: "text" },
-    // A moment shared from a machine whose session stayed there: the session's date, its label — ../docs/momentShare.md.
+    // Older rows only, as `SessionUid`: a shared moment's session date, moved into `RecordedAt`.
     { name: "SessionCreatedAt", type: "text" },
     // The machine a shared moment came from; set, the moment is read-only here — ../docs/momentShare.md.
     { name: "SharedFrom", type: "text" },

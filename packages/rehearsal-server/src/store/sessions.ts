@@ -1,4 +1,4 @@
-// sessions.ts — a session row, its recording and its envelope, and the markers pinned on it.
+// sessions.ts — a session row, its recording and its envelope, the markers pinned on it, and the moments cut from that recording.
 // A recording's BYTES live in the médiathèque, the row keeping its path; cached on disk for Range (../../docs/audio.md).
 
 import { randomUUID } from "node:crypto";
@@ -52,6 +52,8 @@ function publicSession(rec: SessionRow) {
     duration: f.Duration || 0,
     // The PATH says there is audio, not the flag beside it — see ../../docs/audio.md.
     hasRecording: Boolean(f.RecordingPath),
+    // What its moments name: a moment points at the recording, not at the session (../../docs/moments.md).
+    recordingPath: f.RecordingPath || null,
     recordingMime: f.RecordingMime || null,
     gain: f.Gain || 1, // playback normalization gain (max before clipping)
     annotations: [] as Annotation[],
@@ -90,6 +92,17 @@ function bySession<T extends { fields: { SessionUid: string } }>(
   return out;
 }
 
+/** Group moments by the recording they were cut from. */
+function byRecording(rows: Row<"Comments">[]): Map<string, Row<"Comments">[]> {
+  const out = new Map<string, Row<"Comments">[]>();
+  for (const r of rows) {
+    const list = out.get(r.fields.RecordingPath);
+    if (list) list.push(r);
+    else out.set(r.fields.RecordingPath, [r]);
+  }
+  return out;
+}
+
 export async function listSessions(ownerId: string) {
   const recs = await db.listRecords(
     "Sessions",
@@ -97,18 +110,19 @@ export async function listSessions(ownerId: string) {
     { fields: SESSION_LIST_FIELDS },
   );
   const uids = recs.map((r) => r.fields.Uid);
-  const comments = uids.length
-    ? await db.listRecords("Comments", { SessionUid: uids })
+  const paths = recs.map((r) => r.fields.RecordingPath).filter(Boolean);
+  const comments = paths.length
+    ? db.listRecords("Comments", { RecordingPath: paths, OwnerId: [ownerId] })
     : [];
   const markers = uids.length
     ? await db.listRecords("Markers", { SessionUid: uids })
     : [];
-  const byUid = bySession(comments);
+  const byPath = byRecording(comments);
   const markersByUid = bySession(markers);
   return recs
     .map((r) => {
       const s = publicSession(r);
-      s.annotations = (byUid.get(s.id) || [])
+      s.annotations = (byPath.get(r.fields.RecordingPath) || [])
         .map(mapComment)
         .sort((a, b) => a.startSec - b.startSec);
       s.markers = (markersByUid.get(s.id) || [])
@@ -123,7 +137,12 @@ export async function getSession(uid: string) {
   const rec = await getSessionRecord(uid);
   if (!rec) return null;
   const s = publicSession(rec);
-  const comments = await db.listRecords("Comments", { SessionUid: [uid] });
+  const comments = rec.fields.RecordingPath
+    ? db.listRecords("Comments", {
+        RecordingPath: [rec.fields.RecordingPath],
+        OwnerId: [rec.fields.OwnerId],
+      })
+    : [];
   s.annotations = comments
     .map(mapComment)
     .sort((a, b) => a.startSec - b.startSec);
@@ -151,6 +170,7 @@ export async function createSession(ownerId: string) {
     createdAt,
     duration: 0,
     hasRecording: false,
+    recordingPath: null,
     recordingMime: null,
     annotations: [],
     markers: [],
@@ -164,7 +184,7 @@ export async function deleteSession(uid: string): Promise<boolean> {
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
       // A library that is down must not block a deletion; the orphan stays visible.
     });
-  // Moments (Comments) survive on their own clips; markers are the session's and go with it.
+  // Moments survive on their own clips, naming a recording now gone; markers are the session's and go with it.
   db.inTransaction(() => {
     db.deleteRecords(
       "Markers",
@@ -180,6 +200,20 @@ export async function deleteSession(uid: string): Promise<boolean> {
 }
 
 // --- Recording + envelope ---------------------------------------------------
+
+/** The owner's moments follow a recording the save filed under a new path. */
+function repointMoments(rec: SessionRow, from: string, to: string): void {
+  if (!from || from === to) return;
+  const moved = db.listRecords(
+    "Comments",
+    { RecordingPath: [from], OwnerId: [rec.fields.OwnerId] },
+    { fields: [] },
+  );
+  db.inTransaction(() => {
+    for (const r of moved)
+      db.patchRecord("Comments", r.id, { RecordingPath: to });
+  });
+}
 
 /** A session's bytes into the médiathèque, answering where they went — ../../docs/audio.md. */
 async function storeBytes(
@@ -217,6 +251,7 @@ async function saveRecordingUnlocked(
 
   // A file-backed Blob: fetch streams it from disk, and the take is never whole in memory (../../docs/audit.md).
   const recordingPath = await storeBytes(rec, await fs.openAsBlob(file), ext);
+  repointMoments(rec, rec.fields.RecordingPath, recordingPath);
   await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
     HasRecording: true,
@@ -306,6 +341,7 @@ async function appendRecordingUnlocked(
     throw err;
   }
   const oldCache = cachePathFor(rec);
+  repointMoments(rec, rec.fields.RecordingPath, recordingPath);
   await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
     HasRecording: true,

@@ -21,7 +21,9 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
   host draws a song's lyrics, chords, tablature, sheets and chord diagrams ([songPlayer.md](songPlayer.md)).
   The page hands it the transposition, the line being sung and what a tapped line does, and for the
   `diagrams` kind the chords to draw: the page decides WHAT to show, the host only how, so the
-  following and the transposition stay one rule in this package.
+  following and the transposition stay one rule in this package. `recordingHref` and `momentHref`
+  say where a capture and a moment open, both being the rehearsal package's pages
+  ([recordings.md](recordings.md)).
 
 k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases through its server
 picker (`apps/k7/frontend/docs/serverPicker.md`). Either base is its own backend, on the same

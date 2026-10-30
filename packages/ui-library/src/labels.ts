@@ -74,6 +74,10 @@ export interface LibraryLabels {
     emptyFamily: string;
     notCatalogued: string;
     noRecordings: string;
+    /** The calendar's day holds no capture. */
+    noneThisDay: string;
+    /** The calendar's day holds no moment with the chosen tag. */
+    noneTagged: (tag: string) => string;
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;

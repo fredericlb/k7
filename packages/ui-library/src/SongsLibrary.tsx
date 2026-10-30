@@ -4,7 +4,6 @@
 // table does not say better. What it shows of the volume is MediaLibrary's. See ../docs/library.md.
 
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
-import type { RecordingDay } from "@studio/mediatek/recordings";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AddSong } from "./AddSong";
@@ -36,7 +35,6 @@ export function SongsLibrary(p: {
   error: string | null;
   setError: (message: string) => void;
   refresh: () => void;
-  recordings: RecordingDay[];
   serverCopy: ReturnType<typeof useServerCopy>;
   onOpenSettings: () => void;
 }) {
@@ -206,8 +204,6 @@ export function SongsLibrary(p: {
           notice={p.notice}
           error={p.error}
           present={p.present}
-          isZone={false}
-          recordings={p.recordings}
           entries={entries}
           serverCopy={p.serverCopy}
           onOpen={openFile}

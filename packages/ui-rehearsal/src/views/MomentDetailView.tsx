@@ -28,7 +28,7 @@ interface Props {
   onBack: () => void;
   onDelete: () => Promise<void>;
   // Present only while the originating session still exists.
-  onOpenSession: (() => void) | null;
+  onOpenRecording: (() => void) | null;
   onAddMarker: (atSec: number) => Promise<void>;
   onUpdateMarker: (markerId: string, comment: string) => Promise<void>;
   onDeleteMarker: (markerId: string) => Promise<void>;
@@ -45,7 +45,7 @@ export function MomentDetailView({
   clipUrl,
   onBack,
   onDelete,
-  onOpenSession,
+  onOpenRecording,
   onAddMarker,
   onUpdateMarker,
   onDeleteMarker,
@@ -204,16 +204,14 @@ export function MomentDetailView({
       )}
 
       <div className="row" style={{ marginTop: 12 }}>
-        {onOpenSession ? (
-          <Button variant="outline" onClick={onOpenSession}>
+        {onOpenRecording ? (
+          <Button variant="outline" onClick={onOpenRecording}>
             <CornerUpLeft className="size-4" />{" "}
-            {m["moment.openInSession"]({ at: fmtTime(moment.startSec) })}
-            {moment.sessionCreatedAt
-              ? ` · ${sessionTitle(moment.sessionCreatedAt)}`
-              : ""}
+            {m["moment.openInRecording"]({ at: fmtTime(moment.startSec) })}
+            {moment.recordedAt ? ` · ${sessionTitle(moment.recordedAt)}` : ""}
           </Button>
         ) : (
-          <span className="muted small">{m["moment.sessionGone"]()}</span>
+          <span className="muted small">{m["moment.recordingGone"]()}</span>
         )}
         <Button variant="outline" size="sm" onClick={remove}>
           <Trash2 className="size-4" /> {m["moment.delete"]()}

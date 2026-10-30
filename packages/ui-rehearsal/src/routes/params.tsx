@@ -4,9 +4,10 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { MomentDetailContainer } from "../containers/MomentDetailContainer";
 import { PageDetailContainer } from "../containers/PageDetailContainer";
+import { RecordingDetailContainer } from "../containers/RecordingDetailContainer";
 import { ReleaseDetailContainer } from "../containers/ReleaseDetailContainer";
 import { SessionDetailContainer } from "../containers/SessionDetailContainer";
-import type { Release, Session } from "../types";
+import type { Moment, Release, Session } from "../types";
 
 export function SessionRoute(props: {
   allTags: string[];
@@ -49,8 +50,28 @@ export function PageRoute(props: {
 export function MomentRoute(props: {
   onBack: () => void;
   onDeleted: () => void;
-  onOpenSession: (sessionUid: string, seekTo?: number) => void;
+  onOpenRecording: (moment: Moment) => void;
 }) {
   const { id } = useParams();
   return <MomentDetailContainer key={id} momentId={id ?? ""} {...props} />;
+}
+
+/** A capture of the médiathèque by its path, `?path=…&t=…`: the path holds slashes, so it is no segment. */
+export function RecordingRoute(props: {
+  allTags: string[];
+  onBack: () => void;
+  onChange: () => void;
+  onOpenSession: (sessionId: string, seekTo?: number) => void;
+}) {
+  const [params] = useSearchParams();
+  const path = params.get("path") ?? "";
+  const t = params.get("t");
+  return (
+    <RecordingDetailContainer
+      key={path}
+      recordingPath={path}
+      seekTo={t != null ? Number(t) : undefined}
+      {...props}
+    />
+  );
 }

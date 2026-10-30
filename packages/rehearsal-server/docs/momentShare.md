@@ -1,4 +1,4 @@
-# A moment shared with the server, its session kept on the machine
+# A moment shared with the server, its recording kept on the machine
 
 On a machine paired with a server (`../../file-hub/docs/syncRelay.md`), a session never leaves the
 machine it was recorded on. Nothing sends a session's row or its recording anywhere: a rehearsal is
@@ -9,13 +9,16 @@ to outlive its session (`../../rehearsal-shared/types.ts`).
 ## What goes up, and what stays
 
 A shared moment carries its span, its text and tags, its envelope, its markers and its CLIP: the
-moment's own audio, cut out of the session as validating a moment already does. A moment that has
-no clip yet is cut first, on the machine, before it is sent. The session's row, its recording and
-its other moments stay on the machine.
+moment's own audio, cut out of its recording as validating a moment already does. A moment that has
+no clip yet is cut first, on the machine, before it is sent. The recording, its session if one
+saved it, and its other moments stay on the machine.
 
-On the server the moment has no session. It keeps its session's DATE (`SessionCreatedAt`, in
-`../src/schema.ts`), because sessions have no name and the date is how a moment is labelled. It
-reads like a moment whose session was deleted, which is what it is from the server's side.
+On the server the moment has no recording (`RecordingPath` is empty). It keeps its recording's
+start (`RecordedAt`, in `../src/schema.ts`), because a recording has no name and the date is how a
+moment is labelled and placed ([moments.md](moments.md)). It reads like a moment whose recording
+was deleted, which is what it is from the server's side. The machine sends that start as
+`recordedAt`, and again as `sessionCreatedAt`, since a server older than the field requires that
+one; a server takes either.
 
 ## Whose moment it is
 

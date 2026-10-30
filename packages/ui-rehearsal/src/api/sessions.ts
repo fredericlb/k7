@@ -1,7 +1,7 @@
-// sessions.ts — a session's calls: its take, its envelope, its moments as annotations, its markers.
+// sessions.ts — a session's calls: its take, its envelope, its markers. Its moments are its recording's (moments.ts).
 
 import { apiBase } from "../config";
-import type { Annotation, Envelope, Marker, Session } from "../types";
+import type { Envelope, Marker, Session } from "../types";
 import { f, fu, json, type OnProgress } from "./http";
 
 export const sessionsApi = {
@@ -60,40 +60,6 @@ export const sessionsApi = {
 
   // Every *Url helper below spells the base out, because the BROWSER fetches it — ../../docs/routing.md.
   recordingUrl: (id: string) => `${apiBase()}/api/sessions/${id}/recording`,
-
-  addAnnotation: (
-    id: string,
-    ann: { startSec: number; endSec: number; text: string; tags?: string[] },
-  ): Promise<Annotation> =>
-    f(`/api/sessions/${id}/annotations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ann),
-    }).then(json),
-
-  updateAnnotation: (
-    id: string,
-    annId: string,
-    patch: Partial<Annotation>,
-  ): Promise<Annotation> =>
-    f(`/api/sessions/${id}/annotations/${annId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    }).then(json),
-
-  deleteAnnotation: (id: string, annId: string): Promise<null> =>
-    f(`/api/sessions/${id}/annotations/${annId}`, {
-      method: "DELETE",
-    }).then(json),
-
-  validateMoment: (id: string, annId: string): Promise<Annotation> =>
-    f(`/api/sessions/${id}/annotations/${annId}/validate`, {
-      method: "POST",
-    }).then(json),
-
-  momentClipUrl: (id: string, annId: string) =>
-    `${apiBase()}/api/sessions/${id}/annotations/${annId}/clip`,
 
   // --- Markers (single-timestamp pins) ---
   addMarker: (

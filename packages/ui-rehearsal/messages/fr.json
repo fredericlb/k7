@@ -120,10 +120,7 @@
   "moment.noClip": "Aucun extrait n'a encore été produit pour ce moment.",
   "moment.noWaveform": "Pas de forme d'onde pour cet extrait.",
   "moment.nudgeHelp": "Faites glisser les poignées sur la forme d'onde ci-dessus, ou décalez :",
-  "moment.openInSession": "Ouvrir dans la session à {at}",
   "moment.playInSession": "Lire dans la session",
-  "moment.sessionDeleted": "session supprimée",
-  "moment.sessionGone": "La session d'origine n'est plus disponible.",
   "moment.start": "Début",
   "moment.validate": "Valider",
   "moment.validateTitle": "Extraire un extrait autonome de ce passage",
@@ -318,5 +315,11 @@
   "source.local": "Appareil local",
   "source.chain": "Chaîne K7",
   "source.noChain": "Aucune chaîne n'est choisie pour les répétitions : choisissez-en une sur la page Chaînes figées de k7.",
-  "recorder.region": "Enregistreur"
+  "recorder.region": "Enregistreur",
+  "moment.openInRecording": "Ouvrir dans l'enregistrement à {at}",
+  "moment.recordingGone": "L'enregistrement d'origine n'est plus disponible.",
+  "moment.recordingDeleted": "enregistrement supprimé",
+  "moment.fromLibrary": "enregistrement de la médiathèque",
+  "recording.back": "Enregistrements",
+  "recording.notFound": "Ce n'est pas un enregistrement de la médiathèque."
 }

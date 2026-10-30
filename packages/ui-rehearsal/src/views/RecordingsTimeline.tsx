@@ -1,6 +1,7 @@
 // RecordingsTimeline.tsx — sessions and their moments on one day timeline, filterable by tag.
-// A moment hangs indented under its session; an orphan (its session deleted) stands at the
-// session level, placed by when it was made. Why one list and not two tabs: ../../docs/recordings.md.
+// A moment hangs indented under the session that saved its recording; any other (a capture of the
+// médiathèque, or a recording deleted) stands at the session level, placed by when it was played.
+// Why one list and not two tabs: ../../docs/recordings.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Calendar } from "@frediverse/ui/calendar";
@@ -28,29 +29,43 @@ interface Props {
   share?: ReturnType<typeof useMomentShare>;
 }
 
-// One row of the day: a session with the moments shown under it, or an orphan moment.
+// One row of the day: a session with the moments shown under it, or a moment no session holds.
 export type Entry =
   | { kind: "session"; at: string; session: Session; moments: Moment[] }
   | { kind: "orphan"; at: string; moment: Moment };
 
-/** Sessions with their moments (by offset) and orphan moments, newest first, narrowed to a tag. */
+/** When a moment was played: its recording's start plus its offset, else when it was made. */
+export function playedAt(mo: Moment): string {
+  const t = mo.recordedAt ? Date.parse(mo.recordedAt) : Number.NaN;
+  return Number.isNaN(t)
+    ? mo.createdAt
+    : new Date(t + mo.startSec * 1000).toISOString();
+}
+
+/** Sessions with their moments (by offset) and the other moments, newest first, narrowed to a tag. */
 export function buildEntries(
   sessions: Session[],
   moments: Moment[],
   tag: string | null,
 ): Entry[] {
   const matches = (m: Moment) => !tag || m.tags.includes(tag);
-  const sessionIds = new Set(sessions.map((s) => s.id));
-  const bySession = new Map<string, Moment[]>();
+  // A moment names a recording; the session that saved that recording is where it hangs.
+  const saved = new Set(
+    sessions.flatMap((s) => (s.recordingPath ? [s.recordingPath] : [])),
+  );
+  const byRecording = new Map<string, Moment[]>();
   for (const m of moments) {
-    if (!m.sessionUid || !sessionIds.has(m.sessionUid)) continue;
-    const list = bySession.get(m.sessionUid) ?? [];
+    if (!m.recordingPath || !saved.has(m.recordingPath)) continue;
+    const list = byRecording.get(m.recordingPath) ?? [];
     list.push(m);
-    bySession.set(m.sessionUid, list);
+    byRecording.set(m.recordingPath, list);
   }
   // With a tag set, a session stays when one of its moments carries it, and only those show under it.
   const withSessions = sessions.flatMap((session): Entry[] => {
-    const own = (bySession.get(session.id) ?? [])
+    const own = (
+      (session.recordingPath && byRecording.get(session.recordingPath)) ||
+      []
+    )
       .filter(matches)
       .sort((a, b) => a.startSec - b.startSec);
     if (tag && own.length === 0) return [];
@@ -58,9 +73,9 @@ export function buildEntries(
   });
   const orphans = moments
     .filter(
-      (m) => !(m.sessionUid && sessionIds.has(m.sessionUid)) && matches(m),
+      (m) => !(m.recordingPath && saved.has(m.recordingPath)) && matches(m),
     )
-    .map((moment): Entry => ({ kind: "orphan", at: moment.createdAt, moment }));
+    .map((moment): Entry => ({ kind: "orphan", at: playedAt(moment), moment }));
   return [...withSessions, ...orphans].sort((a, b) => b.at.localeCompare(a.at));
 }
 
@@ -131,7 +146,13 @@ export function RecordingsTimeline({
       </div>
       {(mo.tags.length > 0 || !child) && (
         <div className="session-meta">
-          {!child && <span>{m["moment.sessionDeleted"]()}</span>}
+          {!child && (
+            <span>
+              {mo.recordingAvailable
+                ? m["moment.fromLibrary"]()
+                : m["moment.recordingDeleted"]()}
+            </span>
+          )}
           {mo.tags.map((t) => (
             <Badge key={t} variant="tag">
               #{t}

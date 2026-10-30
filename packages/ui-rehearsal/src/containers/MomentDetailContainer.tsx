@@ -14,14 +14,15 @@ interface Props {
   momentId: string;
   onBack: () => void;
   onDeleted: () => void;
-  onOpenSession: (sessionUid: string, seekTo: number) => void;
+  /** Its recording at the moment's start: the session's page when a session saved it. */
+  onOpenRecording: (moment: Moment) => void;
 }
 
 export function MomentDetailContainer({
   momentId,
   onBack,
   onDeleted,
-  onOpenSession,
+  onOpenRecording,
 }: Props) {
   const [moment, setMoment] = useState<Moment | null>(null);
   const { loadError, setLoadError, actionError, guard } = useDetailState();
@@ -56,10 +57,8 @@ export function MomentDetailContainer({
           await api.deleteMoment(momentId);
           onDeleted();
         })}
-        onOpenSession={
-          moment.sessionAvailable && moment.sessionUid
-            ? () => onOpenSession(moment.sessionUid!, moment.startSec)
-            : null
+        onOpenRecording={
+          moment.recordingAvailable ? () => onOpenRecording(moment) : null
         }
         onAddMarker={guard(async (atSec: number) => {
           await api.addMomentMarker(momentId, { atSec });

@@ -18,6 +18,7 @@ import type {
   OtherTags,
   SongbookSong,
 } from "@studio/mediatek/types";
+import type { Moment } from "@studio/rehearsal-shared";
 import type {
   PublicEngine,
   SeparateJob,
@@ -295,6 +296,10 @@ export const library = {
 
   /** The raw capture zone, day by day — its own call, since a capture enters no catalogue (packages/mediatek/docs/recordings.md). */
   recordings: () => get<{ days: RecordingDay[] }>("/recordings", "recordings"),
+
+  /** The signed-in account's moments, every recording's: the rehearsal store keeps them (../docs/recordings.md). */
+  moments: async (): Promise<Moment[]> =>
+    json(await request(`${apiBase()}/api/moments`), "moments"),
 
   /** The set lists this volume holds — its own call too, no family scan reaching the zone. */
   playlists: () =>

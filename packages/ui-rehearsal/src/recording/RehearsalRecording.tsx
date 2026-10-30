@@ -136,9 +136,12 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
     // An appended take's annotations are relative to it, so shift onto the whole timeline.
     const offset = resumeFrom ?? 0;
     // The take is SAVED from here on: nothing below may fail the save, or Retry would upload it twice (../../docs/recordings.md).
+    // The moments are the recording's: a save that filed none leaves them nowhere to go.
+    const recordingPath = updated.recordingPath;
     for (const a of result.annotations) {
+      if (!recordingPath) break;
       await api
-        .addAnnotation(session.id, {
+        .addMoment(recordingPath, {
           ...a,
           startSec: a.startSec + offset,
           endSec: a.endSec + offset,

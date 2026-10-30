@@ -1,4 +1,4 @@
-# Recordings — sessions and their moments, one timeline
+# Recordings — sessions and their moments, one timeline, and any capture's page
 
 `src/views/RecordingsTimeline.tsx` is the whole of the **Sessions** entry (the sidebar's name for it,
 which the media library's own Recordings would otherwise share), at
@@ -15,18 +15,37 @@ time column shows the wall-clock time it happened: the session's start plus that
 `/rehearsal/moments` lands on `/rehearsal/sessions`; a moment's own page is
 `/rehearsal/moments/:id`.
 
-## Orphans stand with the sessions
+## The moments no session holds stand with the sessions
 
-A moment outlives the session it was captured in (`Moment.sessionUid` still names a session that
-no longer exists). It then has nothing to hang under, so it takes the session level, placed on the
-day and at the time it was made, and says "session deleted".
+A moment names a RECORDING, not a session (`packages/rehearsal-server/docs/moments.md`): it hangs
+under the session that saved that recording. A moment with no such session has nothing to hang
+under, so it takes the session level, placed at the time it was played (its recording's start plus
+its offset). It is one of two kinds, and says which one. A moment cut from another capture of the
+médiathèque reads "library recording". A moment whose recording is gone (its session deleted, or
+shared here from a machine) reads "recording deleted".
 
 ## The tag filter keeps sessions, not only moments
 
 A tag narrows the list to what carries it: a session stays when **any** of its moments has the
-tag, and only those moments show under it; an orphan stays when it has the tag itself. The
+tag, and only those moments show under it; a moment standing alone stays when it has the tag itself. The
 calendar then marks only the days with a match, and choosing a tag jumps to the newest one — a
 filter that leaves you on an emptied day looks like it found nothing.
+
+## Any capture opens as a session's page
+
+The médiathèque lists every capture of its zone, and a moment can be cut from any of them
+(`packages/ui-library/docs/recordings.md`). A capture opens at `/rehearsal/recording?path=…`
+(`src/containers/RecordingDetailContainer.tsx`). It is the session's page drawn over the capture:
+the same waveform, detection, selection and moment editor, with no markers and no **Continue**,
+which belong to a session's take and to nothing else. One page and not a second editor: cutting a
+moment is the same act whatever filed the recording. The path is a query and not a segment of
+the address because it holds slashes. A capture a session of yours saved redirects to that
+session's page, so its markers stay in view. Back returns where the page was opened from, the
+médiathèque as often as here.
+
+Its waveform and audio are the médiathèque's own (`/api/mediatek/envelope`, `/api/mediatek/stream`):
+the library has measured every file it holds, and a capture has no session row to keep an envelope
+in.
 
 ## Moments are found in the browser
 

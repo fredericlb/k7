@@ -3,7 +3,6 @@
 // The one thing a reader would get wrong: a tree path is FAMILY-relative, an entry's path is not (../docs/library.md).
 
 import type { TreeNode } from "@frediverse/ui/file-tree";
-import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { MediatekEntry } from "@studio/mediatek/types";
 
 /** Is this entry a SONG? The family alone answers — the scan stopped at the folder (../docs/library.md). */
@@ -135,19 +134,6 @@ export function remoteRows(
       there.flatMap(ancestors).filter((f) => !localFolders.has(f)),
     ),
   };
-}
-
-/** The capture zone as tree rows: one folder per day, one row per capture (../docs/library.md). */
-export function dayNodes(days: RecordingDay[]): TreeNode[] {
-  return days.map((d) => ({
-    name: d.day,
-    path: d.day,
-    dir: true,
-    children: d.files.map((f) => ({
-      name: f.name,
-      path: `${d.day}/${f.name}`,
-    })),
-  }));
 }
 
 /** A size the way the rows print it, in the host's units. */
