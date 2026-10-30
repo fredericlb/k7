@@ -51,14 +51,20 @@ A watcher can lose events. One started beside another missed a write made in its
 
 - a full sweep runs one second after a capture starts;
 - another runs every five seconds while the workspace is ACTIVE — changed, written or started in
-  the last two minutes — and every sixty once it is idle.
+  the last two minutes — and every five minutes once it is idle, or every sixty seconds when no
+  watcher could be started (the sweep is then all there is).
 
 A sweep compares stamps and reads only files that moved, so it costs a walk. On a server every
 workspace of every account is captured at once, so a walk each five seconds per workspace is disk
 work proportional to everything stored, active or not. An active one keeps the fast net, because
 the watcher it backs up does miss: Linux's recursive one can lose a rewrite, and five seconds is
 how long such an edit then waits. A write through the file service needs no sweep at all, since
-its mutation window closing sweeps on its own.
+its mutation window closing sweeps on its own. An idle workspace's watcher still hears every edit
+it does not lose, and an edit it hears makes the workspace active again; what the five minutes
+bound is only a LOST edit in a workspace nobody is touching through k7.
+
+A sweep cannot skip a folder whose own mtime has not moved: a file rewritten in place, which is
+precisely the event Linux's watcher loses, leaves its folder's mtime alone.
 
 ### The change feed
 
