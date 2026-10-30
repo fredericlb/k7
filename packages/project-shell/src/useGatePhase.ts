@@ -9,7 +9,12 @@ import {
   type ProjectApp,
 } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { configureFileApi, diagnoseFileService } from "./fileApi.ts";
+import {
+  configureFileApi,
+  diagnoseFileService,
+  NoAnswer,
+  PROBE_MS,
+} from "./fileApi.ts";
 import { fileRoutes } from "./files.ts";
 import type { GateEngine, GatePhase, ProjectGateStrings } from "./gateTypes.ts";
 import {
@@ -147,11 +152,23 @@ export function useGatePhase({
     void (async () => {
       // Catch: an unhandled rejection leaves `phase` on "resolving" forever, a spinner with no why.
       try {
-        const me = await fetch("/auth/me").then((r) =>
-          r.ok
-            ? (r.json() as Promise<{ user?: { email?: string; sub?: string } }>)
-            : null,
-        );
+        // Bounded, like every step below: a backend that hangs is an error screen with Retry, not a spinner.
+        const me = await fetch("/auth/me", {
+          signal: AbortSignal.timeout(PROBE_MS),
+        })
+          .catch((e: Error) => {
+            if (e.name !== "TimeoutError") throw e;
+            throw new NoAnswer(
+              `/auth/me: no answer after ${PROBE_MS / 1000} s`,
+            );
+          })
+          .then((r) =>
+            r.ok
+              ? (r.json() as Promise<{
+                  user?: { email?: string; sub?: string };
+                }>)
+              : null,
+          );
         const userEmail = me?.user?.email || me?.user?.sub || "unknown";
         if (cancelled) return;
         setEmail(userEmail);
@@ -247,9 +264,11 @@ export function useGatePhase({
         if (cancelled) return;
         // "NetworkError…" covers a refused origin and a dead service, whose fixes are opposite; an HTTP status is neither — the service answered.
         const answered = typeof (e as { status?: unknown }).status === "number";
-        const fault = answered
-          ? undefined
-          : await diagnoseFileService(engineRef.current.fileBase);
+        // …and a call past its budget is neither either: the far side may well be there, only slow.
+        const fault =
+          answered || e instanceof NoAnswer
+            ? undefined
+            : await diagnoseFileService(engineRef.current.fileBase);
         if (!cancelled)
           setPhase({ k: "error", message: (e as Error).message, fault });
       }

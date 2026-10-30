@@ -17,6 +17,9 @@ import { fget, fsend, WRITE_MS } from "./fileApi.ts";
 export const isStaleWrite = (e: unknown): boolean =>
   (e as { status?: number } | null)?.status === 409;
 
+/** What `/open` may take — generous, as it brings the libraries up to date — before the gate says so instead of spinning. */
+export const OPEN_MS = 180_000;
+
 /** The change token the last `/open` answered with; null before one, or from a service too old to say. */
 let openedRev: string | null = null;
 
@@ -37,7 +40,12 @@ export const fileRoutes = {
   workspace: () => fget<WorkspaceInfo>("/workspace"),
   /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
   open: (path: string) =>
-    fsend<WorkspaceInfo>("POST", "/open", { path }).then((info) => {
+    fsend<WorkspaceInfo>(
+      "POST",
+      "/open",
+      { path },
+      { timeoutMs: OPEN_MS },
+    ).then((info) => {
       openedRev = info.rev ?? null;
       return info;
     }),

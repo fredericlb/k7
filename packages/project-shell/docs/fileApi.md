@@ -133,6 +133,13 @@ to tell "nothing there" from "it went wrong" — the gate's `missing` screen is 
 status also means the service answered, so the gate runs the origin probe above only when there is
 none: a 401 or a 503 is not a refused origin, and saying so sends the reader to the wrong fix.
 
+**Nothing the gate waits on is unbounded**: a backend or a hub that hangs, or a path left
+half-open by a sleep, would otherwise keep the gate on its spinner until a reload. `/auth/me` and
+the probe get `PROBE_MS` (5 s: both answer at once when anything is there, and a probe that hangs
+is `unreachable`); `/open` gets `OPEN_MS` (three minutes, since it brings the libraries up to
+date). A call dropped for its budget throws `NoAnswer`, and the gate runs no probe on it: the far
+side may be there, only slow, and Retry is the action either way.
+
 **A hub ticket lives twelve hours, and a session can outlive it.** With `renewTicket` configured —
 k7 passes its access's `freshTicket` when the files are hosted — a 401 asks for a new ticket once,
 for every request that met it together, and the request is sent again. A write is safe to resend: a
