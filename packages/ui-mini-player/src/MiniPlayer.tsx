@@ -53,6 +53,7 @@ export function MiniPlayer({
   end,
   transport,
   track,
+  fill,
   mediaSession = true,
   standby = false,
   children,
@@ -90,6 +91,8 @@ export function MiniPlayer({
   transport?: ReactNode;
   /** In place of the clocks and the scrubber — null for no position row at all. */
   track?: ReactNode;
+  /** In place of the title line AND the position row: one node filling the row right of the play button. */
+  fill?: ReactNode;
   /** False for a host whose sound is not this page's, so the system's controls are left to one that is. */
   mediaSession?: boolean;
   /** A dock's bar for while nothing plays: drawn only while no other bar is docked. */
@@ -142,63 +145,71 @@ export function MiniPlayer({
             playLabel={labels.play}
             pauseLabel={labels.pause}
             menu={playMenu}
+            // Beside a fill, the fill is the surface: a filled button would be a second one.
+            plain={fill !== undefined}
           />
         )}
 
-        <div className="min-w-0 flex-1">
-          {titled && (
-            <div className="mb-1 flex min-w-0 items-baseline gap-2">
-              {Icon && (
-                <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
-              )}
-              <span className="min-w-0 truncate font-medium text-sm">
-                {title}
-              </span>
-              {meta}
-              {status}
-            </div>
-          )}
-
-          {track !== undefined ? (
-            <div className="flex min-w-0 items-center gap-2">{track}</div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                {clock(shown)}
-              </span>
-              {/* The track is drawn thin behind a taller range, so a finger finds it without the bar growing. */}
-              <div className="relative flex h-5 min-w-0 flex-1 items-center [@media(hover:none)]:h-8">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 h-1 rounded"
-                  style={{
-                    // The design system's tokens are whole colours; the rest of the track is the muted text, faded.
-                    background: `linear-gradient(to right, var(--color-foreground) ${pct}%, color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) ${pct}%)`,
-                  }}
-                />
-                {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
-                <input
-                  ref={scrub.ref}
-                  type="range"
-                  min={0}
-                  max={duration || 0}
-                  step={0.1}
-                  value={Math.min(shown, duration || 0)}
-                  disabled={!duration}
-                  onChange={(e) => scrub.preview(Number(e.currentTarget.value))}
-                  onPointerDown={scrub.begin}
-                  onKeyUp={scrub.commit}
-                  onBlur={scrub.commit}
-                  aria-label={labels.position}
-                  className="relative h-full w-full min-w-0 cursor-pointer appearance-none bg-transparent accent-foreground"
-                />
+        {fill !== undefined ? (
+          <div className="relative min-w-0 flex-1 self-stretch">{fill}</div>
+        ) : (
+          <div className="min-w-0 flex-1">
+            {titled && (
+              <div className="mb-1 flex min-w-0 items-baseline gap-2">
+                {Icon && (
+                  <Icon className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
+                )}
+                <span className="min-w-0 truncate font-medium text-sm">
+                  {title}
+                </span>
+                {meta}
+                {status}
               </div>
-              <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
-                {clock(duration)}
-              </span>
-            </div>
-          )}
-        </div>
+            )}
+
+            {track !== undefined ? (
+              <div className="flex min-w-0 items-center gap-2">{track}</div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {clock(shown)}
+                </span>
+                {/* The track is drawn thin behind a taller range, so a finger finds it without the bar growing. */}
+                <div className="relative flex h-5 min-w-0 flex-1 items-center [@media(hover:none)]:h-8">
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 h-1 rounded"
+                    style={{
+                      // The design system's tokens are whole colours; the rest of the track is the muted text, faded.
+                      background: `linear-gradient(to right, var(--color-foreground) ${pct}%, color-mix(in oklab, var(--color-muted-foreground) 35%, transparent) ${pct}%)`,
+                    }}
+                  />
+                  {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
+                  <input
+                    ref={scrub.ref}
+                    type="range"
+                    min={0}
+                    max={duration || 0}
+                    step={0.1}
+                    value={Math.min(shown, duration || 0)}
+                    disabled={!duration}
+                    onChange={(e) =>
+                      scrub.preview(Number(e.currentTarget.value))
+                    }
+                    onPointerDown={scrub.begin}
+                    onKeyUp={scrub.commit}
+                    onBlur={scrub.commit}
+                    aria-label={labels.position}
+                    className="relative h-full w-full min-w-0 cursor-pointer appearance-none bg-transparent accent-foreground"
+                  />
+                </div>
+                <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {clock(duration)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {children}
       </div>

@@ -1,8 +1,8 @@
 // MiniPlayer.tsx — the bar at the bottom: what is playing, how far in, and where the sound is
 // coming out. It appears when a song starts and stays, even after the song ends: it has no close,
 // since a host's dock would only draw its own bar in its place. The ROW is @studio/ui-mini-player;
-// what is here is the médiathèque's reading of it: the title alone on the row, the rest behind the
-// play button, and the waveform of what plays when that file has a shape. See ../../docs/miniPlayer.md.
+// what is here is the médiathèque's reading of it: the title alone, the rest behind the play button,
+// and the waveform of what plays as the whole row when that file has a shape. See ../../docs/miniPlayer.md.
 
 import {
   DropdownMenuLabel,
@@ -17,7 +17,7 @@ import { usePlaybackPosition } from "./position";
 import { playbackTargetInfo } from "./targets";
 import { useInstrumentalMenu } from "./useInstrumentalMenu";
 import { useStartNext } from "./useQueueAdvance";
-import { WaveformTrack } from "./WaveformTrack";
+import { WaveformFill } from "./WaveformFill";
 
 export function MiniPlayer() {
   const { now, playing, error, toggle, seek, queue } = usePlayback();
@@ -41,30 +41,44 @@ export function MiniPlayer() {
   const album = row.album ?? "";
   const where = playbackTargetInfo(target);
   const WhereIcon = where.icon;
-  // The bar says the title alone; who, which record and which version are behind the play button.
+  // The bar says the title alone; who, which record, which version and where are behind the play button.
   const about = [artist, album, version].filter(Boolean);
-  const playMenu =
-    about.length || instrumental.item ? (
-      <>
-        {about.length ? (
-          <DropdownMenuLabel className="font-normal">
-            {artist ? (
-              <span className="block truncate font-medium text-foreground">
-                {artist}
-              </span>
-            ) : null}
-            {album || version ? (
-              <span className="block truncate text-muted-foreground text-xs">
-                {[album, version].filter(Boolean).join(" · ")}
-              </span>
-            ) : null}
-          </DropdownMenuLabel>
-        ) : null}
-        {about.length && instrumental.item ? <DropdownMenuSeparator /> : null}
-        {instrumental.item}
-      </>
-    ) : undefined;
+  const playMenu = (
+    <>
+      {about.length ? (
+        <DropdownMenuLabel className="font-normal">
+          {artist ? (
+            <span className="block truncate font-medium text-foreground">
+              {artist}
+            </span>
+          ) : null}
+          {album || version ? (
+            <span className="block truncate text-muted-foreground text-xs">
+              {[album, version].filter(Boolean).join(" · ")}
+            </span>
+          ) : null}
+        </DropdownMenuLabel>
+      ) : null}
+      {/* Where the sound is, reported for what is PLAYING rather than for the destination. */}
+      <DropdownMenuLabel
+        className="flex items-center gap-1.5 font-normal text-muted-foreground text-xs"
+        title={l.targets[where.id].hint}
+      >
+        <WhereIcon className="h-3.5 w-3.5" />
+        {l.targets[where.id].label}
+      </DropdownMenuLabel>
+      {instrumental.item ? <DropdownMenuSeparator /> : null}
+      {instrumental.item}
+    </>
+  );
   const done = duration > 0 && position >= duration - 0.25 && !playing;
+
+  // A failure outranks "done": both mean no sound, and only one of them is fine.
+  const status = error ? (
+    <span className="min-w-0 truncate text-destructive text-xs">{error}</span>
+  ) : done ? (
+    <span className="shrink-0 text-muted-foreground text-xs">{l.done}</span>
+  ) : null;
 
   return (
     <Bar
@@ -79,10 +93,19 @@ export function MiniPlayer() {
       playMenu={playMenu}
       onSeek={seek}
       onNext={queue.length ? startNext : undefined}
-      track={
+      // The waveform, when the file has one, is the whole row, the title and the clocks laid over it.
+      fill={
         shape ? (
-          <WaveformTrack
+          <WaveformFill
             shape={shape}
+            title={
+              <>
+                <span className="min-w-0 truncate font-medium text-sm">
+                  {entry.name}
+                </span>
+                {status}
+              </>
+            }
             position={position}
             duration={duration}
             label={l.bar.position}
@@ -90,28 +113,8 @@ export function MiniPlayer() {
           />
         ) : undefined
       }
-      status={
-        // A failure outranks "done": both mean no sound, and only one of them is fine.
-        error ? (
-          <span className="min-w-0 truncate text-destructive text-xs">
-            {error}
-          </span>
-        ) : done ? (
-          <span className="shrink-0 text-muted-foreground text-xs">
-            {l.done}
-          </span>
-        ) : null
-      }
+      status={status}
     >
-      {/* Where the sound is, reported for what is PLAYING rather than for the destination. */}
-      <span
-        className="hidden shrink-0 items-center gap-1 text-muted-foreground text-xs sm:flex"
-        title={l.targets[where.id].hint}
-      >
-        <WhereIcon className="h-3.5 w-3.5" />
-        {l.targets[where.id].label}
-      </span>
-
       {instrumental.dialog}
     </Bar>
   );
