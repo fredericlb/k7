@@ -34,7 +34,7 @@ import { camerasRouter } from "./cameras/routes.ts";
 import { cameraTickets, iceServersFromEnv } from "./cameras/ticket.ts";
 import { withDevAdmin } from "./devAdmin.ts";
 import { devFrontend } from "./devFrontend.ts";
-import { mountHandoff } from "./handoff.ts";
+import { LOCAL_USER as LOCAL_SESSION_USER, mountHandoff } from "./handoff.ts";
 import {
   jsonErrorHandler,
   securityHeaders,
@@ -132,6 +132,15 @@ app.use(sitePage(siteHostsFromEnv()));
 const scopes = (process.env.OIDC_SCOPES || "openid profile email groups")
   .split(/[\s,]+/)
   .filter((s) => s !== "");
+
+// A page asks who is signed in before it lists anything: that account's file service starts on the question (../docs/media/projects.md).
+app.get("/auth/me", (req, res, next) => {
+  res.once("finish", () => {
+    const email = res.statusCode === 200 ? auth.sessionUser(req)?.email : "";
+    if (email) media.warmFiles(email);
+  });
+  next();
+});
 
 // This backend OWNS /auth/* for the whole origin, being the service with no prefix (../../AGENTS.md).
 const auth = await setupAuth(app, {
@@ -321,6 +330,9 @@ const onListening = () => {
   rehearsal.serve();
   cameras.attach(server);
   localEngine?.start();
+  // One person here: their workspaces are ready before the first page asks for them.
+  if (LOCAL_USER && LOCAL_SESSION_USER.email)
+    media.warmFiles(LOCAL_SESSION_USER.email);
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)
     listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);

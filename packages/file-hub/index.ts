@@ -125,6 +125,13 @@ export class FileHub {
     return this.instances.status();
   }
 
+  /** The account's service started now rather than by its first request; a failed start is that request's to report. */
+  warm(user: string): void {
+    void this.instances
+      .get(user)
+      .catch((e: Error) => this.deps.log(`warming ${user}: ${e.message}`));
+  }
+
   /** The email of the account a device token was minted for, or null: the engine registry's owner of a heartbeat. */
   deviceEmail(token: string): string | null {
     return deviceEmail(this.devices, (s) => this.sync.accountDir(s), token);

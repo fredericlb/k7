@@ -62,6 +62,8 @@ export interface MediaMount {
   pairedServer(req: Request): { base: string; token: string } | null;
   /** Who a device token signs in as through the device door (../remote/door.ts), or null. */
   deviceUser(token: string): { email: string; person: string } | null;
+  /** Start the account's file service ahead of its first request: a signed-in page, or a standalone's boot. */
+  warmFiles(user: string): void;
   /** How full the accounts' file hub is, for the readiness probe (../readiness.ts). */
   fileStatus(): ReturnType<FileHub["status"]>;
   /** The hub's first library ensure, started on the first call: what a standalone waits for before it listens (../listenGate.ts). */
@@ -220,6 +222,7 @@ export function mountMedia(
     issueApiToken,
     pairedServer: (req) => serverOf(fileHub, req),
     deviceUser: (token) => fileHub.deviceUser(token),
+    warmFiles: (user) => fileHub.warm(user),
     fileStatus: () => fileHub.status(),
     librariesSettled: () => fileHub.libraries.firstEnsure(),
     serve(server, url) {
