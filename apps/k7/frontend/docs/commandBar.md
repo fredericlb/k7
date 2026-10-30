@@ -158,8 +158,10 @@ anywhere, the text editor included: the key is caught before CodeMirror sees it,
 cannot reach while typing is one you leave the keyboard to reach. Double-Shift summons it too, and so
 does a command icon at the bottom-left of the footer, left of the status line — the one opener a
 mouse finds without being told, and on a phone, which has neither key, the hamburger menu carries a
-second (the home page carries a Commands button in its footer). Both screens mount the same wrapper,
-`FloatingCommandBar.tsx`.
+second. On the home page the opener is an icon in the sidebar's foot, the last control before the
+account: the sidebar is where every other home control is, and a footer button of its own cost the
+page a row that otherwise only carries the status line. That row now shows only when the bar has
+said something. Both screens mount the same wrapper, `FloatingCommandBar.tsx`.
 
 Hidden, because the panes are what the window is for: a permanent strip is a row of every pane
 spent on a prompt that is idle almost all the time. At the top, because that is where the eye
