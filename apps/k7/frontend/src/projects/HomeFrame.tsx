@@ -85,11 +85,14 @@ export function HomeFrame({ children }: { children: ReactNode }) {
 /** The page frame: the sidebar on the left, the page's own column on the right, the bar under both. */
 export function HomeShell({
   actions,
+  commands,
   mediaCounts,
   children,
 }: {
   /** Drawn above the user menu, after the red dot — a page's own control, such as a refresh. */
   actions?: ReactNode;
+  /** The page's command bar button, when it has a bar: the last control, right before the account. */
+  commands?: ReactNode;
   /** Each media section's count, known only on the media pages, which load them. */
   mediaCounts?: Partial<Record<string, number>>;
   children: ReactNode;
@@ -109,6 +112,7 @@ export function HomeShell({
                 {actions}
                 {/* Right above the user menu, the sidebar's last control (../../docs/projects.md, "The home bar"). */}
                 <HomeEngine inSidebar />
+                {commands}
               </>
             }
             mediaCounts={mediaCounts}

@@ -3,6 +3,7 @@
 // service, and the two polls — for the presentational body beside it. The list is the SERVER's
 // files and needs no engine. See ../../docs/projects.md.
 
+import { Button } from "@frediverse/ui/button";
 import { Terminal } from "@frediverse/ui/icons";
 import { deviceName } from "@studio/engine-browser/pairing";
 import { Toaster } from "@studio/project-shell/toast";
@@ -266,7 +267,20 @@ export function Home() {
   );
 
   return (
-    <HomeShell>
+    <HomeShell
+      commands={
+        // A phone has no Ctrl+Shift+P nor double-Shift, so the bar needs a control of its own.
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={summonBar}
+          title={`${m["commandBar.list"]()} (Ctrl+Shift+P)`}
+          aria-label={m["commandBar.list"]()}
+        >
+          <Terminal className="size-4" />
+        </Button>
+      }
+    >
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHostK7 />
@@ -296,29 +310,19 @@ export function Home() {
       </div>
 
       {/* What the floating command bar said, held at the foot of the page in amber (../../docs/commandBar.md). */}
-      <div className="shrink-0 border-t border-border bg-popover">
+      <div className="shrink-0 border-t border-border bg-popover empty:hidden">
         {/* The account's engine scanning its plugins, gone when it is done (PluginScanBar.tsx). */}
         <PluginScanBar />
-        <div className="flex items-center gap-2 px-3 py-1.5">
+        {said && (
           <p
-            className={`min-w-0 flex-1 truncate text-xs ${
-              said?.refused ? "text-amber-500" : "text-muted-foreground"
+            className={`truncate px-3 py-1.5 text-xs ${
+              said.refused ? "text-amber-500" : "text-muted-foreground"
             }`}
-            title={said?.text}
+            title={said.text}
           >
-            {said?.text}
+            {said.text}
           </p>
-          {/* A phone has no Ctrl+Shift+P nor double-Shift, so the bar needs a control of its own. */}
-          <button
-            type="button"
-            onClick={summonBar}
-            title="Ctrl+Shift+P"
-            className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Terminal className="h-3.5 w-3.5" />
-            {m["commandBar.list"]()}
-          </button>
-        </div>
+        )}
       </div>
       <FloatingCommandBar
         ref={cmdRef}
