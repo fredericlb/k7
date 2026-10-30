@@ -75,6 +75,7 @@ How to read it:
 - **Stopped is most of playing.** The callback still costs 0.60–0.75 ms a block with the transport
   stopped: the Edit keeps processing — every amp, reverb and synth on silence — which is what a live
   input monitored through its chain needs. No pool size changes that; it is the graph, not the pool.
+  Why a stopped session is not taken out of the callback: `multiEdit.md`.
 
 ## The run has two traps
 

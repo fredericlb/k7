@@ -79,6 +79,32 @@ The isolation wanted here is at the level of the *project*, not the *process*. S
 * **`--render` stays a separate process**, and should: it is offline, it opens no device,
   and it has no business in a realtime callback.
 
+## A stopped session still pays its whole graph
+
+Every session's context stays in the callback, stopped or not: an idle k7 project, a médiathèque
+preview and the DJ desk each render every amp, reverb and synth on silence, block after block
+(`renderPool.md` measures a stopped graph at most of a playing one). The engine does **not** park a
+stopped session, because "stopped" is not what says a session is silent here:
+
+* **a deck plays with the transport stopped** — the turntable reads its own record at its own rate
+  (`turntable.md`), and so does a pattern lane's audition;
+* **a recorder node captures with the transport stopped** (`recorder.md`), and its ring must keep
+  being written;
+* **a monitored input** passes through its chain whatever the transport does, and its input
+  instances live ON the playback context, so freeing the context drops them;
+* **a tail rings out** after a stop: a reverb cut there clicks, and comes back stale on play.
+
+The mechanism that would do it is Tracktion's own — `TransportControl::freePlaybackContext()` and
+`ensureContextAllocated()` — and nothing in the engine calls the first today. Parking a session is
+safe only when all of these hold at once, checked on the message thread: the transport stopped and
+not recording; no track armed or monitored; no recorder node recording; no turntable spinning, no
+pattern lane or preview auditioning, no live MIDI held; no broadcast listener; and the session's
+output meter silent (−60 dB) for a few seconds, which is what says the tails are done. Un-parking is
+`ensureContextAllocated()` followed by what `applyFull` does after it — the track inputs and outputs,
+the record listener, the recorder taps — on play, monitor, arm, audition, a deck's start or a
+listener. That is the change this page would need to describe; until a probe measures the wake-up
+(the context build is the slow part of `applyFull`), it is not made.
+
 ## What the probe is for now
 
 `MultiEditTest.cpp` and `--multi-edit-test` drive N contexts on one DeviceManager **without
