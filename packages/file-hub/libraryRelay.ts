@@ -128,14 +128,26 @@ export class LibraryRelay {
       },
     };
     const replica = new Replica(REPLICA_ID, host, confirmed, loadHead(logDir));
-    link.add(
-      { name: room, capture, replica, written, onRemote: () => {} },
-      logDir,
-    );
-    capture.start(replica.head > 0 ? confirmed : undefined);
+    const baseline = replica.head > 0 ? confirmed : undefined;
+    let stopped = false;
     this.live.set(name, () => {
+      stopped = true;
       capture.stop();
       link.remove(room);
     });
+    // Built off the event loop's critical path, a library of thousands of files never holds a request; linked only once built (docs/fileHub.md).
+    void capture
+      .prepare(baseline)
+      .then((ready) => {
+        if (!ready || stopped) return;
+        link.add(
+          { name: room, capture, replica, written, onRemote: () => {} },
+          logDir,
+        );
+        capture.start(baseline);
+      })
+      .catch((e: Error) =>
+        this.log(`libraries | ${name} could not be captured: ${e.message}`),
+      );
   }
 }

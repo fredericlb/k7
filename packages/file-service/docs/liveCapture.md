@@ -206,6 +206,14 @@ began. From then on they are two workspaces of the same name on two servers, whi
 other; bringing the copy down here lands it as `<room>.<host>`, as above. One move or copy at a time
 per workspace, since both seed the target under the room's name.
 
+## A large workspace is learned in slices
+
+`prepare` builds the ledger a slice of about 10 ms at a time, yielding to the event loop between
+them, and `start` then only watches. The hub learns the libraries that way, because it serves every
+request while it does (`../../file-hub/docs/fileHub.md`). A file service still learns a workspace in
+one go: it is opened by a request that waits for it anyway. Each file is `stat`ed once while learning.
+On Windows a `stat` is the expensive part of a file nobody reads.
+
 ## A file's hash outlives the process
 
 A ledger is built at every start, and an opaque file is known by its sha256, so a start would read
