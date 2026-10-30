@@ -21,6 +21,9 @@ const INITIAL: EngineState = {
   recorders: {},
 };
 
+/** How long a recording rides through a dropped link before it is taken as ended — the outbox's own reach (docs/reliability.md). */
+export const LINK_GRACE_MS = 30_000;
+
 export class EngineStore {
   private state: EngineState = INITIAL;
   private listeners = new Set<() => void>();
@@ -29,6 +32,11 @@ export class EngineStore {
   private takes: Record<string, TakeView> = {};
   // When a stop was last pressed in this page, null once a play is: not engine state, a gesture the playhead answers first.
   private halt: number | null = null;
+  // No link carries frames: before the first one, and from a drop until the next frame.
+  private down = true;
+  // The last frame the link delivered, kept through the grace after a drop that cut a rolling transport.
+  private lastLive: EngineState | null = null;
+  private graceTimer?: ReturnType<typeof setTimeout>;
 
   getSnapshot = (): EngineState => this.state;
 
@@ -53,19 +61,46 @@ export class EngineStore {
 
   // Called on every state frame, except one saying exactly what the last one said — which is what an idle engine sends 20 times a second.
   set = (s0: EngineState): void => {
-    // Load rides one frame in four, so a frame without it keeps the last — engine docs/load.md.
-    const s =
-      s0.load || !this.state.load ? s0 : { ...s0, load: this.state.load };
-    if (sameFrame(this.state, s)) return;
-    this.state = s;
-    this.takes = foldedTakes(this.takes, s.recorders);
-    for (const l of this.listeners) l();
+    const relinked = this.lastLive !== null;
+    this.down = false;
+    this.release();
+    this.apply(s0, relinked);
   };
+
+  /** Whether no link carries frames — a drop says nothing about the engine's transport, which may still be rolling. */
+  linkDown = (): boolean => this.down;
+
+  /** What a RECORDING reads: the last live frame while a drop's grace runs, else the state — see docs/reliability.md. */
+  held = (): EngineState => this.lastLive ?? this.state;
 
   /** The link dropped: no frame will say "stopped", so this does — keeping the playhead where it was. */
   offline = (): void => {
-    this.set({ ...INITIAL, playhead: this.state.playhead });
+    if (!this.down && this.state.playing) {
+      this.lastLive = this.state;
+      this.graceTimer = setTimeout(() => {
+        this.release();
+        for (const l of this.listeners) l();
+      }, LINK_GRACE_MS);
+    }
+    this.down = true;
+    this.apply({ ...INITIAL, playhead: this.state.playhead }, true);
   };
+
+  private release(): void {
+    clearTimeout(this.graceTimer);
+    this.graceTimer = undefined;
+    this.lastLive = null;
+  }
+
+  private apply(s0: EngineState, force: boolean): void {
+    // Load rides one frame in four, so a frame without it keeps the last — engine docs/load.md.
+    const s =
+      s0.load || !this.state.load ? s0 : { ...s0, load: this.state.load };
+    if (!force && sameFrame(this.state, s)) return;
+    this.state = s;
+    this.takes = foldedTakes(this.takes, s.recorders);
+    for (const l of this.listeners) l();
+  }
 }
 
 /** Whether two frames say the same thing — one pass here replacing every subscriber's, and not deep on the envelopes. See docs/meters.md. */
@@ -180,9 +215,27 @@ export function useStoreState<T>(
   selector: (s: EngineState) => T,
   isEqual: (a: T, b: T) => boolean = Object.is,
 ): T {
+  return useSelected(store, store.getSnapshot, selector, isEqual);
+}
+
+/** The same slice of `store.held()`: what a recording hook reads, so a short drop neither ends nor splits its take. */
+export function useHeldState<T>(
+  store: EngineStore,
+  selector: (s: EngineState) => T,
+  isEqual: (a: T, b: T) => boolean = Object.is,
+): T {
+  return useSelected(store, store.held, selector, isEqual);
+}
+
+function useSelected<T>(
+  store: EngineStore,
+  read: () => EngineState,
+  selector: (s: EngineState) => T,
+  isEqual: (a: T, b: T) => boolean,
+): T {
   const cache = useRef<{ v: T } | null>(null);
   const getSelection = (): T => {
-    const next = selector(store.getSnapshot());
+    const next = selector(read());
     if (cache.current && isEqual(cache.current.v, next)) return cache.current.v;
     cache.current = { v: next };
     return next;

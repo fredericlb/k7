@@ -311,6 +311,23 @@ counted, is a 413 in words; whatever is left of the temp is removed, a hang-up i
 `POST /import-upload` keeps `express.raw`: the importers read a `.dawproject` or `.als` whole
 anyway, so a file on disk would only be read back into the same Buffer.
 
+## `PUT /file` with a `base` refuses to overwrite a newer file
+
+An autosave fires a second after the typing stops. A timeline drag, an undo of this very file or
+a synced edit from another device can change the file inside that second, before the editor's
+re-read has seen it; written unchecked, the stale buffer goes over it, and the journal is the only
+place left to get it back from. So a write may name its BASE: `textHash` (`@studio/web-protocol/text-hash`)
+of the text the buffer was edited from. When the file on disk no longer hashes to it, the write is
+refused with `409 { stale: true }` and the file is left alone; the editor raises its conflict
+banner, which is the question the next poll would have asked anyway (`apps/k7/frontend/docs/conflicts.md`).
+
+- The check runs INSIDE the `recordChange` mutation, in the same synchronous step as the write, so
+  nothing can land between them, and a refused write journals nothing (`src/fileBase.ts`).
+- A hash, not the text: the base travels with every save. `textHash` is a plain 53-bit hash
+  rather than SHA-256 because `crypto.subtle` does not exist on a plain-http LAN page.
+- No base, no check: an older client writes exactly as it did. A file that is missing has nothing
+  to overwrite, and is written.
+
 ## The waveform routes
 
 `/waveforms/prewarm` is fire-and-forget, so `wrap` cannot see it: `wrap` only catches what the

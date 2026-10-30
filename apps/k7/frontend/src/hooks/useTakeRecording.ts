@@ -17,6 +17,20 @@ const DISARM_AFTER_MS = 4000;
 /** When after the stop the view re-reads the project, so the new take shows without a reopen. */
 const LANDED_AFTER_MS = [800, 2000];
 
+/** One switch the record button flipped, and whether flipping it back is a toggle sent to the engine. */
+export interface SwitchBack {
+  engine: boolean;
+  run: () => void;
+}
+
+/** What a stop may switch back: nothing the engine toggles while the link is down, since that would flip it under the engine. */
+export function switchesBack(
+  list: SwitchBack[],
+  linkDown: boolean,
+): SwitchBack[] {
+  return linkDown ? list.filter((u) => !u.engine) : list;
+}
+
 /** A MIDI take in progress, read by useMidiRecording when the pass ends. */
 export interface MidiTakeTarget {
   track: string;
@@ -28,7 +42,11 @@ export function useTakeRecording(opts: {
   store: EngineStore;
   engine: () => EngineClient | null;
   runCommand: (line: string) => Promise<void>;
+  /** The transport as `store.held()` says it, so a short link drop does not end the take. */
   playing: boolean;
+  /** The link's guarded transport, which refuses aloud on a dead or busy link rather than queueing. */
+  transport: (verb: "play" | "stop") => void;
+  seek: (seconds: number) => void;
   midiArmed: string | null;
   midiRecord: boolean;
   setMidiRecord: (on: boolean) => void;
@@ -48,8 +66,8 @@ export function useTakeRecording(opts: {
   const { store, engine, runCommand, playing, num, den, projectPath } = opts;
   const [active, setActive] = useState(false);
   const midiTarget = useRef<MidiTakeTarget | null>(null);
-  // What the button switched on, so the stop switches back exactly that and nothing a person set.
-  const undo = useRef<(() => void)[]>([]);
+  // What the button switched on, so the stop switches back exactly that and nothing a person set; `engine` marks a toggle sent to the engine.
+  const undo = useRef<SwitchBack[]>([]);
   const optsRef = useLatest(opts);
   // The pending disarm after a stop, cancelled by a take started inside its window.
   const disarm = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -58,7 +76,10 @@ export function useTakeRecording(opts: {
     (ev: TakesEvent, from: number, to: number | null) => {
       void (async () => {
         const o = optsRef.current;
+        // A dead link arms nothing: the guarded transport says so, and no event is left armed for a take that never rolls.
+        if (store.linkDown()) return o.transport("play");
         clearTimeout(disarm.current);
+        disarm.current = undefined;
         await runCommand(armLine(ev, from, to, num, den));
         undo.current = [];
         const s = store.getSnapshot();
@@ -66,16 +87,25 @@ export function useTakeRecording(opts: {
           // The browser's arm, which `rec` is for a lane holding a sequence — the same toggle, so only when it is off.
           if (o.midiArmed !== ev.track) {
             await runCommand(`rec ${ev.track}`);
-            undo.current.push(() => void runCommand(`rec ${ev.track}`));
+            undo.current.push({
+              engine: false,
+              run: () => void runCommand(`rec ${ev.track}`),
+            });
           }
           if (!o.midiRecord) {
             o.setMidiRecord(true);
-            undo.current.push(() => optsRef.current.setMidiRecord(false));
+            undo.current.push({
+              engine: false,
+              run: () => optsRef.current.setMidiRecord(false),
+            });
           }
           // The engine's record too, which is what rolls a count-in before the take's start.
           if (!s.recordEnabled) {
             engine()?.setRecordEnabled(true);
-            undo.current.push(() => engine()?.setRecordEnabled(false));
+            undo.current.push({
+              engine: true,
+              run: () => engine()?.setRecordEnabled(false),
+            });
           }
           midiTarget.current = {
             track: ev.track,
@@ -86,25 +116,31 @@ export function useTakeRecording(opts: {
           // The ENGINE's arm, as the lane's own button arms an audio lane — and a toggle, so only when it is off.
           if (!s.armed.includes(ev.track)) {
             await runCommand(`transport arm ${ev.track}`);
-            undo.current.push(
-              () => void runCommand(`transport arm ${ev.track}`),
-            );
+            undo.current.push({
+              engine: true,
+              run: () => void runCommand(`transport arm ${ev.track}`),
+            });
           }
           if (!s.recordEnabled) {
             engine()?.setRecordEnabled(true);
-            undo.current.push(() => engine()?.setRecordEnabled(false));
+            undo.current.push({
+              engine: true,
+              run: () => engine()?.setRecordEnabled(false),
+            });
           }
         }
         setActive(true);
         // From the take's start, not wherever the playhead was: the count-in rolls in the bars before it.
-        engine()?.seek((from * 60) / Math.max(1e-6, optsRef.current.tempo));
-        engine()?.transport("play");
+        const live = optsRef.current;
+        if (!store.linkDown())
+          live.seek((from * 60) / Math.max(1e-6, live.tempo));
+        live.transport("play");
       })();
     },
     [store, engine, runCommand, num, den],
   );
 
-  const stop = useCallback(() => engine()?.transport("stop"), [engine]);
+  const stop = useCallback(() => optsRef.current.transport("stop"), []);
 
   // The roll that ended IS the take: switch back what the button switched, then let the event go.
   const wasPlaying = useRef(false);
@@ -116,18 +152,28 @@ export function useTakeRecording(opts: {
     if (!active || !wasPlaying.current) return;
     wasPlaying.current = false;
     setActive(false);
-    for (const u of undo.current) u();
+    // The engine's switches are TOGGLES: sent down a dead link, they would flip what a restarted engine holds.
+    for (const u of switchesBack(undo.current, store.linkDown())) u.run();
     undo.current = [];
     // The take lands a moment after the stop — a MIDI pass at once, an audio file once the engine closes it.
     for (const ms of LANDED_AFTER_MS)
       setTimeout(() => optsRef.current.onLanded(), ms);
     // Not this effect's cleanup: clearing `active` re-runs it, and that must not cancel the disarm.
     disarm.current = setTimeout(() => {
+      disarm.current = undefined;
       midiTarget.current = null;
       void runCommand("event take disarm");
     }, DISARM_AFTER_MS);
-  }, [playing, active, runCommand]);
-  useEffect(() => () => clearTimeout(disarm.current), []);
+  }, [playing, active, runCommand, store]);
+  // Leaving inside the window sends the disarm at once: an event left armed would swallow the next audio take.
+  useEffect(
+    () => () => {
+      if (disarm.current === undefined) return;
+      clearTimeout(disarm.current);
+      void optsRef.current.runCommand("event take disarm");
+    },
+    [],
+  );
 
   return {
     host: { projectPath, record, stop, recording: active && playing },

@@ -177,7 +177,12 @@ export function useEngineLink(
     });
     engine.connect();
     // An engine nobody hears — the server's own — is heard here, through its broadcast; so is any engine this browser asked to hear.
-    const output = engineOutput(engine, listenHereRef.current);
+    const output = engineOutput(engine, listenHereRef.current, (e) => {
+      // Said once per format, never per frame: engineOutput latches the failure.
+      const text = m["engine.cannotPlayHere"]({ reason: (e as Error).message });
+      pushLog("error", `engine: ${text}`);
+      showToast({ message: text, variant: "error", placement: "top-right" });
+    });
     outputRef.current = output;
     // …and that is said in the header, since where the sound comes out is not otherwise visible.
     const offToBrowser = engine.onAudioToBrowser(setAudioToBrowser);

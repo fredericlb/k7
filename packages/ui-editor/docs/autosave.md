@@ -72,6 +72,13 @@ saying why. It is forgotten when it lands — and only if what landed is what is
 made *while a write was in flight* is not thrown away by that write's completion. Closing a pane
 mid-write hits exactly that case, which is why `settleBuffer` compares rather than deleting.
 
+The key carries a SCOPE too — the project, for a host that moves between projects without a page
+load (k7 names it with `setBufferScope`). A path names a file in every project, and a pane of the
+project left closes in a passive cleanup, after the host has already forgotten everything at the
+crossing: keyed by path alone, its text would come back in the next project's file of the same
+name, and be saved there. Each `useAutosave` captures the scope it was mounted in and keeps under
+that one, so the order of React's cleanups decides nothing; `recallBuffer` reads the scope now.
+
 ### …but it does not survive the PAGE
 
 That `Map` is module state, so a reload, an F5 or a closed tab takes it with them, and for a long
@@ -138,6 +145,15 @@ include the last second of typing. It writes each pane's pending text now
 and answers false when one could not be written: held, paused, or a `manual` draft, which is never
 saved on somebody else's behalf. The host refuses its operation on false rather than run it over
 text that is not on disk.
+
+## A failed write is tried again, further apart each time
+
+A write that fails keeps its text and shows `error`; the text is tried again on its own, 2 s
+later, then 4, 8, 16, capped at 30 s (`retryDelayMs`), and the count starts over once one lands.
+Not every second: a service that is down would be asked once a second by every open pane. Not
+after a refusal (a 4xx, `retriable`): the same text would be refused again, and a stale base
+(409) is a question for the person, asked by the pane's conflict banner. The next keystroke
+re-arms the ordinary timer either way.
 
 ## Ctrl+S still exists
 

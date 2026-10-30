@@ -32,6 +32,7 @@ export function useVideoRecording(opts: {
   /** The label that lane names, if it names one — `""` and absent both mean the machine's default. */
   camera?: string;
   recordEnabled: boolean;
+  /** The transport as `store.held()` says it, like `recordEnabled`: a short link drop must not file and reopen the take. */
   playing: boolean;
   runCommand: (line: string) => Promise<void>;
   setStatus: (s: string) => void;
@@ -133,6 +134,12 @@ export function useVideoRecording(opts: {
       const mimeType = pickVideoMime((m) => MediaRecorder.isTypeSupported(m));
       // Chunks go to disk as they come (../takeSpool.ts): an hour of camera is gigabytes the tab need not hold.
       const spool = await openSpool(extForMime(mimeType || undefined));
+      // …and stopped while the spool was opening: no recorder on a released stream, no empty spool to "recover".
+      if (!activeRef.current || streamRef.current !== stream) {
+        spool.discard();
+        if (streamRef.current === stream) release();
+        return;
+      }
       // This take's own state, in this closure: a stop and a quick re-record must not share a buffer or a stream.
       let take: { lane: string; at: number; from: number } | null = null;
       const rec = new MediaRecorder(stream, {

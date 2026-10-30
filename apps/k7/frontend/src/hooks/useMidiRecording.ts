@@ -56,6 +56,7 @@ export function useMidiRecording(opts: {
   tempo: number;
   // The transport's MIDI record button — the BROWSER's own record, beside the engine's.
   midiRecordEnabled: boolean;
+  /** The transport as `store.held()` says it, so a short link drop neither ends nor splits the take. */
   playing: boolean;
   midiArmed: string | null;
   quietCommand: (line: string) => Promise<void>;
@@ -140,6 +141,8 @@ export function useMidiRecording(opts: {
   // Track the latest (playhead, wall-clock) pair so beatNow can interpolate.
   useEffect(() => {
     const unsub = store.subscribe(() => {
+      // A dropped link's "stopped" is no frame: the clock keeps running from the last real one.
+      if (store.linkDown()) return;
       const snap = store.getSnapshot();
       frameRef.current = { playhead: snap.playhead, perf: performance.now() };
       // Where play was pressed: a count-in rolls from bars BEFORE it, so the first rolling frame is not the take's start.

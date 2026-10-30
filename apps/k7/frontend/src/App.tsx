@@ -25,6 +25,7 @@ import { PluginParamsStore } from "@studio/engine-browser/params";
 import {
   arrayEq,
   EngineStore,
+  useHeldState,
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
@@ -47,6 +48,7 @@ import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import { LcdSoundsContext, SongClockProvider } from "@studio/ui-chains-react";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
+import { flushAutosaves } from "@studio/ui-editor/autosave-buffers";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { projectLabel } from "@studio/web-protocol/projects";
@@ -497,6 +499,9 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
+  // What the recording hooks read instead: a short link drop must neither end nor split a take (engine-browser docs/reliability.md).
+  const recPlaying = useHeldState(store, (s) => s.playing);
+  const recRecordEnabled = useHeldState(store, (s) => s.recordEnabled);
   // The project's change token, read here so the whole tree shares the ONE refcounted poll (docs/plugins.md).
   const rev = useRevision();
   const { logs, pushLog, clearLogs } = useLogs(panel);
@@ -563,11 +568,11 @@ export default function App({
   // A roll that captured MIDI switches the MIDI record off when it stops, as the engine does its own (docs/shell.md).
   const midiRolled = useRef(false);
   useEffect(() => {
-    if (playing && midiRecord && midiArmed) midiRolled.current = true;
-    if (playing || !midiRolled.current) return;
+    if (recPlaying && midiRecord && midiArmed) midiRolled.current = true;
+    if (recPlaying || !midiRolled.current) return;
     midiRolled.current = false;
     setMidiRecord(false);
-  }, [playing, midiRecord, midiArmed]);
+  }, [recPlaying, midiRecord, midiArmed]);
   /** …and the PICTURE lane armed, which records its camera in the browser (hooks/useVideoRecording.ts). */
   const [videoArmed, setVideoArmed] = useState<string | null>(null);
   const [tlView, setTlView] = useState<{
@@ -714,6 +719,7 @@ export default function App({
       confirmProcess,
       currentFile: () => editorRef.current?.currentFile() ?? null,
       onApplied: bumpReload,
+      flush: flushAutosaves,
       strings: {
         undone: (what) => m["undo.undone"]({ what }),
         redone: (what) => m["undo.redone"]({ what }),
@@ -1478,7 +1484,9 @@ export default function App({
     store,
     engine: () => engineRef.current ?? null,
     runCommand: (line) => runCommandRef.current(line),
-    playing,
+    playing: recPlaying,
+    transport,
+    seek,
     midiArmed,
     midiRecord,
     setMidiRecord,
@@ -1498,8 +1506,8 @@ export default function App({
     store,
     tempo: recInfo.tempo,
     // Either record captures the MIDI-armed lane: the main one is what a take is, the MIDI one a browser-only take.
-    midiRecordEnabled: midiRecord || recordEnabled,
-    playing,
+    midiRecordEnabled: midiRecord || recRecordEnabled,
+    playing: recPlaying,
     midiArmed,
     quietCommand,
     midiDevice: midiIn.device,
@@ -2010,8 +2018,8 @@ export default function App({
     project: ws?.activeProject ?? ".",
     armed: videoArmed,
     camera: videoTracks.find((t) => t.id === videoArmed)?.camera,
-    recordEnabled,
-    playing,
+    recordEnabled: recRecordEnabled,
+    playing: recPlaying,
     runCommand,
     setStatus,
     bumpReload,

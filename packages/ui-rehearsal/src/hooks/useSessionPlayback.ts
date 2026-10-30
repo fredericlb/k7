@@ -45,9 +45,16 @@ export function useSessionPlayback(
     clock.set(seekTo);
   }, [seekTo, session.id, clock]);
 
+  // The element the graph was built on: an element is routed into ONE context for its life, so the graph follows it.
+  const graphOf = useRef<HTMLAudioElement | null>(null);
+
   const ensurePlaybackGain = useCallback(() => {
     const a = audioRef.current;
-    if (!a || playCtx.current) return;
+    if (!a || (playCtx.current && graphOf.current === a)) return;
+    // A new element (the page remounted it): the old graph serves nobody.
+    playCtx.current?.close().catch(() => {});
+    playCtx.current = null;
+    gainNode.current = null;
     try {
       const ctx = new AudioContext();
       const src = ctx.createMediaElementSource(a);
@@ -57,6 +64,7 @@ export function useSessionPlayback(
       g.connect(ctx.destination);
       playCtx.current = ctx;
       gainNode.current = g;
+      graphOf.current = a;
     } catch {
       /* play at unity gain */
     }
@@ -66,14 +74,15 @@ export function useSessionPlayback(
     if (gainNode.current) gainNode.current.gain.value = session.gain || 1;
   }, [session.gain]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the graph is torn down per session, which is the dependency
+  // Torn down with the page, NOT per session: the same `<audio>` survives a session switched in place, and a closed context would keep it silent.
   useEffect(() => {
     return () => {
       playCtx.current?.close().catch(() => {});
       playCtx.current = null;
       gainNode.current = null;
+      graphOf.current = null;
     };
-  }, [session.id]);
+  }, []);
 
   const seek = (sec: number) => {
     if (audioRef.current) audioRef.current.currentTime = sec;

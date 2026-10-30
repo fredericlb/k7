@@ -91,6 +91,7 @@
   "engine.lostStrip": "Engine disconnected — reconnecting…",
   "engine.retryNow": "Retry now",
   "engine.notPlayed": "Not played: the engine is disconnected",
+  "engine.cannotPlayHere": "The engine's sound cannot play in this page: {reason}",
   "engine.linkUp": "Engine connected",
   "engine.linkDown": "Engine disconnected",
   "engine.linkNone": "No engine",

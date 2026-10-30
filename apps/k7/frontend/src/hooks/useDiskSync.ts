@@ -40,6 +40,8 @@ export interface DiskSync {
   keepEditing: () => void;
   /** Take the file from disk, dropping the unsaved edits. */
   takeDisk: () => void;
+  /** Ask about this disk text now: a write refused as stale (409) is the same question, raised before the poll sees it. */
+  raise: (fresh: string) => void;
 }
 
 export function useDiskSync({
@@ -49,6 +51,7 @@ export function useDiskSync({
   saved,
   onAdopt,
   onClean,
+  onKeep,
   reloadKey,
 }: {
   path: string | null;
@@ -60,14 +63,24 @@ export function useDiskSync({
   onAdopt: (text: string) => void;
   /** The buffer turned out to match disk after all: it is not dirty any more. */
   onClean: () => void;
+  /** "Keep editing" about this disk text: it becomes the base the next write is checked against, so the buffer may go over it. */
+  onKeep?: (fresh: string) => void;
   /** Bumped by the shell after a command, so an action is noticed without waiting for the next tick. */
   reloadKey: number;
 }): DiskSync {
   const [conflict, setConflict] = useState<string | null>(null);
 
   // Read by the poll, which must not re-arm every keystroke: an interval that resets on each character never fires.
-  const state = useRef({ path, content, dirty, saved, onAdopt, onClean });
-  state.current = { path, content, dirty, saved, onAdopt, onClean };
+  const state = useRef({
+    path,
+    content,
+    dirty,
+    saved,
+    onAdopt,
+    onClean,
+    onKeep,
+  });
+  state.current = { path, content, dirty, saved, onAdopt, onClean, onKeep };
   // The version the user already said 'keep editing' about: dismissing must not re-prompt for the SAME text, but a further change is new.
   const dismissed = useRef<string | null>(null);
 
@@ -135,9 +148,17 @@ export function useDiskSync({
   }, [path]);
 
   const keepEditing = useCallback(() => {
+    if (conflict !== null) state.current.onKeep?.(conflict);
     dismissed.current = conflict;
     setConflict(null);
   }, [conflict]);
+
+  const raise = useCallback((fresh: string) => {
+    const cur = state.current;
+    if (fresh === (cur.content ?? "")) return cur.onClean();
+    dismissed.current = null;
+    setConflict(fresh);
+  }, []);
 
   const takeDisk = useCallback(() => {
     if (conflict !== null) state.current.onAdopt(conflict);
@@ -145,5 +166,5 @@ export function useDiskSync({
     setConflict(null);
   }, [conflict]);
 
-  return { conflict, keepEditing, takeDisk };
+  return { conflict, keepEditing, takeDisk, raise };
 }

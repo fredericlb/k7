@@ -1,8 +1,9 @@
 // useDocument.ts — one derived document from the file service, re-asked when the project moves
-// AND again, on a backoff, while asking fails. The three panes that draw a compiled document
+// AND again, on a backoff, while asking fails for a blip. The three panes that draw a compiled document
 // (the timeline, the chains, the graph panel) share it. See docs/shell.md.
 
 import { useEffect, useState } from "react";
+import { isAnswer } from "../readFailure";
 import { useLatest } from "./useLatest";
 
 /** How long to wait before retry number `attempt` — doubling from half a second, capped at five, and exported because it is what a test can reach. */
@@ -35,7 +36,8 @@ export function useDocument<T>(
         (e: unknown) => {
           if (!alive) return;
           setError((e as Error).message);
-          timer = setTimeout(ask, retryDelay(attempt++));
+          // An answer (a 4xx: "does not compile") is not asked again until `reloadKey` moves; a blip is.
+          if (!isAnswer(e)) timer = setTimeout(ask, retryDelay(attempt++));
         },
       );
     };
