@@ -52,7 +52,8 @@ export function albumOf(rel: string): string | null {
   return `${parts[0]}/${parts[1]}`;
 }
 
-function songRow(e: MediatekEntry, remote: boolean): SongRow {
+/** A song's row: its title, and its artist and album from its tags, else from its folders. */
+export function songRow(e: MediatekEntry, remote: boolean): SongRow {
   const rel = relative(e.path);
   const parts = rel.split("/");
   const folder = albumOf(rel);
