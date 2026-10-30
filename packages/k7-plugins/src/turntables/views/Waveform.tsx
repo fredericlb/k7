@@ -20,6 +20,7 @@ import {
   WINDOW_SECONDS,
   xOf,
 } from "../waveform";
+import { useInSight } from "./inSight";
 
 /** Yellow for the inferred grid, grey for the measured transients — the louder colour is what you mix on. */
 const BEAT = "#facc15";
@@ -40,6 +41,10 @@ function playheadColour(): string {
 const HOLD_MS = 700;
 /** …and how close the needle has to get for the hold to be let go of early. */
 const HOLD_EPS = 0.08;
+/** Frames that painted nothing before the loop parks — half a second of a stopped deck. */
+const PARK_AFTER_FRAMES = 30;
+/** How often a parked loop looks at the needle, in case a seek moved it; Vinyl's own pace. */
+const PARKED_POLL_MS = 100;
 
 /** Drag the band to SHUTTLE the record: the distance held is a SPEED, not a step.
  *
@@ -102,6 +107,7 @@ export function Waveform({
   problem,
   height,
   onShove,
+  running = false,
 }: {
   envelope: Envelope | null;
   /** This deck's needle in its RECORD — one reader for both ways of playing, see ../useDeckSet.ts. */
@@ -116,6 +122,8 @@ export function Waveform({
   height: number;
   /** Push the record by `seconds`, signed — absent, the band is not draggable. See ../../docs/waveform.md. */
   onShove?: (seconds: number) => void;
+  /** Whether the deck turns — read only to wake a parked loop at once rather than at its next look. */
+  running?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
   /** The track rasterised once per envelope and size — outside the effect, which a new loop restarts. */
@@ -129,8 +137,17 @@ export function Waveform({
    *  re-renders nothing: the canvas reads them in its own loop (../../docs/waveform.md). */
   const drag = useRef<number | null>(null);
   const hold = useRef<{ at: number; until: number } | null>(null);
+  // Read by the frame loop: hidden, the band draws nothing and the loop stops, picking up on return.
+  const seen = useRef(true);
+  const inSight = useInSight();
+  seen.current = inSight;
+  /** Wakes a parked loop — a hand on the band, a deck starting, the desk shown again. */
+  const wake = useRef<() => void>(() => {});
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of either IS what wakes the loop.
+  useEffect(() => wake.current(), [inSight, running]);
   const preview = useCallback((seconds: number | null) => {
     drag.current = seconds;
+    wake.current();
   }, []);
   const land = useCallback(
     (seconds: number) => {
@@ -138,6 +155,7 @@ export function Waveform({
         at: needle() + seconds,
         until: performance.now() + HOLD_MS,
       };
+      wake.current();
     },
     [needle],
   );
@@ -156,14 +174,15 @@ export function Waveform({
     const sized = new ResizeObserver(([e]) => {
       w = Math.round(e.contentRect.width);
       h = Math.round(e.contentRect.height);
+      wake.current();
     });
     sized.observe(el);
 
-    const draw = () => {
-      frame = requestAnimationFrame(draw);
+    /** Paint the frame, or nothing when it would be the one on the canvas; true when it painted. */
+    const paint = (): boolean => {
       // Sized in CSS pixels, drawn in device pixels.
       const ratio = globalThis.devicePixelRatio || 1;
-      if (!w || !h) return;
+      if (!w || !h) return false;
       // Where we are NOW: a stopped deck's needle simply does not move, whichever clock it is on.
       // …unless a hand is on the band. A DRAG draws the live needle plus what the shuttle has run
       // up, and a RELEASE holds the position it landed on until the engine's needle arrives there
@@ -181,7 +200,7 @@ export function Waveform({
       }
       // A stopped deck draws the same picture every frame: drawn once, then left until something moves.
       const shown = `${w}|${h}|${ratio}|${at}`;
-      if (shown === drawn) return;
+      if (shown === drawn) return false;
       drawn = shown;
       if (
         el.width !== Math.round(w * ratio) ||
@@ -197,7 +216,7 @@ export function Waveform({
       if (!envelope) {
         ctx.fillStyle = "rgba(148,163,184,0.35)";
         ctx.fillRect(0, mid - 0.5, w, 1);
-        return;
+        return true;
       }
 
       const [from, to] = viewWindow(at);
@@ -257,11 +276,37 @@ export function Waveform({
       ctx.fillText(mmss(Math.max(0, at)), 4, h - 3);
       const left = mmss(Math.min(0, at - envelope.seconds));
       ctx.fillText(left, w - ctx.measureText(left).width - 4, h - 3);
+      return true;
     };
 
-    frame = requestAnimationFrame(draw);
+    // Parked after a run of frames that painted nothing, or out of sight: a slow look then wakes it.
+    let poll = 0;
+    let idle = 0;
+    const tick = () => {
+      frame = 0;
+      if (!seen.current) return;
+      idle = paint() ? 0 : idle + 1;
+      const handFree = drag.current === null && hold.current === null;
+      if (idle >= PARK_AFTER_FRAMES && handFree) {
+        poll = window.setInterval(() => {
+          if (seen.current && paint()) run();
+        }, PARKED_POLL_MS);
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    const run = () => {
+      window.clearInterval(poll);
+      poll = 0;
+      idle = 0;
+      if (!frame && seen.current) frame = requestAnimationFrame(tick);
+    };
+    wake.current = run;
+    run();
     return () => {
       cancelAnimationFrame(frame);
+      window.clearInterval(poll);
+      wake.current = () => {};
       sized.disconnect();
     };
     // The loop restarts only when the envelope, the reader or the loop changes — each kept stable by the caller.

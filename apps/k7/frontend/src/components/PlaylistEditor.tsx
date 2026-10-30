@@ -17,13 +17,13 @@ import {
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { editK7xText } from "@studio/ui-editor/k7x/bufferEdit";
-import { YamlPane } from "@studio/ui-editor/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";
 import { playlistVocabulary } from "../playlistVocabulary";
 import { saveLabel } from "../saveLabel";
 import { pollWhileVisible } from "../visiblePoll";
+import { YamlPane } from "./LazyYamlPane";
 import { PlaylistPane } from "./PlaylistPane";
 
 /** Is this text a playlist? `parsePlaylist` is what knows, and a failure is reported as a SCHEMA one, so the escape hatch applies. */

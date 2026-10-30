@@ -89,6 +89,24 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     lit.current = [];
   };
 
+  // The drawn pages' elements by `data-id`, built on the first lookup after a draw.
+  const byId = useRef<Map<string, Element[]> | null>(null);
+  const elementsOf = (h: HTMLElement, id: string): Element[] => {
+    if (!byId.current) {
+      const map = new Map<string, Element[]>();
+      for (const el of h.querySelectorAll("[data-id]")) {
+        const key = el.getAttribute("data-id") ?? "";
+        const list = map.get(key);
+        if (list) list.push(el);
+        else map.set(key, [el]);
+      }
+      byId.current = map;
+    }
+    return byId.current.get(id) ?? [];
+  };
+  // The note set lit now, so a frame that sounds the same notes touches nothing.
+  const litKey = useRef("");
+
   // The notes sounding at `ms` lit, and kept in view when they leave it.
   const light = (ms: number) => {
     const t = tk.current;
@@ -97,13 +115,16 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     if (!t || !h || !v) return;
     const ids = t.getElementsAtTime(ms).notes ?? [];
     if (ids.length === 0) return;
-    unlight();
-    lit.current = ids.flatMap((id) => [
-      ...h.querySelectorAll(`[data-id="${CSS.escape(id)}"]`),
-    ]);
-    for (const el of lit.current) el.classList.add(PLAYING);
-    const first = lit.current[0]?.getBoundingClientRect();
+    const key = ids.join(" ");
+    if (key === litKey.current && lit.current.length) return;
+    const next = ids.flatMap((id) => elementsOf(h, id));
+    // Both rects read before any class is written, so the frame forces no layout of its own.
+    const first = next[0]?.getBoundingClientRect();
     const box = v.getBoundingClientRect();
+    unlight();
+    litKey.current = key;
+    lit.current = next;
+    for (const el of next) el.classList.add(PLAYING);
     if (first && (first.top < box.top || first.bottom > box.bottom))
       v.scrollTop += first.top - box.top - box.height / 3;
   };
@@ -136,6 +157,8 @@ export const ScoreView = forwardRef<ScoreViewHandle, Props>(function ScoreView(
     let svg = "";
     for (let p = 1; p <= t.getPageCount(); p++) svg += t.renderToSVG(p);
     lit.current = [];
+    litKey.current = "";
+    byId.current = null;
     h.innerHTML = svg;
   };
 

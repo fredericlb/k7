@@ -17,6 +17,7 @@ import {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -39,6 +40,7 @@ import {
 import { useGridCaret } from "../hooks/useGridCaret";
 import { useRollGestures } from "../hooks/useRollGestures";
 import { useRollHover } from "../hooks/useRollHover";
+import { useRollWindow } from "../hooks/useRollWindow";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { isBlack, noteName, pc } from "../noteNames";
 import { m } from "../paraglide/messages.js";
@@ -59,6 +61,12 @@ import {
 import type { WebClip, WebProject } from "../types";
 import { KEYS, KeyGutter, N_NOTES } from "./KeyGutter";
 import { LoopBrace, LoopToggle } from "./LoopBrace";
+import {
+  RollHoverBands,
+  RollNoteBox,
+  type RollNoteCaps,
+  type RollNoteHandlers,
+} from "./RollNoteBox";
 import { RollPlayhead } from "./RollPlayhead";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
 import { SeqDoubleButton } from "./SeqDoubleButton";
@@ -192,6 +200,7 @@ export function PianoRoll({
     new Map(),
   );
   const inFlight = useRef(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `project` is the landing itself — an unchanged clip keeps its notes' identity (queries/projectDoc.ts)
   useEffect(() => {
     setPending((cur) => {
       if (!cur.size) return cur;
@@ -203,7 +212,7 @@ export function PianoRoll({
       for (const k of done) next.delete(k);
       return next;
     });
-  }, [clip.notes]);
+  }, [clip.notes, project]);
   // A different clip's ghosts are not this one's.
   useEffect(() => {
     setPending(new Map());
@@ -345,7 +354,7 @@ export function PianoRoll({
   );
   // The cell under the pointer, by the gestures' own rule: the lane's left edge is the origin, a row is one key.
   const {
-    hover,
+    store: hoverStore,
     onPointerMove: onHoverMove,
     onPointerLeave: onHoverLeave,
   } = useRollHover(
@@ -526,6 +535,63 @@ export function PianoRoll({
     setStatus,
   });
 
+  // A dragged selection as a set of addresses, and its offset taken once per step rather than once per note.
+  const groupSet = useMemo(
+    () =>
+      groupDraw ? new Set(groupDraw.map((g) => noteAddr(g.key, g.time))) : null,
+    [groupDraw],
+  );
+  const groupOff =
+    tDraw && groupDraw
+      ? groupOffset(groupDraw, tDraw.dBeats, tDraw.dKeys)
+      : null;
+  // The window worth mounting notes in, with a viewport of margin (useRollWindow.ts); null mounts all.
+  const win = useRollWindow(bodyRef, origin, ppb, rowH);
+  const inView = (n: RollNote) =>
+    !win ||
+    (n.time < win.b1 &&
+      n.time + Math.max(n.duration, 0.25) > win.b0 &&
+      127 - n.key >= win.r0 &&
+      127 - n.key <= win.r1);
+  // A note's React key is its address, made unique when two notes share one.
+  const seenKeys = new Set<string>();
+  const keyOf = (n: RollNote) => {
+    let k = noteAddr(n.key, n.time);
+    while (seenKeys.has(k)) k += "'";
+    seenKeys.add(k);
+    return k;
+  };
+  // On the three facts, not the callbacks: a host passes new closures on every render.
+  const canVel = !!onSetVelocity;
+  const canRange = !!onSetNoteRange;
+  const canPitch = !!onMoveNote;
+  const caps = useMemo<RollNoteCaps>(
+    () => ({ vel: canVel, range: canRange, pitch: canPitch }),
+    [canVel, canRange, canPitch],
+  );
+  // Stable handlers over the gestures' latest closures, so a memoised note is not re-rendered by a new function.
+  const gestures = useRef({
+    onNotePointerDown,
+    onNoteMenu,
+    onNotePointerMove,
+    endVDrag,
+  });
+  gestures.current = {
+    onNotePointerDown,
+    onNoteMenu,
+    onNotePointerMove,
+    endVDrag,
+  };
+  const noteHandlers = useMemo<RollNoteHandlers>(
+    () => ({
+      down: (e, n, grip) => gestures.current.onNotePointerDown(e, n, grip),
+      menu: (e, n) => gestures.current.onNoteMenu(e, n),
+      move: (e, top) => gestures.current.onNotePointerMove(e, top),
+      end: () => gestures.current.endVDrag(),
+    }),
+    [],
+  );
+
   const draftBox = draft
     ? {
         left: (Math.min(draft.t0, draft.t1) - origin) * ppb,
@@ -689,7 +755,7 @@ export function PianoRoll({
                     : undefined
                 }
                 onSelectKey={(k) => grid.selectRow(127 - k)}
-                hoverKey={hover ? 127 - hover.row : null}
+                hover={hoverStore}
               />
               <div
                 ref={laneRef}
@@ -733,24 +799,12 @@ export function PianoRoll({
                   strongBars
                 />
                 {/* The row and the column under the pointer, faint and under everything drawn on the grid: where a click lands (docs/clipEditors.md). */}
-                {hover && (
-                  <>
-                    <div
-                      className="pointer-events-none absolute left-0 right-0 bg-foreground/[0.05]"
-                      style={{
-                        top: hover.row * rowH,
-                        height: Math.max(1, rowH),
-                      }}
-                    />
-                    <div
-                      className="pointer-events-none absolute inset-y-0 bg-foreground/[0.05]"
-                      style={{
-                        left: (beatOfCol(hover.col) - origin) * ppb,
-                        width: Math.max(1, gridUnit * ppb),
-                      }}
-                    />
-                  </>
-                )}
+                <RollHoverBands
+                  store={hoverStore}
+                  rowH={rowH}
+                  colLeft={(col) => (beatOfCol(col) - origin) * ppb}
+                  colW={gridUnit * ppb}
+                />
                 {/* The caret cell and its rectangle, under the notes and `pointer-events-none`: both are marks, not targets (docs/clipEditors.md). */}
                 {active && !box && (
                   <div
@@ -787,157 +841,47 @@ export function PianoRoll({
                     }}
                   />
                 )}
-                {visNotes.map((n, i) => {
-                  const h = Math.max(1, rowH - 1);
-                  // What this note is worth: the file's `vel`, or the drag's live value — absent IS the schema's default of 1.
-                  const live =
-                    vDraw && vDraw.key === n.key && vDraw.time === n.time
-                      ? vDraw.vel
-                      : (n.vel ?? 1);
-                  // Where the velocity sits in the note: 0 at its bottom edge, 1 at its top.
-                  const lineY = (1 - live) * (h - 1);
+                {visNotes.map((n) => {
                   // Is THIS the note being moved or stretched — the one in hand, or any of a dragged selection's.
                   const inGroup =
-                    !!tDraw &&
-                    !!groupDraw?.some(
-                      (g) => g.key === n.key && g.time === n.time,
-                    );
+                    !!tDraw && !!groupSet?.has(noteAddr(n.key, n.time));
                   const dragging =
                     inGroup ||
                     (!!tDraw && tDraw.key === n.key && tDraw.time === n.time);
+                  // Outside the window and not in hand: not mounted, which is what keeps a long take cheap (useRollWindow.ts).
+                  if (!dragging && !inView(n)) return null;
                   // The SAME arithmetic the commit runs, so the ghost lands exactly where the write will — pitch included.
-                  const off =
-                    inGroup && tDraw && groupDraw
-                      ? groupOffset(groupDraw, tDraw.dBeats, tDraw.dKeys)
-                      : null;
-                  const at = off
-                    ? {
-                        key: n.key + off.dKeys,
-                        start: n.time + off.dBeats,
-                        end: n.time + off.dBeats + n.duration,
-                      }
-                    : dragging && tDraw
-                      ? tSpan(tDraw)
-                      : null;
-                  const drawStart = at ? at.start : n.time;
-                  const drawDur = at ? at.end - at.start : n.duration;
-                  // The row the note is DRAWN on, which a vertical drag moves; the velocity gesture never runs at the same time.
-                  const top = keyTop(at ? at.key : n.key);
-                  // Does this note SOUND in the event? One that does not is context: drawn, so the window can be judged, and not a target.
-                  const plays = notePlays(n);
+                  const at =
+                    inGroup && groupOff
+                      ? {
+                          key: n.key + groupOff.dKeys,
+                          start: n.time + groupOff.dBeats,
+                          end: n.time + groupOff.dBeats + n.duration,
+                        }
+                      : dragging && tDraw
+                        ? tSpan(tDraw)
+                        : null;
+                  // What this note is worth: the file's `vel`, or the drag's live value — absent IS the schema's default of 1.
+                  const vel =
+                    vDraw && vDraw.key === n.key && vDraw.time === n.time
+                      ? vDraw.vel
+                      : (n.vel ?? 1);
                   return (
-                    <div
-                      key={i}
-                      title={
-                        plays
-                          ? `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
-                              onSetVelocity
-                                ? " — drag the white line for velocity"
-                                : ""
-                            }${
-                              onSetNoteRange
-                                ? `, the body to move${onMoveNote ? " (up or down to transpose)" : ""}, either edge to stretch`
-                                : ""
-                            }`
-                          : `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b — outside this event's window`
-                      }
-                      onPointerDown={
-                        plays ? (e) => onNotePointerDown(e, n) : undefined
-                      }
-                      onContextMenu={
-                        plays ? (e) => onNoteMenu(e, n) : undefined
-                      }
-                      onPointerMove={
-                        plays ? (e) => onNotePointerMove(e, top) : undefined
-                      }
-                      onPointerUp={plays ? endVDrag : undefined}
-                      onLostPointerCapture={plays ? endVDrag : undefined}
-                      className={cn(
-                        "absolute overflow-hidden rounded-[1px] touch-none",
-                        !plays && "pointer-events-none opacity-30",
-                        plays &&
-                          (onSetNoteRange
-                            ? "cursor-grab"
-                            : onSetVelocity && "cursor-ns-resize"),
-                        // A move outranks the velocity cursor while one is happening: the pointer says which gesture it is IN.
-                        dragging &&
-                          (tDraw?.mode === "move"
-                            ? "cursor-grabbing"
-                            : "cursor-ew-resize"),
-                      )}
-                      style={{
-                        top,
-                        height: h,
-                        // The note follows the hand while it is being dragged — a picture, not an edit; nothing is committed until release.
-                        left: ((dragging ? drawStart : n.time) - origin) * ppb,
-                        width: Math.max(
-                          2,
-                          (dragging
-                            ? drawDur
-                            : n.duration > 0
-                              ? n.duration
-                              : 0.25) * ppb,
-                        ),
-                      }}
-                    >
-                      {/* The note reads as a LEVEL before the line is looked for, the colour living on these two halves rather than on the box. */}
-                      <div
-                        className="pointer-events-none absolute inset-x-0 top-0 bg-emerald-500/80"
-                        style={{ height: lineY }}
-                      />
-                      <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 bg-emerald-500"
-                        style={{ top: lineY }}
-                      />
-                      {/* The line itself, half the note's width and centred, inside a `VEL_PX` grab zone that takes the press (docs/clipEditors.md). */}
-                      {h >= 4 && (
-                        <div
-                          onPointerDown={(e) => onNotePointerDown(e, n, "line")}
-                          onPointerMove={(e) => onNotePointerMove(e, top)}
-                          onPointerUp={endVDrag}
-                          onLostPointerCapture={endVDrag}
-                          className={cn(
-                            "absolute left-1/4 w-1/2",
-                            onSetVelocity && "cursor-ns-resize",
-                          )}
-                          style={{
-                            top: lineY - VEL_PX,
-                            height: 2 * VEL_PX + 1,
-                          }}
-                        >
-                          <div
-                            className="pointer-events-none absolute inset-x-0 h-px bg-white"
-                            style={{ top: VEL_PX }}
-                          />
-                        </div>
-                      )}
-
-                      {/* The two STRETCH grips, boxes rather than a hit-test so the cursor says where the handle is, and LAST in the note (docs/clipEditors.md). */}
-                      {onSetNoteRange && plays && (
-                        <>
-                          <div
-                            onPointerDown={(e) =>
-                              onNotePointerDown(e, n, "start")
-                            }
-                            onPointerMove={(e) => onNotePointerMove(e, top)}
-                            onPointerUp={endVDrag}
-                            onLostPointerCapture={endVDrag}
-                            className="absolute inset-y-0 left-0 cursor-ew-resize"
-                            style={{ width: EDGE_PX }}
-                          />
-                          <div
-                            onPointerDown={(e) =>
-                              onNotePointerDown(e, n, "end")
-                            }
-                            onPointerMove={(e) => onNotePointerMove(e, top)}
-                            onPointerUp={endVDrag}
-                            onLostPointerCapture={endVDrag}
-                            className="absolute inset-y-0 right-0 cursor-ew-resize"
-                            style={{ width: EDGE_PX }}
-                          />
-                        </>
-                      )}
-                    </div>
+                    <RollNoteBox
+                      key={keyOf(n)}
+                      n={n}
+                      plays={notePlays(n)}
+                      vel={vel}
+                      at={at}
+                      dragMode={dragging && tDraw ? tDraw.mode : null}
+                      rowH={rowH}
+                      ppb={ppb}
+                      origin={origin}
+                      caps={caps}
+                      edgePx={EDGE_PX}
+                      velPx={VEL_PX}
+                      on={noteHandlers}
+                    />
                   );
                 })}
                 {draftBox && (

@@ -344,9 +344,10 @@ export function useRollGestures({
     ) {
       const playing = notes.filter(notePlays);
       const group = playing.filter((x) => boxHolds(b, x));
+      const inGroup = new Set(group);
       groupRef.current = {
         group,
-        others: notes.filter((x) => !group.includes(x)),
+        others: notes.filter((x) => !inGroup.has(x)),
       };
       setGroupDraw(group);
     }

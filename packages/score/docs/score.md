@@ -22,6 +22,12 @@ reads SF3, so the compressed SONiVOX bank (`apps/k7/frontend/public/score/sonivo
 The view keeps no cursor bar. The notes sounding now are lit (`.score-playing`), and the column
 scrolls when they leave it. A note clicked is where playback jumps to.
 
+Lighting runs every frame, so it does as little as a frame allows: a frame sounding the notes
+already lit touches nothing, the drawn pages are indexed by `data-id` once per layout rather than
+searched per note, and the two rectangles the scroll needs are read before any class is written, so
+no frame forces a layout of a long score. Engraving itself stays on the main thread: it runs on a
+load, a transpose, a part or a zoom, never during playback.
+
 ## No Guitar Pro
 
 Guitar Pro files are not taken. Verovio reads none, and keeping alphaTab for them would mean two

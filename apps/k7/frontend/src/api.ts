@@ -91,6 +91,17 @@ function tooBig(name: string, bytes: Blob | ArrayBuffer): void {
   throw Object.assign(new Error(tooBigMessage(name)), { status: 413 });
 }
 
+/** How long a signed-in answer to /auth/me is reused: long enough for a start's several askers, short enough to notice a session gone. */
+const ME_FRESH_MS = 60_000;
+let me: { at: number; p: Promise<AuthUser | null> } | null = null;
+
+async function askMe(): Promise<AuthUser | null> {
+  const res = await fetch("/auth/me");
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`auth/me ${res.status}`);
+  return (await res.json()).user as AuthUser;
+}
+
 export const api = {
   // --- Auth (hosted backend, same-origin) ---
 
@@ -99,13 +110,23 @@ export const api = {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;
   },
-  getMe: async (): Promise<AuthUser | null> => {
-    const res = await fetch("/auth/me");
-    if (res.status === 401) return null;
-    if (!res.ok) throw new Error(`auth/me ${res.status}`);
-    return (await res.json()).user as AuthUser;
+  // Shared while in flight and for a minute after a signed-in answer; nobody signed in, or a failure, is asked again.
+  getMe: (): Promise<AuthUser | null> => {
+    if (me && Date.now() - me.at < ME_FRESH_MS) return me.p;
+    const asked = { at: Date.now(), p: askMe() };
+    me = asked;
+    const forget = () => {
+      if (me === asked) me = null;
+    };
+    asked.p.then((u) => {
+      if (!u) forget();
+    }, forget);
+    return asked.p;
   },
-  logout: () => fetch("/auth/logout", { method: "POST" }).then(() => undefined),
+  logout: () => {
+    me = null;
+    return fetch("/auth/logout", { method: "POST" }).then(() => undefined);
+  },
 
   // --- Engine registry (hosted backend, same-origin) ---
 

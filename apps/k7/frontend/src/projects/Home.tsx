@@ -13,7 +13,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
-import { findAccountFiles } from "../settings/accountFiles";
+import {
+  homeAccountFiles,
+  prefetchHome,
+  takePrefetchedWorkspaces,
+} from "../settings/accountFiles";
 import { pollWhileVisible } from "../visiblePoll";
 import { AccountBar } from "./AccountBar";
 import { accountFiles, shares as sharesApi } from "./api";
@@ -26,6 +30,9 @@ import type { AccountFiles } from "./workspaceOps";
 
 /** The médiathèque's own: brisk enough that a change from another replica shows, slow enough to cost nothing on a ten-row list. */
 const POLL_MS = 3000;
+
+// As this chunk arrives, which appMain starts beside the sign-in check: the list is then asked once the hello answers, not once the page mounts.
+prefetchHome();
 
 export function Home() {
   const [params, setParams] = useSearchParams();
@@ -44,7 +51,7 @@ export function Home() {
   /** The account's files on the server, engine or none — and no `hold()`: a claim is a lease ON A PROJECT, which this page has none of. */
   useEffect(() => {
     let live = true;
-    void findAccountFiles(false).then((f) => live && setFileService(f));
+    void homeAccountFiles().then((f) => live && setFileService(f));
     return () => {
       live = false;
     };
@@ -86,7 +93,8 @@ export function Home() {
   const lastWorkspaces = useRef("");
   const loadWorkspaces = useCallback(async (m: AccountFiles) => {
     try {
-      const next = await accountFiles.workspaces(m);
+      const next = await (takePrefetchedWorkspaces(m) ??
+        accountFiles.workspaces(m));
       const text = JSON.stringify(next);
       if (text !== lastWorkspaces.current) {
         lastWorkspaces.current = text;

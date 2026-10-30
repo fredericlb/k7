@@ -158,6 +158,12 @@ asked with `bindEngine` off). If that service does not answer, the list is repla
 sentence that says so, rather than by an empty screen that would look like a new account; the
 header says nothing about the server, the list being where its absence shows.
 
+**The list is asked before the page mounts.** `prefetchHome` runs as the home chunk is evaluated,
+which `appMain` starts beside the sign-in check: once `/auth/me` and the hub's hello answer, the
+workspace list is asked, and the page's first read takes that answer instead of asking again. Asked in
+turn from the page, those are four round trips one after the other on a phone — the sign-in check, a second one, the hello,
+the list — before a single row could be drawn.
+
 What can be read and set **without an engine** is what saves installation day: the libraries here
 are asked of the server. A page an engine picker would strike out entirely would be a page where
 nothing can be set until there is an engine.
