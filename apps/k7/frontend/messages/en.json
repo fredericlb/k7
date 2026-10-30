@@ -988,6 +988,8 @@
   "media.contents.noneThisDay": "No recordings on this day.",
   "media.contents.noneTagged": "Nothing tagged #{tag} on this day.",
   "media.contents.yourTake": "Your take",
+  "media.contents.momentShared": "Shared with {server}",
+  "media.contents.momentLocal": "On this machine only",
   "media.contents.deleteRecording": "Delete recording",
   "media.contents.deleteRecordingConfirm": "Delete {name}? Its moments stay, each with its own clip.",
   "media.addRecording.add": "Add recordings",

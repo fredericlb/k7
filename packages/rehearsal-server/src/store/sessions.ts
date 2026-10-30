@@ -26,9 +26,7 @@ type SessionRow = Row<"Sessions">;
 
 const sessionCache = rowCache<SessionRow | null>();
 
-async function getSessionRecord(
-  uid: string,
-): Promise<SessionRow | null> {
+async function getSessionRecord(uid: string): Promise<SessionRow | null> {
   const hit = sessionCache.get(uid);
   if (hit && hit.exp > Date.now()) return hit.rec;
   const recs = await db.listRecords("Sessions", { Uid: [uid] });
@@ -184,6 +182,37 @@ export async function deleteSession(uid: string): Promise<boolean> {
   invalidate(uid);
   safeUnlink(cachePathFor(rec));
   return Boolean(rec);
+}
+
+/** A capture taken out of the zone, with every session that saved it and their pins; its moments stay — ../../docs/moments.md. */
+export async function deleteRecording(recordingPath: string): Promise<void> {
+  // The bytes go BEFORE the rows that hold their path, as for a session.
+  await mediatek.remove(recordingPath);
+  const sessions = db.listRecords(
+    "Sessions",
+    { RecordingPath: [recordingPath] },
+    { fields: ["Uid", "RecordingMime"] },
+  );
+  db.inTransaction(() => {
+    db.deleteRecords(
+      "Markers",
+      db
+        .listRecords(
+          "Markers",
+          { RecordingPath: [recordingPath] },
+          { fields: [] },
+        )
+        .map((r) => r.id),
+    );
+    db.deleteRecords(
+      "Sessions",
+      sessions.map((r) => r.id),
+    );
+  });
+  for (const r of sessions) {
+    invalidate(r.fields.Uid);
+    safeUnlink(cachePathFor(r));
+  }
 }
 
 // --- Recording + envelope ---------------------------------------------------

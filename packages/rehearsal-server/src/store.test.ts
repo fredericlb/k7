@@ -10,6 +10,7 @@ vi.mock("./mediatek.ts", async (actual) => ({
     mkdirSync(dirname(dest), { recursive: true });
     copyFileSync(join(process.env.STUDIO_MEDIATEK as string, path), dest);
   },
+  remove: async () => {},
 }));
 
 // The store and the library are opened at import, so the environment is set before anything loads.
@@ -193,5 +194,23 @@ describe("a recording's pins", () => {
     ]);
     expect(store.deleteRecordingMarker("me", momentPin)).toBe(false);
     expect(store.deleteRecordingMarker("me", String(pin?.id))).toBe(true);
+  });
+});
+
+describe("deleting a recording", () => {
+  it("takes every session that saved it and their pins, the moments kept", async () => {
+    const path = "recordings/2026-08-10/20-00-00.webm";
+    const session = await store.createSession("you");
+    const row = db.listRecords("Sessions", { Uid: [session.id] })[0];
+    db.patchRecord("Sessions", row.id, { RecordingPath: path });
+    store.addRecordingMarker("you", path, { atSec: 1 });
+    const [{ id: moment }] = db.addRecords("Comments", [
+      { OwnerId: "you", RecordingPath: path },
+    ]);
+    await store.deleteRecording(path);
+    expect(db.listRecords("Sessions", { RecordingPath: [path] })).toEqual([]);
+    expect(db.listRecords("Markers", { RecordingPath: [path] })).toEqual([]);
+    expect(db.getRecord("Comments", moment)).not.toBeNull();
+    expect(await store.getSession(session.id)).toBeNull();
   });
 });

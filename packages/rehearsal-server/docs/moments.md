@@ -33,6 +33,17 @@ and each sees only their own. The path is checked as a capture's before anything
 `recordings/<day>/<file>` that is not a moment's own clip. Nothing else is a recording, and a path
 reaching out of the zone is never fetched.
 
+## Deleting a recording takes its sessions with it
+
+`DELETE /moments/recording?path=` is how a capture leaves the zone from the recordings screen. Its
+owner may delete their take, and whoever may manage the library (the host's `mayManageLibrary`) may
+delete any capture. It removes the file first, then every session that saved it, whoever's it was,
+with their markers. Removing the file through the library's own route would leave such a session
+naming a path that is gone. The library's route cannot do this cleanup for it: it cannot tell a
+person deleting a recording from this store replacing a take's file during Continue, which removes
+the previous path before the session row moves to the new one. The moments stay, as they do when a
+session is deleted.
+
 ## Its start, kept on the row
 
 `RecordedAt` is when the recording started: the session's `CreatedAt` for a session's, the

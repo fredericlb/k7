@@ -24,7 +24,7 @@ import {
   publicationsStatus,
 } from "./publications.ts";
 import { configRouter } from "./routes/config.ts";
-import { momentsRouter } from "./routes/moments.ts";
+import { deleteRecordingRoute, momentsRouter } from "./routes/moments.ts";
 import { pagesRouter } from "./routes/pages.ts";
 import { publicPagesRouter } from "./routes/publicPages.ts";
 import { releasesRouter } from "./routes/releases.ts";
@@ -53,6 +53,8 @@ export interface RehearsalOptions {
   server?: (req: Request) => PairedServer | null;
   /** The media library a session's bytes live in: the host's own, over loopback, with a service token. */
   mediatek: RemoteConfig;
+  /** Whether this request may remove from the shared library: a capture that is not its own take. */
+  mayManageLibrary?: (req: Request) => boolean;
 }
 
 /** Every path this package answers under `/api`: what waits for the import, and nothing else. */
@@ -95,6 +97,11 @@ export const mountRehearsal = (
   });
   api.use("/config", requireAuth, configRouter);
   api.use("/sessions", requireAuth, sessionsRouter);
+  api.delete(
+    "/moments/recording",
+    requireAuth,
+    deleteRecordingRoute(opts.mayManageLibrary ?? (() => false)),
+  );
   api.use("/moments", requireAuth, momentsRouter);
   api.use("/releases", bearerOrSession(requireAuth), releasesRouter);
   api.use("/pages", requireAuth, pagesRouter);
