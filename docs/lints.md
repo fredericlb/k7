@@ -41,7 +41,7 @@ resolves. (Spelling a whole example path here would make this sentence a broken 
 legitimately name although this checkout has not got them: a page inside `engine/k7-runtime` writes
 `engine/EditBuilder.cpp` relative to its own app — a path under one of `engine/`'s real folders is
 still checked — a page may name a file of `@frediverse/*`, which is the commons submodule and may
-not be checked out, and a path under `dist/` names a build output a checkout has only once built.
+not be checked out, and a path under `dist/` or a Rust `target/` names a build output a checkout has only once built.
 A growing list there is the check going soft.
 
 `TOMBSTONES` is the other one, and it is empty: a path listed there is exempted because the
