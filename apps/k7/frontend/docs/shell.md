@@ -1667,7 +1667,14 @@ A schema re-exports what its light half holds, so a caller that already loads th
 
 The first screen's chunk is started as `appMain` evaluates, beside `AuthGate`'s `/auth/me`, rather than
 once that answers: on a phone the sign-in check and the download then overlap instead of following each
-other. Only the home page and a project's `EngineGate` are started this way, the two a launch opens on.
+other. Only the home page and a project's `EngineGate` are started this way, the two a launch opens on —
+and a project address starts `App` too, the longest download and parse of any start, which would
+otherwise wait for `ProjectGate` to mount behind the sign-in check and the engine gate. Beside them
+goes the file hub's hello (`engines.hostedFiles()`), which needs only the cookie: the home page's
+workspace list and a project's engine probe both wait on it. `/auth/me` is asked once per start
+however many screens ask (`api.getMe` shares a signed-in answer for a minute), and the home page's
+workspace list is asked as soon as the hello answers, from its chunk's evaluation rather than from
+its first render (`settings/accountFiles.ts`, `prefetchHome`).
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in
 the browser's own by then, so it only has to say "coming".
 

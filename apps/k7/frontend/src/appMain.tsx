@@ -24,13 +24,15 @@ import {
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { type Scope, scopeOf } from "./address";
+import { engines } from "./api";
 import { currentScopeKey, subscribeAddress, useScopeWatch } from "./appNav";
 import { canServeLenses, serveLenses } from "./camera/serveLenses";
 import { AuthGate } from "./components/AuthGate";
 
 /** The four screens that are NOT the home page, split out of the entry — see docs/shell.md.
  *  Only one address is ever taken, so only one of these is ever fetched. */
-const App = lazy(() => import("./App"));
+const loadApp = () => import("./App");
+const App = lazy(loadApp);
 const loadEngineGate = () => import("./components/EngineGate");
 const EngineGate = lazy(() =>
   loadEngineGate().then((m) => ({ default: m.EngineGate })),
@@ -121,7 +123,13 @@ dressPage(scopeOf(window.location.pathname, BASE));
 const first = scopeOf(window.location.pathname, BASE).kind;
 // A failure here is the lazy screen's to report when it asks again, not an unhandled rejection.
 if (first === "home") loadHomeRoutes().catch(() => {});
-else if (first === "project") loadEngineGate().catch(() => {});
+else if (first === "project") {
+  loadEngineGate().catch(() => {});
+  // The editor is the longest download of any start: begun here, not once ProjectGate mounts after the sign-in check.
+  loadApp().catch(() => {});
+}
+// The file hub's hello needs only the cookie, so it runs beside /auth/me rather than after it (`@studio/engine-browser/access`).
+if (first === "home" || first === "project") void engines.hostedFiles();
 
 /** …and this machine's own window offers the cameras it may open, to a device that may not — the
  *  loopback origin being both the secure context and the proof of whose machine this is. */
