@@ -11,6 +11,7 @@ import {
 import { Disc3 } from "@frediverse/ui/icons";
 import { MiniPlayer as Bar } from "@studio/ui-mini-player";
 import { useLabels } from "../host";
+import { songRow } from "../songRows";
 import { useSongShape } from "../songWaveform";
 import { usePlayback } from "./PlaybackProvider";
 import { usePlaybackPosition } from "./position";
@@ -18,12 +19,6 @@ import { playbackTargetInfo } from "./targets";
 import { useInstrumentalMenu } from "./useInstrumentalMenu";
 import { useStartNext } from "./useQueueAdvance";
 import { WaveformTrack } from "./WaveformTrack";
-
-/** The album, which no field carries: the path's second-to-last segment IS it. */
-function albumOf(path: string): string {
-  const parts = path.split("/");
-  return parts.length >= 4 ? parts[parts.length - 2] : "";
-}
 
 export function MiniPlayer() {
   const { now, playing, error, toggle, seek, queue } = usePlayback();
@@ -41,10 +36,10 @@ export function MiniPlayer() {
   if (!now) return null;
 
   const { entry, target, version } = now;
-  const artist =
-    typeof entry.meta?.artist === "string" ? entry.meta.artist : "";
-  // The entry's folder, not the master's file path: the master is the last segment of `path`.
-  const album = albumOf(entry.path);
+  // Read as the songs' table reads them, so the two never name a song differently.
+  const row = songRow(entry, false);
+  const artist = row.artist;
+  const album = row.album ?? "";
   const where = playbackTargetInfo(target);
   const WhereIcon = where.icon;
   // The bar says the title alone; who, which record and which version are behind the play button.
