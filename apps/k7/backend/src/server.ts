@@ -55,6 +55,7 @@ import { readinessRoute, volumesFromEnv } from "./readiness.ts";
 import { deviceDoor } from "./remote/door.ts";
 import { forwardToPairedServer, SERVER_PATH } from "./remote/forward.ts";
 import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
+import { collectAfterStart } from "./startMemory.ts";
 import { BUILD, VERSION } from "./version.ts";
 import { subjectOf } from "./who.ts";
 
@@ -320,6 +321,7 @@ const onListening = () => {
   // The servers paired before the engine followed its pairings, listed at the supervisor's first answer.
   if (localEngine && process.env.STUDIO_FILES_ROOT)
     listPairedOnce(localEngine, process.env.STUDIO_FILES_ROOT);
+  if (LOCAL_USER) collectAfterStart();
 };
 const server = behindProxy(createServer(app));
 const listen = (): void => {

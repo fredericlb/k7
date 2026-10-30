@@ -223,9 +223,15 @@ are kept in `<log folder>/blob-index.json` (`../src/liveLedger.ts`), by workspac
 matches is known by the hash recorded; any other is hashed. On the library checkout the ledger
 build went from about 95 ms to 60 ms warm, and four 256 MB takes from 360 ms to under 1 ms.
 
-A text file other than k7x is recorded there too, by its `textHash`, so a start reads only the k7x
-files, whose text the ledger keeps. The texts sit under their own key, `texts`, beside `files`: a k7
-that reads only `files` must never take a text's hash for a blob's.
+Text files are recorded there too, by their `textHash`, under their own key, `texts`, beside
+`files`: a k7 that reads only `files` must never take a text's hash for a blob's.
+
+A k7x file is the exception the ledger makes: it keeps the file's TEXT, to diff the next change into
+path ops. Against a baseline, an unchanged k7x file is known by its hash alone, and its text is read
+from the baseline when it changes, if the baseline still holds those very bytes (by hash). So a start
+reads none of the workspace's files, and the ledger holds no text it may never need. Without a
+baseline there is nowhere to take that text from, so each k7x file is read. When the baseline has
+moved on, the change travels as a whole text: correct, only coarser.
 
 Against a baseline, a file whose content on disk is the baseline's keeps the walk's entry, real
 stamp included. With an empty stamp instead, the first sweep would read and hash every text file a

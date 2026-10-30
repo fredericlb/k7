@@ -62,6 +62,15 @@ would mean lifting all three locks, and a login of its own for the tablet. The s
 services and the page all reach this backend on `127.0.0.1`. The locks cover HTTP routes; a
 WebSocket upgrade is answered by its own listener and is that listener's to check.
 
+## Memory after the start
+
+Twenty seconds after it listens, a standalone runs one full garbage collection (`../src/startMemory.ts`).
+The start allocates far more than it keeps: the library's capture, the parse cache, the first
+requests. V8 keeps the heap that grew while nothing allocates, and a phone's backend mostly waits:
+on a desktop the heap stayed near 180 MB for 34 MB in use. `gc` needs `--expose-gc`, which no host
+passes. The flag is set at run time instead, and `gc` read from a context made after it, so the
+three hosts stay as they are. A hosted server never runs it: it allocates all the time.
+
 ## The bundle: `scripts/bundle.mjs`
 
 The backend and the file service it starts, each one ESM file, plus the files they read at run time —
