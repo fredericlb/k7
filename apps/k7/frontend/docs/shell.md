@@ -277,9 +277,10 @@ The edge is MEASURED, since the bar's height depends on what it holds and it flo
 popin. A fold button beside the sidebar's brand closes it, as do a click beside it and Escape. The
 drawer carries no engine block: inside a project the engine is the bar's.
 
-**There is ONE engine selector, in the bar's engine slot** (`components/BarEngine.tsx`), right of
-the right slot — the project bar's in a project, the home bar's on the home pages (`projects.md`,
-"The home bar"): the engine is what plays, so it stands with what plays rather than one drawer away.
+**There is ONE engine selector** (`components/BarEngine.tsx`). In a project it is in the project
+bar's engine slot, right of the right slot: the engine is what plays, so it stands with what plays
+rather than one drawer away. On the home pages it is above the sidebar's user menu, or in the home
+bar while the sidebar is folded (`projects.md`, "The home bar").
 It is **an icon button with a dot**: green while the link is up, red when it is down, amber with no
 engine (or one missing a plugin), grey while one is looked for. One glyph, because the bar's right end
 is crowded on any screen and the state is what is glanced at; the words are in its tooltip and its menu.

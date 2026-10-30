@@ -1,7 +1,7 @@
 // HomeFrame.tsx — what every home page shares: whether the sidebar is folded, and the mini player's
-// dock, whose bar is always there at the foot with the engine in its engine slot. `HomeFrame` is held
-// above the routes, so the fold and the engine's probe survive a page change; `HomeShell` is each page's layout.
-// See ../../docs/projects.md, "The home bar".
+// dock, whose bar is always there at the foot. The engine selector sits above the sidebar's user menu,
+// and in the bar while the sidebar is folded. `HomeFrame` is held above the routes, so the fold
+// survives a page change; `HomeShell` is each page's layout. See ../../docs/projects.md, "The home bar".
 
 import { AudioLines, PanelLeftOpen } from "@frediverse/ui/icons";
 import { MiniPlayer } from "@studio/ui-mini-player";
@@ -71,7 +71,8 @@ export function HomeFrame({ children }: { children: ReactNode }) {
       <PanelLeftOpen className="h-4 w-4" />
     </button>
   ) : undefined;
-  const end = useMemo(() => <HomeEngine />, []);
+  // Folded, the sidebar's engine comes to the bar: the médiathèque's engine destination is what it shows.
+  const end = useMemo(() => (folded ? <HomeEngine /> : undefined), [folded]);
   return (
     <FrameContext.Provider value={frame}>
       <MiniPlayerDock lead={lead} end={end}>
@@ -106,6 +107,8 @@ export function HomeShell({
                 {/* The take's dot, on every home page: a session starts wherever one is reading, not on the rehearsal ones alone. */}
                 <NewSessionButton />
                 {actions}
+                {/* Right above the user menu, the sidebar's last control (../../docs/projects.md, "The home bar"). */}
+                <HomeEngine inSidebar />
               </>
             }
             mediaCounts={mediaCounts}

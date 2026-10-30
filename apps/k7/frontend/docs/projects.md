@@ -73,9 +73,13 @@ take being the home's.
 **Every home page has the same bar at its foot, always** (`HomeFrame.tsx`), under the sidebar and the
 page alike, so it spans the window. It is the mini player's DOCK (`packages/ui-mini-player/docs/miniPlayer.md`):
 whichever bar a page mounts is drawn there — the médiathèque's player — and
-while none is, a standby bar saying nothing is playing. The row never comes and goes, because what
-it carries does not depend on the page: the **engine selector** in its engine slot, right of the
-right slot (`shell.md`), and the way back to a folded sidebar at its left edge.
+while none is, a standby bar saying nothing is playing. The row never comes and goes, so the way back
+to a folded sidebar at its left edge is always there.
+
+**The engine selector is the sidebar's**, right above the user menu (`shell.md`): the player's row
+is crowded on a phone, and the engine is a setting of the home pages rather than part of what plays.
+While the sidebar is folded away it moves to the bar's engine slot, since the médiathèque's
+**The engine** destination plays on the engine it shows, and that has to stay chosen and in sight.
 
 **The sidebar folds** from a button beside its brand, and the bar's left edge then holds the button
 that brings it back; the fold is kept per browser, being a habit of the screen. The rail has no room

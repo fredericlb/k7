@@ -1,4 +1,4 @@
-// HomeEngine.tsx — the engine selector of the home pages, in their bar's engine slot: the engine
+// HomeEngine.tsx — the engine selector of the home pages, above the sidebar's user menu: the engine
 // remembered on the account (else the policy's pick) with the probe's figures, and the engines to
 // pick another from. There is no session here, so a pick is what the NEXT project opens on. See ../../docs/shell.md.
 
@@ -28,8 +28,8 @@ const find = (fresh = false) => {
   return probe.found;
 };
 
-/** The home pages' engine slot: the account's remembered engine, its probed figures, and the list to choose another. */
-export function HomeEngine() {
+/** The home pages' engine: the account's remembered engine, its probed figures, and the list to choose another. */
+export function HomeEngine({ inSidebar = false }: { inSidebar?: boolean }) {
   const isMobile = useIsMobile();
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [current, setCurrent] = useState<RankedEngine | null>(null);
@@ -117,7 +117,8 @@ export function HomeEngine() {
               : "none"
         }
         choice={choice}
-        toolSize={isMobile ? "icon" : "icon-xs"}
+        toolSize={inSidebar || isMobile ? "icon" : "icon-xs"}
+        align={inSidebar ? "start" : "end"}
       />
       {picking && (
         <div className="fixed inset-0 z-50 bg-background">
