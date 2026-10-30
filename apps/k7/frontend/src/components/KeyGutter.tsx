@@ -16,6 +16,7 @@ export function KeyGutter({
   keyNames,
   onAudition,
   onSelectKey,
+  hoverKey = null,
 }: {
   width: number;
   rowH: number;
@@ -25,6 +26,8 @@ export function KeyGutter({
   keyNames?: ReadonlyMap<number, string>;
   onAudition?: (key: number) => void;
   onSelectKey: (key: number) => void;
+  /** The key the pointer is over in the grid: lit, and named whatever octave it is in. */
+  hoverKey?: number | null;
 }) {
   const named = keyNames != null && keyNames.size > 0;
   return (
@@ -45,7 +48,7 @@ export function KeyGutter({
                 ? noteName(k)
                 : undefined
           }
-          className={`flex w-full items-center justify-end pr-1 text-[9px] text-muted-foreground cursor-pointer hover:bg-accent ${isBlack(k) ? "bg-muted/50" : ""}`}
+          className={`flex w-full items-center justify-end pr-1 text-[9px] text-muted-foreground cursor-pointer hover:bg-accent ${k === hoverKey ? "bg-accent/70 text-foreground" : isBlack(k) ? "bg-muted/50" : ""}`}
           style={{ height: rowH, lineHeight: `${rowH}px` }}
         >
           {!showLabels ? (
@@ -54,7 +57,7 @@ export function KeyGutter({
             <span className="min-w-0 truncate text-foreground">
               {keyNames.get(k)}
             </span>
-          ) : named ? (
+          ) : named || k === hoverKey ? (
             noteName(k)
           ) : pc(k) === 0 ? (
             <>
