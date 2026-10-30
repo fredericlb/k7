@@ -204,8 +204,18 @@ void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
     std::cerr << "\n";
 }
 
+// From the cache while nothing changed: a scan of every backend takes tens to hundreds of ms on the message thread (docs/audioDevice.md).
 std::vector<AudioDeviceInfo> EngineHost::listAudioDevices() {
-    return enumerateDevices(impl_->engine.getDeviceManager().deviceManager);
+    auto& jdm = impl_->engine.getDeviceManager().deviceManager;
+    auto& cache = impl_->deviceList;
+    if (cache == nullptr) cache = std::make_unique<DeviceListCache>(jdm);
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (cache->stale || now - cache->readMs > DeviceListCache::kMaxAgeMs) {
+        cache->devices = enumerateDevices(jdm);
+        cache->readMs = now;
+        cache->stale = false;
+    }
+    return cache->devices;
 }
 
 // Open a specific interface (input + output); an empty `type` means the first backend offering the name, and an unknown name warns rather than crashes.
@@ -293,6 +303,8 @@ bool EngineHost::setAudioDevice(const std::string& name, const std::string& type
 }
 
 void EngineHost::publishAudioTiming() {
+    // Every open, close and switch passes here, and the list's `current` flags and channel counts move with them.
+    if (impl_->deviceList != nullptr) impl_->deviceList->stale = true;
     auto* dev = impl_->engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
     impl_->audioBufferFrames.store(dev ? dev->getCurrentBufferSizeSamples() : 0,
                                    std::memory_order_relaxed);

@@ -268,6 +268,26 @@ the row a musician needs to pick. The running device's `current` flag is carried
 even when the engine is on a collapsed variant, so the picker still ticks the right interface.
 Channel counts are known only for the OPEN device; answering for the rest would mean opening them.
 
+### The list is cached, and sent to everyone only when it moved
+
+Enumerating asks every backend to scan — ASIO, WASAPI and DirectSound on Windows, Oboe through JNI on
+a phone — which takes tens to hundreds of milliseconds on the message thread every session shares,
+and the supervisor asks every ten seconds. So `listAudioDevices` answers from `DeviceListCache`
+(`EngineHostImpl.h`) and scans again only when it has a reason:
+
+- the device manager **reports a change** — a backend that hears the OS (WASAPI, CoreAudio) calls it
+  when an interface comes or goes, and an open or a close sends one too;
+- the engine **opened, closed or switched** a device itself: every such path passes through
+  `publishAudioTiming`, which marks the list stale at once, so the reply to a switch is never the
+  list from before it;
+- the list is **thirty seconds old**: ASIO, DirectSound and ALSA say nothing when a device is
+  plugged in, so a polled list must still find it. On Windows an ASIO interface is usually a WASAPI
+  endpoint too, whose notice makes the next poll rescan every backend.
+
+The reply goes to **every client only when it differs from the last one sent to all**; an unchanged
+list answers its asker alone. A page still learns a hot-plug from the supervisor's poll, and nobody
+receives the same list every ten seconds.
+
 ### A setup may take its inputs from another device
 
 CoreAudio lets one setup play through one device and record from another, and Tracktion

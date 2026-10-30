@@ -161,6 +161,24 @@ struct Session {
     }
 };
 
+// The interfaces as last enumerated, read again on a change the device manager reports, a device opened, or past kMaxAgeMs (docs/audioDevice.md).
+struct DeviceListCache : juce::ChangeListener {
+    // A backend that sends no change notice (ASIO, DirectSound, ALSA) is rescanned at this age, at the latest.
+    static constexpr double kMaxAgeMs = 30000.0;
+    explicit DeviceListCache(juce::AudioDeviceManager& jdm) : jdm_(jdm) { jdm_.addChangeListener(this); }
+    ~DeviceListCache() override { jdm_.removeChangeListener(this); }
+    DeviceListCache(const DeviceListCache&) = delete;
+    DeviceListCache& operator=(const DeviceListCache&) = delete;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override { stale = true; }
+
+    std::vector<AudioDeviceInfo> devices;
+    double readMs = 0.0;
+    bool stale = true;
+
+private:
+    juce::AudioDeviceManager& jdm_;
+};
+
 // Unmute what the punch-in muted, and forget it — every end of a record roll calls this.
 void restorePunchMute(Session& s);
 
@@ -171,6 +189,7 @@ struct EngineHost::Impl {
     te::Engine engine{"Studio", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
     std::unique_ptr<juce::Timer> midiScanTimer;   // the MIDI device rescan, held off while anything plays (docs/audioDevice.md)
+    std::unique_ptr<DeviceListCache> deviceList;  // what `list-audio-devices` answers from, message thread only
 
     // What the open device costs, PUBLISHED by the message thread on every open or change; atomic because `whoami` answers on the socket's own thread (publishAudioTiming).
     std::atomic<int> audioBufferFrames{0};
