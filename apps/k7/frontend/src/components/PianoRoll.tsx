@@ -200,6 +200,7 @@ export function PianoRoll({
     new Map(),
   );
   const inFlight = useRef(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `project` is the landing itself — an unchanged clip keeps its notes' identity (queries/projectDoc.ts)
   useEffect(() => {
     setPending((cur) => {
       if (!cur.size) return cur;
@@ -211,7 +212,7 @@ export function PianoRoll({
       for (const k of done) next.delete(k);
       return next;
     });
-  }, [clip.notes]);
+  }, [clip.notes, project]);
   // A different clip's ghosts are not this one's.
   useEffect(() => {
     setPending(new Map());
@@ -560,13 +561,13 @@ export function PianoRoll({
     seenKeys.add(k);
     return k;
   };
+  // On the three facts, not the callbacks: a host passes new closures on every render.
+  const canVel = !!onSetVelocity;
+  const canRange = !!onSetNoteRange;
+  const canPitch = !!onMoveNote;
   const caps = useMemo<RollNoteCaps>(
-    () => ({
-      vel: !!onSetVelocity,
-      range: !!onSetNoteRange,
-      pitch: !!onMoveNote,
-    }),
-    [onSetVelocity, onSetNoteRange, onMoveNote],
+    () => ({ vel: canVel, range: canRange, pitch: canPitch }),
+    [canVel, canRange, canPitch],
   );
   // Stable handlers over the gestures' latest closures, so a memoised note is not re-rendered by a new function.
   const gestures = useRef({

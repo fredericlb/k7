@@ -1,10 +1,14 @@
 // projectDoc.ts — the compiled project document as ONE cached read per reload key: the shell's
 // slice of it, the timeline, the minimap and the clip editors all draw the same answer, asked
-// once. Scoped like the graph (graph.ts), by the counter the key counts.
+// once. Scoped like the graph (graph.ts), by the counter the key counts. The one thing a reader
+// would get wrong: each key is a new query, so the fresh answer is shared deep with the previous
+// key's, and an unchanged track or clip keeps its identity and its memos (docs/state.md).
 
 import {
   keepPreviousData,
+  type QueryClient,
   queryOptions,
+  replaceEqualDeep,
   useQuery,
 } from "@tanstack/react-query";
 import { api } from "../api";
@@ -15,11 +19,36 @@ import type { WebProject } from "../types";
 export function projectDocQuery(scope: string, key: number) {
   return queryOptions({
     queryKey: ["projectDoc", scope, key],
-    queryFn: () => api.projectDoc(),
+    queryFn: async ({ client }) =>
+      sharedWithPrevious(client, scope, key, await api.projectDoc()),
     // Re-asked on a backoff while it fails, as a document read always has (useDocument.ts).
     retry: true,
     retryDelay,
   });
+}
+
+/** `fresh`, with every part equal to the latest earlier key's answer replaced by that part itself. */
+export function sharedWithPrevious(
+  client: QueryClient,
+  scope: string,
+  key: number,
+  fresh: WebProject,
+): WebProject {
+  let prev: WebProject | undefined;
+  let prevKey = Number.NEGATIVE_INFINITY;
+  for (const [k, data] of client.getQueriesData<WebProject>({
+    queryKey: ["projectDoc", scope],
+  })) {
+    const at = Number(k[2]);
+    if (data && at < key && at > prevKey) {
+      prev = data;
+      prevKey = at;
+    }
+  }
+  if (!prev) return fresh;
+  const shared = replaceEqualDeep(prev, fresh);
+  // A new root even when nothing changed: an answer landing is itself news to whoever waits on one.
+  return shared === prev ? { ...prev } : shared;
 }
 
 export interface ProjectDocRead {
