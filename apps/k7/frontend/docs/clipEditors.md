@@ -409,6 +409,21 @@ what takes the time. The cell is a CELL as the caret's is, the column one step o
 unit, so the band says where a click lands, not where the pointer happens to be within it. It is
 a mark and nothing else: it moves no caret, and it goes when the pointer leaves the grid.
 
+The cell lives in a small store of its own, not in the roll's state: the bands and each gutter key
+read it themselves, so a new cell re-renders the bands and the two keys that change, never the
+notes. A recorded performance is thousands of notes of several elements each, and reconciling all
+of them on every pointer move is what makes a phone's WebView stutter.
+
+### A long take mounts only what is near the screen
+
+The roll mounts the notes inside the viewport plus one viewport of margin on every side
+(`src/hooks/useRollWindow.ts`), the window moving by half a viewport at a time so a scroll
+re-renders the roll a few times per screen rather than per pixel. A note in hand is always
+mounted, whatever the window, since it holds the pointer capture. Each note is a memoised
+`RollNoteBox` keyed by its address, its handlers held stable by the roll, so a drag step
+re-renders the notes being dragged and no other. The header still counts every note of the
+canvas, culled or not.
+
 ### The selection reaches the transport
 
 **Shift+L loops it**, exactly as on the timeline, and that is what a rectangle over one bar of a
