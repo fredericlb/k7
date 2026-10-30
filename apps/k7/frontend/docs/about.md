@@ -40,11 +40,11 @@ browser bundle holds, which is the safe direction for a notice.
 
 What npm does not install is `notices/components.json`: the libraries CMake fetches for the
 engine and its supervisor, the Termux packages of the phone, the OS packages of the two runtime
-images, the fonts and sound font alphaTab copies in. Each names its licence, where it
+images, the sound font the score player plays through. Each names its licence, where it
 ships, and its own notice under `notices/texts/`. `collect.test.ts` fails when a
 `FetchContent_Declare`, a pinned Termux package, or an `apk`/`apt` package of a runtime image has
 no entry, and when a hand-written version is no longer in the file that pins it. A version the
-tree already pins elsewhere (Termux, alphaTab) is READ from there, never copied.
+tree already pins elsewhere (Termux) is READ from there, never copied.
 
 `notices/vendor.ts` refreshes the engine's notices from the licence files in an engine build's
 `_deps` — the library's own and those of the submodules it compiles in. It is run by hand after

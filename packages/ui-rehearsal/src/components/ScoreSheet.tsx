@@ -1,4 +1,4 @@
-// One score file on the Sheet tab: its toolbar — play, part, transpose, zoom — over alphaTab's view.
+// One score file on the Sheet tab: its toolbar — play, part, transpose, zoom — over the score's view.
 // The view is imported lazily, so the library loads only when a song shows a score (../../../score/docs/score.md).
 
 import { Button } from "@frediverse/ui/button";

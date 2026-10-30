@@ -21,10 +21,11 @@ describe("sheetKind", () => {
     expect(sheetKind("part.mxl", "application/octet-stream")).toBe("score");
     expect(sheetKind("part.musicxml", "text/xml")).toBe("score");
     expect(sheetKind("Part.XML", "application/xml")).toBe("score");
-    expect(sheetKind("riff.gp5", "")).toBe("score");
   });
 
-  it("refuses anything else", () => {
+  it("refuses anything else, Guitar Pro included", () => {
+    expect(sheetKind("riff.gp5", "")).toBeNull();
+    expect(sheetKind("riff.gpx", "application/x-guitar-pro")).toBeNull();
     expect(sheetKind("setup.exe", "application/octet-stream")).toBeNull();
     expect(sheetKind("notes.txt", "text/plain")).toBeNull();
   });
@@ -38,7 +39,6 @@ describe("canonicalSheetMime", () => {
     expect(canonicalSheetMime("p.musicxml", "text/xml")).toBe(
       "application/vnd.recordare.musicxml+xml",
     );
-    expect(canonicalSheetMime("r.gpx", "")).toBe("application/x-guitar-pro");
   });
 
   it("keeps PDFs and images as sent, and refuses the rest", () => {
@@ -59,8 +59,9 @@ describe("sheetExt", () => {
 
 describe("the picker and the predicate", () => {
   it("offers every score extension", () => {
-    for (const ext of [".musicxml", ".mxl", ".gp5"])
+    for (const ext of [".musicxml", ".mxl", ".xml"])
       expect(SHEET_ACCEPT.split(",")).toContain(ext);
+    expect(SHEET_ACCEPT).not.toContain(".gp");
   });
 
   it("tells a score from a sheet image", () => {
