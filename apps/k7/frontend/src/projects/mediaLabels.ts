@@ -143,6 +143,12 @@ export function mediaLabels(): LibraryLabels {
       uploading: (percent) =>
         m["media.addSong.uploading"]({ percent: String(percent) }),
       filing: m["media.addSong.filing"](),
+      notSetUp: m["media.addSong.notSetUp"](),
+      gap: {
+        slskd: m["media.addSong.gapSlskd"](),
+        sftp: m["media.addSong.gapSftp"](),
+      },
+      missingList: (list) => m["media.addSong.missingList"]({ list }),
     },
     save: {
       clean: m["media.save.clean"](),

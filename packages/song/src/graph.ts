@@ -28,7 +28,7 @@ import {
   type Track,
   type VideoTrack,
 } from "./graphTypes";
-import { checkChainInputs, validate } from "./graphValidate";
+import { checkChainInputs, validateIssues } from "./graphValidate";
 import { applyLinkLevels, unplayedLevels } from "./linkLevels";
 import {
   exportSub,
@@ -106,6 +106,7 @@ export {
 export {
   checkChainInputs,
   validate,
+  validateIssues,
 } from "./graphValidate";
 // Where an unnamed node sits, for whatever SHOWS one — this package exports no chainProject subpath.
 export {
@@ -345,7 +346,8 @@ export function buildGraph(
     assemblies: assembliesMap,
     warnings: [],
   };
-  g.warnings = validate(g);
+  g.issues = validateIssues(g);
+  g.warnings = g.issues.map((i) => i.text);
   return g;
 }
 

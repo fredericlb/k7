@@ -59,10 +59,16 @@ export function canFallBackToYoutube(h: HuntRecord): boolean {
   return h.status === "failed" && h.exhausted === true;
 }
 
+/** A half of the download's settings still blank: the slskd daemon, or the SFTP side that fetches its files. */
+export type HuntSettingsGap = "slskd" | "sftp";
+
 /** What `GET /api/hunt` answers; `configured` rides along so the screen can draw its own absence. */
 export interface HuntList {
   configured: boolean;
+  /** The server's own sentence, a fallback for a screen that does not know the gaps below. */
   reason: string | null;
+  /** What is blank, so the screen says it in its own language — empty when configured. */
+  missing: HuntSettingsGap[];
   /** Whether the YouTube fallback is available at all — yt-dlp is a binary, not a setting. */
   youtube: boolean;
   hunts: HuntRecord[];

@@ -48,6 +48,14 @@ chains icon table. `Glyph` — a viewBox and a body — is declared there rather
 k7's `trackIcons` where it started, because that file stayed in the app for the reason above.
 Two fields is a cheaper duplication than the coupling.
 
+**`labels` — optional, English by default.** The words on the graph's own controls (`src/labels.ts`):
+the minimap's buttons, a cable's `+`, a pad's mute, the preset dropdown, the frozen tags. This
+package draws in more than one app and has no catalogue, so a host that reads in another language
+hands in its translation, whole or in part — a label it leaves out is the enclosing graph's, else
+the English one. It travels by context like `icons`, for the same reason. Two pieces take it as a
+prop instead (`Cables`, `PresetButton`): `a11y.test.tsx` calls them as plain functions, where no
+context can be read. k7's is `apps/k7/frontend/src/chainsLabels.ts`.
+
 **`runCommand`** (the `command` prop) — a `@studio/commands` SID line. Every app that can
 edit a graph has one.
 

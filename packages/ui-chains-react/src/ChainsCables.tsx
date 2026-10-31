@@ -12,6 +12,7 @@ import {
 import type { EdgeInsert } from "@studio/ui-chains/graph";
 import { memo } from "react";
 import { onEnter } from "./keyActivate";
+import { type ChainsLabels, ENGLISH_CHAINS_LABELS } from "./labels";
 
 export interface EdgeGeom extends CableGeom {
   id: string;
@@ -37,7 +38,10 @@ function CablesInner({
   setHovered,
   onInsert,
   nameOf = same,
+  l = ENGLISH_CHAINS_LABELS,
 }: {
+  /** The words, handed down by DomChains: the layer is called as a function in tests, so it reads no context. */
+  l?: ChainsLabels;
   signal: EdgeGeom[];
   auto: AutoTarget[];
   showLabels: boolean;
@@ -109,7 +113,7 @@ function CablesInner({
         const d = smoothPath(g.base);
         const on = hovered === g.id;
         const mid = midByArc(g);
-        const label = `Add a module between ${nameOf(ins.before)} and ${nameOf(ins.after)}`;
+        const label = l.addModuleBetween(nameOf(ins.before), nameOf(ins.after));
         return (
           <g key={`ins:${g.id}`}>
             <path

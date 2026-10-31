@@ -99,7 +99,9 @@ sweep that moved them settled:
 - **A table of static labels becomes a table of FUNCTIONS** (`() => m["…"]()`), never a table
   read once at module scope: the latter freezes whatever language was loaded first. `shapes.ts`,
   `timelineTools.ts`, `rollMode.ts`, `mastering/controls.ts` and the clip view's modes all follow
-  it, and their consumers call `label()` rather than reading `label`.
+  it, and their consumers call `label()` rather than reading `label`. `shellMeta.tsx`'s pane and
+  panel tables use a GETTER instead, `label` still read as a field: a dozen places read it, and a
+  getter is just as live.
 - **`messages.test.ts` is the guard**: the two catalogues must name the same keys and ask for the
   same parameters. Nothing else in the build notices a key added to one and not the other — the
   screen just falls back to printing the key.
@@ -108,7 +110,16 @@ sweep that moved them settled:
 `ui-chains-react`, `ui-module-builder`, `project-shell` and `ui-user-menu` draw
 inside this app and inside others, each with its own message set; a French string in one of them
 is a French string in every host. What crosses that line is a `noun`-shaped hint the host hands
-in, not a sentence. The same rule covers text a package writes into a FILE — the
+in, not a sentence — or, for `ui-chains-react`, a whole `labels` object: its controls carry
+sentences ("Add a module between …", "Mute Kick"), so it takes them from `DomChains`'s `labels`
+prop with English defaults, and k7 fills it from this catalogue in `src/chainsLabels.ts`.
+
+**Text a server or a shared package WRITES is sent as a code with its names, beside the English
+sentence.** The screen words the code; the sentence is what a log prints and what the screen falls
+back on for a code it does not know. The graph's warnings (`issues` beside `warnings`,
+`src/graphWarnings.ts`) and the add-song popin's "download not set up" (`missing` beside `reason`)
+are built that way. The quoted names inside a warning — a chain's, a track's, `out`, `from` — are
+the file's own words and stay as written. The same rule covers text a package writes into a FILE — the
 `SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.k7x` are English
 because the file is read where the code is.
 

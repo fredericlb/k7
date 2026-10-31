@@ -5,6 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mediatekDir } from "@studio/mediatek/layout";
+import type { HuntSettingsGap } from "@studio/web-protocol/hunt";
 import type {
   SlskdSettings,
   SlskdSettingsInput,
@@ -124,13 +125,23 @@ export function sftpOf(): SftpConfig | null {
   };
 }
 
-/** What is missing, in the words of the settings screen — null when a hunt can run. */
+/** Which halves are still blank, as ids the screen words in its own language — empty when a hunt can run. */
+export function gaps(): HuntSettingsGap[] {
+  const out: HuntSettingsGap[] = [];
+  if (!slskdOf()) out.push("slskd");
+  if (!sftpOf()) out.push("sftp");
+  return out;
+}
+
+const GAP_TEXT: Record<HuntSettingsGap, string> = {
+  slskd: "the slskd address and its API key",
+  sftp: "the SFTP host, its user and the download folder",
+};
+
+/** The same gaps as a sentence, for a log or a caller that has no screen — null when a hunt can run. */
 export function missing(): string | null {
-  const gaps: string[] = [];
-  if (!slskdOf()) gaps.push("l'adresse de slskd et sa clé API");
-  if (!sftpOf())
-    gaps.push("l'hôte SFTP, son utilisateur et le dossier de téléchargement");
-  return gaps.length
-    ? `à renseigner dans les paramètres : ${gaps.join(", ")}`
+  const g = gaps();
+  return g.length
+    ? `to fill in on the settings page: ${g.map((k) => GAP_TEXT[k]).join(", ")}`
     : null;
 }

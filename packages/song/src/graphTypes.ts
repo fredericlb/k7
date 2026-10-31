@@ -2,7 +2,7 @@
 // and the questions every reader asks of a node (is it a sink, an input, a camera, cold?).
 // What a reader gets wrong: chains are DERIVED from segments, never stored. docs/graphModel.md.
 
-import type { WebOut } from "@studio/graph-model";
+import type { GraphIssue, WebOut } from "@studio/graph-model";
 import {
   CAMERA_IO,
   isBuiltinOutput,
@@ -219,6 +219,8 @@ export interface GraphDoc {
   // A rack node's taps routed to subchains, each with the first node of the run it feeds (docs/racks.md).
   tapFeeds?: TapFeed[];
   warnings: string[];
+  // validate()'s share of `warnings`, as codes a screen words itself (graphWarnings.ts).
+  issues?: GraphIssue[];
 }
 
 // Is `id` a sink: something the signal ENDS at, by name (OUT, MIX, RENDER, VIDEO_OUT, CUE), by role, or by shape.

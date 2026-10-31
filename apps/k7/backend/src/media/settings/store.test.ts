@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  gaps,
   missing,
   readSettings,
   saveSettings,
@@ -42,12 +43,14 @@ describe("settings store", () => {
   it("dit ce qui manque tant que rien n'est enregistré", () => {
     expect(slskdOf()).toBeNull();
     expect(sftpOf()).toBeNull();
-    expect(missing()).toContain("paramètres");
+    expect(gaps()).toEqual(["slskd", "sftp"]);
+    expect(missing()).toContain("settings");
   });
 
   it("rend les secrets à la recherche, jamais à l'écran", () => {
     saveSettings(FULL);
     expect(missing()).toBeNull();
+    expect(gaps()).toEqual([]);
     expect(slskdOf()).toEqual({
       url: "https://slskd.lan:5031",
       key: "API-KEY",

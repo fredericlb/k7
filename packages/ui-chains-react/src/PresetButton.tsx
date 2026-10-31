@@ -5,6 +5,7 @@
 // See packages/song/docs/userPresets.md and packages/song/docs/engines.md.
 
 import { ChevronDown, ChevronLeft, ChevronRight } from "@frediverse/ui/icons";
+import { type ChainsLabels, ENGLISH_CHAINS_LABELS } from "./labels";
 
 /** The engines a node can run as, and which it does — handed to the host's popup with the click. */
 export interface NodeEngines {
@@ -35,7 +36,10 @@ export function PresetButton({
   engines,
   onPresets,
   onStep,
+  l = ENGLISH_CHAINS_LABELS,
 }: {
+  /** The words, handed down by the card: the button is called as a function in tests, so it reads no context. */
+  l?: ChainsLabels;
   module: string;
   /** The preset last loaded on this node in this session, if any. */
   current?: string;
@@ -51,8 +55,8 @@ export function PresetButton({
   onStep?: (module: string, step: -1 | 1) => void;
 }) {
   const title = [
-    engines ? `Engine — ${engines.current}` : null,
-    current ? `Preset — ${current}` : "Presets of this module",
+    engines ? l.engineNamed(engines.current) : null,
+    current ? l.presetNamed(current) : l.presetsOfModule,
   ]
     .filter(Boolean)
     .join("\n");
@@ -61,7 +65,7 @@ export function PresetButton({
     <button
       type="button"
       className="dgx-engine dgx-preset-step"
-      title={step < 0 ? "Previous preset" : "Next preset"}
+      title={step < 0 ? l.previousPreset : l.nextPreset}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
@@ -80,7 +84,7 @@ export function PresetButton({
         style={{ minWidth: presetButtonW(engines) }}
         title={title}
         // Named after the preset it holds, so a screen reader hears what is loaded; the title is its description.
-        aria-label={current ? `preset: ${current}` : "preset"}
+        aria-label={current ? l.presetLoaded(current) : l.preset}
         aria-haspopup="menu"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -90,7 +94,7 @@ export function PresetButton({
         }}
       >
         {engines && <b className="dgx-preset-eng">{engines.current}</b>}
-        <span>{current ?? "preset"}</span>
+        <span>{current ?? l.preset}</span>
         <ChevronDown />
       </button>
       {onStep && arrow(-1)}

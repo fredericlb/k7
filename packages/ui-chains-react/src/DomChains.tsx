@@ -63,6 +63,7 @@ import { createOverrideStore, EMPTY_ORDER, NOOP } from "./chainsStores";
 import { IconsContext } from "./chainsTypes";
 import type { DomChainsProps } from "./domChainsProps";
 import { LcdSetContext, LcdSoundsContext } from "./LcdScreenWidget";
+import { ChainsLabelsContext, useChainsLabels } from "./labels";
 import { createLcdZoom, LcdZoomContext } from "./lcdZoom";
 import { Minimap } from "./Minimap";
 import {
@@ -127,7 +128,21 @@ function sameGhosts(
   return a.length === b.length && a.every((g, i) => g.node.id === b[i].node.id);
 }
 
-export function DomChains({
+/** The graph, under the host's words — each label it leaves out is the enclosing graph's, else English (labels.ts). */
+export function DomChains({ labels, ...props }: DomChainsProps) {
+  const inherited = useChainsLabels();
+  const shown = useMemo(
+    () => (labels ? { ...inherited, ...labels } : inherited),
+    [inherited, labels],
+  );
+  return (
+    <ChainsLabelsContext.Provider value={shown}>
+      <DomChainsBody {...props} />
+    </ChainsLabelsContext.Provider>
+  );
+}
+
+function DomChainsBody({
   icons,
   graph: laidOut,
   selected,
@@ -313,6 +328,7 @@ export function DomChains({
 
   // --- the compiled geometry: signal cables (with insert eligibility) + automations ---
   const model = useMemo(() => buildModel(graph), [graph]);
+  const labels = useChainsLabels();
   // The cards' own names, for every `+` that announces where it inserts.
   const nameOf = useMemo(() => shownNamesOf(graph.nodes), [graph]);
 
@@ -1046,6 +1062,7 @@ export function DomChains({
                     height={graph.height}
                   >
                     <Cables
+                      l={labels}
                       signal={model.signal}
                       auto={model.auto}
                       showLabels={showLabels}
@@ -1193,5 +1210,7 @@ export type {
   SinkPlay,
 } from "./chainsTypes";
 export type { ChainsCamApi } from "./domChainsProps";
+export type { ChainsLabels } from "./labels";
+export { ENGLISH_CHAINS_LABELS } from "./labels";
 // Exported so a host can provide one decoder for every graph it mounts — docs/lcdScreen.md.
 export { LcdSoundsContext };

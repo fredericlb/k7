@@ -22,6 +22,7 @@ import type {
   GraphMenuCtx,
   SinkPlay,
 } from "./chainsTypes";
+import type { ChainsLabels } from "./labels";
 import type { NodeEngines } from "./PresetButton";
 import type { TapAction } from "./TapWidget";
 
@@ -46,6 +47,8 @@ export type FitToFn = (nodes: GraphNode[], opts?: FitToOpts) => boolean;
 export interface DomChainsProps {
   /** The glyphs the nodes wear. Required, so no caller can render a graph without them. */
   icons: ChainsIcons;
+  /** The words on the graph's own controls, in the host's language; each one left out stays English (labels.ts). */
+  labels?: Partial<ChainsLabels>;
   graph: LaidOutGraph;
   /** Animate a change of layout, on by default — docs/nodeMotion.md says when to turn it off. */
   motion?: boolean;

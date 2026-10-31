@@ -226,6 +226,14 @@ the first step, or the summed sends of a routed-into bus) fills the first port, 
 sources fill the rest. A module that declares no ports is unconstrained and skipped. Its result is
 FATAL — a mis-wired project fails to read — where `validate()` only warns.
 
+**Each warning is a code with its names first, and a sentence second** (`graphWarnings.ts`).
+`validateIssues()` returns them as `GraphIssue`s; `validate()`, `GraphDoc.warnings` and the CLI
+read the English sentence each one builds. A screen shows these warnings to someone reading another
+language, and a sentence cannot be translated after the fact without parsing it back; a code with
+its names can be worded by the screen in any language, from the same names. The warnings raised
+outside `validate()` — the levels nothing plays, `checkInputLabels` — are sentences only, and a
+screen shows them as they come.
+
 `checkInputLabels` is kept OUT of `validate()`, which is pure, because whether a channel label
 exists is a machine question: the answer depends on `<state>`, not the song, so the same project
 warns here and not on the rig the labels were written for.

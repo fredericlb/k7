@@ -2,6 +2,7 @@
 // warnings validate() raises over the whole graph (dangling refs, cycles, unreachable sinks).
 // What a reader gets wrong: a port mismatch THROWS, the rest only warns. See docs/graphModel.md.
 
+import type { GraphIssue } from "@studio/graph-model";
 import {
   MIX_NODE,
   portRef,
@@ -29,6 +30,7 @@ import {
   normalizeInputs,
   sourceType,
 } from "./graphTypes";
+import { issue } from "./graphWarnings";
 import type {
   LoadedModule,
   RawClip,
@@ -145,8 +147,14 @@ export function checkChainInputs(
   return errs;
 }
 
+/** validate()'s warnings as sentences — what a log, the CLI and `GraphDoc.warnings` carry. */
 export function validate(g: GraphDoc): string[] {
-  const w: string[] = [];
+  return validateIssues(g).map((i) => i.text);
+}
+
+/** …and as codes with their names, so a screen can word each one itself (graphWarnings.ts). */
+export function validateIssues(g: GraphDoc): GraphIssue[] {
+  const w: GraphIssue[] = [];
   // Tracks on disk but left out of `g.tracks` for being disabled, so a lookup miss can be told from a typo.
   const disabled = new Set(g.disabledTracks);
 
@@ -160,7 +168,7 @@ export function validate(g: GraphDoc): string[] {
       !g.videoTracks[c.from] &&
       !(c.from !== name && g.chains[c.from])
     )
-      w.push(`chain '${name}': from '${c.from}' is not a track or chain`);
+      w.push(issue("chainFromUnknown", { chain: name, from: c.from }));
     // A DETYPED lane holding both kinds, running down one chain that expects one of them — see docs/graphModel.md.
     if (c.from && !c.fromPort && c.use.length) {
       const lane = g.tracks[c.from];
@@ -172,25 +180,36 @@ export function validate(g: GraphDoc): string[] {
         (wants === "audio" || wants === "midi")
       )
         w.push(
-          `chain '${name}': track '${c.from}' holds audio AND sequences, and '${c.use[0].module}' takes ${wants} —` +
-            ` all of it goes through it. Split the lane: '${c.from}#audio:' and '${c.from}#midi:'`,
+          issue("chainMixedLane", {
+            chain: name,
+            track: c.from,
+            module: c.use[0].module,
+            wants,
+          }),
         );
     }
     for (const s of c.use) {
       const module = g.modules[s.module];
       if (!module)
         w.push(
-          `chain '${name}': step module '${s.module}' is not a module or module node` +
-            nodeHint(g, s.module),
+          issue("chainStepUnknown", {
+            chain: name,
+            module: s.module,
+            hint: nodeHint(g, s.module),
+          }),
         );
       else if (module.extends && !g.moduleRefs[module.extends])
         w.push(
-          `chain '${name}': module '${s.module}' extends unknown module '${module.extends}'`,
+          issue("chainExtendsUnknown", {
+            chain: name,
+            module: s.module,
+            base: module.extends,
+          }),
         );
       // A transition is named by a cut, never wired; its empty `inputs` means unconstrained — song-video/docs/transitions.md.
       else if (module.category === TRANSITION_CATEGORY)
         w.push(
-          `chain '${name}': '${s.module}' is a transition, and a transition is not wired — a cut names it (\`fadeIn({ over: 1, with: "${s.module}" })\` on a shot of a picture lane)`,
+          issue("chainTransitionWired", { chain: name, module: s.module }),
         );
     }
     for (const o of c.out) {
@@ -199,65 +218,64 @@ export function validate(g: GraphDoc): string[] {
       const target = g.modules[to];
       // Routing INTO a live input is meaningless, and is checked ahead of isNode, which says yes (docs/graphModel.md).
       if (target && isInputModule(g, target))
-        w.push(
-          `chain '${name}': out '${o.to}' is a live input — signal comes FROM it, not to it`,
-        );
+        w.push(issue("outIsInput", { chain: name, out: o.to }));
       // …and the same about a lens, which is the other thing signal only ever comes out of.
       else if (target && isCameraModule(target))
-        w.push(
-          `chain '${name}': out '${o.to}' is a camera — picture comes FROM it, not to it`,
-        );
+        w.push(issue("outIsCamera", { chain: name, out: o.to }));
       // …and a MIDI device, the third: notes come FROM a keyboard, never to one.
       else if (target && isMidiInModule(target))
-        w.push(
-          `chain '${name}': out '${o.to}' is a MIDI device — notes come FROM it, not to it`,
-        );
+        w.push(issue("outIsMidiDevice", { chain: name, out: o.to }));
       // A picture lane takes only a camera, a shape or a fade's stretch; anything else is dropped — docs/camera.md.
       else if (g.videoTracks[to]) {
         if (!carriesCamera(g, c) && !carriesShape(g, c) && !isStretch(g, c))
-          w.push(
-            `chain '${name}': out '${o.to}' is a picture lane — only a camera's or a shape's picture lands on one, or a run of shaders nothing feeds (a fade's \`chain:\`)`,
-          );
+          w.push(issue("outIsPictureLane", { chain: name, out: o.to }));
       }
       // Only a live input's signal may land on a LANE; anything else aimed at one is silently discarded.
       else if (g.tracks[to] || disabled.has(to)) {
         // A MIDI device lands on a lane too: it says what that lane RECORDS from (docs/midiIn.md).
         if (!carriesInput(g, c) && !carriesMidiIn(g, c))
-          w.push(
-            `chain '${name}': out '${o.to}' is a track — only a live input's or a MIDI device's signal lands on a lane`,
-          );
+          w.push(issue("outIsTrack", { chain: name, out: o.to }));
       }
       // A camera may land on no picture lane, since it draws a layer of its own — docs/camera.md.
       else if (!isNode(g, o.to) && !carriesCamera(g, c))
-        w.push(`chain '${name}': out '${o.to}' is not a chain or io sink`);
+        w.push(issue("outUnknown", { chain: name, out: o.to }));
       if (o.gain < 0)
-        w.push(`chain '${name}': out '${o.to}' has a negative gain`);
+        w.push(issue("outNegativeGain", { chain: name, out: o.to }));
       // …and which output it LEFT from — see docs/graphModel.md.
       if (o.fromPort) {
         const src = c.use.length ? c.use[c.use.length - 1].module : c.from;
         const srcModule = src ? g.modules[src] : undefined;
         if (srcModule && !srcModule.outputs.some((p) => p.name === o.fromPort))
           w.push(
-            `chain '${name}': out '${o.to}' leaves '${src}' through '${o.fromPort}', which is ` +
-              `not one of its outputs (${srcModule.outputs.map((p) => p.name).join(", ") || "none"})`,
+            issue("outBadPort", {
+              chain: name,
+              out: o.to,
+              source: src ?? "",
+              port: o.fromPort,
+              outputs: srcModule.outputs.map((p) => p.name).join(", "),
+            }),
           );
       }
     }
     if (!c.out.length && !isParked(c))
-      w.push(`chain '${name}': has no out (dead end)`);
+      w.push(issue("chainDeadEnd", { chain: name }));
   }
 
   for (const [id, t] of Object.entries(g.tracks))
     for (const p of t.placements)
       if (p.kind === "missing")
-        w.push(`track '${id}': clip/sequence '${p.ref}' not found`);
+        w.push(issue("trackClipMissing", { track: id, ref: p.ref }));
 
   // A module naming a file its own assets/ doesn't hold: `nam` and `assets` disagreeing IS the report (docs/graphModel.md).
   for (const [name, b] of Object.entries(g.modules))
     for (const [param, ref] of Object.entries(b.assets ?? {}))
       if (!(b as unknown as Record<string, unknown>)[param])
         w.push(
-          `module '${name}': ${param} '${ref}' is not in this module's assets/`,
+          issue("moduleAssetMissing", {
+            module: name,
+            param,
+            ref: String(ref),
+          }),
         );
 
   // Live-input modules, walked over the CHAINS because an input is wired by the run it sits in (docs/graphModel.md).
@@ -268,7 +286,7 @@ export function validate(g: GraphDoc): string[] {
       const b = g.modules[s.module];
       if (!b || !isInputModule(g, b)) continue;
       if (b.channel == null)
-        w.push(`input '${s.module}': no channel — it feeds nothing`);
+        w.push(issue("inputNoChannel", { input: s.module }));
       const track = inputLandingTrack(
         c,
         (id) => !!g.tracks[id] || disabled.has(id),
@@ -279,23 +297,20 @@ export function validate(g: GraphDoc): string[] {
       if (!target)
         // Disabled reads as absent here, so say which it is rather than send the reader hunting for a typo.
         w.push(
-          disabled.has(track)
-            ? `input '${s.module}': track '${track}' is disabled — it records nothing`
-            : `input '${s.module}': track '${track}' not found`,
+          issue(
+            disabled.has(track) ? "inputTrackDisabled" : "inputTrackMissing",
+            { input: s.module, track },
+          ),
         );
       else if (target.type === "group")
-        w.push(
-          `input '${s.module}': track '${track}' is a group — it holds no material`,
-        );
+        w.push(issue("inputTrackGroup", { input: s.module, track }));
       else if (target.type === "strudel")
-        w.push(
-          `input '${s.module}': track '${track}' is a strudel lane — its pattern is the source`,
-        );
+        w.push(issue("inputTrackStrudel", { input: s.module, track }));
       // The engine assigns ONE input per track, so name both rather than let the last one loaded silently win.
       const prev = fedBy.get(track);
       if (prev)
         w.push(
-          `track '${track}': fed by two inputs ('${prev}', '${s.module}') — only one can win`,
+          issue("trackTwoInputs", { track, first: prev, second: s.module }),
         );
       else fedBy.set(track, s.module);
     }
@@ -303,21 +318,20 @@ export function validate(g: GraphDoc): string[] {
   // `channel` anywhere else is silently ignored, which looks like it took effect.
   for (const [name, b] of Object.entries(g.modules))
     if (!isInputModule(g, b) && b.channel != null)
-      w.push(
-        `module '${name}': channel is for an io "in" module, but '${name}' is not one`,
-      );
+      w.push(issue("moduleChannelNotInput", { module: name }));
 
   // Group membership: a member must exist, must not be the group itself, and must belong to only one group.
   const claimed = new Map<string, string>();
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.type !== "group") continue;
     for (const m of t.tracks) {
-      if (m === id) w.push(`group '${id}': contains itself`);
+      if (m === id) w.push(issue("groupContainsItself", { group: id }));
       // A disabled member is deliberate; only a member that exists nowhere is worth a warning.
       else if (!g.tracks[m] && !disabled.has(m))
-        w.push(`group '${id}': track '${m}' not found`);
+        w.push(issue("groupTrackMissing", { group: id, track: m }));
       const owner = claimed.get(m);
-      if (owner) w.push(`track '${m}': in two groups ('${owner}', '${id}')`);
+      if (owner)
+        w.push(issue("trackTwoGroups", { track: m, first: owner, second: id }));
       else claimed.set(m, id);
     }
   }
@@ -327,15 +341,13 @@ export function validate(g: GraphDoc): string[] {
   for (const [id, a] of Object.entries(g.assemblies)) {
     // One flat key space: a box drawn under a name a chain step already spells is two things called one word.
     if (g.modules[id] || g.tracks[id])
-      w.push(`assembly '${id}': a node of this project is already called that`);
+      w.push(issue("assemblyNameTaken", { assembly: id }));
     for (const [member, node] of Object.entries(a.members)) {
       if (!g.modules[node] && !g.tracks[node] && !disabled.has(node))
-        w.push(
-          `assembly '${id}': member '${member}' names '${node}', which this project has not got`,
-        );
+        w.push(issue("assemblyMemberMissing", { assembly: id, member, node }));
       const owner = inBox.get(node);
       if (owner)
-        w.push(`node '${node}': in two assemblies ('${owner}', '${id}')`);
+        w.push(issue("nodeTwoAssemblies", { node, first: owner, second: id }));
       else inBox.set(node, id);
     }
   }
@@ -343,12 +355,12 @@ export function validate(g: GraphDoc): string[] {
   // Every source chain (has a track input) should reach a sink.
   for (const [name, c] of Object.entries(g.chains))
     if (c.from && !reachesSink(g, name, new Set()))
-      w.push(`chain '${name}': nothing reaches OUT`);
+      w.push(issue("chainNoOut", { chain: name }));
 
   // Cycle check over chain→chain edges.
   for (const name of Object.keys(g.chains))
     if (hasCycle(g, name, new Set(), new Set())) {
-      w.push(`chain '${name}': is part of a cycle`);
+      w.push(issue("chainCycle", { chain: name }));
       break;
     }
 

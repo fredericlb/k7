@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { useChainsWords } from "../chainsLabels";
 import { nodePredicate } from "../historyMarks";
 import { useLatest } from "../hooks/useLatest";
 import { usePendingBypass } from "../hooks/usePendingBypass";
@@ -170,6 +171,7 @@ export function TrackModulesPane({
   // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
   const mark = useShell((s) => s.historyMark);
   const reloadKey = useReloadKey();
+  const labels = useChainsWords();
   // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
   const {
     quietCommand: command,
@@ -336,6 +338,7 @@ export function TrackModulesPane({
 
   // What both halves share: the same callbacks and stores, so the pinned mixer is a card like any other.
   const shared = {
+    labels,
     icons: STUDIO_ICONS,
     marked,
     selected,

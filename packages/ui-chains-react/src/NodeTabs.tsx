@@ -11,6 +11,7 @@ import {
   UI_CONTENT_TOP,
   UI_HEADER,
 } from "@studio/ui-chains/graph";
+import type { ChainsLabels } from "./labels";
 import type { NodeProps } from "./nodeProps";
 
 // The open tab in its column's view: a column longer than its card scrolls, and a lit tab out of sight says nothing.
@@ -29,7 +30,9 @@ export function nodeTabs({
   openTab,
   setTabAt,
   onOpenTab,
+  l,
 }: Pick<NodeProps, "n" | "onOpenTab"> & {
+  l: ChainsLabels;
   tabs: NonNullable<NonNullable<GraphNode["ui"]>["tabs"]>;
   openTab: number;
   setTabAt: (i: number) => void;
@@ -42,7 +45,7 @@ export function nodeTabs({
           className="dgx-tabmenu"
           style={{ top: UI_CONTENT_TOP, height: TAB_MENU_H - 4 }}
           value={openTab}
-          aria-label="page"
+          aria-label={l.page}
           onPointerDown={(e) => e.stopPropagation()}
           onChange={(e) => {
             const i = Number(e.target.value);
