@@ -70,6 +70,8 @@ import {
   materialOf,
 } from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
+import { clipShownName, laneNamer } from "../clipNames";
+import { CLIP_NAME_WORDS } from "../clipNameWords";
 import {
   acceptsFileDrop,
   dragPayload,
@@ -651,6 +653,8 @@ function TimelineTabView({
     }),
     [proj?.tempo, proj?.timeSigNumerator],
   );
+  // A take's or a new sequence's lane, read off its generated id for the block's label (clipNames.ts).
+  const laneName = useMemo(() => laneNamer(proj?.tracks ?? []), [proj?.tracks]);
   // The song's extent in whole bars (min 4) — what the caret moves within. Pattern lanes deliberately don't extend it.
   const contentBeats = useMemo(() => {
     // A timeline's view reaches at least its fixed end, where every placement of it is cut.
@@ -3753,14 +3757,18 @@ function TimelineTabView({
                                     ) : (
                                       <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
                                     ))}
-                                  {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
+                                  {/* The name a musician knows it by, always there and brightened on hover; the id stays the tooltip's (docs/timeline.md). */}
                                   <span
                                     className={cn(
-                                      "truncate opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+                                      "truncate opacity-75 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                                       (moving || resizing) && "opacity-100",
                                     )}
                                   >
-                                    {c.name || c.id}
+                                    {clipShownName(
+                                      c.name || c.id,
+                                      laneName,
+                                      CLIP_NAME_WORDS,
+                                    )}
                                   </span>
                                 </div>
                                 {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}

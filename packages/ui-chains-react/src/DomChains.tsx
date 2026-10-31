@@ -45,6 +45,7 @@ import {
   stepSway,
 } from "@studio/ui-chains/hang";
 import { noteLoadAt } from "@studio/ui-chains/noteLoad";
+import { shownNamesOf } from "@studio/ui-chains/shownName";
 import {
   useContext,
   useEffect,
@@ -312,6 +313,8 @@ export function DomChains({
 
   // --- the compiled geometry: signal cables (with insert eligibility) + automations ---
   const model = useMemo(() => buildModel(graph), [graph]);
+  // The cards' own names, for every `+` that announces where it inserts.
+  const nameOf = useMemo(() => shownNamesOf(graph.nodes), [graph]);
 
   // --- node motion: the cards slide, arrive and leave rather than jumping (docs/nodeMotion.md) ---
   const reducedMotion = useRef(
@@ -1049,6 +1052,7 @@ export function DomChains({
                       hovered={hovered}
                       setHovered={setHovered}
                       onInsert={onEdgeInsert ? insert : undefined}
+                      nameOf={nameOf}
                     />
                     {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
                     {patch && (
@@ -1152,6 +1156,7 @@ export function DomChains({
                       width={graph.width}
                       height={graph.height}
                       onInsert={insert}
+                      nameOf={nameOf}
                     />
                   ) : null}
                 </div>

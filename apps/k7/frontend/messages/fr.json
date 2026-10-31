@@ -547,6 +547,8 @@
   "clip.takeRolling": "prise en cours",
   "clip.countIn": "Décompte",
   "clip.recording": "Enregistrement",
+  "clip.takeName": "prise {lane} · mesure {bar}",
+  "clip.sequenceName": "séquence {lane} {n}",
   "clip.noArmedTrack": "aucune piste armée — armez-en une avec A / r",
   "clip.stopTake": "Arrêter la prise (Échap)",
   "clip.onTrack": "sur {track}",

@@ -16,6 +16,8 @@ const SEAM_R = 9;
 /** The branch glyph drawn inside its circle, px. */
 const BRANCH_ICON = 11;
 
+const same = (name: string) => name;
+
 type OnInsert = (
   info: EdgeInsert,
   x: number,
@@ -28,11 +30,14 @@ function SeamsInner({
   width,
   height,
   onInsert,
+  nameOf = same,
 }: {
   seams: readonly RowSeam[];
   width: number;
   height: number;
   onInsert: OnInsert;
+  /** What a node is called aloud — its card's name, never an unnamed node's uuid (@studio/ui-chains's shownName.ts). */
+  nameOf?: (name: string) => string;
 }) {
   return (
     <svg className="dgx-seams" width={width} height={height}>
@@ -46,7 +51,7 @@ function SeamsInner({
         };
         const label = s.end
           ? "Add a module at the end"
-          : `Add a module between ${s.insert.before} and ${s.insert.after}`;
+          : `Add a module between ${nameOf(s.insert.before)} and ${nameOf(s.insert.after)}`;
         const branch = s.branch;
         return (
           // biome-ignore lint/a11y/useSemanticElements: an SVG group cannot be an HTML <button>; the role is what it can carry
@@ -93,13 +98,13 @@ function SeamsInner({
               <g
                 className="dgx-ins-btn dgx-branch-btn"
                 role="button"
-                aria-label={`Branch: stack a module under ${branch.before}`}
+                aria-label={`Branch: stack a module under ${nameOf(branch.before)}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onInsert(branch, e.clientX, e.clientY, low);
                 }}
               >
-                <title>{`Branch: stack a module under ${branch.before}, the two in one subchain`}</title>
+                <title>{`Branch: stack a module under ${nameOf(branch.before)}, the two in one subchain`}</title>
                 <circle cx={low.x} cy={low.y} r={SEAM_R} />
                 <GitBranch
                   x={low.x - BRANCH_ICON / 2}

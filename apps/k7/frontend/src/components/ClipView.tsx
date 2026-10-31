@@ -549,6 +549,8 @@ export function ClipView({
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.
             tempo={(project ?? target.project).tempo}
             beatsPerBar={(project ?? target.project).timeSigNumerator}
+            // …and its lanes, which name a take in the panel's header.
+            lanes={(project ?? target.project).tracks}
             // The clicked EVENT's beat — what puts the song's ruler over the wave.
             placedAt={clip.start}
             // …and the same beat as a TIMECODE, spelled HERE because it needs the project's time signature, denominator included.

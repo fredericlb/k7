@@ -67,6 +67,7 @@ export function PresetPicker({
 }: {
   x: number;
   y: number;
+  /** The node as a person reads it — its card's name; the verbs that name it are the caller's. */
   node: string;
   data: NodePresets;
   /** The preset last loaded on this node, which the header offers to overwrite. */
