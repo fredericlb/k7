@@ -98,6 +98,10 @@ that names itself, which is the case the node header reads as "there is only one
   own.
 - **`cc`** rides beside `ui` because it is keyed the same way, by the widget's `bind`, and read in the
   same place: the graph is where a knob is drawn, so it is where a knob learns its control.
+- **`defaults`** is what a BUILT-IN plugin declares each param plays at unset, kept apart from `params`
+  because `params` is what the file says and a default is not a choice anybody made. Only the params
+  the panel binds ride: a synth's table runs to hundreds, and only a widget ever reads one
+  (`packages/ui-chains-react/docs/widgets.md`).
 - **`monitor` and `channel`** are a live input's own fields, not params: there is no plugin, so they are
   the module's. `channel` is NUMBERS only — a `channel:` may instead name a label from the machine's
   preferences, and resolving that needs the preferences, which this service has but the graph

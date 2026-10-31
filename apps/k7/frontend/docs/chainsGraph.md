@@ -73,7 +73,8 @@ has to say so: a graph that merely looks unchanged reads as the gesture having m
 
 A widget shows, in order: the hand's **optimistic override**, else what the **engine**
 reports (which already folds in any authored override), else what the **project** authored,
-else nothing. Undefined means "unknown" and paints as an empty control.
+else what the **plugin declares** it plays at unset, else nothing. Undefined means "unknown" and
+paints as an empty control — the reasons are in `packages/ui-chains-react/docs/widgets.md`.
 
 When a plugin frame lands, the overrides it now speaks for are dropped — except the one
 under the hand: the commit reconciles, then the frame owns the value.

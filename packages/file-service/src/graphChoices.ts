@@ -1,8 +1,8 @@
 // graphChoices.ts — what a graph node's fields may be SET to: its assets, a Faust module's slots,
-// a library file's choices, its bases and shaders, a rack's or kit's sounds. Read by graphDoc.ts
-// while it builds each node. See docs/graphFlags.md.
+// a library file's choices, its bases and shaders, a rack's or kit's sounds, and what its bound params
+// play at unset. Read by graphDoc.ts while it builds each node. See docs/graphFlags.md.
 
-import type { WebRackSound } from "@studio/graph-model";
+import type { WebRackSound, WebWidget } from "@studio/graph-model";
 import { type PanelLike, panelWidgets } from "@studio/graph-model/panel";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import type { Rack } from "@studio/song/graph";
@@ -12,6 +12,7 @@ import {
   moduleAssetChoices,
 } from "@studio/song/moduleAssetChoices";
 import { FAUST_TYPE } from "@studio/song/project";
+import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import {
   isLibraryFileFamily,
   isLibraryFileParam,
@@ -21,6 +22,24 @@ import {
   sharedFamilyOf,
 } from "@studio/song-schema/moduleTypes";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
+
+/** What each param a panel binds plays at unset, for a BUILT-IN plugin — so a widget never reads "–" for a known value. */
+export function paramDefaults(
+  plugin: unknown,
+  ui: (PanelLike<WebWidget> & { vertical?: PanelLike<WebWidget> }) | undefined,
+): Record<string, number> | undefined {
+  const params = builtinParamsFor(plugin);
+  if (!params?.length || !ui) return undefined;
+  // Only the BOUND ones: a synth declares hundreds, and the graph is sent whole on every reload.
+  const bound = new Set<string>();
+  for (const [, w] of [...panelWidgets(ui), ...panelWidgets(ui.vertical)])
+    for (const b of [w.bind, w.pair]) if (b) bound.add(b);
+  const out: Record<string, number> = {};
+  for (const p of params)
+    if (p.def !== undefined && bound.has(p.name)) out[p.name] = p.def;
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** The assets a module may name — its own and its ancestors'. See docs/graphFlags.md. */
 export function assetChoicesFor(
   dir: string,

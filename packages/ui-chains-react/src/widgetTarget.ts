@@ -70,6 +70,12 @@ const STAGE_BINDS = new Set([
   OUTPUT_VOLUME_PARAM,
 ]);
 
+/** The stage a module states nothing for is all wet at 0 dB, and the knob should say so rather than "–". */
+function stageDefault(name: string): number | undefined {
+  if (name === MIX_PARAM) return 1;
+  return STAGE_BINDS.has(name) ? 0 : undefined;
+}
+
 /** What a widget actuates: a pad, an `@` intrinsic, a plugin param, else offline — docs/widgets.md. */
 export function widgetTarget(
   n: GraphNode,
@@ -158,7 +164,7 @@ export function targetKey(t: WidgetTarget): string {
   return `p:${t.pluginId}:${t.name}`;
 }
 
-/** The value a widget shows: override, else engine, else authored, else nothing — docs/widgets.md. */
+/** The value a widget shows: override, else engine, else authored, else declared default, else nothing — docs/widgets.md. */
 export function widgetValue(
   n: GraphNode,
   w: WebWidget,
@@ -184,16 +190,15 @@ export function widgetValue(
         : tgt.kind === "offline"
           ? // What the SURFACE that realises it says, else what the file authored. There is no
             // engine answer to fall back on: the compiler emitted no plugin to ask.
-            (ch.moduleParams[tgt.module]?.[tgt.name] ?? n.params?.[tgt.name])
+            (ch.moduleParams[tgt.module]?.[tgt.name] ??
+            n.params?.[tgt.name] ??
+            n.defaults?.[tgt.name])
           : (live ??
             ch.params.getSnapshot()[tgt.pluginId]?.[tgt.name] ??
             n.params?.[tgt.name] ??
-            // A module stating none is all wet at 0 dB, and the knob should say so rather than "–".
-            (tgt.name === MIX_PARAM
-              ? 1
-              : STAGE_BINDS.has(tgt.name)
-                ? 0
-                : undefined));
+            // Nobody set it: what its plugin declares it plays at, a strip's 0 dB rather than "–".
+            n.defaults?.[tgt.name] ??
+            stageDefault(tgt.name));
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 

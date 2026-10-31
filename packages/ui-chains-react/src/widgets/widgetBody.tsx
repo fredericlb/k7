@@ -85,15 +85,14 @@ export function widgetBody({
         <div className={`dgx-fader${known ? "" : " unknown"}`}>
           {/* The VU rides left of the throw, and only on a chain that IS a track. */}
           {n.chain && <FaderMeter trackId={n.chain} order={ch.trackOrder} />}
+          {/* An unknown level draws a bare rail: a cap at the floor would read as a lane pulled all the way down. */}
           <div className="rail">
-            <i
-              className="fill"
-              style={{ height: `${(known ? t : 0) * 100}%` }}
-            />
-            <i
-              className="cap"
-              style={{ top: `${(1 - (known ? t : 0)) * 100}%` }}
-            />
+            {known && (
+              <>
+                <i className="fill" style={{ height: `${t * 100}%` }} />
+                <i className="cap" style={{ top: `${(1 - t) * 100}%` }} />
+              </>
+            )}
           </div>
         </div>
       </>
