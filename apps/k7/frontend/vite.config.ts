@@ -54,8 +54,8 @@ export default ({ command }: ConfigEnv) => {
     // Dedicated port, and it has to stay unique: `strictPort` makes a clash a hard failure, and this was 5203, which frediprofile owns.
     port,
     backendPort,
-    // `/auth` and the apps' download page alongside the default `/api`, all to THIS app's backend: :8789 runs the origin's OIDC flow, being the service with no prefix.
-    proxyPaths: ["/auth", "/app_downloads"],
+    // `/auth` (this backend runs the OIDC flow), the apps' downloads and the sync pairing's return (SYNC_PAIR_RETURN_PATH), beside `/api`.
+    proxyPaths: ["/auth", "/app_downloads", "/desktop/sync-pair"],
     // The engine relay, live sync's relay and the remote cameras' signalling: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
     wsPaths: ["/api/engine", "/api/sync", "/api/cameras"],
     // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.
