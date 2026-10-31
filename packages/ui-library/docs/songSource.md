@@ -27,8 +27,9 @@ open on demand (`configureLibrary`'s `serverBase`, set by k7 on the phone only â
   read back. The copy landing changes nothing on the open page: no reload, no edit lost.
 - **Away, everything is read-only, and the page says why** (`ReadOnlyNotice`): every edit control is
   disabled rather than left to fail. Whether the server answers is the backend's
-  `/api/sync/library/status`, a stale placement saying away too
-  (`../../mediatek/docs/serverCopy.md`).
+  `/api/sync/library/status`, polled with the placement; a stale placement says away too
+  (`../../mediatek/docs/serverCopy.md`), and so does the forward's 503 the moment a call meets it
+  (`onServerUnreachable`), rather than an edit failing for half a minute until the next poll.
 - **Not known yet reads the copy**: a phone started offline opens its songs at once rather than after
   a ping's timeout.
 - **A song of the phone alone stays the phone's**, read and written locally, as anywhere else.

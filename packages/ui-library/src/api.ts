@@ -222,12 +222,27 @@ const serverCopy = {
 export const library = { ...libraryAt(apiBase), ...serverCopy };
 
 let atServer: { base: string; client: LibraryClient } | null = null;
+const away = new Set<() => void>();
+
+/** Hear the forward answer that the server cannot be reached, as soon as a call meets it. */
+export function onServerUnreachable(listener: () => void): () => void {
+  away.add(listener);
+  return () => away.delete(listener);
+}
 
 /** The paired server's library through this machine's forward, or null where the host set none (../docs/songSource.md). */
 export function serverLibrary(): LibraryClient | null {
   const base = serverBase();
   if (base === null) return null;
   if (atServer?.base !== base)
-    atServer = { base, client: libraryAt(() => base) };
+    atServer = {
+      base,
+      client: libraryAt(
+        () => base,
+        () => {
+          for (const l of away) l();
+        },
+      ),
+    };
   return atServer.client;
 }

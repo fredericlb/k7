@@ -30,7 +30,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { library } from "./api";
+import { library, onServerUnreachable } from "./api";
 import { serverBase } from "./config";
 import { useLabels } from "./host";
 import { missingUnder } from "./serverSets";
@@ -71,6 +71,13 @@ export function useServerCopy(
       // This machine's own backend not answering says nothing about the server.
     }
   }, [onDemand]);
+
+  // A forwarded call meeting "cannot reach" says so at once; the next status poll says when it is back.
+  useEffect(
+    () =>
+      onDemand ? onServerUnreachable(() => setReachable(false)) : undefined,
+    [onDemand],
+  );
 
   const reload = useCallback(async () => {
     void recheck();

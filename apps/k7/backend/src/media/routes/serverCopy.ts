@@ -192,6 +192,11 @@ export function serverCopyRouter(
 
   // A check now, answered at once: its progress is the job list's.
   r.post("/check", (_req, res) => {
+    // A server, or a machine paired with none, follows nothing: no scan for anyone to start.
+    if (!servers().length)
+      return void res
+        .status(409)
+        .json({ error: "this machine is paired with no server" });
     void checkSongUpdates(servers).catch(() => {});
     res.status(202).json({ ok: true });
   });

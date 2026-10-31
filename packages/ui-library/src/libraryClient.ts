@@ -38,9 +38,16 @@ export const request = (
   ms: number | null = TIMEOUT_MS,
 ): Promise<Response> =>
   fetchWithin(url, init, ms, (s) => new Error(libraryConfig().noAnswer(s)));
+const sendWithin = request;
 
-/** The library's routes under `base()`, read at call time. */
-export function libraryAt(base: () => string) {
+/** The library's routes under `base()`, read at call time; `unavailable` hears every 503, a forward's "cannot reach". */
+export function libraryAt(base: () => string, unavailable?: () => void) {
+  // Shadows the module's: every method below goes through it.
+  const request: typeof sendWithin = async (...args) => {
+    const res = await sendWithin(...args);
+    if (res.status === 503) unavailable?.();
+    return res;
+  };
   const get = async <T>(path: string, what: string): Promise<T> =>
     json(await request(`${base()}/api/mediatek${path}`), what);
 
