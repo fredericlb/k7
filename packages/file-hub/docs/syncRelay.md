@@ -75,76 +75,69 @@ new tab opened from a click in k7's account bar), ask the person first, and say 
   has, and drops the pairing once it has said the ending (`DELETE`), which is also the account bar's Cancel.
   Ten minutes without a return is `expired`.
 
-**An account holds several LINKS**, one of them the MAIN one. A link is one account on one server:
-the relay, the device token, and the remote account `as`; `.sync-remote.json` is a list
-(`{ servers: [...] }`; the single pairing written before secondaries reads as the main one, and an entry
-with no `as` is the local account's own on that server, which is what every link was before accounts).
+**A machine's account SAVES servers, and uses ONE: the active one.** Each saved server is a LINK, one
+account on one server: the relay, the device token, and the remote account `as`; `.sync-remote.json`
+is their list (`{ servers: [...] }`, each entry marked `active`). A file holding one pairing rather
+than a list reads as that pairing, active; an entry marked `main` reads as marked `active`; an entry
+with no `as` is the local account's own on that server.
 
 - **A link is (host, account), and its id is derived from both** (`linkId`: the first 10 hex of a
   sha256), never stored: a server renamed under `currentStudioUrl` keeps every id in step, and the pages,
   the workspace records and the routes all name a link by it. Two accounts on one server are two links;
-  the same account again replaces its own link's token only through `PUT`.
-- **The main link** is `STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN` — the account's libraries, the surfaces that
-  compare themselves with "the" remote (`remoteOf`: the médiathèque's server copy, the page forward,
-  favorites, practice and rehearsal publications) and new workspaces are its, unless the person picks
-  another link for a workspace — and every link rides in `STUDIO_SYNC_SERVERS` with its id and `as`, for
-  the workspaces each holds (`packages/file-service/docs/liveCapture.md`, "Several servers"). One per
-  server is marked `home`: the link of the local account's own account there, else the first, which is
-  the link a workspace recorded before accounts belongs to.
-- **A surface that lets the person CHOOSE a server reads every link** (`remotesOf`, main first then in
-  link order) and calls the chosen one through its own token (`remoteById`). Consolidating a moment is
-  one (`packages/rehearsal-server/docs/momentShare.md`): a link that is not main is as good a server as
-  the main one for a thing that lives on one server only.
-- `POST /api/sync/remote/main` (`{ id }`) makes another link main and `DELETE /api/sync/remote?id=`
-  forgets one; a `url` instead still names a server, its first link for main and every link on it for
-  a forget. `PUT` stores the remote account it is given (`as`), else the local account's own: a device
-  token alone does not say whose it is to the machine holding it.
+  the same account again replaces its own link's token.
+- **Exactly one link is active while the list is not empty**, and everything that talks to a server talks
+  to it: live sync (`STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN`, and the one entry of `STUDIO_SYNC_SERVERS`
+  with its id and `as`), the libraries, the surfaces that compare themselves with "the" remote
+  (`remoteOf`: the médiathèque's server copy, the page forward, favorites, practice and rehearsal
+  publications, a moment's consolidation), the server engines listed beside the machine's own, and the
+  machine's engine itself (below). One source of "the server" is what keeps a page from opening one
+  server's files under another account's identity.
+- **The other saved links are named, not used** (`STUDIO_SYNC_HIDDEN`): their workspaces stay on disk,
+  hidden and not syncing, and come back when their server is active again
+  (`packages/file-service/docs/liveCapture.md`, "One server at a time"). Each link is marked `home` when
+  it is its host's local-account link, which is the link a workspace recorded before accounts belongs to.
+- **Adding a server makes it the active one** — a pairing, or `PUT /api/sync/remote` — and keeps the
+  others saved. `POST /api/sync/remote/active` (`{ id }`, or a `url` naming that server's first link)
+  switches; `DELETE /api/sync/remote?id=` forgets one link, `?url=` every link on a server, and nothing
+  every one. Forgetting the active link makes the next saved one active. Each of them restarts the
+  account's service, which is how sync moves to the new link.
 
 ## The engine follows the account
 
-On a machine (the tray), a pairing is also where its engine goes: the server that minted the device
-token is the one the engine should be the account's on (`packages/engine-registry/docs/ownership.md`).
-So the hub calls `onPaired(origin, token)` once a pairing is stored, and the tray's backend hands both
-to its supervisor (`weburi.pair`, `apps/k7/backend/src/localEngine/followPairings.ts`); forgetting a
-pairing calls `onForgotten(origin)`, which unlists the engine there.
-
-**The supervisor keeps one token per origin**, so an origin with several links hands it ONE
-(`engineLinkOf`): the main link when it is on that origin, else the first link there. The engine is
-owned by that account on that server. Making another link main, or forgetting one, hands the engine the
-token of whichever link that rule now picks (`onPaired` again), and only the last link of an origin
-going unlists it; the phone's supervisor is handed the same token by the pairing's answer. A second add of a server already
-paired answers 409 as before, and lists the engine back with the token held — what re-adding a server
-from the engine page means after the engine was removed from it alone.
+On a machine (the tray), the active server is also where its engine goes: the server that minted the
+device token is the one the engine should be the account's on (`packages/engine-registry/docs/ownership.md`).
+The supervisor keeps one token per origin, and the engine is listed at the ACTIVE server only. So every
+change of the saved servers is compared before and after (`engineMoves` in `../syncRemote.ts`): the
+server the active link left is unlisted (`onForgotten(origin)`, `weburi.remove`), and the active link's
+server is listed with its token when that token changed (`onPaired(origin, token)`, `weburi.pair`,
+`apps/k7/backend/src/localEngine/followPairings.ts`). Another account on the same server hands the
+engine that account's token; forgetting a server that is not active moves nothing. A second add of the
+active server answers 409 and lists the engine back there with its token — what re-adding a server from
+the engine page means after the engine was removed from it alone. The phone's supervisor is handed the
+token by the pairing's answer (`token`, the active link's).
 
 The token is the sync's: one device of the account's list, so revoking that device on the server ends
-both the sync and the ownership. The pairings made before the engine followed them are listed once,
-when the backend first starts (a marker under the files root), and never again: a server the engine
-was removed from keeps syncing without being listed back.
+both the sync and the ownership. The active servers are listed once, when the backend first starts (a
+marker under the files root), and never again: a server the engine was removed from keeps syncing
+without being listed back.
 
-## A server's accounts
+## A server
 
-An account on a server may be paired with other servers too, and the server it is signed in to stays
-its MAIN one: its libraries, the surfaces that compare themselves with "the" remote, and new
-workspaces stay this server's, and only a hub given `remotePairing` follows another (`fileHub.md`).
-So `syncTarget` (`../syncRemote.ts`) keeps the hub's own relay first in `STUDIO_SYNC_SERVERS`,
-reached by the hub secret and marked `own`, and every pairing rides beside it as a secondary;
-`POST /api/sync/remote/main` answers 403, and `GET /api/sync/remote` lists the server itself first.
-The server keeps joining every room of its own relay and only those: a secondary's workspaces come
-down when the person downloads them, as on a paired machine
-(`packages/file-service/docs/liveCapture.md`, "Several servers").
+A server is the remote its devices pair with, and adds no server of its own: `POST` and `GET
+/api/sync/remote/pair`, `PUT /api/sync/remote` and `POST /api/sync/remote/active` answer 403 with a
+sentence saying so (`SERVER_ADDS_NONE`), and `GET /api/sync/remote` lists no server. Its accounts sync
+with its own relay only, by the hub secret: `syncTarget` (`../syncRemote.ts`) ignores whatever
+`.sync-remote.json` an account's folder holds there, so a pairing stored on a server is not used and
+its file is left in place, as are the workspaces it brought down, which stay listed and sync with
+nothing. The engines that heartbeat to the server are its accounts' to drive as they always are
+(`packages/engine-registry/docs/ownership.md`). What a server does take is a device's pairing:
 
-- **The browser comes back to the server's own https origin**, at the same `SYNC_PAIR_RETURN_PATH`,
-  and the state is its gate as on a machine. The other server is named after this one on its list of
-  devices, and the pairing's token never reaches the page.
-- **The other server mints a token for an https return only after a click on its own page**
+- **The token is minted on a click of the server's own page when the return is another server's https**
   (`../pairConsent.ts`, `isServerReturn`). A loopback return reaches the machine that asked, but an
   https one reaches whoever wrote the link: without the click, a link sent to someone signed in there
   would hand their account to the sender. The page names the asking server and the account, offers
   another account as a machine's does, cannot be framed, and its Allow is a same-origin POST, which
   another site cannot forge.
-- **A file service names its own server by the origin the page reached it at**, which the hub stamps
-  on every request it forwards (`ORIGIN_HEADER`, dropped when a client sends it): its own relay is a
-  loopback address that means nothing to a browser.
 
 ## The relay trusts the socket, not the payload
 

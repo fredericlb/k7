@@ -83,7 +83,7 @@ the request — a `?host=&port=` would make every backend an open relay towards 
 reach.
 
 **The ticket is the upgrade's only credential, whatever page holds it.** A machine's own backend lists
-its main server's engines through that server's device door, as the link's account
+its active server's engines through that server's device door, as the link's account
 (`apps/k7/backend/docs/serverEngines.md`), and its page — another origin, with no cookie here — dials
 this relay with the ticket that listing carried. Nothing about it is special to this relay: the ticket
 names the door's account, the claim that account takes through the same door is what the gate below

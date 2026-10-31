@@ -1,4 +1,4 @@
-// syncPairing.test.ts — a hub where pairing is off refuses to pair an account, and reads none it finds on disk.
+// syncPairing.test.ts — a server saves no server and reads none it finds on disk; a machine saves them, one active.
 
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -50,66 +50,47 @@ afterEach(async () => {
 });
 
 describe("remote pairing", () => {
-  it("on a server, stores a pairing as a secondary and never makes one main", async () => {
-    const { call, restarted } = await start(false);
-    const pair = { url: "wss://band.test/api/sync", token: "t", main: true };
-    expect((await call("PUT", pair)).status).toBe(200);
-    expect((await call("POST", { url: pair.url }, "/main")).status).toBe(403);
-    expect((await call("DELETE")).status).toBe(200);
-    expect(restarted).toEqual([USER, USER]);
-  });
-
-  it("on a server, lists itself first as the main one, and no surface follows a pairing", async () => {
-    const { call, dataRoot, routes, port } = await start(false);
+  it("on a server, saves no server, lists none, and no surface follows a pairing on disk", async () => {
+    const { call, dataRoot, routes, restarted } = await start(false);
+    const pair = { url: "wss://band.test/api/sync", token: "t" };
+    expect((await call("PUT", pair)).status).toBe(403);
+    expect((await call("POST", { url: pair.url }, "/active")).status).toBe(403);
     const home = join(dataRoot, accountKey(USER));
     mkdirSync(home, { recursive: true });
-    const url = "wss://x.test/api/sync";
-    writeRemote(home, { url, token: "t", user: USER, main: true });
-    const own = `ws://127.0.0.1:${port}/api/sync`;
+    writeRemote(home, { url: "wss://x.test/api/sync", token: "t", user: USER });
     expect(await (await call("GET")).json()).toEqual({
-      paired: true,
-      url: own,
-      as: USER,
-      servers: [
-        {
-          id: "own",
-          url: own,
-          origin: `http://127.0.0.1:${port}`,
-          as: USER,
-          main: true,
-          own: true,
-        },
-        {
-          id: linkId(url, USER),
-          url,
-          origin: "https://x.test",
-          as: USER,
-          main: false,
-        },
-      ],
+      paired: false,
+      url: null,
+      as: null,
+      servers: [],
     });
     const req = { headers: { "x-test-session": USER } } as never;
     expect(routes.remoteOf(req)).toBeNull();
+    expect(restarted).toEqual([]);
   });
 
-  it("pairs where it is on", async () => {
-    const { call, restarted } = await start(true);
-    const pair = { url: "wss://origin.test/api/sync", token: "t" };
-    expect((await call("PUT", pair)).status).toBe(200);
-    expect(restarted).toEqual([USER]);
-  });
-
-  it("finds any link by id, main or not, and lists them main first", async () => {
-    const { dataRoot, routes } = await start(true);
-    const home = join(dataRoot, accountKey(USER));
-    mkdirSync(home, { recursive: true });
+  it("on a machine, saves a server as the active one, and switches between the saved ones", async () => {
+    const { call, routes, restarted } = await start(true);
     const a = "wss://a.test/api/sync";
     const b = "wss://b.test/api/sync";
-    writeRemote(home, { url: a, token: "ta", user: USER, main: true });
-    writeRemote(home, { url: b, token: "tb", user: USER, main: false });
+    expect((await call("PUT", { url: a, token: "ta" })).status).toBe(200);
+    expect((await call("PUT", { url: b, token: "tb" })).status).toBe(200);
     const req = { headers: { "x-test-session": USER } } as never;
-    expect(routes.remotesOf(req).map((r) => r.token)).toEqual(["ta", "tb"]);
-    expect(routes.remoteById(req, linkId(b, USER))?.token).toBe("tb");
-    expect(routes.remoteById(req, "nope")).toBeNull();
+    expect(routes.remoteOf(req)?.token).toBe("tb");
+    const listed = (await (await call("GET")).json()) as {
+      url: string;
+      servers: { id: string; active: boolean }[];
+    };
+    expect(listed.url).toBe(b);
+    expect(listed.servers.map((s) => [s.id, s.active])).toEqual([
+      [linkId(b, USER), true],
+      [linkId(a, USER), false],
+    ]);
+    expect(
+      (await call("POST", { id: linkId(a, USER) }, "/active")).status,
+    ).toBe(200);
+    expect(routes.remoteOf(req)?.token).toBe("ta");
+    expect((await call("POST", { id: "nope" }, "/active")).status).toBe(404);
+    expect(restarted).toEqual([USER, USER, USER]);
   });
 });

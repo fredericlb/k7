@@ -23,7 +23,6 @@ export interface PairRecord {
   email: string;
   /** The remote origin, as `normalizeServer` spells it. */
   origin: string;
-  main: boolean;
   /** Started to add another account on a server already linked: the server's page lets the person pick one. */
   another?: boolean;
   /** Epoch ms after which a waiting pairing is expired. */
@@ -78,10 +77,7 @@ export class PairingStore {
       const raw = JSON.parse(readFileSync(this.file, "utf8")) as {
         pairings?: Partial<PairRecord>[];
       };
-      return (raw.pairings ?? []).filter(valid).map((r) => ({
-        ...r,
-        main: r.main !== false,
-      }));
+      return (raw.pairings ?? []).filter(valid);
     } catch {
       return [];
     }
@@ -117,19 +113,13 @@ export class PairingStore {
   }
 
   /** Start a pairing for `email`, replacing any other of that account: one browser trip at a time. */
-  begin(
-    email: string,
-    origin: string,
-    main: boolean,
-    another = false,
-  ): PairRecord {
+  begin(email: string, origin: string, another = false): PairRecord {
     for (const old of this.records.filter((r) => r.email === email))
       this.forget(old.state);
     const record: PairRecord = {
       state: randomBytes(16).toString("base64url"),
       email,
       origin,
-      main,
       ...(another ? { another } : {}),
       until: this.now() + PAIR_WAIT_MS,
       phase: "waiting",

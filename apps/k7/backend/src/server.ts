@@ -191,7 +191,7 @@ if (LOCAL_USER) {
     requireAuth,
     forwardToPairedServer((req) => media.pairedServer(req)),
   );
-  // The main server's engines beside this machine's own (../docs/serverEngines.md).
+  // The active server's engines beside this machine's own (../docs/serverEngines.md).
   app.get(
     SERVER_ENGINES_PATH,
     requireAuth,

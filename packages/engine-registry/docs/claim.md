@@ -131,7 +131,7 @@ normally releases at once on `pagehide`; only a crash waits the full TTL.
 | k7 | `<repo>/<projet>` from the address, claimed once it resolved | taken: `EngineGate` stops driving and keeps the project open under a banner whose "take it back" is a fresh open. Lapsed: nothing on screen — the hold loop re-opens |
 | the media library | **none** (`null`) | nothing to lose — see rule 3 |
 
-A machine's own backend driving its main server's engine claims it ON THAT SERVER, through the device
+A machine's own backend driving its active server's engine claims it ON THAT SERVER, through the device
 door, as the link's account (`apps/k7/backend/docs/serverEngines.md`): the holder is the account the
 device token names, which is the account the relay ticket names, so the rules above arbitrate it as
 any browser of that account. The project key is the same `<repo>/<projet>`, since the project opens on

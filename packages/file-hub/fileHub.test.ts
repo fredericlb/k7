@@ -564,7 +564,7 @@ describe("the file hub", () => {
             url: "wss://origin.test/api/sync",
             origin: "https://origin.test",
             as: "fred@example.com",
-            main: true,
+            active: true,
           },
         ],
       });
@@ -572,6 +572,24 @@ describe("the file hub", () => {
       expect(fred.echo.sync).toEqual(["wss://origin.test/api/sync", "tok"]);
       const local = await call("/x", { session: "dev@example.com" });
       expect(local.echo.sync).toEqual(["ws://127.0.0.1:4242/api/sync", null]);
+      // A second server saved is the active one; switching back restarts the service on the first.
+      await remote("PUT", "fred@example.com", {
+        url: "wss://band.test/api/sync",
+        token: "band",
+      });
+      const second = await call("/x", { session: "fred@example.com" });
+      expect(second.echo.sync).toEqual(["wss://band.test/api/sync", "band"]);
+      const switched = await fetch(`${origin()}/api/sync/remote/active`, {
+        method: "POST",
+        headers: {
+          "x-test-session": "fred@example.com",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ url: "wss://origin.test/api/sync" }),
+      });
+      expect(switched.ok).toBe(true);
+      const back = await call("/x", { session: "fred@example.com" });
+      expect(back.echo.sync).toEqual(["wss://origin.test/api/sync", "tok"]);
       expect((await remote("DELETE", "fred@example.com")).status).toBe(200);
       const after = await call("/x", { session: "fred@example.com" });
       expect(after.echo.sync).toEqual(["ws://127.0.0.1:4242/api/sync", null]);
