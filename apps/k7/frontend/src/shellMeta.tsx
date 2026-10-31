@@ -76,8 +76,11 @@ export function TransportClock({
   const beatInBar = Math.floor(beat % bpb) + 1;
   return (
     <span className="mx-1 whitespace-nowrap font-mono text-xs text-muted-foreground tabular-nums">
-      {clock}
-      <span className="mx-1 text-border">·</span>
+      {/* Under 380 px the bar keeps the musician's position and drops the seconds, or the clock runs under the menu. */}
+      <span className="max-[380px]:hidden">
+        {clock}
+        <span className="mx-1 text-border">·</span>
+      </span>
       {bar}:{beatInBar}
     </span>
   );
