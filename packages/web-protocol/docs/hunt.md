@@ -24,6 +24,9 @@ it would hide a configuration fault behind a lower-quality file.
 than a setting, so without it a failed row would otherwise offer a button that cannot work. And
 `configured` rides along so the screen can draw its own absence — a button that opened a field and
 then failed on every query would be worse than one that says which variables are missing.
+**`missing` names the blank halves as ids** (`HuntSettingsGap`) rather than as a sentence: the screen
+is in its reader's language and the server is not, so the words are the screen's. `reason` stays
+beside it, in English, for a caller with no screen of its own.
 
 ## Why a row keeps more than it shows
 

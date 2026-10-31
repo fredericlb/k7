@@ -128,7 +128,7 @@ A full page, like every pane, and last in the ring before the graph: it is the l
 meets, so the ring reads in signal order. Every knob on it is a param on one module in the graph,
 which the bottom panel's `graph` shows under it.
 
-`ui mastering`, Tab and `/mastering` all reach it, through the pane ring like anything else.
+`ui mastering`, F6 and `/mastering` all reach it, through the pane ring like anything else.
 It has **no number key**: 1–4 are spoken for, and this is a pane you set up once rather than one
 you flip to mid-take.
 

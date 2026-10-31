@@ -61,3 +61,8 @@ The YouTube fallback's button is greyed, with the reason, when the server says i
 (`GET /api/hunt` → `youtube`). While the slskd settings are incomplete, the download is the one way
 greyed out, and the popin **says what is missing**, with a link to the settings
 ([settings.md](settings.md)) on the machine that holds them: a new instance is unconfigured.
+
+The popin words that notice itself (`src/huntAvailability.ts`): the server answers which halves are
+blank as ids (`missing`: `slskd`, `sftp`) and the host's labels name them, so the sentence is in
+the reader's language and names what the settings page shows rather than the server's internals.
+The server's own `reason` is read only when it gave no ids, the request itself having failed.

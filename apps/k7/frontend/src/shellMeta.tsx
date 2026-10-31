@@ -35,28 +35,76 @@ export const PANES: Pane[] = [
 // Max gap between the two Shift presses that open the command palette (IntelliJ style).
 export const DOUBLE_SHIFT_MS = 400;
 
+// Each `label` is a GETTER, so it is read in the language shown now rather than the one loaded first (docs/settings.md).
 export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
-  editor: { icon: FileCode, label: "Editor" },
-  timeline: { icon: AudioWaveform, label: "Timeline" },
-  turntables: { icon: Disc3, label: "Turntables" },
-  mastering: { icon: Gauge, label: "Mastering" },
-  chains: { icon: Workflow, label: "Chains" },
+  editor: {
+    icon: FileCode,
+    get label() {
+      return m["pane.editor"]();
+    },
+  },
+  timeline: {
+    icon: AudioWaveform,
+    get label() {
+      return m["pane.timeline"]();
+    },
+  },
+  turntables: {
+    icon: Disc3,
+    get label() {
+      return m["pane.turntables"]();
+    },
+  },
+  mastering: {
+    icon: Gauge,
+    get label() {
+      return m["pane.mastering"]();
+    },
+  },
+  chains: {
+    icon: Workflow,
+    get label() {
+      return m["pane.chains"]();
+    },
+  },
 };
 
 // The picture's window — not a pane, so not in the table above, but drawn with the same glyph wherever a surface is listed.
 export const VIEWPORT_META: { icon: LucideIcon; label: string } = {
   icon: MonitorPlay,
-  label: "Viewport",
+  get label() {
+    return m["pane.viewport"]();
+  },
 };
 
 // No metadata for a layout: there is one, and which panes it holds is what the project declares (routes.ts).
 
 // The bottom panels: `event` is the clip or lane opened, `graph` the caret track's path, `mix` the strips lined up, `logs` what happened.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
-  event: { icon: Music, label: "Event" },
-  graph: { icon: Workflow, label: "Graph" },
-  mix: { icon: SlidersVertical, label: "Mix" },
-  logs: { icon: ScrollText, label: "Logs" },
+  event: {
+    icon: Music,
+    get label() {
+      return m["panel.event"]();
+    },
+  },
+  graph: {
+    icon: Workflow,
+    get label() {
+      return m["panel.graph"]();
+    },
+  },
+  mix: {
+    icon: SlidersVertical,
+    get label() {
+      return m["panel.mix"]();
+    },
+  },
+  logs: {
+    icon: ScrollText,
+    get label() {
+      return m["panel.logs"]();
+    },
+  },
 };
 
 // The moving clock, its OWN component so the ~20 Hz playhead re-renders one <span>. Needs <EngineStoreProvider>.

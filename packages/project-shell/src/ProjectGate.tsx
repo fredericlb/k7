@@ -4,7 +4,7 @@
 // you back there. The resolving is useGatePhase.ts, the screens GateScreens.tsx. See docs/launch.md.
 
 import type { ProjectApp } from "@studio/web-protocol/projects";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { EngineLoadScreen } from "./EngineLoadScreen.tsx";
 import { GateWait } from "./GateProgress.tsx";
 import {
@@ -16,15 +16,20 @@ import {
   MissingScreen,
   NoLibrariesScreen,
 } from "./GateScreens.tsx";
-import type { GateEngine, ProjectGateStrings } from "./gateTypes.ts";
+import type { GateEngine, GatePhase, ProjectGateStrings } from "./gateTypes.ts";
 import { SyncScreen, syncLine, syncOffline } from "./syncWait.tsx";
 import { useGatePhase } from "./useGatePhase.ts";
 
 /** What the bar says while the address is resolved, when the host passes no wording of its own. */
 const OPENING = "Opening the project…";
 
+export { projectResolved } from "./claim.ts";
 export { ProjectTakenOver } from "./GateScreens.tsx";
-export type { GateEngine, ProjectGateStrings } from "./gateTypes.ts";
+export type {
+  GateEngine,
+  GatePhase,
+  ProjectGateStrings,
+} from "./gateTypes.ts";
 
 export function ProjectGate({
   engine,
@@ -39,6 +44,7 @@ export function ProjectGate({
   onIdle,
   onResume,
   waits = "screens",
+  onPhase,
 }: {
   engine: GateEngine;
   /** Which app this is — it decides the suffix that ends the project in the address. */
@@ -75,6 +81,8 @@ export function ProjectGate({
   onResume?: () => void;
   /** `screens` draws each wait full-screen; `bar` draws it as a bar along the bottom and opens the project without waiting for the engine, which the app then reports — docs/launch.md. */
   waits?: "screens" | "bar";
+  /** Told each phase the gate enters, so the host claims its engine only once `projectResolved` says so — docs/launch.md. */
+  onPhase?: (k: GatePhase["k"]) => void;
 }) {
   const bar = waits === "bar";
   const { phase, setPhase, email, quit, resume, retry } = useGatePhase({
@@ -88,6 +96,12 @@ export function ProjectGate({
     onResume,
     engineWait: !bar,
   });
+  // By ref: an inline callback would re-announce the same phase every render.
+  const phaseCallback = useRef(onPhase);
+  phaseCallback.current = onPhase;
+  useEffect(() => {
+    phaseCallback.current?.(phase.k);
+  }, [phase.k]);
 
   if (bar && phase.k === "resolving")
     return <GateWait label={strings.opening ?? OPENING} />;

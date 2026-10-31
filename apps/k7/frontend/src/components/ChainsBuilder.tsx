@@ -15,6 +15,7 @@ import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { useChainsWords } from "../chainsLabels";
 import { useGraphAt } from "../hooks/useGraphAt";
 import { isChainFile } from "../libraryTree";
 import { m } from "../paraglide/messages.js";
@@ -51,6 +52,7 @@ export function ChainsBuilder({
   const [error, setError] = useState<string | null>(null);
   // Bumped by every write, so the drawing re-reads the file the verb just changed.
   const [rev, setRev] = useState(0);
+  const labels = useChainsWords();
 
   useEffect(() => {
     let live = true;
@@ -330,6 +332,7 @@ export function ChainsBuilder({
           </div>
         ) : (
           <DomChains
+            labels={labels}
             icons={STUDIO_ICONS}
             graph={drawn}
             // The node the tree asked for, selected in the drawing — the graph names a node by its FILE's basename.

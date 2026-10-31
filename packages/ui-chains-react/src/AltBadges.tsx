@@ -3,6 +3,7 @@
 
 import { Plus } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
+import { useChainsLabels } from "./labels";
 
 /** One badge's width for its name: set, not measured, so the header can size the name beside the row. */
 const altBadgeW = (name: string): number =>
@@ -25,6 +26,7 @@ export function AltBadges({
   current: string;
   onAlternative: (module: string, name: string | null) => void;
 }) {
+  const l = useChainsLabels();
   // The badge clicked, lit before the reply comes back — the graph's own answer replaces it.
   const [asked, setAsked] = useState<string | null>(null);
   // …and the `+`, marked busy until the new set arrives.
@@ -59,9 +61,7 @@ export function AltBadges({
           className={`dgx-alt${name === on ? " on" : ""}`}
           style={{ width: altBadgeW(name) }}
           title={
-            name === on
-              ? `Alternative "${name}" — the settings this node is playing now`
-              : `Play this node with the "${name}" settings instead`
+            name === on ? l.alternativeOn(name) : l.alternativeSwitch(name)
           }
           onClick={() => {
             if (name === on) return;
@@ -75,7 +75,7 @@ export function AltBadges({
       <button
         type="button"
         className={`dgx-alt add${adding ? " busy" : ""}`}
-        title={`New alternative — a copy of "${on}"`}
+        title={l.newAlternative(on)}
         disabled={adding}
         onClick={() => {
           setAdding(true);

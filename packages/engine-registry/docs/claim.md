@@ -128,7 +128,7 @@ normally releases at once on `pagehide`; only a crash waits the full TTL.
 
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
-| k7 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
+| k7 | `<repo>/<projet>` from the address, claimed once it resolved | taken: `EngineGate` stops driving and keeps the project open under a banner whose "take it back" is a fresh open. Lapsed: nothing on screen — the hold loop re-opens |
 | the media library | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in

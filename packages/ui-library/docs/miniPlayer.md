@@ -94,7 +94,7 @@ socket is a second client on the same session, driving the same project.
 
 ## The play queue
 
-Open a song's menu in the tree — a right-click, its ⋮ button, or a long-press on a touch screen — and pick "Add to queue". A song that ends chains into
+Open a song's ⋮ menu in the songs' table and pick "Add to the play queue" — in French « Ajouter à la file d'attente », since « liste de lecture » is the word French uses for a playlist. A song that ends chains into
 the next. The queue button the host draws above its engine selector opens it: rows can be moved and removed there.
 
 The system's skip button — a lock screen's, a headset's — is offered while the queue holds
@@ -124,7 +124,7 @@ half-finished sequence of clicks as a set list.
 ### `MediaPlayback` holds it, not the provider
 
 That looks backwards and is forced: `MediaPlayback` **renders** `PlaybackProvider`, so it is above the
-context and cannot call `usePlayback()`, while the tree whose right-click fills the queue sits
+context and cannot call `usePlayback()`, while the table whose row menu fills the queue sits
 below it. The `usePlayQueue` hook therefore lives at the top and the provider receives it
 as a prop, then re-broadcasts it: one queue per tab, above the screens, like the transport
 itself.

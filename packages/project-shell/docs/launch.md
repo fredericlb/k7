@@ -239,6 +239,19 @@ handed over on purpose, and a tab that takes it back on a timer is how one proje
 between two people. The only move is to go and pick again — or to reopen the project deliberately,
 which is a fresh open and therefore a fresh takeover.
 
+The screen is for an app that has nothing to show without its engine. k7 does not use it: it keeps
+the project open under a banner whose "take it back" is that deliberate reopen
+(`apps/k7/frontend/docs/shell.md`, "When somebody else takes the engine").
+
+### Resolve the address, then claim
+
+A host claims its engine only in a phase `projectResolved` (`src/claim.ts`) accepts — the project
+found and opening — and learns the phase from `onPhase`. A claim displaces whoever holds that
+project or that engine, so one made for an address still resolving, or naming nothing, takes a
+machine from somebody for a project that does not exist, and its refusal can then stand in front of
+the "not in the workspace" screen. Claiming after the open costs nothing: the relay holds a driving
+socket's first frames until the claim lands (`packages/engine-registry/docs/proxy.md`).
+
 ## Why this is a package and not two copies
 
 `docs/inventaire.md` records what copied clients cost here: one auth client in three copies,

@@ -182,6 +182,7 @@ export const MENU_ENTITIES = [
   "pad",
   "note",
   "tap",
+  "rack",
 ] as const;
 type MenuEntity = (typeof MENU_ENTITIES)[number];
 const MENU_NAMES: ReadonlySet<string> = new Set(MENU_ENTITIES);

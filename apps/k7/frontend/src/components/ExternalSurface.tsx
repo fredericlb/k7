@@ -57,11 +57,12 @@ import type { CommandInfo } from "../types";
 /** No caret and no rectangle until a surface says otherwise — a frozen identity, the key listener taking it as a dependency. */
 const NO_CONDITIONS: ConditionCtx = {};
 
-/** The `ui` verbs that mean nothing on a one-surface screen and are not worth saying so about — what Esc and Tab fall through to. */
+/** The `ui` verbs that mean nothing on a one-surface screen and are not worth saying so about — what Esc and F6 fall through to. */
 const QUIET_UI = new Set([
   "close",
   "global",
   "focus next",
+  "focus prev",
   "popin close",
   "slot close",
 ]);

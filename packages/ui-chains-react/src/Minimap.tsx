@@ -7,6 +7,7 @@ import { Columns3, Maximize, Network } from "@frediverse/ui/icons";
 import type { GraphNode } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useRef } from "react";
 import type { Cam } from "./camera";
+import { useChainsLabels } from "./labels";
 
 /** The map's size in CSS px: small enough to leave the graph its corner, wide as a pane usually is. */
 export const MAP_W = 180;
@@ -59,6 +60,7 @@ export function Minimap({
   stacked?: boolean;
 }) {
   const cvRef = useRef<HTMLCanvasElement>(null);
+  const l = useChainsLabels();
   // What was last drawn: a cable frame repaints the graph ~30 times a second, and the map need not follow it.
   const drawn = useRef<{
     cam: Cam;
@@ -151,8 +153,8 @@ export function Minimap({
             type="button"
             className={stacked ? "on" : undefined}
             onClick={onStack}
-            title="Stack view — a column per track, the mix last (ui stack)"
-            aria-label="Stack view"
+            title={l.stackViewHint}
+            aria-label={l.stackView}
             aria-pressed={!!stacked}
           >
             <Columns3 />
@@ -161,8 +163,8 @@ export function Minimap({
         <button
           type="button"
           onClick={onFit}
-          title="Zoom fit — frame the whole graph"
-          aria-label="Zoom fit"
+          title={l.zoomFitHint}
+          aria-label={l.zoomFit}
         >
           <Maximize />
         </button>
@@ -170,8 +172,8 @@ export function Minimap({
           <button
             type="button"
             onClick={onOrganize}
-            title="Organize — lay the graph out again (graph organize)"
-            aria-label="Organize"
+            title={l.organizeHint}
+            aria-label={l.organize}
           >
             <Network />
           </button>

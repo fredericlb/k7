@@ -90,6 +90,40 @@ socket that kept renewing a claim would be squatting the machine.
 [packages/project-shell/docs/idle.md](../../../../packages/project-shell/docs/idle.md) is the
 page, including why a playing transport does not count as idleness.
 
+### When somebody else takes the engine
+
+**The claim waits for the address.** EngineGate holds its lease only once the gate reports a phase
+`projectResolved` accepts (`@studio/project-shell/gate`). A claim is an OPEN, which displaces
+whoever held that project or that engine (`packages/engine-registry/docs/claim.md`): made for an
+address that names nothing, it threw a real project off the machine for nothing, and the "taken"
+answer that came back hid the not-found screen the address deserved.
+
+**Losing the claim keeps the project on screen**, under a banner (`EngineTakenBanner.tsx`), rather
+than replacing it. Two tabs or two people on one machine otherwise could not even read their
+timeline while the other one played. What stops is what needs the engine: the link hangs up and
+its URL answers null (`EngineChoice.detached`), so transport and live parameters are dead and the
+bar reads "no engine". It has to hang up itself: the other project may be in this account's own
+engine session, and a socket left open would drive it.
+
+**The files stay editable.** That is the state of a project with no engine at all, which the editor
+already supports: the files are the file service's, and its paths are workspace-relative, so a write
+lands in this project's files whichever project the engine now holds. What the engine plays from
+then on is the other tab's project; this tab's writes reach the engine once it is taken back.
+
+**Taking it back IS opening the project again**: the gate resolves anew (so `/open` runs) and the
+claim that follows carries no secret, which displaces the other tab — which gets the same banner.
+It is a press, never a timer: two tabs re-claiming on their own flicker the project between them
+for ever. Resuming from the idle card and picking an engine from the list are the same open. On an
+engine that is not ours (`refused`) there is nothing to take back, and the banner offers only the
+list.
+
+**The second button is "All engines…"**, the speaker menu's own entry under its own name, opening
+the same list. Settings holds no engine choice, so a sentence sending people there sent them nowhere.
+
+**The banner floats** over the editor rather than pushing it down: wrapping the gate in a new
+element only while taken would move it in the tree, remount it, and re-run `/open` — a take-back
+nobody asked for.
+
 `LocaleProvider` sits above all of them: switching language remounts its children, so nothing that
 renders a message may live above it.
 
@@ -803,8 +837,9 @@ anything:
   timeline, else the first pane declared), resolved against the layout before anything reads it.
   There is no split: two panes sharing the window each got too little of it to work in, and a second
   view under the page is the bottom panel's job
-- `focus` — which pane gets the keys, which is the page on screen; Tab walks the pages of the ring
-  (`ringPanes`, which is `viewPanes(...).ring`, so the editor is not on it)
+- `focus` — which pane gets the keys, which is the page on screen; F6 walks the pages of the ring
+  and Shift+F6 walks it back (`ringPanes`, which is `viewPanes(...).ring`, so the editor is not on
+  it, and F6 from the editor lands on the ring's first page)
 - `panel` — the bottom panel, independent of both
 
 There is no fourth piece: which pages exist is not state. It is a function of what the project
@@ -894,7 +929,9 @@ changed, so the marks are read off PATHS (`historyMarks.ts`): a track file is it
 or clip file every placement of that material, a chain file its chain — or only the node a journal
 step's command line names in it. A file that is the whole song's (`project.k7x`) lights nothing,
 since lighting everything says nothing. Undone steps stay in the list, dimmed: they are what Ctrl+Y
-brings back, until the next edit drops them.
+brings back, until the next edit drops them. A step reads as the undo toast reads it — its command's
+sentence and subject, "Ctrl+Z stops at the end of the text" below says why — with the raw line as
+the tooltip.
 
 Under the journal, the same panel lists the WORKSPACE's sync history (`syncHistory.ts`): its
 checkpoints and latest edits from every device, read from the relay's log
@@ -1000,8 +1037,17 @@ key, the bar, another tab or the CLI all count. Shift+space arrives as `" "` wit
 Ctrl+Z in the text pane spends the buffer's own history first. When it is spent, the next press
 does NOT reach the project journal: it says so, and only a second press within three seconds does.
 Someone pressing Ctrl+Z through their typing must not silently undo a clip they moved on the
-timeline a minute earlier. The toast then names the ACTION undone — the journal entry's label, a
-command line or `edit <file>` — and an empty journal says "Nothing to undo" rather than nothing.
+timeline a minute earlier. The toast then names the ACTION undone, and an empty journal says
+"Nothing to undo" rather than nothing.
+
+A journal entry's label is the command line that made it, which is the CLI's word and an id:
+`sequence note velocity keys-seq-1 47 0.7` tells nobody which step to go back to. So the toast and
+the History panel read it as the catalogue's `readable` sentence in the app's language, followed by
+its subject — the first argument, a lane by its label and a clip by its shown name
+(`stepSentence.ts`, `clipNames.ts`): "Set a note's velocity · keys sequence 1". Only the subject is
+named, because it is the one argument a person recognises; the values after it are the tooltip's.
+The raw line stays the panel row's tooltip, the exact thing that will be reverted. A label naming no
+catalogue command with a sentence — `edit <file>`, a shell verb — is shown as written.
 
 Ctrl+S anywhere but the text pane — which flushes its own buffer — answers that k7 saves by
 itself, instead of letting the browser offer to save the page.
@@ -1944,6 +1990,18 @@ layout. What a touch screen of any size does need is the right-click, and a fing
 (`longPress.ts`, [contextMenu.md](contextMenu.md)).
 
 ## Keyboard focus is always drawn
+
+**Tab and Shift+Tab are the browser's**, everywhere in the shell: `keyToken` makes no token of Tab, so
+no binding can take it and a stored `key: tab` is read as no assignment. A keyboard-only or
+screen-reader user walks the project bar, the transport, the page's controls (a lane's M/S/A among
+them), the footer's panel tabs and the settings in document order, which is what a key bound to Tab
+would forbid. The one component that keeps Tab is a field of the command bar, a form whose fields it
+steps through ([commandBar.md](commandBar.md)). The tracker grid lets Tab go by.
+
+**The pages are walked by F6**, Shift+F6 backwards: it is the platforms' "next pane" key, and Ctrl+Tab
+is not on offer, being the browser's own tab switch. F6 passes a focused control and a text field
+alike, being the way out of both, and it types nothing. The timeline is no tab stop: its caret is the
+shell's own keys, which answer wherever focus is, as the rule for drag surfaces below says.
 
 `index.css` gives every button, link, `role="button"`/`option` and `tabindex` element one focus ring
 under `:focus-visible`, at zero specificity (`:where`) so a component's own ring still wins. A field

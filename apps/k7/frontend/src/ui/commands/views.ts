@@ -31,6 +31,13 @@ const PANE_READABLE: Record<Pane, { en: string; fr: string }> = {
   },
 };
 
+/** The page `dir` steps from `full` on the ring, wrapping; a page off the ring (the editor) steps onto its first or last. */
+export function ringStep(ring: Pane[], full: Pane, dir: 1 | -1): Pane {
+  const i = ring.indexOf(full);
+  if (i < 0) return dir > 0 ? ring[0] : ring[ring.length - 1];
+  return ring[(i + dir + ring.length) % ring.length];
+}
+
 export const VIEW_COMMANDS: LocalCommand[] = [
   {
     name: "ui global",
@@ -77,8 +84,18 @@ export const VIEW_COMMANDS: LocalCommand[] = [
       fr: "Donner le clavier au panneau suivant",
     },
     run: (ctx) => {
-      const i = ctx.ringPanes.indexOf(ctx.full);
-      ctx.fullscreen(ctx.ringPanes[(i + 1) % ctx.ringPanes.length]);
+      ctx.fullscreen(ringStep(ctx.ringPanes, ctx.full, 1));
+      return true;
+    },
+  },
+  {
+    name: "ui focus prev",
+    readable: {
+      en: "Move the keyboard to the previous pane",
+      fr: "Donner le clavier au panneau précédent",
+    },
+    run: (ctx) => {
+      ctx.fullscreen(ringStep(ctx.ringPanes, ctx.full, -1));
       return true;
     },
   },

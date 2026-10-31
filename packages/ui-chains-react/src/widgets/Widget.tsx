@@ -27,6 +27,7 @@ import {
 } from "../chainsStores";
 import { onEnter } from "../keyActivate";
 import { LcdScreenWidget } from "../LcdScreenWidget";
+import { useChainsLabels } from "../labels";
 import { type TapAction, TapWidget } from "../TapWidget";
 import { ValueEditor } from "../ValueEditor";
 import {
@@ -115,6 +116,7 @@ function WidgetInner({
   /** Pixels its box is drawn in from the left, on a group's named edge — see `groupEdgeInsets`. */
   inset?: number;
 }) {
+  const l = useChainsLabels();
   // Right of the tab column when the panel draws one — `tabColumnW`, the same figure the card is widened by.
   const r = insetRect(stripWidgetRect(n, w, columnW(n.ui), menuH(n.ui)), inset);
   styleOverride = styleOverride && insetStyle(styleOverride, inset);
@@ -344,7 +346,7 @@ function WidgetInner({
       <div
         className="dgx-w dgx-land"
         style={style}
-        title={`bind the curve to ${w.label || w.bind}`}
+        title={l.bindCurve(w.label || (w.bind ?? ""))}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => {
           e.stopPropagation();

@@ -3,6 +3,7 @@
 // See ../docs/host.md.
 
 import type { MiniPlayerLabels } from "@studio/ui-mini-player";
+import type { HuntSettingsGap } from "@studio/web-protocol/hunt";
 
 export interface LibraryLabels {
   sections: {
@@ -140,6 +141,10 @@ export interface LibraryLabels {
     uploading: (percent: number) => string;
     /** Every byte sent, the server still filing it. */
     filing: string;
+    /** The download's notice while its settings are blank: a title, then which halves, each worded here. */
+    notSetUp: string;
+    gap: Record<HuntSettingsGap, string>;
+    missingList: (list: string) => string;
   };
   save: {
     clean: string;

@@ -10,6 +10,7 @@ import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
 import { showToast } from "@studio/project-shell/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
+import { useEngineChoice } from "../engineChoice";
 import { engineSession } from "../engineSession";
 import { rawText, toastEngineWarning } from "../engineWarnings";
 import { beginActivity, tally } from "../freezeWatchdog";
@@ -201,6 +202,12 @@ export function useEngineLink(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Somebody else took the claim: stop driving at once, the gate's URL answering null until it is taken back.
+  const detached = useEngineChoice()?.detached ?? false;
+  useEffect(() => {
+    if (detached) engineRef.current?.hangUp();
+  }, [detached]);
 
   // The radio moved while the link is up: subscribe or let go without reconnecting.
   useEffect(() => {

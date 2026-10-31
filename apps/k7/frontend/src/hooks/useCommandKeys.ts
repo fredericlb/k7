@@ -31,16 +31,20 @@ export function useCommandKeys({
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
+      // The page walk (F6) is the way OUT of a field or a control, so it passes both guards below.
+      const t = keyToken(e);
+      const walk =
+        (t === "f6" || t === "shift+f6") &&
+        !!effKeys[t]?.startsWith("ui focus ");
       // Two reasons to stand aside: TYPING owns every key, where a focused CONTROL keeps them all but Space and Escape (docs/shell.md).
-      if (isTyping(e)) return;
+      if (isTyping(e) && !walk) return;
       const control =
         !!el &&
         (el.tagName === "BUTTON" ||
           el.tagName === "A" ||
           el.tagName === "SELECT");
-      if (control) {
+      if (control && !walk) {
         // What comes back from a focused control is the TRANSPORT's keys, wherever they have been put, plus Escape; Enter stays the control's.
-        const t = keyToken(e);
         const passes =
           t === "esc" ||
           (t !== null &&

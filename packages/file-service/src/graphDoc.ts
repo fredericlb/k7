@@ -477,5 +477,6 @@ export function buildGraphDoc(
       return Object.keys(all).length ? all : undefined;
     })(),
     warnings: g.warnings,
+    ...(g.issues?.length ? { issues: g.issues } : {}),
   };
 }

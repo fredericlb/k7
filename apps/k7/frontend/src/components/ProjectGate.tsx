@@ -5,6 +5,7 @@
 import type { EngineUrl } from "@studio/engine-browser";
 import {
   type GateEngine,
+  type GatePhase,
   ProjectGate as Shared,
 } from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
@@ -33,6 +34,7 @@ export function ProjectGate({
   onChangeEngine,
   onIdle,
   onResume,
+  onPhase,
 }: {
   /** The engine playing the project, or null while there is none — the project opens either way. */
   engine: RankedEngine | null;
@@ -50,6 +52,8 @@ export function ProjectGate({
   onIdle: () => void;
   /** …and taking it back. */
   onResume: () => void;
+  /** Each phase the gate enters, for the claim that waits on the address (../../docs/shell.md). */
+  onPhase: (k: GatePhase["k"]) => void;
 }) {
   // Started at once, not when the project opens: the download runs beside the gate's own work instead of after it.
   useEffect(() => {
@@ -65,6 +69,7 @@ export function ProjectGate({
       idleTimeoutMs={IDLE_TIMEOUT_MS}
       onIdle={onIdle}
       onResume={onResume}
+      onPhase={onPhase}
       // The same two the router's basename is built from, read out of the address rather than handed over, so both sides agree.
       base={import.meta.env.BASE_URL}
       strings={{

@@ -28,8 +28,9 @@ export const KEYS: Record<string, Binding> = {
   "4": "ui turntables",
   // `f` fullscreens whatever is focused, interpolating the pane into the command name; unset focus goes quiet.
   f: { if: "focus_pane", command: "ui {focus_pane}" },
-  // Tab walks the pages, taking Tab from focus traversal — hence the skip-a-focused-control rule.
-  tab: "ui focus next",
+  // F6 walks the pages, the platforms' "next pane" key; Tab and Shift+Tab stay the browser's focus order (docs/shell.md).
+  f6: "ui focus next",
+  "shift+f6": "ui focus prev",
   // Space is the transport wherever you are, short of a text editor — App's listener lets it through a focused control.
   space: "transport toggle",
   // Shift+Space replays: back to where playback last started, and roll again from there.
@@ -141,7 +142,7 @@ const chordToken = (e: KeyboardEvent): string | null =>
     ? null
     : (CHORDS[e.key.toLowerCase()] ?? null);
 
-/** Canonical token for a browser key event — null for anything unbindable, so ⌘1 / ⌃1 stay with the browser. */
+/** Canonical token for a browser key event — null for anything unbindable, so ⌘1 / ⌃1 and Tab stay with the browser. */
 export function keyToken(e: KeyboardEvent): string | null {
   if (e.metaKey || e.ctrlKey) return chordToken(e);
   if (e.altKey) return null;
@@ -149,8 +150,7 @@ export function keyToken(e: KeyboardEvent): string | null {
   if (e.key === " ") return e.shiftKey ? "shift+space" : "space";
   if (e.key === "Enter") return "enter";
   if (e.key === "Escape") return "esc";
-  // Shift+Tab lands here and cycles FORWARD too: a ring of three is walked in at most two presses.
-  if (e.key === "Tab") return "tab";
+  if (e.key === "F6") return e.shiftKey ? "shift+f6" : "f6";
   // Delete is Backspace's twin everywhere else, so it gets the same token rather than a binding of its own.
   if (e.key === "Backspace" || e.key === "Delete") return "backspace";
   return e.key.length === 1 ? e.key : null; // a bare character; named keys above
@@ -190,11 +190,15 @@ export function effectiveKeys(prefs: CommandPrefs): Record<string, string> {
   const eff: Record<string, string> = {};
   for (const [token, b] of Object.entries(KEYS))
     if (typeof b === "string") eff[token] = b;
+  // A stored `tab` is no assignment: keyToken never yields it, so it would only take the command's real key away.
+  const own = (key?: string) => (key && key !== "tab" ? key : undefined);
   for (const [canonical, p] of Object.entries(prefs))
-    if (p.key)
+    if (own(p.key))
       for (const t of Object.keys(eff)) if (eff[t] === canonical) delete eff[t];
-  for (const [canonical, p] of Object.entries(prefs))
-    if (p.key && p.key !== KEY_NONE) eff[p.key] = canonical;
+  for (const [canonical, p] of Object.entries(prefs)) {
+    const key = own(p.key);
+    if (key && key !== KEY_NONE) eff[key] = canonical;
+  }
   return eff;
 }
 
@@ -234,7 +238,8 @@ export function keyLabel(token: string): string {
     "shift+space": "⇧Space",
     enter: "Enter",
     esc: "Esc",
-    tab: "Tab",
+    f6: "F6",
+    "shift+f6": "⇧F6",
     backspace: "Backspace",
     // Spelt out rather than as a glyph, which too few people read at a glance; on a Mac it is ⌘ that fires it — see CHORDS.
     "ctrl+c": "Ctrl+C",

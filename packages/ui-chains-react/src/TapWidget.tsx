@@ -7,6 +7,7 @@ import { Plus, Volume2, VolumeX, X } from "@frediverse/ui/icons";
 import type { WebRackSound } from "@studio/graph-model";
 import { rackAddBind, rackBindSymbol } from "@studio/ui-chains/graph";
 import { useState } from "react";
+import { useChainsLabels } from "./labels";
 import { ValueEditor } from "./ValueEditor";
 
 /** What a tap asks of its host: the three writes, and the sample picker, which is the host's popup. */
@@ -47,6 +48,7 @@ export function TapWidget({
   onMenu?: (x: number, y: number) => void;
 }) {
   const [typing, setTyping] = useState(false);
+  const l = useChainsLabels();
   // Every gesture stops here: a press is not a pan, a click not a selection, a double-click not "back".
   const keep = {
     onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
@@ -63,12 +65,8 @@ export function TapWidget({
         type="button"
         className="dgx-w dgx-tap add"
         style={style}
-        title={
-          at === undefined
-            ? "Add a tap — then pick its sample"
-            : `Add a tap on note ${at} — then pick its sample`
-        }
-        aria-label="Add a tap"
+        title={at === undefined ? l.addTapHint : l.addTapOnNote(String(at))}
+        aria-label={l.addTap}
         disabled={!onEdit}
         {...keep}
         onClick={(e) => {
@@ -116,12 +114,12 @@ export function TapWidget({
         className={`dgx-tap-pad${lit ? " on" : ""}`}
         title={
           fixed
-            ? `${symbol} — note ${sound?.note ?? "?"}, played by the kit`
+            ? l.padByKit(symbol, String(sound?.note ?? "?"))
             : sample
-              ? `${symbol} — ${sample}`
+              ? l.padSample(symbol, sample)
               : playable
                 ? symbol
-                : `${symbol} — no sample yet`
+                : l.padNoSample(symbol)
         }
         disabled={!onTrigger || !playable}
         onClick={(e) => {
@@ -135,11 +133,7 @@ export function TapWidget({
         <button
           type="button"
           className="dgx-tap-note"
-          title={
-            fixed
-              ? "The note the kit plays it on"
-              : "The note it answers to — click to type another"
-          }
+          title={fixed ? l.noteOfKit : l.noteAnswers}
           disabled={!edit || !sound}
           onClick={(e) => {
             e.stopPropagation();
@@ -151,26 +145,22 @@ export function TapWidget({
         <button
           type="button"
           className={`dgx-tap-sample${sample || fixed ? "" : " unknown"}`}
-          title={
-            fixed
-              ? "Its sound is the kit's: velocity layers and round-robins"
-              : (sample ?? "pick a sample from a library's samples/")
-          }
+          title={fixed ? l.soundOfKit : (sample ?? l.pickSample)}
           disabled={!edit}
           onClick={(e) => {
             e.stopPropagation();
             edit?.({ kind: "sample", symbol, x: e.clientX, y: e.clientY });
           }}
         >
-          {fixed ? "kit" : sample ? shortName(sample) : "sample…"}
+          {fixed ? l.kit : sample ? shortName(sample) : l.sampleEllipsis}
         </button>
       </div>
       {onEdit && sound && (
         <button
           type="button"
           className="dgx-tap-m"
-          title={muted ? `Unmute ${symbol}` : `Mute ${symbol}`}
-          aria-label={muted ? `Unmute ${symbol}` : `Mute ${symbol}`}
+          title={muted ? l.unmute(symbol) : l.mute(symbol)}
+          aria-label={muted ? l.unmute(symbol) : l.mute(symbol)}
           aria-pressed={muted}
           onClick={(e) => {
             e.stopPropagation();
@@ -190,8 +180,8 @@ export function TapWidget({
         <button
           type="button"
           className="dgx-tap-x"
-          title={`Remove ${symbol}`}
-          aria-label={`Remove ${symbol}`}
+          title={l.remove(symbol)}
+          aria-label={l.remove(symbol)}
           onClick={(e) => {
             e.stopPropagation();
             edit({ kind: "remove", symbol });

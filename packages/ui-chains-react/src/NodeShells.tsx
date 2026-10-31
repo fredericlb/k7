@@ -8,11 +8,20 @@ import type { ReactNode } from "react";
 import { cableColorFor } from "./chainsCss";
 import type { ChainsIcons } from "./chainsTypes";
 import { onEnter } from "./keyActivate";
+import type { ChainsLabels } from "./labels";
 import { farIconPx, fitFont } from "./nodeLayout";
 import type { NodeProps } from "./nodeProps";
 
 /** The module on its way: a spinner, and the sockets its host wired it by — none are interactive. */
-export function pendingCard({ n, cls }: { n: GraphNode; cls: string }) {
+export function pendingCard({
+  n,
+  cls,
+  l,
+}: {
+  n: GraphNode;
+  cls: string;
+  l: ChainsLabels;
+}) {
   return (
     <div
       className={cls}
@@ -25,7 +34,7 @@ export function pendingCard({ n, cls }: { n: GraphNode; cls: string }) {
         display: "grid",
       }}
       aria-busy="true"
-      aria-label="creating a module"
+      aria-label={l.creatingModule}
     >
       <i className="dgx-spin" />
       {(["in", "out"] as const).map((side) =>
@@ -51,7 +60,10 @@ export function assemblyFrame({
   onHeaderDrag,
   onContext,
   onToggleAssembly,
-}: Pick<NodeProps, "n" | "onHeaderDrag" | "onContext" | "onToggleAssembly">) {
+  l,
+}: Pick<NodeProps, "n" | "onHeaderDrag" | "onContext" | "onToggleAssembly"> & {
+  l: ChainsLabels;
+}) {
   return (
     <div
       className={`dgx-frame${onHeaderDrag ? " grab" : ""}`}
@@ -68,10 +80,10 @@ export function assemblyFrame({
         {/* biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box */}
         <span
           className="dgx-cbtn dgx-obtn on"
-          title={`Close ${n.label}`}
+          title={l.close(n.label)}
           role="button"
           tabIndex={0}
-          aria-label={`Close ${n.label}`}
+          aria-label={l.close(n.label)}
           onPointerDown={(e) => e.stopPropagation()}
           onKeyDown={onEnter(() => n.module && onToggleAssembly?.(n.module))}
           onClick={(e) => {

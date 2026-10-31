@@ -24,6 +24,11 @@ import { readsThisMachine } from "./config";
 import { HuntProgress } from "./HuntProgress";
 import { useLabels } from "./host";
 import {
+  availabilityOf,
+  type HuntAvailability,
+  unavailableNotice,
+} from "./huntAvailability";
+import {
   type Doubtful,
   IdentifiedActions,
   IdentifiedNotice,
@@ -43,13 +48,6 @@ type Step =
     }
   | { kind: "identified"; identified: Doubtful }
   | { kind: "hunt"; first: HuntRecord };
-
-/** What the server says of the automatic download: whether it can run, and why not. */
-interface HuntAvailability {
-  configured: boolean;
-  reason: string | null;
-  youtube: boolean;
-}
 
 export function AddSong({
   onDone,
@@ -95,16 +93,11 @@ export function AddSong({
     setAvailability(null);
     void hunt
       .list()
-      .then((x) =>
-        setAvailability({
-          configured: x.configured,
-          reason: x.configured ? null : x.reason,
-          youtube: x.youtube,
-        }),
-      )
+      .then((x) => setAvailability(availabilityOf(x)))
       .catch((e: Error) =>
         setAvailability({
           configured: false,
+          missing: [],
           reason: e.message,
           youtube: false,
         }),
@@ -250,7 +243,7 @@ export function AddSong({
     </button>
   );
 
-  const unavailable = availability && !availability.configured;
+  const notice = availability && unavailableNotice(availability, l);
   const typed = `${names.artist} — ${names.title}`;
   const description =
     step.kind === "names"
@@ -326,9 +319,14 @@ export function AddSong({
                 !availability?.configured,
               )}
               {/* Said rather than hidden: an unconfigured download is a normal state of a deployment. */}
-              {unavailable && availability?.reason && (
+              {notice && (
                 <div className="flex items-center justify-between gap-3 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-                  <span>{availability.reason}</span>
+                  <span className="min-w-0">
+                    <span className="block font-medium">{notice.title}</span>
+                    {notice.detail && (
+                      <span className="block opacity-80">{notice.detail}</span>
+                    )}
+                  </span>
                   {/* Another server's slskd is its admins', set on that server's own page. */}
                   {readsThisMachine() && onOpenSettings && (
                     <Button

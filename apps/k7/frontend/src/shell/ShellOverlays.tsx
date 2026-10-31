@@ -145,6 +145,7 @@ export function ShellOverlays({
       {menu && (
         <ContextMenu
           items={menu.items}
+          target={menu.target}
           // The icons and names this person chose, from `ui settings commands`.
           prefs={commandPrefs}
           x={menu.x}
