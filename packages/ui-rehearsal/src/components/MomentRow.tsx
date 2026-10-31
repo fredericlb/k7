@@ -1,5 +1,6 @@
 // MomentRow.tsx — one saved moment of a session's page: its span, which plays in the session, its
 // name and tags edited in place, its range adjusted by handles and nudges, and its own clip once cut.
+// On a local instance the clip is cut on a server the person chooses, and the row says which (Consolidation.tsx).
 
 import { Button } from "@frediverse/ui/button";
 import { Check, MoveHorizontal, Trash2 } from "@frediverse/ui/icons";
@@ -10,6 +11,11 @@ import { confirmLoss } from "../confirm";
 import { fmtTime } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Annotation, Envelope, Selection } from "../types";
+import {
+  ConsolidateButton,
+  ConsolidationState,
+  useConsolidation,
+} from "./Consolidation";
 
 interface MomentRowProps {
   ann: Annotation;
@@ -55,6 +61,7 @@ export function MomentRow({
   onApplyEdit,
   onCancelEdit,
 }: MomentRowProps) {
+  const { serverOnly } = useConsolidation();
   // Local draft for the name so typing stays snappy; persisted on blur/Enter.
   const [name, setName] = useState(ann.text);
   useEffect(() => setName(ann.text), [ann.text]);
@@ -109,7 +116,8 @@ export function MomentRow({
         {ann.validated && <Check className="size-3.5" />}
         {fmtTime(shownStart)} – {fmtTime(shownEnd)}
       </Button>
-      {!ann.validated && (
+      {serverOnly && <ConsolidateButton moment={ann} />}
+      {!serverOnly && !ann.validated && (
         <Button
           variant="outline"
           size="sm"
@@ -183,6 +191,8 @@ export function MomentRow({
           </div>
         </div>
       )}
+
+      {serverOnly && <ConsolidationState moment={ann} />}
 
       <div className="row moment-edit">
         <Input

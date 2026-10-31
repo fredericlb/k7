@@ -235,6 +235,19 @@
     color: var(--color-emerald-500, #10b981);
     opacity: 1;
   }
+  /* Where a local instance's moment was consolidated, one line per server, wrapping on a phone. */
+  .moment-consolidations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 4px 0;
+    align-items: center;
+  }
+  .moment-consolidations > * {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
   .session-del {
     opacity: 0;
     padding: 2px 6px;

@@ -11,11 +11,15 @@ import {
 import { Waveform } from "@studio/recorder";
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
+import {
+  ConsolidateButton,
+  ConsolidationState,
+  useConsolidation,
+} from "../components/Consolidation";
 import { MarkerRow } from "../components/MarkerRow";
 import {
   type MomentState,
   MomentStateIcon,
-  ShareMomentButton,
 } from "../components/MomentServerShare";
 import { confirmLoss } from "../confirm";
 import { fmtDate, fmtTime, sessionTitle } from "../format";
@@ -32,12 +36,8 @@ interface Props {
   onAddMarker: (atSec: number) => Promise<void>;
   onUpdateMarker: (markerId: string, comment: string) => Promise<void>;
   onDeleteMarker: (markerId: string) => Promise<void>;
-  /** The moment's copy on a paired server; absent, nothing is drawn. */
-  share?: {
-    state: MomentState | null;
-    host: string;
-    onShare: () => Promise<void>;
-  };
+  /** The moment's copy on the main server; absent, nothing is drawn. */
+  share?: { state: MomentState | null; host: string };
 }
 
 export function MomentDetailView({
@@ -63,6 +63,8 @@ export function MomentDetailView({
   const markers = moment.markers ?? [];
   // Shared from a machine: read here, edited there — ../../../rehearsal-server/docs/momentShare.md.
   const readOnly = moment.sharedFrom !== "";
+  // On a local instance the clip is cut on a server, chosen when asked for.
+  const { serverOnly } = useConsolidation();
 
   useEffect(() => {
     const loop = () => {
@@ -216,13 +218,10 @@ export function MomentDetailView({
         <Button variant="outline" size="sm" onClick={remove}>
           <Trash2 className="size-4" /> {m["moment.delete"]()}
         </Button>
-        {share && (
-          <>
-            <MomentStateIcon state={share.state} host={share.host} />
-            <ShareMomentButton {...share} />
-          </>
-        )}
+        {share && <MomentStateIcon state={share.state} host={share.host} />}
+        {serverOnly && !readOnly && <ConsolidateButton moment={moment} />}
       </div>
+      {serverOnly && <ConsolidationState moment={moment} />}
 
       {readOnly && (
         <p className="muted small" style={{ marginTop: 12 }}>

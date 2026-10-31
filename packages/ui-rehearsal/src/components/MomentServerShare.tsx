@@ -1,14 +1,8 @@
-// MomentServerShare.tsx — on a machine paired with a server: which moments the server holds a copy of, and
-// the sharing of one. A session never leaves the machine, so nothing here is about sessions.
+// MomentServerShare.tsx — on a machine paired with a server: which moments the main server holds a copy of,
+// as an icon. Sending one is consolidating it (Consolidation.tsx); a session never leaves the machine.
 // Nothing at all on an unpaired machine or on the server itself. See ../../../rehearsal-server/docs/momentShare.md.
 
-import { Button } from "@frediverse/ui/button";
-import {
-  CloudCheck,
-  CloudUpload,
-  HardDrive,
-  Loader2,
-} from "@frediverse/ui/icons";
+import { CloudCheck, HardDrive } from "@frediverse/ui/icons";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
@@ -45,14 +39,10 @@ export function useMomentShare(active: boolean, trigger: unknown) {
     /** One moment's state, or null when the machine is not paired. */
     stateOf: (id: string): MomentState | null =>
       placement ? (shared.has(id) ? "synced" : "local") : null,
-    share: async (id: string) => {
-      await api.shareMoment(id);
-      await reload();
-    },
   };
 }
 
-/** One icon: shared with the server, or on this machine only. */
+/** One icon: on the main server, or on this machine only. */
 export function MomentStateIcon({
   state,
   host,
@@ -75,53 +65,5 @@ export function MomentStateIcon({
     >
       <Icon className="size-3.5" />
     </span>
-  );
-}
-
-/** The moment page's button: share it, or share it again over the server's copy. */
-export function ShareMomentButton({
-  state,
-  host,
-  onShare,
-}: {
-  state: MomentState | null;
-  host: string;
-  onShare: () => Promise<void>;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  if (!state) return null;
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={busy}
-        title={
-          state === "synced"
-            ? m["moment.share.againHint"]({ server: host })
-            : undefined
-        }
-        onClick={() => {
-          setBusy(true);
-          setError(null);
-          onShare()
-            .catch((e: Error) => setError(e.message))
-            .finally(() => setBusy(false));
-        }}
-      >
-        {busy ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <CloudUpload className="size-4" />
-        )}{" "}
-        {busy
-          ? m["moment.share.sharing"]()
-          : state === "synced"
-            ? m["moment.share.again"]()
-            : m["moment.share.action"]()}
-      </Button>
-      {error ? <span className="error small">{error}</span> : null}
-    </>
   );
 }

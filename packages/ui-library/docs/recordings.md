@@ -38,7 +38,7 @@ deleting a recording would not expect.
 
 ## Shared moments, on a paired machine
 
-On a machine paired with a server, each moment says whether the server holds a copy of it, as the
+On a machine paired with a server, each moment says whether the MAIN server holds a copy of it, as the
 moment's own page does (`packages/rehearsal-server/docs/momentShare.md`): a cloud with a check for
 one it holds, a drive for one only here. Anywhere else, or when the server is away, nothing is drawn,
 since no icon is better than a wrong one.

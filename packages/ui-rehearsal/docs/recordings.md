@@ -54,6 +54,31 @@ and the sliders and the detected rows come with it. Pressed again, it hides them
 opened as often to listen or to mark one passage by hand as to sift it, and twenty suggestions
 nobody asked for bury the moments already saved. The choice is not kept: each page opens without it.
 
+## A moment is consolidated on a server
+
+On a server, a moment saved is consolidated at once and **Validate** only retries a cut that
+failed. On a local instance (a desktop, a phone) no clip is cut there
+(`packages/rehearsal-server/docs/momentShare.md`): each moment, on its row and on its page, offers
+**Consolidate on a server…** instead, which opens a dialog (`src/components/ConsolidateDialog.tsx`).
+Whether the instance is one or the other is asked of its backend once per page; a backend that does
+not answer it, a server browsed from the tray, consolidates itself.
+
+- **The dropdown lists the account's links, labelled `host · account`**, the main one first then
+  in link order, each said online or offline from the backend's short ping. Asked again on each
+  opening: which servers answer is what changes between two.
+- **The first ONLINE server is preselected, not the main one** (`src/consolidation.ts`). The person
+  opened the dialog to send something now, and a main server that is away cannot take it. A server
+  the moment is already consolidated on, or one that is offline, cannot be chosen.
+- **Nothing to send is said, not hidden.** With no link the dialog explains that consolidating needs
+  a server; with none online, or the moment already on every server, it says so and Send stays off.
+- **The send is a row of the transfer manager** (`moment:<id>:<link>`,
+  `packages/http-client/docs/downloads.md`), and the moment's row says where it is going while it
+  runs, then the server's own sentence if it failed. A whole recording can take minutes to go up,
+  and the page may be left meanwhile.
+- **Where it went is drawn as a link**, "consolidated on host · account", to the moment's page on
+  that server. A recording deleted on a local instance takes the audio of its unconsolidated moments
+  with it, since they have no clip of their own.
+
 ## A take exists nowhere but the tab until it is saved
 
 The recorder keeps its chunks in memory and uploads the whole take in one request when it stops, so
