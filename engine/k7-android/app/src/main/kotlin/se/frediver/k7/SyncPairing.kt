@@ -1,9 +1,9 @@
-// SyncPairing.kt — pair the account signed in on the phone's own studio with the ORIGIN's relay, once, through
-// the system browser. The pairing itself is the phone's backend's (packages/file-hub/pairRoutes.ts, the desktop's
-// too): this asks it whether to offer one, asks the person, opens the URL it answers in a browser, and says how it
-// ended. The browser brings the token back to the backend's own port, and the backend keeps the pairing under way
-// on disk, so a process killed behind the browser is told the ending at its next start. The link takes whichever
-// account the browser confirms on the server, the phone's own or another. See docs/android.md.
+// SyncPairing.kt — pair the account signed in on the phone's own studio with the ORIGIN's relay, once. The pairing
+// itself is the phone's backend's (packages/file-hub/pairRoutes.ts, the desktop's too): this asks it whether to offer
+// one, asks the person, opens the URL it answers in a browser when it answers one (the backend pairs at once when the
+// phone's sign-in is proof enough), and says how it ended. The browser brings the token back to the backend's own
+// port, and the backend keeps the pairing under way on disk, so a process killed behind the browser is told the
+// ending at its next start. The link takes whichever account the browser confirms on the server. See docs/android.md.
 
 package se.frediver.k7
 
@@ -90,11 +90,16 @@ object SyncPairing {
         if (synchronized(this) { !asked.add(email) }) return
         // Offered only while no server is saved: adding and switching servers is the settings' (android.md).
         if (offer.optInt("links") > 0) return
-        if (!ask(context, "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one.", "Sync")) return
+        // The backend pairs at once when the phone's sign-in is proof enough for that server (packages/file-hub/docs/syncRelay.md).
+        val question = if (offer.optBoolean("direct")) "Sync this phone's workspaces with ${host(context)} as $email?"
+            else "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one."
+        if (!ask(context, question, "Sync")) return
         val body = JSONObject().put("origin", origin(context)).put("name", deviceName())
         val started = local("POST", PAIR_API, cookie, body)
             ?: return tell(context, "This phone's sync pairing could not start. k7 will offer it again at its next start.")
         val pairing = started.getJSONObject("pairing")
+        // Paired already, with no browser: said at once.
+        if (pairing.text("phase") != "waiting") return settle(context, pairing, cookie)
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(started.getString("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {

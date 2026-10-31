@@ -1,11 +1,12 @@
 // ServersSection.tsx — on a machine (the tray, a phone app), the servers its account has saved: the ACTIVE one marked,
-// "Use this server" on the others, Remove on each, and Add, which pairs through the browser and makes the new one active.
+// "Use this server" on the others, Remove on each, and Add, which makes the new one active: at once when the account's
+// sign-in is proof enough for that server, else through the browser.
 // A server's page draws nothing here: it is the server. See ../../docs/settings.md and ../../docs/localApp.md.
 
 import { Check, Plus, X } from "@frediverse/ui/icons";
 import { askConfirm } from "@studio/project-shell/ask";
 import { normalizeServer } from "@studio/web-protocol/pairing";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { hostLabel } from "../projects/WorkspaceSyncIcon";
@@ -34,6 +35,8 @@ function Servers() {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const bridge = accountBridge();
+  // Which servers Add pairs with at once, known before the click that must open a tab for the others.
+  useEffect(() => void bridge?.prepare?.(), [bridge]);
 
   const act = (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -69,7 +72,10 @@ function Servers() {
     const asked = known
       ? await bridge?.addAccount?.(origin)
       : await bridge?.addServer?.(origin);
-    if (asked) setTimeout(reload, AFTER_ADD_MS);
+    if (!asked) return;
+    // A pairing made at once is listed now; one that went through the browser shows a moment later.
+    reload();
+    setTimeout(reload, AFTER_ADD_MS);
   };
 
   return (

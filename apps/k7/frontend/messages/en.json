@@ -522,6 +522,7 @@
   "account.status.alreadyLinked": "{server} is already linked as {as} for {local}, so nothing changed. To add another account, sign in to {server} as that one when its page asks.",
   "account.status.pairNotStored": "The link to the server could not be saved on this computer. The log says why.",
   "account.status.failed": "The browser could not be opened. The log says why.",
+  "account.status.pairBlocked": "The browser blocked the server's page. Add the server again to open it.",
   "wsync.downloadMissingOne": "Download the missing song",
   "wsync.downloadMissingMany": "Download the {count} missing songs",
   "home.engine": "Engine",

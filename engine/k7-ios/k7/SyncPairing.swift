@@ -1,7 +1,7 @@
-// SyncPairing.swift — pair the account signed in on the phone's own studio with the ORIGIN's relay, once, through
-// the system browser. The pairing itself is the phone's backend's (packages/file-hub/pairRoutes.ts, Android's and
-// the desktop's too): this asks it whether to offer one, asks the person, opens the URL it answers, and says how it
-// ended. The browser is an ASWebAuthenticationSession over the app; the token comes back to the backend's own port,
+// SyncPairing.swift — pair the account signed in on the phone's own studio with the ORIGIN's relay, once. The pairing
+// itself is the phone's backend's (packages/file-hub/pairRoutes.ts, Android's and the desktop's too): this asks it
+// whether to offer one, asks the person, opens the URL it answers when it answers one (the backend pairs at once when
+// the phone's sign-in is proof enough), and says how it ended. The browser is an ASWebAuthenticationSession over the app; the token comes back to the backend's own port,
 // and the app closes the sheet itself once the backend says the pairing ended. The link takes whichever account the
 // browser confirms on the server, the phone's own or another. See engine/k7-runtime/docs/ios.md.
 
@@ -81,15 +81,23 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         if !fresh { return }
         // Offered only while no server is saved: adding and switching servers is the settings' (ios.md).
         if (offer["links"] as? Int ?? 0) > 0 { return }
-        if !Dialogs.ask(
-            "Sync",
-            "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one.",
-            yes: "Sync", no: "Not now"
-        ) { return }
+        // The backend pairs at once when the phone's sign-in is proof enough for that server (packages/file-hub/docs/syncRelay.md).
+        let question = offer["direct"] as? Bool == true
+            ? "Sync this phone's workspaces with \(Self.syncHost) as \(email)?"
+            : "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one."
+        if !Dialogs.ask("Sync", question, yes: "Sync", no: "Not now") { return }
         let body: [String: Any] = ["origin": Self.syncOrigin, "name": Self.deviceName()]
         guard let started = local("POST", Self.pairApi, cookie: cookie, body: body),
-              let pairing = started["pairing"] as? [String: Any],
-              let link = (started["url"] as? String).flatMap(URL.init(string:)) else {
+              let pairing = started["pairing"] as? [String: Any] else {
+            Dialogs.tell("This phone's sync pairing could not start. k7 will offer it again at its next start.")
+            return
+        }
+        // Paired already, with no browser: said at once.
+        if pairing["phase"] as? String != "waiting" {
+            settle(pairing, cookie: cookie)
+            return
+        }
+        guard let link = (started["url"] as? String).flatMap(URL.init(string:)) else {
             Dialogs.tell("This phone's sync pairing could not start. k7 will offer it again at its next start.")
             return
         }
