@@ -19,6 +19,7 @@ the supervisor (`K7_SUPERVISOR_BIN`), and a server's backend or the phone's neve
 | the engine opens the backend's own folders by path (`STUDIO_ENGINE_ROOTS`) | a project here is a folder on this disk; nothing is copied through the tunnel |
 | the supervisor stopped before the rest | it deregisters from this backend, which must still be up to hear it |
 | `/api/local/tray` under a bearer the tray hands over at spawn | the tray has no session; the status line it draws is worded here (`trayStatus.ts`), so it is tested |
+| this registry lists this machine's engine alone; the account's other machines come from its main server (`serverEngines.md`) | they heartbeat to the server they added, not here, and are driven through that server's relay, so nothing here dials them |
 | `/api/local` answered by a local-user backend only | its answering at all is how a page knows it is on a machine's own backend (`apps/k7/frontend/docs/localApp.md`) |
 
 Under the tray, stdin closing is the stop (`K7_STDIN_STOP`): Windows has no signal to send, and elsewhere a

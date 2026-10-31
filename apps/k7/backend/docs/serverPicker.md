@@ -30,7 +30,8 @@ the ordinary routes. No route is written twice, and each answers as it would in 
 ## Only what the pages need passes
 
 The door lets through the médiathèque, its hunt, the rehearsal recorder and the account's files
-(`ALLOWED`). What mints or pairs — tokens, devices, pairings — and the slskd settings, which hold the
+(`ALLOWED`), and three registry routes exactly — the engine list, a claim and its release
+(`ALLOWED_EXACT`, `serverEngines.md`) — so a machine can drive the account's engines listed there. What mints or pairs — tokens, devices, pairings — and the slskd settings, which hold the
 daemon's key, stay behind a real session (`media/settings.md`). A dot segment in the path is
 refused, so a path cannot climb out of an allowed prefix.
 
@@ -42,4 +43,7 @@ access exactly as that person's browser on the server would.
 ## What does not cross
 
 - **This machine's own routes** stay on this backend whatever the choice: the engine registry, the
-  slskd settings and the copies placed against the server (`hostBase` in each UI package).
+  slskd settings and the copies placed against the server (`hostBase` in each UI package). The
+  server's engines are listed beside this machine's whatever the choice (`serverEngines.md`).
+- **An engine's sharing and ownership** stay behind the server's own session: the door opens
+  `/api/engines` itself, not what is below it.

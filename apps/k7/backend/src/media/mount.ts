@@ -61,7 +61,9 @@ export interface MediaMount {
   /** Say goodbye to the registry and stop every account's file service; idempotent. */
   stop(): Promise<void>;
   /** The server the request's account is paired with, or null — where a desktop's releases and pages are. */
-  pairedServer(req: Request): { base: string; token: string } | null;
+  pairedServer(
+    req: Request,
+  ): { base: string; token: string; account?: string } | null;
   /** Who a device token signs in as through the device door (../remote/door.ts), or null. */
   deviceUser(token: string): { email: string; person: string } | null;
   /** Start the account's file service ahead of its first request: a signed-in page, or a standalone's boot. */

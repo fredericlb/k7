@@ -82,6 +82,13 @@ relay knows whose claim to ask about. And the target always comes from the **reg
 the request — a `?host=&port=` would make every backend an open relay towards everything it can
 reach.
 
+**The ticket is the upgrade's only credential, whatever page holds it.** A machine's own backend lists
+its main server's engines through that server's device door, as the link's account
+(`apps/k7/backend/docs/serverEngines.md`), and its page — another origin, with no cookie here — dials
+this relay with the ticket that listing carried. Nothing about it is special to this relay: the ticket
+names the door's account, the claim that account takes through the same door is what the gate below
+asks for, and an engine that account may not use was never listed to it, so it got no ticket.
+
 ## Before a claim, the probe and nothing else
 
 The engine trusts the relay's socket as it trusts its own machine (`token.md`): whatever crosses it

@@ -10,9 +10,10 @@ const door = deviceDoor({
   },
 });
 
-function run(url: string, token?: string) {
+function run(url: string, token?: string, method = "GET") {
   const req = {
     url,
+    method,
     originalUrl: url,
     get: (h: string) => (h === DEVICE_HEADER ? token : undefined),
   } as unknown as Request;
@@ -53,6 +54,22 @@ describe("allowedPath", () => {
     expect(allowedPath("/api/mediatek-other")).toBe(false);
   });
 
+  it("lets the registry's three driving routes through, exactly and by method", () => {
+    expect(allowedPath("/api/engines")).toBe(true);
+    expect(allowedPath("/api/engine/select", "POST")).toBe(true);
+    expect(allowedPath("/api/engine/release", "POST")).toBe(true);
+    expect(allowedPath("/api/engine/select")).toBe(false);
+    expect(allowedPath("/api/engines", "POST")).toBe(false);
+  });
+
+  it("keeps the ownership routes and the WebRTC offer behind a session", () => {
+    expect(allowedPath("/api/engines/abc/shares")).toBe(false);
+    expect(allowedPath("/api/engines/abc/shares", "PUT")).toBe(false);
+    expect(allowedPath("/api/engines/abc/owner", "DELETE")).toBe(false);
+    expect(allowedPath("/api/engines/owners")).toBe(false);
+    expect(allowedPath("/api/engine/abc/rtc", "POST")).toBe(false);
+  });
+
   it("refuses a dot segment, plain or encoded", () => {
     expect(allowedPath("/api/files/../sync/devices")).toBe(false);
     expect(allowedPath("/api/files/%2e%2E/sync/devices")).toBe(false);
@@ -76,6 +93,15 @@ describe("deviceDoor", () => {
     const { res, next } = run(`${DOOR_PATH}/api/sync/devices`, "good");
     expect(res.statusCode).toBe(403);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("lets a claim through for the token's person, and a share edit not", () => {
+    const select = run(`${DOOR_PATH}/api/engine/select`, "good", "POST");
+    expect(select.next).toHaveBeenCalled();
+    expect(select.req.url).toBe("/api/engine/select");
+    const shares = run(`${DOOR_PATH}/api/engines/e1/shares`, "good", "PUT");
+    expect(shares.res.statusCode).toBe(403);
+    expect(shares.next).not.toHaveBeenCalled();
   });
 
   it("signs the request in as the token's person and strips the prefix", () => {

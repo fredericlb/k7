@@ -12,6 +12,8 @@ export const DEVICE_LIBRARY_ROUTE = "/api/sync/mediatek";
 export interface PairedServer {
   base: string;
   token: string;
+  /** The account on that server the token was minted for, when the link says. */
+  account?: string;
 }
 
 /** One GET on the server's device door, bounded by `ms`; throws on a refusal as on a network failure. */
