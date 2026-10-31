@@ -16,9 +16,13 @@ import {
   useState,
 } from "react";
 import { library } from "../api";
-import { localPathOn, songPreviewDoc } from "../engine/enginePlayback";
+import {
+  localPathOn,
+  songPreviewDoc,
+  warnsAbout,
+} from "../engine/enginePlayback";
 import { type EngineFrame, useSongEngine } from "../engine/useSongEngine";
-import { useLabels } from "../host";
+import { useLibraryHost } from "../host";
 import { PositionContext, PositionStore } from "./position";
 import type { QueueItem } from "./queue";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
@@ -81,9 +85,12 @@ export function PlaybackProvider({
   children: ReactNode;
 }) {
   // Read when a failure is SAID, so the callbacks below need not change with the locale.
-  const labels = useLabels().playback;
-  const said = useRef(labels);
-  said.current = labels;
+  const host = useLibraryHost();
+  const said = useRef(host.labels.playback);
+  said.current = host.labels.playback;
+  // …and the host's way of telling a warning, read the same way.
+  const tell = useRef(host.onEngineWarning);
+  tell.current = host.onEngineWarning;
   // The position and the length, written by every source below and read only by what draws them.
   const [clock] = useState(() => new PositionStore());
   // Whether the engine's document is OURS, read by its frame callback, which outlives a render.
@@ -141,10 +148,14 @@ export function PlaybackProvider({
     engineWeStopped.current = false;
   }, [viaEngine, ours, engine.playing]);
 
-  // A clip it could not open plays SILENCE, so this channel is the only account of it.
+  // Only a complaint naming the file we sent means silence; any other is the host's to tell, never the bar's (../../docs/playback.md).
   useEffect(() => {
-    if (viaEngine && engine.warning)
-      setError(said.current.engineSaid(engine.warning.message));
+    const w = engine.warning;
+    if (!viaEngine || !w) return;
+    if (lastSent.current && warnsAbout(w.message, lastSent.current))
+      setError(said.current.engineCannotOpen);
+    else if (tell.current) tell.current(w);
+    else console.warn(`engine: ${w.message}`);
   }, [viaEngine, engine.warning]);
 
   /** Send a song to the engine — the song is brought to its machine HERE, and before any document goes. */

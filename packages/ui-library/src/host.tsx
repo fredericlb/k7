@@ -2,6 +2,7 @@
 // prefix it is mounted under, and who is signed in. The fetch layer's own settings are config.ts,
 // which a context cannot reach. See ../docs/host.md.
 
+import type { EngineWarning } from "@studio/engine-browser";
 import { createContext, type ReactNode, useContext } from "react";
 import type { LibraryLabels } from "./labels";
 
@@ -21,6 +22,8 @@ export interface LibraryHost {
   recordButton?: ReactNode;
   /** How the host draws a song's lyrics, tablature or sheets; absent, a song shows its tags alone — ../docs/songPlayer.md. */
   songAttachment?: (props: SongAttachmentView) => ReactNode;
+  /** How the host tells an engine warning that is not a playback failure; absent, it goes to the console — ../docs/playback.md. */
+  onEngineWarning?: (w: EngineWarning) => void;
 }
 
 /** One of a song's attachments, as the song screen hands it to the host to draw. */

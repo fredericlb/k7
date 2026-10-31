@@ -270,6 +270,8 @@ export interface LibraryLabels {
     noEngine: string;
     notInLibrary: string;
     engineSaid: (message: string) => string;
+    /** The engine named the song's own file: it could not open it, so nothing plays. */
+    engineCannotOpen: string;
     masterFailed: string;
     bar: MiniPlayerLabels;
     queueRegion: string;

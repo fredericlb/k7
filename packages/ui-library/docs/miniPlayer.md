@@ -194,4 +194,9 @@ song plays. A songbook song's fact is set to the cut too, so rehearsal plays the
 One field, `error`, carries every account of silence: a master the browser could not load and
 the moteur's own complaint about a clip it could not open. They are one field
 because the bar has one line for them and a reader has one question — why is there no sound —
-and the song's pane draws the same string for the song it has on screen.
+and the song's pane draws the same string for the song it has on screen. An engine warning that
+plays on is not silence and never reaches it ([playback.md](playback.md)).
+
+**The failure takes only the room the title leaves.** It is a flex item of zero basis, so the
+title keeps its width and the failure truncates first; its full text is its tooltip. The title is
+what the bar is for, and a long sentence sharing its room would shrink it to its first letter.

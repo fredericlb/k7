@@ -3,9 +3,11 @@
 // which probes and leases an engine — the others deliberately do not (Home.tsx).
 // See packages/ui-library/docs/host.md.
 
+import { Toaster } from "@studio/project-shell/toast";
 import { MediaLibrary, MediaPlayback, QueueButton } from "@studio/ui-library";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { m } from "../paraglide/messages.js";
 import { SERVER_SETTINGS_ROUTE } from "./api";
 import { HomeShell } from "./HomeFrame";
 import { MediaHost } from "./MediaHost";
@@ -27,6 +29,8 @@ export function MediaPage() {
           </div>
         </HomeShell>
       </MediaPlayback>
+      {/* What the player says without failing, an engine warning, is a toast (../engineWarnings.ts). */}
+      <Toaster dismissLabel={m["common.dismiss"]()} />
     </MediaHost>
   );
 }
