@@ -1,19 +1,16 @@
 // serverCopy.ts — a paired machine's library against its server's: which entries are here, there or
-// both, and the download of one entry from there. Matched by PATH: the two volumes share an id space,
-// so a song that differs in content but not in path reads as synced. See packages/mediatek/docs/serverCopy.md.
+// both, whether the server answers now, the download of entries from there, and the jobs that keep the
+// followed songs in step. Matched by PATH: the two volumes share an id space. See packages/mediatek/docs/serverCopy.md.
 
 import { wrap } from "@frediverse/http/route";
 import type { FileHub } from "@studio/file-hub";
 import { listFamilyFresh } from "@studio/mediatek/catalogue";
-import { safePath } from "@studio/mediatek/layout";
-import { remoteLibrary } from "@studio/mediatek/remote";
-import { bumped } from "@studio/mediatek/revision";
 import {
   asFamily,
   FAMILY_ERROR,
-  type Family,
   type FamilyListing,
   type LibraryPlacement,
+  type ServerReach,
 } from "@studio/mediatek/types";
 import {
   DEVICE_PUBLICATIONS_ROUTE,
@@ -27,10 +24,18 @@ import {
   type RequestHandler,
   Router,
 } from "express";
+import { downloadEntries } from "../serverSongs/download.ts";
+import { keepListing, lastListing } from "../serverSongs/listings.ts";
+import { noteReach, reachOf } from "../serverSongs/reach.ts";
+import {
+  DEVICE_LIBRARY_ROUTE,
+  deviceGet,
+  type PairedServer,
+} from "../serverSongs/server.ts";
+import { checkSongUpdates, songSyncJobs } from "../serverSongs/updates.ts";
 import { libraryRouter } from "./library.ts";
 
-/** Where the origin answers a paired device's reads, behind its device token. */
-export const DEVICE_LIBRARY_ROUTE = "/api/sync/mediatek";
+export { DEVICE_LIBRARY_ROUTE };
 
 /** The origin's library, READ-ONLY, for a device that proves its account by token rather than session. */
 export function deviceLibraryRouter(gate: RequestHandler): Router {
@@ -44,33 +49,6 @@ export function deviceLibraryRouter(gate: RequestHandler): Router {
   );
   r.use(libraryRouter);
   return r;
-}
-
-interface PairedServer {
-  base: string;
-  token: string;
-}
-
-/** Copy each entry (a sample's file, a song's folder) from `server` here, on one manifest; what was copied and what it lacks. */
-async function downloadEntries(
-  server: PairedServer,
-  family: Family,
-  paths: string[],
-): Promise<{ files: number; missing: string[] }> {
-  const source = remoteLibrary({ ...server, route: DEVICE_LIBRARY_ROUTE });
-  const manifest = await source.manifest(family);
-  let files = 0;
-  const missing: string[] = [];
-  for (const path of paths) {
-    const under = manifest.filter(
-      (f) => f.path === path || f.path.startsWith(`${path}/`),
-    );
-    if (!under.length) missing.push(path);
-    for (const f of under) await source.download(f.path, safePath(f.path));
-    files += under.length;
-  }
-  if (files) bumped(family);
-  return { files, missing };
 }
 
 /** One path or several — an album, a playlist's songs — deduplicated, empty ones dropped. */
@@ -95,11 +73,11 @@ export function serverOf(hub: FileHub, req: Request): PairedServer | null {
 /** How long the server's listing may take: a few hundred songs from a busy origin take seconds. */
 const LISTING_TIMEOUT_MS = 20_000;
 
-/** The last listing each server gave of each family, answered when it is slow or away rather than nothing. */
-const lastListing = new Map<string, FamilyListing>();
-
-/** `GET /?family=` places each entry; `POST /download {family, path | paths}` brings server-only entries down. */
-export function serverCopyRouter(hub: FileHub): Router {
+/** `GET /?family=` places each entry; `GET /status` says whether the server answers; `POST /download` brings entries down. */
+export function serverCopyRouter(
+  hub: FileHub,
+  servers: () => PairedServer[] = () => [],
+): Router {
   const r = Router();
 
   r.get(
@@ -118,27 +96,27 @@ export function serverCopyRouter(hub: FileHub): Router {
         return res.json(none);
       }
       let theirs: FamilyListing;
+      let stale = false;
       const key = `${server.base} ${family}`;
       try {
         // Bounded: the library page must not wait for ever on a server that is away.
-        const got = await fetch(
-          `${server.base}${DEVICE_LIBRARY_ROUTE}/list?family=${family}`,
-          {
-            headers: { authorization: `Bearer ${server.token}` },
-            signal: AbortSignal.timeout(LISTING_TIMEOUT_MS),
-          },
+        theirs = await deviceGet<FamilyListing>(
+          server,
+          `/list?family=${family}`,
+          LISTING_TIMEOUT_MS,
         );
-        if (!got.ok) throw new Error(`${got.status} ${got.statusText}`);
-        theirs = (await got.json()) as FamilyListing;
-        lastListing.set(key, theirs);
+        noteReach(server.base, true);
+        keepListing(key, theirs);
       } catch (e) {
-        // What it said last time beats an empty page: its songs do not vanish because it was slow once.
-        const known = lastListing.get(key);
+        noteReach(server.base, false);
+        // What it said last time, kept on disk, beats an empty page: its songs do not vanish because it is away.
+        const known = lastListing(key);
         if (!known)
           return res.status(502).json({
             error: `could not list ${server.base}'s library: ${(e as Error).message}`,
           });
         theirs = known;
+        stale = true;
       }
       const here = new Set(
         (await listFamilyFresh(family)).entries.map((e) => e.path),
@@ -150,8 +128,33 @@ export function serverCopyRouter(hub: FileHub): Router {
           .filter((e) => here.has(e.path))
           .map((e) => e.path),
         serverOnly: theirs.entries.filter((e) => !here.has(e.path)),
+        ...(stale ? { stale } : {}),
       };
       res.json(placement);
+    }),
+  );
+
+  r.get(
+    "/status",
+    wrap(async (req, res) => {
+      const server = serverOf(hub, req);
+      if (!server) {
+        const none: ServerReach = {
+          paired: false,
+          server: null,
+          reachable: null,
+          checkedAt: null,
+        };
+        return res.json(none);
+      }
+      const k = await reachOf(server);
+      const reach: ServerReach = {
+        paired: true,
+        server: server.base,
+        reachable: k.reachable,
+        checkedAt: k.at,
+      };
+      res.json(reach);
     }),
   );
 
@@ -167,9 +170,11 @@ export function serverCopyRouter(hub: FileHub): Router {
       if (!server)
         return res.status(409).json({ error: "this account is not paired" });
       try {
-        const got = await downloadEntries(server, family, paths);
+        const got = await downloadEntries(server, family, paths, {
+          follow: req.body?.follow === true,
+        });
         // A list partly there is a success that names what was not; nothing there at all is a 404.
-        if (!got.files)
+        if (got.missing.length === paths.length)
           return res
             .status(404)
             .json({ error: `the server has no '${paths.join("', '")}'` });
@@ -179,6 +184,22 @@ export function serverCopyRouter(hub: FileHub): Router {
       }
     }),
   );
+
+  // The backend's own jobs over the followed songs, which the page's download manager mirrors.
+  r.get("/jobs", (_req, res) => {
+    res.json({ jobs: songSyncJobs() });
+  });
+
+  // A check now, answered at once: its progress is the job list's.
+  r.post("/check", (_req, res) => {
+    // A server, or a machine paired with none, follows nothing: no scan for anyone to start.
+    if (!servers().length)
+      return void res
+        .status(409)
+        .json({ error: "this machine is paired with no server" });
+    void checkSongUpdates(servers).catch(() => {});
+    res.status(202).json({ ok: true });
+  });
 
   return r;
 }
@@ -191,9 +212,10 @@ export function mountServerCopy(
   app: Express,
   hub: FileHub,
   requireAuth: RequestHandler,
+  servers?: () => PairedServer[],
 ): void {
   app.use(DEVICE_LIBRARY_ROUTE, deviceLibraryRouter(hub.sync.deviceGate()));
-  app.use("/api/sync/library", requireAuth, serverCopyRouter(hub));
+  app.use("/api/sync/library", requireAuth, serverCopyRouter(hub, servers));
   // Releases and pages live here alone; a paired machine reads and writes them through this door.
   app.use(
     DEVICE_PUBLICATIONS_ROUTE,

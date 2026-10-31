@@ -1,18 +1,19 @@
 // SongEditor.tsx — a song opened: the médiathèque's header holding its play button and its ⋮ menu, over one
 // column of tabs — its info first, the tags over the waveform, then its attachments. One column,
-// since a phone has room for one. See ../docs/songPlayer.md.
+// since a phone has room for one. Its parts read and write through the song's source (songSource.ts),
+// which a server song on the phone points at the server, or makes read-only. See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Disc3, Pause, Play } from "@frediverse/ui/icons";
+import { CloudOff, Disc3, Pause, Play } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { clock } from "@studio/ui-mini-player";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { library } from "./api";
 import { useLabels } from "./host";
 import { LibraryPage } from "./LibraryPage";
 import { usePlaybackPosition } from "./playback/position";
 import { SongInfoTabs } from "./SongInfoTabs";
 import { SongMenu } from "./SongMenu";
+import { type SongSource, SongSourceProvider } from "./songSource";
 import { useSongAttachments } from "./useSongAttachments";
 import { type SongTransport, useSongTransport } from "./useSongTransport";
 
@@ -28,16 +29,42 @@ function HeaderClock({ transport }: { transport: SongTransport }) {
   );
 }
 
-export function SongEditor({
-  entry,
-  onBack,
-  onSaved,
-  manage,
-}: {
+/** Why the song cannot be changed here, over its tabs. */
+export function ReadOnlyNotice({ said }: { said: string }) {
+  return (
+    <p className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+      <CloudOff className="size-3.5 shrink-0" />
+      <span className="min-w-0">{said}</span>
+    </p>
+  );
+}
+
+export function SongEditor(p: {
   entry: MediatekEntry;
+  source: SongSource;
   onBack: () => void;
   onSaved: () => void;
   /** Whether this account may remove a variant — apps/k7/backend/docs/media/gate.md. */
+  manage: boolean;
+}) {
+  return (
+    <SongSourceProvider value={p.source}>
+      <SongPage {...p} />
+    </SongSourceProvider>
+  );
+}
+
+function SongPage({
+  entry,
+  source,
+  onBack,
+  onSaved: listed,
+  manage,
+}: {
+  entry: MediatekEntry;
+  source: SongSource;
+  onBack: () => void;
+  onSaved: () => void;
   manage: boolean;
 }) {
   const labels = useLabels();
@@ -49,7 +76,13 @@ export function SongEditor({
   const folder = entry.path;
   const master = entry.meta?.master;
   const [status, setStatus] = useState("");
-  const transport = useSongTransport(entry);
+  const { afterWrite, write } = source;
+  // An edit landed: the listing here, and the copy here when the edit went to the server's version.
+  const onSaved = useCallback(() => {
+    listed();
+    afterWrite();
+  }, [listed, afterWrite]);
+  const transport = useSongTransport(entry, source.streamBase);
   const attachments = useSongAttachments(entry, onSaved, setStatus);
   // What is READ is transposed, never the audio; another song starts in its own key.
   const [transpose, setTranspose] = useState(0);
@@ -58,7 +91,8 @@ export function SongEditor({
 
   const removeVariant = useCallback(
     (name: string) => {
-      void library
+      if (!write) return;
+      void write
         .removeVariant(folder, name)
         .then(() => {
           setStatus(said.current.variantRemoved(name));
@@ -66,7 +100,7 @@ export function SongEditor({
         })
         .catch((e: Error) => setStatus(e.message));
     },
-    [folder, onSaved],
+    [folder, onSaved, write],
   );
 
   const nothingToPlay = transport.path
@@ -113,6 +147,7 @@ export function SongEditor({
         </>
       }
     >
+      {source.readOnly ? <ReadOnlyNotice said={source.readOnly} /> : null}
       <div className="min-h-0 flex-1">
         <SongInfoTabs
           entry={entry}
@@ -121,7 +156,7 @@ export function SongEditor({
           transpose={transpose}
           onSaved={onSaved}
           onStatus={setStatus}
-          onRemoveVariant={manage ? removeVariant : undefined}
+          onRemoveVariant={manage && write ? removeVariant : undefined}
         />
       </div>
 

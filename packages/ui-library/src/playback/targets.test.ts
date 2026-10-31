@@ -13,6 +13,11 @@ describe("effectiveTarget", () => {
   it("falls back to the browser when no engine answers", () => {
     expect(effectiveTarget(false)).toBe("browser");
   });
+
+  // The engine plays files of its own machine: a server song not copied yet has none there.
+  it("streams a song not on this machine in the browser, engine or not", () => {
+    expect(effectiveTarget(true, true)).toBe("browser");
+  });
 });
 
 describe("playbackTargetInfo", () => {

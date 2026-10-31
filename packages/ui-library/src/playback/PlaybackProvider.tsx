@@ -15,7 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { library } from "../api";
+import { library, libraryAt } from "../api";
 import {
   localPathOn,
   songPreviewDoc,
@@ -32,6 +32,8 @@ export interface NowPlaying {
   entry: MediatekEntry;
   /** The loaded version's médiathèque-relative path — the identity, since two songs share a name. */
   path: string;
+  /** Where its bytes stream from when it is not on this machine (the paired server, on the phone); unset is the pages' library. */
+  base?: string;
   /** The version's own name when it is not the master. */
   version?: string;
   /** Where it is playing, set by `start` — the two destinations are driven differently from here down. */
@@ -192,7 +194,7 @@ export function PlaybackProvider({
       // The fallback is decided HERE, once, so no caller has to know whether an engine answered.
       const loading: NowPlaying = {
         ...what,
-        target: effectiveTarget(engine.available),
+        target: effectiveTarget(engine.available, !!what.base),
       };
       setError("");
       // Where the engine was ASKED to be is the only honest answer until its ~20 Hz frame lands.
@@ -298,7 +300,10 @@ export function PlaybackProvider({
           // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
           <audio
             ref={audioRef}
-            src={library.streamUrl(now.path)}
+            src={(now.base
+              ? libraryAt(() => now.base ?? "")
+              : library
+            ).streamUrl(now.path)}
             preload="metadata"
             onPlay={() => setLocalPlaying(true)}
             onPause={() => setLocalPlaying(false)}

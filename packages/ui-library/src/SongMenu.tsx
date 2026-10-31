@@ -188,8 +188,8 @@ export function SongMenu({
             </div>
           </section>
 
-          {/* Offered only where the host can draw what they add. */}
-          {songAttachment ? (
+          {/* Offered only where the host can draw what they add, and the song may be written. */}
+          {songAttachment && a.writable ? (
             <section className="flex flex-col gap-1 border-t pt-2">
               {!a.has.lyrics && a.editing !== "lyrics" && (
                 <Button

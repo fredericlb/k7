@@ -16,11 +16,11 @@ import type { Take } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
 import { useEffect, useRef, useState } from "react";
-import { library } from "./api";
 import { useLabels } from "./host";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { usePlaybackPosition } from "./playback/position";
 import { playbackTargetInfo } from "./playback/targets";
+import { useSongSource } from "./songSource";
 import { readSongShape, type SongShape } from "./songWaveform";
 import type { SongTransport } from "./useSongTransport";
 
@@ -37,6 +37,8 @@ export function SongPlayer({
   transport: SongTransport;
 }) {
   const playback = usePlayback();
+  // Its shape is read where the song is read, and measured only where it may be written.
+  const { read, write } = useSongSource();
   const labels = useLabels();
   const l = labels.song;
   const targetLabels = labels.playback.targets;
@@ -71,16 +73,17 @@ export function SongPlayer({
     let alive = true;
     const stop = new AbortController();
     void (async () => {
-      const found = await readSongShape(path);
+      const found = await readSongShape(path, read);
       if (!alive) return;
       if (found) return setShape(found);
+      if (!write) return;
       if (attempted.current === path)
         return setStatus(said.current.alreadyAsked);
       attempted.current = path;
       setAnalysing(true);
       try {
-        await library.analyse(path, stop.signal);
-        const made = await readSongShape(path);
+        await write.analyse(path, stop.signal);
+        const made = await readSongShape(path, read);
         if (!alive) return;
         if (made) setShape(made);
         else setStatus(said.current.analysedNoCache);
@@ -96,7 +99,7 @@ export function SongPlayer({
       alive = false;
       stop.abort();
     };
-  }, [path, retry]);
+  }, [path, retry, read, write]);
 
   // The waveform fills whatever height is left, so a tall pane is not a 160px strip over a void.
   const bodyRef = useRef<HTMLDivElement>(null);

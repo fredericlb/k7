@@ -276,6 +276,14 @@ In the same pane, not in a tab of their own: the master and its other versions a
 one question, and a column that only showed when *nothing* is open would be unreachable, since
 clicking a song opens something.
 
+## Where the page reads and writes
+
+Every part of the page — tags, texts, sheets, the waveform, the analysis, the audio — goes through the
+song's source rather than the pages' library: on the phone a server song is read and written on the
+server, and turns read-only while it is away, the ⋮'s add buttons, Edit, Edit text, a sheet's and a
+variant's removal all withdrawn, with one line over the tabs saying why. The rule is
+[songSource.md](songSource.md).
+
 ## An address for a song
 
 `/songs/<artist>/<album>/<title>/song.yaml` is an address, like `/modules/audio/reverb/ui.k7x`. See

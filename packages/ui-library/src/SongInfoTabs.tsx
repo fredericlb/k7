@@ -7,7 +7,6 @@ import { Button } from "@frediverse/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { useMemo } from "react";
-import { library } from "./api";
 import { BottomSplit } from "./BottomSplit";
 import { FollowedText } from "./FollowedText";
 import { useLabels, useLibraryHost } from "./host";
@@ -16,6 +15,7 @@ import { SongTagsForm } from "./SongTagsForm";
 import { SongTextEditor } from "./SongTextEditor";
 import { SongVariants } from "./SongVariants";
 import { songChords } from "./songExtras";
+import { useSongSource } from "./songSource";
 import type {
   AttachmentKind,
   SongAttachments,
@@ -44,6 +44,7 @@ export function SongInfoTabs({
 }) {
   const l = useLabels().song;
   const { songAttachment } = useLibraryHost();
+  const { read } = useSongSource();
   const { song, has, editing, tab } = a;
 
   const order: AttachmentKind[] = ["lyrics", "chords", "tablature", "sheet"];
@@ -129,6 +130,7 @@ export function SongInfoTabs({
           variant="outline"
           size="sm"
           className="self-end"
+          disabled={!a.writable}
           onClick={() => a.startTyping(kind)}
         >
           {l.editText}
@@ -161,9 +163,9 @@ export function SongInfoTabs({
         })),
         sheetUrl: (sid) => {
           const s = song.facts.sheets.find((x) => x.id === sid);
-          return library.fileUrl(`${song.path}/${s?.file ?? ""}`);
+          return read.fileUrl(`${song.path}/${s?.file ?? ""}`);
         },
-        onDeleteSheet: a.removeSheet,
+        onDeleteSheet: a.writable ? a.removeSheet : undefined,
         transpose,
       })}
     </div>

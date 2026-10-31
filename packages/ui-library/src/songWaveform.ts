@@ -5,7 +5,7 @@
 
 import type { Envelope } from "@studio/ui-waveform";
 import { useEffect, useSyncExternalStore } from "react";
-import { library } from "./api";
+import { type LibraryClient, library, libraryAt } from "./api";
 import { Memo } from "./shapeMemo";
 
 /** The sidecar's name, mirroring `CACHE_EXT`: to this app it is a file beside the audio. */
@@ -61,12 +61,13 @@ function shapeOf(raw: unknown): SongShape | null {
 /** The shapes this tab has read, the song pane's and the bar's alike. */
 const known = new Memo<SongShape>(16);
 
-/** Read the sidecar beside `masterPath`, or null — an ABSENCE rather than a failure. */
+/** Read the sidecar beside `masterPath` through `from`, or null — an ABSENCE rather than a failure. */
 export async function readSongShape(
   masterPath: string,
+  from: LibraryClient = library,
 ): Promise<SongShape | null> {
   try {
-    const { content } = await library.readFile(`${masterPath}${CACHE_EXT}`);
+    const { content } = await from.readFile(`${masterPath}${CACHE_EXT}`);
     const shape = shapeOf(JSON.parse(content));
     if (shape) known.set(masterPath, shape);
     return shape;
@@ -75,13 +76,17 @@ export async function readSongShape(
   }
 }
 
-/** The shape of `path` if one exists, read once and then followed; it never asks for an analysis. */
-export function useSongShape(path: string | null): SongShape | null {
+/** The shape of `path` if one exists, read once (under `base` when set) and then followed; it never asks for an analysis. */
+export function useSongShape(
+  path: string | null,
+  base?: string,
+): SongShape | null {
   const shape = useSyncExternalStore(known.subscribe, () =>
     path ? (known.get(path) ?? null) : null,
   );
   useEffect(() => {
-    if (path && !known.has(path)) void readSongShape(path);
-  }, [path]);
+    if (path && !known.has(path))
+      void readSongShape(path, base ? libraryAt(() => base) : library);
+  }, [path, base]);
   return shape;
 }

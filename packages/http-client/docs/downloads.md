@@ -20,6 +20,13 @@ row that started a download reads its spinner from it.
   a second song still overlaps the first one's round trips.
 - **What others run is mirrored, not queued.** A model job runs on the file service and is polled
   (`trackDownload`); the supervisor keeps its own instrument queue and pushes it whole (`syncDownloads`,
-  where a row that leaves the list while running has landed).
+  where a row that leaves the list while running has landed). The backend's update check of the
+  songs that follow their server is mirrored the same way, under `songs-sync:` — the check as one row
+  saying what it found, each song it brings down again as its own (`apps/k7/backend/docs/media/songUpdates.md`).
+- **A finished mirrored row is handed over once.** A backend keeps an ended job listed a few seconds so
+  a poll sees it end; the mirror then stops passing it, or the next poll would draw a row the manager
+  had already let go of after its linger.
+- **A song opened on the phone queues the same `library:<path>` as its download button**, so the
+  background copy of a first look and a click on the button are one job.
 - **Finished rows linger four seconds once nothing runs**, then go; a failure stays until Clear, since
   it is the one row that asks for something.

@@ -196,9 +196,16 @@ On a machine paired with a server, the entries only the server holds are filed a
 in a family's tree (`treeOf`'s `remote`, `remoteRows`) under the same folders, and in the songs'
 table in the same groups and albums (`songTable`'s `remote`) — rather than listed apart: a separate
 flat list of a few hundred songs is not something anyone finds a song in. Such a row wears a cloud,
-is muted and does not open — there is nothing here to open — and a cloud button at its end brings it
-down. A song held on both sides is one row, the local one. What a download takes, and why never a
-folder whole, is `../../mediatek/docs/serverCopy.md`.
+is muted, and a cloud button at its end brings it down. On a computer it does not open — there is
+nothing here to open; on the phone it opens, read from the server ([songSource.md](songSource.md)).
+A song held on both sides is one row, the local one. What a download takes, and why never a folder
+whole, is `../../mediatek/docs/serverCopy.md`.
+
+**The song's glyph says where it is**, once the machine is paired: the three icons of the placement
+(`PlacementIcon`) — synced, on this machine only, on the server only — in the slot where an unpaired
+machine draws the disc. A song copied from the server must not look like one made here: the first
+follows the server, the second is this machine's alone. A family's tree marks its synced entries the
+same way.
 
 ## Favorites
 

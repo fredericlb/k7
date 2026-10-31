@@ -19,7 +19,7 @@ import { remoteRows, TOP_LEVEL, treeOf } from "./libraryTree";
 import { Playlists } from "./Playlists";
 import { RecordingsCalendar } from "./RecordingsCalendar";
 import { DEFAULT_SECTION, type SectionId } from "./routes";
-import { RemoteDownload, useServerCopy } from "./ServerCopy";
+import { PlacementIcon, RemoteDownload, useServerCopy } from "./ServerCopy";
 import { SongsLibrary } from "./SongsLibrary";
 import { assetActions } from "./treeActions";
 import { useLibraryData } from "./useLibraryData";
@@ -246,10 +246,15 @@ export function MediaLibrary({
               collapseSingleRoot
               // Only the top level unfolds: nothing in a tree family opens a page of its own.
               reveal={TOP_LEVEL}
-              // An entry only on the server wears a cloud.
+              // An entry only on the server wears a cloud, one on both the synced cloud.
               icon={(n) =>
                 remoteAt.entries.has(n.path) ? (
                   <Cloud className="h-4 w-4 shrink-0" />
+                ) : serverCopy.stateOf(`${section}/${n.path}`) === "synced" ? (
+                  <PlacementIcon
+                    state="synced"
+                    server={serverCopy.placement?.server ?? null}
+                  />
                 ) : null
               }
               // Muted and not openable until it is here — still right-clickable, for its download.
