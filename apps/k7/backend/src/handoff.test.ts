@@ -20,6 +20,22 @@ describe("handoff code", () => {
     expect(openCode(KEY, fresh(), verifier)?.user).toEqual(user);
   });
 
+  it("carries the browser session's stamps and kept-token key to the app's session", () => {
+    const code = signCode(KEY, {
+      u: user,
+      c: challengeOf(verifier),
+      e: Date.now() + 60_000,
+      i: 1,
+      x: 2,
+      k: "key-1",
+    });
+    expect(openCode(KEY, code, verifier)?.stamps).toEqual({
+      iat: 1,
+      exp: 2,
+      kept: "key-1",
+    });
+  });
+
   it("is useless without the verifier", () => {
     expect(openCode(KEY, fresh(), "guessed")).toBeNull();
   });

@@ -20,6 +20,7 @@ service's entry.
 | `STUDIO_LISTEN_HOST` `127.0.0.1` | the backend answers its own machine only — below |
 | `K7_INSTANCE=local` | releases and pages live on the server alone: this backend forwards them to the paired server, and has none without it (`packages/rehearsal-server/docs/publications.md`) |
 | `STUDIO_LIBRARY_ORIGIN` `https://app.k7.rocks` | where a machine never paired finds newer versions of the `k7-core` library and fetches them (`packages/file-hub/libraryFetch.ts`); a hosted origin never sets it, since it IS one, and asking another would mix two origins' libraries |
+| `STUDIO_DIRECT_PAIR_SERVERS` `https://app.k7.rocks` | the servers this machine sends its account's provider token to, to pair with no browser; a server merely typed gets the browser, since a token handed to it could be replayed elsewhere (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser") |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
 | `STUDIO_STREAM_SWEEP=0` | no background Opus copy beside every FLAC: the page plays a FLAC as it is, and the engine shares the CPU (`media/derivedStream.md`) |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both; `K7_DATA_DIR` holds the rehearsal recorder's store, as on the server (`packages/rehearsal-server/docs/store.md`) |

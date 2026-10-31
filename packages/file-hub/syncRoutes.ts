@@ -8,6 +8,12 @@ import { isLoopbackReturn, isServerReturn } from "@studio/web-protocol/pairing";
 import express, { type Request, type RequestHandler, Router } from "express";
 import { blobsRouter } from "./blobStore.ts";
 import type { DeviceTokens } from "./deviceTokens.ts";
+import {
+  type DirectPairClient,
+  type DirectPairServer,
+  directPairHandler,
+  relayUrlOf,
+} from "./directPair.ts";
 import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
@@ -22,7 +28,6 @@ import { publicHost } from "./publicOrigin.ts";
 import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
-import { SYNC_PATH } from "./syncRelay.ts";
 import {
   engineMoves,
   forgetRemote,
@@ -65,6 +70,8 @@ export interface SyncContext {
   onPaired?: (origin: string, token: string) => void;
   /** A pairing let go: the machine's engine leaves that server too. */
   onForgotten?: (origin: string) => void;
+  /** Pairing without the browser: a machine's side (`client`) or a server's (`server`) — directPair.ts. */
+  direct?: { client?: DirectPairClient; server?: DirectPairServer };
 }
 
 export class SyncRoutes {
@@ -88,6 +95,7 @@ export class SyncRoutes {
       selfHost: publicHost,
       engineFollows: (before: SyncRemote[], after: SyncRemote[]) =>
         this.engineFollows(before, after),
+      direct: this.c.remotePairing ? this.c.direct?.client : undefined,
     };
   }
 
@@ -99,6 +107,13 @@ export class SyncRoutes {
   /** The browser's way back with the other server's device token — NO session guard: the state is the gate. */
   pairReturnHandler(): RequestHandler {
     return pairReturnHandler(this.pairContext());
+  }
+
+  /** A server's POST that mints a device token for a provider access token, or null when it takes none (docs/syncRelay.md). */
+  directPairHandler(): RequestHandler | null {
+    const server = this.c.direct?.server;
+    if (this.c.remotePairing || !server?.clients.length) return null;
+    return directPairHandler(server, this.c.devices);
   }
 
   /** The account's sync devices: list, add (answering the token once), remove — mounted behind the session guard. */
@@ -127,9 +142,7 @@ export class SyncRoutes {
         name,
         this.c.subjectOf(req),
       );
-      const proto = req.get("x-forwarded-proto") ?? req.protocol;
-      const url = `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`;
-      res.json({ device, token, url });
+      res.json({ device, token, url: relayUrlOf(req) });
     });
     r.delete("/:id", (req, res) => {
       const slug = slugOf(req);
@@ -225,14 +238,10 @@ export class SyncRoutes {
         name,
         this.c.subjectOf(req),
       );
-      const proto = req.get("x-forwarded-proto") ?? req.protocol;
       const target = new URL(back);
       target.searchParams.set("token", token);
       target.searchParams.set("device", device.id);
-      target.searchParams.set(
-        "url",
-        `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`,
-      );
+      target.searchParams.set("url", relayUrlOf(req));
       target.searchParams.set("identity", user);
       if (q("state")) target.searchParams.set("state", q("state"));
       res.redirect(303, target.toString());

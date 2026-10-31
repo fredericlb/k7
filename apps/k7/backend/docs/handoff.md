@@ -22,7 +22,10 @@ stored** — the session's own secret with a suffix of its own, so a code can ne
 cookie or an API token — dead after two minutes, long enough for a phone to switch apps, and
 redeemed **once**: this process remembers the hash of every code redeemed until it would have
 expired anyway. It carries the browser session's `iat` and `exp`, so the app's session ends when the
-browser's would have, and a revocation of the account reaches it.
+browser's would have, and a revocation of the account reaches it. It also carries the KEY of the
+provider token that session kept, never the token (commons `packages/oidc/docs/session.md`), so the
+app's view pairs with its server as the browser could (`packages/file-hub/docs/syncRelay.md`, "Pairing
+without the browser"); the key opens nothing without a session cookie this process signed.
 
 ## Issue asks first
 

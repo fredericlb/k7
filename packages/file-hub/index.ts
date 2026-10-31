@@ -61,6 +61,7 @@ import { type SyncContext, SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
+export type { DirectPairServer, ProviderWord } from "./directPair.ts";
 export type { Instance, InstancesStatus } from "./instances.ts";
 export { accountKey } from "./instances.ts";
 export { LibraryStore } from "./libraries.ts";
@@ -96,6 +97,8 @@ export interface FileHubOptions
   watchSources?: boolean;
   /** A pairing stored or let go: the machine's engine follows it — docs/syncRelay.md, "The engine follows the account". */
   onRemote?: Pick<SyncContext, "onPaired" | "onForgotten">;
+  /** Pairing without the browser, a machine's side or a server's — directPair.ts, docs/syncRelay.md. */
+  directPair?: SyncContext["direct"];
   log?: (msg: string) => void;
 }
 
@@ -198,6 +201,7 @@ export class FileHub {
       isLocal: opts.isLocal,
       signOut: opts.signOut,
       selfPort: opts.selfPort,
+      direct: opts.directPair,
       ...opts.onRemote,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.

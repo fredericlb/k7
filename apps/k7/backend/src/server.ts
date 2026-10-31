@@ -52,6 +52,7 @@ import {
 } from "./localEngine/routes.ts";
 import { loopbackOnly } from "./loopback.ts";
 import { originPolicyFromEnv, studioCors } from "./media/cors.ts";
+import { directPairFromEnv } from "./media/directPair.ts";
 import { mayManageLibrary } from "./media/libraryGate.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
@@ -154,6 +155,9 @@ const auth = await setupAuth(app, {
   service: "k7-backend",
   // Dropping `groups` would 403 every admin surface — see ../../AGENTS.md, § The backend in detail.
   scopes,
+  // A machine keeps its provider token in memory, to pair with its server without the browser (./media/directPair.ts).
+  keepAccessToken: LOCAL_USER,
+  keepRefreshToken: LOCAL_USER,
 });
 // A local dev session's stub user is an admin, nobody else's is (./devAdmin.ts).
 const requireAuth = withDevAdmin(auth.requireAuth);
@@ -239,6 +243,7 @@ const media = mountMedia(app, {
   port: PORT,
   tokens,
   onRemote: localEngine ? pairingHooks(localEngine) : undefined,
+  directPair: directPairFromEnv(auth, LOCAL_USER),
   favorites: {
     own: prefsStore(join(PREFS_DIR, "favorites")),
     prefs: prefsStore(PREFS_DIR),

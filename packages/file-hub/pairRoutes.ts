@@ -1,8 +1,9 @@
 // pairRoutes.ts — saving a server for an account of a machine (the tray, the phones): the page asks here whether to
 // offer it, starts it, opens the URL it gets in the browser, and waits here for the ending; a server refuses them all.
 // The browser comes back to THIS backend's loopback port (`pairReturnHandler`) with no session: the state is the gate.
-// The link takes the remote account the browser came back as, and becomes the active one.
-// See docs/syncRelay.md, "Pairing through the browser".
+// The link takes the remote account the browser came back as, and becomes the active one. A signed-in account tries
+// the server's direct route first (directPair.ts), and only opens the browser when it is refused.
+// See docs/syncRelay.md, "Pairing through the browser" and "Pairing without the browser".
 
 import { mkdirSync } from "node:fs";
 import {
@@ -12,6 +13,11 @@ import {
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
 import express, { type Request, type RequestHandler, Router } from "express";
+import {
+  canPairDirect,
+  type DirectPairClient,
+  pairDirect,
+} from "./directPair.ts";
 import { accountKey } from "./instances.ts";
 import type { PairingStore, PairRecord } from "./pairingStore.ts";
 import {
@@ -43,6 +49,8 @@ export interface PairContext {
   selfHost: (req: Request) => string;
   /** The saved servers changed: the engine follows the active one (docs/syncRelay.md, "The engine follows the account"). */
   engineFollows?: (before: SyncRemote[], after: SyncRemote[]) => void;
+  /** The server's direct route, tried before the browser for a signed-in account; absent, the browser always. */
+  direct?: DirectPairClient;
 }
 
 /** The longest one GET /:state holds before answering a pairing still waiting. */
@@ -59,6 +67,38 @@ const hostOf = (url: string): string => {
     return "";
   }
 };
+
+/** Store the token the origin minted for `identity` as the account's active link, as the browser's return does. */
+async function storeLink(
+  c: PairContext,
+  email: string,
+  origin: string,
+  identity: string,
+  token: string,
+): Promise<"paired" | "alreadyLinked" | "notStored"> {
+  const home = c.accountDir(accountKey(email));
+  // That account on that server is linked already: the link it has stays as it is.
+  if (linkOf(readRemotes(home), relayOf(origin), identity))
+    return "alreadyLinked";
+  try {
+    if (!token) throw new Error("no token");
+    mkdirSync(home, { recursive: true });
+    const before = readRemotes(home);
+    // The relay is reached where the person named the server, whatever host a proxy showed the origin.
+    writeRemote(home, {
+      url: relayOf(origin),
+      token,
+      user: email,
+      as: identity,
+    });
+    await c.restart(email);
+    // The new server is the active one: the engine leaves the one it was on for it.
+    c.engineFollows?.(before, readRemotes(home));
+    return "paired";
+  } catch {
+    return "notStored";
+  }
+}
 
 /** What an app is told of a pairing; the token rides along once paired, for the phone's supervisor. */
 function viewOf(c: PairContext, r: PairRecord) {
@@ -95,22 +135,29 @@ export function pairRouter(c: PairContext): Router {
   const hostsOf = (email: string) =>
     new Set(linksOf(email).map((s) => hostOf(s.url)));
   // Whether to offer a pairing with `?origin=`, and the account's pairing under way or ended unseen.
-  r.get("/", (req, res) => {
+  r.get("/", async (req, res) => {
     const email = c.userOf(req);
     if (!email)
       return void res.status(401).json({ error: "no user on the session" });
     const origin = normalizeServer(String(req.query.origin ?? ""));
     const mine = c.store.ofAccount(email);
+    const local = c.isLocal(req);
+    // The servers a click pairs with at once, so the page opens no tab for them (docs/syncRelay.md).
+    const silent =
+      !local && !!c.direct && (await c.direct.tokenOf(req)) !== null;
     res.json({
       email,
-      local: c.isLocal(req),
+      local,
       paired: origin ? hostsOf(email).has(hostOf(origin)) : false,
       servers: hostsOf(email).size,
       links: linksOf(email).length,
       pairing: mine ? viewOf(c, mine) : null,
+      direct:
+        !!origin && !local && (await canPairDirect(c.direct, req, origin)),
+      directHosts: silent ? (c.direct?.servers ?? []) : [],
     });
   });
-  r.post("/", (req, res) => {
+  r.post("/", async (req, res) => {
     const email = c.userOf(req);
     if (!email)
       return void res.status(401).json({ error: "no user on the session" });
@@ -129,10 +176,26 @@ export function pairRouter(c: PairContext): Router {
       return void res.status(409).json({ error: "already paired there" });
     }
     const name = String(req.body?.name ?? "").trim() || "a machine";
-    const p = c.store.begin(email, origin, another);
-    const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
     // The local user has no account anywhere, so whichever it links is a choice the server's page asks for.
     const choose = another || c.isLocal(req);
+    // A signed-in account proves itself to the server with its provider token: no browser, unless refused.
+    const direct = choose
+      ? null
+      : await pairDirect(c.direct, req, origin, name);
+    if (direct) {
+      const p = c.store.begin(email, origin);
+      const phase = await storeLink(
+        c,
+        email,
+        origin,
+        direct.identity,
+        direct.token,
+      );
+      const ended = c.store.settle(p.state, phase, direct.identity) ?? p;
+      return void res.json({ pairing: viewOf(c, ended), url: null });
+    }
+    const p = c.store.begin(email, origin, another);
+    const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
     res.json({
       pairing: viewOf(c, p),
       url: syncPairUrl(
@@ -214,43 +277,12 @@ export function pairReturnHandler(c: PairContext): RequestHandler {
   ): Promise<{ status: number; said: string }> => {
     // The account the origin minted for, which its page let the person pick: the link's remote account.
     const identity = q.get("identity")?.trim() || p.email;
-    const home = c.accountDir(accountKey(p.email));
-    // That account on that server is linked already: the link it has stays as it is.
-    if (linkOf(readRemotes(home), relayOf(p.origin), identity))
-      return ending(
-        c.store.settle(p.state, "alreadyLinked", identity) ?? {
-          ...p,
-          phase: "alreadyLinked",
-          browserAs: identity,
-        },
-      );
     const token = q.get("token")?.trim() ?? "";
-    try {
-      if (!token) throw new Error("no token");
-      mkdirSync(home, { recursive: true });
-      const before = readRemotes(home);
-      // The relay is reached where the person named the server, whatever host a proxy showed the origin.
-      writeRemote(home, {
-        url: relayOf(p.origin),
-        token,
-        user: p.email,
-        as: identity,
-      });
-      await c.restart(p.email);
-      // The new server is the active one: the engine leaves the one it was on for it.
-      c.engineFollows?.(before, readRemotes(home));
-      return ending(
-        c.store.settle(p.state, "paired", identity) ?? {
-          ...p,
-          phase: "paired",
-          browserAs: identity,
-        },
-      );
-    } catch {
-      return ending(
-        c.store.settle(p.state, "notStored") ?? { ...p, phase: "notStored" },
-      );
-    }
+    const phase = await storeLink(c, p.email, p.origin, identity, token);
+    const as = phase === "notStored" ? undefined : identity;
+    return ending(
+      c.store.settle(p.state, phase, as) ?? { ...p, phase, browserAs: as },
+    );
   };
   return (req, res) => {
     const q = new URL(req.originalUrl, "http://127.0.0.1").searchParams;
