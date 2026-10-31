@@ -55,6 +55,11 @@
   --border: var(--sh-border);
 }
 
+/* Bottom toasts sit above the project bar and the status line, never on the transport (project-shell toast.tsx). */
+:root {
+  --toast-bottom: 5.5rem;
+}
+
 /* The media library's tree panel, `bg-tree-panel`: the sidebar's surface, opaque because on a
    phone the tree is a drawer over the song list. Neutral, the accent being kept for state. */
 @theme inline {

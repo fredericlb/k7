@@ -4,7 +4,7 @@
 // WARNING after a longer one; an ERROR stays until dismissed, and hovering any of them holds it.
 
 import { CheckCircle2, TriangleAlert, X, XCircle } from "@frediverse/ui/icons";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 
 const cx = (...parts: (string | false | undefined)[]): string =>
   parts.filter(Boolean).join(" ");
@@ -85,7 +85,11 @@ export function Toaster({
 
   if (!items.length) return null;
 
-  const stack = (placement: ToastPlacement, className: string) => {
+  const stack = (
+    placement: ToastPlacement,
+    className: string,
+    style?: CSSProperties,
+  ) => {
     const here = items.filter((t) => t.placement === placement);
     return here.length ? (
       <div
@@ -93,6 +97,7 @@ export function Toaster({
           "pointer-events-none fixed right-4 z-50 flex flex-col items-end gap-2",
           className,
         )}
+        style={style}
       >
         {here.map((t) => (
           <Toast
@@ -109,7 +114,12 @@ export function Toaster({
   return (
     <>
       {stack("top-right", "top-4")}
-      {stack("bottom-right", "bottom-10")}
+      {/* Above whatever bar the app keeps at the bottom (`--toast-bottom`); on a phone, at the top, where no transport is. */}
+      {stack(
+        "bottom-right",
+        "max-sm:!top-4 max-sm:!bottom-auto max-sm:left-4",
+        { bottom: "var(--toast-bottom, 2.5rem)" },
+      )}
     </>
   );
 }

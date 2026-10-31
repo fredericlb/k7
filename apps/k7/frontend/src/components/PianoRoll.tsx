@@ -616,6 +616,10 @@ export function PianoRoll({
             clip.name || clip.id,
             laneNamer(project.tracks),
             CLIP_NAME_WORDS,
+            laneNamer(project.tracks)(
+              project.tracks.find((t) => t.clips.some((c) => c.id === clip.id))
+                ?.id ?? "",
+            ),
           )}
         </span>
         <span className="text-muted-foreground">
