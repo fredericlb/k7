@@ -486,16 +486,20 @@ person's choice. An unpaired machine, and a server with no other server beside i
 there, every workspace is simply here. A server paired with others draws them as a machine does, with
 itself as the main one.
 
-**A computer paired with several servers** lists the workspaces of all of them: each row names its
-server's host beside the icon, a workspace only on a server downloads from that one, and the row's ⋮
-offers **Copy to** and **Move to** every other server (`WorkspaceMenu.tsx`), each confirmed with what
-it does. Both send it whole to the target; a move then empties it from the one it left, whose history
+**A computer with several links** — servers, or accounts on one server — lists the workspaces of all of
+them in ONE list: each row names its link `host · account` beside the icon (`syncLinks.ts`; one link
+draws no label, as before), a workspace only on a server downloads from that link, and the row's ⋮
+offers **Copy to** and **Move to** every other link, by its id (`WorkspaceMenu.tsx`), each confirmed with
+what it does. **New workspace** goes to the main link, and with several it offers the others in a
+picker, the main one first. Both send it whole to the target; a move then empties it from the one it left, whose history
 keeps it, while a copy leaves it synced where it was and the target holding a workspace of its own
 (`packages/file-service/docs/liveCapture.md`, "Several servers"). Either runs on its own and the row
 says so until it ends, or says why it failed. Which servers, and which is the main one, are the home
 page's account bar (`SyncServers.tsx`, `packages/file-hub/docs/syncRelay.md`). On a server that bar
 holds the servers alone — the account's control is the user menu's — the server first and main for
-good, so the others have no Make main; Add a server pairs as a machine does.
+good, so the others have no Make main; Add a server pairs as a machine does. The bar lists links as
+`host · account`, made main or let go by id, and **Add an account** pairs again with a server already
+linked, its page asking which account.
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,
