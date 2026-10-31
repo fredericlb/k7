@@ -56,9 +56,10 @@ new tab opened from a click in k7's account bar), ask the person first, and say 
   else, when the person is adding another account (`choose`), and always for the local user, who has no
   account anywhere. The page names the account the token would be for, and offers "Use another account":
   a same-origin POST that ends the origin's session (the backend's `signOut`) and sends the browser back
-  to the same pairing through the sign-in. The session is k7's alone: an identity provider that keeps its
-  own session signs the same account back in until the person signs out there too, which this page cannot
-  ask of it. The person expected, already signed in, goes straight through, as before.
+  to the same pairing through the sign-in. That sign-in carries `prompt=login`, so an identity provider
+  that keeps its own session still shows its sign-in page instead of handing back the same account
+  (commons `packages/oidc/docs/session.md`). The person expected, already signed in, goes straight
+  through, as before.
 - **The machine's local user pairs too.** A link names its remote account itself, so the local user's
   workspaces sync into the account the person picked on the origin's page, in the local user's own
   folder, and no signed-in account's rooms are involved.

@@ -86,7 +86,8 @@ export function mountFileHub(
     const user = req.session?.user as SessionUser | undefined;
     if (!user || user.local)
       return res.redirect(
-        `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}`,
+        // A pairing that lets the person choose the account asks the provider for its sign-in page, not its session's account.
+        `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}${req.query.choose === "1" ? "&prompt=login" : ""}`,
       );
     (req as { user?: SessionUser }).user = user;
     next();
