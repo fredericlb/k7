@@ -1,8 +1,8 @@
 // contextMenu.ts — the right-click entries for a timeline/graph entity. Every entry IS a command
 // line: one the click already filled runs, one still owing an argument goes to the bar. The list
 // is DERIVED from the command catalogue — whatever was clicked says which type it can answer for.
-// A row is drawn as the command's NAME minus the word naming what was clicked; what it does is a
-// sentence for the status bar. See docs/contextMenu.md.
+// A row reads the catalogue's sentence in the app's language, with the command's NAME minus the
+// word naming what was clicked beside it as the verb. See docs/contextMenu.md.
 
 import { timelineLaneOf } from "@studio/song-schema/timelineLane";
 import { type CommandPrefs, inMenu } from "./commandPrefs";
@@ -23,6 +23,8 @@ export type MenuCtx =
       ambient?: boolean;
       model?: boolean;
       native?: boolean;
+      /** It holds a RACK of sounds one can add to — the only node the rack's own verbs (`menu: [rack]`) are offered on. */
+      rack?: boolean;
     }
   // A placed clip — `track` + `tc` say WHICH placement, and `sel` is the RECTANGLE the click landed in, which the range verbs need.
   | {
@@ -100,7 +102,7 @@ interface Entry {
 
 /** A displayable menu item: what the command is CALLED, what it does, and the line it stands for — `complete` says the host RUNS it. */
 export interface MenuItem {
-  /** The command's NAME, minus the word that names the thing you clicked — see `shortName`. */
+  /** The command's NAME, minus the word that names the thing you clicked — see `shortName`; the row's text when it has no `sentence`. */
   label: string;
   /** What it DOES, as one sentence in the language being read — put in the STATUS BAR rather than drawn in the row. */
   description: string;
@@ -110,6 +112,8 @@ export interface MenuItem {
   confirm?: boolean;
   /** The VERB this entry stands for, without the entity it was built for and untranslated — exactly what `commandPrefs` is keyed by. */
   verb: string;
+  /** What the ROW reads: the catalogue's `readable` in the language being read, the label then shown beside it as the verb. */
+  sentence?: string;
 }
 
 /** One argument the clicked thing can answer, in the order the command asks: `provider` is the precise type, `kind` is for the scalars. */
@@ -184,7 +188,7 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
 };
 
 /** Which ENTITY each context IS, as `commands.yaml`'s `menu:` names it — `chain` and `sink` open none. */
-const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
+export const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   track: "track",
   group: "group",
   // A block is the NODE, the same word `CLICKED_HEAD` drops off its rows.
@@ -218,19 +222,17 @@ const build = (
   prefs: CommandPrefs = {},
   /** The head to drop off the names — `CLICKED_HEAD` for this context. "" drops nothing. */
   head = "",
-  /** Which language the DESCRIPTION is read in. The names stay the CLI's, which are English. */
+  /** Which language the SENTENCE and description are read in. The names stay the CLI's, which are English. */
   locale = "en",
   /** What was clicked, for the catalogue's `menu:` — undefined asks nothing of it. */
   entity?: MenuEntity,
+  /** …and what else it also IS: a rack is a node too, and a row placed on either is offered. */
+  also: readonly MenuEntity[] = [],
 ): MenuItem[] => {
-  const kept = entries.filter((e) =>
-    inMenu(
-      e.verb,
-      prefs,
-      entity,
-      commands.find((c) => c.command === e.verb)?.menu,
-    ),
-  );
+  const kept = entries.filter((e) => {
+    const placed = commands.find((c) => c.command === e.verb)?.menu;
+    return [entity, ...also].some((en) => inMenu(e.verb, prefs, en, placed));
+  });
   const full = kept.map((e) => e.name ?? e.verb);
   const short = full.map((n, i) => (kept[i].name ? n : shortName(n, head)));
   // All or nothing: the list is DERIVED, so when shortening would make a pair indistinguishable nothing is dropped.
@@ -238,8 +240,13 @@ const build = (
   return kept.map((e, i) => {
     const line = e.arg ? `${e.verb} ${e.arg}` : e.verb;
     const c = commands.find((cmd) => cmd.command === e.verb);
+    // A row named by hand or carrying its own help keeps that name: the catalogue's sentence would not tell it apart.
+    const sentence =
+      e.name || e.help
+        ? undefined
+        : (c?.readable as Record<string, string> | undefined)?.[locale];
     return {
-      // What it is CALLED; what it does is `description`, which the status bar draws on hover — a menu of sentences is read, not scanned.
+      // What it is CALLED, drawn beside the sentence; `description` is what the status bar draws on hover.
       label: distinct ? short[i] : full[i],
       // The entry's OWN line wins outright: `module cc … none` is the unbind, which the catalogue's sentence contradicts.
       description: e.help
@@ -251,6 +258,7 @@ const build = (
       // Only when it asks: a row that does not carries no word saying so.
       ...(c?.confirm ? { confirm: true } : {}),
       verb: e.verb,
+      ...(sentence ? { sentence } : {}),
     };
   });
 };
@@ -273,7 +281,7 @@ export function contextMenu(
   commands: CommandInfo[],
   /** The person's own arrangement — only `menu: false` is read here. Absent ⇒ nothing hidden. */
   prefs: CommandPrefs = {},
-  /** The language the descriptions are read in. Names are the CLI's and never translated. */
+  /** The language the sentences are read in. Names are the CLI's and never translated. */
   locale = "en",
 ): MenuItem[] {
   const from = (slots: Slot[]): Entry[] => fromCatalogue(commands, slots);
@@ -286,6 +294,7 @@ export function contextMenu(
       CLICKED_HEAD[ctx.kind],
       locale,
       CTX_ENTITY[ctx.kind],
+      ctx.kind === "module" && ctx.rack ? ["rack"] : [],
     );
   switch (ctx.kind) {
     case "tap": {

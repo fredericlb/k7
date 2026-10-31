@@ -83,6 +83,8 @@ export const MENU_ENTITIES = [
   "note",
   // A rack's PAD on a node's card: one sound of the kit.
   "tap",
+  // A node holding a rack one can add sounds to — a node as well, so it also gets every `node` row.
+  "rack",
 ] as const;
 export type MenuEntity = (typeof MENU_ENTITIES)[number];
 export interface CommandInfo {

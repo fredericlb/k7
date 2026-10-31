@@ -33,6 +33,13 @@ it: every entry is still a line you could type, and no row was chosen by hand.
 contexts fold onto one word (`marker-add` is the **ruler**, a place with nothing in it yet;
 `marker` is a marker), and `chain`/`sink` have none, opening no menu at all.
 
+One thing is two entities at once: a node holding a rack one can add sounds to is a **node** and a
+**rack**, and a row placed on either is offered there. `node tap add` and `node tap at` take a node
+and mean nothing on a delay, so they say `menu: [rack]`; the graph sets `rack` on the module
+context exactly when the node's step carries a rack that is not an SFZ kit's fixed pads. The tap's
+own chain verbs (`node tap chain remove`, `move`) say `menu: [tap]`: they need a tap and a position,
+which no node click answers.
+
 ### And the person's own list
 
 `commandPrefs.ts` holds it: `menu` on a command's entry is `false` for nowhere, or the list of
@@ -123,15 +130,29 @@ are asked at different moments, so they are answered in different places.
 
 | question | where | what it is |
 |---|---|---|
-| what is it called | **the row** | the command's name, minus the word naming what you clicked — "consolidate" |
-| what does it do | **the status bar**, while the pointer is on the row | `MenuItem.description` |
+| what does it do | **the row's text** | `MenuItem.sentence`, the catalogue's `readable` in the app's language |
+| what is it called | **the row's muted hint**, beside the text | the command's name, minus the word naming what you clicked — "consolidate" |
 | what will it type | the row's `title` tooltip | `runs: …` / `fills the bar: …`, the whole line |
 
-The row holds the NAME and not the sentence. A menu of ten sentences is **read**, one row at a
-time, and a menu of ten names is **scanned**; you open a right-click menu knowing what you came
-for, and the sentence is what you want about the *one* row you are not sure of — so it belongs
-in the place that shows one row at a time. The name is the shortened one, because `node bypass`
-written where you have just right-clicked a node says nothing you did not know.
+The row leads with the SENTENCE. The names are the CLI's and stay English in every language, and a
+list of bare verbs — `group, order, input, process` — is a list a newcomer cannot guess from and a
+French reader cannot read. The sentence is what both understand; the name still sits beside it,
+muted, because it is the word to type next time, and the menu teaching it is the point of every row
+being a command. The name is the shortened one, because `node bypass` written where you have just
+right-clicked a node says nothing you did not know.
+
+The order of preference for the row's text: the person's own name for the command
+(`commandPrefs.ts`), then the sentence, then the name. A row named by hand (below) or carrying its
+own help keeps its name: those exist precisely because the catalogue's sentence would read the same
+twice, or say the opposite of what the row does. When the text IS the name, no hint is drawn.
+
+The key bound to the command, from the person's own table (`shortcutsByCommand` in `keys.ts`), sits
+at the right edge, so the menu also teaches the faster way. A key acts on the selection rather than
+on what was clicked, which is the same thing in nearly every case and is still the key worth
+learning.
+
+The status bar keeps showing `description` for the row under the pointer: a sentence truncated by
+a narrow menu is read there whole.
 
 ### The word that gets dropped
 
@@ -233,7 +254,9 @@ the clip is.)
 ## The menu can be long
 
 Ten rows for a track, sixteen for a node. It is capped at 70% of the viewport and scrolls, because
-a menu that runs off the bottom of the screen hides its own tail.
+a menu that runs off the bottom of the screen hides its own tail; its title and tabs stay pinned
+above the rows. It is as wide as 26rem, or the screen less its margins, because a sentence needs
+more room than a verb.
 
 ## Tabs, one per kind of thing
 
@@ -243,11 +266,35 @@ long column of verbs with nothing saying which is about what. So the rows are sp
 their command's first word — `event`, `track`, `node`, `ui`… (`src/menuTabs.ts`) — and a tab exists
 only when at least one row falls in it. The plural `events` (the range verbs) shares the event's.
 
-The tabs are ICONS, not words: the menu is narrow and opened on the spot, and a strip of
-`event track node ui` costs the width the rows need. The word is the tooltip and the accessible
-name. The menu opens on the first tab, which is the thing clicked; `ui` always goes last, being
-about the editor rather than the song. With only one kind of row there is no strip at all — a lone
-tab says nothing. Left and right arrows walk the tabs.
+The tabs are ICONS, and only the open one also says its name: a strip of words costs the width the
+rows need, and a strip of icons alone leaves a newcomer guessing what each holds. Every tab's name,
+in the app's language, is its tooltip and its accessible name. The menu opens on the first tab,
+which is the thing clicked; `ui` always goes last, being about the editor rather than the song.
+With only one kind of row there is no strip at all — a lone tab says nothing.
+
+The tabs are the menu's grouping, by the command's noun. Inside a tab the rows keep catalogue
+order, with one exception: what TAKES SOMETHING AWAY — a `confirm:` entry, or a verb ending in
+`delete`, `remove` or `unlink` (`isDestructive` in `menuTabs.ts`) — goes last, after a separator,
+in red. It is read off the verb rather than declared, so the command written tomorrow is placed the
+day it is written; a delete one row below `process`, in the same tone, is one slip from a lost lane.
+
+## Keys, and the way out
+
+The menu is `role="menu"`, so it behaves as one: the first row has the focus on opening and on
+every tab switch, Up and Down walk the rows (wrapping), Home and End jump to either end, Enter picks,
+Left and Right walk the tabs, Escape closes.
+
+## The title row
+
+The first row names what the menu is ON — "Track drums", "Clip keys sequence 1", "Node delay"
+(`menuTitle.ts`). A menu opened by a long press on a phone has no pointer left on the thing to say
+which one it was, and a delete row reads very differently once you know whose. The name is the
+one the screen shows, a lane by its label and a clip by its shown name, never a generated id when a
+name exists; the noun is the entity `menu:` uses.
+
+On a screen with no hover, the same row holds a close button. Tapping outside closes the menu as a
+click does, but a finger needs a door it can see, and the outside of a menu covering most of a
+phone is a small target.
 
 ## On a touch screen, a held finger is the right-click
 

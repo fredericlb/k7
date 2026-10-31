@@ -34,6 +34,7 @@ const ENTITY_LABEL: Record<MenuEntity, () => string> = {
   pad: () => m["menuEntity.pad"](),
   note: () => m["menuEntity.note"](),
   tap: () => m["menuEntity.tap"](),
+  rack: () => m["menuEntity.rack"](),
 };
 
 /** WHERE a right-click offers this command: the catalogue's own list until someone picks another.

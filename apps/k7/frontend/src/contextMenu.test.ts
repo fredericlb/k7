@@ -944,14 +944,49 @@ describe("the menu's contract", () => {
         expect(typeof item.description).toBe("string");
         expect(typeof item.verb).toBe("string");
         expect(item.command.startsWith(item.verb)).toBe(true);
-        expect(Object.keys(item).sort()).toEqual([
-          "command",
-          "complete",
-          "description",
-          "label",
-          "verb",
-        ]);
+        // …and the row's sentence, only where the catalogue writes one.
+        expect(
+          Object.keys(item)
+            .filter((k) => k !== "sentence")
+            .sort(),
+        ).toEqual(["command", "complete", "description", "label", "verb"]);
       }
+  });
+
+  it("reads a row as the catalogue's sentence in the language being read, and a hand-named row as its name", () => {
+    const pan = (locale: string) =>
+      contextMenu({ kind: "track", id: "gtr" }, CATALOGUE, {}, locale).find(
+        (i) => i.verb === "track pan",
+      );
+    expect(pan("en")?.sentence).toBe("Pan a track");
+    expect(pan("fr")?.sentence).toBe("Panoramiquer une piste");
+    expect(pan("fr")?.label).toBe("pan");
+    // No readable in the catalogue: the row is its name alone.
+    const mute = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE).find(
+      (i) => i.verb === "track mute",
+    );
+    expect(mute && "sentence" in mute).toBe(false);
+  });
+
+  it("offers a rack's own verbs on a rack node only", () => {
+    const rackVerbs: CommandInfo[] = [
+      {
+        command: "node tap add",
+        menu: ["rack"],
+        args: [a("node", "module", "nodes")],
+      },
+      {
+        command: "node delete",
+        menu: ["node"],
+        args: [a("node", "module", "nodes")],
+      },
+    ];
+    const verbs = (rack: boolean) =>
+      contextMenu({ kind: "module", id: "kit", rack }, rackVerbs).map(
+        (i) => i.verb,
+      );
+    expect(verbs(true)).toEqual(["node tap add", "node delete", "ui file"]);
+    expect(verbs(false)).toEqual(["node delete", "ui file"]);
   });
 
   it("says which lines are finished, so the host knows what to RUN", () => {

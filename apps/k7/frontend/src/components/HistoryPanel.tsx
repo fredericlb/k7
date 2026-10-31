@@ -1,5 +1,6 @@
 // HistoryPanel.tsx — the open project's history on the right: the undo journal's steps, newest
 // first, and under them the WORKSPACE's sync history (syncHistory.ts) — checkpoints and edits.
+// A step reads as its command's sentence (stepSentence.ts), the raw line staying its tooltip.
 // Hovering a journal row lights what it touched (historyMarks.ts); the journal changes nothing.
 // Restoring is the one write here, and it is a sync edit like any other: packages/file-hub/docs/history.md.
 
@@ -45,9 +46,12 @@ const day = (ts: number) =>
   });
 
 export function HistoryPanel({
+  describe,
   onMark,
   onClose,
 }: {
+  /** A step's label as a person reads it — its command's sentence and subject; the raw line stays the tooltip. */
+  describe?: (label: string) => string;
   /** What the hovered row touched, or null when none is — the graph and the timeline light it. */
   onMark: (mark: HistoryMark | null) => void;
   onClose: () => void;
@@ -133,8 +137,8 @@ export function HistoryPanel({
                 ) : (
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/60" />
                 )}
-                <span className="min-w-0 flex-1 truncate font-mono">
-                  {label}
+                <span className="min-w-0 flex-1 truncate">
+                  {describe ? describe(label) : label}
                 </span>
               </div>
             </li>

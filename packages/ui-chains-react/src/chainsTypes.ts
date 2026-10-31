@@ -23,6 +23,7 @@ export type GraphMenuCtx =
       missing?: boolean;
       model?: boolean;
       native?: boolean;
+      rack?: boolean;
     }
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }

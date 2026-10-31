@@ -2,7 +2,13 @@
 
 import { describe, expect, it } from "vitest";
 import type { MenuItem } from "./contextMenu";
-import { menuTab, menuTabs } from "./menuTabs";
+import {
+  dangerLast,
+  isDestructive,
+  menuTab,
+  menuTabs,
+  moveFocus,
+} from "./menuTabs";
 
 const row = (verb: string): MenuItem => ({
   label: verb,
@@ -32,5 +38,41 @@ describe("menuTabs", () => {
   it("makes no tab nothing falls in", () => {
     expect(menuTabs([row("track mute")]).map((t) => t.tab)).toEqual(["track"]);
     expect(menuTabs([])).toEqual([]);
+  });
+});
+
+describe("dangerLast", () => {
+  it("moves what takes something away after the rest, each half in order", () => {
+    const { safe, danger } = dangerLast([
+      row("track delete"),
+      row("track mute"),
+      row("track automation remove"),
+      row("track solo"),
+    ]);
+    expect(safe.map((i) => i.verb)).toEqual(["track mute", "track solo"]);
+    expect(danger.map((i) => i.verb)).toEqual([
+      "track delete",
+      "track automation remove",
+    ]);
+  });
+  it("reads a confirm as destructive whatever the verb, and an unlink as one too", () => {
+    expect(isDestructive({ verb: "track freeze", confirm: true })).toBe(true);
+    expect(isDestructive({ verb: "graph unlink" })).toBe(true);
+    expect(isDestructive({ verb: "node bypass" })).toBe(false);
+  });
+});
+
+describe("moveFocus", () => {
+  it("wraps Up and Down, starts from either end when nothing has the focus", () => {
+    expect(moveFocus("ArrowDown", 2, 3)).toBe(0);
+    expect(moveFocus("ArrowUp", 0, 3)).toBe(2);
+    expect(moveFocus("ArrowDown", -1, 3)).toBe(0);
+    expect(moveFocus("ArrowUp", -1, 3)).toBe(2);
+  });
+  it("jumps with Home and End, and ignores every other key", () => {
+    expect(moveFocus("Home", 2, 3)).toBe(0);
+    expect(moveFocus("End", 0, 3)).toBe(2);
+    expect(moveFocus("a", 0, 3)).toBeNull();
+    expect(moveFocus("ArrowDown", -1, 0)).toBeNull();
   });
 });
