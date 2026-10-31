@@ -56,6 +56,9 @@ export function LibraryContents({
 }) {
   const l = useLabels();
   const units = l.common.units;
+  // Songs only the server holds are content too: a phone with nothing of its own still lists them, in the `list`.
+  const fromServer =
+    !!list && (serverCopy.placement?.serverOnly.length ?? 0) > 0;
   return (
     <main className={cn("min-w-0 flex-1 overflow-auto", className)}>
       {notice ? (
@@ -63,22 +66,22 @@ export function LibraryContents({
       ) : null}
       {error ? (
         <Card className="p-4 text-sm text-destructive">{error}</Card>
-      ) : present === false ? (
+      ) : present === false && !fromServer ? (
         // A real answer, not a failure: the volume is mounted but nothing is in it yet.
         <EmptyBlock actions={emptyActions}>
           {l.contents.emptyLibrary}
         </EmptyBlock>
-      ) : entries === null ? (
+      ) : entries === null && !fromServer ? (
         <span role="status" aria-label={l.common.loading}>
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </span>
-      ) : entries.length === 0 ? (
+      ) : (entries?.length ?? 0) === 0 && !fromServer ? (
         <EmptyBlock actions={emptyActions}>{l.contents.emptyFamily}</EmptyBlock>
       ) : list ? (
         list
       ) : (
         <ul className="flex flex-col gap-1">
-          {entries.map((e) => (
+          {(entries ?? []).map((e) => (
             <li
               key={e.id}
               className="flex items-baseline gap-3 rounded-md px-3 py-2 hover:bg-accent/40"

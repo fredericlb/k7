@@ -201,6 +201,10 @@ nothing here to open; on the phone it opens, read from the server ([songSource.m
 A song held on both sides is one row, the local one. What a download takes, and why never a folder
 whole, is `../../mediatek/docs/serverCopy.md`.
 
+**An empty library here is not an empty section.** A phone starts with nothing of its own, not even
+the volume: the "empty" and "nothing here yet" states are for a section with no entry on EITHER side,
+so the server's songs fill the table as soon as the placement answers (`LibraryContents`).
+
 **The song's glyph says where it is**, once the machine is paired: the three icons of the placement
 (`PlacementIcon`) — synced, on this machine only, on the server only — in the slot where an unpaired
 machine draws the disc. A song copied from the server must not look like one made here: the first
