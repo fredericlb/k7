@@ -44,6 +44,7 @@ import {
   unknownKeys,
 } from "../stepGrid";
 import type { WebClip, WebNote, WebProject } from "../types";
+import { PanelCloseButton } from "./PanelClose";
 import { AUDITION_VEL } from "./PianoRoll";
 import { SeqDoubleButton } from "./SeqDoubleButton";
 import { StepPlayhead } from "./StepPlayhead";
@@ -263,6 +264,7 @@ export function SequencerPanel({
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
+        <PanelCloseButton />
         <span className="font-semibold text-primary-text">
           <Grip className="h-3.5 w-3.5" /> {seqId}
         </span>

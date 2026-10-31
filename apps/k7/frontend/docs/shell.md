@@ -1277,9 +1277,12 @@ find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has n
 nothing else about the chrome — written per occupant they drift, into title bars at three type scales.
 **Every bottom panel has a ✕ at its top left, and it takes no height** — a panel has only half the
 window, so the ✕ is never a row of its own. A view with a toolbar column (`ModeStrip`: the clip editors,
-a lane's modules) draws it as the column's FIRST item; any other view gets it floating over its corner.
-The view's toolbar CLAIMS it at mount (`components/PanelClose.tsx`), so a panel shows one ✕ whatever it
-holds. It runs `ui close`, as the footer's panel buttons and Escape do. Three ways
+a lane's modules) draws it as the column's FIRST item; a view with a header row (the graph and mix
+panels, the logs, the slot's `bar`, the sequencer and tracker headers, a rolling MIDI take) draws it
+as the row's first item, `PanelCloseButton`. Floating over the corner is the last resort, for a view
+with neither: a floating ✕ sits on whatever the view drew there, which is usually its title. So the
+empty event panel wears the slot's bar too, rather than a lone ✕ over nothing. The view CLAIMS the ✕
+at mount (`components/PanelClose.tsx`), so a panel shows one ✕ whatever it holds. It runs `ui close`, as the footer's panel buttons and Escape do. Three ways
 to wear the frame, because the occupants genuinely differ:
 
 - **`title` (+ `note`)** — a name and a detail. The plain case.

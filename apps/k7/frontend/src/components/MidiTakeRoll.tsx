@@ -11,6 +11,7 @@ import { isBlack } from "../noteNames";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { CapturedNote } from "../webmidi";
+import { PanelCloseButton } from "./PanelClose";
 
 // How many bars the window shows, and the fewest semitones it spans.
 const WINDOW_BARS = 8;
@@ -108,6 +109,7 @@ export function MidiTakeRoll({
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-1 bg-card/40 px-3 py-2">
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <PanelCloseButton />
         {count.phase === "count-in" ? (
           <>
             <span className="text-sm uppercase tracking-wider">

@@ -177,6 +177,7 @@
   "graph.selectTrack": "Sélectionnez une piste dans la timeline pour voir sa chaîne.",
   "logs.empty": "Aucune activité pour l'instant.",
   "minimap.movePlayhead": "cliquer pour déplacer la tête de lecture",
+  "panel.event": "Événement",
   "panel.eventEmpty": "Aucun événement ouvert — cliquez un clip, ou double-cliquez l'en-tête d'une piste",
   "home.unknownCommand": "« {line} » n'est pas une commande de cet écran",
   "home.settings": "Réglages",

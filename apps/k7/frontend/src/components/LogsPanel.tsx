@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from "react";
 import { m } from "../paraglide/messages.js";
+import { PanelCloseButton } from "./PanelClose";
 
 export interface LogLine {
   t: number; // epoch ms
@@ -37,6 +38,7 @@ export function LogsPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
+        <PanelCloseButton />
         <span className="font-semibold text-primary-text">Logs</span>
         <span className="text-muted-foreground">{lines.length} lines</span>
         <button

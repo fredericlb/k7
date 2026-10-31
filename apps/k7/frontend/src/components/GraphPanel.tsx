@@ -37,6 +37,7 @@ import { useLiveRackLit } from "../rackLit";
 import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
 import { layoutTrackPanel } from "../trackPanelLayout";
 import type { WebProject } from "../types";
+import { PanelCloseButton } from "./PanelClose";
 
 export function GraphPanel({
   onPreviewNote,
@@ -306,6 +307,7 @@ export function GraphPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
+        <PanelCloseButton />
         <span className="font-semibold text-primary-text">
           {strips ? "Mix" : "Graph"}
         </span>

@@ -177,6 +177,7 @@
   "graph.selectTrack": "Select a track in the timeline to see its chain.",
   "logs.empty": "No activity yet.",
   "minimap.movePlayhead": "click to move the playhead",
+  "panel.event": "Event",
   "panel.eventEmpty": "No event open — click a clip, or double-click a track's header",
   "home.unknownCommand": "\"{line}\" is not a command on this screen",
   "home.settings": "Settings",
