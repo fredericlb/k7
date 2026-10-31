@@ -1576,14 +1576,13 @@ function TimelineTabView({
       },
       /** `selection paste` — one `events add`, so twelve placements are one journal entry; the lanes are the track rows from the CARET down. */
       pasteLine: (c) => {
-        if (c.kind !== "events")
-          return { note: "the clipboard holds notes, not events" };
+        if (c.kind !== "events") return { note: m["tl.sel.clipboardNotes"]() };
         if (!proj || caret.beat === LABEL)
           return {
-            note: "put the caret in a lane first — a label is not a position",
+            note: m["tl.sel.caretOnLabel"](),
           };
         const at = rowIndexOf(visRows, caret.row);
-        if (at < 0) return { note: "the caret is on no row" };
+        if (at < 0) return { note: m["tl.sel.caretNoRow"]() };
         const lanes = visRows
           .slice(at)
           .flatMap((r) =>
@@ -1592,7 +1591,7 @@ function TimelineTabView({
         const out = pasteEvents(c, lanes, caret.beat);
         if (!out.length)
           return {
-            note: "nothing to paste here — no lane under the rectangle",
+            note: m["tl.sel.nothingToPaste"](),
           };
         const num = proj.timeSigNumerator;
         const den = proj.timeSigDenominator;
@@ -1619,10 +1618,10 @@ function TimelineTabView({
       },
       /** `selection delete` — one `events remove` naming each event the rectangle holds, so the lot is one Ctrl+Z. */
       splitLine: (sec) => {
-        if (!proj) return { note: "no project" };
+        if (!proj) return { note: m["tl.sel.noProject"]() };
         const bps = proj.tempo / 60;
         const nothing = {
-          note: "nothing to split — put the caret on a lane with a clip under the playhead",
+          note: m["tl.sel.nothingToSplit"](),
         };
         if (caretRow?.kind === "video") {
           const clips = caretRow.track.clips;
@@ -1671,15 +1670,15 @@ function TimelineTabView({
         );
       },
       sequenceLine: () => {
-        if (!proj) return { note: "no project" };
+        if (!proj) return { note: m["tl.sel.noProject"]() };
         const s = selRef.current;
         if (!s)
           return {
-            note: "select a period first — draw a rectangle with v over the lanes and bars to fill",
+            note: m["tl.sel.selectPeriod"](),
           };
         const a = rowIndexOf(visRows, s.anchor.row);
         const b = rowIndexOf(visRows, s.head.row);
-        if (a < 0 || b < 0) return { note: "the rectangle is on no row" };
+        if (a < 0 || b < 0) return { note: m["tl.sel.rectNoRow"]() };
         // The cells the rectangle covers, its last one included, as every rectangle verb reads it.
         const lo = Math.min(s.anchor.beat, s.head.beat);
         const hi = Math.max(s.anchor.beat, s.head.beat) + 1;
@@ -1695,18 +1694,17 @@ function TimelineTabView({
               ),
           ),
         ];
-        if (!lanes.length)
-          return { note: "no lane under the rectangle to put a sequence on" };
+        if (!lanes.length) return { note: m["tl.sel.noLaneForSequence"]() };
         const num = proj.timeSigNumerator;
         const den = proj.timeSigDenominator;
         setSel(null);
         return {
           line: `sequence empty ${lanes.join(",")} ${beatsToPosition(lo, num, den)} ${beatsToPosition(hi, num, den)}`,
-          note: `empty sequence${lanes.length > 1 ? "s" : ""} on ${lanes.join(", ")}`,
+          note: m["tl.emptySequences"]({ lanes: lanes.join(", ") }),
         };
       },
       deleteLine: () => {
-        if (!proj) return { note: "no project" };
+        if (!proj) return { note: m["tl.sel.noProject"]() };
         const num = proj.timeSigNumerator;
         const den = proj.timeSigDenominator;
         const s = selRef.current;
@@ -1715,11 +1713,11 @@ function TimelineTabView({
           const c = clipUnderCaret;
           if (!c || caretRow?.kind !== "track" || caretRow.track.generated)
             return {
-              note: "nothing to delete — put the caret on a clip, or draw a rectangle with v",
+              note: m["tl.sel.nothingToDelete"](),
             };
           return {
             line: `event remove ${caretRow.track.id} ${beatsToPosition(c.start, num, den)}`,
-            note: "event deleted",
+            note: m["tl.sel.eventDeleted"](),
           };
         }
         // A CLICKED clip: that placement and nothing else, whatever else starts in its beats.
@@ -1727,12 +1725,12 @@ function TimelineTabView({
           setSel(null);
           return {
             line: `event remove ${s.clip.trackId} ${beatsToPosition(s.clip.start, num, den)}`,
-            note: "event deleted",
+            note: m["tl.sel.eventDeleted"](),
           };
         }
         const a = rowIndexOf(visRows, s.anchor.row);
         const b = rowIndexOf(visRows, s.head.row);
-        if (a < 0 || b < 0) return { note: "the rectangle is on no row" };
+        if (a < 0 || b < 0) return { note: m["tl.sel.rectNoRow"]() };
         const lo = Math.min(s.anchor.beat, s.head.beat);
         const hi = Math.max(s.anchor.beat, s.head.beat) + 1;
         // The rule `copy` keeps: track rows only, and an event is in the rectangle when it STARTS there.
@@ -1750,13 +1748,12 @@ function TimelineTabView({
                   }))
               : [],
           );
-        if (!hits.length)
-          return { note: "no event starts inside the rectangle" };
+        if (!hits.length) return { note: m["tl.sel.noEventInRect"]() };
         // The rectangle held what is gone: it is dropped, as a cut leaves nothing selected.
         setSel(null);
         return {
           line: `events remove ${JSON.stringify(hits)}`,
-          note: `${hits.length} event${hits.length > 1 ? "s" : ""} deleted`,
+          note: m["tl.sel.eventsDeleted"]({ n: hits.length }),
         };
       },
       // shift+L: the selection becomes the loop region, spanning [lo, hi+1) so the last selected cell is inside it.
@@ -2016,11 +2013,15 @@ function TimelineTabView({
   if (error && !proj)
     return (
       <div className="p-4 text-sm text-red-400">
-        timeline unavailable — {error}
+        {m["tl.unavailable"]({ error })}
       </div>
     );
   if (!proj)
-    return <div className="p-4 text-sm text-muted-foreground">loading…</div>;
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        {m["common.loading"]()}
+      </div>
+    );
 
   // Drawing extent: the view's beat range fills the pane exactly, so it never scrolls. See docs/timeline.md.
   const availW = Math.max(0, paneW - GUTTER);
@@ -2226,10 +2227,10 @@ function TimelineTabView({
                 aria-pressed={expanded}
                 title={
                   lanesLocked
-                    ? "lanes stay folded while a bottom panel is open"
+                    ? m["tl.lanesLocked"]()
                     : expanded
-                      ? "collapse lanes"
-                      : "expand lanes to show clip contents (waveforms / notes)"
+                      ? m["tl.collapseLanes"]()
+                      : m["tl.expandLanes"]()
                 }
                 className={`${stripButton(expanded)} disabled:opacity-40`}
               >
@@ -2244,8 +2245,8 @@ function TimelineTabView({
                     aria-pressed={showAutomation}
                     title={
                       showAutomation
-                        ? "hide automation lanes"
-                        : "show automation lanes"
+                        ? m["tl.hideAutomation"]()
+                        : m["tl.showAutomation"]()
                     }
                     className={stripButton(showAutomation)}
                   >
@@ -2931,12 +2932,21 @@ function TimelineTabView({
                             style={{ left: x(toBeats(start)), width: w }}
                             title={
                               activation
-                                ? `${label} — ${provisional ? "until the next one" : `${length}s`} at ${start}s`
-                                : `${label} — ${
-                                    provisional
-                                      ? "to the end of the source"
-                                      : `${length}s`
-                                  } at ${start}s, from ${c.sourceFrom}s into the source`
+                                ? provisional
+                                  ? m["tl.shotUntilNext"]({ label, start })
+                                  : m["tl.shotFor"]({ label, length, start })
+                                : provisional
+                                  ? m["tl.videoToEnd"]({
+                                      label,
+                                      start,
+                                      from: c.sourceFrom,
+                                    })
+                                  : m["tl.videoFor"]({
+                                      label,
+                                      length,
+                                      start,
+                                      from: c.sourceFrom,
+                                    })
                             }
                           >
                             <TrackIcon
@@ -3721,8 +3731,8 @@ function TimelineTabView({
                                       onPointerCancel={() => setResize(null)}
                                       title={
                                         edge === "start"
-                                          ? "drag to move this event's start"
-                                          : "drag to move this event's end"
+                                          ? m["tl.dragStart"]()
+                                          : m["tl.dragEnd"]()
                                       }
                                     />
                                   ))}

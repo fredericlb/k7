@@ -121,7 +121,7 @@ export function ShellFooter({
             <Badge
               variant="rec"
               className="shrink-0"
-              title={`piano roll: ${rollMode} — esc or a backs out`}
+              title={m["footer.rollBadge"]({ mode: rollMode })}
             >
               {rollMode}
             </Badge>
@@ -131,7 +131,7 @@ export function ShellFooter({
             <Badge
               variant="rec"
               className="shrink-0"
-              title={`waveform: ${waveView} — esc or a backs out`}
+              title={m["footer.waveBadge"]({ mode: waveView })}
             >
               {waveView}
             </Badge>
@@ -141,7 +141,9 @@ export function ShellFooter({
           <Badge
             variant={tlView.tool !== "pointer" ? "rec" : "default"}
             className="shrink-0"
-            title={`timeline: ${tlView.mode}${tlView.tool !== "pointer" ? ` · ${tlView.tool}` : ""} — esc backs out`}
+            title={m["footer.timelineBadge"]({
+              mode: `${tlView.mode}${tlView.tool !== "pointer" ? ` · ${tlView.tool}` : ""}`,
+            })}
           >
             {tlView.tool !== "pointer" ? tlView.tool : tlView.mode}
           </Badge>
@@ -159,7 +161,7 @@ export function ShellFooter({
             title={m["status.engineStarting"]()}
           >
             <Loader2 className="h-3 w-3 animate-spin" />
-            waiting for engine…
+            {m["footer.waitingEngine"]()}
           </span>
         ) : warm.warming ? (
           <span
@@ -167,8 +169,12 @@ export function ShellFooter({
             title={m["status.decodingWaveforms"]()}
           >
             <Loader2 className="h-3 w-3 animate-spin" />
-            caching waveforms
-            {warm.total ? ` ${warm.done}/${warm.total}` : ""}…
+            {warm.total
+              ? m["footer.cachingWaveformsOf"]({
+                  done: warm.done,
+                  total: warm.total,
+                })
+              : m["footer.cachingWaveforms"]()}
           </span>
         ) : null}
         {formatTooNew ? (
@@ -184,9 +190,13 @@ export function ShellFooter({
             <Badge
               variant="rec"
               className="shrink-0"
-              title={`${projectErrors} error${projectErrors === 1 ? "" : "s"} in this project — the timeline and chains won't load until they're fixed`}
+              title={(projectErrors === 1
+                ? m["footer.errorsTitle.one"]
+                : m["footer.errorsTitle.other"])({ n: projectErrors })}
             >
-              {projectErrors} error{projectErrors === 1 ? "" : "s"}
+              {(projectErrors === 1
+                ? m["footer.errors.one"]
+                : m["footer.errors.other"])({ n: projectErrors })}
             </Badge>
           )
         )}
@@ -221,12 +231,12 @@ export function ShellFooter({
           onClick={() => void runCommand("ui notes")}
           title={
             docCount === 0
-              ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
+              ? m["footer.notesNone"]()
               : showDocs
-                ? `Hide the ${docCount} note(s) on the graph`
-                : `Show the ${docCount} note(s) on the graph`
+                ? m["footer.notesHide"]({ n: docCount })
+                : m["footer.notesShow"]({ n: docCount })
           }
-          aria-label="Toggle docs"
+          aria-label={m["footer.notes"]()}
           aria-pressed={showDocs}
         >
           <StickyNote className="h-3.5 w-3.5" />
@@ -240,12 +250,12 @@ export function ShellFooter({
             onClick={() => void runCommand("ui mixer")}
             title={
               mixerStrips.length === 0
-                ? "No strip in this song: a strip is a Mixer module at the end of a track"
+                ? m["footer.mixNone"]()
                 : mixerStrips.length === 1
-                  ? "Mix panel — one strip, nothing to line up"
-                  : `Mix panel — this song's ${mixerStrips.length} strips lined up`
+                  ? m["footer.mixOne"]()
+                  : m["footer.mixMany"]({ n: mixerStrips.length })
             }
-            aria-label="Mix panel"
+            aria-label={m["footer.mixPanel"]()}
           >
             <PANEL_META.mix.icon className="h-3.5 w-3.5" />
           </FooterTab>
@@ -258,8 +268,8 @@ export function ShellFooter({
                 className={tabClass}
                 active={panel === p}
                 onClick={() => void runCommand(`ui panel ${p}`)}
-                title={`${PANEL_META[p].label} panel`}
-                aria-label={`${PANEL_META[p].label} panel`}
+                title={m["panel.named"]({ name: PANEL_META[p].label })}
+                aria-label={m["panel.named"]({ name: PANEL_META[p].label })}
               >
                 <Icon className="h-3.5 w-3.5" />
               </FooterTab>

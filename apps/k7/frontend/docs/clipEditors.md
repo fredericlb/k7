@@ -280,6 +280,11 @@ Two details that are easy to get wrong and were:
   cancel. The ghost is painted the same way every other edit here is, so a refused command puts
   the note back.
 
+The bar's hint names what the modes do not: the keys (`x`, Ctrl off the grid, the wheel, the middle
+button) where a mouse is the pointer, and the touch gestures (long-press, pinch, two fingers) where a
+finger is — `(hover: none)`, not the phone layout, since a touchscreen laptop still has its keys.
+It says nothing of drawing: that is the mode's business, and `select`, the default, does not draw.
+
 `a` selects, `n` creates, `d` removes, and Escape returns to `select`. `a` is the neutral one on
 all three surfaces and `d` takes something away on two: the pane in FRONT wins both, which is the
 rule the clip pane's other verbs already follow.

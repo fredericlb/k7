@@ -82,6 +82,11 @@ const GUTTER = 44; // note-name column, px
 const NAMED_GUTTER = 112; // …wide enough for a sample's name, when the lane's rack gives its keys one
 const RULER_H = 18; // bar/beat ruler height, px
 
+// A finger is the main pointer: the bar's hint then names touch gestures rather than keys.
+const fingerFirst = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia?.("(hover: none)").matches === true;
+
 /** What the shell drives on the ROLL — the third of these, beside `TimelineHandle` and `AudioClipHandle`. */
 export interface RollHandle {
   setMode: (m: RollMode) => void;
@@ -623,24 +628,25 @@ export function PianoRoll({
           )}
         </span>
         <span className="text-muted-foreground">
-          {visNotes.length} notes
+          {(visNotes.length === 1
+            ? m["roll.notes.one"]
+            : m["roll.notes.other"])({ n: visNotes.length })}
           {/* What the cage hides, counted, so notes sitting before a file's `from` read as windowed rather than as data lost. */}
           {notes.length > visNotes.length &&
             ` (${m["roll.outsideWindow"]({
               n: notes.length - visNotes.length,
             })})`}{" "}
-          · {Math.round(placedEnd)} beats
+          · {m["roll.beats"]({ n: Math.round(placedEnd) })}
           {/* What the marks add up to, said in words: ten passes of eight beats is not an 80-beat pattern, though the pane is as wide. */}
           {loop && (
             <span className="ml-2 text-violet-400">
-              · loop {+loop.win.toFixed(3)}b
+              · {m["roll.loop"]({ win: +loop.win.toFixed(3) })}
               {loop.passes > 1 && ` × ${loop.passes}`}
             </span>
           )}
           {onCreateNote && (
             <span className="ml-2 text-faint">
-              · drag to draw · x supprime · ctrl: hors grille · pinch to zoom ·
-              middle-drag pan
+              · {fingerFirst() ? m["roll.hintTouch"]() : m["roll.hintKeys"]()}
             </span>
           )}
         </span>
