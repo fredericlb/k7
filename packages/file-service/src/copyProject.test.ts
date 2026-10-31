@@ -193,4 +193,41 @@ describe("copyProjectBetween", () => {
       copyProjectBetween(USER, "songs", "winter.k7", "nowhere", "winter.k7"),
     ).rejects.toThrow(/unknown workspace/);
   });
+
+  it("carries the @workspace modules the project names, and the ones they name, but not over the destination's own", async () => {
+    const src = workspace("songs", "winter.k7");
+    mkdirSync(join(src, "winter.k7", "chains"), { recursive: true });
+    writeFileSync(
+      join(src, "winter.k7", "chains", "melody.k7x"),
+      'id("a").extends("@workspace/instruments/synth"),\n',
+    );
+    mkdirSync(join(src, "_modules", "instruments", "synth"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(src, "_modules", "instruments", "synth", "module.k7x"),
+      'extends("@workspace/fx/shine.k7x")\n',
+    );
+    mkdirSync(join(src, "_modules", "fx"), { recursive: true });
+    writeFileSync(join(src, "_modules", "fx", "shine.k7x"), 'kind("fx")\n');
+    const dest = workspace("albums");
+    mkdirSync(join(dest, "_modules", "fx"), { recursive: true });
+    writeFileSync(join(dest, "_modules", "fx", "shine.k7x"), 'kind("mine")\n');
+
+    const r = await copyProjectBetween(
+      USER,
+      "songs",
+      "winter.k7",
+      "albums",
+      "winter.k7",
+    );
+
+    expect(r.modules).toEqual(["_modules/instruments/synth"]);
+    expect(
+      existsSync(join(dest, "_modules", "instruments", "synth", "module.k7x")),
+    ).toBe(true);
+    expect(
+      readFileSync(join(dest, "_modules", "fx", "shine.k7x"), "utf8"),
+    ).toContain("mine");
+  });
 });
