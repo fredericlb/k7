@@ -13,6 +13,7 @@ import { ClipList } from "./ClipList";
 import { usePluginLoadBadge } from "./chainsStores";
 import { useIcons } from "./chainsTypes";
 import { onEnter } from "./keyActivate";
+import { useChainsLabels } from "./labels";
 import { nodeFoot, nodeHeader, nodeTags } from "./NodeHeader";
 import { nodePorts } from "./NodePorts";
 import { assemblyFrame, farCard, noteCard, pendingCard } from "./NodeShells";
@@ -74,6 +75,7 @@ function NodeInner({
   onOpenTab,
 }: NodeProps) {
   const { ModuleIcon, moduleGlyph, TrackIcon, trackLabel } = useIcons();
+  const l = useChainsLabels();
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
   const iconCategory =
     n.kind === "sink"
@@ -123,7 +125,7 @@ function NodeInner({
     : n.uses
       ? moduleDisplayName(n.uses)
       : empty
-        ? "empty step"
+        ? l.emptyStep
         : (n.place ?? n.label);
   // What the node is CALLED where a person reads it: an unnamed node's place, never its uuid (packages/song/docs/chainFiles.md).
   const ownName = n.place ?? n.label;
@@ -161,7 +163,7 @@ function NodeInner({
   // What the plugin costs, off the engine's load report — nothing without an engine or a plugin.
   const load = usePluginLoadBadge(useEngineStoreOrNull(), n.pluginId ?? null);
   // The state tags — the engine's warning, frozen, frozen automatically — wherever the card carries them.
-  const tags = nodeTags({ n, warning });
+  const tags = nodeTags({ n, warning, l });
   // The open TAB, the card's own state: which page shows is a view, not a fact about the module (docs/nodeCard.md).
   const [ownTab, setTabAt] = useState(0);
   const tabAt = hostTab ?? ownTab;
@@ -194,13 +196,13 @@ function NodeInner({
   const red = n.missing || n.stub || n.unknownPlugin || amber;
   const flagCls = amber ? " unsupported" : red ? " stub" : "";
   const flagText = n.missing
-    ? "module not found"
+    ? l.moduleNotFound
     : n.stub
-      ? "missing plugin"
+      ? l.missingPlugin
       : n.unknownPlugin
-        ? "unknown plugin"
+        ? l.unknownPlugin
         : n.notSupported
-          ? "not supported"
+          ? l.notSupported
           : null;
   // Where the signal ENTERS or LEAVES: a live input, or one of the built-in outputs — docs/nodeCard.md.
   const edge = n.kind === "sink" || n.monitor !== undefined;
@@ -230,11 +232,11 @@ function NodeInner({
     ) : null;
 
   // The module on its way: a spinner, and the sockets its host wired it by — none are interactive.
-  if (n.pending) return pendingCard({ n, cls });
+  if (n.pending) return pendingCard({ n, cls, l });
 
   // An OPEN assembly: a frame around its members, drawn BEFORE them — packages/song/docs/assemblies.md.
   if (n.assemblyOf?.open)
-    return assemblyFrame({ n, onHeaderDrag, onContext, onToggleAssembly });
+    return assemblyFrame({ n, onHeaderDrag, onContext, onToggleAssembly, l });
 
   // A NOTE: a doc module, its text and nothing else, before the LOD branch — docs/nodeCard.md.
   if (n.note !== undefined) return noteCard({ n, cls, onTapNode, onContext });
@@ -318,6 +320,7 @@ function NodeInner({
           onPickTrackInput,
           onPresets,
           onPresetStep,
+          l,
         })}
       {hasFoot &&
         nodeFoot({
@@ -343,10 +346,10 @@ function NodeInner({
         <span
           className="dgx-cbtn dgx-pbtn"
           style={{ "--slot": slot("plugin") } as React.CSSProperties}
-          title="Open native plugin UI"
+          title={l.openPluginUi}
           role="button"
           tabIndex={0}
-          aria-label="Open native plugin UI"
+          aria-label={l.openPluginUi}
           onKeyDown={onEnter(() => n.module && onOpenPlugin(n.module))}
           // Keep the press off the pane, as a widget's does — otherwise it arms a pan and the click never reaches the button.
           onPointerDown={(e) => e.stopPropagation()}
@@ -368,8 +371,8 @@ function NodeInner({
           style={{ "--slot": slot("open") } as React.CSSProperties}
           title={
             n.assemblyOf?.open
-              ? `Close ${n.label}`
-              : `Open ${n.label} — ${n.assemblyOf?.uses ?? ""}`
+              ? l.close(n.label)
+              : l.open(n.label, n.assemblyOf?.uses ?? "")
           }
           role="button"
           tabIndex={0}
@@ -413,8 +416,8 @@ function NodeInner({
                 sinkPlay.onToggle();
               }}
               // Says WHY it is dead rather than looking broken — no engine, or nothing to play.
-              title={sinkPlay.title ?? (sinkPlay.playing ? "Stop" : "Listen")}
-              aria-label={sinkPlay.playing ? "Stop" : "Listen"}
+              title={sinkPlay.title ?? (sinkPlay.playing ? l.stop : l.listen)}
+              aria-label={sinkPlay.playing ? l.stop : l.listen}
             >
               {sinkPlay.playing ? (
                 <Square className="size-3 fill-current" />

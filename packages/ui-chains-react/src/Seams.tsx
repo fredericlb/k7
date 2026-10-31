@@ -8,6 +8,7 @@ import { GitBranch } from "@frediverse/ui/icons";
 import type { EdgeInsert } from "@studio/ui-chains/graph";
 import { type RowSeam, SEAM_BRANCH_AT } from "@studio/ui-chains/rowSeams";
 import { memo } from "react";
+import { useChainsLabels } from "./labels";
 
 /** Half the width of a seam's hover band, px: wide enough to find, narrow enough to leave a card's edge controls alone. */
 const SEAM_HIT = 7;
@@ -39,9 +40,10 @@ function SeamsInner({
   /** What a node is called aloud — its card's name, never an unnamed node's uuid (@studio/ui-chains's shownName.ts). */
   nameOf?: (name: string) => string;
 }) {
+  const l = useChainsLabels();
   return (
     <svg className="dgx-seams" width={width} height={height}>
-      <title>Where a module can be added</title>
+      <title>{l.seamsTitle}</title>
       {seams.map((s) => {
         const mid = { x: s.x, y: s.y + s.h / 2 };
         const low = { x: s.x, y: s.y + s.h * SEAM_BRANCH_AT };
@@ -50,8 +52,8 @@ function SeamsInner({
           onInsert(s.insert, e.clientX, e.clientY, mid);
         };
         const label = s.end
-          ? "Add a module at the end"
-          : `Add a module between ${nameOf(s.insert.before)} and ${nameOf(s.insert.after)}`;
+          ? l.addModuleEnd
+          : l.addModuleBetween(nameOf(s.insert.before), nameOf(s.insert.after));
         const branch = s.branch;
         return (
           // biome-ignore lint/a11y/useSemanticElements: an SVG group cannot be an HTML <button>; the role is what it can carry

@@ -32,7 +32,9 @@ import {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { useChainsWords } from "../chainsLabels";
 import { withoutNotes } from "../graphNotes";
+import { graphWarningLines } from "../graphWarnings";
 import { nodePredicate } from "../historyMarks";
 import { useChainsMidi } from "../hooks/useChainsMidi";
 import { useLatest } from "../hooks/useLatest";
@@ -40,6 +42,7 @@ import type { MidiControlApi } from "../hooks/useMidiControl";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { midiActivity } from "../midiActivity";
 import { nodeNameFor } from "../nodeInsert";
+import { m } from "../paraglide/messages.js";
 import { type PendingNode, withPendingNode } from "../pendingNode";
 import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
@@ -50,6 +53,9 @@ import { MidiFeedback } from "./MidiFeedback";
 
 // A card with no authored vertical layout is folded to the same 4 columns (packages/ui-chains/docs/graphBuild.md).
 const GRAPH_FIT: GridFit = { axis: "cols", max: 4 };
+
+const chainCount = (n: number) =>
+  (n === 1 ? m["chains.count.one"] : m["chains.count.other"])({ n });
 
 // Memoised: App re-renders on every caret move and scroll, and this pane stays mounted while hidden (../../docs/shell.md).
 export const ChainsTab = memo(ChainsTabView);
@@ -216,6 +222,7 @@ function ChainsTabView({
 }) {
   // Whether to DRAW the project's notes, filtered here rather than in the renderer, being a question about this graph.
   const showDocs = useShell((s) => s.showDocs);
+  const labels = useChainsWords();
   // How many notes there are, reported to the store — the toggle's button is in the footer.
   const onDocCount = useShell((s) => s.setDocCount);
   // The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts.
@@ -619,11 +626,15 @@ function ChainsTabView({
   if (error && !graph)
     return (
       <div className="p-4 text-sm text-red-400">
-        graph unavailable — {error}
+        {m["graph.unavailable"]({ error })}
       </div>
     );
   if (!graph || !laid)
-    return <div className="p-4 text-sm text-muted-foreground">loading…</div>;
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        {m["common.loading"]()}
+      </div>
+    );
 
   // Past the guard `laid` is real; the fallback never fires and is only how the narrowing reaches a memo computed above.
   const shown = withPending ?? laid;
@@ -642,7 +653,7 @@ function ChainsTabView({
           className="absolute left-2 top-2 z-30 flex items-center gap-1 rounded border border-border bg-card/90 px-2 py-1 text-xs shadow"
         >
           <List className="h-3.5 w-3.5" />
-          chains
+          {m["chains.list"]()}
         </button>
       )}
       {showList && (!isMobile || listOpen) && (
@@ -656,7 +667,7 @@ function ChainsTabView({
         >
           <div className="min-h-0 flex-1 overflow-auto p-2">
             <div className="mb-1 px-1 text-xs uppercase tracking-wide text-muted-foreground">
-              {Object.keys(graph.chains).length} chains
+              {chainCount(Object.keys(graph.chains).length)}
             </div>
             {Object.keys(graph.chains).map((name) => {
               const chain = graph.chains[name];
@@ -736,7 +747,7 @@ function ChainsTabView({
             })}
             {graph.warnings.length > 0 && (
               <div className="mt-3 border-t border-border pt-2 text-xs text-amber-400">
-                {graph.warnings.map((w, i) => (
+                {graphWarningLines(graph).map((w, i) => (
                   <div key={i}>! {w}</div>
                 ))}
               </div>
@@ -749,6 +760,7 @@ function ChainsTabView({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
+            labels={labels}
             openTabs={openTabs}
             onOpenTab={onOpenTab}
             onToggleAssembly={toggleAssembly}

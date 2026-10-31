@@ -359,6 +359,49 @@ export interface WebGraph {
   /** The boxes, keyed by name — a DRAWING fact, so no chain and no step reads one; docs/assemblies.md. */
   assemblies?: Record<string, WebNodeAssembly>;
   warnings: string[];
+  /** The warnings validate() raised, as a code and its names, so a screen words them itself — docs/graph.md. */
+  issues?: GraphIssue[];
+}
+
+/** What validate() can say of a graph; each code's English sentence is @studio/song's graphWarnings.ts. */
+export type GraphWarningCode =
+  | "chainFromUnknown"
+  | "chainMixedLane"
+  | "chainStepUnknown"
+  | "chainExtendsUnknown"
+  | "chainTransitionWired"
+  | "outIsInput"
+  | "outIsCamera"
+  | "outIsMidiDevice"
+  | "outIsPictureLane"
+  | "outIsTrack"
+  | "outUnknown"
+  | "outNegativeGain"
+  | "outBadPort"
+  | "chainDeadEnd"
+  | "trackClipMissing"
+  | "moduleAssetMissing"
+  | "inputNoChannel"
+  | "inputTrackDisabled"
+  | "inputTrackMissing"
+  | "inputTrackGroup"
+  | "inputTrackStrudel"
+  | "trackTwoInputs"
+  | "moduleChannelNotInput"
+  | "groupContainsItself"
+  | "groupTrackMissing"
+  | "trackTwoGroups"
+  | "assemblyNameTaken"
+  | "assemblyMemberMissing"
+  | "nodeTwoAssemblies"
+  | "chainNoOut"
+  | "chainCycle";
+
+/** One warning as data: `text` is the English sentence `warnings` carries, the fallback for a code a screen does not know. */
+export interface GraphIssue {
+  code: GraphWarningCode;
+  params: Record<string, string>;
+  text: string;
 }
 
 /** Every automation lane by track — the join done ONCE, since two surfaces would disagree; docs/graph.md. */

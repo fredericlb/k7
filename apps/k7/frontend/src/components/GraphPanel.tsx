@@ -25,6 +25,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { useChainsWords } from "../chainsLabels";
 import { withoutNotes } from "../graphNotes";
 import { nodePredicate } from "../historyMarks";
 import { useLatest } from "../hooks/useLatest";
@@ -135,6 +136,7 @@ export function GraphPanel({
   // What a hovered History row touched, lit here — read from the store so a hover re-renders no one else (historyMarks.ts).
   const mark = useShell((s) => s.historyMark);
   const reloadKey = useReloadKey();
+  const labels = useChainsWords();
   // A card writes the quiet way, an intrinsic field the reloading way, and a right-click opens the shell's menu.
   const {
     quietCommand: command,
@@ -250,19 +252,19 @@ export function GraphPanel({
   const body = () => {
     // Only with nothing to draw: a failed RE-read keeps the last graph while useDocument retries.
     if (error && !graph)
-      return <Note className="text-red-400">graph unavailable — {error}</Note>;
-    if (!graph) return <Note>loading…</Note>;
-    if (strips && !strips.length)
       return (
-        <Note>
-          No strip in this song: a strip is a Mixer module at the end of a
-          track.
+        <Note className="text-red-400">
+          {m["graph.unavailable"]({ error })}
         </Note>
       );
+    if (!graph) return <Note>{m["common.loading"]()}</Note>;
+    if (strips && !strips.length) return <Note>{m["graph.noStrip"]()}</Note>;
     if (!strips && !trackId) return <Note>{m["graph.selectTrack"]()}</Note>;
-    if (!laidShown) return <Note>No chain takes {trackId} as its source.</Note>;
+    if (!laidShown)
+      return <Note>{m["graph.noChainFrom"]({ track: trackId ?? "" })}</Note>;
     return (
       <DomChains
+        labels={labels}
         icons={STUDIO_ICONS}
         graph={laidShown}
         selected={selected}
@@ -309,12 +311,14 @@ export function GraphPanel({
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
         <PanelCloseButton />
         <span className="font-semibold text-primary-text">
-          {strips ? "Mix" : "Graph"}
+          {strips ? m["graph.mixTitle"]() : m["graph.graphTitle"]()}
         </span>
         <span className="truncate font-mono text-muted-foreground">
           {strips
-            ? `${strips.length} strip${strips.length === 1 ? "" : "s"}`
-            : (trackId ?? "no track selected")}
+            ? (strips.length === 1
+                ? m["graph.strips.one"]
+                : m["graph.strips.other"])({ n: strips.length })
+            : (trackId ?? m["graph.noTrack"]())}
         </span>
       </div>
       <div className="min-h-0 flex-1">{body()}</div>

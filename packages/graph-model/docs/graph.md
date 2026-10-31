@@ -34,6 +34,15 @@ instant is announced — a note-on that restarts an envelope. It is a `WebSignal
 typed and coloured like any other, and never so an event may be plugged into an audio input; the
 two lists that hold them (`outputs` and `events`) are separate for exactly that reason.
 
+## Warnings travel twice
+
+`warnings` is every warning as an English sentence; `issues` is the share `validate()` raised, each
+as a `GraphWarningCode` with its names and that same sentence. The code is what lets a screen word
+a warning in its reader's language, which a sentence cannot be turned back into; the sentence
+stays because not every warning has a code, and a client older than a code still has something to
+show. The two are matched by sentence, not by position, since other warnings sit between them
+(`packages/song/docs/graphModel.md`).
+
 ## A node's name is not its module's
 
 `WebChainStep.uses` is the module this node USES, its `extends` ref as written. A node and the

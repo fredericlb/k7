@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildGraph, type Chain, type GraphDoc, validate } from "./graph";
+import {
+  buildGraph,
+  type Chain,
+  type GraphDoc,
+  validate,
+  validateIssues,
+} from "./graph";
 
 describe("validate", () => {
   // Every fixture ships an io sink module named OUT so a chain can terminate legitimately.
@@ -19,6 +25,17 @@ describe("validate", () => {
     expect(
       validate(doc({ a: { use: [], out: [{ to: "OUT", gain: 1 }] } })),
     ).toEqual([]);
+  });
+
+  it("gives each warning a code and the names in it, its sentence built from them", () => {
+    const issues = validateIssues(
+      doc({ a: { from: "nope", use: [], out: [{ to: "OUT", gain: 1 }] } }),
+    );
+    expect(issues).toContainEqual({
+      code: "chainFromUnknown",
+      params: { chain: "a", from: "nope" },
+      text: "chain 'a': from 'nope' is not a track or chain",
+    });
   });
 
   it("flags a `from` that names no track or chain", () => {

@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { AltBadges } from "./AltBadges";
 import type { Channels } from "./chainsStores";
 import { onEnter } from "./keyActivate";
+import type { ChainsLabels } from "./labels";
 import { hasBypass, hasLeadColumn, headerNameW } from "./nodeLayout";
 import type { NodeProps } from "./nodeProps";
 import { type NodeEngines, PresetButton } from "./PresetButton";
@@ -20,7 +21,15 @@ import { Widget } from "./widgets/Widget";
 import { FOOT_KNOB_PX, FOOT_KNOBS } from "./widgetTarget";
 
 /** The state tags — the engine's warning, frozen, frozen automatically — wherever the card carries them. */
-export function nodeTags({ n, warning }: { n: GraphNode; warning?: string }) {
+export function nodeTags({
+  n,
+  warning,
+  l,
+}: {
+  n: GraphNode;
+  warning?: string;
+  l: ChainsLabels;
+}) {
   return (
     <>
       {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
@@ -29,7 +38,7 @@ export function nodeTags({ n, warning }: { n: GraphNode; warning?: string }) {
           className="dgx-wbtn"
           title={warning}
           role="img"
-          aria-label={`engine warning: ${warning}`}
+          aria-label={l.engineWarning(warning)}
         >
           !
         </span>
@@ -39,12 +48,8 @@ export function nodeTags({ n, warning }: { n: GraphNode; warning?: string }) {
         <span
           className="dgx-fbtn"
           role="img"
-          aria-label="frozen"
-          title={
-            n.frozen === "at"
-              ? "Frozen here — everything upstream is playing as one render. Unfreeze from the right-click menu."
-              : "Inside a render — this node is baked and is not running. Unfreeze the point downstream of it."
-          }
+          aria-label={l.frozen}
+          title={n.frozen === "at" ? l.frozenAt : l.frozenInside}
         >
           <Snowflake />
         </span>
@@ -54,11 +59,11 @@ export function nodeTags({ n, warning }: { n: GraphNode; warning?: string }) {
         <span
           className="dgx-fbtn auto"
           role="img"
-          aria-label="frozen automatically"
+          aria-label={l.frozenAuto}
           title={
             n.autoFrozen === n.module
-              ? "Frozen automatically — this VST and everything upstream play as a render, so an engine without the VST can play it. Touch a control to edit it live."
-              : `Inside ${n.autoFrozen}'s automatic render. Touch a control to edit it live.`
+              ? l.frozenAutoHere
+              : l.frozenAutoInside(n.autoFrozen)
           }
         >
           <Snowflake />
@@ -92,6 +97,7 @@ export function nodeHeader({
   onPickTrackInput,
   onPresets,
   onPresetStep,
+  l,
 }: Pick<
   NodeProps,
   | "n"
@@ -117,6 +123,7 @@ export function nodeHeader({
   hasPresets: boolean;
   engines: NodeEngines | undefined;
   load: { text: string; title: string } | null;
+  l: ChainsLabels;
 }) {
   return (
     <div
@@ -135,11 +142,11 @@ export function nodeHeader({
             // biome-ignore lint/a11y/useSemanticElements: a corner bubble styled by chainsCss.ts, where a <button> would bring the UA's own box
             <span
               className={`dgx-byp dgx-bbtn${n.bypassed ? " on" : ""}`}
-              title={n.bypassed ? "Bypassed — click to re-enable" : "Bypass"}
+              title={n.bypassed ? l.bypassed : l.bypass}
               role="button"
               tabIndex={0}
               aria-pressed={!!n.bypassed}
-              aria-label="Bypass"
+              aria-label={l.bypass}
               onKeyDown={onEnter(() => n.module && onBypass(n.module))}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
@@ -182,7 +189,7 @@ export function nodeHeader({
           <button
             type="button"
             className={`dgx-tin${trackInput === "aucune" ? " unknown" : ""}`}
-            title={`Interface input: ${trackInput} — click to change`}
+            title={l.interfaceInput(trackInput)}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -199,6 +206,7 @@ export function nodeHeader({
       {hasSubRow && onPresets && n.module && (
         <span className="dgx-hdsub">
           <PresetButton
+            l={l}
             module={n.module}
             current={presetName}
             engines={engines}
