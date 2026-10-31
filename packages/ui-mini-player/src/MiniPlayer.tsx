@@ -129,8 +129,9 @@ export function MiniPlayer({
       aria-label={labels.region}
       className={`relative flex shrink-0 items-center gap-1.5 border-t bg-card px-3 py-2 sm:gap-3${onClose ? ` [@media(hover:none)]:pr-12${trail || endShown ? " pr-9" : ""}` : ""}`}
     >
+      {/* A name in the lead may shrink on a wide screen; a phone's lead is fixed-size buttons, which must never slide under the transport. */}
       {leadShown && (
-        <div className="flex min-w-0 max-w-[24rem] shrink items-center gap-1.5">
+        <div className="flex min-w-0 max-w-[24rem] shrink items-center gap-1.5 max-sm:shrink-0">
           {leadShown}
         </div>
       )}

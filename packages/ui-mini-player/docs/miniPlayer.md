@@ -44,7 +44,9 @@ pages in the first and its engine in the second. Two slots rather than one, beca
 where to go are two questions, and a host answering both in one row reads as one list.
 
 Below 640 px the gaps between the slots halve: on a phone the bar holds finger-sized buttons edge to
-edge, and 12 px gaps are the width of a whole target.
+edge, and 12 px gaps are the width of a whole target. The lead keeps its width there too: on a wide screen it
+holds a name that may shrink, on a phone only buttons, which would otherwise slide under the
+transport.
 
 
 `transport` stands where the play/pause button is, and `track` where the clocks and the scrubber are —
