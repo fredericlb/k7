@@ -4,7 +4,7 @@
     "OIDC_ISSUER": "https://login.frediver.se",
     "OIDC_CLIENT_ID": "st0-desktop",
     "OIDC_CLIENT_SECRET": "",
-    "OIDC_SCOPES": "openid profile email groups",
+    "OIDC_SCOPES": "openid profile email groups offline_access",
     "STUDIO_LOCAL_USER": "1",
     "STUDIO_LISTEN_HOST": "127.0.0.1",
     "K7_INSTANCE": "local",

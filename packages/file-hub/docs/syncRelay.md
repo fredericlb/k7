@@ -78,9 +78,11 @@ never through a redirect, and over https (`normalizeServer` admits http only on 
 signed and readable, nor on disk; it dies with the process, and a pairing after a restart takes the
 browser. A phone's view, signed in from the system browser through the handoff, shares that browser
 session's token by its key (`apps/k7/backend/docs/handoff.md`). An access token lasts what the
-provider gives it (`expires_in`, typically an hour): past it, with no refresh token kept, the pairing takes the
-browser too. Asking the provider for `offline_access` (in `OIDC_SCOPES`) would keep a refresh token and
-renew it, if the provider's client allows that scope.
+provider gives it (`expires_in`, typically an hour). The machines ask for `offline_access`
+(`OIDC_SCOPES` in `apps/k7/backend/standalone.json`), so the provider also gives a refresh token, kept
+beside it in memory, and an expired access token is renewed rather than sending the pairing to the
+browser. The provider's `st0-desktop` client must allow that scope and the `refresh_token` grant: a
+client that does not refuses the sign-in itself, so the provider is changed first.
 
 **The page opens no tab for it.** A browser lets a page open a tab only inside the click, so the page
 asks ahead which servers pair at once (`directHosts` on `GET /api/sync/remote/pair`) and opens none for
