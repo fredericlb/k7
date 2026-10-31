@@ -132,6 +132,8 @@ export interface WebChainStep {
   cc?: Record<string, WebCc>;
   // What the module runs with; a STRING is a file-valued param, and an ABSENT one falls back to its min.
   params?: Record<string, number | string>;
+  /** What each param plays at when nobody set it, as its built-in plugin declares — ui-chains-react's widgets.md. */
+  defaults?: Record<string, number>;
   // The engine's PluginDoc id (`chain:module`) — what set-plugin-param addresses. Only for a real plugin.
   pluginId?: string;
   /** The module's other attribute SETS, sent only when there is a CHOICE — packages/song/docs/alternatives.md. */

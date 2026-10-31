@@ -46,6 +46,7 @@ import {
   baseChoicesFor,
   kitSounds,
   numericChannels,
+  paramDefaults,
   rackSounds,
   shaderChoicesFor,
   withFaustSlots,
@@ -295,6 +296,7 @@ export function buildGraphDoc(
               ? { [OUTPUT_VOLUME_PARAM]: module.output_volume }
               : {}),
           },
+          defaults: paramDefaults(module?.plugin, module?.ui),
           // The engine's address, ONLY when the engine will really have one — see docs/graphFlags.md.
           pluginId:
             slot &&

@@ -513,8 +513,6 @@ const CSS = `
   box-shadow:0 1px 3px rgba(0,0,0,.55); }
 .dgx-fader .cap::after { content:""; position:absolute; left:2px; right:2px; top:4.5px; height:1px;
   background:var(--sand); }
-.dgx-fader.unknown .fill { background:var(--line); }
-.dgx-fader.unknown .cap::after { background:var(--faint); }
 /* The gain readout, above the throw — where a strip puts it, and it must not steal height from the rail. */
 .dgx-fval { font:9px ui-monospace,monospace; color:var(--text); font-variant-numeric:tabular-nums;
   line-height:1.2; flex:0 0 auto; }

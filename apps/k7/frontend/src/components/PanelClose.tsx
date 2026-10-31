@@ -1,7 +1,7 @@
 // PanelClose.tsx — the bottom panel's ✕, at its top left. A view with a toolbar column of its own
-// (`ModeStrip`) CLAIMS it and draws it as the column's first item; with no claim the frame floats it
-// over the panel's corner. The thing a reader would get wrong: the claim is counted at mount, so the
-// panel never shows two ✕ and never none, whichever view the panel holds. See docs/shell.md.
+// (`ModeStrip`) or a header row (`PanelCloseButton`) CLAIMS it and draws it as its first item; with no
+// claim the frame floats it over the panel's corner. The thing a reader would get wrong: the claim is
+// counted at mount, so the panel never shows two ✕ and never none, whichever view it holds. See docs/shell.md.
 
 import { X } from "@frediverse/ui/icons";
 import {
@@ -27,6 +27,23 @@ export function usePanelClose(): (() => void) | null {
   const api = useContext(Ctx);
   useLayoutEffect(() => api?.claim(), [api]);
   return api?.close ?? null;
+}
+
+/** The ✕ as a header row's first item, so it never floats over the title; nothing outside a bottom panel. */
+export function PanelCloseButton() {
+  const close = usePanelClose();
+  if (!close) return null;
+  return (
+    <button
+      type="button"
+      onClick={close}
+      title={m["panel.closeHint"]()}
+      aria-label={m["panel.close"]()}
+      className="-my-0.5 -ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+    >
+      <X className="h-3.5 w-3.5" />
+    </button>
+  );
 }
 
 /** Whether this is drawn inside a bottom panel — a view that shows its toolbar only on demand shows it there, to carry the ✕. */

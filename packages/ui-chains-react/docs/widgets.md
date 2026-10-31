@@ -63,9 +63,21 @@ an escape hatch — a shader node with nothing picked passes its picture through
 
 ## The value chain, and the identity trick under it
 
-The value a widget shows is **override, else engine, else authored, else nothing**
-(`apps/k7/frontend/docs/chainsGraph.md`). An override is optimistic: it outranks the incoming
-frame until that frame catches up.
+The value a widget shows is **override, else engine, else authored, else declared default, else
+nothing** (`apps/k7/frontend/docs/chainsGraph.md`). An override is optimistic: it outranks the
+incoming frame until that frame catches up.
+
+**A param nobody set plays at its default, so the widget shows that default.** The engine does not
+always report a value it was never sent, and a strip with no authored `Volume` plays at 0 dB: a
+fader reading "–" with its cap on the floor tells the user half the mix is muted, and they drag it
+up to fix what was never broken. The default is the one the built-in plugin table declares
+(`@studio/song-schema/builtinParams`), sent on the node as `defaults` for the params its panel
+binds only — a synth declares hundreds, and the graph travels whole on every reload. The stage's
+`@mix` (1) and levels (0 dB) keep their own fallback, being the engine's and in no plugin's table.
+An external plugin declares nothing k7 can read before it loads, so its widget stays unknown.
+
+**Unknown is drawn as unknown, never as a value.** A fader with no value draws its rail bare — no
+fill and no cap — because a cap has to sit somewhere, and anywhere it sits is a level.
 
 `dropChannel` returns the **same object** when it dropped nothing. A fresh one is never
 `Object.is`-equal to the state, so `setOverride` would re-render on every incoming frame purely

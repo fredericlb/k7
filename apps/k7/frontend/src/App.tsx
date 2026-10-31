@@ -201,6 +201,7 @@ import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
+import { GraphSlotPane } from "./components/GraphSlotPane";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { useLatest } from "./hooks/useLatest";
@@ -3493,10 +3494,19 @@ export default function App({
                   {/* The EVENT: what a clip's or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
                   {panel === "event" && (
                     <div className="flex h-full min-h-0 min-w-0">
+                      {/* Empty, it still wears the slot's bar: a lone ✕ floating over nothing reads as a broken panel. */}
                       {!graphSlot && (
-                        <p className="m-auto px-4 text-center text-xs text-muted-foreground">
-                          {m["panel.eventEmpty"]()}
-                        </p>
+                        <GraphSlotPane
+                          bar={
+                            <span className="font-medium text-foreground">
+                              {m["panel.event"]()}
+                            </span>
+                          }
+                        >
+                          <p className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                            {m["panel.eventEmpty"]()}
+                          </p>
+                        </GraphSlotPane>
                       )}
                       {graphSlot?.kind === "grid" && (
                         <PaneBoundary

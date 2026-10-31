@@ -123,6 +123,11 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
             },
           ],
           "category": "instruments",
+          "defaults": {
+            "Filter Freq": 69,
+            "Filter Resonance": 0.5,
+            "Level": 0,
+          },
           "emits": "audio",
           "events": [
             "note-on",
@@ -193,6 +198,11 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
       "use": [
         {
           "category": "instruments",
+          "defaults": {
+            "Filter Freq": 69,
+            "Filter Resonance": 0.5,
+            "Level": 0,
+          },
           "emits": "audio",
           "events": [
             "note-on",
