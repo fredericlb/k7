@@ -8,6 +8,9 @@ when a clip is clicked in the timeline (see [shell.md](shell.md)).
 A MIDI clip's three readings — sequencer, piano roll, tracker — are one **view switch** in the
 pane's header rather than three ways in; see [The view switch](#the-view-switch).
 
+The header names the clip as the timeline's block does — a take by its lane and bar, the id in
+the tooltip — see [timeline.md](timeline.md#a-block-is-labelled-by-what-a-musician-calls-it).
+
 ## The step sequencer
 
 A MIDI clip is a list of notes, but when its signal lands on a rack the notes are not pitches —

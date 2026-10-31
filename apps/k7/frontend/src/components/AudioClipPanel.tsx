@@ -28,6 +28,8 @@ import {
 import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { clamp } from "../clamp";
+import { clipShownName, laneNamer } from "../clipNames";
+import { CLIP_NAME_WORDS } from "../clipNameWords";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { warpLine } from "../clipWarp";
 import { useLatest } from "../hooks/useLatest";
@@ -81,6 +83,7 @@ export function AudioClipPanel({
   startBeat = 0,
   trackOrder = NO_TRACKS,
   trackNames = NO_NAMES,
+  lanes,
   placedAt: placedAtProp = null,
   eventAt: eventAtProp = null,
   eventWindow: eventWindowProp = null,
@@ -109,6 +112,8 @@ export function AudioClipPanel({
   trackOrder?: string[];
   /** Track id → display name, for naming who is being recorded; which tracks those ARE comes off the engine store here. */
   trackNames?: Record<string, string>;
+  /** The song's lanes, to name a take by its lane; absent, `trackNames` stands in for them. */
+  lanes?: readonly { id: string; name: string }[];
   /** The arrangement beat where the clip's window PLAYS — null for a clip nothing places. */
   placedAt?: number | null;
   /** This event's start as a TIMECODE — given rather than derived, since turning a beat into one needs the time signature. */
@@ -228,6 +233,14 @@ export function AudioClipPanel({
   // `arrayEq`: `armed` is a new array every frame, and without it the panel re-rendered at frame rate.
   const armed = useEngineState((s) => s.armed, arrayEq);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
+  // The clip as a musician knows it — its lane and bar for a take — the id staying the tooltip's (clipNames.ts).
+  const laneName = useMemo(
+    () =>
+      laneNamer(
+        lanes ?? Object.entries(trackNames).map(([id, name]) => ({ id, name })),
+      ),
+    [lanes, trackNames],
+  );
 
   // The transport's position in beats, re-rendering on whole beats only: one that followed every 20 Hz frame would redraw the waveform beside it.
   const curBeat = useEngineState((s) =>
@@ -497,7 +510,9 @@ export function AudioClipPanel({
           </>
         ) : (
           <>
-            <span className="font-medium text-foreground">{clip}</span>
+            <span className="font-medium text-foreground" title={clip ?? ""}>
+              {clip && clipShownName(clip, laneName, CLIP_NAME_WORDS)}
+            </span>
             {/* A clip nothing places has no lane to name, and works the same: waveform, onsets and level belong to the FILE. */}
             {track ? (
               <span>{m["clip.onTrack"]({ track })}</span>

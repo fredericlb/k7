@@ -536,6 +536,8 @@
   "clip.takeRolling": "take rolling",
   "clip.countIn": "Count-in",
   "clip.recording": "Recording",
+  "clip.takeName": "{lane} take · bar {bar}",
+  "clip.sequenceName": "{lane} sequence {n}",
   "clip.noArmedTrack": "no track armed — arm one with A / r",
   "clip.stopTake": "Stop the take (Esc)",
   "clip.onTrack": "on {track}",

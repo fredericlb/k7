@@ -668,6 +668,20 @@ The count is a fact about the **song**, not about the view: it reads every track
 drawn rows, so zooming into three lanes cannot un-ghost an event because the copy it repeats is
 on the fourth, and a repeat scrolled off the left edge is still a repeat.
 
+## A block is labelled by what a musician calls it
+
+A clip has no name besides its id, and the ids the app GENERATES are filenames: a take is
+`<lane>_<bar>.<beat>_<stamp>` and a new sequence `<lane>-seq-<n>`. Shown as written they tell a
+person nothing, and every take on a lane reads the same. So the label reads a generated id back as
+**its lane's label and its bar** (`rythm take · bar 9`) or **its lane's and its number** (`drums
+sequence 1`), and an id someone chose is shown as they wrote it (`clipNames.ts`). The id stays
+whole in the tooltip, being what every verb takes. The lane is the one the id was recorded on,
+looked up among the song's lanes, so a take moved to another lane still says where it came from.
+The same name heads the piano roll and the audio clip panel.
+
+The label is always drawn, a shade down, and full on hover: a row of blocks with only their kind
+icons cannot be told apart without hovering each one.
+
 ## Activity runs through the blocks
 
 An event's block is not a flat fill: its opacity runs from **50% where the content is quiet to
