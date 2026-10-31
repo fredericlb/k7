@@ -929,7 +929,9 @@ changed, so the marks are read off PATHS (`historyMarks.ts`): a track file is it
 or clip file every placement of that material, a chain file its chain — or only the node a journal
 step's command line names in it. A file that is the whole song's (`project.k7x`) lights nothing,
 since lighting everything says nothing. Undone steps stay in the list, dimmed: they are what Ctrl+Y
-brings back, until the next edit drops them.
+brings back, until the next edit drops them. A step reads as the undo toast reads it — its command's
+sentence and subject, "Ctrl+Z stops at the end of the text" below says why — with the raw line as
+the tooltip.
 
 Under the journal, the same panel lists the WORKSPACE's sync history (`syncHistory.ts`): its
 checkpoints and latest edits from every device, read from the relay's log
@@ -1035,8 +1037,17 @@ key, the bar, another tab or the CLI all count. Shift+space arrives as `" "` wit
 Ctrl+Z in the text pane spends the buffer's own history first. When it is spent, the next press
 does NOT reach the project journal: it says so, and only a second press within three seconds does.
 Someone pressing Ctrl+Z through their typing must not silently undo a clip they moved on the
-timeline a minute earlier. The toast then names the ACTION undone — the journal entry's label, a
-command line or `edit <file>` — and an empty journal says "Nothing to undo" rather than nothing.
+timeline a minute earlier. The toast then names the ACTION undone, and an empty journal says
+"Nothing to undo" rather than nothing.
+
+A journal entry's label is the command line that made it, which is the CLI's word and an id:
+`sequence note velocity keys-seq-1 47 0.7` tells nobody which step to go back to. So the toast and
+the History panel read it as the catalogue's `readable` sentence in the app's language, followed by
+its subject — the first argument, a lane by its label and a clip by its shown name
+(`stepSentence.ts`, `clipNames.ts`): "Set a note's velocity · keys sequence 1". Only the subject is
+named, because it is the one argument a person recognises; the values after it are the tooltip's.
+The raw line stays the panel row's tooltip, the exact thing that will be reverted. A label naming no
+catalogue command with a sentence — `edit <file>`, a shell verb — is shown as written.
 
 Ctrl+S anywhere but the text pane — which flushes its own buffer — answers that k7 saves by
 itself, instead of letting the browser offer to save the page.

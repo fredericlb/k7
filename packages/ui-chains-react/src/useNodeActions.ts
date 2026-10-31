@@ -44,6 +44,8 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
             ...(n.modelDownload ? { model: true } : {}),
             // The same test as the corner bubble, so the menu offers `node external-ui` exactly where the button shows.
             ...(cornerButtons(n).includes("plugin") ? { native: true } : {}),
+            // A rack that takes new sounds — an SFZ kit's pads are fixed — grows the rack's own rows.
+            ...(n.rack && !n.rackKit ? { rack: true } : {}),
           }
         : null;
     case "chain":

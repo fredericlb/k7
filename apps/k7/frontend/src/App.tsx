@@ -71,6 +71,7 @@ import { useAndroidBusy } from "./androidBusy";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
+import { shownNamers } from "./clipNameWords";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
@@ -184,6 +185,7 @@ import {
 } from "./lcdSounds";
 import { libraryModuleRef } from "./libraryTree";
 import { confirmMenuItem } from "./menuConfirm";
+import { menuTarget } from "./menuTitle";
 import { midiInDeviceFor, midiInLanes, midiInPlayed } from "./midiIn";
 import { chainRefFromCreate, wireCommand } from "./nodeInsert";
 import { noteSpans } from "./noteSpans";
@@ -197,6 +199,7 @@ import { setServiceProcesses } from "./processes";
 import { type EditFocus, keepIfEqual, sameEditFocus } from "./shellEquality";
 import { soundingNow } from "./sounding";
 import { createStatusLine } from "./statusLine";
+import { stepSentence } from "./stepSentence";
 import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
@@ -719,6 +722,8 @@ export default function App({
   );
   // When a Ctrl+Z last met the end of the text pane's history: the next one, soon after, goes to the journal.
   const journalArmedAt = useRef(0);
+  // What a toast says a step was — `describeStep` below, which needs the catalogue declared further down.
+  const stepText = useRef((label: string) => label);
   const historyDeps = useMemo<HistoryDeps>(
     () => ({
       openFile: (p) => editorRef.current?.open(p),
@@ -728,8 +733,8 @@ export default function App({
       onApplied: bumpReload,
       flush: flushAutosaves,
       strings: {
-        undone: (what) => m["undo.undone"]({ what }),
-        redone: (what) => m["undo.redone"]({ what }),
+        undone: (what) => m["undo.undone"]({ what: stepText.current(what) }),
+        redone: (what) => m["undo.redone"]({ what: stepText.current(what) }),
         nothingToUndo: m["undo.nothing"](),
         nothingToRedo: m["undo.nothingRedo"](),
       },
@@ -2120,10 +2125,24 @@ export default function App({
         cmdPrefs.current,
         cmdLocale.current,
       );
-      if (items.length) setMenu({ items, x, y });
+      const names = shownNamers(docRef.current?.tracks ?? []);
+      if (items.length)
+        setMenu({ items, target: menuTarget(ctx, names), x, y });
     },
-    [setMenu],
+    [setMenu, docRef],
   );
+  // A journal step as a sentence and its subject, for the undo toast and the history panel (stepSentence.ts).
+  const describeStep = useCallback(
+    (label: string) =>
+      stepSentence(
+        label,
+        cmdCatalogue.current,
+        cmdLocale.current,
+        shownNamers(docRef.current?.tracks ?? []),
+      ),
+    [docRef],
+  );
+  stepText.current = describeStep;
   // What the store's verbs call, read at call time so a pane's first effect already reaches these.
   shellVerbs.current = {
     setStatus,
@@ -2138,7 +2157,10 @@ export default function App({
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
       const items = nodeMenu(n);
-      if (items.length) setMenu({ items, x: at.x, y: at.y });
+      const target = n.module
+        ? { entity: "node" as const, name: n.module }
+        : null;
+      if (items.length) setMenu({ items, target, x: at.x, y: at.y });
     },
     [setMenu],
   );
@@ -3434,6 +3456,7 @@ export default function App({
                       onError={paneError}
                     >
                       <HistoryPanel
+                        describe={describeStep}
                         onMark={setHistoryMark}
                         onClose={() => setRightPanel(null)}
                       />

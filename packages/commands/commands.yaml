@@ -2228,7 +2228,7 @@
     fr: "Ajouter un pad à un rack"
   help: "add a tap to a rack node, on the note after its highest (e.g. node tap add kit, or node tap add kit CR)"
   surfaces: [cli]
-  menu: [node]
+  menu: [rack]
   args:
     [
       { name: node, complete: nodes },
@@ -2241,7 +2241,7 @@
     fr: "Ajouter un pad à un rack sur une note"
   help: "add a tap to a rack node on a given note — what an empty pad of the octave grid does (e.g. node tap at kit 40, or node tap at kit 40 RIM)"
   surfaces: [cli]
-  menu: [node]
+  menu: [rack]
   args:
     [
       { name: node, complete: nodes },
@@ -2329,6 +2329,7 @@
     fr: "Retirer un module de la chaine d'un pad"
   help: "remove one node of a tap's chain; the last one removed sends the tap back to the main output"
   surfaces: [cli]
+  menu: [tap]
   args:
     [
       { name: node, complete: nodes },
@@ -2342,6 +2343,7 @@
     fr: "Deplacer un module dans la chaine d'un pad"
   help: "move one node of a tap's chain earlier (up) or later (down)"
   surfaces: [cli]
+  menu: [tap]
   args:
     [
       { name: node, complete: nodes },

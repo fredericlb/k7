@@ -3,12 +3,14 @@
 // places (commands, cards, the graph's gestures) and drawn in one (shell/ShellOverlays.tsx).
 
 import type { MenuItem } from "../contextMenu";
+import type { MenuTarget } from "../menuTitle";
 import type { PendingInsert } from "../nodeInsert";
 import type { CurveEdit } from "../ui/commands/context";
 
-/** The right-click menu: its rows and where it opened. */
+/** The right-click menu: its rows, what it is on, and where it opened. */
 export interface MenuState {
   items: MenuItem[];
+  target?: MenuTarget | null;
   x: number;
   y: number;
 }

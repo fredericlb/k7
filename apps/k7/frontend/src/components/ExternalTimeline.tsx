@@ -36,6 +36,7 @@ import { useVideoEdits } from "../hooks/useVideoEdits";
 import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
 import { confirmMenuItem } from "../menuConfirm";
+import { type MenuTarget, menuTarget } from "../menuTitle";
 import { type NodeMenuTarget, nodeMenu } from "../nodeMenu";
 import { DEVICE_SCOPE } from "../queries/client";
 import { REV_SCOPE, useGraph } from "../queries/graph";
@@ -164,6 +165,7 @@ export function ExternalTimeline({
   cmdLocale.current = locale;
   const [menu, setMenu] = useState<{
     items: MenuItem[];
+    target?: MenuTarget | null;
     x: number;
     y: number;
   } | null>(null);
@@ -175,7 +177,7 @@ export function ExternalTimeline({
       cmdPrefs.current,
       cmdLocale.current,
     );
-    if (items.length) setMenu({ items, x, y });
+    if (items.length) setMenu({ items, target: menuTarget(ctx), x, y });
   }, []);
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
@@ -288,6 +290,7 @@ export function ExternalTimeline({
       {menu ? (
         <ContextMenu
           items={menu.items}
+          target={menu.target}
           prefs={prefs}
           x={menu.x}
           y={menu.y}

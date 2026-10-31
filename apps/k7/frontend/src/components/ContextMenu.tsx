@@ -1,61 +1,23 @@
-// ContextMenu.tsx — the right-click popup shared by the timeline and the chains graph: it names
-// each command, reports what the one under the pointer DOES through `onHint`, and on a pick
-// PRE-WRITES its line into the bar (see contextMenu.ts). One instance lives in App; both surfaces
-// open it through openContextMenu. Dismisses on Escape, an outside click, a scroll, or losing
-// focus. Its rows are split into icon TABS, one per kind of thing they act on (menuTabs.ts).
+// ContextMenu.tsx — the right-click popup shared by the timeline and the chains graph: a title
+// naming what it is on, then each command as its sentence, its verb and its key, the destructive
+// ones last and red; on a pick it PRE-WRITES the line into the bar (see contextMenu.ts). One
+// instance lives in App; both surfaces open it through openContextMenu. Dismisses on Escape, an
+// outside click, a scroll, losing focus or its close button. Rows are split into TABS (menuTabs.ts).
 
-import {
-  AppWindow,
-  AudioWaveform,
-  Box,
-  Ellipsis,
-  Film,
-  FolderOpen,
-  Group,
-  ListMusic,
-  ListTodo,
-  type LucideIcon,
-  Music,
-  Network,
-  Package,
-  Play,
-  RectangleHorizontal,
-  Rows3,
-  Settings,
-  Spline,
-  SquareDashed,
-} from "@frediverse/ui/icons";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type CommandPrefs, labelIn } from "../commandPrefs";
 import type { MenuItem } from "../contextMenu";
 import { useLocale } from "../i18n";
+import { shortcutsByCommand } from "../keys";
 import { useIcons } from "../lucideIcons";
-import { menuTabs } from "../menuTabs";
-
-/** One drawing per kind of thing a row acts on — the command's first word; an unknown one gets the ellipsis. */
-const TAB_ICONS: Record<string, LucideIcon> = {
-  ui: AppWindow,
-  event: RectangleHorizontal,
-  track: Rows3,
-  node: Box,
-  module: Package,
-  sequence: Music,
-  clip: AudioWaveform,
-  curve: Spline,
-  project: FolderOpen,
-  transport: Play,
-  picture: Film,
-  graph: Network,
-  playlist: ListMusic,
-  task: ListTodo,
-  assembly: Group,
-  selection: SquareDashed,
-  system: Settings,
-};
+import { dangerLast, menuTabs, moveFocus } from "../menuTabs";
+import type { MenuTarget } from "../menuTitle";
+import { ContextMenuHeader } from "./ContextMenuHeader";
 
 export function ContextMenu({
   items,
   prefs,
+  target,
   x,
   y,
   onPick,
@@ -65,6 +27,8 @@ export function ContextMenu({
   items: MenuItem[];
   /** This person's layer over the catalogue, applied HERE rather than in `contextMenu.ts`, which stays a pure function. */
   prefs: CommandPrefs;
+  /** What the menu is on, for its title row; absent, the row holds only the touch close button. */
+  target?: MenuTarget | null;
   x: number; // viewport coords of the click
   y: number;
   // The WHOLE item, not its line: whether every argument is filled decides whether the host runs it or hands it to the bar.
@@ -77,6 +41,8 @@ export function ContextMenu({
   const icons = useIcons(items.some((it) => !!prefs[it.verb]?.icon));
   // A person's name for a command is per LANGUAGE, so picking one takes a locale — read here, exactly as `useIcons` is.
   const { locale } = useLocale();
+  // The key each command answers to, read off the person's own table so a row never advertises a key nothing binds.
+  const keys = useMemo(() => shortcutsByCommand(prefs), [prefs]);
   const ref = useRef<HTMLDivElement>(null);
   // Start at the click, then clamp into the viewport once we can measure the menu.
   const [pos, setPos] = useState({ x, y });
@@ -85,7 +51,8 @@ export function ContextMenu({
   const [tab, setTab] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new list of rows is a new menu, opened on its first tab.
   useEffect(() => setTab(0), [items]);
-  const shown = tabs[Math.min(tab, tabs.length - 1)]?.items ?? [];
+  const on = Math.min(tab, tabs.length - 1);
+  const { safe, danger } = dangerLast(tabs[on]?.items ?? []);
 
   // Clamped into the viewport on opening, and again on a tab switch: another tab is another height.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` is a trigger — the new rows are measured from the DOM.
@@ -99,6 +66,14 @@ export function ContextMenu({
     });
   }, [x, y, tab]);
 
+  // The keyboard lands on the first row on opening and on every tab switch, so the arrows have somewhere to start.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` and `items` are triggers — the rows are read from the DOM.
+  useEffect(() => {
+    ref.current
+      ?.querySelector<HTMLElement>('[role="menuitem"]')
+      ?.focus({ preventScroll: true });
+  }, [tab, items]);
+
   useEffect(() => {
     // Capture, so an outside click dismisses before it acts; a pointerdown inside is left to the button's onClick.
     const down = (e: PointerEvent) => {
@@ -108,6 +83,7 @@ export function ContextMenu({
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
+        return;
       }
       // Left and right walk the tabs, as they do in any tab strip.
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -117,7 +93,25 @@ export function ContextMenu({
           const n = tabCount.current;
           return n ? (t + (e.key === "ArrowLeft" ? n - 1 : 1)) % n : 0;
         });
+        return;
       }
+      const rows = [
+        ...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ??
+          []),
+      ];
+      const at = rows.indexOf(document.activeElement as HTMLElement);
+      // Enter picks the focused row here, before any shell key handler can read it as its own.
+      if (e.key === "Enter" && at >= 0) {
+        e.stopPropagation();
+        e.preventDefault();
+        rows[at].click();
+        return;
+      }
+      const next = moveFocus(e.key, at, rows.length);
+      if (next === null) return;
+      e.stopPropagation();
+      e.preventDefault();
+      rows[next]?.focus();
     };
     window.addEventListener("pointerdown", down, true);
     window.addEventListener("keydown", key, true);
@@ -139,83 +133,80 @@ export function ContextMenu({
 
   if (!items.length) return null;
 
+  const row = (it: MenuItem, destructive: boolean) => {
+    const pref = prefs[it.verb];
+    const Icon = pref?.icon ? icons?.[pref.icon] : undefined;
+    // The person's name in THIS language, else the catalogue's sentence, else the entry's name (docs/contextMenu.md).
+    const text = labelIn(pref?.label, locale).trim() || it.sentence || it.label;
+    const key = keys[it.verb];
+    return (
+      <button
+        key={it.command}
+        type="button"
+        role="menuitem"
+        title={
+          it.complete ? `runs: ${it.command}` : `fills the bar: ${it.command}`
+        }
+        onClick={() => {
+          onPick(it);
+          onClose();
+        }}
+        // The status line follows the pointer, and the KEYBOARD too — walking the menu is a way of reading it.
+        onPointerEnter={() => onHint?.(it.description)}
+        onFocus={() => onHint?.(it.description)}
+        className={`flex w-full items-center gap-2 px-3 py-1 text-left outline-none hover:bg-accent focus-visible:bg-accent ${
+          destructive
+            ? "text-destructive"
+            : "hover:text-accent-foreground focus-visible:text-accent-foreground"
+        }`}
+      >
+        {/* The icon gutter is held whether or not this row has one, so the texts line up. */}
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+          {Icon ? <Icon className="h-4 w-4" /> : null}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{text}</span>
+        {/* The verb, muted, whenever the row reads as something else: it is what you would type. */}
+        {text !== it.label && (
+          <span className="max-w-[8rem] shrink-0 truncate font-mono text-[11px] text-muted-foreground">
+            {it.label}
+          </span>
+        )}
+        {/* Whether picking this RUNS it or only fills the bar with it — an action against a question, worth a character per row. */}
+        {!it.complete && (
+          <span className="shrink-0 text-muted-foreground">…</span>
+        )}
+        {key && (
+          <kbd className="shrink-0 rounded border border-border px-1 font-mono text-[10px] text-muted-foreground">
+            {key}
+          </kbd>
+        )}
+      </button>
+    );
+  };
+
   return (
     <div
       ref={ref}
       style={{ left: pos.x, top: pos.y }}
       // Bounded and scrollable: a track offers sixteen rows, and a menu that runs off the bottom of the screen hides its own tail.
-      className="fixed z-50 max-h-[70vh] min-w-[11rem] max-w-[18rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      className="fixed z-50 max-h-[70vh] min-w-[12rem] max-w-[min(26rem,calc(100vw-16px))] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="menu"
+      aria-label={target?.name}
       // One handler for the whole list: leaving the menu by the gap between two rows should clear the line, and only the container sees that.
       onPointerLeave={() => onHint?.("")}
     >
-      {/* The tabs, as icons, only when the rows act on more than one kind of thing — a lone tab would say nothing. */}
-      {tabs.length > 1 && (
-        <div
-          role="tablist"
-          className="sticky top-0 z-10 -mt-1 mb-1 flex gap-0.5 border-border border-b bg-popover px-1 pt-1"
-        >
-          {tabs.map((t, i) => {
-            const Icon = TAB_ICONS[t.tab] ?? Ellipsis;
-            const on = i === Math.min(tab, tabs.length - 1);
-            return (
-              <button
-                key={t.tab}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                aria-label={t.tab}
-                title={`${t.tab} (${t.items.length})`}
-                onClick={() => setTab(i)}
-                className={`flex h-7 w-8 items-center justify-center rounded-t-sm ${
-                  on
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            );
-          })}
-        </div>
+      <ContextMenuHeader
+        target={target}
+        tabs={tabs}
+        on={on}
+        onTab={setTab}
+        onClose={onClose}
+      />
+      {safe.map((it) => row(it, false))}
+      {safe.length > 0 && danger.length > 0 && (
+        <hr className="my-1 border-border" />
       )}
-      {shown.map((it) => {
-        const pref = prefs[it.verb];
-        const Icon = pref?.icon ? icons?.[pref.icon] : undefined;
-        return (
-          <button
-            key={it.command}
-            type="button"
-            role="menuitem"
-            title={
-              it.complete
-                ? `runs: ${it.command}`
-                : `fills the bar: ${it.command}`
-            }
-            onClick={() => {
-              onPick(it);
-              onClose();
-            }}
-            // The status line follows the pointer, and the KEYBOARD too — tabbing through the menu is a way of reading it.
-            onPointerEnter={() => onHint?.(it.description)}
-            onFocus={() => onHint?.(it.description)}
-            className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
-          >
-            {/* The command's NAME minus the word naming what you right-clicked, with the icon gutter held whether or not there is one (docs/contextMenu.md). */}
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-              {Icon ? <Icon className="h-4 w-4" /> : null}
-            </span>
-            {/* The person's name for it in THIS language, else the entry's own; `labelIn` answers as AUTHORED, so the trim lives here (docs/shell.md). */}
-            <span className="min-w-0 flex-1 truncate">
-              {labelIn(pref?.label, locale).trim() || it.label}
-            </span>
-            {/* Whether picking this RUNS it or only fills the bar with it — an action against a question, worth a character per row. */}
-            {!it.complete && (
-              <span className="shrink-0 text-muted-foreground">…</span>
-            )}
-          </button>
-        );
-      })}
+      {danger.map((it) => row(it, true))}
     </div>
   );
 }
