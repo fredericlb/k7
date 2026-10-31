@@ -241,6 +241,14 @@ export abstract class EngineLink {
     this.ws?.close();
   }
 
+  /** Drop this socket and what waits to be sent, then ask the URL again on the ladder — for a claim lost to someone else, docs/lease.md. */
+  hangUp(): void {
+    this.outbox.drain();
+    const gen = this.gen;
+    this.ws?.close();
+    this.down(gen);
+  }
+
   /** Raw audio frames. Decode with @studio/engine-browser/stream — see docs/streaming.md. */
   onStreamFrame(cb: StreamCb): () => void {
     this.streamCbs.add(cb);
