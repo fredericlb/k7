@@ -15,6 +15,8 @@ import {
   resolveToken,
   shortcutsByCommand,
 } from "./keys";
+import type { Pane } from "./routes";
+import { ringStep } from "./ui/commands/views";
 
 const esc = (cond: ConditionCtx) => resolveBinding(KEYS.esc, cond);
 
@@ -124,6 +126,42 @@ describe("the clipboard keys", () => {
     ).toBe("selection delete");
     expect(resolveToken("backspace", {}, effectiveKeys({}))).toBeFalsy();
     expect(shortcutsByCommand()["selection delete"]).toBe("Backspace");
+  });
+});
+
+// Tab and Shift+Tab are the browser's focus order, so a keyboard reaches every control; F6 walks the pages instead.
+describe("the page walk", () => {
+  const ev = (init: Partial<KeyboardEvent>) => init as KeyboardEvent;
+
+  it("never makes a token of Tab, nor binds one", () => {
+    expect(keyToken(ev({ key: "Tab" }))).toBeNull();
+    expect(keyToken(ev({ key: "Tab", shiftKey: true }))).toBeNull();
+    expect(KEYS.tab).toBeUndefined();
+    expect(effectiveKeys({}).tab).toBeUndefined();
+  });
+
+  it("F6 walks forward and Shift+F6 back", () => {
+    expect(keyToken(ev({ key: "F6" }))).toBe("f6");
+    expect(keyToken(ev({ key: "F6", shiftKey: true }))).toBe("shift+f6");
+    const eff = effectiveKeys({});
+    expect(resolveToken("f6", {}, eff)).toBe("ui focus next");
+    expect(resolveToken("shift+f6", {}, eff)).toBe("ui focus prev");
+    expect(shortcutsByCommand()["ui focus next"]).toBe("F6");
+  });
+
+  it("ignores a stored Tab assignment rather than leaving the command keyless", () => {
+    const eff = effectiveKeys({ "ui focus next": { key: "tab" } });
+    expect(eff.tab).toBeUndefined();
+    expect(resolveToken("f6", {}, eff)).toBe("ui focus next");
+  });
+
+  it("steps round the ring both ways, and onto it from the editor", () => {
+    const ring: Pane[] = ["timeline", "chains", "turntables"];
+    expect(ringStep(ring, "timeline", 1)).toBe("chains");
+    expect(ringStep(ring, "turntables", 1)).toBe("timeline");
+    expect(ringStep(ring, "timeline", -1)).toBe("turntables");
+    expect(ringStep(ring, "editor", 1)).toBe("timeline");
+    expect(ringStep(ring, "editor", -1)).toBe("turntables");
   });
 });
 

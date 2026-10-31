@@ -40,6 +40,10 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
     command: "ui focus next",
     help: "move the keyboard to the next global-view pane",
   },
+  {
+    command: "ui focus prev",
+    help: "move the keyboard to the previous global-view pane",
+  },
   { command: "ui close", help: "close the bottom panel" },
   {
     command: "ui popin close",
