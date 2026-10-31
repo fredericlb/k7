@@ -269,7 +269,7 @@ export function ReleaseDetailView({
       </Card>
 
       <p className="muted small">
-        {m["release.added"]({ at: fmtDate(release.createdAt) })}
+        {m["release.added"]({ at: fmtDate(release.createdAt, "dateTime") })}
       </p>
     </div>
   );

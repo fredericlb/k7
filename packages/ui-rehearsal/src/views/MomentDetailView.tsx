@@ -230,7 +230,7 @@ export function MomentDetailView({
         </p>
       )}
       <p className="muted small" style={{ marginTop: 12 }}>
-        {m["moment.captured"]({ at: fmtDate(moment.createdAt) })}
+        {m["moment.captured"]({ at: fmtDate(moment.createdAt, "dateTime") })}
       </p>
     </div>
   );

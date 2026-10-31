@@ -114,7 +114,25 @@ stored envelope (`packages/ui-rehearsal/docs/recordings.md`). The model is three
 `RecorderView`, `MomentPlayer`, `TagInput` and `describeMicError` take their words as a `labels`
 argument with English defaults, and the host fills it from its own messages
 (`packages/ui-rehearsal/src/recorderLabels.ts`). One catalogue per app, not one per package, is what
-keeps a translator in a single file.
+keeps a translator in a single file. The labels carry the app's `locale` too, which a session's
+date is printed in.
+
+## Every date is worded in one place
+
+`src/format.ts`'s `formatDate` is how the recorder, the médiathèque and the rehearsal pages print a
+moment in time, and it is exported alone as `@studio/recorder/format` so the médiathèque takes it
+without the recorder's stylesheets. It lives here because this is the one package both screens
+already depend on.
+
+- **The locale is an argument, never the browser's.** The browser's language is not the app's: a
+  French app on an English browser would print English dates beside French sentences. Each caller passes the language its catalogue is in
+  (`labels.common.locale` in the médiathèque, `locale()` in the rehearsal pages).
+- **A few named styles, not options per screen.** `day` titles a day, `date` sits in a sentence,
+  `dateTime` says when something was made, `stamp` names a session (which has no name of its own),
+  `time` and `timeSeconds` are a timeline's clocks. A screen that rolls its own options prints the
+  same take one way on one page and another way on the next.
+- **A session's title is a stamp, not a number pattern.** "DD/MM" reads as a different day to an
+  American reader; Intl's short month name cannot be misread in either language.
 
 ## The click is shared
 

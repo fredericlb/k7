@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@frediverse/ui/popover";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { formatDate } from "@studio/recorder/format";
 import { useMetronome } from "@studio/recorder/metronome";
 import { SHEET_ACCEPT } from "@studio/rehearsal-shared/sheetKind";
 import { useEffect, useRef, useState } from "react";
@@ -43,7 +44,8 @@ export function SongMenu({
   transpose: number;
   onTranspose: (semitones: number) => void;
 }) {
-  const l = useLabels().song;
+  const labels = useLabels();
+  const l = labels.song;
   const { songAttachment } = useLibraryHost();
   const [open, setOpen] = useState(false);
   const sheetInput = useRef<HTMLInputElement>(null);
@@ -90,11 +92,7 @@ export function SongMenu({
           {added ? (
             <div className="text-xs text-muted-foreground">
               <div className="text-sm text-foreground">
-                {l.addedOn(
-                  added.at.toLocaleDateString(undefined, {
-                    dateStyle: "medium",
-                  }),
-                )}
+                {l.addedOn(formatDate(added.at, "date", labels.common.locale))}
               </div>
               {added.from === "files" ? l.addedFromFiles : null}
             </div>

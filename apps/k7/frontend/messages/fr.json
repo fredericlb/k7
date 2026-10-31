@@ -987,6 +987,8 @@
   "media.contents.notCatalogued": "non catalogué",
   "media.contents.noRecordings": "Aucun enregistrement pour l'instant. Les machines poussent ici par l'API ; le bouton envoie un lot à la main.",
   "media.contents.noneThisDay": "Aucun enregistrement ce jour-là.",
+  "media.contents.previousMonth": "Mois précédent",
+  "media.contents.nextMonth": "Mois suivant",
   "media.contents.noneTagged": "Rien d'étiqueté #{tag} ce jour-là.",
   "media.contents.yourTake": "Votre prise",
   "media.contents.momentShared": "Partagé avec {server}",

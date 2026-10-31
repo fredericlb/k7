@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type ApiToken, api } from "../api";
 import { CleanUpSessions } from "../components/CleanUpSessions";
 import { CodeText } from "../components/CodeText";
+import { fmtDate } from "../format";
 import { m } from "../paraglide/messages.js";
 import type { Session } from "../types";
 import "../styles/index.css";
@@ -148,4 +149,4 @@ export function RehearsalSettings() {
   );
 }
 
-const day = (ms: number): string => new Date(ms).toLocaleDateString();
+const day = (ms: number): string => fmtDate(ms, "date");

@@ -12,6 +12,7 @@ import {
 } from "@studio/recorder";
 import { useEffect, useState } from "react";
 import { confirmLoss } from "../confirm";
+import { fmtDate } from "../format";
 import { m } from "../paraglide/messages.js";
 
 const megabytes = (n: number) => (n / 1024 / 1024).toFixed(1);
@@ -51,8 +52,7 @@ export function RecoveredTakes() {
         {takes.map((take) => (
           <li key={take.id} className="flex items-center gap-2">
             <span className="tabular">
-              {new Date(take.startedAt).toLocaleString()} ·{" "}
-              {megabytes(take.bytes)} MB
+              {fmtDate(take.startedAt, "dateTime")} · {megabytes(take.bytes)} MB
             </span>
             <Button
               size="sm"
