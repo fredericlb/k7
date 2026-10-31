@@ -74,7 +74,7 @@ describe("remote pairing", () => {
         {
           id: "own",
           url: own,
-          origin: "http://127.0.0.1:" + port,
+          origin: `http://127.0.0.1:${port}`,
           as: USER,
           main: true,
           own: true,
