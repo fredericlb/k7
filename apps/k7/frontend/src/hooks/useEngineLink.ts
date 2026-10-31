@@ -11,6 +11,7 @@ import { showToast } from "@studio/project-shell/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { engineSession } from "../engineSession";
+import { rawText, toastEngineWarning } from "../engineWarnings";
 import { beginActivity, tally } from "../freezeWatchdog";
 import { useListenHere } from "../listenHere";
 import { m } from "../paraglide/messages.js";
@@ -79,16 +80,12 @@ export function useEngineLink(
 
   useEffect(() => {
     // Per SERVICE and per PERSON, the bench a service of its own — the file service derives the same name from the workspace.
-    const engine = new EngineClient(
-      engineUrl,
-      beginActivity,
-      engineSession(
-        userEmail,
-        window.location.pathname,
-        import.meta.env.BASE_URL,
-      ),
-      tally,
+    const session = engineSession(
+      userEmail,
+      window.location.pathname,
+      import.meta.env.BASE_URL,
     );
+    const engine = new EngineClient(engineUrl, beginActivity, session, tally);
     engineRef.current = engine;
     // 'Ready' is a one-way latch, so it is set ONCE: React bails out on the identical value, but it still entered the scheduler 20 times a second.
     let ready = false;
@@ -116,14 +113,14 @@ export function useEngineLink(
       engineBusyRef.current = b;
       setEngineBusy(b);
     });
-    // Engine trouble goes to the log panel AND the status bar: it is usually the only explanation for something that looks like it worked.
+    // Engine trouble is a toast in plain words, once per project, and the engine's own text in the log (../engineWarnings.ts).
     const offWarning = engine.onWarning(({ subject, message, code }) => {
       // The pairing prompt asks every engine for its requests; a LAN one saying "not from here" is an answer, not trouble.
       if (code === "local-only") return;
       if (subject) setEngineWarnings((w) => ({ ...w, [subject]: message }));
-      const text = subject ? `${subject}: ${message}` : message;
-      pushLog("error", `engine: ${text}`);
-      onStatus(`engine: ${text}`);
+      const w = { subject, message, code };
+      pushLog("error", `engine: ${rawText(w)}`);
+      toastEngineWarning(session, w);
     });
     // What the project was BUILT with, after every apply: a no-op apply's busy cleared the badges a build made before this page connected.
     const offStanding = engine.onStandingWarnings((list) =>
