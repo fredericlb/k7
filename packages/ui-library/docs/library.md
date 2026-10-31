@@ -1,7 +1,7 @@
 # The catalogue screen: the tree, and what a row means
 
 `src/MediaLibrary.tsx` is the médiathèque's catalogue: the current section's files as a tree down
-the side, its contents in the middle — except the songs, which are a table the width of the screen
+the side, its contents in the middle — except the songs, which are a table across the page's column
 (`src/SongsLibrary.tsx`, below). The sections themselves are the host's nav — k7's home
 sidebar ([host.md](host.md)). It draws; the modules beside it hold the rest, one concern each — what
 it shows of the volume and the poll that reloads it (`useLibraryData.ts`), the rows built from a
@@ -11,6 +11,25 @@ the reasoning, so the code can point at it in one line.
 
 The address side of the same screen is [routing.md](routing.md); the narrow-screen side is
 [responsive.md](responsive.md).
+
+## One frame for every screen
+
+Every section and every page opened from one sits in `LibraryPage.tsx`: the same column, and the
+same header — the title, its count, the screen's own actions on the right, and on a detail page the
+same **Back** at its left. Four sections that each draw their own top are four screens to learn.
+
+- **The column is 64rem**, the width of k7's home pages (`apps/k7/frontend/src/projects/PageFrame.tsx`)
+  and of the rehearsal pages, so a recording or a moment opened from **Recordings** keeps its title
+  at the same x as the section it came from. A table wider than that holds no more information, only
+  longer gaps between an artist and its album.
+- **The title is the host nav's name for the section, the count is the nav's count.** The two come
+  from the same labels and the same summary, so they cannot disagree.
+- **A tool fills the height, a list scrolls as a page.** The samples' tree, the playlists and a
+  song's tabs scroll their own panes under a header that stays; the songs' table and the captures'
+  calendar scroll whole, header included.
+- **The rehearsal pages draw the same Back** (`packages/ui-rehearsal/src/components/BackButton.tsx`):
+  the arrow and the word, the same ghost button, the title at the same size. Neither package depends
+  on the other, so the control is drawn twice to one design rather than shared.
 
 ## Two families, two zones, and a section with nothing on the volume
 
@@ -39,9 +58,9 @@ sees a difference and reloads.
 
 The songs have no tree. Their folders are `artist/album/title`, deduced from the tags
 (`packages/mediatek/docs/songs.md`), so a folder view only restated the tags one fold at a time, and
-took a 290-pixel column from every song's page to do it. The section is a table the width of the
-screen (`SongTable.tsx`); opening a song puts its page in the table's place, the width of the screen
-too, and the page's **Back** returns to the table. Nothing sits beside either.
+took a 290-pixel column from every song's page to do it. The section is a table across the page's
+column (`SongTable.tsx`); opening a song puts its page in the table's place, in the same column, and
+the page's **Back** returns to the table. Nothing sits beside either.
 
 **Three groups, in this order: the practice list, the favorites, then every other song.** What a
 person is working on this month comes first, then what they like, then the rest of the library. A
@@ -126,8 +145,8 @@ Two sections refuse a tree's writes, for two different reasons. `songs/` has a s
 tags, so a folder made by hand there is not a badly filed song but an invisible one
 (`packages/mediatek/docs/songs.md`) — which is also why it has no tree at all. A capture is named by
 the clock, so a renamed one would be a capture at an hour it was not made
-(`packages/mediatek/docs/recordings.md`). Each gets its button instead: **Add a song** above the
-songs' table, at its right, and **Add a capture** under the zone's calendar
+(`packages/mediatek/docs/recordings.md`). Each gets its button instead: **Add a song** in the songs'
+page header, and **Add a capture** under the zone's calendar
 ([recordings.md](recordings.md)).
 
 `songs/` gets a menu of its own, on each row's ⋮: add a version, queue the morceau, star it, practise

@@ -46,7 +46,7 @@ as "the menu appears but not where I clicked."
 
 ## The songs: the table, then the song
 
-The songs section has no tree and no drawer: its table takes the whole width at every size, and a
+The songs section has no tree and no drawer: its table takes the whole column at every size, and a
 song opened from it takes the table's place, its Back button returning to the table. Below `sm` the
 artist goes under the title rather than in a column of its own, and below `md` the album column goes.
 

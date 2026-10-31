@@ -14,6 +14,7 @@ import { AddRecording } from "./AddRecording";
 import { library } from "./api";
 import { useLibraryHost } from "./host";
 import { EmptyBlock, LibraryContents } from "./LibraryContents";
+import { LibraryPage } from "./LibraryPage";
 import { remoteRows, TOP_LEVEL, treeOf } from "./libraryTree";
 import { Playlists } from "./Playlists";
 import { RecordingsCalendar } from "./RecordingsCalendar";
@@ -53,7 +54,7 @@ export function MediaLibrary({
   const isPlaylists = section === "playlists";
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
-  // The songs have no tree: a table, then a song's page, each the width of the screen (../docs/library.md).
+  // The songs have no tree: a table, then a song's page, each the page's whole column (../docs/library.md).
   const isSongs = section === "songs";
   // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
   const editable = !isSongs;
@@ -118,9 +119,17 @@ export function MediaLibrary({
     pickRef.current?.click();
   };
 
+  // Every section is titled the way the host's nav names it, with the same count (./LibraryPage.tsx).
+  const title = labels.sections[section];
+  const count = counts[section];
+
   // Its own two columns — the set lists, then the open one (../docs/playlists.md).
   if (isPlaylists)
-    return <Playlists file={file} vimMode={vimMode} onOpen={openFile} />;
+    return (
+      <LibraryPage fill title={title} count={count}>
+        <Playlists file={file} vimMode={vimMode} onOpen={openFile} />
+      </LibraryPage>
+    );
 
   // The songs: the table, or the song opened from it, and nothing beside either (../docs/library.md).
   if (isSongs)
@@ -128,6 +137,8 @@ export function MediaLibrary({
       <SongsLibrary
         file={file}
         openFile={openFile}
+        title={title}
+        count={count}
         entries={entries}
         remote={remote}
         present={present}
@@ -144,7 +155,7 @@ export function MediaLibrary({
   // The captures: a calendar and the day's timeline, as the rehearsal sessions have (../docs/recordings.md).
   if (isZone)
     return (
-      <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">
+      <LibraryPage title={title} count={count}>
         <RecordingsCalendar
           days={recordings}
           error={error}
@@ -168,150 +179,153 @@ export function MediaLibrary({
             </EmptyBlock>
           }
         />
-      </main>
+      </LibraryPage>
     );
 
   return (
-    <div className="relative flex min-h-0 flex-1">
-      {/* The tree's drawer button, on a narrow screen only — see ../docs/responsive.md. */}
-      {!treeOpen ? (
-        <Button
-          variant="secondary"
-          size="icon"
-          className="absolute bottom-3 left-3 z-20 md:hidden"
-          aria-label={labels.tree.open}
-          onClick={() => setTreeOpen(true)}
+    <LibraryPage fill title={title} count={count}>
+      <div className="relative flex min-h-0 flex-1">
+        {/* The tree's drawer button, on a narrow screen only — see ../docs/responsive.md. */}
+        {!treeOpen ? (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute bottom-3 left-3 z-20 md:hidden"
+            aria-label={labels.tree.open}
+            onClick={() => setTreeOpen(true)}
+          >
+            <FolderTree className="h-5 w-5" />
+          </Button>
+        ) : null}
+        {/* The drawer's veil, which exists only while it is open: an invisible cover swallows clicks. */}
+        {treeOpen && (
+          <button
+            type="button"
+            aria-label={labels.tree.close}
+            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            onClick={() => setTreeOpen(false)}
+          />
+        )}
+        {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
+        <aside
+          // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
+          className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:mb-3 md:flex md:w-[290px] ${
+            treeOpen ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl" : "hidden"
+          }`}
         >
-          <FolderTree className="h-5 w-5" />
-        </Button>
-      ) : null}
-      {/* The drawer's veil, which exists only while it is open: an invisible cover swallows clicks. */}
-      {treeOpen && (
-        <button
-          type="button"
-          aria-label={labels.tree.close}
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
-          onClick={() => setTreeOpen(false)}
-        />
-      )}
-      {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
-      <aside
-        // No translate (breaks FileTree's popup, ../docs/responsive.md) — a column, so the tree scrolls and the foot does not.
-        className={`flex shrink-0 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:static md:z-auto md:m-3 md:flex md:w-[290px] ${
-          treeOpen ? "fixed inset-y-0 left-0 z-40 w-72 shadow-xl" : "hidden"
-        }`}
-      >
-        <div className="min-h-0 flex-1 overflow-auto">
-          <input
-            ref={pickRef}
-            type="file"
-            multiple
-            // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
-            webkitdirectory=""
-            directory=""
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []).map((file) => ({
-                path: file.webkitRelativePath || file.name,
-                file,
-              }));
-              // Already section-prefixed and mapped through `assetsTarget` — `pickFolder` is the only writer.
-              const target = pickInto.current;
-              e.target.value = "";
-              if (files.length)
-                void library
-                  .uploadTree(target, files)
-                  .then(refresh)
-                  .catch((err: Error) => setError(err.message));
-            }}
-          />
-          <FileTree
-            nodes={tree}
-            // The family IS the root: every node path below is relative to it.
-            rootPath=""
-            rootLabel={section.toUpperCase()}
-            // The section label wraps every row here — a header, not a real row to draw.
-            collapseSingleRoot
-            // Only the top level unfolds: nothing in a tree family opens a page of its own.
-            reveal={TOP_LEVEL}
-            // An entry only on the server wears a cloud.
-            icon={(n) =>
-              remoteAt.entries.has(n.path) ? (
-                <Cloud className="h-4 w-4 shrink-0" />
-              ) : null
-            }
-            // Muted and not openable until it is here — still right-clickable, for its download.
-            isDisabled={(n) => remoteAt.entries.has(n.path)}
-            // A folder holding only the server's entries says so beside its name.
-            nameEnd={(n) =>
-              remoteAt.folders.has(n.path) ? (
-                <Cloud className="ml-1 inline size-3 shrink-0 text-muted-foreground" />
-              ) : null
-            }
-            // …and an entry of the server's alone brings itself down in one click.
-            rowEnd={(n) =>
-              remoteAt.entries.has(n.path) ? (
-                <RemoteDownload
-                  path={`${section}/${n.path}`}
-                  onDownload={serverCopy.download}
-                />
-              ) : null
-            }
-            // Undefined rather than a no-op where nothing may be dropped (../docs/library.md).
-            onDropTree={
-              editable
-                ? (dir, files) =>
-                    void library
-                      .uploadTree(assetsTarget(dir), files)
-                      .then(refresh)
-                      .catch((e: Error) => setError(e.message))
-                : undefined
-            }
-            // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
-            // A folder moved is an admin's; the service refuses it otherwise (apps/k7/backend/docs/media/gate.md).
-            canMove={(n) => manage || !n.dir}
-            onMove={
-              editable
-                ? (from, toDir) =>
-                    void library
-                      .move(
-                        `${section}/${from}`,
-                        // Through the same mapping a drop goes through, or the two would disagree.
-                        `${assetsTarget(toDir)}/${from.split("/").pop()}`,
-                      )
-                      .then(refresh)
-                      .catch((e: Error) => setError(e.message))
-                : undefined
-            }
-            cancelLabel={labels.common.cancel}
-            rowMenuLabel={labels.tree.more}
-            // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
-            actions={
-              !editable
-                ? []
-                : assetActions({
-                    section,
-                    entries,
-                    assetsTarget,
-                    pickFolder,
-                    refresh,
-                    setError,
-                    labels,
-                    manage,
-                  })
-            }
-          />
-        </div>
-      </aside>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <input
+              ref={pickRef}
+              type="file"
+              multiple
+              // @ts-expect-error — the directory picker is prefixed and absent from React's typings.
+              webkitdirectory=""
+              directory=""
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []).map((file) => ({
+                  path: file.webkitRelativePath || file.name,
+                  file,
+                }));
+                // Already section-prefixed and mapped through `assetsTarget` — `pickFolder` is the only writer.
+                const target = pickInto.current;
+                e.target.value = "";
+                if (files.length)
+                  void library
+                    .uploadTree(target, files)
+                    .then(refresh)
+                    .catch((err: Error) => setError(err.message));
+              }}
+            />
+            <FileTree
+              nodes={tree}
+              // The family IS the root: every node path below is relative to it.
+              rootPath=""
+              rootLabel={section.toUpperCase()}
+              // The section label wraps every row here — a header, not a real row to draw.
+              collapseSingleRoot
+              // Only the top level unfolds: nothing in a tree family opens a page of its own.
+              reveal={TOP_LEVEL}
+              // An entry only on the server wears a cloud.
+              icon={(n) =>
+                remoteAt.entries.has(n.path) ? (
+                  <Cloud className="h-4 w-4 shrink-0" />
+                ) : null
+              }
+              // Muted and not openable until it is here — still right-clickable, for its download.
+              isDisabled={(n) => remoteAt.entries.has(n.path)}
+              // A folder holding only the server's entries says so beside its name.
+              nameEnd={(n) =>
+                remoteAt.folders.has(n.path) ? (
+                  <Cloud className="ml-1 inline size-3 shrink-0 text-muted-foreground" />
+                ) : null
+              }
+              // …and an entry of the server's alone brings itself down in one click.
+              rowEnd={(n) =>
+                remoteAt.entries.has(n.path) ? (
+                  <RemoteDownload
+                    path={`${section}/${n.path}`}
+                    onDownload={serverCopy.download}
+                  />
+                ) : null
+              }
+              // Undefined rather than a no-op where nothing may be dropped (../docs/library.md).
+              onDropTree={
+                editable
+                  ? (dir, files) =>
+                      void library
+                        .uploadTree(assetsTarget(dir), files)
+                        .then(refresh)
+                        .catch((e: Error) => setError(e.message))
+                  : undefined
+              }
+              // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
+              // A folder moved is an admin's; the service refuses it otherwise (apps/k7/backend/docs/media/gate.md).
+              canMove={(n) => manage || !n.dir}
+              onMove={
+                editable
+                  ? (from, toDir) =>
+                      void library
+                        .move(
+                          `${section}/${from}`,
+                          // Through the same mapping a drop goes through, or the two would disagree.
+                          `${assetsTarget(toDir)}/${from.split("/").pop()}`,
+                        )
+                        .then(refresh)
+                        .catch((e: Error) => setError(e.message))
+                  : undefined
+              }
+              cancelLabel={labels.common.cancel}
+              rowMenuLabel={labels.tree.more}
+              // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
+              actions={
+                !editable
+                  ? []
+                  : assetActions({
+                      section,
+                      entries,
+                      assetsTarget,
+                      pickFolder,
+                      refresh,
+                      setError,
+                      labels,
+                      manage,
+                    })
+              }
+            />
+          </div>
+        </aside>
 
-      <LibraryContents
-        notice={notice}
-        error={error}
-        present={present}
-        entries={entries}
-        serverCopy={serverCopy}
-        onOpen={openFile}
-      />
-    </div>
+        <LibraryContents
+          notice={notice}
+          error={error}
+          present={present}
+          entries={entries}
+          serverCopy={serverCopy}
+          onOpen={openFile}
+          className="pb-3 md:pl-6"
+        />
+      </div>
+    </LibraryPage>
   );
 }
