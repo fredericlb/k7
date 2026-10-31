@@ -100,7 +100,7 @@ function SeamsInner({
               <g
                 className="dgx-ins-btn dgx-branch-btn"
                 role="button"
-                aria-label={`Branch: stack a module under ${nameOf(branch.before)}`}
+                aria-label={l.branchUnder(nameOf(branch.before))}
                 onClick={(e) => {
                   e.stopPropagation();
                   onInsert(branch, e.clientX, e.clientY, low);

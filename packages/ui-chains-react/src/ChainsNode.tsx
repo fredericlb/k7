@@ -473,7 +473,7 @@ function NodeInner({
       )}
       {hasTabs(n.ui) &&
         showWidgets &&
-        nodeTabs({ n, tabs, openTab, setTabAt, onOpenTab })}
+        nodeTabs({ n, tabs, openTab, setTabAt, onOpenTab, l })}
       {/* What this lane HOLDS, under its controls, once the widgets are legible; see docs/nodeCard.md. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
         <ClipList clips={n.clips} more={n.clipsMore} color={n.color} />

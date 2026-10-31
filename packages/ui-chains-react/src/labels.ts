@@ -14,6 +14,10 @@ export interface ChainsLabels {
   seamsTitle: string;
   addModuleEnd: string;
   addModuleBetween: (before: string, after: string) => string;
+  branchUnder: (name: string) => string;
+  /** The tab menu of a narrow card. */
+  page: string;
+  bindCurve: (name: string) => string;
   engineNamed: (engine: string) => string;
   presetNamed: (preset: string) => string;
   presetsOfModule: string;
@@ -75,6 +79,9 @@ export const ENGLISH_CHAINS_LABELS: ChainsLabels = {
   addModuleEnd: "Add a module at the end",
   addModuleBetween: (before, after) =>
     `Add a module between ${before} and ${after}`,
+  branchUnder: (name) => `Branch: stack a module under ${name}`,
+  page: "page",
+  bindCurve: (name) => `bind the curve to ${name}`,
   engineNamed: (engine) => `Engine — ${engine}`,
   presetNamed: (preset) => `Preset — ${preset}`,
   presetsOfModule: "Presets of this module",

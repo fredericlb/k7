@@ -19,6 +19,9 @@ export function chainsLabels(): ChainsLabels {
     addModuleEnd: m["chainsUi.addModuleEnd"](),
     addModuleBetween: (before, after) =>
       m["chainsUi.addModuleBetween"]({ before, after }),
+    branchUnder: (name) => m["chainsUi.branchUnder"]({ name }),
+    page: m["chainsUi.page"](),
+    bindCurve: (name) => m["chainsUi.bindCurve"]({ name }),
     engineNamed: (engine) => m["chainsUi.engineNamed"]({ engine }),
     presetNamed: (preset) => m["chainsUi.presetNamed"]({ preset }),
     presetsOfModule: m["chainsUi.presetsOfModule"](),
