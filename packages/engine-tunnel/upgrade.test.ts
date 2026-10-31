@@ -38,16 +38,17 @@ describe("acceptSocket", () => {
 
 describe("heartbeat", () => {
   it("terminates a peer that leaves a ping unanswered", async () => {
-    let served: WebSocket | undefined;
+    // The server's own close is awaited: the client can hear the hang-up before the terminated socket reads CLOSED.
+    let servedClosed!: Promise<WebSocket>;
     const port = await serving((ws) => {
-      served = ws;
+      servedClosed = new Promise((r) => ws.once("close", () => r(ws)));
       heartbeat(ws, 30);
     });
     const client = new WebSocket(`ws://127.0.0.1:${port}/x`, {
       autoPong: false,
     });
     await new Promise((r) => client.on("close", r));
-    expect(served?.readyState).toBe(WebSocket.CLOSED);
+    expect((await servedClosed).readyState).toBe(WebSocket.CLOSED);
   });
 
   it("keeps a peer that answers", async () => {
