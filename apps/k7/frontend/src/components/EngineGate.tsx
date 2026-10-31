@@ -2,14 +2,13 @@
 // server's hub's, reached with no engine bound; the engine is looked for meanwhile — registered,
 // MEASURED, and chosen for you (`bestEngine`: compatibility with the project, then latency class,
 // then performance, among TRUSTED engines only). The editor's link waits for that choice, and a
-// project with no engine at all stays open and silent, the sidebar saying so. See ../../docs/shell.md.
+// project with no engine at all stays open and silent, the sidebar saying so. The claim waits for
+// the address to resolve, and a lost one leaves the project open under a banner. See ../../docs/shell.md.
 
 import type { HostedFiles } from "@studio/engine-browser/access";
 import { bestEngine } from "@studio/engine-browser/choose";
-import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import { useRelook } from "@studio/engine-browser/relook";
-import type { GateEngine } from "@studio/project-shell/gate";
-import { ProjectTakenOver } from "@studio/project-shell/gate";
+import { type GateEngine, projectResolved } from "@studio/project-shell/gate";
 import {
   parseLaunch,
   projectClaimKey,
@@ -26,14 +25,9 @@ import { accountEngine } from "../engineSession";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
+import { EngineTakenBanner } from "./EngineTakenBanner";
+import { holdsClaim, type Taken } from "./engineTaken";
 import { ProjectGate } from "./ProjectGate";
-
-/** Somebody else opened this project — a terminal state on purpose, and only reached when a PERSON took it (see ProjectTakenOver). */
-interface Taken {
-  heldBy: string;
-  why: ClaimTakenReason;
-  tookFor: string | null;
-}
 
 export function EngineGate({
   /** The surface this tab was opened on, when the address named one — forwarded, not acted on: this gate's job is the engine. */
@@ -50,7 +44,11 @@ export function EngineGate({
   const [searching, setSearching] = useState(true);
   // The full list, drawn over the project when asked for — or alone, when there are no files to open without an engine.
   const [picking, setPicking] = useState(false);
+  // Somebody else took the claim: the project stays open, its link down, until it is taken back.
   const [taken, setTaken] = useState<Taken | null>(null);
+  const takenRef = useRef<Taken | null>(null);
+  // The address resolved to a project that exists — what a claim waits for (@studio/project-shell docs/launch.md).
+  const [resolved, setResolved] = useState(false);
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [busy, setBusy] = useState(false);
   // Bumped by a pick made AFTER the project is open: the editor is remounted on it, as a switch always was.
@@ -126,7 +124,13 @@ export function EngineGate({
       for (const w of waiters.current.splice(0)) w(r);
       setChosen(r);
       setPicking(false);
-      if (later) setGeneration((g) => g + 1);
+      // A pick on an open project is an OPEN: it takes the claim back from whoever had it, and the gate resolves again first.
+      if (later) {
+        takenRef.current = null;
+        setTaken(null);
+        setResolved(false);
+        setGeneration((g) => g + 1);
+      }
       return true;
     },
     [],
@@ -150,15 +154,31 @@ export function EngineGate({
 
   // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
   const heldId = chosen?.engine.id ?? null;
+  const isTaken = taken !== null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: `chosen` is read only through `heldId`, which is what says it changed.
   useEffect(() => {
-    if (!chosen || asleep) return;
+    if (
+      !chosen ||
+      !holdsClaim({ engine: true, resolved, asleep, taken: isTaken })
+    )
+      return;
     return engines.hold(chosen, {
       project: claimProject,
-      onLost: (heldBy, why) =>
-        setTaken({ heldBy, why: why.reason, tookFor: why.tookFor }),
+      onLost: (heldBy, why) => {
+        const t = { heldBy, why: why.reason, tookFor: why.tookFor };
+        takenRef.current = t;
+        setTaken(t);
+      },
     });
-  }, [heldId, claimProject, asleep]);
+  }, [heldId, claimProject, asleep, resolved, isTaken]);
+
+  /** Taking it back IS opening the project again: the gate resolves anew, and the claim that follows displaces the other tab. */
+  const takeBack = useCallback(() => {
+    takenRef.current = null;
+    setTaken(null);
+    setResolved(false);
+    setGeneration((g) => g + 1);
+  }, []);
 
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand the search.
@@ -217,6 +237,8 @@ export function EngineGate({
     new Map<string, () => string | Promise<string | null>>(),
   );
   const engineUrl = useCallback(async (): Promise<string | null> => {
+    // Nobody to dial while someone else holds the claim: the link stays down rather than drive their project.
+    if (takenRef.current) return null;
     const r =
       chosenRef.current ??
       (settled.current
@@ -260,44 +282,18 @@ export function EngineGate({
       loading: busy,
       refresh: () => void refresh(),
       pick: (r) => {
-        if (r.engine.id !== chosenRef.current?.engine.id)
+        // The same engine, picked while it is taken, is taking it back.
+        if (takenRef.current || r.engine.id !== chosenRef.current?.engine.id)
           void pick(r, true, true);
       },
       openList: () => {
         setPicking(true);
         void refresh();
       },
+      detached: isTaken,
     }),
-    [ranked, busy, refresh, pick],
+    [ranked, busy, refresh, pick, isTaken],
   );
-
-  if (taken)
-    return (
-      <ProjectTakenOver
-        heldBy={taken.heldBy}
-        title={
-          taken.why === "engine"
-            ? m["project.engineTakenTitle"]()
-            : taken.why === "refused"
-              ? m["project.notYoursTitle"]()
-              : m["project.takenTitle"]()
-        }
-        // One wording per REASON: opening a DIFFERENT project on the same engine displaces this one, and the honest advice is the opposite.
-        body={(heldBy) =>
-          taken.why === "engine"
-            ? m["project.engineTakenBody"]({
-                project: taken.tookFor ?? m["project.anotherProject"](),
-              })
-            : taken.why === "refused"
-              ? m["project.notYoursBody"]()
-              : heldBy
-                ? m["project.takenBody"]({ heldBy })
-                : m["project.takenBodyAnon"]()
-        }
-        back={m["project.backToProjects"]()}
-        onBack={toProjects}
-      />
-    );
 
   const select = (overlay: boolean) => (
     <EngineSelect
@@ -330,7 +326,8 @@ export function EngineGate({
     <EngineChoiceContext.Provider value={choice}>
       <ProjectGate
         key={generation}
-        engine={chosen}
+        // No engine while it is someone else's: the editor reads as a project with none, its files still open.
+        engine={taken ? null : chosen}
         gateEngine={gateEngine}
         engineUrl={engineUrl}
         engineSearching={searching && !chosen}
@@ -341,8 +338,21 @@ export function EngineGate({
           void refresh();
         }}
         onIdle={() => setAsleep(true)}
-        onResume={() => setAsleep(false)}
+        // Resuming reopens the project, so it takes the claim back like the banner's button.
+        onResume={() => {
+          takenRef.current = null;
+          setTaken(null);
+          setAsleep(false);
+        }}
+        onPhase={(k) => setResolved(projectResolved(k))}
       />
+      {taken && !picking && (
+        <EngineTakenBanner
+          taken={taken}
+          onTakeBack={takeBack}
+          onOpenList={choice.openList}
+        />
+      )}
       {picking && (
         <div className="fixed inset-0 z-50 bg-background">{select(true)}</div>
       )}

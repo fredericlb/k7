@@ -90,6 +90,40 @@ socket that kept renewing a claim would be squatting the machine.
 [packages/project-shell/docs/idle.md](../../../../packages/project-shell/docs/idle.md) is the
 page, including why a playing transport does not count as idleness.
 
+### When somebody else takes the engine
+
+**The claim waits for the address.** EngineGate holds its lease only once the gate reports a phase
+`projectResolved` accepts (`@studio/project-shell/gate`). A claim is an OPEN, which displaces
+whoever held that project or that engine (`packages/engine-registry/docs/claim.md`): made for an
+address that names nothing, it threw a real project off the machine for nothing, and the "taken"
+answer that came back hid the not-found screen the address deserved.
+
+**Losing the claim keeps the project on screen**, under a banner (`EngineTakenBanner.tsx`), rather
+than replacing it. Two tabs or two people on one machine otherwise could not even read their
+timeline while the other one played. What stops is what needs the engine: the link hangs up and
+its URL answers null (`EngineChoice.detached`), so transport and live parameters are dead and the
+bar reads "no engine". It has to hang up itself: the other project may be in this account's own
+engine session, and a socket left open would drive it.
+
+**The files stay editable.** That is the state of a project with no engine at all, which the editor
+already supports: the files are the file service's, and its paths are workspace-relative, so a write
+lands in this project's files whichever project the engine now holds. What the engine plays from
+then on is the other tab's project; this tab's writes reach the engine once it is taken back.
+
+**Taking it back IS opening the project again**: the gate resolves anew (so `/open` runs) and the
+claim that follows carries no secret, which displaces the other tab — which gets the same banner.
+It is a press, never a timer: two tabs re-claiming on their own flicker the project between them
+for ever. Resuming from the idle card and picking an engine from the list are the same open. On an
+engine that is not ours (`refused`) there is nothing to take back, and the banner offers only the
+list.
+
+**The second button is "All engines…"**, the speaker menu's own entry under its own name, opening
+the same list. Settings holds no engine choice, so a sentence sending people there sent them nowhere.
+
+**The banner floats** over the editor rather than pushing it down: wrapping the gate in a new
+element only while taken would move it in the tree, remount it, and re-run `/open` — a take-back
+nobody asked for.
+
 `LocaleProvider` sits above all of them: switching language remounts its children, so nothing that
 renders a message may live above it.
 

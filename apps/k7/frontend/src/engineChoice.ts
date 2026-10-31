@@ -13,6 +13,8 @@ export interface EngineChoice {
   pick: (r: RankedEngine) => void;
   /** The full list over the page: pairing a device, every badge in words. */
   openList: () => void;
+  /** Somebody else holds the claim: the link hangs up and stays down — ../docs/shell.md, "When somebody else takes the engine". */
+  detached?: boolean;
 }
 
 export const EngineChoiceContext = createContext<EngineChoice | null>(null);
