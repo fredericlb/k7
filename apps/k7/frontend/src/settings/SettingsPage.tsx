@@ -1,5 +1,5 @@
 // SettingsPage.tsx — `/settings`, a page of its own: what a BROWSER may change for its account, under three tabs —
-// General (the language, the chains, the AI key), Devices (the paired devices, live sync's pairings) and Media (the
+// General (the language, the chains, the AI key), Devices (a machine's servers, the devices syncing) and Media (the
 // rehearsal pages' token). The engines and the server's own settings are pages of their own beside it, in the user
 // menu. A page and not a panel: it is visited on purpose and rarely. See ../../docs/settings.md.
 
@@ -11,6 +11,7 @@ import { AiSection } from "./AiSection";
 import { ChainsSection } from "./ChainsSection";
 import { LanguageSection } from "./LanguageSection";
 import { PairedDevicesSection } from "./PairedDevicesSection";
+import { ServersSection } from "./ServersSection";
 import { type SettingsTab, SettingsTabs } from "./SettingsTabs";
 import { SyncDevicesSection } from "./SyncDevicesSection";
 
@@ -38,6 +39,7 @@ export function SettingsPage() {
     label: m["settings.tabDevices"](),
     content: (
       <>
+        <ServersSection />
         <PairedDevicesSection />
         <SyncDevicesSection />
       </>

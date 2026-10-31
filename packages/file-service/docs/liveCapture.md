@@ -169,58 +169,43 @@ updated, and the wait screen is where the user learns which (`../../live-sync/do
 A workspace linked to no relay has nothing on its way and is always ready. The wait itself, and its
 screen, are the shell's (`packages/project-shell/docs/launch.md`, "Waiting for sync").
 
-## Several servers
+## One server at a time
 
-An account may sync with several LINKS (`../../file-hub/docs/syncRelay.md`): each is one account on one
-server, several may share a server, and each workspace is on ONE of them (`../src/liveServers.ts`).
-Everything kept per server — the relay socket, the room lists and their generations, the moves — is kept
-per link id, never per host: two accounts on one server are two sockets with two tokens, whose rooms
-never meet.
+A machine's account may have SAVED several servers — several accounts on one server among them — and
+syncs with ONE, the active one (`../../file-hub/docs/syncRelay.md`). The hub hands this service that
+link alone (`STUDIO_SYNC_SERVERS`, one entry with its id and account), and names the other saved links
+in `STUDIO_SYNC_HIDDEN` (`../src/liveServers.ts`). Everything kept per server — the relay socket, the
+room list and its generation — is kept by the link's id, never by its host: two accounts on one server
+are two links whose rooms never meet.
 
-Which link is the workspace's own is kept in its log folder (`server.json`: the server's origin, the
-link's id, the room's name there). With none recorded it is the main link's under its own name, which is
-what every workspace synced before secondaries is, and a new workspace goes there too unless the page
-named another link (`POST /workspaces` with `link`, recorded before anything opens it). A record with no
-link id is from before accounts: it goes to that server's `home` link, the local account's own there.
-A workspace whose link is let go stays captured here and syncs nowhere until it is linked again — never
-with another account on the same server, whose rooms are not its.
+Which link is a workspace's own is kept in its log folder (`server.json`: the server's origin, the
+link's id, the room's name there). **On a machine a workspace is recorded at its first link**: one with
+no record yet takes the active link's, a new workspace and one that was here before any server alike.
+Without that, switching servers would seed every unrecorded workspace into the next server's account.
+A record with no link id is from before accounts: it is that server's `home` link's, the local
+account's own there.
 
-On a server the main one is its OWN relay, by the hub secret (`own` in `liveServers.ts`), and the
-servers it is paired with sit beside it as on a machine: it still joins every room its own relay
-holds, and no other's. The page knows the server by the origin it reached it at, not by its loopback
-relay, so the routes translate one into the other (`toPage`, `fromPage`).
+- **A workspace of a saved server that is not the active one is HIDDEN**: left on disk untouched,
+  listed nowhere, refused by name, and never captured, so it neither sends nor receives
+  (`isHiddenRecord`, and `workspaceNames` in `../src/workspaces.ts`). Switching back to its server
+  lists it again and it resumes from its history, since its record and its log were never touched.
+- **A workspace whose link was removed is shown, and syncs nowhere**: captured here and linked to
+  no relay — never synced with another account on the same server, whose rooms are
+  not its.
+- **A workspace with no record on a machine with no server** is simply here; it is recorded with the
+  first server added.
 
-Two links may each hold a workspace of the same name, and a machine has one folder per name: the
-second brought down lands as `<room>.<host>` (`localNameFor`), or `<room>.<host>.<account>` when two
-links share that host, so the folder says whose it is — `@` would read better, and the workspace-name
-rule refuses it — and syncs with its room under its real name. It takes that name
-back once nothing here holds it — after a move, and at every start (`restoreRoomName`): the folder,
-its sync history and its active marker are renamed together, sync letting go first so the rename is
-not captured as every file removed and added again.
+On a server the one link is its OWN relay, by the hub secret (`own` in `liveServers.ts`): it joins
+every room its relay holds, and nothing else. A server adds no server, so it hides nothing.
 
-**A move** (`../src/liveMove.ts`, `POST /workspaces/sync/move`) goes to another link, named by its id
-(an origin names that server's home link) — another server, or another account on the same one. It is
-refused unless the workspace is up
-to date here (above) with nothing of its own unconfirmed, and unless the target holds no workspace of
-that name. It then runs on its own, the list saying so (`moving`):
-
-1. The target's room is seeded from a fresh replica: everything here, the bytes put on the target's
-   store before the batch is sent. A room left empty by an earlier move answers with its empty state,
-   and the replica sends every file as only its own — the same end.
-2. Only once the target has confirmed all of it is the old room emptied: one batch removing every
-   file. Off that server's list, and every device synced with it removes it too; its history keeps it.
-3. The target's history becomes the workspace's, its record names the target, and it is linked there.
-
-Edits made during a move are held and sent to wherever it is linked at the end — the target, or the
-server it stayed on when the move failed. A failed move leaves the target with what it got: the next
-attempt is refused by the name until that room is emptied there, which is a choice for the person.
-
-**A copy** (`POST /workspaces/sync/copy`) is a move's step 1 alone, under the same refusals, and the
-list says so the same way (`moving`, with `copy`). Nothing is held: the workspace stays linked where
-it was, its edits go on to that server, and the target's room starts from what was here when the copy
-began. From then on they are two workspaces of the same name on two servers, which never hear of each
-other; bringing the copy down here lands it as `<room>.<host>`, as above. One move or copy at a time
-per workspace, since both seed the target under the room's name.
+The active server may hold a workspace of the same name as a folder here — one of a hidden server, or
+one that was never synced — and a machine has one folder per name: the room brought down lands as
+`<room>.<host>` (`localNameFor`), counted against every folder here, hidden ones included
+(`folderNames`), so the folder says whose it is — `@` would read better, and the workspace-name rule
+refuses it — and syncs with its room under its real name. It takes that name back at every start once
+nothing here holds it (`restoreRoomName`): the folder, its sync history and its active marker are
+renamed together, sync letting go first so the rename is not captured as every file removed and added
+again.
 
 ## A large workspace is learned in slices
 

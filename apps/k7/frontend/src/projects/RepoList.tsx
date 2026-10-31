@@ -31,16 +31,8 @@ import { NewWorkspace } from "./NewWorkspace";
 import { PAGE_COLUMN, PageHeader } from "./PageFrame";
 import { ProjectRow } from "./ProjectRow";
 import { ServerOnlyList } from "./ServerOnlyList";
-import {
-  entryLabel,
-  linkLabel,
-  linksOf,
-  moveTargetsOf,
-  type SyncLink,
-} from "./syncLinks";
 import { WorkspaceMenu } from "./WorkspaceMenu";
 import {
-  hostLabel,
   syncEntryOf,
   syncStateOf,
   WorkspaceSyncIcon,
@@ -118,8 +110,6 @@ export function RepoList({
   onChanged,
   sync = null,
   onDownload,
-  onMove,
-  onCopyWorkspace,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -127,11 +117,10 @@ export function RepoList({
   /** A warning in plain words, drawn amber rather than as an error. */
   notice?: string | null;
   hasFileService: boolean;
-  /** A workspace of one's own, made on the server with nothing in it — on the link `link` names, the main one without. */
+  /** A workspace of one's own, made on the server with nothing in it. */
   onCreateWorkspace: (
     workspace: string,
     onStep: (s: string) => void,
-    link?: string,
   ) => Promise<void>;
   onOpen: (ws: AccountWorkspace) => void;
   /** Why create and delete are impossible, or "" — both go through the file service, which is also what READS this list (../../docs/projects.md). */
@@ -178,17 +167,11 @@ export function RepoList({
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
-  /** Where each workspace lives, on a machine paired with a server; null draws no icon. */
+  /** Where each workspace lives, on a machine with an active server; null draws no icon. */
   sync?: WorkspaceSyncStatus | null;
-  /** Bring a workspace that is only on a server down here, from that server. */
-  onDownload?: (name: string, server?: string) => Promise<void>;
-  /** Move a workspace to another server this account syncs with. */
-  onMove?: (ws: AccountWorkspace, to: string) => Promise<void>;
-  /** Copy a workspace to another server this account syncs with, keeping it where it is. */
-  onCopyWorkspace?: (ws: AccountWorkspace, to: string) => Promise<void>;
+  /** Bring a workspace that is only on the active server down here. */
+  onDownload?: (name: string) => Promise<void>;
 }) {
-  // Several links: each row names its own, a workspace may move between them, and a new one picks its link.
-  const links = linksOf(sync);
   // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
   const [over, setOver] = useState<string | null>(null);
   const now = useMinuteClock();
@@ -225,7 +208,6 @@ export function RepoList({
             <NewWorkspace
               blocked={blockedWorkspace}
               onCreate={onCreateWorkspace}
-              links={links}
             />
             <NewProject
               primary
@@ -276,7 +258,6 @@ export function RepoList({
               primary
               blocked={blockedWorkspace}
               onCreate={onCreateWorkspace}
-              links={links}
             />
           }
         >
@@ -337,15 +318,6 @@ export function RepoList({
                           null
                         }
                       />
-                      {entryLabel(sync, syncEntryOf(sync, w.name)) && (
-                        <span className="truncate text-muted-foreground text-xs">
-                          {entryLabel(sync, syncEntryOf(sync, w.name))}
-                        </span>
-                      )}
-                      <MoveNote
-                        move={syncEntryOf(sync, w.name)?.moving}
-                        links={links}
-                      />
                       {/* A count is read, not acted on: plain muted text, the violet being kept for what is selected. */}
                       <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
                         {projectsCount(w.projects.length)}
@@ -368,20 +340,6 @@ export function RepoList({
                     projectCount={w.projects.length}
                     blocked={blocked}
                     onRemove={() => onRemoveWorkspace(w)}
-                    // Every OTHER link, once the workspace syncs with one and is not already moving.
-                    moveTargets={
-                      onMove &&
-                      syncEntryOf(sync, w.name)?.state === "synced" &&
-                      !syncEntryOf(sync, w.name)?.moving
-                        ? moveTargetsOf(sync, syncEntryOf(sync, w.name))
-                        : []
-                    }
-                    from={
-                      entryLabel(sync, syncEntryOf(sync, w.name)) ||
-                      hostLabel(syncEntryOf(sync, w.name)?.server ?? "")
-                    }
-                    onMove={(to) => onMove?.(w, to) ?? Promise.resolve()}
-                    onCopy={onCopyWorkspace && ((to) => onCopyWorkspace(w, to))}
                   />
                 </div>
               </div>
@@ -435,32 +393,6 @@ export function RepoList({
       )}
       <ServerOnlyList sync={sync} onDownload={onDownload} />
     </div>
-  );
-}
-
-/** A move or copy under way, or the reason the last one failed, beside the workspace's name. */
-function MoveNote({
-  move,
-  links,
-}: {
-  move?: { to: string; link?: string; error?: string; copy?: boolean };
-  links: SyncLink[];
-}) {
-  if (!move) return null;
-  const to = links.length > 1 && links.find((l) => l.id === move.link);
-  const server = to ? linkLabel(to) : hostLabel(move.to);
-  return move.error ? (
-    <span className="truncate text-amber-500 text-xs" title={move.error}>
-      {(move.copy ? m["wsync.copyFailed"] : m["wsync.moveFailed"])({
-        server,
-        error: move.error,
-      })}
-    </span>
-  ) : (
-    <span className="flex items-center gap-1 text-muted-foreground text-xs">
-      <Loader2 className="size-3 animate-spin" />
-      {(move.copy ? m["wsync.copying"] : m["wsync.moving"])({ server })}
-    </span>
   );
 }
 

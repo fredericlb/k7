@@ -1,18 +1,16 @@
-// liveServers.test.ts — the links a service syncs with, from its environment, two accounts on one server among them,
-// and the folder a workspace from another link takes when its name is already used here. See docs/liveCapture.md.
+// liveServers.test.ts — the link a service syncs with, from its environment, the saved servers whose workspaces it
+// hides, and the folder a room takes when its name is already used here. See docs/liveCapture.md.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   forgetRooms,
-  fromPage,
+  isHiddenRecord,
   listRooms,
   localNameFor,
   mainServer,
   type SyncServer,
   serverForRecord,
-  serverOf,
   syncServers,
-  toPage,
 } from "./liveServers.ts";
 
 const saved = { ...process.env };
@@ -37,22 +35,12 @@ describe("syncServers", () => {
     ]);
   });
 
-  it("on a server, is its own relay by the hub's secret, the pairings beside it", () => {
+  it("on a server, is its own relay by the hub's secret", () => {
     const own = "ws://127.0.0.1:8789/api/sync";
     process.env.STUDIO_SYNC_URL = own;
     process.env.STUDIO_HUB_SECRET = "hs";
     delete process.env.STUDIO_SYNC_TOKEN;
-    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
-      { url: own, own: true, main: true, id: "own", home: true },
-      {
-        url: "wss://band.test/api/sync",
-        token: "tb",
-        main: false,
-        id: "b1",
-        as: "me@x",
-        home: true,
-      },
-    ]);
+    delete process.env.STUDIO_SYNC_SERVERS;
     expect(syncServers()).toEqual([
       {
         id: "own",
@@ -62,44 +50,30 @@ describe("syncServers", () => {
         own: true,
         home: true,
       },
+    ]);
+  });
+
+  it("reads the active link by the id and account the hub gave it", () => {
+    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
       {
-        id: "b1",
-        url: "wss://band.test/api/sync",
-        auth: { token: "tb" },
-        main: false,
-        own: false,
+        url: "wss://a.org/api/sync",
+        token: "ta",
+        main: true,
+        id: "l-a",
         as: "me@x",
         home: true,
       },
     ]);
-    // The page knows this server by the origin it reached it at, never by its loopback relay.
-    expect(toPage(own, "https://home.test")).toBe("https://home.test");
-    expect(toPage("wss://band.test/api/sync", "https://home.test")).toBe(
-      "https://band.test",
-    );
-    expect(fromPage("https://home.test", "https://home.test")).toBe(own);
-    expect(fromPage("https://band.test", "https://home.test")).toBe(
-      "https://band.test",
-    );
-    // A link's id goes through untouched.
-    expect(fromPage("b1", "https://home.test")).toBe("b1");
-  });
-
-  it("reads every pairing, the main one first", () => {
-    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
-      { url: "wss://b.org/api/sync", token: "tb", main: false },
-      { url: "wss://a.org/api/sync", token: "ta", main: true },
-    ]);
-    expect(syncServers().map((s) => [s.id, s.url])).toEqual([
-      ["a.org", "wss://a.org/api/sync"],
-      ["b.org", "wss://b.org/api/sync"],
-    ]);
-    expect(mainServer()?.url).toBe("wss://a.org/api/sync");
+    expect(mainServer()).toMatchObject({
+      id: "l-a",
+      as: "me@x",
+      auth: { token: "ta" },
+    });
   });
 });
 
-describe("two accounts on one server", () => {
-  const twoOnA = () => {
+describe("the saved servers that are not the active one", () => {
+  const activeBand = () => {
     process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
       {
         url: "wss://a.org/api/sync",
@@ -108,69 +82,61 @@ describe("two accounts on one server", () => {
         id: "l-band",
         as: "band@x",
       },
-      {
-        url: "wss://a.org/api/sync",
-        token: "mine",
-        main: false,
-        id: "l-mine",
-        as: "me@x",
-        home: true,
-      },
+    ]);
+    process.env.STUDIO_SYNC_HIDDEN = JSON.stringify([
+      { id: "l-mine", url: "wss://a.org/api/sync", home: true },
+      { id: "l-b", url: "wss://b.org/api/sync", home: true },
     ]);
   };
 
-  it("names each link by its id, and the server by its home link", () => {
-    twoOnA();
-    expect(serverOf("l-band")?.auth).toEqual({ token: "band" });
-    expect(serverOf("l-mine")?.auth).toEqual({ token: "mine" });
-    expect(serverOf("https://a.org")?.id).toBe("l-mine");
+  it("hide the workspaces their records name, never the active one's or a local one", () => {
+    activeBand();
+    const rec = (link: string, server = "https://a.org") => ({
+      server,
+      link,
+      room: "r",
+    });
+    expect(isHiddenRecord(rec("l-mine"))).toBe(true);
+    expect(isHiddenRecord(rec("l-b", "https://b.org"))).toBe(true);
+    expect(isHiddenRecord(rec("l-band"))).toBe(false);
+    expect(isHiddenRecord(null)).toBe(false);
+    // A link let go hides nothing: its workspaces stay here, synced nowhere.
+    expect(isHiddenRecord(rec("gone"))).toBe(false);
+    expect(serverForRecord(rec("gone"))).toBeUndefined();
   });
 
-  it("resolves a record from before accounts to the home link, and one whose link went to none", () => {
-    twoOnA();
-    expect(serverForRecord({ server: "https://a.org", room: "r" })?.id).toBe(
-      "l-mine",
-    );
-    expect(
-      serverForRecord({ server: "https://a.org", link: "l-band", room: "r" })
-        ?.id,
-    ).toBe("l-band");
-    // Another account on that server never takes the workspaces of a link let go.
-    expect(
-      serverForRecord({ server: "https://a.org", link: "gone", room: "r" }),
-    ).toBeUndefined();
+  it("hide a record from before accounts when its host's home link is a hidden one", () => {
+    activeBand();
+    expect(isHiddenRecord({ server: "https://a.org", room: "r" })).toBe(true);
+    expect(isHiddenRecord({ server: "https://b.org", room: "r" })).toBe(true);
+    expect(isHiddenRecord({ server: "https://c.org", room: "r" })).toBe(false);
   });
 
-  it("lists each account's rooms on its own, by its own token", async () => {
-    twoOnA();
+  it("hide nothing when no other server is saved", () => {
+    delete process.env.STUDIO_SYNC_HIDDEN;
+    expect(
+      isHiddenRecord({ server: "https://a.org", link: "l-mine", room: "r" }),
+    ).toBe(false);
+  });
+
+  it("list nothing of their rooms: only the active link is asked", async () => {
+    activeBand();
     const asked: string[] = [];
     vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-      const auth = String(
-        (init.headers as Record<string, string>).authorization,
+      asked.push(
+        String((init.headers as Record<string, string>).authorization),
       );
-      asked.push(auth);
-      const workspaces = auth.endsWith("band") ? ["gig"] : ["solo"];
-      return new Response(JSON.stringify({ workspaces }));
+      return new Response(JSON.stringify({ workspaces: ["gig"] }));
     });
     try {
-      const [band, mine] = syncServers();
-      expect(await listRooms(band, 0)).toEqual(["gig"]);
-      expect(await listRooms(mine, 0)).toEqual(["solo"]);
-      expect(asked).toEqual(["Bearer band", "Bearer mine"]);
-      forgetRooms(band);
-      forgetRooms(mine);
+      const all = syncServers();
+      expect(all.map((s) => s.id)).toEqual(["l-band"]);
+      expect(await listRooms(all[0], 0)).toEqual(["gig"]);
+      expect(asked).toEqual(["Bearer band"]);
+      forgetRooms(all[0]);
     } finally {
       vi.unstubAllGlobals();
     }
-  });
-
-  it("brings a room down under its account's name when the host's name is taken", () => {
-    twoOnA();
-    const band = serverOf("l-band") as SyncServer;
-    const taken = new Set(["gig"]);
-    expect(localNameFor("gig", band, (n) => taken.has(n))).toBe(
-      "gig.a.org.band-x",
-    );
   });
 });
 
@@ -185,19 +151,19 @@ describe("localNameFor", () => {
   };
 
   it("keeps the room's name when it is free here", () => {
-    expect(localNameFor("band", server, () => false, false)).toBe("band");
+    expect(localNameFor("band", server, () => false)).toBe("band");
   });
 
   it("suffixes it with the server's host, a name the workspace rules allow", () => {
     const taken = new Set(["band"]);
-    expect(localNameFor("band", server, (n) => taken.has(n), false)).toBe(
+    expect(localNameFor("band", server, (n) => taken.has(n))).toBe(
       "band.app.priv.k7.rocks-8443",
     );
   });
 
   it("numbers it when that is taken too", () => {
     const taken = new Set(["band", "band.app.priv.k7.rocks-8443"]);
-    expect(localNameFor("band", server, (n) => taken.has(n), false)).toBe(
+    expect(localNameFor("band", server, (n) => taken.has(n))).toBe(
       "band.app.priv.k7.rocks-8443-2",
     );
   });

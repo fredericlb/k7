@@ -308,43 +308,15 @@ export const accountFiles = {
     return workspaces;
   },
 
-  /** On a machine paired with a remote server, where each workspace lives — synced, here only, or there only. */
+  /** On a machine with an active server, where each workspace lives — synced, here only, or there only. */
   workspaceSync: async (m: AccountFiles): Promise<WorkspaceSyncStatus> =>
     call<WorkspaceSyncStatus>(m, `/workspaces/sync`, "workspace sync"),
 
-  /** Bring a workspace that is only on a server (the main one without `server`) down here; it stays synced from then on. */
-  downloadWorkspace: async (
-    m: AccountFiles,
-    name: string,
-    server?: string,
-  ): Promise<void> => {
+  /** Bring a workspace that is only on the active server down here; it stays synced from then on. */
+  downloadWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
     await call(m, `/workspaces/sync/download`, "download", {
       method: "POST",
-      json: { name, ...(server ? { server } : {}) },
-    });
-  },
-
-  /** Start moving a workspace to another server this account is paired with; `workspaceSync` says how it goes. */
-  moveWorkspace: async (
-    m: AccountFiles,
-    name: string,
-    to: string,
-  ): Promise<void> => {
-    await call(m, `/workspaces/sync/move`, "move", {
-      method: "POST",
-      json: { name, to },
-    });
-  },
-
-  /** Start copying a workspace to another server this account is paired with; it stays synced where it was. */
-  copyWorkspace: async (
-    m: AccountFiles,
-    name: string,
-    to: string,
-  ): Promise<void> => {
-    await call(m, `/workspaces/sync/copy`, "copy", {
-      method: "POST",
-      json: { name, to },
+      json: { name },
     });
   },
 
@@ -374,15 +346,11 @@ export const accountFiles = {
     workspace: string,
   ): Promise<FileNode[]> => call(m, `/workspace-tree`, "tree", { workspace }),
 
-  /** A workspace and NOTHING else: an empty folder on the server, synced with the link `link` names (the main one without). */
-  createWorkspace: async (
-    m: AccountFiles,
-    name: string,
-    link?: string,
-  ): Promise<void> => {
+  /** A workspace and NOTHING else: an empty folder, synced with the active server when there is one. */
+  createWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
     await call(m, `/workspaces`, "workspace", {
       method: "POST",
-      json: { name, ...(link ? { link } : {}) },
+      json: { name },
     });
   },
 

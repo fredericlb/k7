@@ -94,9 +94,9 @@ export function ProjectsPane({
 
   /** A workspace made HERE, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
-    async (workspace: string, onStep: (s: string) => void, link?: string) => {
+    async (workspace: string, onStep: (s: string) => void) => {
       setError(null);
-      await createWorkspaceOp(chosen(), workspace, onStep, link);
+      await createWorkspaceOp(chosen(), workspace, onStep);
       onChanged();
     },
     [chosen, onChanged],
@@ -277,29 +277,13 @@ export function ProjectsPane({
           shares={shares}
           onChanged={onChanged}
           sync={sync}
-          onDownload={async (name, server) => {
+          onDownload={async (name) => {
             try {
-              await accountFiles.downloadWorkspace(chosen(), name, server);
+              await accountFiles.downloadWorkspace(chosen(), name);
             } catch (e) {
               setError((e as Error).message);
             }
             onChanged();
-            reloadSync();
-          }}
-          onMove={async (w, to) => {
-            try {
-              await accountFiles.moveWorkspace(chosen(), w.name, to);
-            } catch (e) {
-              setError((e as Error).message);
-            }
-            reloadSync();
-          }}
-          onCopyWorkspace={async (w, to) => {
-            try {
-              await accountFiles.copyWorkspace(chosen(), w.name, to);
-            } catch (e) {
-              setError((e as Error).message);
-            }
             reloadSync();
           }}
         />

@@ -1,6 +1,6 @@
 // syncRename.test.ts — a workspace kept here as `room.host`, while another server's workspace held its name, takes
 // its room's name back once that is free: the folder, its sync history and its link move together, and it goes
-// on syncing as the same room. See file-service docs/liveCapture.md, "Several servers".
+// on syncing as the same room. See file-service docs/liveCapture.md, "One server at a time".
 
 // The file service's own request fields, which its liveSync.ts reaches through the modules it loads.
 /// <reference path="../file-service/src/types/express.d.ts" />

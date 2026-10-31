@@ -1,33 +1,23 @@
 // workspacesRoutes.ts — the account's workspaces as a whole: list, create, remove, copy a project
-// between them, the sync servers they live on, the bench. Mounted by server.ts BEFORE
+// between them, where they live against the active server, the bench. Mounted by server.ts BEFORE
 // resolveWorkspace, since none of these is about one open workspace. See docs/workspaces.md.
 
 import { validate, wrap } from "@frediverse/http/route";
 import {
   type AccountWorkspaceList,
   ADMIN_HEADER,
-  ORIGIN_HEADER,
   type ServedProjectReply,
   type SurfacedProjectList,
   type WorkspaceList,
 } from "@studio/web-protocol";
 import { isBenchProject } from "@studio/web-protocol/projects";
-import { type Request, type Response, Router } from "express";
+import { type Response, Router } from "express";
 import { z } from "zod";
 import { ensureBench } from "../bench.ts";
 import { copyProjectBetween } from "../copyProject.ts";
 import { servedProject, unloadEngineIfServing } from "../engineLink.ts";
 import { libraryRefusal } from "../libraries.ts";
 import { ensureLibraryPins } from "../libraryPins.ts";
-import { liveLogFor } from "../liveLog.ts";
-import { startCopy, startMove } from "../liveMove.ts";
-import {
-  fromPage,
-  mainServer,
-  recordFor,
-  serverOf,
-  writeLinkRecord,
-} from "../liveServers.ts";
 import {
   downloadWorkspace,
   joinServerRooms,
@@ -36,6 +26,7 @@ import {
 import { rootDir, workspaceRoot } from "../slug.ts";
 import {
   createWorkspace,
+  folderNames,
   listMachineWorkspaces,
   listSurfacedProjects,
   listWorkspaces,
@@ -44,10 +35,6 @@ import {
   workspaceNames,
 } from "../workspaces.ts";
 export const workspacesRouter: Router = Router();
-
-/** The origin the page reached the hub at, which the hub stamps: how this server is named to it. */
-const selfOrigin = (req: Request): string | undefined =>
-  req.get(ORIGIN_HEADER) || undefined;
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 workspacesRouter.get(
@@ -66,29 +53,17 @@ const hasLibraries = async (res: Response): Promise<boolean> => {
   return !refused;
 };
 
-/** `link` picks the link it syncs with (an id from `/workspaces/sync`); absent, it is the main one's. */
-const newWsBody = z.object({
-  name: z.string().min(1),
-  link: z.string().min(1).optional(),
-});
+/** A new workspace syncs with the active server, if any, which its capture records at its first link. */
+const newWsBody = z.object({ name: z.string().min(1) });
 workspacesRouter.post(
   "/workspaces",
   validate(newWsBody),
   wrap(async (req, res) => {
-    const { name, link } = req.body as z.infer<typeof newWsBody>;
+    const { name } = req.body as z.infer<typeof newWsBody>;
     if (!(await hasLibraries(res))) return;
-    const target = link ? serverOf(fromPage(link, selfOrigin(req))) : undefined;
-    if (link && !target)
-      return void res.status(400).json({ error: `no such link: ${link}` });
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
       const created = await createWorkspace(req.userEmail!, name);
-      // Recorded before anything opens it, so its capture links it there from its first edit (docs/liveCapture.md).
-      if (created && target && target.id !== mainServer()?.id)
-        writeLinkRecord(
-          liveLogFor(workspaceRoot(name)),
-          recordFor(target, name),
-        );
       // A new workspace pins the newest version of each library this k7 runs.
       if (created)
         ensureLibraryPins(workspaceRoot(name), {
@@ -158,74 +133,27 @@ workspacesRouter.get(
   }),
 );
 
-/** Where each workspace lives on a machine paired with a remote server: both, here only, or there only. See docs/workspaces.md. */
+/** Where each workspace lives on a machine with an active server: both, here only, or there only. See docs/workspaces.md. */
 workspacesRouter.get(
   "/workspaces/sync",
-  wrap(async (req, res) => {
-    res.json(
-      await workspaceSyncStatus(workspaceNames(rootDir()), selfOrigin(req)),
-    );
+  wrap(async (_req, res) => {
+    res.json(await workspaceSyncStatus(workspaceNames(rootDir())));
   }),
 );
 
-/** Bring a workspace that exists only on a server down here — the main one unless `server` says — and keep it synced. */
-const downloadBody = z.object({
-  name: z.string().min(1),
-  server: z.string().min(1).optional(),
-});
+/** Bring a workspace that exists only on the active server down here, and keep it synced. */
+const downloadBody = z.object({ name: z.string().min(1) });
 workspacesRouter.post(
   "/workspaces/sync/download",
   validate(downloadBody),
   wrap(async (req, res) => {
-    const { name, server } = req.body as z.infer<typeof downloadBody>;
-    const here = new Set(workspaceNames(rootDir()));
-    // A name another server's workspace already has here lands as `name.host` (docs/liveCapture.md, "Several servers").
-    const local = await downloadWorkspace(
-      name,
-      server && fromPage(server, selfOrigin(req)),
-      (n) => here.has(n),
-    );
+    const { name } = req.body as z.infer<typeof downloadBody>;
+    // Every folder counts, a hidden server's too: a name held here lands as `name.host` (docs/liveCapture.md).
+    const here = new Set(folderNames(rootDir()));
+    const local = await downloadWorkspace(name, (n) => here.has(n));
     if (local) res.json({ ok: true, name: local });
     else
-      res.status(404).json({
-        error: `${server ?? "the server"} has no workspace '${name}'`,
-      });
-  }),
-);
-
-/** Move a workspace to another server this account is paired with: there whole, then off the one it left. */
-const moveBody = z.object({
-  name: z.string().min(1),
-  to: z.string().min(1),
-});
-workspacesRouter.post(
-  "/workspaces/sync/move",
-  validate(moveBody),
-  wrap(async (req, res) => {
-    const { name, to } = req.body as z.infer<typeof moveBody>;
-    try {
-      // The refusals answered now; the move itself runs on, and `/workspaces/sync` says how it went.
-      await startMove(workspaceRoot(name), fromPage(to, selfOrigin(req)));
-      res.status(202).json({ ok: true });
-    } catch (e) {
-      res.status(409).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-/** Copy a workspace to another server this account is paired with: there whole, and still synced where it was. */
-workspacesRouter.post(
-  "/workspaces/sync/copy",
-  validate(moveBody),
-  wrap(async (req, res) => {
-    const { name, to } = req.body as z.infer<typeof moveBody>;
-    try {
-      // Answered like a move: the refusals now, the copy running on, and `/workspaces/sync` says how it went.
-      await startCopy(workspaceRoot(name), fromPage(to, selfOrigin(req)));
-      res.status(202).json({ ok: true });
-    } catch (e) {
-      res.status(409).json({ error: (e as Error).message });
-    }
+      res.status(404).json({ error: `the server has no workspace '${name}'` });
   }),
 );
 

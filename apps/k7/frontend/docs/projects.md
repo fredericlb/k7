@@ -479,27 +479,20 @@ configure — no key, no remote, no host — and the live-sync relay is what car
 account's other devices (`docs/live-sync-plan.md`). There is no import and no publish: a workspace
 exists on every replica the relay reaches, so there is nothing to bring in or send out by hand.
 
-**On a machine paired with a server, each row says where its workspace lives** (`WorkspaceSyncIcon.tsx`,
+**On a machine with an active server, each row says where its workspace lives** (`WorkspaceSyncIcon.tsx`,
 `useWorkspaceSync.ts`): synced with the server, on this machine only, or on the server only — the
 last listed below the others with a Download, since bringing gigabytes of takes down is the
-person's choice. An unpaired machine, and a server with no other server beside it, draw no icon:
-there, every workspace is simply here. A server paired with others draws them as a machine does, with
-itself as the main one.
+person's choice. A machine with no server, and a server, draw no icon: there, every workspace is
+simply here.
 
-**A computer with several links** — servers, or accounts on one server — lists the workspaces of all of
-them in ONE list: each row names its link `host · account` beside the icon (`syncLinks.ts`; one link
-draws no label, as before), a workspace only on a server downloads from that link, and the row's ⋮
-offers **Copy to** and **Move to** every other link, by its id (`WorkspaceMenu.tsx`), each confirmed with
-what it does. **New workspace** goes to the main link, and with several it offers the others in a
-picker, the main one first. Both send it whole to the target; a move then empties it from the one it left, whose history
-keeps it, while a copy leaves it synced where it was and the target holding a workspace of its own
-(`packages/file-service/docs/liveCapture.md`, "Several servers"). Either runs on its own and the row
-says so until it ends, or says why it failed. Which servers, and which is the main one, are the home
-page's account bar (`SyncServers.tsx`, `packages/file-hub/docs/syncRelay.md`). On a server that bar
-holds the servers alone — the account's control is the user menu's — the server first and main for
-good, so the others have no Make main; Add a server pairs as a machine does. The bar lists links as
-`host · account`, made main or let go by id, and **Add an account** pairs again with a server already
-linked, its page asking which account.
+**The page knows ONE server, the active one.** A machine may have saved several — servers, or accounts
+on one server — but it syncs with one at a time (`packages/file-hub/docs/syncRelay.md`), so the list
+holds the workspaces of this machine alone and of the active server, with no label naming a server, and
+**New workspace** makes one that syncs there. The workspaces of the other saved servers are on disk but
+not listed: switching to that server in the settings (`../src/settings/ServersSection.tsx`) brings them
+back, syncing again (`packages/file-service/docs/liveCapture.md`, "One server at a time"). The account
+bar names the active server `host · account` as a link to those settings (`ActiveServer.tsx`); on a
+server the bar names none, since it is the server.
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,

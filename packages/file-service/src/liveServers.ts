@@ -1,8 +1,8 @@
-// liveServers.ts — the LINKS this account syncs with (one account on one server each, several possibly on one server),
-// and which one each workspace belongs to. The MAIN one is `STUDIO_SYNC_URL` (on a server, its own relay); all ride in
-// `STUDIO_SYNC_SERVERS` (file-hub syncRemote.ts). Everything here is keyed by the link's id, never by its host.
-// A workspace's link and room are kept in its log folder; with none recorded it is the main one's under its own name.
-// See docs/liveCapture.md, "Several servers".
+// liveServers.ts — the LINK this account syncs with (one account on one server: on a machine its active server, on a
+// server its own relay), the saved links it does NOT sync with (`STUDIO_SYNC_HIDDEN`), and which link each workspace
+// belongs to. Everything here is keyed by the link's id, never by its host (file-hub syncRemote.ts `syncTarget`).
+// A workspace's link and room are kept in its log folder; one of a hidden link is neither listed nor synced.
+// See docs/liveCapture.md, "One server at a time".
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -69,15 +69,15 @@ interface RawServer {
   home?: boolean;
 }
 
-/** Every link, the main one first; empty when this service syncs with no relay at all. */
+/** The link this service syncs with, as a list of at most one; empty when it syncs with no relay at all. */
 export function syncServers(): SyncServer[] {
   const raw = process.env.STUDIO_SYNC_SERVERS;
   const secret = process.env.STUDIO_HUB_SECRET;
   if (raw)
     try {
       const parsed = JSON.parse(raw) as RawServer[];
-      // A list from a hub before accounts marks no home link: one link per host then, each its host's.
-      const marked = parsed.some((s) => s.home === true);
+      // A list from a hub before accounts names no id and marks no home link: one link per host then, each its host's.
+      const marked = parsed.some((s) => s.home === true || !!s.id);
       const list = parsed.flatMap((s): SyncServer[] => {
         const main = s.main === true;
         // …and names no id: the host stands in, as unique as it was then.
@@ -141,21 +141,38 @@ export function serverForRecord(rec: WorkspaceLink): SyncServer | undefined {
   return serverOf(rec.server);
 }
 
-/** Whether another link shares `server`'s host: then the pages name each by its account too. */
-export const sharesHost = (server: SyncServer): boolean =>
-  syncServers().some(
-    (s) => s.id !== server.id && hostOf(s.url) === hostOf(server.url),
-  );
-
-/** A page names this server by the origin it reached it at (`self`), which is this hub's own relay. */
-export function fromPage(url: string, self: string | undefined): string {
-  if (!self || hostOf(url) !== hostOf(self)) return url;
-  return syncServers().find((s) => s.own)?.url ?? url;
+/** A saved link this service does not sync with: its id, its relay, and whether it is its host's `home` link. */
+interface HiddenLink {
+  id: string;
+  url: string;
+  home: boolean;
 }
 
-/** …and is shown it by that origin: the own relay's loopback address means nothing to a browser. */
-export function toPage(url: string, self: string | undefined): string {
-  return self && serverOf(url)?.own ? self : originOf(url);
+/** The account's other saved servers, whose workspaces wait on disk unlisted (file-hub syncRemote.ts `syncTarget`). */
+function hiddenLinks(): HiddenLink[] {
+  const raw = process.env.STUDIO_SYNC_HIDDEN;
+  if (!raw) return [];
+  try {
+    return (JSON.parse(raw) as Partial<HiddenLink>[]).flatMap((h) =>
+      h.id && h.url ? [{ id: h.id, url: h.url, home: h.home === true }] : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Whether a workspace's record names a saved server that is not the active one: then it is hidden here. */
+export function isHiddenRecord(rec: WorkspaceLink | null): boolean {
+  const hidden = rec ? hiddenLinks() : [];
+  if (!rec || !hidden.length) return false;
+  if (rec.link && rec.link !== hostOf(rec.server))
+    return hidden.some((h) => h.id === rec.link);
+  // A record from before accounts is its host's home link's, which may be a hidden one.
+  const there = [...syncServers(), ...hidden].filter(
+    (s) => hostOf(s.url) === hostOf(rec.server),
+  );
+  const owner = there.find((s) => s.home) ?? there[0];
+  return !!owner && hidden.some((h) => h.id === owner.id);
 }
 
 const links = new Map<string, RelayLink>();
@@ -205,7 +222,7 @@ function refreshRooms(server: SyncServer): void {
   void fetchRooms(server).finally(() => refreshing.delete(server.id));
 }
 
-/** Bumped by forgetRooms, so an answer asked for before a move never lands after it. */
+/** Bumped by forgetRooms, so an answer asked for before it never lands after it. */
 const generation = new Map<string, number>();
 
 async function fetchRooms(server: SyncServer): Promise<string[]> {
@@ -233,7 +250,7 @@ async function fetchRooms(server: SyncServer): Promise<string[]> {
   }
 }
 
-/** Forget what `server`'s list said, so the next question asks it: a move just changed it. */
+/** Forget what `server`'s list said, so the next question asks the relay. */
 export const forgetRooms = (server: SyncServer): void => {
   rooms.delete(server.id);
   generation.set(server.id, (generation.get(server.id) ?? 0) + 1);
@@ -271,16 +288,14 @@ export const recordFor = (server: SyncServer, room: string): WorkspaceLink => ({
 /** A name the workspace rules allow, from a host or an email. */
 const safe = (s: string): string => s.replace(/[^A-Za-z0-9._-]/g, "-");
 
-/** The local folder a room is brought down to: its own name, else `room.host` — `room.host.account` when two accounts share the host. */
+/** The local folder a room is brought down to: its own name, else `room.host`, numbered when that is taken too. */
 export function localNameFor(
   room: string,
   server: SyncServer,
   taken: (name: string) => boolean,
-  shared = sharesHost(server),
 ): string {
   if (!taken(room)) return room;
-  const host = `${room}.${safe(hostOf(server.url))}`;
-  const base = shared && server.as ? `${host}.${safe(server.as)}` : host;
+  const base = `${room}.${safe(hostOf(server.url))}`;
   let name = base;
   for (let i = 2; taken(name); i++) name = `${base}-${i}`;
   return name;

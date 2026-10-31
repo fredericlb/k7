@@ -84,23 +84,15 @@ async function follow(state: string): Promise<boolean> {
   }
 }
 
-/** Pair this machine with `server` from a click: the server's page opens in a new tab, which the page then waits on. */
-async function pair(
-  server: string,
-  main: boolean,
-  another = false,
-): Promise<boolean> {
+/** Pair this machine with `server` from a click, which makes it the active one: the server's page opens in a new tab, waited on here. */
+async function pair(server: string, another = false): Promise<boolean> {
   // Opened first, inside the click: a window opened after an await is a pop-up a browser blocks.
   const tab = window.open("about:blank", "_blank");
   const r = await fetch("/api/sync/remote/pair", {
     method: "POST",
     headers: { "content-type": "application/json" },
     // `another`: a server already linked, whose page then asks which account (packages/file-hub/docs/syncRelay.md).
-    body: JSON.stringify({
-      origin: server,
-      main,
-      ...(another ? { another } : {}),
-    }),
+    body: JSON.stringify({ origin: server, ...(another ? { another } : {}) }),
   }).catch(() => null);
   if (r?.status === 409) {
     tab?.close();
@@ -160,9 +152,9 @@ export const browserAccount = {
     current = null;
     set({ state: "idle" });
   },
-  /** The offer's button: the main server, being the first. */
-  pair: (server: string): Promise<boolean> => pair(server, true),
-  addServer: (server: string): Promise<boolean> => pair(server, false),
-  /** Another account on a server already linked, beside the links there. */
-  addAccount: (server: string): Promise<boolean> => pair(server, false, true),
+  /** The offer's button after a sign-in. */
+  pair: (server: string): Promise<boolean> => pair(server),
+  addServer: (server: string): Promise<boolean> => pair(server),
+  /** Another account on a server already saved: its page asks which one. */
+  addAccount: (server: string): Promise<boolean> => pair(server, true),
 };

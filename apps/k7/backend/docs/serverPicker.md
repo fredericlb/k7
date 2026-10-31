@@ -1,7 +1,7 @@
 # A paired machine browsing its server
 
 On the tray, the sidebar's server picker (`apps/k7/frontend/docs/serverPicker.md`) lets the
-Libraries, Media and Rehearsal pages read the account's paired server instead of this machine.
+Libraries, Media and Rehearsal pages read the account's active server instead of this machine.
 Two halves make it: the tray's backend forwards (`src/remote/forward.ts`), the server lets the
 forward in (`src/remote/door.ts`).
 
