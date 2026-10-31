@@ -11,7 +11,14 @@ export type AccountStatus =
   /** Back from a sign-in in a browser: pairing with `server` waits on a click (./browserAccount.ts). */
   | { state: "offer"; server: string }
   | { state: "waiting"; what: "signIn" | "pair" }
-  | { state: "error"; code: string; detail?: string }
+  /** `as` and `local` name the two accounts of a link: the server's, and k7's here. */
+  | {
+      state: "error";
+      code: string;
+      detail?: string;
+      as?: string;
+      local?: string;
+    }
   | { state: "done"; code: string; detail?: string };
 
 /** Inside a phone app, whose views get `k7Android` or `k7Ios` (engine/k7-runtime/docs/android.md, docs/ios.md): its account lives on the home page too. */

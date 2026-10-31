@@ -186,7 +186,7 @@ describe("where an account's service syncs", () => {
     expect(env.STUDIO_SYNC_URL).toBe(own);
     expect(env.STUDIO_SYNC_TOKEN).toBeUndefined();
     expect(JSON.parse(env.STUDIO_SYNC_SERVERS)).toEqual([
-      { url: own, own: true, main: true, id: "own", home: true },
+      { url: own, own: true, main: true, id: "own", as: "u", home: true },
       {
         url: A,
         token: "a",

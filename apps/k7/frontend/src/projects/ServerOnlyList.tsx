@@ -6,6 +6,7 @@ import { Cloud, CloudDownload, Loader2 } from "@frediverse/ui/icons";
 import type { WorkspaceSyncStatus } from "@studio/web-protocol";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { entryLabel } from "./syncLinks";
 import { hostLabel } from "./WorkspaceSyncIcon";
 
 export function ServerOnlyList({
@@ -13,6 +14,7 @@ export function ServerOnlyList({
   onDownload,
 }: {
   sync: WorkspaceSyncStatus | null;
+  /** `server` is the link's id, or its origin for an entry that names none. */
   onDownload?: (name: string, server?: string) => Promise<void>;
 }) {
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function ServerOnlyList({
     <ul className="mt-2 flex flex-col gap-2">
       {serverOnly.map((w) => (
         <li
-          key={`${w.server ?? ""} ${w.name}`}
+          key={`${w.link ?? w.server ?? ""} ${w.name}`}
           className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3"
         >
           <span className="flex min-w-0 items-center gap-3 text-muted-foreground">
@@ -32,7 +34,9 @@ export function ServerOnlyList({
             <span className="truncate">{w.name}</span>
             <span className="text-xs">
               {m["wsync.onServerOnly"]({
-                server: hostLabel(w.server ?? sync?.server ?? ""),
+                server:
+                  entryLabel(sync, w) ||
+                  hostLabel(w.server ?? sync?.server ?? ""),
               })}
             </span>
           </span>
@@ -42,14 +46,14 @@ export function ServerOnlyList({
             disabled={!onDownload || downloading !== null}
             onClick={() => {
               if (!onDownload) return;
-              const key = `${w.server ?? ""} ${w.name}`;
+              const key = `${w.link ?? w.server ?? ""} ${w.name}`;
               setDownloading(key);
-              void onDownload(w.name, w.server).finally(() =>
+              void onDownload(w.name, w.link ?? w.server).finally(() =>
                 setDownloading(null),
               );
             }}
           >
-            {downloading === `${w.server ?? ""} ${w.name}` ? (
+            {downloading === `${w.link ?? w.server ?? ""} ${w.name}` ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <CloudDownload className="h-3.5 w-3.5" />

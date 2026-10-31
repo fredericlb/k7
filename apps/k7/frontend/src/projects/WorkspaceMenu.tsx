@@ -1,4 +1,4 @@
-// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another server, or delete it.
+// WorkspaceMenu.tsx — the ⋮ at the end of a workspace's row: copy or move it to another link, or delete it.
 // Each is confirmed in words; the delete asks for the workspace's NAME. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
@@ -18,7 +18,12 @@ import {
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { hostLabel } from "./WorkspaceSyncIcon";
+
+/** A link it may go to: `ref` is what the backend takes, `label` what the person reads. */
+export interface MoveTarget {
+  ref: string;
+  label: string;
+}
 
 export function WorkspaceMenu({
   workspace,
@@ -36,9 +41,9 @@ export function WorkspaceMenu({
   /** Why nothing here can run — no file service, or one busy. Empty when it can. */
   blocked: string;
   onRemove: () => Promise<void>;
-  /** The other servers it may be copied or moved to, as origins; none draws no entry. */
-  moveTargets?: string[];
-  /** The server it syncs with now, for the confirmation. */
+  /** The other links it may be copied or moved to; none draws no entry. */
+  moveTargets?: MoveTarget[];
+  /** The link it syncs with now, as the confirmation names it. */
   from?: string;
   onMove?: (to: string) => Promise<void>;
   onCopy?: (to: string) => Promise<void>;
@@ -76,30 +81,24 @@ export function WorkspaceMenu({
     }
   };
 
-  const move = (to: string) =>
+  const move = (to: MoveTarget) =>
     confirmThen(
       {
-        title: m["ws.moveTitle"]({ workspace, server: hostLabel(to) }),
-        body: m["ws.moveBody"]({
-          server: hostLabel(to),
-          from: hostLabel(from),
-        }),
+        title: m["ws.moveTitle"]({ workspace, server: to.label }),
+        body: m["ws.moveBody"]({ server: to.label, from }),
         confirmLabel: m["ws.move"](),
       },
-      () => onMove?.(to) ?? Promise.resolve(),
+      () => onMove?.(to.ref) ?? Promise.resolve(),
     );
 
-  const copy = (to: string) =>
+  const copy = (to: MoveTarget) =>
     confirmThen(
       {
-        title: m["ws.copyTitle"]({ workspace, server: hostLabel(to) }),
-        body: m["ws.copyBody"]({
-          server: hostLabel(to),
-          from: hostLabel(from),
-        }),
+        title: m["ws.copyTitle"]({ workspace, server: to.label }),
+        body: m["ws.copyBody"]({ server: to.label, from }),
         confirmLabel: m["ws.copy"](),
       },
-      () => onCopy?.(to) ?? Promise.resolve(),
+      () => onCopy?.(to.ref) ?? Promise.resolve(),
     );
 
   return (
@@ -124,22 +123,22 @@ export function WorkspaceMenu({
         {onCopy &&
           moveTargets.map((to) => (
             <DropdownMenuItem
-              key={`copy-${to}`}
+              key={`copy-${to.ref}`}
               className="gap-2 text-xs"
               onSelect={() => void copy(to)}
             >
               <Copy className="h-3.5 w-3.5" />
-              {m["ws.copyTo"]({ server: hostLabel(to) })}
+              {m["ws.copyTo"]({ server: to.label })}
             </DropdownMenuItem>
           ))}
         {moveTargets.map((to) => (
           <DropdownMenuItem
-            key={to}
+            key={to.ref}
             className="gap-2 text-xs"
             onSelect={() => void move(to)}
           >
             <CloudUpload className="h-3.5 w-3.5" />
-            {m["ws.moveTo"]({ server: hostLabel(to) })}
+            {m["ws.moveTo"]({ server: to.label })}
           </DropdownMenuItem>
         ))}
         {/* In red: the one act on this row that cannot be undone at all. */}

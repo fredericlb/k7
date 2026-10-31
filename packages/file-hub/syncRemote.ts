@@ -266,7 +266,14 @@ export function syncTarget(
     return {
       STUDIO_SYNC_URL: own,
       STUDIO_SYNC_SERVERS: JSON.stringify([
-        { url: own, own: true, main: true, id: OWN_LINK, home: true },
+        {
+          url: own,
+          own: true,
+          main: true,
+          id: OWN_LINK,
+          as: main.user,
+          home: true,
+        },
         ...remotes.map((r) => entry(r, false)),
       ]),
     };
