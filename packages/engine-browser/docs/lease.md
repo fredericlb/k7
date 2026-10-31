@@ -45,7 +45,9 @@ the loop reports only two of them.
 - `project` and `engine` — **somebody** took the project, or the machine. Terminal: `onLost`
   fires, the interval stops, the surface stops driving and says so. Retrying here means taking
   the project out of the hands of a person working on it, and five seconds later they take it
-  back out of ours.
+  back out of ours. A surface that keeps its page open meanwhile stops its socket with
+  `EngineLink.hangUp()`, which also drops the outbox: what was queued for that project must not
+  reach the engine once someone else's project is on it.
 - `lapsed` — **nobody** took anything. The server answers this only when nothing holds that
   project *and* nothing else holds that engine: the secret simply aged, over a sleep or a
   dropout. The loop forgets the dead secret and the next tick reopens — a `select` with no

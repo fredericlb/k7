@@ -160,6 +160,20 @@ describe("the reconnect ladder", () => {
   });
 });
 
+describe("hanging up", () => {
+  it("closes the socket, forgets the outbox, and dials again on the ladder", async () => {
+    const first = last();
+    link.push({ type: "transport", action: "play" });
+    link.hangUp();
+    expect(first.readyState).toBe(FakeSocket.CLOSED);
+    expect(conn).toEqual([false]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sockets()).toHaveLength(2);
+    last().open();
+    expect(last().types()).toEqual(["hello"]);
+  });
+});
+
 describe("the outbox", () => {
   it("holds what was sent while down and replays it after hello, oldest first", () => {
     link.push({ type: "transport", action: "play" });
