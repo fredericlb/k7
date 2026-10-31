@@ -20,7 +20,7 @@ import {
 } from "../hunt/hunt.ts";
 import { listHunts, reconcile, removeHunt } from "../hunt/store.ts";
 import { youtubeAvailable } from "../hunt/youtube.ts";
-import { missing } from "../settings/store.ts";
+import { gaps, missing } from "../settings/store.ts";
 
 /** Longer than a title, short enough that nobody is pasting a document into it. */
 const MAX_QUERY = 200;
@@ -45,6 +45,7 @@ huntRouter.get(
     res.json({
       configured: reason === null,
       reason,
+      missing: gaps(),
       // Whether the fallback is even possible, so a failed row can grey its button and say why.
       youtube: await youtubeAvailable(),
       hunts: reconcile(subjectOf(req) as string, runningIds()),
@@ -123,7 +124,12 @@ huntRouter.post(
   "/",
   wrap((req, res) => {
     const gap = missing();
-    if (gap) return res.status(503).json({ error: gap });
+    if (gap)
+      return res.status(503).json({
+        error: gap,
+        code: "settings-missing",
+        missing: gaps(),
+      });
     const body = req.body as {
       query?: unknown;
       tags?: unknown;
