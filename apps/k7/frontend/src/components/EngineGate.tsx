@@ -61,12 +61,17 @@ export function EngineGate({
   const waiters = useRef<((r: RankedEngine | null) => void)[]>([]);
   const settled = useRef(false);
 
+  // The files open before any pick, read by `pick` to tell a pick that moves them to another server's hub.
+  const hostedRef = useRef<HostedFiles | null | undefined>(undefined);
   useEffect(() => {
     let live = true;
     void engines
       .hostedFiles()
       .catch(() => null)
-      .then((h) => live && setHosted(h));
+      .then((h) => {
+        hostedRef.current = h;
+        if (live) setHosted(h);
+      });
     return () => {
       live = false;
     };
@@ -120,12 +125,15 @@ export function EngineGate({
       // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
       if (remember)
         engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
+      // An engine through another server plays that server's files: the project is opened again there (../../docs/serverEngines.md).
+      const before = chosenRef.current?.fileBase ?? hostedRef.current?.fileBase;
+      const moves = !!before && before !== r.fileBase;
       chosenRef.current = r;
       for (const w of waiters.current.splice(0)) w(r);
       setChosen(r);
       setPicking(false);
       // A pick on an open project is an OPEN: it takes the claim back from whoever had it, and the gate resolves again first.
-      if (later) {
+      if (later || moves) {
         takenRef.current = null;
         setTaken(null);
         setResolved(false);
@@ -258,7 +266,7 @@ export function EngineGate({
   // The files are the chosen engine's way in when it has one, else the hub's own with no engine bound.
   const gateEngine = useMemo<GateEngine | null>(() => {
     // A session open past its twelve-hour ticket asks for a new one rather than failing every read — packages/project-shell/docs/fileApi.md.
-    const renewTicket = () => engines.freshTicket();
+    const renewTicket = () => engines.freshTicket(chosen?.engine);
     if (chosen?.fileBase)
       return chosen.filesHosted ? { ...chosen, renewTicket } : chosen;
     if (!hosted) return null;

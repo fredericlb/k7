@@ -9,6 +9,8 @@
   "engines.title": "Choisir un moteur",
   "engines.searching": "Recherche de moteurs…",
   "engines.unreachable": "injoignable",
+  "engines.via": "{engine} · via {server}",
+  "engines.viaHint": "Listé par {server} pour votre compte là-bas, et joué à travers lui : le projet s'ouvre depuis la copie de l'espace de travail sur ce serveur.",
   "engines.latencyBreakdown": "{network} ms de réseau + {audio} ms d'interface audio",
   "engines.noLatency": "latence inconnue",
   "engines.outdated": "mettez k7 à jour sur cette machine",

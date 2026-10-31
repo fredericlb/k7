@@ -9,6 +9,8 @@
   "engines.title": "Select an engine",
   "engines.searching": "Looking for engines…",
   "engines.unreachable": "unreachable",
+  "engines.via": "{engine} · via {server}",
+  "engines.viaHint": "Listed by {server} for your account there, and played through it: the project opens from that server's copy of the workspace.",
   "engines.latencyBreakdown": "{network} ms of network + {audio} ms of audio interface",
   "engines.noLatency": "latency unknown",
   "engines.outdated": "update k7 on this machine",

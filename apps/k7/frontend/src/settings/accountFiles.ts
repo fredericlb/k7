@@ -8,9 +8,9 @@ import {
   FILE_HUB_HELLO,
   type FileHubHello,
 } from "@studio/web-protocol";
-import { api, engines } from "../api";
+import { api, engines, SERVER_BASE } from "../api";
 import { type AccountFiles, accountFiles } from "../projects/api";
-import { SERVER_BASE, serverChoice } from "../serverChoice";
+import { serverChoice } from "../serverChoice";
 
 /** The file service the Libraries page edits: this machine's, or the paired server's through the forward (../serverChoice.ts). */
 export async function findLibraryFiles(): Promise<AccountFiles | null> {
@@ -55,7 +55,8 @@ export async function findAccountFiles(
       };
     const { chosen } = await engines.find().catch(() => ({ chosen: null }));
     const token = chosen ? fileTokenOf(chosen) : null;
-    if (chosen?.fileBase && token)
+    // An engine through the server plays the server's files; this page's own are still this machine's.
+    if (chosen?.fileBase && token && !chosen.engine.via)
       return { fileBase: chosen.fileBase, token, userEmail, admin };
     return hosted
       ? { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail, admin }

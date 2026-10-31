@@ -32,6 +32,8 @@ import { QUALITY_VARIANT, selectableRow } from "./EngineSelect";
 import {
   type EngineSelectorProps,
   EngineWarning,
+  engineName,
+  engineViaHint,
   engineWords,
 } from "./engineWords";
 
@@ -219,8 +221,8 @@ function EngineRow({
           current ? "opacity-100" : "opacity-0",
         )}
       />
-      <span className="min-w-0 flex-1 truncate">
-        {r.engine.hostname || r.engine.id.slice(0, 8)}
+      <span className="min-w-0 flex-1 truncate" title={engineViaHint(r)}>
+        {engineName(r)}
       </span>
       {r.latency ? (
         <Badge

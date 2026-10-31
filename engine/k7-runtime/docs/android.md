@@ -397,6 +397,15 @@ phone's supervisor is handed the token of the link its engine is owned by on tha
   is already paired with is not asked again; another one is paired as the main. A phone connected
   to another studio uses that studio's own session and has nothing to pair.
 
+## The account's other engines, through its server
+
+The phone's registry lists the phone's own engine: the backend's registry hears only what heartbeats to
+it. Once the account is paired, the page also lists the engines its MAIN server lists for that account —
+the desktop it added there, an engine shared with it, the server's own — named `<machine> · via <server>`
+(`apps/k7/frontend/docs/serverEngines.md`). The phone drives one through the server's relay, as a browser
+signed in there would, and never reaches the engine's machine itself; the project plays from the server's
+copy of the workspace, so a workspace the main link does not sync is not found there.
+
 ## A library in the app, not a process it spawns
 
 JUCE's Oboe backend asks Android's `AudioManager` for the device's rate and buffer through JNI, and

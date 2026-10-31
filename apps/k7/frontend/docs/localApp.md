@@ -14,6 +14,7 @@ flag (`src/localApp.ts`).
 | the engine page over HTTP (`src/settings/desktopEngine.ts`) | the backend runs the supervisor (`apps/k7/backend/docs/localEngine.md`); the page reads its snapshot as events and sends allowed commands |
 | the server this machine syncs with read from `/api/sync/remote` (`src/desktop.ts`) | the user menu's apps and the catalogue's link are that server's, not this backend's |
 | the tray's server picker names the MAIN link `host · account` (`src/components/SidebarServer.tsx`) | several accounts may be linked on one server, and the pages it switches to read the main one's; making another link main is what switches them |
+| the main server's engines listed beside this machine's, `· via <server>` (`serverEngines.md`) | the person's other machines heartbeat to the server they added; the page drives them through that server, its files that server's copy |
 | an account added on a server already linked is a pairing that asks (`addAccount`, `src/projects/SyncServers.tsx`) | the server's page then names who the browser is signed in as and offers another account; an account already linked there is told, naming both k7's account here and the server's (`account.status.alreadyLinked`) |
 | the local user lists and adds links too (`src/projects/AccountBar.tsx`) | a link names its remote account itself, so signed out is no reason to sync nowhere |
 | a phone app answers these itself | its shell already signs in, pairs and drives its engine natively; the page asks it, not the backend |

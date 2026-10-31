@@ -27,15 +27,19 @@ import type {
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
+  ENGINE_CONNECT_DEADLINE_MS,
   MAX_UPLOAD_BYTES,
   type ModelDownloadJob,
+  SERVER_ENGINES_PATH,
   type SeparateJob,
+  type ServerEngines,
   type ShareProgress,
   type StemsReply,
 } from "@studio/web-protocol";
 import type { PlaylistInfo } from "@studio/web-protocol/playlists";
 import type { ProjectResource } from "@studio/web-protocol/resources";
 import type { CommandPrefs } from "./commandPrefs";
+import { localApp } from "./localApp";
 import { pl8Url } from "./projects/api";
 import type {
   PreviewReq,
@@ -58,11 +62,26 @@ const PL8 = pl8Url();
 export interface K7Prefs extends EnginePrefs {
   commands?: CommandPrefs;
 }
+/** A machine's own backend's forward to the account's main server (backend/src/remote/forward.ts). */
+export const SERVER_BASE = `${BASE}/api/server`;
+
+/** The main server's engines, on a machine's own backend only; empty on a server, or when the server is away. */
+async function serverEngines(): Promise<PublicEngine[]> {
+  if (!(await localApp())) return [];
+  const res = await fetch(`${BASE}${SERVER_ENGINES_PATH}`, {
+    credentials: "include",
+    signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
+  });
+  return res.ok ? ((await res.json()) as ServerEngines).engines : [];
+}
+
 /** The registry, the probe and the relay are pl8's — k7 holds no registry of its own — while the preferences, the remembered engine among them, stay k7's. */
 export const engines = engineAccess<PublicEngine, K7Prefs>(PL8, json, {
   prefsBase: BASE,
   // A workspace the server hosts is opened there, whichever engine plays it — packages/file-hub/docs/fileHub.md.
   hostedFiles: true,
+  // On a machine's own backend, its main server's engines too, driven through that server (../docs/serverEngines.md).
+  server: { base: SERVER_BASE, list: serverEngines },
 });
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
