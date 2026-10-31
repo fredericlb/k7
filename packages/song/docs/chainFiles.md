@@ -195,6 +195,12 @@ person counts. The graph carries that as a step's optional `place`, the card dra
 would have drawn the uuid, and completion offers the uuid labelled `<module> · <place>`
 (`nodePlace.ts`). A lane needs none of this: its name is its own.
 
+Every other text that names a node reads the same `<module> · <place>`, the module by its leaf as
+the header spells it (`@studio/ui-chains`'s `shownName.ts`): the chains sidebar's rows and steps,
+what a screen reader hears on an insert `+`, the preset popup's save field. A chain the graph
+derives from a run that STARTS at an unnamed node is keyed by that node's uuid, so the sidebar
+shows it by that node too. The uuid is still what each of those sends when it acts.
+
 A TRACK the compile makes for a run — a bus return, a live input landing on no lane — is keyed by
 the run's head, its uuid, and **labelled by the chain file holding it**: the mixer's strip reads
 `IN` or `verb`, which is what the person named, while every send and every plugin id keeps the key

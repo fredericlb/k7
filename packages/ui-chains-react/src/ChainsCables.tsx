@@ -26,6 +26,8 @@ export interface EdgeGeom extends CableGeom {
 
 // --- controls ----------------------------------------------------------------
 
+const same = (name: string) => name;
+
 // The SVG layer OVER the cable canvas: the labels and the hit paths, everything that does not move.
 function CablesInner({
   signal,
@@ -34,6 +36,7 @@ function CablesInner({
   hovered,
   setHovered,
   onInsert,
+  nameOf = same,
 }: {
   signal: EdgeGeom[];
   auto: AutoTarget[];
@@ -48,6 +51,8 @@ function CablesInner({
     // WORLD coords of the cable's midpoint — where the picked module will be BORN.
     at: { x: number; y: number },
   ) => void;
+  /** What a node is called aloud — its card's name, never an unnamed node's uuid (@studio/ui-chains's shownName.ts). */
+  nameOf?: (name: string) => string;
 }) {
   return (
     <>
@@ -104,7 +109,7 @@ function CablesInner({
         const d = smoothPath(g.base);
         const on = hovered === g.id;
         const mid = midByArc(g);
-        const label = `Add a module between ${ins.before} and ${ins.after}`;
+        const label = `Add a module between ${nameOf(ins.before)} and ${nameOf(ins.after)}`;
         return (
           <g key={`ins:${g.id}`}>
             <path

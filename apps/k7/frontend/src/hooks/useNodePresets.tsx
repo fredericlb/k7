@@ -3,7 +3,9 @@
 // and remember per node which preset was last loaded. That memory is SESSION state, like an open assembly: a node
 // file says what its values are, not which preset they came from. See packages/song/docs/userPresets.md.
 
+import type { WebGraph } from "@studio/graph-model";
 import type { NodePresets, PresetEntry } from "@studio/song-schema/presets";
+import { shownNames } from "@studio/ui-chains/shownName";
 import type { NodeEngines } from "@studio/ui-chains-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../api";
@@ -11,7 +13,12 @@ import { PresetPicker } from "../components/PresetPicker";
 
 const q = (v: string) => JSON.stringify(v);
 
-export function useNodePresets(runCommand: (line: string) => Promise<void>) {
+export function useNodePresets(
+  runCommand: (line: string) => Promise<void>,
+  chains?: WebGraph["chains"],
+) {
+  // The node as its card names it: an unnamed node's uuid is what the verbs send, never what the popup says.
+  const nameOf = useMemo(() => shownNames(chains), [chains]);
   const [open, setOpen] = useState<{
     node: string;
     x: number;
@@ -87,7 +94,7 @@ export function useNodePresets(runCommand: (line: string) => Promise<void>) {
     <PresetPicker
       x={open.x}
       y={open.y}
-      node={open.node}
+      node={nameOf(open.node)}
       data={open.data}
       current={loaded[open.node]}
       // Remembered at once: the picker only offers a listed preset, and a free, valid name to save under.

@@ -19,6 +19,7 @@ import {
 } from "@studio/ui-chains/graph";
 import type { GridFit } from "@studio/ui-chains/gridFit";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
+import { shownNames } from "@studio/ui-chains/shownName";
 import { stackLayout } from "@studio/ui-chains/stackLayout";
 import {
   type Cam,
@@ -327,6 +328,8 @@ function ChainsTabView({
     [graph],
   );
   useEffect(() => onDocCount?.(docNames.size), [docNames, onDocCount]);
+  // The sidebar's names: an unnamed node or the chain it heads reads as its card does, never its uuid.
+  const shownName = useMemo(() => shownNames(graph?.chains), [graph]);
 
   /** What the graph knows about each LANE's node, travelling up for the timeline's gutter — memoised, so the effect below fires only on a new graph. */
   const laneNodes = useMemo(
@@ -681,13 +684,13 @@ function ChainsTabView({
                     <ChevronRight
                       className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
                     />
-                    {name}
+                    {shownName(name)}
                   </button>
                   {isExpanded && (
                     <>
                       {fromLabel && (
                         <div className="truncate py-0.5 pl-7 pr-2 font-mono text-xs text-muted-foreground">
-                          {fromLabel}
+                          {shownName(fromLabel)}
                         </div>
                       )}
                       {chain.use.map((step) => {
@@ -713,7 +716,7 @@ function ChainsTabView({
                               }}
                               className={`min-w-0 flex-1 truncate rounded py-0.5 pl-7 pr-1 text-left font-mono text-xs text-muted-foreground hover:bg-accent hover:text-foreground ${modSelected ? "bg-accent text-foreground" : ""}`}
                             >
-                              {step.module}
+                              {shownName(step.module)}
                             </button>
                           </div>
                         );
@@ -723,7 +726,7 @@ function ChainsTabView({
                           key={t}
                           className="truncate py-0.5 pl-7 pr-2 font-mono text-xs text-muted-foreground"
                         >
-                          {t}
+                          {shownName(t)}
                         </div>
                       ))}
                     </>

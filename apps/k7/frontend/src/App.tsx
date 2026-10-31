@@ -1942,7 +1942,7 @@ export default function App({
     openPresets,
     stepPreset,
     picker: presetPicker,
-  } = useNodePresets(runCommand);
+  } = useNodePresets(runCommand, shellGraph?.chains);
 
   // One note through a lane, off the engine link: an SFZ kit's pad on the graph, as the piano roll's click.
   const previewNote = useCallback(
