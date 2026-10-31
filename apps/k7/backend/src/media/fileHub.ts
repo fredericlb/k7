@@ -67,6 +67,10 @@ export function mountFileHub(
         ? Number.POSITIVE_INFINITY
         : undefined,
     isLocal: (req) => (req.user as SessionUser | undefined)?.local === true,
+    // A pairing page's "Use another account": the gate then signs the browser in again (packages/file-hub/docs/syncRelay.md).
+    signOut: (req) => {
+      req.session = null;
+    },
     // Under the tray, the machine's engine follows each pairing (../localEngine/followPairings.ts).
     onRemote,
     // Stable across restarts, so an open page keeps its ticket through a deploy.

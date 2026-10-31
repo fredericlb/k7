@@ -88,8 +88,10 @@ export interface FileHubOptions
   idleMs?: number;
   /** An account pairs with a MAIN remote server, which the libraries follow: the tray and the phones. A server pairs secondaries only. */
   remotePairing?: boolean;
-  /** The machine's local user, who has no account at any origin and never pairs. */
+  /** The machine's local user, signed in nowhere: a link it makes names its remote account itself. */
   isLocal?: (req: Request) => boolean;
+  /** End the session on this origin, so its pairing page can be signed in to again as another account. */
+  signOut?: (req: Request) => void;
   /** DEV: stop every instance when the file service's source changes — sourceWatch.ts. */
   watchSources?: boolean;
   /** A pairing stored or let go: the machine's engine follows it — docs/syncRelay.md, "The engine follows the account". */
@@ -194,6 +196,7 @@ export class FileHub {
       relay: () => this.stopSync,
       remotePairing: opts.remotePairing === true,
       isLocal: opts.isLocal,
+      signOut: opts.signOut,
       selfPort: opts.selfPort,
       ...opts.onRemote,
     });

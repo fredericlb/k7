@@ -8,7 +8,7 @@ import { join } from "node:path";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { accountKey } from "./instances.ts";
-import { writeRemote } from "./syncRemote.ts";
+import { linkId, writeRemote } from "./syncRemote.ts";
 import { type SyncContext, SyncRoutes } from "./syncRoutes.ts";
 
 const USER = "eve@example.com";
@@ -69,9 +69,23 @@ describe("remote pairing", () => {
     expect(await (await call("GET")).json()).toEqual({
       paired: true,
       url: own,
+      as: USER,
       servers: [
-        { url: own, main: true, own: true },
-        { url, main: false },
+        {
+          id: "own",
+          url: own,
+          origin: "http://127.0.0.1:" + port,
+          as: USER,
+          main: true,
+          own: true,
+        },
+        {
+          id: linkId(url, USER),
+          url,
+          origin: "https://x.test",
+          as: USER,
+          main: false,
+        },
       ],
     });
     const req = { headers: { "x-test-session": USER } } as never;
