@@ -132,11 +132,50 @@ describe("the machine's engine follows the pairings", () => {
     expect(t.forgotten).toEqual(["https://o.test"]);
   });
 
-  it("names nothing for a pairing that came back as another account", async () => {
+  it("names nothing for a pairing that came back as an account already linked", async () => {
+    const t = await start({});
+    writeRemote(t.home, {
+      url: "wss://o.test/api/sync",
+      token: "held",
+      user: EVE,
+      main: true,
+    });
+    const { url } = await t.begin({ origin: "o.test", another: true });
+    await t.browser(url, EVE, "new");
+    expect(t.paired).toEqual([]);
+    expect(readRemotes(t.home).map((r) => r.token)).toEqual(["held"]);
+  });
+
+  it("keeps the main link's token for the engine when another account is linked on its server", async () => {
     const t = await start({});
     const { url } = await t.begin();
-    await t.browser(url, "mallory@example.com");
-    expect(t.paired).toEqual([]);
+    await t.browser(url, EVE, "tok-eve");
+    const second = await t.begin({
+      origin: "o.test",
+      another: true,
+      main: false,
+    });
+    await t.browser(second.url, "band@example.com", "tok-band");
+    expect(t.paired).toEqual([
+      ["https://o.test", "tok-eve"],
+      ["https://o.test", "tok-eve"],
+    ]);
+    // Making the band's link main hands its token to the engine there.
+    const band = readRemotes(t.home).find((r) => r.as === "band@example.com");
+    const made = await fetch(`${t.base}/api/sync/remote/main`, {
+      method: "POST",
+      headers: { "x-test-session": EVE, "content-type": "application/json" },
+      body: JSON.stringify({ id: band?.id }),
+    });
+    expect(made.ok).toBe(true);
+    expect(t.paired.at(-1)).toEqual(["https://o.test", "tok-band"]);
+    // Forgetting it by id hands the engine back to the other link, and lets go of nothing.
+    await fetch(`${t.base}/api/sync/remote?id=${band?.id}`, {
+      method: "DELETE",
+      headers: { "x-test-session": EVE },
+    });
+    expect(t.paired.at(-1)).toEqual(["https://o.test", "tok-eve"]);
+    expect(t.forgotten).toEqual([]);
   });
 });
 
@@ -154,6 +193,9 @@ describe("pairing through the browser", () => {
     const tab = await t.browser(url);
     expect(tab.status).toBe(200);
     expect(await tab.text()).toContain("now syncs your workspaces");
+    // k7 expects the browser signed in as its own account: the server asks only when it is not.
+    expect(u.searchParams.get("as")).toBe(EVE);
+    expect(u.searchParams.get("choose")).toBeNull();
     const { pairing: ended } = await read(waited);
     expect(ended).toMatchObject({
       phase: "paired",
@@ -161,8 +203,22 @@ describe("pairing through the browser", () => {
       token: "tok",
     });
     // The relay is the named server's, not the host the origin reported.
-    expect(readRemotes(t.home)).toEqual([
-      { url: "wss://o.test/api/sync", token: "tok", user: EVE, main: true },
+    expect(
+      readRemotes(t.home).map(({ url, token, user, as, main }) => ({
+        url,
+        token,
+        user,
+        as,
+        main,
+      })),
+    ).toEqual([
+      {
+        url: "wss://o.test/api/sync",
+        token: "tok",
+        user: EVE,
+        as: EVE,
+        main: true,
+      },
     ]);
     expect(t.restarted).toEqual([EVE]);
     expect(
@@ -171,19 +227,80 @@ describe("pairing through the browser", () => {
     expect((await read(t.api("?origin=o.test"))).paired).toBe(true);
   });
 
-  it("refuses a browser signed in as another account, and stores nothing", async () => {
+  it("links the account the browser came back as, which the server's page let the person pick", async () => {
     const t = await start({});
     const { url, pairing } = await t.begin();
     const tab = await t.browser(url, "bob@example.com");
-    expect(tab.status).toBe(409);
+    expect(tab.status).toBe(200);
+    expect(await tab.text()).toContain("as bob@example.com");
     const { pairing: ended } = await read(t.api(`/${pairing.state}`));
     expect(ended).toMatchObject({
-      phase: "otherAccount",
+      phase: "paired",
       browserAs: "bob@example.com",
-      token: null,
+      token: "tok",
     });
-    expect(readRemotes(t.home)).toEqual([]);
-    expect(t.restarted).toEqual([]);
+    expect(readRemotes(t.home).map((r) => [r.as, r.user])).toEqual([
+      ["bob@example.com", EVE],
+    ]);
+  });
+
+  it("adds another account on a server already linked, and refuses one already linked there", async () => {
+    const t = await start({});
+    writeRemote(t.home, {
+      url: "wss://o.test/api/sync",
+      token: "t",
+      user: EVE,
+      main: true,
+    });
+    const { url, pairing } = await t.begin({
+      origin: "o.test",
+      another: true,
+      main: false,
+    });
+    // The server's page asks which account, whoever the browser is signed in as.
+    expect(new URL(url).searchParams.get("choose")).toBe("1");
+    expect((await t.browser(url, "band@example.com", "tb")).status).toBe(200);
+    const { pairing: ended } = await read(t.api(`/${pairing.state}`));
+    expect(ended).toMatchObject({ phase: "paired", another: true });
+    expect(readRemotes(t.home).map((r) => [r.as, r.main])).toEqual([
+      [EVE, true],
+      ["band@example.com", false],
+    ]);
+    // The same account again: told, and the link it has kept.
+    const again = await t.begin({ origin: "o.test", another: true });
+    const tab = await t.browser(again.url, "band@example.com", "other");
+    expect(tab.status).toBe(409);
+    expect(await tab.text()).toContain(
+      "already syncs with o.test as band@example.com",
+    );
+    const { pairing: told } = await read(t.api(`/${again.pairing.state}`));
+    expect(told).toMatchObject({
+      phase: "alreadyLinked",
+      browserAs: "band@example.com",
+    });
+    expect(
+      readRemotes(t.home).find((r) => r.as === "band@example.com")?.token,
+    ).toBe("tb");
+  });
+
+  it("pairs the machine's local user too, the server's page asking which account", async () => {
+    const t = await start({});
+    const r = await fetch(`${t.base}/api/sync/remote/pair`, {
+      method: "POST",
+      headers: {
+        "x-test-session": EVE,
+        "x-test-local": "1",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ origin: "o.test" }),
+    });
+    expect(r.status).toBe(200);
+    const { url } = (await r.json()) as { url: string };
+    expect(new URL(url).searchParams.get("choose")).toBe("1");
+    await t.browser(url, "me@k7.test");
+    expect(readRemotes(t.home).map((l) => [l.as, l.main])).toEqual([
+      ["me@k7.test", true],
+    ]);
   });
 
   it("ends a pairing that outlived its process: the backend started anew takes the return", async () => {
@@ -238,7 +355,7 @@ describe("pairing through the browser", () => {
     expect(readRemotes(t.home)).toEqual([]);
   });
 
-  it("starts nothing for the local user, a server already paired, or what is no server", async () => {
+  it("starts nothing for a server already paired, unless asked for another account, or what is no server", async () => {
     const t = await start({});
     const post = (body: object, headers: Record<string, string> = {}) =>
       fetch(`${t.base}/api/sync/remote/pair`, {
@@ -251,7 +368,7 @@ describe("pairing through the browser", () => {
         body: JSON.stringify(body),
       });
     expect(
-      (await post({ origin: "o.test" }, { "x-test-local": "1" })).status,
+      (await post({ origin: "o.test" }, { "x-test-session": "" })).status,
     ).toBe(401);
     expect((await post({ origin: "http://lan.test" })).status).toBe(400);
     writeRemote(t.home, {
@@ -261,6 +378,9 @@ describe("pairing through the browser", () => {
       main: true,
     });
     expect((await post({ origin: "https://o.test" })).status).toBe(409);
+    expect(
+      (await post({ origin: "https://o.test", another: true })).status,
+    ).toBe(200);
   });
 
   it("pairs a server added beside the main one as a secondary", async () => {

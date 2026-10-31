@@ -8,6 +8,8 @@ import { inAndroidApp } from "./tabs/bridge";
 export interface DesktopState {
   /** The k7 server this machine syncs with, as an https origin; null until one is paired. */
   server: string | null;
+  /** The account its MAIN link is on that server, when the backend says. */
+  account?: string;
   /** Addresses another device on the LAN could open; a loopback-only backend offers none. */
   lanUrls: string[];
 }
@@ -30,8 +32,14 @@ export const desktop = {
     if (inAndroidApp() || !(await localApp())) return null;
     try {
       const r = await fetch("/api/sync/remote", { cache: "no-store" });
-      const remote = r.ok ? ((await r.json()) as { url?: string | null }) : {};
-      return { server: serverOf(remote.url ?? null), lanUrls: [] };
+      const remote = r.ok
+        ? ((await r.json()) as { url?: string | null; as?: string | null })
+        : {};
+      return {
+        server: serverOf(remote.url ?? null),
+        ...(remote.as ? { account: remote.as } : {}),
+        lanUrls: [],
+      };
     } catch {
       return { server: null, lanUrls: [] };
     }

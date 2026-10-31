@@ -46,9 +46,22 @@ new tab opened from a click in k7's account bar), ask the person first, and say 
 - **The return carries no session, and the state is its gate.** The system browser holds no cookie of
   this backend. A 128-bit state, minted when the app starts the pairing, names the pairing and through
   it the account; a return without a waiting pairing of that state is answered 404.
-- **The browser must be signed in to the origin as the same account.** The origin says whose token it
-  minted (`identity`); another email ends the pairing as `otherAccount` and stores nothing, since that
-  account's workspaces would otherwise sync into this one.
+- **The link takes the account the browser comes back as.** The origin says whose token it minted
+  (`identity`), and that is the link's remote account (`as`), whoever it is: syncing as another account
+  is a choice, never a mismatch. The choice is made on the origin's page (below), not here. The one
+  refusal is that account on that server linked already: the pairing ends `alreadyLinked`, and the link
+  it has is kept as it is — re-pairing would swap a working token for a new one for nothing.
+- **The origin asks which account whenever it is a choice** (`../pairConsent.ts`): k7 passes the
+  account it expects (`as`), and the origin's page shows itself when the browser is signed in as someone
+  else, when the person is adding another account (`choose`), and always for the local user, who has no
+  account anywhere. The page names the account the token would be for, and offers "Use another account":
+  a same-origin POST that ends the origin's session (the backend's `signOut`) and sends the browser back
+  to the same pairing through the sign-in. The session is k7's alone: an identity provider that keeps its
+  own session signs the same account back in until the person signs out there too, which this page cannot
+  ask of it. The person expected, already signed in, goes straight through, as before.
+- **The machine's local user pairs too.** A link names its remote account itself, so the local user's
+  workspaces sync into the account the person picked on the origin's page, in the local user's own
+  folder, and no signed-in account's rooms are involved.
 - **The relay is reached where the person named the server** (`wss://<server>/api/sync`), not at the
   host the origin reported: a proxy in front of it may show the origin another host, and a pairing
   stored with that host would be redone at every sign-in.
@@ -61,14 +74,26 @@ new tab opened from a click in k7's account bar), ask the person first, and say 
   has, and drops the pairing once it has said the ending (`DELETE`), which is also the account bar's Cancel.
   Ten minutes without a return is `expired`.
 
-**An account may be paired with several servers**, one of them the MAIN one: `.sync-remote.json` is
-a list (`{ servers: [...] }`; the single pairing written before secondaries reads as the main one).
-The main one is `STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN` as before — the account's libraries, the
-surfaces that compare themselves with "the" remote (`remoteOf`) and new workspaces are its — and
-every pairing rides in `STUDIO_SYNC_SERVERS`, for the workspaces each server holds
-(`packages/file-service/docs/liveCapture.md`, "Several servers"). A pairing names its server by the
-relay's host, so pairing the same server again replaces it rather than listing it twice.
-`POST /api/sync/remote/main` makes another one main and `DELETE /api/sync/remote?url=` forgets one.
+**An account holds several LINKS**, one of them the MAIN one. A link is one account on one server:
+the relay, the device token, and the remote account `as`; `.sync-remote.json` is a list
+(`{ servers: [...] }`; the single pairing written before secondaries reads as the main one, and an entry
+with no `as` is the local account's own on that server, which is what every link was before accounts).
+
+- **A link is (host, account), and its id is derived from both** (`linkId`: the first 10 hex of a
+  sha256), never stored: a server renamed under `currentStudioUrl` keeps every id in step, and the pages,
+  the workspace records and the routes all name a link by it. Two accounts on one server are two links;
+  the same account again replaces its own link's token only through `PUT`.
+- **The main link** is `STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN` — the account's libraries, the surfaces that
+  compare themselves with "the" remote (`remoteOf`: the médiathèque's server copy, the page forward,
+  favorites, practice and rehearsal publications) and new workspaces are its, unless the person picks
+  another link for a workspace — and every link rides in `STUDIO_SYNC_SERVERS` with its id and `as`, for
+  the workspaces each holds (`packages/file-service/docs/liveCapture.md`, "Several servers"). One per
+  server is marked `home`: the link of the local account's own account there, else the first, which is
+  the link a workspace recorded before accounts belongs to.
+- `POST /api/sync/remote/main` (`{ id }`) makes another link main and `DELETE /api/sync/remote?id=`
+  forgets one; a `url` instead still names a server, its first link for main and every link on it for
+  a forget. `PUT` stores the remote account it is given (`as`), else the local account's own: a device
+  token alone does not say whose it is to the machine holding it.
 
 ## The engine follows the account
 
@@ -76,7 +101,13 @@ On a machine (the tray), a pairing is also where its engine goes: the server tha
 token is the one the engine should be the account's on (`packages/engine-registry/docs/ownership.md`).
 So the hub calls `onPaired(origin, token)` once a pairing is stored, and the tray's backend hands both
 to its supervisor (`weburi.pair`, `apps/k7/backend/src/localEngine/followPairings.ts`); forgetting a
-pairing calls `onForgotten(origin)`, which unlists the engine there. A second add of a server already
+pairing calls `onForgotten(origin)`, which unlists the engine there.
+
+**The supervisor keeps one token per origin**, so an origin with several links hands it ONE
+(`engineLinkOf`): the main link when it is on that origin, else the first link there. The engine is
+owned by that account on that server. Making another link main, or forgetting one, hands the engine the
+token of whichever link that rule now picks (`onPaired` again), and only the last link of an origin
+going unlists it; the phone's supervisor is handed the same token by the pairing's answer. A second add of a server already
 paired answers 409 as before, and lists the engine back with the token held — what re-adding a server
 from the engine page means after the engine was removed from it alone.
 
@@ -103,8 +134,9 @@ down when the person downloads them, as on a paired machine
 - **The other server mints a token for an https return only after a click on its own page**
   (`../pairConsent.ts`, `isServerReturn`). A loopback return reaches the machine that asked, but an
   https one reaches whoever wrote the link: without the click, a link sent to someone signed in there
-  would hand their account to the sender. The page names the asking server and the account, cannot be
-  framed, and its Allow is a same-origin POST, which another site cannot forge.
+  would hand their account to the sender. The page names the asking server and the account, offers
+  another account as a machine's does, cannot be framed, and its Allow is a same-origin POST, which
+  another site cannot forge.
 - **A file service names its own server by the origin the page reached it at**, which the hub stamps
   on every request it forwards (`ORIGIN_HEADER`, dropped when a client sends it): its own relay is a
   loopback address that means nothing to a browser.

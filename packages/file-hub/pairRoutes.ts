@@ -1,7 +1,8 @@
-// pairRoutes.ts — pairing an account with a remote server, for the tray, the phones and a server alike: the page asks
+// pairRoutes.ts — linking an account with a remote server, for the tray, the phones and a server alike: the page asks
 // here whether to offer it, starts it, opens the URL it gets in the browser, and waits here for the ending.
 // The browser comes back to THIS backend (`pairReturnHandler`) — its loopback port on a machine, its https origin on a
-// server — with no session: the state is the gate. See docs/syncRelay.md, "Pairing through the browser".
+// server — with no session: the state is the gate. The link takes the remote account the browser came back as.
+// See docs/syncRelay.md, "Pairing through the browser".
 
 import { mkdirSync } from "node:fs";
 import {
@@ -13,13 +14,19 @@ import {
 import express, { type Request, type RequestHandler, Router } from "express";
 import { accountKey } from "./instances.ts";
 import type { PairingStore, PairRecord } from "./pairingStore.ts";
-import { readRemotes, writeRemote } from "./syncRemote.ts";
+import {
+  engineLinkOf,
+  linkId,
+  linkOf,
+  readRemotes,
+  writeRemote,
+} from "./syncRemote.ts";
 
 /** What the pairing routes need of the hub. */
 export interface PairContext {
   store: PairingStore;
   userOf: (req: Request) => string;
-  /** The machine's local user, who has no account at any origin. */
+  /** The machine's local user, signed in nowhere: any account it links is one the server's page asks for. */
   isLocal: (req: Request) => boolean;
   accountDir: (slug: string) => string;
   /** Restart the account's file service, so it dials the relay just paired. */
@@ -30,7 +37,7 @@ export interface PairContext {
   ownMain: boolean;
   /** The host this backend is reached at, which it cannot pair with. */
   selfHost: (req: Request) => string;
-  /** A pairing stored, with the server's origin and its token: the machine's engine is listed there. */
+  /** A link stored, with the server's origin and the token its engine is owned by there (docs/syncRelay.md). */
   onPaired?: (origin: string, token: string) => void;
 }
 
@@ -51,63 +58,68 @@ const hostOf = (url: string): string => {
 
 /** What an app is told of a pairing; the token rides along once paired, for the phone's supervisor. */
 function viewOf(c: PairContext, r: PairRecord) {
-  const remote =
-    r.phase === "paired"
-      ? readRemotes(c.accountDir(accountKey(r.email))).find(
-          (s) => hostOf(s.url) === hostOf(r.origin),
-        )
-      : undefined;
+  const list =
+    r.phase === "paired" ? readRemotes(c.accountDir(accountKey(r.email))) : [];
+  const link = list.find(
+    (s) => s.id === linkId(relayOf(r.origin), r.browserAs ?? r.email),
+  );
+  // The phone's supervisor holds one token per origin: the link its engine is owned by there.
+  const engine = link ? engineLinkOf(list, link.origin) : undefined;
   return {
     state: r.state,
     email: r.email,
     origin: r.origin,
     host: hostOf(r.origin),
     main: r.main,
+    another: r.another === true,
     phase: r.phase,
     until: r.until,
     browserAs: r.browserAs ?? null,
+    link: link?.id ?? null,
     // For the phone's supervisor; a server's page has no use for it.
-    token: c.ownMain ? null : (remote?.token ?? null),
+    token: c.ownMain ? null : (engine?.token ?? null),
   };
 }
 
 export function pairRouter(c: PairContext): Router {
   const r = Router();
   r.use(express.json());
+  const linksOf = (email: string) =>
+    readRemotes(c.accountDir(accountKey(email)));
   const hostsOf = (email: string) =>
-    new Set(
-      readRemotes(c.accountDir(accountKey(email))).map((s) => hostOf(s.url)),
-    );
+    new Set(linksOf(email).map((s) => hostOf(s.url)));
   // Whether to offer a pairing with `?origin=`, and the account's pairing under way or ended unseen.
   r.get("/", (req, res) => {
     const email = c.userOf(req);
     if (!email)
       return void res.status(401).json({ error: "no user on the session" });
-    const local = c.isLocal(req);
     const origin = normalizeServer(String(req.query.origin ?? ""));
-    const mine = local ? null : c.store.ofAccount(email);
+    const mine = c.store.ofAccount(email);
     res.json({
       email,
-      local,
+      local: c.isLocal(req),
       paired: origin ? hostsOf(email).has(hostOf(origin)) : false,
       servers: hostsOf(email).size,
+      links: linksOf(email).length,
       pairing: mine ? viewOf(c, mine) : null,
     });
   });
   r.post("/", (req, res) => {
     const email = c.userOf(req);
-    if (!email || c.isLocal(req))
-      return void res.status(401).json({ error: "no account to pair" });
+    if (!email)
+      return void res.status(401).json({ error: "no user on the session" });
+    // Another account on a server already linked: the server's page asks which one.
+    const another = req.body?.another === true;
     const origin = normalizeServer(String(req.body?.origin ?? ""));
     if (!origin)
       return void res.status(400).json({ error: "origin is no k7 server" });
     if (hostOf(origin) === c.selfHost(req))
       return void res.status(400).json({ error: "that is this server" });
-    if (hostsOf(email).has(hostOf(origin))) {
-      // Synced already: asked again, the engine is listed back there with the token it holds.
-      const held = readRemotes(c.accountDir(accountKey(email))).find(
-        (s) => hostOf(s.url) === hostOf(origin),
-      );
+    if (!another && hostsOf(email).has(hostOf(origin))) {
+      // Synced already: asked again, the engine is listed back there with the token it is owned by.
+      const list = linksOf(email);
+      const at = list.find((s) => hostOf(s.url) === hostOf(origin));
+      const held = at ? engineLinkOf(list, at.origin) : undefined;
       if (held) c.onPaired?.(origin, held.token);
       return void res.status(409).json({ error: "already paired there" });
     }
@@ -118,11 +130,19 @@ export function pairRouter(c: PairContext): Router {
     // The first server paired is the main one whatever it was asked as — except where this one is.
     const main =
       !c.ownMain && (req.body?.main !== false || hostsOf(email).size === 0);
-    const p = c.store.begin(email, origin, main);
+    const p = c.store.begin(email, origin, main, another);
     const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
+    // The local user has no account anywhere, so whichever it links is a choice the server's page asks for.
+    const choose = another || c.isLocal(req);
     res.json({
       pairing: viewOf(c, p),
-      url: syncPairUrl(origin, back, p.state, name),
+      url: syncPairUrl(
+        origin,
+        back,
+        p.state,
+        name,
+        choose ? { choose } : { as: email },
+      ),
     });
   });
   const ownedBy = (req: Request, state: string): PairRecord | null => {
@@ -159,16 +179,18 @@ const page = (said: string): string =>
 /** The page for a pairing that has ended, served again on a reload. */
 function ending(r: PairRecord): { status: number; said: string } {
   const host = hostOf(r.origin);
+  const as = r.browserAs || r.email;
   switch (r.phase) {
     case "paired":
       return {
         status: 200,
-        said: `k7 here now syncs your workspaces with ${host}. You can go back to k7.`,
+        said: `k7 here now syncs your workspaces with ${host} as ${as}. You can go back to k7.`,
       };
+    case "alreadyLinked":
     case "otherAccount":
       return {
         status: 409,
-        said: `This browser is signed in to ${host} as ${r.browserAs || "another account"}, and k7 as ${r.email}, so nothing was paired. Go back to k7: it says what to do.`,
+        said: `k7 here already syncs with ${host} as ${as}, so nothing changed. To add another account, sign in to ${host} as that one. Go back to k7.`,
       };
     case "expired":
       return {
@@ -191,32 +213,40 @@ export function pairReturnHandler(c: PairContext): RequestHandler {
     p: PairRecord,
     q: URLSearchParams,
   ): Promise<{ status: number; said: string }> => {
-    const identity = q.get("identity") ?? "";
-    // The browser may be signed in to the origin as someone else: their token must not sync this account.
-    if (identity !== p.email)
+    // The account the origin minted for, which its page let the person pick: the link's remote account.
+    const identity = q.get("identity")?.trim() || p.email;
+    const home = c.accountDir(accountKey(p.email));
+    // That account on that server is linked already: the link it has stays as it is.
+    if (linkOf(readRemotes(home), relayOf(p.origin), identity))
       return ending(
-        c.store.settle(p.state, "otherAccount", identity) ?? {
+        c.store.settle(p.state, "alreadyLinked", identity) ?? {
           ...p,
-          phase: "otherAccount",
+          phase: "alreadyLinked",
+          browserAs: identity,
         },
       );
     const token = q.get("token")?.trim() ?? "";
     try {
       if (!token) throw new Error("no token");
-      const home = c.accountDir(accountKey(p.email));
       mkdirSync(home, { recursive: true });
       // The relay is reached where the person named the server, whatever host a proxy showed the origin.
       writeRemote(home, {
         url: relayOf(p.origin),
         token,
         user: p.email,
+        as: identity,
         main: p.main,
       });
       await c.restart(p.email);
-      // The engine follows the account: listed at that server, its heartbeats name this account its owner there.
-      c.onPaired?.(p.origin, token);
+      // The engine follows the account: listed at that server by the link it is owned by there.
+      const engine = engineLinkOf(readRemotes(home), p.origin);
+      if (engine) c.onPaired?.(p.origin, engine.token);
       return ending(
-        c.store.settle(p.state, "paired") ?? { ...p, phase: "paired" },
+        c.store.settle(p.state, "paired", identity) ?? {
+          ...p,
+          phase: "paired",
+          browserAs: identity,
+        },
       );
     } catch {
       return ending(

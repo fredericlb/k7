@@ -13,6 +13,8 @@ import { Action, Row, Section } from "./Section";
 interface Remote {
   paired: boolean;
   url: string | null;
+  /** The account the MAIN link is on its server, which may differ from the one signed in here. */
+  as?: string | null;
 }
 
 interface Device {
@@ -92,12 +94,12 @@ export function SyncDevicesSection() {
   const showMachine = local && remote !== null;
   const showDevices = !local || devices.length > 0;
   if (!showMachine && !showDevices) return null;
-  const account = me?.email || me?.name || "";
+  const account = remote?.as || me?.email || me?.name || "";
 
   return (
     <Section title={m["syncdev.title"]()} hint={m["syncdev.hint"]()}>
       {showMachine &&
-        (remote.paired && !me?.local ? (
+        (remote.paired ? (
           <Row
             label={m["syncdev.paired"]({
               account,

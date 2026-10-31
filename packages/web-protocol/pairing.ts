@@ -77,17 +77,26 @@ export const SYNC_RELAY_PATH = "/api/sync";
 /** The route on the origin that mints a device token for live sync and hands it back. */
 export const SYNC_PAIR_ROUTE = "/api/sync/devices/pair";
 
+/** How the origin's page may ask which account to link: `as` is the one expected, `choose` always asks. */
+export interface SyncPairAccount {
+  as?: string;
+  choose?: boolean;
+}
+
 /** The URL the machine opens in the browser to pair itself with the origin's relay; `name` labels the device. */
 export function syncPairUrl(
   base: string,
   returnUrl: string,
   state: string,
   name: string,
+  account: SyncPairAccount = {},
 ): string {
   const u = new URL(base.replace(/\/+$/, "") + SYNC_PAIR_ROUTE);
   u.searchParams.set("return", returnUrl);
   u.searchParams.set("state", state);
   u.searchParams.set("name", name);
+  if (account.as) u.searchParams.set("as", account.as);
+  if (account.choose) u.searchParams.set("choose", "1");
   return u.toString();
 }
 

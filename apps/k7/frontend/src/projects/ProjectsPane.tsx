@@ -94,9 +94,9 @@ export function ProjectsPane({
 
   /** A workspace made HERE, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
-    async (workspace: string, onStep: (s: string) => void) => {
+    async (workspace: string, onStep: (s: string) => void, link?: string) => {
       setError(null);
-      await createWorkspaceOp(chosen(), workspace, onStep);
+      await createWorkspaceOp(chosen(), workspace, onStep, link);
       onChanged();
     },
     [chosen, onChanged],

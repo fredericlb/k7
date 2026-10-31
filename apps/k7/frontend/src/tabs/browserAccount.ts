@@ -12,7 +12,16 @@ const PAIR_KEY = "k7.pairAfterSignIn";
 interface Pairing {
   state: string;
   host: string;
-  phase: "waiting" | "paired" | "otherAccount" | "expired" | "notStored";
+  /** The local account the link is stored for. */
+  email: string;
+  phase:
+    | "waiting"
+    | "paired"
+    | "alreadyLinked"
+    | "otherAccount"
+    | "expired"
+    | "notStored";
+  /** The account on the server the browser came back as: the link's. */
   browserAs: string | null;
 }
 
@@ -40,12 +49,19 @@ const read = (k: Storage | undefined, key: string): string | null => {
   }
 };
 
-/** How a pairing that left `waiting` reads in the account bar. */
+/** How a pairing that left `waiting` reads in the account bar: both accounts named, k7's here and the server's. */
 function ending(p: Pairing): AccountStatus {
+  const as = p.browserAs ?? p.email;
   if (p.phase === "paired")
-    return { state: "done", code: "paired", detail: p.host };
-  if (p.phase === "otherAccount")
-    return { state: "error", code: "pairRefused", detail: p.browserAs ?? "" };
+    return { state: "done", code: "paired", detail: `${p.host} · ${as}` };
+  if (p.phase === "alreadyLinked" || p.phase === "otherAccount")
+    return {
+      state: "error",
+      code: "alreadyLinked",
+      detail: p.host,
+      as,
+      local: p.email,
+    };
   if (p.phase === "expired") return { state: "error", code: "pairTimeout" };
   return { state: "error", code: "pairNotStored" };
 }
@@ -69,13 +85,22 @@ async function follow(state: string): Promise<boolean> {
 }
 
 /** Pair this machine with `server` from a click: the server's page opens in a new tab, which the page then waits on. */
-async function pair(server: string, main: boolean): Promise<boolean> {
+async function pair(
+  server: string,
+  main: boolean,
+  another = false,
+): Promise<boolean> {
   // Opened first, inside the click: a window opened after an await is a pop-up a browser blocks.
   const tab = window.open("about:blank", "_blank");
   const r = await fetch("/api/sync/remote/pair", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ origin: server, main }),
+    // `another`: a server already linked, whose page then asks which account (packages/file-hub/docs/syncRelay.md).
+    body: JSON.stringify({
+      origin: server,
+      main,
+      ...(another ? { another } : {}),
+    }),
   }).catch(() => null);
   if (r?.status === 409) {
     tab?.close();
@@ -138,4 +163,6 @@ export const browserAccount = {
   /** The offer's button: the main server, being the first. */
   pair: (server: string): Promise<boolean> => pair(server, true),
   addServer: (server: string): Promise<boolean> => pair(server, false),
+  /** Another account on a server already linked, beside the links there. */
+  addAccount: (server: string): Promise<boolean> => pair(server, false, true),
 };

@@ -19,8 +19,15 @@ import { copyProjectBetween } from "../copyProject.ts";
 import { servedProject, unloadEngineIfServing } from "../engineLink.ts";
 import { libraryRefusal } from "../libraries.ts";
 import { ensureLibraryPins } from "../libraryPins.ts";
+import { liveLogFor } from "../liveLog.ts";
 import { startCopy, startMove } from "../liveMove.ts";
-import { fromPage } from "../liveServers.ts";
+import {
+  fromPage,
+  mainServer,
+  recordFor,
+  serverOf,
+  writeLinkRecord,
+} from "../liveServers.ts";
 import {
   downloadWorkspace,
   joinServerRooms,
@@ -59,16 +66,29 @@ const hasLibraries = async (res: Response): Promise<boolean> => {
   return !refused;
 };
 
-const newWsBody = z.object({ name: z.string().min(1) });
+/** `link` picks the link it syncs with (an id from `/workspaces/sync`); absent, it is the main one's. */
+const newWsBody = z.object({
+  name: z.string().min(1),
+  link: z.string().min(1).optional(),
+});
 workspacesRouter.post(
   "/workspaces",
   validate(newWsBody),
   wrap(async (req, res) => {
-    const { name } = req.body as z.infer<typeof newWsBody>;
+    const { name, link } = req.body as z.infer<typeof newWsBody>;
     if (!(await hasLibraries(res))) return;
+    const target = link ? serverOf(fromPage(link, selfOrigin(req))) : undefined;
+    if (link && !target)
+      return void res.status(400).json({ error: `no such link: ${link}` });
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
       const created = await createWorkspace(req.userEmail!, name);
+      // Recorded before anything opens it, so its capture links it there from its first edit (docs/liveCapture.md).
+      if (created && target && target.id !== mainServer()?.id)
+        writeLinkRecord(
+          liveLogFor(workspaceRoot(name)),
+          recordFor(target, name),
+        );
       // A new workspace pins the newest version of each library this k7 runs.
       if (created)
         ensureLibraryPins(workspaceRoot(name), {

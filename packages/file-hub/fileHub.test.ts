@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FileHub } from "./index.ts";
+import { linkId } from "./syncRemote.ts";
 
 // The stand-in: answers /health, records /hub/engine, and echoes what it was sent.
 const FAKE = `
@@ -61,12 +62,15 @@ describe("the file hub", () => {
   const engineBinds = () => bound.filter((b) => b.kind === "engine");
   let claims: Map<string, string[]>;
   let dir: string;
+  /** Who a pairing page signed out, for "Use another account". */
+  let signedOut: string[];
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "file-hub-"));
     const fake = join(dir, "fake.mjs");
     writeFileSync(fake, FAKE);
     bound = [];
+    signedOut = [];
     claims = new Map();
     const app = express();
     app.use(express.json());
@@ -106,6 +110,8 @@ describe("the file hub", () => {
       },
       selfPort: () => 4242,
       remotePairing: true,
+      signOut: (req) =>
+        void signedOut.push(String(req.headers["x-test-session"] ?? "")),
       log: () => {},
     });
     app.get("/api/files-hub", hub.helloHandler());
@@ -474,6 +480,58 @@ describe("the file hub", () => {
       expect(to.searchParams.get("token")).toBeTruthy();
     });
 
+    it("asks which account before a machine's token when k7 expects another one, or adds one, and signs out for another", async () => {
+      const back = "http://127.0.0.1:9/desktop/sync-pair";
+      const get = (extra: Record<string, string>) =>
+        fetch(
+          `${origin()}/api/sync/devices/pair?${new URLSearchParams({ return: back, state: "s3", name: "laptop", ...extra })}`,
+          {
+            headers: { "x-test-session": "fred@example.com" },
+            redirect: "manual",
+          },
+        );
+      // The account k7 expects is the one signed in: no question.
+      expect((await get({ as: "fred@example.com" })).status).toBe(303);
+      const asked = await get({ as: "eve@example.com" });
+      expect(asked.status).toBe(200);
+      const text = await asked.text();
+      expect(text).toContain("Allow as fred@example.com");
+      expect(text).toContain("Use another account");
+      expect((await get({ choose: "1" })).status).toBe(200);
+      const post = (body: Record<string, string>) =>
+        fetch(`${origin()}/api/sync/devices/pair`, {
+          method: "POST",
+          headers: {
+            "x-test-session": "fred@example.com",
+            "content-type": "application/x-www-form-urlencoded",
+            "sec-fetch-site": "same-origin",
+          },
+          body: new URLSearchParams({
+            return: back,
+            state: "s3",
+            name: "laptop",
+            choose: "1",
+            ...body,
+          }).toString(),
+          redirect: "manual",
+        });
+      const allowed = await post({ confirm: "1" });
+      expect(allowed.status).toBe(303);
+      const to = new URL(allowed.headers.get("location") ?? "");
+      expect(to.searchParams.get("identity")).toBe("fred@example.com");
+      // Another account: signed out here, and sent back to the same pairing, which asks again.
+      const switched = await post({ switch: "1" });
+      expect(switched.status).toBe(303);
+      expect(signedOut).toEqual(["fred@example.com"]);
+      const again = new URL(
+        switched.headers.get("location") ?? "",
+        "http://x.test",
+      );
+      expect(again.pathname).toBe("/api/sync/devices/pair");
+      expect(again.searchParams.get("state")).toBe("s3");
+      expect(again.searchParams.get("choose")).toBe("1");
+    });
+
     it("syncs ONE paired account with the remote, its service restarted; every other with this hub's relay", async () => {
       const remote = (method: string, user: string, body?: unknown) =>
         fetch(`${origin()}/api/sync/remote`, {
@@ -499,7 +557,16 @@ describe("the file hub", () => {
       expect(await (await remote("GET", "fred@example.com")).json()).toEqual({
         paired: true,
         url: "wss://origin.test/api/sync",
-        servers: [{ url: "wss://origin.test/api/sync", main: true }],
+        as: "fred@example.com",
+        servers: [
+          {
+            id: linkId("wss://origin.test/api/sync", "fred@example.com"),
+            url: "wss://origin.test/api/sync",
+            origin: "https://origin.test",
+            as: "fred@example.com",
+            main: true,
+          },
+        ],
       });
       const fred = await call("/x", { session: "fred@example.com" });
       expect(fred.echo.sync).toEqual(["wss://origin.test/api/sync", "tok"]);

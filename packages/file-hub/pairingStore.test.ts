@@ -38,11 +38,11 @@ describe("PairingStore", () => {
   it("settles a waiting pairing once, and never one already ended", () => {
     const s = new PairingStore(dir, now);
     const a = s.begin("eve@x.test", "https://o.test", true);
-    expect(s.settle(a.state, "otherAccount", "bob@x.test")?.browserAs).toBe(
+    expect(s.settle(a.state, "alreadyLinked", "bob@x.test")?.browserAs).toBe(
       "bob@x.test",
     );
     expect(s.settle(a.state, "paired")).toBeNull();
-    expect(s.get(a.state)?.phase).toBe("otherAccount");
+    expect(s.get(a.state)?.phase).toBe("alreadyLinked");
   });
 
   it("reads a waiting pairing past its deadline as expired, which settles nothing", () => {

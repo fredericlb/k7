@@ -1,5 +1,5 @@
 // AccountBar.tsx — the top of the home page. Where this machine runs its own backend (the tray's, a phone app's): the
-// account's control and, signed in, the servers it syncs with (SyncServers.tsx); signed out, the machine's local user.
+// account's control and the links it syncs with (SyncServers.tsx) — signed out, the machine's local user's own.
 // On a server: the servers alone, this one first — the account's control is the user menu's. See ../../docs/localApp.md.
 
 import { useState } from "react";
@@ -31,8 +31,15 @@ export function AccountBar() {
   return (
     <div className={BAR}>
       <span className="min-w-0 flex-1">
-        {/* Signed out: what that means here. Signed in: the servers its workspaces sync with. */}
-        {me?.local ? m["home.signedOut"]() : me ? <SyncServers /> : null}
+        {/* Signed out: what that means here, and the links it may still make. Signed in: the links its workspaces sync with. */}
+        {me?.local ? (
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            {m["home.signedOut"]()}
+            <SyncServers always />
+          </span>
+        ) : me ? (
+          <SyncServers />
+        ) : null}
       </span>
       <AccountStatusNote />
       <AccountButton onUser={setMe} />
