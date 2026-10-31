@@ -1,6 +1,7 @@
 // moments.ts — a moment (a `Comments` row): a span of a recording, a session's or any other capture's,
 // standing alone with its own clip, envelope and markers once that recording is gone.
 // The clip is cut and re-encoded off the request thread (../../docs/audio.md, ../../docs/moments.md).
+// A local instance cuts none: its moments are consolidated on a server (../../docs/momentShare.md).
 
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -10,6 +11,7 @@ import type { Envelope, Marker } from "@studio/rehearsal-shared";
 import { cachedFile, once } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
+import { env } from "../env.ts";
 import { serialized } from "../lock.ts";
 import * as mediatek from "../mediatek.ts";
 import type { FieldsOf } from "../schema.ts";
@@ -33,6 +35,21 @@ import {
 import { listRecordingMarkers } from "./markers.ts";
 
 type CommentRow = Row<"Comments">;
+
+/** Whether this instance cuts a moment's clip itself: a server does, a local instance leaves it to one. */
+const CLIPS_HERE = env.instance !== "local";
+
+/** Asked of a local instance: its moments are consolidated on a server, which `/api/sync/moments-share` reaches. */
+export class ServerOnlyError extends Error {
+  readonly status = 409;
+  readonly expose = true;
+  constructor() {
+    super(
+      "a moment is consolidated on a server, not on this machine: choose a server to send it to",
+    );
+    this.name = "ServerOnlyError";
+  }
+}
 
 // --- Moments on a recording ----------------------------------------------
 
@@ -71,10 +88,12 @@ export async function addMoment(
     },
   ]);
   // Extract now so a saved moment plays on its own; best-effort, a failure leaves it be.
-  const validated = await extractMomentClip(String(id)).catch((e: Error) => {
-    console.error("moment auto-extract failed:", e.message);
-    return false;
-  });
+  const validated = CLIPS_HERE
+    ? await extractMomentClip(String(id)).catch((e: Error) => {
+        console.error("moment auto-extract failed:", e.message);
+        return false;
+      })
+    : false;
   return { id: String(id), recordingPath, ...ann, validated };
 }
 
@@ -102,9 +121,15 @@ export async function updateMoment(
       fields.EndSec !== Number(before.fields.EndSec));
   if (rangeChanged) {
     safeUnlink(clipCachePath(momentId));
-    await extractMomentClip(momentId).catch((e: Error) =>
-      console.error("moment auto re-extract failed:", e.message),
-    );
+    if (CLIPS_HERE)
+      await extractMomentClip(momentId).catch((e: Error) =>
+        console.error("moment auto re-extract failed:", e.message),
+      );
+    else if (before.fields.ClipPath) {
+      // A clip cut here before is now the wrong span, and none is cut again: it goes.
+      await forgetClip(before);
+      db.patchRecord("Comments", momentId, { Validated: false, ClipPath: "" });
+    }
   }
 
   const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
@@ -394,6 +419,7 @@ function sliceEnvelope(
 
 // Manual re-extract, for a moment whose automatic one could not run.
 export async function validateMoment(ownerId: string, momentId: string) {
+  if (!CLIPS_HERE) throw new ServerOnlyError();
   const rec = rowIn("Comments", momentId, { OwnerId: ownerId });
   if (!rec) return null;
   const ok = await extractMomentClip(rec.id);
@@ -426,7 +452,7 @@ function clipCachePath(momentId: string): string {
 const CLIP_TIMEOUT_MS = 10 * 60_000;
 
 // Cut [start, end] out of a source file into a temporary webm/opus FILE; the caller owns the path it resolves.
-async function extractClip(
+export async function extractClip(
   srcPath: string,
   start: number,
   end: number,

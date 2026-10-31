@@ -1,11 +1,10 @@
-// momentShare.ts — a paired machine shares one of its moments with its server: the clip, the span, the
-// text, the markers, never the recording, which stays on the machine. Sharing again replaces the server's copy.
+// momentShare.ts — the server's door for a machine's moment: the span, the text, the markers and the audio to cut
+// its clip from (a slice or the whole recording), or a clip a machine cut before. Sending again replaces the copy.
 // What reads wrong: the copy keeps the machine's moment id, which is how "shared" is told — ../docs/momentShare.md.
 
-import { openAsBlob } from "node:fs";
-import { sub, wrap } from "@frediverse/http";
+import { openAsBlob, renameSync, rmSync } from "node:fs";
+import { wrap } from "@frediverse/http";
 import { diskUpload } from "@frediverse/http/upload";
-import type { MomentPlacement } from "@studio/rehearsal-shared";
 import {
   type Response as ExpressResponse,
   type RequestHandler,
@@ -14,12 +13,11 @@ import {
 import { z } from "zod";
 import * as db from "./db.ts";
 import * as mediatek from "./mediatek.ts";
-import type { ServerOf } from "./publications.ts";
 import { SAFE_ID } from "./sqlite.ts";
 import * as store from "./store.ts";
 
-/** What a machine sends of a moment; the clip travels beside it as a file. */
-const sharedMoment = z.object({
+/** What a machine sends of a moment; its audio travels beside it as a file, `source` or `clip`. */
+export const sharedMoment = z.object({
   startSec: z.number(),
   endSec: z.number(),
   text: z.string(),
@@ -34,9 +32,11 @@ const sharedMoment = z.object({
   markers: z.array(
     z.object({ atSec: z.number(), comment: z.string(), createdAt: z.string() }),
   ),
+  // Where the `source` file starts on the recording's timeline: 0 for the whole recording, the slice's start otherwise.
+  sourceStartSec: z.number().min(0).optional(),
 });
 
-type SharedMoment = z.infer<typeof sharedMoment>;
+export type SharedMoment = z.infer<typeof sharedMoment>;
 
 /** Malformed JSON reads as nothing, which the schema then refuses with a 400. */
 function parseJson(text: string): unknown {
@@ -68,6 +68,24 @@ function playedAt(m: SharedMoment): Date | undefined {
   return Number.isNaN(t) ? undefined : new Date(t + m.startSec * 1000);
 }
 
+/** The uploaded file's extension, which the decoder takes as a hint; a name that has none gives none. */
+function extensionOf(name: string | undefined): string {
+  const ext = /\.([a-z0-9]{1,5})$/i.exec(name ?? "")?.[1];
+  return ext ? `.${ext.toLowerCase()}` : "";
+}
+
+/** The moment's clip cut here out of the machine's audio, exactly as this server cuts its own; the caller owns the file. */
+async function cutFromSource(
+  source: Express.Multer.File,
+  m: SharedMoment,
+): Promise<string> {
+  const at = m.sourceStartSec ?? 0;
+  const named = `${source.path}${extensionOf(source.originalname)}`;
+  renameSync(source.path, named);
+  source.path = named;
+  return store.cutMomentClip(named, m.startSec - at, m.endSec - at);
+}
+
 /** The server's side: the person's moment ids, and the upsert of one, behind a device token (`gate`). */
 export const momentDeviceRouter = (gate: RequestHandler): Router => {
   const r = Router();
@@ -92,10 +110,16 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
 
   r.put(
     "/:id",
-    upload.single("clip"),
+    upload.fields([
+      { name: "clip", maxCount: 1 },
+      { name: "source", maxCount: 1 },
+    ]),
     wrap(async (req, res) => {
       const person = personOf(res);
-      const clip = req.file;
+      const files = (req.files ?? {}) as Record<string, Express.Multer.File[]>;
+      const source = files.source?.[0];
+      const sent = files.clip?.[0];
+      let cut: string | null = null;
       try {
         // A moment is somebody's: a token that names nobody cannot share one.
         if (!person)
@@ -107,8 +131,10 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
         // The id becomes a row id and a cache file's name: one plain segment.
         if (!SAFE_ID.test(id))
           return res.status(400).json({ error: "bad moment id" });
-        if (!clip)
-          return res.status(400).json({ error: "the clip is missing" });
+        if (!sent && !source)
+          return res
+            .status(400)
+            .json({ error: "the moment's audio is missing" });
         const parsed = sharedMoment.safeParse(
           parseJson(String(req.body?.moment ?? "null")),
         );
@@ -125,8 +151,11 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
             .status(409)
             .json({ error: "that moment id is somebody else's" });
 
+        // A machine that cuts no clip sends the audio, and the clip is cut here.
+        if (source) cut = await cutFromSource(source, m);
+        const clipFile = cut ?? (sent as Express.Multer.File).path;
         const clipPath = await mediatek.pushMoment(
-          await openAsBlob(clip.path),
+          await openAsBlob(clipFile),
           "webm",
           {
             at: playedAt(m),
@@ -174,128 +203,10 @@ export const momentDeviceRouter = (gate: RequestHandler): Router => {
         );
         res.json({ ok: true, replaced: Boolean(existing) });
       } finally {
-        if (clip) store.discardUploads([clip]);
+        store.discardUploads([sent, source].filter((f) => f !== undefined));
+        if (cut) rmSync(cut, { force: true });
       }
     }),
   );
-  return r;
-};
-
-/** The machine's side: `GET /` says which of its moments the server holds, `POST /:id/share` shares one. */
-export const momentShareRouter = (opts: {
-  /** Where `momentDeviceRouter` is mounted on the server. */
-  deviceRoute: string;
-  server: ServerOf;
-}): Router => {
-  const r = Router();
-
-  r.get(
-    "/",
-    wrap(async (req, res) => {
-      const server = opts.server(req);
-      if (!server) {
-        const none: MomentPlacement = {
-          paired: false,
-          server: null,
-          shared: [],
-        };
-        return res.json(none);
-      }
-      let theirs: string[];
-      try {
-        // Bounded: the moments list must not wait on a server that is away.
-        const got = await fetch(`${server.base}${opts.deviceRoute}`, {
-          headers: { authorization: `Bearer ${server.token}` },
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!got.ok) throw new Error(`${got.status} ${got.statusText}`);
-        theirs = (await got.json()) as string[];
-      } catch (e) {
-        return res.status(502).json({
-          error: `could not ask ${server.base} for its moments: ${(e as Error).message}`,
-        });
-      }
-      const there = new Set(theirs);
-      const mine = await store.listMoments(sub(req));
-      const placement: MomentPlacement = {
-        paired: true,
-        server: server.base,
-        shared: mine.map((m) => m.id).filter((id) => there.has(id)),
-      };
-      res.json(placement);
-    }),
-  );
-
-  r.post(
-    "/:id/share",
-    wrap(async (req, res) => {
-      const server = opts.server(req);
-      if (!server)
-        return res.status(409).json({ error: "this account is not paired" });
-      const owner = sub(req);
-      const id = req.params.id;
-      let moment = await store.getMoment(owner, id);
-      if (!moment) return res.status(404).json({ error: "no such moment" });
-      // A moment with no clip of its own is cut out of its recording first: the recording itself never leaves.
-      if (!moment.validated) {
-        if (!moment.recordingAvailable)
-          return res.status(409).json({
-            error: "this moment has no clip, and its recording is gone",
-          });
-        await store.validateMoment(owner, id);
-        moment = await store.getMoment(owner, id);
-      }
-      const clip = await store.ensureMomentClipCached(owner, id);
-      if (!moment || !clip)
-        return res.status(409).json({ error: "this moment has no clip" });
-
-      const body: SharedMoment = {
-        startSec: moment.startSec,
-        endSec: moment.endSec,
-        text: moment.text,
-        tags: moment.tags,
-        createdAt: moment.createdAt,
-        recordedAt: moment.recordedAt,
-        // What a server older than `recordedAt` requires.
-        sessionCreatedAt: moment.recordedAt,
-        envelope: moment.envelope ?? null,
-        markers: (moment.markers ?? []).map((x) => ({
-          atSec: x.atSec,
-          comment: x.comment,
-          createdAt: x.createdAt,
-        })),
-      };
-      const form = new FormData();
-      form.append("moment", JSON.stringify(body));
-      form.append(
-        "clip",
-        await openAsBlob(clip.filePath, { type: clip.mime }),
-        "moment.webm",
-      );
-      try {
-        const sent = await fetch(
-          `${server.base}${opts.deviceRoute}/${encodeURIComponent(id)}`,
-          {
-            method: "PUT",
-            headers: { authorization: `Bearer ${server.token}` },
-            body: form,
-            signal: AbortSignal.timeout(10 * 60_000),
-          },
-        );
-        const answer = (await sent.json().catch(() => ({}))) as {
-          error?: string;
-          replaced?: boolean;
-        };
-        if (!sent.ok)
-          return res.status(502).json({
-            error: answer.error ?? `${sent.status} ${sent.statusText}`,
-          });
-        res.json({ ok: true, replaced: Boolean(answer.replaced) });
-      } catch (e) {
-        res.status(502).json({ error: (e as Error).message });
-      }
-    }),
-  );
-
   return r;
 };

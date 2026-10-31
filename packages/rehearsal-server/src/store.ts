@@ -4,6 +4,10 @@
 // between the routes and the store (store/helpers.ts).
 
 export { linkToRecordings } from "./store/captures.ts";
+export {
+  momentSource,
+  noteConsolidation,
+} from "./store/consolidations.ts";
 // Uploads land in the cache's own folder (UPLOAD_DIR), so keeping one is a rename, never a copy across filesystems.
 export {
   CACHE_DIR as UPLOAD_DIR,
@@ -22,10 +26,12 @@ export {
   deleteMomentMarker,
   dropClipCache,
   ensureMomentClipCached,
+  extractClip as cutMomentClip,
   getMoment,
   listMoments,
   momentSharedFrom,
   recordingMoments,
+  ServerOnlyError,
   updateMoment,
   updateMomentMarker,
   validateMoment,
