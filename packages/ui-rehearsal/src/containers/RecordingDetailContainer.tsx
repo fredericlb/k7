@@ -7,6 +7,7 @@ import { detectEvents } from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { BackButton } from "../components/BackButton";
+import { ConsolidationProvider } from "../components/Consolidation";
 import {
   ActionFailure,
   LoadFailure,
@@ -191,7 +192,7 @@ function CaptureDetail({
   if (!shape) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
-    <>
+    <ConsolidationProvider onConsolidated={changed}>
       <ActionFailure message={actionError} />
       <SessionDetailView
         session={asSession(page, shape.duration, shape.gain)}
@@ -235,6 +236,6 @@ function CaptureDetail({
         })}
         momentClipUrl={api.momentPageClipUrl}
       />
-    </>
+    </ConsolidationProvider>
   );
 }

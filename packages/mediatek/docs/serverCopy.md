@@ -51,6 +51,9 @@ is not a choice this code can make, so for now none is made.
 bounded at five seconds and remembered fifteen, and every listing or download that reached the server
 or failed to says as much as a ping. A page reads it to decide what may be edited. It is the backend's
 because the backend is what calls the server: the page's own requests all go to its own backend.
+The same ping, per server, answers for every link of the account when a page has to choose one, as
+consolidating a moment does (`packages/rehearsal-server/docs/momentShare.md`): it is keyed by the
+server, so two accounts on one server share one answer.
 
 ## An album, or a playlist, in one gesture
 

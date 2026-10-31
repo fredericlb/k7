@@ -1,6 +1,7 @@
 import { detectEvents } from "@studio/recorder";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { ConsolidationProvider } from "../components/Consolidation";
 import { confirmLoss } from "../confirm";
 import {
   ActionFailure,
@@ -149,7 +150,12 @@ export function SessionDetailContainer({
   if (!session) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
-    <>
+    <ConsolidationProvider
+      onConsolidated={async () => {
+        await reloadSession();
+        onChange();
+      }}
+    >
       <ActionFailure message={actionError} />
       <SessionDetailView
         session={session}
@@ -182,6 +188,6 @@ export function SessionDetailContainer({
         onDeleteMarker={handleDeleteMarker}
         momentClipUrl={api.momentPageClipUrl}
       />
-    </>
+    </ConsolidationProvider>
   );
 }

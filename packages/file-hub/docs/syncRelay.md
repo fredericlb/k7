@@ -91,6 +91,10 @@ with no `as` is the local account's own on that server, which is what every link
   the workspaces each holds (`packages/file-service/docs/liveCapture.md`, "Several servers"). One per
   server is marked `home`: the link of the local account's own account there, else the first, which is
   the link a workspace recorded before accounts belongs to.
+- **A surface that lets the person CHOOSE a server reads every link** (`remotesOf`, main first then in
+  link order) and calls the chosen one through its own token (`remoteById`). Consolidating a moment is
+  one (`packages/rehearsal-server/docs/momentShare.md`): a link that is not main is as good a server as
+  the main one for a thing that lives on one server only.
 - `POST /api/sync/remote/main` (`{ id }`) makes another link main and `DELETE /api/sync/remote?id=`
   forgets one; a `url` instead still names a server, its first link for main and every link on it for
   a forget. `PUT` stores the remote account it is given (`as`), else the local account's own: a device

@@ -98,4 +98,18 @@ describe("remote pairing", () => {
     expect((await call("PUT", pair)).status).toBe(200);
     expect(restarted).toEqual([USER]);
   });
+
+  it("finds any link by id, main or not, and lists them main first", async () => {
+    const { dataRoot, routes } = await start(true);
+    const home = join(dataRoot, accountKey(USER));
+    mkdirSync(home, { recursive: true });
+    const a = "wss://a.test/api/sync";
+    const b = "wss://b.test/api/sync";
+    writeRemote(home, { url: a, token: "ta", user: USER, main: true });
+    writeRemote(home, { url: b, token: "tb", user: USER, main: false });
+    const req = { headers: { "x-test-session": USER } } as never;
+    expect(routes.remotesOf(req).map((r) => r.token)).toEqual(["ta", "tb"]);
+    expect(routes.remoteById(req, linkId(b, USER))?.token).toBe("tb");
+    expect(routes.remoteById(req, "nope")).toBeNull();
+  });
 });

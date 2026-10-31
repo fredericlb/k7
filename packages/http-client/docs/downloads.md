@@ -28,5 +28,8 @@ row that started a download reads its spinner from it.
   had already let go of after its linger.
 - **A song opened on the phone queues the same `library:<path>` as its download button**, so the
   background copy of a first look and a click on the button are one job.
+- **A moment sent to a server to be consolidated is a row too** (`moment:<id>:<link>`), though it goes
+  UP: it is the one long transfer a rehearsal page starts, and a second place to watch transfers
+  would be a second place to look (`packages/ui-rehearsal/docs/recordings.md`).
 - **Finished rows linger four seconds once nothing runs**, then go; a failure stays until Clear, since
   it is the one row that asks for something.

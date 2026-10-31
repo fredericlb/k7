@@ -95,6 +95,37 @@ export interface Annotation {
   tags: string[];
   validated: boolean;
   createdAt: string;
+  // The servers this moment was consolidated on, from a local instance — ../rehearsal-server/docs/momentShare.md.
+  consolidations?: Consolidation[];
+}
+
+/** Where a local instance's moment was consolidated: the link it went through, and when. */
+export interface Consolidation {
+  /** The link's id on this machine (`linkId`), stable across re-pairings. */
+  link: string;
+  /** The server's origin, which with the moment's id is where its page is. */
+  origin: string;
+  /** The account on that server the moment is filed under. */
+  as: string;
+  at: string;
+}
+
+/** One server a local instance may consolidate a moment on: one of its account's links. */
+export interface ConsolidationServer {
+  id: string;
+  origin: string;
+  as: string;
+  main: boolean;
+  /** Whether it answered a short ping just now. */
+  online: boolean;
+}
+
+/** Where this instance's moments are consolidated: here (`serverOnly` false), or on one of `servers`. */
+export interface ConsolidationServers {
+  /** True on a local instance, whose moments are consolidated on a server and never here. */
+  serverOnly: boolean;
+  /** The account's links, main first then in link order; empty on a server. */
+  servers: ConsolidationServer[];
 }
 
 // A moment is a span of a recording — a session's or any capture of the médiathèque — and outlives it.
@@ -115,6 +146,8 @@ export interface Moment {
   createdAt: string;
   // The machine it was shared from, read-only here; "" for a moment of this store's own.
   sharedFrom: string;
+  // The servers it was consolidated on, from a local instance.
+  consolidations?: Consolidation[];
   // Detail endpoint only: the clip's own envelope and markers, on a timeline starting at 0.
   envelope?: Envelope | null;
   markers?: Marker[];

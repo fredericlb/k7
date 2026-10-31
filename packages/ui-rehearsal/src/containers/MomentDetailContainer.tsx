@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { ConsolidationProvider } from "../components/Consolidation";
 import { useMomentShare } from "../components/MomentServerShare";
 import {
   ActionFailure,
@@ -26,7 +27,7 @@ export function MomentDetailContainer({
 }: Props) {
   const [moment, setMoment] = useState<Moment | null>(null);
   const { loadError, setLoadError, actionError, guard } = useDetailState();
-  // Its copy on a paired server: a moment can be shared, its session never.
+  // Its copy on the main server, for the icon: a moment goes up, its session never.
   const share = useMomentShare(true, momentId);
 
   const load = useCallback(async () => {
@@ -47,7 +48,7 @@ export function MomentDetailContainer({
   if (!moment) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
-    <>
+    <ConsolidationProvider onConsolidated={load}>
       <ActionFailure message={actionError} />
       <MomentDetailView
         moment={moment}
@@ -72,16 +73,8 @@ export function MomentDetailContainer({
           await api.deleteMomentMarker(momentId, markerId);
           await load();
         })}
-        share={{
-          state: share.stateOf(momentId),
-          host: share.host,
-          // Sharing an unvalidated moment cuts its clip first, so the page reloads to show it.
-          onShare: guard(async () => {
-            await share.share(momentId);
-            await load();
-          }),
-        }}
+        share={{ state: share.stateOf(momentId), host: share.host }}
       />
-    </>
+    </ConsolidationProvider>
   );
 }

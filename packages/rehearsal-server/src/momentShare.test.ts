@@ -11,9 +11,9 @@ const dir = mkdtempSync(join(tmpdir(), "k7-moments-"));
 process.env.K7_DATA_DIR = dir;
 const db = await import("./db.ts");
 const { linkMediatek } = await import("./mediatek.ts");
-const { momentDeviceRouter, momentShareRouter } = await import(
-  "./momentShare.ts"
-);
+const { momentDeviceRouter } = await import("./momentShare.ts");
+const { momentShareRouter } = await import("./momentConsolidate.ts");
+const { wavHeader } = await import("./wavSlice.ts");
 const { momentsRouter } = await import("./routes/moments.ts");
 
 const servers: Server[] = [];
@@ -29,7 +29,13 @@ const listen = (app: express.Express): Promise<string> =>
 const pushed: string[] = [];
 const removed: string[] = [];
 let local: string;
-let received: { id: string; moment: unknown; clip: string } | null = null;
+let received: {
+  id: string;
+  moment: unknown;
+  field: string;
+  bytes: string;
+  token: string;
+} | null = null;
 
 beforeAll(async () => {
   const lib = express();
@@ -54,11 +60,19 @@ beforeAll(async () => {
     (req, res) => {
       const body = (req.body as Buffer).toString("latin1");
       const moment = /name="moment"\r\n\r\n(.*?)\r\n--/s.exec(body)?.[1];
+      const file =
+        /name="(source|clip)"; filename="[^"]*"\r\n[^\r]*\r\n\r\n(.*?)\r\n--/s.exec(
+          body,
+        );
       received = {
         id: req.params.id,
         moment: JSON.parse(moment ?? "null"),
-        clip: body.includes("clip bytes") ? "clip bytes" : "",
+        field: file?.[1] ?? "",
+        bytes: file?.[2] ?? "",
+        token: String(req.headers.authorization),
       };
+      if (req.params.id === "m-refused")
+        return void res.status(400).json({ error: "bad moment" });
       res.json({ ok: true, replaced: false });
     },
   );
@@ -88,6 +102,26 @@ beforeAll(async () => {
     momentShareRouter({
       deviceRoute: "/dev",
       server: () => ({ base: server, token: "t" }),
+      serverOnly: true,
+      links: () => [
+        {
+          id: "main",
+          origin: server,
+          as: "p@main",
+          main: true,
+          base: server,
+          token: "t-main",
+        },
+        {
+          id: "other",
+          origin: "http://other.test",
+          as: "p@other",
+          main: false,
+          base: server,
+          token: "t-other",
+        },
+      ],
+      reach: async (s) => s.token === "t-main",
     }),
   );
   local = await listen(app);
@@ -102,6 +136,13 @@ beforeAll(async () => {
       Text: "chorus",
       Validated: true,
       ClipPath: "recordings/old.webm",
+    },
+    {
+      id: "m-refused",
+      OwnerId: "me",
+      RecordingPath: "recordings/2026-10-01/22-00-00.webm",
+      StartSec: 1,
+      EndSec: 2,
     },
     {
       id: "m-local",
@@ -251,20 +292,104 @@ describe("sharing from this machine", () => {
     expect(p.shared).toEqual(["m-shared"]);
   });
 
-  it("sends the moment, its clip and its recording's date, never the recording", async () => {
-    const r = await fetch(`${local}/share/m-local/share`, { method: "POST" });
+  it("lists the account's links, main first, each with whether it answers", async () => {
+    const got = await (await fetch(`${local}/share/servers`)).json();
+    expect(got).toMatchObject({
+      serverOnly: true,
+      servers: [
+        { id: "main", as: "p@main", main: true, online: true },
+        { id: "other", as: "p@other", main: false, online: false },
+      ],
+    });
+  });
+
+  const consolidate = (id: string, link: string) =>
+    fetch(`${local}/share/${id}/consolidate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ link }),
+    });
+
+  it("sends the moment and its recording's audio through the chosen link, and remembers where", async () => {
+    const r = await consolidate("m-local", "other");
     expect(r.status).toBe(200);
     expect(received).toMatchObject({
       id: "m-local",
-      clip: "clip bytes",
+      token: "Bearer t-other",
+      // The recording is no WAV, so it goes whole, from its start.
+      field: "source",
+      bytes: "clip bytes",
       moment: {
         startSec: 20,
         text: "bridge",
         tags: ["loud", "fast"],
         recordedAt: "2026-10-01T20:00:00.000Z",
-        sessionCreatedAt: "2026-10-01T20:00:00.000Z",
+        sourceStartSec: 0,
       },
     });
-    expect(received?.moment).not.toHaveProperty("recordingPath");
+    const moment = (await (await fetch(`${local}/moments/m-local`)).json()) as {
+      consolidations: unknown;
+    };
+    expect(moment.consolidations).toMatchObject([
+      { link: "other", origin: "http://other.test", as: "p@other" },
+    ]);
   });
+
+  it("refuses a link the account does not have, and says what the server refused", async () => {
+    expect((await consolidate("m-local", "nope")).status).toBe(404);
+    const r = await consolidate("m-refused", "main");
+    expect(r.status).toBe(502);
+    expect(((await r.json()) as { error: string }).error).toContain(
+      "bad moment",
+    );
+  });
+});
+
+describe("a moment consolidated on the server from a machine's audio", () => {
+  it("is cut here out of the slice it was sent, at the slice's offset", async () => {
+    const rate = 8000;
+    const frames = rate * 2;
+    const data = Buffer.alloc(frames * 2);
+    for (let f = 0; f < frames; f++)
+      data.writeInt16LE(Math.round(3000 * Math.sin(f / 4)), f * 2);
+    const fmt = Buffer.alloc(16);
+    fmt.writeUInt16LE(1, 0);
+    fmt.writeUInt16LE(1, 2);
+    fmt.writeUInt32LE(rate, 4);
+    fmt.writeUInt32LE(rate * 2, 8);
+    fmt.writeUInt16LE(2, 12);
+    fmt.writeUInt16LE(16, 14);
+    const form = new FormData();
+    form.append(
+      "moment",
+      JSON.stringify({
+        ...MOMENT,
+        startSec: 11,
+        endSec: 12,
+        sourceStartSec: 10,
+      }),
+    );
+    form.append(
+      "source",
+      new Blob([Buffer.concat([wavHeader(fmt, data.length), data])]),
+      "moment.wav",
+    );
+    const before = pushed.length;
+    const res = await fetch(`${local}/dev/m-cut`, {
+      method: "PUT",
+      headers: { "x-person": "p1" },
+      body: form,
+    });
+    expect(res.status).toBe(200);
+    expect(pushed.length).toBe(before + 1);
+    const [rec] = (await db.listRecords("Comments")).filter(
+      (r) => r.id === "m-cut",
+    );
+    expect(rec.fields).toMatchObject({
+      OwnerId: "p1",
+      Validated: true,
+      StartSec: 11,
+      RecordingPath: "",
+    });
+  }, 30_000);
 });

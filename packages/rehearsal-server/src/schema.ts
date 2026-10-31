@@ -43,6 +43,8 @@ const COLLECTIONS = {
     { name: "SessionCreatedAt", type: "text" },
     // The machine a shared moment came from; set, the moment is read-only here — ../docs/momentShare.md.
     { name: "SharedFrom", type: "text" },
+    // On a local instance, a JSON list of the servers it was consolidated on — ../docs/momentShare.md.
+    { name: "Consolidations", type: "text" },
   ],
   Markers: [
     // A pin on a recording's timeline names the recording, as a moment does; a moment's own pins name the moment.

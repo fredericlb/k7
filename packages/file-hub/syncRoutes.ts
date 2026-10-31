@@ -369,6 +369,18 @@ export class SyncRoutes {
     return readRemote(this.accountDir(accountKey(user)));
   }
 
+  /** Every link of the session's account, the main one first then in link order; empty on a server. */
+  remotesOf(req: Request): SyncRemote[] {
+    const user = this.c.userOf(req);
+    if (!user || !this.c.remotePairing) return [];
+    return readRemotes(this.accountDir(accountKey(user)));
+  }
+
+  /** The session's account's link `id`, main or not, or null: what a call to one chosen server goes through. */
+  remoteById(req: Request, id: string): SyncRemote | null {
+    return this.remotesOf(req).find((r) => r.id === id) ?? null;
+  }
+
   /** Let through a caller that proves an account by device token or hub secret; `res.locals.syncCaller` says who. */
   deviceGate(): RequestHandler {
     return (req, res, next) => {

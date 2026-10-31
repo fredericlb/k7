@@ -3,7 +3,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { Annotation, Marker } from "@studio/rehearsal-shared";
+import type {
+  Annotation,
+  Consolidation,
+  Marker,
+} from "@studio/rehearsal-shared";
 import { sweepRowCaches, trimDiskCache } from "../cache.ts";
 import type { Row } from "../db.ts";
 import * as db from "../db.ts";
@@ -92,7 +96,24 @@ export function mapComment(rec: Row<"Comments">) {
     validated: Boolean(f.Validated),
     createdAt: f.CreatedAt || "",
     sharedFrom: f.SharedFrom || "",
+    consolidations: parseConsolidations(f.Consolidations),
   } satisfies Annotation & { recordingPath: string | null; sharedFrom: string };
+}
+
+/** The stored list of where a moment was consolidated; anything unreadable reads as none. */
+export function parseConsolidations(value: unknown): Consolidation[] {
+  if (!value) return [];
+  try {
+    const list = JSON.parse(String(value)) as unknown;
+    return Array.isArray(list)
+      ? list.filter(
+          (c): c is Consolidation =>
+            !!c && typeof c === "object" && typeof c.link === "string",
+        )
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function parseTags(value: unknown): string[] {

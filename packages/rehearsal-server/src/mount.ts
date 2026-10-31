@@ -33,7 +33,11 @@ import { singingRouter } from "./routes/singing.ts";
 import { tokenRouter } from "./routes/token.ts";
 import { linkToRecordings, startCacheSweeps } from "./store.ts";
 
-export { momentDeviceRouter, momentShareRouter } from "./momentShare.ts";
+export {
+  type LinkedServer,
+  momentShareRouter,
+} from "./momentConsolidate.ts";
+export { momentDeviceRouter } from "./momentShare.ts";
 export type { PairedServer } from "./publications.ts";
 export {
   DEVICE_ROUTE as DEVICE_PUBLICATIONS_ROUTE,

@@ -1,5 +1,5 @@
 // DownloadsButton.tsx — the sidebar's download manager: an icon with "done/total" on it while anything comes
-// down (library songs, the engine's models and instruments), and the list in a popover.
+// down (library songs, the engine's models and instruments) or a moment goes up, and the list in a popover.
 // Nothing at all while the list is empty. The list is @studio/http-client's (packages/http-client/docs/downloads.md);
 // the backend's song update checks are mirrored in by SongSyncDownloads.tsx.
 
@@ -9,6 +9,7 @@ import {
   Check,
   CircleAlert,
   Clock,
+  CloudUpload,
   Disc3,
   Download as DownloadIcon,
   Loader2,
@@ -36,6 +37,8 @@ import { SongSyncDownloads } from "./SongSyncDownloads";
 const KIND_ICON: Record<DownloadKind, LucideIcon> = {
   song: Disc3,
   engine: AudioLines,
+  // A moment going UP to a server to be consolidated there: the one row that is an upload.
+  moment: CloudUpload,
 };
 
 const MB = 1e6;

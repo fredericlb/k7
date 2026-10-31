@@ -1,9 +1,11 @@
 // moments.ts — a moment's calls: made on a recording by its path, then standing alone with its clip,
-// its markers, its share to a server. A recording is any capture, a session's included (../../docs/recordings.md).
+// its markers, its consolidation on a server. A recording is any capture, a session's included (../../docs/recordings.md).
 
 import { apiBase } from "../config";
 import type {
   Annotation,
+  Consolidation,
+  ConsolidationServers,
   Envelope,
   Marker,
   Moment,
@@ -21,10 +23,18 @@ export const momentsApi = {
   /** Which moments the paired server holds a copy of — ../../../rehearsal-server/docs/momentShare.md. */
   momentPlacement: (): Promise<MomentPlacement> =>
     f("/api/sync/moments-share").then(json),
-  /** Share one moment with the paired server, replacing its copy; the session stays here. */
-  shareMoment: (id: string): Promise<unknown> =>
-    f(`/api/sync/moments-share/${encodeURIComponent(id)}/share`, {
+  /** Where this instance's moments are consolidated: here, or on one of the account's servers. */
+  consolidationServers: (): Promise<ConsolidationServers> =>
+    f("/api/sync/moments-share/servers").then(json),
+  /** Consolidate one moment on the server `link` names, replacing a copy it holds; the recording stays here. */
+  consolidateMoment: (
+    id: string,
+    link: string,
+  ): Promise<{ consolidations: Consolidation[] }> =>
+    f(`/api/sync/moments-share/${encodeURIComponent(id)}/consolidate`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ link }),
     }).then(json),
 
   /** A recording's page: its start, the session that saved it if one did, and its moments. */
