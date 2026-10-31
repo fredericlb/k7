@@ -1,7 +1,8 @@
 // PageFrame.tsx — the one page frame of the home side (Projects, Tasks, Libraries, Settings, About):
 // a column of the same width on every page, and a heading row with the page's own actions. A page
 // of narrow rows keeps them narrow INSIDE the frame rather than re-centring, so every title starts
-// at the same x. The médiathèque is a two-column tool and stays full width. See ../../docs/projects.md.
+// at the same x. The médiathèque draws the same column itself (packages/ui-library/src/LibraryPage.tsx).
+// See ../../docs/projects.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ReactNode } from "react";

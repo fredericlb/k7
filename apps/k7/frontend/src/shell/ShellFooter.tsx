@@ -85,6 +85,9 @@ export function ShellFooter({
   const showDocs = useShell((s) => s.showDocs);
   const docCount = useShell((s) => s.docCount);
   const { runCommand } = useVerbs();
+  // A phone's footer buttons are 40 px, a finger's size, and the tabs widen to match (docs/shell.md).
+  const iconSize = isMobile ? "icon-lg" : "icon-xs";
+  const tabClass = isMobile ? "min-w-10" : undefined;
   return (
     <footer
       className={cn(
@@ -95,7 +98,7 @@ export function ShellFooter({
     >
       {/* The command bar's opener, at the bottom-left on every screen: the bar itself stays hidden until summoned (docs/commandBar.md). */}
       <Button
-        size="icon-xs"
+        size={iconSize}
         variant="ghost"
         className="shrink-0"
         onClick={onSummonBar}
@@ -207,11 +210,12 @@ export function ShellFooter({
             void runCommand("transport metronome");
           }}
           onLevel={(v) => void runCommand(`transport metronome volume ${v}`)}
+          size={iconSize}
         />
         <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
         {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
         <Button
-          size="icon-xs"
+          size={iconSize}
           variant={showDocs ? "default" : "ghost"}
           disabled={docCount === 0}
           onClick={() => void runCommand("ui notes")}
@@ -230,6 +234,7 @@ export function ShellFooter({
         <FooterTabs dense={isMobile}>
           {/* The mix panel, apart from the loop below because it is dead when the song has no strip (docs/shell.md). */}
           <FooterTab
+            className={tabClass}
             active={panel === "mix"}
             disabled={mixerStrips.length === 0}
             onClick={() => void runCommand("ui mixer")}
@@ -250,6 +255,7 @@ export function ShellFooter({
             return (
               <FooterTab
                 key={p}
+                className={tabClass}
                 active={panel === p}
                 onClick={() => void runCommand(`ui panel ${p}`)}
                 title={`${PANEL_META[p].label} panel`}

@@ -5,8 +5,17 @@
 
 /** The fixed, non-scaling left column holding a lane's name. Wide enough for a name plus a mute/solo pair. */
 export const GUTTER_DESKTOP = 140;
-/** The same column where there is no room for the controls — the name alone. */
-export const GUTTER_MOBILE = 84;
+/** The same column on a phone held upright: the narrowest that still fits a name over three toggles. */
+export const GUTTER_MOBILE = 96;
+/** The widest a phone's column grows to, in landscape or on a tablet. */
+export const GUTTER_MOBILE_MAX = 160;
+/** A phone's column for a pane `paneWidth` wide: 22% of it, between the two bounds above. */
+export function mobileGutter(paneWidth: number): number {
+  return Math.min(
+    GUTTER_MOBILE_MAX,
+    Math.max(GUTTER_MOBILE, Math.round(paneWidth * 0.22)),
+  );
+}
 
 /** One lane's height, in px. Rows are uniform: a taller lane would make "which row is at y" a search. */
 export const ROW_H = 28;

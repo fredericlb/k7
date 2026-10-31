@@ -39,6 +39,7 @@
   "cleanup.none": "Nettoyer les sessions vides",
   "cleanup.title": "Supprimer les sessions vides (sans moment) enregistrées il y a plus de 24 h",
   "common.add": "Ajouter",
+  "common.back": "Retour",
   "common.backTo": "Retour à {to}",
   "common.cancel": "Annuler",
   "common.close": "Fermer",

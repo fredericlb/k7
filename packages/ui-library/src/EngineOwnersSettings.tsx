@@ -6,6 +6,7 @@ import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
+import { formatDate } from "@studio/recorder/format";
 import { useCallback, useEffect, useState } from "react";
 import { type EngineOwnerRecord, engineOwners } from "./engineShares";
 import { useLabels } from "./host";
@@ -17,7 +18,9 @@ function OwnerRow({
   o: EngineOwnerRecord;
   onReset: () => void;
 }) {
-  const l = useLabels().engines;
+  const labels = useLabels();
+  const l = labels.engines;
+  const locale = labels.common.locale;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +54,7 @@ function OwnerRow({
         <div className="text-xs text-muted-foreground">
           {l.ownedBy(o.owner)}
           {shared && ` · ${shared}`}
-          {` · ${l.since(new Date(o.since).toLocaleDateString())}`}
+          {` · ${l.since(formatDate(o.since, "date", locale))}`}
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>

@@ -27,17 +27,18 @@ import { api } from "../api";
 import { type HistoryMark, historyMarks } from "../historyMarks";
 import { useQuietWrites, useRevision } from "../hooks/useRevision";
 import { m } from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
 import { usePaneGraph } from "../queries/graph";
 import { useReloadKey } from "../state/shellStore";
 import { type SyncChange, type SyncHistory, syncHistory } from "../syncHistory";
 
 const time = (ts: number) =>
-  new Date(ts).toLocaleTimeString(undefined, {
+  new Date(ts).toLocaleTimeString(getLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });
 const day = (ts: number) =>
-  new Date(ts).toLocaleDateString(undefined, {
+  new Date(ts).toLocaleDateString(getLocale(), {
     weekday: "short",
     day: "numeric",
     month: "short",

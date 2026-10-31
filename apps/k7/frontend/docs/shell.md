@@ -264,6 +264,13 @@ everything else collapses into is under a thumb, and a 24-pixel target there is 
 reason `toolSize` reads the breakpoint instead of being a constant. Both phone popovers open upward,
 the bar being at the foot (`components/MobileChrome.tsx`).
 
+**On a phone the hamburger and the info icon each own a 44 px slot**, side by side and never
+shrinking: two icons sharing one finger's width make the way home a few pixels wide, and that is the
+control a phone needs most from a project. The hamburger's slot reaches into the bar's left padding,
+and below 640 px the bar's gaps narrow, which pays for the two slots without taking width from the
+transport. The transport, the menu and the engine stay at 36 px (`icon`): a 360 px bar holding eight
+44 px targets has no room left for the clock, and those three are a row apart from the lead.
+
 The **way back to the home page** is a hamburger at the left edge of the project bar, before the k7
 logo and the project's name: it opens the home page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
 home too. Projects open in the home page's tab rather than a new one, so a drawer entry is the
@@ -483,7 +490,13 @@ truncated to a few characters says nothing — while the mode badges, the waitin
 error count stay, since each is a state you would otherwise leave by surprise. The tempo and meter
 move into the same info popover (`shell/TempoMeter.tsx`, drawn by both): read rarely, still editable
 on a tap. What is left starts at the left edge with the metronome, the logo gone, and the states sit at
-the right end, so one appearing never moves a control from under a thumb.
+the right end, so one appearing never moves a control from under a thumb. **Its buttons are 40 px**
+(`icon-lg`, the panel tabs `min-w-10`) where the desktop's are 24: seven of them fit a 360 px phone at
+that size, and a footer a few pixels taller costs less than a mis-tap that opens a panel over the song.
+
+**The panes' tool rails grow to 44 px under a coarse pointer** (`stripButton` and `ModeStrip` in
+`modeIcons.tsx`), on any screen width, since a touch laptop's finger is no smaller than a phone's.
+The rail has few buttons and a whole column of height, so only its width is paid for.
 
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
@@ -1277,9 +1290,12 @@ find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has n
 nothing else about the chrome — written per occupant they drift, into title bars at three type scales.
 **Every bottom panel has a ✕ at its top left, and it takes no height** — a panel has only half the
 window, so the ✕ is never a row of its own. A view with a toolbar column (`ModeStrip`: the clip editors,
-a lane's modules) draws it as the column's FIRST item; any other view gets it floating over its corner.
-The view's toolbar CLAIMS it at mount (`components/PanelClose.tsx`), so a panel shows one ✕ whatever it
-holds. It runs `ui close`, as the footer's panel buttons and Escape do. Three ways
+a lane's modules) draws it as the column's FIRST item; a view with a header row (the graph and mix
+panels, the logs, the slot's `bar`, the sequencer and tracker headers, a rolling MIDI take) draws it
+as the row's first item, `PanelCloseButton`. Floating over the corner is the last resort, for a view
+with neither: a floating ✕ sits on whatever the view drew there, which is usually its title. So the
+empty event panel wears the slot's bar too, rather than a lone ✕ over nothing. The view CLAIMS the ✕
+at mount (`components/PanelClose.tsx`), so a panel shows one ✕ whatever it holds. It runs `ui close`, as the footer's panel buttons and Escape do. Three ways
 to wear the frame, because the occupants genuinely differ:
 
 - **`title` (+ `note`)** — a name and a detail. The plain case.
@@ -1440,6 +1456,25 @@ surfaces list matters most: it decides which panes are MOUNTED, and a blip read 
 the timeline, the viewport, the desk and the master strip, with their state. The DJ
 desk applies the same rule to its cue sheet, and writes no cue until it has read the sheet once —
 the write is the whole file.
+
+### Engine warnings are toasts
+
+The engine raises warnings in its own prose — a duplicated clip id it renamed, a file outside the
+folders it may read, a plugin it could not create. They are said in a **warning toast**, worded for
+a person, and never in the status line: the line carries the caret readout and what a command just
+did, and a warning there would replace it for the whole session, alarming and unactionable.
+The engine's own text goes to the Logs panel, which is where a bug report reads it.
+
+- **The kinds are recognised by text.** The engine sends no code with a warning, so
+  [`../src/engineWarnings.ts`](../src/engineWarnings.ts) matches the stable start of each known text
+  and gives it a sentence; one it does not know is still toasted, generically, with the raw words
+  after it, so a new engine warning is never silent.
+- **Once per project, for the page's life.** Every apply re-parses the document and re-raises
+  the same warnings, and a reconnect re-applies; the toast is keyed by the engine session and
+  the raw text, held above the hook so a remount forgets nothing.
+- **The médiathèque says them the same way**, through its host's `onEngineWarning`; its player
+  keeps for its own bar only the warning that names the song's file, the one that means silence
+  (`packages/ui-library/docs/playback.md`).
 
 ## Live state does not re-render the tree
 

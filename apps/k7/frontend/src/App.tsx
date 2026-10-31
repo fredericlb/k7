@@ -201,6 +201,7 @@ import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: k7's builtin plugins register their pane drawers here (packages/k7-sdk/docs/sdk.md).
 import "./plugins";
+import { GraphSlotPane } from "./components/GraphSlotPane";
 import { PanelCloseFrame } from "./components/PanelClose";
 import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { useLatest } from "./hooks/useLatest";
@@ -1942,7 +1943,7 @@ export default function App({
     openPresets,
     stepPreset,
     picker: presetPicker,
-  } = useNodePresets(runCommand);
+  } = useNodePresets(runCommand, shellGraph?.chains);
 
   // One note through a lane, off the engine link: an SFZ kit's pad on the graph, as the piano roll's click.
   const previewNote = useCallback(
@@ -2936,15 +2937,23 @@ export default function App({
       {snapshot.manifest.name || "…"}
     </span>
   ) : (
-    <span className="flex min-w-0 items-center gap-1">
-      {/* The hamburger, first in the bar: it opens the home page's sidebar over the project. */}
+    <span
+      className={cn(
+        "flex items-center gap-1",
+        isMobile ? "shrink-0" : "min-w-0",
+      )}
+    >
+      {/* The hamburger, first in the bar: it opens the home sidebar; a phone gives it a 44 px slot reaching the bar's edge (docs/shell.md). */}
       <button
         type="button"
         onClick={() => setHomeDrawer(true)}
         title={m["common.menu"]()}
         aria-label={m["common.menu"]()}
         aria-expanded={homeDrawer}
-        className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground",
+          isMobile ? "-ml-3 size-11" : "p-0.5",
+        )}
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -3485,10 +3494,19 @@ export default function App({
                   {/* The EVENT: what a clip's or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
                   {panel === "event" && (
                     <div className="flex h-full min-h-0 min-w-0">
+                      {/* Empty, it still wears the slot's bar: a lone ✕ floating over nothing reads as a broken panel. */}
                       {!graphSlot && (
-                        <p className="m-auto px-4 text-center text-xs text-muted-foreground">
-                          {m["panel.eventEmpty"]()}
-                        </p>
+                        <GraphSlotPane
+                          bar={
+                            <span className="font-medium text-foreground">
+                              {m["panel.event"]()}
+                            </span>
+                          }
+                        >
+                          <p className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                            {m["panel.eventEmpty"]()}
+                          </p>
+                        </GraphSlotPane>
                       )}
                       {graphSlot?.kind === "grid" && (
                         <PaneBoundary

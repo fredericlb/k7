@@ -1,9 +1,9 @@
 // toast.tsx — lightweight notifications, shared by the apps that mount this shell. No external
 // library. Render <Toaster/> once at the app root; call `showToast({ message, variant })` from
-// anywhere. Stacks bottom-right, or top-right by `placement`. A SUCCESS leaves after `duration`; an ERROR
-// stays until dismissed, and hovering either one holds it.
+// anywhere. Stacks bottom-right, or top-right by `placement`. A SUCCESS leaves after `duration`, a
+// WARNING after a longer one; an ERROR stays until dismissed, and hovering any of them holds it.
 
-import { CheckCircle2, X, XCircle } from "@frediverse/ui/icons";
+import { CheckCircle2, TriangleAlert, X, XCircle } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 
 const cx = (...parts: (string | false | undefined)[]): string =>
@@ -12,7 +12,7 @@ const cx = (...parts: (string | false | undefined)[]): string =>
 export interface ToastItem {
   id: number;
   message: string;
-  variant: "success" | "error";
+  variant: ToastVariant;
   /** Milliseconds before it leaves on its own, or 0 to stay until dismissed. */
   duration: number;
   /** Bottom-right by default; top-right for what must not be missed behind the transport bar. */
@@ -21,8 +21,13 @@ export interface ToastItem {
 
 export type ToastPlacement = "bottom-right" | "top-right";
 
+/** A warning is something that worked, but not quite as asked: worth reading, not worth blocking on. */
+export type ToastVariant = "success" | "warning" | "error";
+
 /** How long a success stays on screen; an error gets 0, meaning it waits to be dismissed. */
 export const TOAST_DURATION_MS = 3000;
+/** A warning is a sentence to read, not a confirmation to glance at. */
+export const WARNING_DURATION_MS = 8000;
 
 let nextId = 0;
 const listeners = new Set<(t: ToastItem) => void>();
@@ -37,7 +42,7 @@ export function onToast(listener: (t: ToastItem) => void): () => void {
 
 export function showToast(opts: {
   message: string;
-  variant?: "success" | "error";
+  variant?: ToastVariant;
   duration?: number;
   placement?: ToastPlacement;
 }): void {
@@ -47,7 +52,13 @@ export function showToast(opts: {
     message: opts.message,
     variant,
     // An error nobody read is an error that did not happen, so it waits to be dismissed.
-    duration: opts.duration ?? (variant === "error" ? 0 : TOAST_DURATION_MS),
+    duration:
+      opts.duration ??
+      (variant === "error"
+        ? 0
+        : variant === "warning"
+          ? WARNING_DURATION_MS
+          : TOAST_DURATION_MS),
     placement: opts.placement ?? "bottom-right",
   };
   for (const l of listeners) l(t);
@@ -103,6 +114,12 @@ export function Toaster({
   );
 }
 
+const LOOK = {
+  success: { Icon: CheckCircle2, iconCls: "text-emerald-500" },
+  warning: { Icon: TriangleAlert, iconCls: "text-amber-500" },
+  error: { Icon: XCircle, iconCls: "text-red-500" },
+} as const;
+
 function Toast({
   item,
   dismissLabel,
@@ -121,9 +138,7 @@ function Toast({
     return () => clearTimeout(timer);
   }, [item.duration, held, onDismiss]);
 
-  const Icon = item.variant === "success" ? CheckCircle2 : XCircle;
-  const iconCls =
-    item.variant === "success" ? "text-emerald-500" : "text-red-500";
+  const { Icon, iconCls } = LOOK[item.variant];
 
   return (
     <div

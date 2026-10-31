@@ -14,7 +14,6 @@ import {
   buildGraph,
   layout,
   spaceModulesEvenly,
-  subgraphForTrack,
 } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import {
@@ -36,7 +35,9 @@ import { m } from "../paraglide/messages.js";
 import { usePaneGraph } from "../queries/graph";
 import { useLiveRackLit } from "../rackLit";
 import { useReloadKey, useShell, useVerbs } from "../state/shellStore";
+import { layoutTrackPanel } from "../trackPanelLayout";
 import type { WebProject } from "../types";
+import { PanelCloseButton } from "./PanelClose";
 
 export function GraphPanel({
   onPreviewNote,
@@ -140,8 +141,14 @@ export function GraphPanel({
     runCommand: onModuleField,
     openContextMenu: onContextMenu,
   } = useVerbs();
-  // Parked HERE, because App mounts this panel conditionally: a camera held inside it would be a fresh frame on every reopen.
-  const camStore = useRef<Cam | null>(null);
+  // Parked HERE, because App mounts this panel conditionally — one per track, so another track's camera never stands in for a fit.
+  const camStores = useRef(new Map<string, { current: Cam | null }>());
+  const camKey = strips ? "mix" : (trackId ?? "");
+  let camStore = camStores.current.get(camKey);
+  if (!camStore) {
+    camStore = { current: null };
+    camStores.current.set(camKey, camStore);
+  }
   const [selected, setSelected] = useState<string | null>(null);
   // The shared graph at this reload key, re-asked on a backoff while the service is not answering (queries/graph.ts).
   const { graph, error } = usePaneGraph(reloadKey);
@@ -177,26 +184,24 @@ export function GraphPanel({
       );
     }
     if (!trackId) return null;
-    const sub = subgraphForTrack(graph, trackId);
-    if (!Object.keys(sub.chains).length) return null; // nothing routes this track
-    const { nodes, edges } = buildGraph(sub, {
-      cameras,
-      inputDevices,
-      midiDevices,
-      ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
-    });
     const scope = `${trackId}:${organizeKey}`;
     if (prevScope.current !== scope) {
       prevScope.current = scope;
       prevLaid.current = null;
     }
-    // The pins apply here too: the panel is a window onto the same graph, and a placed module must not move with the pane.
-    const out = layout(
-      nodes,
-      edges,
-      graph.positions,
+    // No pins: they place cards on the whole graph's canvas, and a track's slice of it would be scattered (trackPanelLayout.ts).
+    const out = layoutTrackPanel(
+      graph,
+      trackId,
+      {
+        cameras,
+        inputDevices,
+        midiDevices,
+        ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
+      },
       prevLaid.current ?? undefined,
     );
+    if (!out) return null; // nothing routes this track
     prevLaid.current = new Map(
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
@@ -302,6 +307,7 @@ export function GraphPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
+        <PanelCloseButton />
         <span className="font-semibold text-primary-text">
           {strips ? "Mix" : "Graph"}
         </span>

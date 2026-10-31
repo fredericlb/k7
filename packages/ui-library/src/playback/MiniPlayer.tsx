@@ -71,9 +71,14 @@ export function MiniPlayer() {
       {instrumental.item}
     </>
   );
-  // A failure is the one thing said beside the title: an ended song says nothing, the bar staying as it was.
+  // A failure is the one thing said beside the title, and only in the room the title leaves: zero basis, so it never shrinks it.
   const status = error ? (
-    <span className="min-w-0 truncate text-destructive text-xs">{error}</span>
+    <span
+      className="min-w-0 flex-1 basis-0 truncate text-destructive text-xs"
+      title={error}
+    >
+      {error}
+    </span>
   ) : null;
 
   return (

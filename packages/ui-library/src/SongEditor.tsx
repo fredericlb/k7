@@ -1,14 +1,15 @@
-// SongEditor.tsx — a song opened: a header holding its play button and its ⋮ menu, over one
+// SongEditor.tsx — a song opened: the médiathèque's header holding its play button and its ⋮ menu, over one
 // column of tabs — its info first, the tags over the waveform, then its attachments. One column,
 // since a phone has room for one. See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, Disc3, Pause, Play } from "@frediverse/ui/icons";
+import { Disc3, Pause, Play } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { clock } from "@studio/ui-mini-player";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
+import { LibraryPage } from "./LibraryPage";
 import { usePlaybackPosition } from "./playback/position";
 import { SongInfoTabs } from "./SongInfoTabs";
 import { SongMenu } from "./SongMenu";
@@ -75,50 +76,43 @@ export function SongEditor({
       : l.fileNotInLibrary;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onBack}
-          aria-label={labels.common.back}
-        >
-          <ArrowLeft className="h-4 w-4 sm:mr-1" />
-          <span className="hidden sm:inline">{labels.common.back}</span>
-        </Button>
-        <Button
-          size="sm"
-          onClick={transport.toggle}
-          disabled={!transport.path && !transport.songPlaying}
-          aria-label={
-            transport.songPlaying ? labels.common.pause : labels.common.play
-          }
-          title={nothingToPlay}
-        >
-          {transport.songPlaying ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
-        <HeaderClock transport={transport} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 truncate text-sm font-semibold">
-            <Disc3 className="h-4 w-4 shrink-0" />
-            <span className="truncate">{l.heading(entry.name)}</span>
-          </div>
-          <div className="truncate font-mono text-xs text-muted-foreground">
-            {master ? `${folder}/${master}` : folder}
-          </div>
-        </div>
-        <SongMenu
-          entry={entry}
-          attachments={attachments}
-          transpose={transpose}
-          onTranspose={setTranspose}
-        />
-      </header>
-
+    <LibraryPage
+      fill
+      onBack={onBack}
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          <Disc3 className="size-5 shrink-0" />
+          <span className="truncate">{l.heading(entry.name)}</span>
+        </span>
+      }
+      sub={master ? `${folder}/${master}` : folder}
+      actions={
+        <>
+          <Button
+            size="sm"
+            onClick={transport.toggle}
+            disabled={!transport.path && !transport.songPlaying}
+            aria-label={
+              transport.songPlaying ? labels.common.pause : labels.common.play
+            }
+            title={nothingToPlay}
+          >
+            {transport.songPlaying ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </Button>
+          <HeaderClock transport={transport} />
+          <SongMenu
+            entry={entry}
+            attachments={attachments}
+            transpose={transpose}
+            onTranspose={setTranspose}
+          />
+        </>
+      }
+    >
       <div className="min-h-0 flex-1">
         <SongInfoTabs
           entry={entry}
@@ -131,9 +125,9 @@ export function SongEditor({
         />
       </div>
 
-      <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
+      <footer className="flex shrink-0 items-center gap-3 px-3 py-1 text-xs text-muted-foreground">
         <span className="min-w-0 flex-1 truncate">{status}</span>
       </footer>
-    </div>
+    </LibraryPage>
   );
 }

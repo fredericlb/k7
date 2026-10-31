@@ -1,4 +1,4 @@
-// SongTable.tsx — the songs family as a table the width of the screen: the practice list, then the
+// SongTable.tsx — the songs family as a table across the page's column: the practice list, then the
 // favorites, then the rest, an album of several songs as one row that unfolds into them. A song's
 // row opens its page; a file dropped on it becomes its master or a version, as the tree's did. The
 // search box at its head narrows it to the rows whose artist, album or title hold every word typed.
@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@frediverse/ui/table";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { type DragEvent, Fragment, type ReactNode, useState } from "react";
+import { type DragEvent, Fragment, useState } from "react";
 import { useLabels } from "./host";
 import { PracticeMark, StarredMark } from "./ListMarks";
 import { RowMenu, rowTarget } from "./RowMenu";
@@ -46,8 +46,6 @@ export interface SongTableProps {
   /** Audio dropped on a song of this machine, `rel` family-relative. */
   onDrop: (rel: string, files: File[]) => void;
   onDownload: (paths: string[]) => Promise<void>;
-  /** Above the table, at its right: what adds a song. */
-  actionsBar?: ReactNode;
 }
 
 const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
@@ -272,7 +270,6 @@ export function SongTable(p: SongTableProps) {
             </button>
           ) : null}
         </div>
-        {p.actionsBar}
       </div>
       {/* touch-manipulation: no double-tap zoom, since a double tap on a song plays it. */}
       {/* A 10% hairline: the group's band is what divides the table, not the line. */}

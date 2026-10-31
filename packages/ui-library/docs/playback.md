@@ -93,6 +93,15 @@ it is expensive. It lands on the transport's `error`, which the mini player and 
 already draw, and it is cleared when a document is **SENT** rather than on stop — a complaint
 raised by that send has to survive long enough to be read.
 
+**Only the warning that names the song's file is a failure.** The socket hears every warning
+the engine raises for this session and every one it raises for nobody in particular — a device,
+a hung plugin, and a document's parse, which the engine does not stamp with its session, so
+another project's duplicated clip id reaches the médiathèque too. None of those stops the song,
+and drawn in red beside the title they read as one that did. So `PlaybackProvider` sets `error`
+only for a warning naming the path it sent (`warnsAbout`, `src/engine/enginePlayback.ts`), and
+hands every other one to the host's `onEngineWarning` ([host.md](host.md)), or to the console
+when the host has none.
+
 The playhead is qualified the same way and for a related reason. That session is shared with
 everything else the library auditions, so an unqualified read would draw another document's position on
 this song's waveform — and, worse, hand it back as the point to resume from, which is the section

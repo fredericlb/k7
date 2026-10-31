@@ -88,6 +88,8 @@ export function mediaLabels(): LibraryLabels {
       notCatalogued: m["media.contents.notCatalogued"](),
       noRecordings: m["media.contents.noRecordings"](),
       noneThisDay: m["media.contents.noneThisDay"](),
+      previousMonth: m["media.contents.previousMonth"](),
+      nextMonth: m["media.contents.nextMonth"](),
       noneTagged: (tag) => m["media.contents.noneTagged"]({ tag }),
       yourTake: m["media.contents.yourTake"](),
       momentShared: (host) =>
@@ -268,6 +270,7 @@ export function mediaLabels(): LibraryLabels {
       notInLibrary: m["media.playback.notInLibrary"](),
       engineSaid: (message) => m["media.playback.engineSaid"]({ message }),
       masterFailed: m["media.playback.masterFailed"](),
+      engineCannotOpen: m["media.playback.engineCannotOpen"](),
       bar: {
         region: m["media.playback.region"](),
         play: m["media.play"](),

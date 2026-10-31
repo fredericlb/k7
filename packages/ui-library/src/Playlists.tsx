@@ -241,8 +241,8 @@ export function Playlists({
     <div className="flex min-h-0 flex-1">
       {/* The set lists on this volume, as a tree: a playlist is a FILE, and one can nest another. */}
       <aside
-        className={`flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:m-3 md:flex md:w-[290px] md:flex-none md:shrink-0 ${
-          listIsPage ? "m-3 flex min-w-0 flex-1" : "hidden"
+        className={`mb-3 flex-col overflow-hidden rounded-xl bg-tree-panel p-3 md:mr-3 md:flex md:w-[290px] md:flex-none md:shrink-0 ${
+          listIsPage ? "flex min-w-0 flex-1" : "hidden"
         }`}
       >
         {/* On a narrow screen the column beside it is not drawn, so its error is said here; a wide one says it there. */}

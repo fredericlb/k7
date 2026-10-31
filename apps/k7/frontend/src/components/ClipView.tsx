@@ -33,6 +33,7 @@ import type { WaveMode } from "../waveMode";
 import { type AudioClipHandle, AudioClipPanel } from "./AudioClipPanel";
 import { type ClipViewMode, ClipViewModes } from "./ClipViewModes";
 import { GraphSlotPane } from "./GraphSlotPane";
+import { PanelCloseButton } from "./PanelClose";
 import { PianoRoll, type RollHandle } from "./PianoRoll";
 import { SeqGridFile } from "./SeqGridFile";
 import { SequencerPanel } from "./SequencerPanel";
@@ -422,6 +423,7 @@ export function ClipView({
           // The tracker over the sequence FILE, headed the way the other two are; it writes straight to the file (SeqGridFile.tsx).
           <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
             <div className="flex items-center gap-2 border-border border-b px-3 py-1 text-xs">
+              <PanelCloseButton />
               <span className="font-semibold text-primary-text">
                 <Grid3x3 className="h-3.5 w-3.5" /> {seqId}
               </span>
@@ -549,6 +551,8 @@ export function ClipView({
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.
             tempo={(project ?? target.project).tempo}
             beatsPerBar={(project ?? target.project).timeSigNumerator}
+            // …and its lanes, which name a take in the panel's header.
+            lanes={(project ?? target.project).tracks}
             // The clicked EVENT's beat — what puts the song's ruler over the wave.
             placedAt={clip.start}
             // …and the same beat as a TIMECODE, spelled HERE because it needs the project's time signature, denominator included.

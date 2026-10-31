@@ -43,6 +43,9 @@ still reads `title` when the session is on.
 pages in the first and its engine in the second. Two slots rather than one, because what plays and
 where to go are two questions, and a host answering both in one row reads as one list.
 
+Below 640 px the gaps between the slots halve: on a phone the bar holds finger-sized buttons edge to
+edge, and 12 px gaps are the width of a whole target.
+
 
 `transport` stands where the play/pause button is, and `track` where the clocks and the scrubber are —
 `null` for none at all. They are for a host whose transport is more than a range: k7's project has play,

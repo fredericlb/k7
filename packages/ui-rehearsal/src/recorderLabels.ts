@@ -2,6 +2,7 @@
 // English defaults and no catalogue of its own, so the language is decided here, per call.
 
 import type { MicErrorTexts, RecorderLabels } from "@studio/recorder";
+import { locale } from "./i18n";
 import { m } from "./paraglide/messages.js";
 
 export const micErrors = (): MicErrorTexts => ({
@@ -42,4 +43,5 @@ export const recorderLabels = (): RecorderLabels => ({
   analyzing: m["common.analyzing"](),
   removeTag: (tag) => m["recorder.removeTag"]({ tag }),
   mic: micErrors(),
+  locale: locale(),
 });

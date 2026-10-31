@@ -15,6 +15,8 @@ const CARRIED = [
   "ui",
   "cc",
   "params",
+  // …and what each param plays at unset, the value a widget falls back to before it says "–".
+  "defaults",
   "pluginId",
   "monitor",
   // Which socket a live input is on: `inputUI` draws it and the renderer reads it back.

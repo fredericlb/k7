@@ -46,7 +46,9 @@ instant and a zoom glides — is the package's own
   gesture settles — but **only once a fit has actually happened**. The pre-fit value is the
   identity camera `{0,0,1}`, and saving
   that is indistinguishable from a camera the user chose: the next mount would read it, skip
-  the fit, and draw at 1:1 from the origin.
+  the fit, and draw at 1:1 from the origin. The Graph panel holds **one camera per track**: a
+  stored camera skips the fit, so one shared store would greet a track with the framing of the
+  last track shown.
 - Framing a chain the user picked in the sidebar counts as their choice too, so a later
   resize must not throw it away.
 
@@ -73,7 +75,8 @@ has to say so: a graph that merely looks unchanged reads as the gesture having m
 
 A widget shows, in order: the hand's **optimistic override**, else what the **engine**
 reports (which already folds in any authored override), else what the **project** authored,
-else nothing. Undefined means "unknown" and paints as an empty control.
+else what the **plugin declares** it plays at unset, else nothing. Undefined means "unknown" and
+paints as an empty control — the reasons are in `packages/ui-chains-react/docs/widgets.md`.
 
 When a plugin frame lands, the overrides it now speaks for are dropped — except the one
 under the hand: the commit reconciles, then the frame owns the value.
@@ -179,8 +182,11 @@ by the synth there". The layout
 places only what has no pin: dagre owns every NEW module and everything nobody moved,
 which keeps its "never hand-roll layout" rule intact — a pin is not routing, it is somebody's
 answer overriding the ranker's for one card. The mixer row ignores pins entirely (a strip
-dragged out of the line would put a console's channel wherever it last was), and the graph
-panel honours them, so a module sits in one place whichever pane is looking.
+dragged out of the line would put a console's channel wherever it last was), and so does the
+graph panel (`trackPanelLayout.ts`). A pin is a place on the WHOLE graph's canvas: a track's
+slice placed by the pins is a few cards scattered over every coordinate the project spans, and a
+camera fitting that box draws them a few pixels wide with empty grid around them. The panel lays
+its slice out with dagre and its own session memory, and takes no drag, so it never writes a pin.
 
 **The layout's own pins are no undo step.** Where dagre put a card that had no pin, the canvas
 writes down with one `graph pin` (`packages/commands/docs/verbs.md`) — as a project opens, among

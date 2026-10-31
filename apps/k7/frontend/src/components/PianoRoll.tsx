@@ -28,6 +28,8 @@ import {
   pasteNotes,
 } from "../clipboard";
 import { clipLoop, playedZone } from "../clipLoop";
+import { clipShownName, laneNamer } from "../clipNames";
+import { CLIP_NAME_WORDS } from "../clipNameWords";
 import type { MenuCtx } from "../contextMenu";
 import {
   type ClipGridHandle,
@@ -604,8 +606,17 @@ export function PianoRoll({
     // min-w-0, as in the timeline: the fixed-width grid must not become this flex child's minimum.
     <div className="flex h-full min-h-0 min-w-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
-        <span className="font-semibold text-primary-text">
-          <Piano className="h-3.5 w-3.5" /> {clip.name || clip.id}
+        {/* The name a musician knows the clip by; its id stays the tooltip's (clipNames.ts). */}
+        <span
+          className="font-semibold text-primary-text"
+          title={clip.name || clip.id}
+        >
+          <Piano className="h-3.5 w-3.5" />{" "}
+          {clipShownName(
+            clip.name || clip.id,
+            laneNamer(project.tracks),
+            CLIP_NAME_WORDS,
+          )}
         </span>
         <span className="text-muted-foreground">
           {visNotes.length} notes

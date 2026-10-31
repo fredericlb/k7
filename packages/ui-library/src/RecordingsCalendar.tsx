@@ -8,6 +8,7 @@ import { Card } from "@frediverse/ui/card";
 import { Check, CloudCheck, HardDrive, Mic } from "@frediverse/ui/icons";
 import { Timeline, TimelineItem } from "@frediverse/ui/timeline";
 import type { RecordingDay } from "@studio/mediatek/recordings";
+import { formatDate } from "@studio/recorder/format";
 import type {
   Moment,
   MomentPlacement,
@@ -23,11 +24,7 @@ import { RowMenu, rowTarget } from "./RowMenu";
 import { captureEntries, captureTags } from "./recordingCalendar";
 
 const clock = (locale: string, at: Date, seconds = false) =>
-  at.toLocaleTimeString(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(seconds ? { second: "2-digit" } : {}),
-  });
+  formatDate(at, seconds ? "timeSeconds" : "time", locale);
 
 // A span or a duration, as the rehearsal pages print one.
 const span = (s: number) =>
@@ -148,6 +145,8 @@ export function RecordingsCalendar({
       <div className="flex shrink-0 flex-col gap-3 md:w-[290px]">
         <Calendar
           disableFuture
+          locale={l.common.locale}
+          labels={l.contents}
           markedDays={markedDays}
           selected={shownDay}
           onSelect={setSelectedDay}
@@ -189,12 +188,7 @@ export function RecordingsCalendar({
           </Card>
         ) : null}
         <h2 className="mb-2 font-semibold text-sm">
-          {new Date(y, mo, d).toLocaleDateString(l.common.locale, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
+          {formatDate(new Date(y, mo, d), "day", l.common.locale)}
         </h2>
         {dayEntries.length === 0 ? (
           <p className="text-muted-foreground text-sm">

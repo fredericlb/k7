@@ -59,3 +59,9 @@ export function songPreviewDoc(absolutePath: string, name: string): ProjectDoc {
     ],
   });
 }
+
+/** Whether an engine warning names `path`: its own words for a file it could not open, either slash. */
+export function warnsAbout(message: string, path: string): boolean {
+  const slashes = (s: string) => s.replaceAll("\\", "/");
+  return slashes(message).includes(slashes(path));
+}
