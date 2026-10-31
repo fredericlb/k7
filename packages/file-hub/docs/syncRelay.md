@@ -28,8 +28,65 @@ account's rooms.
 The token comes from the origin's `GET /api/sync/devices/pair`, which a computer or a phone opens in
 the browser: it signs the browser in when it must, mints a device token named after the
 machine, and redirects to a loopback `return` (`isLoopbackReturn`, the same rule as the API
-token's pairing) — or to another server's, once the person allowed it (below). A paired account's service starts with the hub and is never stopped for idleness,
+token's pairing) — or to another server's, once the person allowed it (below). A machine whose
+account is signed in to the origin's own identity provider gets the same token with no browser, from
+`POST /api/sync/pair/direct` (below, "Pairing without the browser"). A paired account's service starts with the hub and is never stopped for idleness,
 and pairing restarts it so it dials the new relay.
+
+## Pairing without the browser
+
+An account signed in on the machine through the provider the server signs in with has proved who it
+is already: sending the person through the server's page to prove it again is a tab, a redirect and a
+click for nothing. So the machine's backend keeps the provider's access token of that sign-in
+(commons `packages/oidc/docs/session.md`, "Keeping the provider's token") and, when "Add a server" is
+pressed, tries the server's direct route before the browser (`../directPair.ts`). The token the
+server mints, the device record and its name, and the link stored on the machine are the browser
+pairing's, through the same code (`devices.mint`, `storeLink` in `../pairRoutes.ts`): the two ways
+differ only in how the account is proved.
+
+| case | way |
+|---|---|
+| a signed-in account, a server in the machine's `STUDIO_DIRECT_PAIR_SERVERS`, a kept token | direct; on any refusal, the browser, transparently |
+| the local user, "Add another account", a server not in the list, a backend restarted since the sign-in | the browser, always |
+
+**What the server trusts** is its own provider's word, and nothing the caller says about itself:
+
+- the token is checked by the server's provider, never one the caller names: an `issuer` other than
+  the server's is refused before the token is sent anywhere;
+- the email is UserInfo's, as at the server's own sign-in, and one the provider says it never verified
+  (`email_verified: false`) is refused; the person is UserInfo's `sub`;
+- the token must have been issued to a client in `STUDIO_PAIR_CLIENTS` (the machine's public client,
+  `st0-desktop`). The client comes from the provider's introspection when the server's own client may
+  introspect (it needs a secret, and the provider an endpoint), and introspection says `active` and the
+  same `sub`; otherwise from UserInfo's `azp` (or `client_id`). A provider that says neither cannot
+  have its client checked, and every token is then refused. **Without `STUDIO_PAIR_CLIENTS` the route is
+  not mounted at all**: a server never takes a provider token by default, and a provider token issued
+  to an unrelated app on the same provider buys nothing.
+
+**What it does not take**: no session cookie (the call is server to server, from the machine's backend,
+so no CORS and no `Origin`), and no detail on a refusal — every one is `401` with the same sentence,
+the reason staying in the server's knowledge. Five attempts a minute per address (`req.ip`, behind the
+proxy the session already trusts), then `429`.
+
+**What the machine trusts the server with**: the token is a bearer for the person at the provider, and
+a server that received it could replay it at another server on the same provider to mint itself a
+device of that account. So the machine sends it only to the servers its env names
+(`STUDIO_DIRECT_PAIR_SERVERS`, `app.k7.rocks` in `standalone.json`), never to an address merely typed,
+never through a redirect, and over https (`normalizeServer` admits http only on loopback).
+
+**Where the token lives**: in the machine's backend's memory, never in its session cookie, which is
+signed and readable, nor on disk; it dies with the process, and a pairing after a restart takes the
+browser. A phone's view, signed in from the system browser through the handoff, shares that browser
+session's token by its key (`apps/k7/backend/docs/handoff.md`). An access token lasts what the
+provider gives it (`expires_in`, typically an hour): past it, with no refresh token kept, the pairing takes the
+browser too. Asking the provider for `offline_access` (in `OIDC_SCOPES`) would keep a refresh token and
+renew it, if the provider's client allows that scope.
+
+**The page opens no tab for it.** A browser lets a page open a tab only inside the click, so the page
+asks ahead which servers pair at once (`directHosts` on `GET /api/sync/remote/pair`) and opens none for
+them; a direct attempt refused afterwards opens the server's page then, and a browser that blocks that
+late tab is told so (`account.status.pairBlocked`), the next click opening it first. The answer to the
+POST is the pairing already ended (`url: null`), so the phones skip their browser the same way.
 
 ## Pairing through the browser is the machine's backend's
 

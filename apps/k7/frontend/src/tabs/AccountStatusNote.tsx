@@ -37,6 +37,8 @@ function words(s: AccountStatus): string | null {
       });
     case "pairNotStored":
       return m["account.status.pairNotStored"]();
+    case "pairBlocked":
+      return m["account.status.pairBlocked"]();
     default:
       return m["account.status.failed"]();
   }

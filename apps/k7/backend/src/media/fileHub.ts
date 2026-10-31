@@ -15,6 +15,7 @@ import {
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
 import {
+  SYNC_PAIR_DIRECT_ROUTE,
   SYNC_PAIR_RETURN_PATH,
   SYNC_PAIR_ROUTE,
 } from "@studio/web-protocol/pairing";
@@ -41,6 +42,7 @@ export function mountFileHub(
   dataRoot: string,
   issueApiToken: (sub: string) => string,
   onRemote?: FileHubOptions["onRemote"],
+  directPair?: FileHubOptions["directPair"],
 ): FileHub {
   const hub = new FileHub({
     dataRoot,
@@ -73,6 +75,8 @@ export function mountFileHub(
     },
     // Under the tray, the machine's engine follows each pairing (../localEngine/followPairings.ts).
     onRemote,
+    // Pairing with no browser for an account signed in to the provider (./directPair.ts).
+    directPair,
     // Stable across restarts, so an open page keeps its ticket through a deploy.
     ticketKey: process.env.SESSION_SECRET
       ? `${process.env.SESSION_SECRET}:files`
@@ -100,6 +104,10 @@ export function mountFileHub(
     pairGate,
     hub.sync.syncPairHandler(),
   );
+  // A machine's backend with its provider token, server to server: no session, the provider's word is the gate.
+  const direct = hub.sync.directPairHandler();
+  if (direct)
+    app.post(SYNC_PAIR_DIRECT_ROUTE, express.json({ limit: "4kb" }), direct);
   app.use("/api/sync/devices", requireAuth, hub.sync.devicesRouter());
   // A pairing through the browser, for the tray, the phones and a server's accounts: started and awaited here, ended at the return.
   app.use("/api/sync/remote/pair", requireAuth, hub.sync.pairRouter());

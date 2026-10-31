@@ -522,6 +522,7 @@
   "account.status.alreadyLinked": "{server} est déjà lié en tant que {as} pour {local} : rien n'a changé. Pour ajouter un autre compte, connectez-vous à {server} avec ce compte quand sa page le demande.",
   "account.status.pairNotStored": "La liaison avec le serveur n'a pas pu être enregistrée sur cet ordinateur. Le journal dit pourquoi.",
   "account.status.failed": "Le navigateur n'a pas pu être ouvert. Le journal dit pourquoi.",
+  "account.status.pairBlocked": "Le navigateur a bloqué la page du serveur. Ajoutez de nouveau le serveur pour l'ouvrir.",
   "wsync.downloadMissingOne": "Télécharger le morceau manquant",
   "wsync.downloadMissingMany": "Télécharger les {count} morceaux manquants",
   "home.engine": "Moteur",

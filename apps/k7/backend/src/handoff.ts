@@ -11,6 +11,7 @@ import {
 import {
   type AuthHandle,
   isSameOriginRequest,
+  type SessionStamps,
   type SessionUser,
   safeReturnTarget,
 } from "@frediverse/oidc";
@@ -37,20 +38,21 @@ export const LOCAL_USER: SessionUser = {
   local: true,
 };
 
-/** A code's body: the user, the challenge, its expiry, the session's own stamps, and a nonce. */
+/** A code's body: the user, the challenge, its expiry, the session's own stamps and kept-token key, and a nonce. */
 interface CodeBody {
   u: SessionUser;
   c: string;
   e: number;
   i?: number;
   x?: number;
+  k?: string;
   n?: string;
 }
 
 /** What a redeemed code opens: the user, and the stamps of the session it was issued from. */
 export interface OpenedCode {
   user: SessionUser;
-  stamps?: { iat: number; exp: number };
+  stamps?: SessionStamps;
   expires: number;
 }
 
@@ -101,7 +103,7 @@ export function openCode(
   if (body.e < now || body.c !== challengeOf(verifier)) return null;
   const stamps =
     typeof body.i === "number" && typeof body.x === "number"
-      ? { iat: body.i, exp: body.x }
+      ? { iat: body.i, exp: body.x, ...(body.k ? { kept: body.k } : {}) }
       : undefined;
   return { user: body.u, stamps, expires: body.e };
 }
@@ -223,6 +225,8 @@ export function mountHandoff(
         e: Date.now() + CODE_TTL_MS,
         i: stamps.iat,
         x: stamps.exp,
+        // The key of the provider token the browser session kept, never the token: the app's view shares it.
+        ...(stamps.kept ? { k: stamps.kept } : {}),
         n: b64(randomBytes(9)),
       });
       // The desktop asks the browser to forget: the session is the app's now, not the browser's.

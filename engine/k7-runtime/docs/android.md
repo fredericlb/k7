@@ -377,6 +377,11 @@ with app.k7.rocks?"), since the browser coming up on its own reads as a bug, ope
 how it ended — paired as which account, already linked, not stored, not finished — in a toast. The
 phone's supervisor is handed the token of the link its engine is owned by on that origin.
 
+- **No browser when the phone's sign-in is proof enough.** The backend's POST tries the server's
+  direct route first (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser"); an answer
+  that has already ended is said at once, and the question names the account rather than the browser
+  (`direct` in the offer). The view's session shares the browser sign-in's provider token through the
+  handoff (`apps/k7/backend/docs/handoff.md`).
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and
   that return is the backend's own fixed port; a second rule for phones would be a second hole to keep shut.

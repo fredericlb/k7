@@ -88,6 +88,8 @@ export function mountMedia(
     tokens: ReturnType<typeof mediaTokens>;
     /** Under the tray: what the machine's engine does as a pairing is stored or let go. */
     onRemote?: Parameters<typeof mountFileHub>[6];
+    /** Pairing with no browser: a machine's side or a server's (./directPair.ts). */
+    directPair?: Parameters<typeof mountFileHub>[7];
     /** Where each account's médiathèque favorites are kept (./routes/favorites.ts). */
     favorites: FavoriteStores;
     /** …and its practice list, the same kind of list under its own name. */
@@ -166,6 +168,7 @@ export function mountMedia(
     // Held in memory only: the service it is handed to dies with this process.
     (user) => issueApiToken(user, { ephemeral: true }),
     opts.onRemote,
+    opts.directPair,
   );
 
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.

@@ -1,7 +1,8 @@
 // browserAccount.ts — signing in and pairing from the page itself, served in a browser by the tray's backend or a server.
 // Sign-in is the backend's own /auth/login, the address bar being right there; pairing is the backend's
-// /api/sync/remote/pair, its trip to the server opened in a tab of its own from a click, which a browser allows.
-// See ../../docs/localApp.md and packages/file-hub/docs/syncRelay.md, "Pairing through the browser".
+// /api/sync/remote/pair, its trip to the server opened in a tab of its own from a click, which a browser allows, or no
+// tab at all when the backend pairs with that server at once from the account's sign-in (`directHosts`).
+// See ../../docs/localApp.md and packages/file-hub/docs/syncRelay.md, "Pairing without the browser".
 
 import type { AccountStatus } from "./bridge";
 
@@ -32,6 +33,25 @@ const set = (s: AccountStatus): void => {
   for (const l of listeners) l(s);
 };
 let current: string | null = null;
+// The servers the backend pairs with at once for this session, asked ahead: a tab is opened inside the click or never.
+let directHosts = new Set<string>();
+
+const hostOf = (server: string): string => {
+  try {
+    return new URL(server).host;
+  } catch {
+    return "";
+  }
+};
+
+/** Ask the backend which servers it pairs with at once, before any click needs to know. */
+async function prepare(): Promise<void> {
+  const r = await fetch("/api/sync/remote/pair", { cache: "no-store" }).catch(
+    () => null,
+  );
+  const a = r?.ok ? ((await r.json()) as { directHosts?: string[] }) : null;
+  directHosts = new Set(a?.directHosts ?? []);
+}
 
 const store = (k: Storage | undefined, key: string, v: string | null) => {
   try {
@@ -86,8 +106,9 @@ async function follow(state: string): Promise<boolean> {
 
 /** Pair this machine with `server` from a click, which makes it the active one: the server's page opens in a new tab, waited on here. */
 async function pair(server: string, another = false): Promise<boolean> {
-  // Opened first, inside the click: a window opened after an await is a pop-up a browser blocks.
-  const tab = window.open("about:blank", "_blank");
+  // A server paired with at once needs no tab; any other is opened first, inside the click, or the browser blocks it.
+  const silent = !another && directHosts.has(hostOf(server));
+  const tab = silent ? null : window.open("about:blank", "_blank");
   const r = await fetch("/api/sync/remote/pair", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -105,11 +126,24 @@ async function pair(server: string, another = false): Promise<boolean> {
     return false;
   }
   const { url, pairing } = (await r.json()) as {
-    url: string;
+    url: string | null;
     pairing: Pairing;
   };
+  // Paired already, by the account's own sign-in: said at once, with no tab.
+  if (!url) {
+    tab?.close();
+    void fetch(`/api/sync/remote/pair/${pairing.state}`, { method: "DELETE" });
+    set(ending(pairing));
+    return pairing.phase === "paired";
+  }
   if (tab) tab.location.href = url;
-  else window.open(url, "_blank");
+  else if (!window.open(url, "_blank")) {
+    // Opened after the await, the tab was blocked: the next click opens it first.
+    directHosts.delete(hostOf(server));
+    void fetch(`/api/sync/remote/pair/${pairing.state}`, { method: "DELETE" });
+    set({ state: "error", code: "pairBlocked" });
+    return false;
+  }
   current = pairing.state;
   set({ state: "waiting", what: "pair" });
   return follow(pairing.state);
@@ -127,7 +161,10 @@ export const browserAccount = {
   },
   server: async (): Promise<string | null> =>
     read(globalThis.localStorage, SERVER_KEY),
+  /** Ask ahead which servers pair with no tab, for a page that offers Add. */
+  prepare: (): Promise<void> => prepare(),
   authStatus: async (): Promise<AccountStatus | null> => {
+    void prepare();
     const server = read(globalThis.sessionStorage, PAIR_KEY);
     if (status.state !== "idle" || !server) return status;
     // Back from a sign-in: offered once, unless the account already syncs with it.

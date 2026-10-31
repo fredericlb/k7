@@ -35,6 +35,15 @@ The token k7 hands the rehearsal recorder (`service:k7`) and the one each accoun
 started with are **ephemeral**: held in this process's memory, never listed, and dead when it
 stops — which is also when those holders stop.
 
+## The provider's token, on a machine only
+
+Under `STUDIO_LOCAL_USER` (the tray, the phones) the backend keeps each sign-in's provider access
+token, and its refresh token when the provider hands one (`keepAccessToken`, `keepRefreshToken`):
+it is what pairs the machine with its server with no browser
+(`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser"). In memory only, so a restart
+loses it and the next pairing takes the browser. A hosted server keeps none: nothing there needs to
+speak for the person at the provider.
+
 ## The token routes
 
 | route | does |

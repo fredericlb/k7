@@ -74,6 +74,7 @@ Where iOS does a thing itself, the app lets it:
 | Android | iOS |
 |---|---|
 | a Custom Tab for the sign-in, the verifier kept on disk | `ASWebAuthenticationSession`, a sheet over the app: the app stays in front, so the verifier stays in memory |
+| a pairing answered already ended, with no sheet | the backend paired at once through the server's direct route, as on Android (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser") |
 | a pairing killed behind the browser, told at the next start | the same backend routes, but a pairing still waiting at the next start is dropped: the sheet died with the app, so nothing will come back to it. The link takes the account the sheet confirms, and it is offered only while no server is saved, as on Android |
 | `download.js` fetching blobs in 512 KiB chunks | `WKDownload`, which takes a `blob:`, `data:` or same-origin URL with the session's cookies; the file lands in Documents/Downloads, which the Files app shows under k7 |
 | `back.js` and the Back button | the edge swipe, over the view's own history |
