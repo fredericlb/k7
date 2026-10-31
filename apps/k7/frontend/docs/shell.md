@@ -264,6 +264,10 @@ everything else collapses into is under a thumb, and a 24-pixel target there is 
 reason `toolSize` reads the breakpoint instead of being a constant. Both phone popovers open upward,
 the bar being at the foot (`components/MobileChrome.tsx`).
 
+**Under 380 px the clock shows only bar:beat.** Two 44 px slots, four transport buttons, the menu
+and the engine leave no room for both positions on a 360 px phone, and the bar and beat are what a
+musician steers by; the seconds come back on any wider screen.
+
 **On a phone the hamburger and the info icon each own a 44 px slot**, side by side and never
 shrinking: two icons sharing one finger's width make the way home a few pixels wide, and that is the
 control a phone needs most from a project. The hamburger's slot reaches into the bar's left padding,
