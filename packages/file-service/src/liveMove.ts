@@ -1,4 +1,5 @@
-// liveMove.ts — move or copy a workspace from the server it syncs with to another this account is paired with:
+// liveMove.ts — move or copy a workspace from the link it syncs with to another of this account's — another server, or
+// another account on the same one:
 // the target's room is seeded with everything here, text and bytes. A move then empties the old room, which takes
 // the workspace off that server's list and every device's synced with it; its history still holds it, and edits
 // made meanwhile are held and go to the target. A copy stops after the seed and stays linked where it was.
@@ -12,10 +13,10 @@ import { replicaId } from "./liveLog.ts";
 import type { RelayLink } from "./liveRelay.ts";
 import {
   forgetRooms,
-  hostOf,
   linkFor,
   listRooms,
   originOf,
+  recordFor,
   type SyncServer,
   serverOf,
   writeLinkRecord,
@@ -45,14 +46,18 @@ const until = async (
   }
 };
 
+/** How a message names a link: its server, and its account when it has one. */
+const named = (s: SyncServer): string =>
+  s.as ? `${originOf(s.url)} (${s.as})` : originOf(s.url);
+
 /** Why `a` cannot move or copy to `to` now, or null: it must be whole here, and the target must not hold its name. */
 async function refusal(a: Attached, to: string): Promise<string | null> {
   if (!a.link || !a.replica || !a.server)
     return "this workspace syncs with no server";
   const target = serverOf(to);
   if (!target) return `this machine is not signed in to ${to}`;
-  if (hostOf(target.url) === hostOf(a.server.url))
-    return `it already syncs with ${originOf(to)}`;
+  if (target.id === a.server.id)
+    return `it already syncs with ${named(target)}`;
   if (a.link.textState(a.room) !== "current")
     return "it is still syncing — try again once it is up to date";
   if (Object.keys(a.capture.blobs?.pending() ?? {}).length)
@@ -60,11 +65,11 @@ async function refusal(a: Attached, to: string): Promise<string | null> {
   if (a.replica.unconfirmed().length)
     return "edits made here have not reached its server yet";
   if ((await listRooms(target, 0)).includes(a.room))
-    return `${originOf(to)} already has a workspace called '${a.room}'`;
+    return `${named(target)} already has a workspace called '${a.room}'`;
   return null;
 }
 
-type Transfer = { to: string; error?: string; copy?: boolean };
+type Transfer = { to: string; link?: string; error?: string; copy?: boolean };
 
 /** A move or copy under way, or the reason the last one failed, by workspace root: what the workspace list says. */
 const moves = new Map<string, Transfer>();
@@ -73,7 +78,7 @@ export const moveState = (root: string): Transfer | undefined =>
   moves.get(root);
 reportMoves(moveState);
 
-/** Start sending the workspace at `root` to the server `to` names; throws the reason it cannot, else runs on its own. */
+/** Start sending the workspace at `root` to the link `to` names (an id or an origin); throws why it cannot, else runs on. */
 async function startTransfer(
   root: string,
   to: string,
@@ -86,7 +91,12 @@ async function startTransfer(
     throw new Error(`it is already ${running.copy ? "copying" : "moving"}`);
   const why = await refusal(a, to);
   if (why) throw new Error(why);
-  const state: Transfer = { to: originOf(to), ...(copy ? { copy } : {}) };
+  const target = serverOf(to);
+  const state: Transfer = {
+    to: target ? originOf(target.url) : originOf(to),
+    ...(target ? { link: target.id } : {}),
+    ...(copy ? { copy } : {}),
+  };
   moves.set(root, state);
   void (copy ? copyWorkspace(a, to) : moveWorkspace(a, to)).then(
     () => moves.delete(root),
@@ -189,7 +199,7 @@ async function moveWorkspace(a: Attached, to: string): Promise<void> {
       if (existsSync(join(seedDir, f)))
         renameSync(join(seedDir, f), join(a.logDir, f));
     }
-    writeLinkRecord(a.logDir, { server: originOf(target.url), room: a.room });
+    writeLinkRecord(a.logDir, recordFor(target, a.room));
     linkUp(a, target);
     forgetRooms(from);
     forgetRooms(target);

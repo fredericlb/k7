@@ -234,16 +234,17 @@ export interface WorkspaceSyncStatus {
   paired: boolean;
   /** The MAIN server this machine syncs with, as an origin — its libraries, and where a new workspace goes. */
   server: string | null;
-  /** Every server it syncs with, as origins, the main one first. */
-  servers?: { origin: string; main: boolean }[];
-  /** Each workspace, here or on a server: `server` is the origin it syncs with, `room` its name there when that differs. */
+  /** Every link it syncs with — one account on one server each, several possibly on one server — the main one first. */
+  servers?: { origin: string; main: boolean; id?: string; as?: string }[];
+  /** Each workspace, here or on a server: `server` is the origin it syncs with, `link` the link's id, `room` its name there when that differs. */
   workspaces: {
     name: string;
     state: "synced" | "local" | "server";
     server?: string;
+    link?: string;
     room?: string;
-    /** A move under way to `to` — a copy when `copy`, which leaves it where it is — or the reason it failed (`error`). */
-    moving?: { to: string; error?: string; copy?: boolean };
+    /** A move under way to `to` (the link `link`) — a copy when `copy`, which leaves it where it is — or why it failed (`error`). */
+    moving?: { to: string; link?: string; error?: string; copy?: boolean };
   }[];
 }
 
