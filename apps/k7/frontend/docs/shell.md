@@ -1441,6 +1441,25 @@ the timeline, the viewport, the desk and the master strip, with their state. The
 desk applies the same rule to its cue sheet, and writes no cue until it has read the sheet once —
 the write is the whole file.
 
+### Engine warnings are toasts
+
+The engine raises warnings in its own prose — a duplicated clip id it renamed, a file outside the
+folders it may read, a plugin it could not create. They are said in a **warning toast**, worded for
+a person, and never in the status line: the line carries the caret readout and what a command just
+did, and a warning there would replace it for the whole session, alarming and unactionable.
+The engine's own text goes to the Logs panel, which is where a bug report reads it.
+
+- **The kinds are recognised by text.** The engine sends no code with a warning, so
+  [`../src/engineWarnings.ts`](../src/engineWarnings.ts) matches the stable start of each known text
+  and gives it a sentence; one it does not know is still toasted, generically, with the raw words
+  after it, so a new engine warning is never silent.
+- **Once per project, for the page's life.** Every apply re-parses the document and re-raises
+  the same warnings, and a reconnect re-applies; the toast is keyed by the engine session and
+  the raw text, held above the hook so a remount forgets nothing.
+- **The médiathèque says them the same way**, through its host's `onEngineWarning`; its player
+  keeps for its own bar only the warning that names the song's file, the one that means silence
+  (`packages/ui-library/docs/playback.md`).
+
 ## Live state does not re-render the tree
 
 The transport and the engine's live state arrive over the WebSocket at roughly 20 Hz. Held as React state

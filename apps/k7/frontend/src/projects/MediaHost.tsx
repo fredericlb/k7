@@ -4,6 +4,7 @@
 // The API is this backend's, or on the tray the paired server's through it (../serverChoice.ts).
 // See packages/ui-library/docs/host.md.
 
+import type { EngineWarning } from "@studio/engine-browser";
 import {
   configureLibrary,
   LibraryHostProvider,
@@ -19,6 +20,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { rawText, toastEngineWarning } from "../engineWarnings";
 import { useHomeEngineId } from "../homeEngine";
 import { useLocale } from "../i18n";
 import { useListenHere } from "../listenHere";
@@ -52,6 +54,12 @@ const recordingHref = (path: string) =>
 const momentHref = (id: string) =>
   `${REHEARSAL_ROUTE}/moments/${encodeURIComponent(id)}`;
 
+/** A warning the médiathèque's player is not failing on: a toast, as the editor says it (../engineWarnings.ts). */
+const onEngineWarning = (w: EngineWarning) => {
+  console.warn(`engine: ${rawText(w)}`);
+  toastEngineWarning("media", w);
+};
+
 /** Who is signed in, as an engine session names them; "" until known. */
 function useSignedIn(): string {
   const [user, setUser] = useState("");
@@ -81,6 +89,7 @@ export function MediaHost({ children }: { children: ReactNode }) {
       songAttachment,
       recordingHref,
       momentHref,
+      onEngineWarning,
       // The red dot's start, named, beside the captures it files into.
       recordButton: <StartFirstSessionButton />,
     }),

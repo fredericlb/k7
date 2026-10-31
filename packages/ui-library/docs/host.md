@@ -24,6 +24,8 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
   following and the transposition stay one rule in this package. `recordingHref` and `momentHref`
   say where a capture and a moment open, both being the rehearsal package's pages, and
   `recordButton` is the host's start of a take, offered with the captures ([recordings.md](recordings.md)).
+  `onEngineWarning` is how the host tells an engine warning the player is not failing on — k7 toasts
+  it — since a warning is the host's to word and the bar is no place for it ([playback.md](playback.md)).
 
 k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases through its server
 picker (`apps/k7/frontend/docs/serverPicker.md`). Either base is its own backend, on the same
