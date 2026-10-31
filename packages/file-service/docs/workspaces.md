@@ -63,8 +63,15 @@ the file lives at the WORKSPACE root, one level above everything the copy carrie
 alone lands beside no `_playlists/` and opens on "the playlist this surface names cannot be found".
 `carryPlaylists` copies each one the surfaces name, and skips any the destination already has: a
 workspace's own set list is the one its other projects are already reading, and a copy is no reason
-to overwrite it. Nothing else is chased across — a module named from `_modules` resolves against the
-destination's library by design, which is what a shared library IS.
+to overwrite it.
+
+**So do the `@workspace` modules it names.** A chain that `extends("@workspace/instruments/synth")`
+reads the source workspace's `_modules`, and in another workspace it names nothing: the copy would open
+on "extends unknown module". `carryModules` finds every `@workspace/…` reference in the copy's text
+files, copies the module (a folder, or a single `.k7x`) into the destination's `_modules`, and follows
+the references inside what it copied. The destination's own module of that name wins, for the same
+reason as a set list. Libraries are not chased: a library is named by version and the destination pins
+its own.
 
 ## Renaming one in place
 
