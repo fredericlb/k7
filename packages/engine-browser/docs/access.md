@@ -128,6 +128,31 @@ k7 opts in: it opens a project, and a project is the server's. The media library
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.
 
+## Engines through a server
+
+A machine's own backend lists only its own machine's engines, while the person's other machines
+heartbeat to the server they added. An app on such a backend may name that server with `server`
+(`ServerRoute`): a `base` where the server's registry routes and file hub answer FROM THE PAGE — k7's
+forward, `/api/server` — and a `list` of its engines, each carrying `via` (k7's backend builds it,
+`apps/k7/backend/docs/serverEngines.md`). The object stays one object; what changes per engine is decided
+by `via` alone (`serverEngines.ts`).
+
+| | this origin's engine | an engine `via` a server |
+|---|---|---|
+| listed | first | after, and dropped when this origin lists the same id (`mergeEngines`): the local route wins |
+| probed | loopback, LAN, this origin's relay, WebRTC | that server's relay only, `wss://<via.origin>/api/engine/<id>/ws`, with the ticket that server minted |
+| files | this origin's hub | that server's hub, `<server.base><hello.path>`, and its ticket with `~<id>` |
+| claimed, renewed, released | this origin's registry | `server.base`'s, so the claim is that server's account's |
+| taken unasked | as above | never, unless it is the remembered one (`mayAutoPick`) |
+
+Each choice follows from the claim being the other server's: the relay gate there asks the ticket's
+account for a claim (`packages/engine-registry/docs/proxy.md`), so the ticket, the claim and the files
+must all be that server's, or the engine plays a project nobody bound. A direct socket to such an engine
+would bypass nothing the server checks, but would answer as `reachedDirectly` and make it a candidate
+to take unasked, which moves the project's files to another server: so none is offered. `freshTicket`
+takes the engine whose files a 401 came from, so a renewal asks the right hub. A server that does not
+answer lists nothing, and the local list is never held behind it.
+
 ## Following a scan claims nothing
 
 `watchPluginScan` (`scanWatch.ts`) holds one socket to one engine and hears its `plugin-scan`

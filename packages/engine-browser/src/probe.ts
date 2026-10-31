@@ -30,6 +30,8 @@ export interface ProbeTarget {
   rtc?: boolean;
   /** The server's own engine, its tunnel authenticated by the render key — packages/engine-tunnel/docs/jobs.md. */
   server?: boolean;
+  /** Listed by another server: reached through that server's relay alone — docs/access.md, "Engines through a server". */
+  via?: { origin: string };
 }
 
 export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
@@ -175,13 +177,19 @@ function probeOne(
   });
 }
 
-interface Candidate {
+export interface Candidate {
   url: string; // the WebSocket to try
   direct: boolean; // one of the engine's own addresses, not the relay nor WebRTC
 }
 
 /** Every way this browser might reach one engine — the order is documentation only: `rank` races them all and `orderHits` decides. */
-function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
+export function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
+  // Through another server: its relay with its ticket, and nothing that would dial the engine's machine from here.
+  if (e.via?.origin) {
+    if (!e.proxyTicket) return [];
+    const relay = relayUrls(e.via.origin, e.id, e.proxyTicket, location.href);
+    return [{ url: relay.ws, direct: false }];
+  }
   const { loopback, lanIps, port } = e.addresses;
   /** The addresses this page may actually dial in the clear; an HTTPS page counts a LAN attempt as MIXED CONTENT — see docs/access.md. */
   const dialable =

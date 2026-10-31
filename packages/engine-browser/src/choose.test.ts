@@ -268,6 +268,24 @@ describe("who is taken unasked", () => {
     expect(bestEngine([server])?.engine.id).toBe("render");
   });
 
+  it("takes an engine through another server only when the account remembered it", () => {
+    const far = (r: RankedEngine<PublicEngine>) =>
+      ({
+        ...r,
+        engine: {
+          ...r.engine,
+          server: true,
+          via: { origin: "https://app.k7.rocks", host: "app.k7.rocks" },
+        },
+      }) as RankedEngine<PublicEngine>;
+    expect(bestEngine([far(rated("srv", 9, "Q1"))])).toBeNull();
+    expect(chooseEngine([far(engine("tom", 9))], undefined).engine).toBeNull();
+    expect(
+      bestEngine([far(rated("tom", 9, "Q1"))], { remembered: "tom" })?.engine
+        .id,
+    ).toBe("tom");
+  });
+
   // A lookalike may advertise any address: only one of its own private addresses, dialled directly, counts.
   it("does not count a public address as direct", () => {
     const pub = rated("pub", 2, "Q1");

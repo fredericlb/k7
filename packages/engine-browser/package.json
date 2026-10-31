@@ -1,6 +1,6 @@
 {
   "name": "@studio/engine-browser",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "files": [
     "src",
@@ -21,6 +21,7 @@
     "./compat": "./src/compat.ts",
     "./scan-watch": "./src/scanWatch.ts",
     "./registry": "./src/registry.ts",
+    "./server-engines": "./src/serverEngines.ts",
     "./lease": "./src/lease.ts",
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts",

@@ -24,6 +24,9 @@ export function mayAutoPick<E extends ProbeTarget>(
   r: RankedEngine<E>,
   remembered: string | undefined,
 ): boolean {
+  // Through another server, its files are that server's: only a person's own pick moves the project there.
+  if (r.engine.via)
+    return remembered !== undefined && r.engine.id === remembered;
   return (
     (remembered !== undefined && r.engine.id === remembered) ||
     reachedDirectly(r) ||
