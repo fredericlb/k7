@@ -803,8 +803,9 @@ anything:
   timeline, else the first pane declared), resolved against the layout before anything reads it.
   There is no split: two panes sharing the window each got too little of it to work in, and a second
   view under the page is the bottom panel's job
-- `focus` — which pane gets the keys, which is the page on screen; Tab walks the pages of the ring
-  (`ringPanes`, which is `viewPanes(...).ring`, so the editor is not on it)
+- `focus` — which pane gets the keys, which is the page on screen; F6 walks the pages of the ring
+  and Shift+F6 walks it back (`ringPanes`, which is `viewPanes(...).ring`, so the editor is not on
+  it, and F6 from the editor lands on the ring's first page)
 - `panel` — the bottom panel, independent of both
 
 There is no fourth piece: which pages exist is not state. It is a function of what the project
@@ -1944,6 +1945,18 @@ layout. What a touch screen of any size does need is the right-click, and a fing
 (`longPress.ts`, [contextMenu.md](contextMenu.md)).
 
 ## Keyboard focus is always drawn
+
+**Tab and Shift+Tab are the browser's**, everywhere in the shell: `keyToken` makes no token of Tab, so
+no binding can take it and a stored `key: tab` is read as no assignment. A keyboard-only or
+screen-reader user walks the project bar, the transport, the page's controls (a lane's M/S/A among
+them), the footer's panel tabs and the settings in document order, which is what a key bound to Tab
+would forbid. The one component that keeps Tab is a field of the command bar, a form whose fields it
+steps through ([commandBar.md](commandBar.md)). The tracker grid lets Tab go by.
+
+**The pages are walked by F6**, Shift+F6 backwards: it is the platforms' "next pane" key, and Ctrl+Tab
+is not on offer, being the browser's own tab switch. F6 passes a focused control and a text field
+alike, being the way out of both, and it types nothing. The timeline is no tab stop: its caret is the
+shell's own keys, which answer wherever focus is, as the rule for drag surfaces below says.
 
 `index.css` gives every button, link, `role="button"`/`option` and `tabindex` element one focus ring
 under `:focus-visible`, at zero specificity (`:where`) so a component's own ring still wins. A field

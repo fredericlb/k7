@@ -90,8 +90,8 @@ What the surface answers **itself**, before `/command`:
 | `transport locate`, `transport loop`, `ui select`, `ui zoom …`, `ui ruler`, `ui lanes`, `ui automation` | the cursor and the zoom belong to the mounted pane (`TimelineHandle`); no service can move them. On a surface with no arrangement, the line **says so** — the key is bound, the command exists, it is the device that is the wrong place |
 | any other `ui …` | names a pane, a panel or a screen this device does not have — refused **in words**, rather than posted to a service that would answer "unknown command" |
 
-The **layout** verbs (`ui close`, `ui global`, `ui focus next`, the two closes) are the one exception
-to that last line: they stay silent. That is what Escape and Tab come to when there is nothing to
+The **layout** verbs (`ui close`, `ui global`, `ui focus next` and `prev`, the two closes) are the one exception
+to that last line: they stay silent. That is what Escape and F6 come to when there is nothing to
 close, and a screen answering Escape with a sentence about the editor is a screen that grumbles
 every time you dismiss something.
 
