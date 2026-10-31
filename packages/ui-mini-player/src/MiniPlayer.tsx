@@ -127,7 +127,7 @@ export function MiniPlayer({
   const bar = (
     <section
       aria-label={labels.region}
-      className={`relative flex shrink-0 items-center gap-3 border-t bg-card px-3 py-2${onClose ? ` [@media(hover:none)]:pr-12${trail || endShown ? " pr-9" : ""}` : ""}`}
+      className={`relative flex shrink-0 items-center gap-1.5 border-t bg-card px-3 py-2 sm:gap-3${onClose ? ` [@media(hover:none)]:pr-12${trail || endShown ? " pr-9" : ""}` : ""}`}
     >
       {leadShown && (
         <div className="flex min-w-0 max-w-[24rem] shrink items-center gap-1.5">
@@ -135,7 +135,7 @@ export function MiniPlayer({
         </div>
       )}
       {/* Centred and capped: on a wide screen the transport, the title and the clocks stay together. */}
-      <div className="mx-auto flex w-full min-w-0 max-w-[800px] items-center gap-3">
+      <div className="mx-auto flex w-full min-w-0 max-w-[800px] items-center gap-1.5 sm:gap-3">
         {transport !== undefined ? (
           <div className="flex shrink-0 items-center gap-1">{transport}</div>
         ) : (
@@ -221,7 +221,7 @@ export function MiniPlayer({
       )}
 
       {endShown && (
-        <div className="flex min-w-0 shrink items-center gap-1.5 border-l pl-3">
+        <div className="flex min-w-0 shrink items-center gap-1.5 border-l pl-1.5 sm:pl-3">
           {endShown}
         </div>
       )}

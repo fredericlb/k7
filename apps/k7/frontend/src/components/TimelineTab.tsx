@@ -36,8 +36,8 @@ import { trackLabel } from "@studio/song-schema/trackKind";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import {
   GUTTER_DESKTOP,
-  GUTTER_MOBILE,
   MARKER_COLOR,
+  mobileGutter,
   ROW_H,
 } from "@studio/ui-timeline/lanes";
 import {
@@ -84,7 +84,6 @@ import { useLatest } from "../hooks/useLatest";
 import type { ResourceDropEvent } from "../hooks/useTimelineDrop";
 import { useVideoDrag } from "../hooks/useVideoDrag";
 import { isTyping } from "../hooks/useWindowKey";
-import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import {
@@ -148,6 +147,7 @@ import {
 import { GROW } from "./timeline/grow";
 import { LaneAlternative } from "./timeline/LaneAlternative";
 import { LaneMeter } from "./timeline/LaneMeter";
+import { LaneToggle } from "./timeline/LaneToggle";
 import { LaneVstFreeze } from "./timeline/LaneVstFreeze";
 import { ownShots, PlacedShot } from "./timeline/PlacedShot";
 import { Playhead } from "./timeline/Playhead";
@@ -697,8 +697,9 @@ function TimelineTabView({
   const scrollRef = useRef<HTMLDivElement>(null);
   // Shadows the module constants below, so layout, zoom maths and playhead offset all follow one value.
   const isMobile = useIsMobile();
-  const GUTTER = isMobile ? GUTTER_MOBILE : GUTTER_WIDE;
   const [paneW, setPaneW] = useState(0);
+  // A phone's column grows with the pane, so a landscape phone or a tablet shows whole names (lanes.ts).
+  const GUTTER = isMobile ? mobileGutter(paneW) : GUTTER_WIDE;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -2150,6 +2151,8 @@ function TimelineTabView({
 
   // Lane height (taller when expanded, ROW_H for groups); the playhead spans the ruler plus every row, so sum them.
   const rowH = expanded ? ROW_H + EXPAND_EXTRA : ROW_H;
+  // A phone's gutter puts M/S/A on a line under the name, which only a tall row has room for (docs/timeline.md).
+  const msaLine = isMobile && expanded;
   const contentH =
     ROW_H +
     visRows.reduce(
@@ -2723,95 +2726,96 @@ function TimelineTabView({
                         );
                       }}
                       className={cn(
-                        "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
+                        "flex shrink-0 cursor-pointer select-none border-r border-border bg-muted/40",
+                        msaLine
+                          ? "flex-col justify-center gap-2 px-1"
+                          : "items-center gap-1 px-2",
                         GUTTER_STICKY,
                         onReorder && GRAB_ROW,
                         inSel && "bg-primary/20",
                         labelled && LABEL_SELECTED,
                       )}
                     >
-                      {vt.color && (
-                        <span
-                          className="size-2 shrink-0 rounded-sm"
-                          style={{ background: vt.color }}
-                        />
-                      )}
-                      <TrackIcon
-                        name={vt.name}
-                        video
-                        className="h-3.5 w-3.5 shrink-0 opacity-70"
-                      />
                       <span
-                        className="flex-1 truncate"
-                        title={
-                          vt.shapes.length
-                            ? m["tl.shapeLaneTitle"]({ name: vt.name })
-                            : m["tl.videoLaneTitle"]({ name: vt.name })
-                        }
+                        className={cn(
+                          "flex min-w-0 items-center gap-1",
+                          msaLine ? "flex-none" : "flex-1",
+                        )}
                       >
-                        {trackLabel(vt.name)}
+                        {vt.color && (
+                          <span
+                            className="size-2 shrink-0 rounded-sm"
+                            style={{ background: vt.color }}
+                          />
+                        )}
+                        <TrackIcon
+                          name={vt.name}
+                          video
+                          className="h-3.5 w-3.5 shrink-0 opacity-70"
+                        />
+                        <span
+                          className="flex-1 truncate"
+                          title={
+                            vt.shapes.length
+                              ? m["tl.shapeLaneTitle"]({ name: vt.name })
+                              : m["tl.videoLaneTitle"]({ name: vt.name })
+                          }
+                        >
+                          {trackLabel(vt.name)}
+                        </span>
                       </span>
-                      {/* [m]ute and [s]olo, the audio lane's two, meaning HIDDEN and hides-the-rest — the song lane's, which a timeline's draws on. */}
-                      {onVideoToggle && !shownTimeline && (
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          {(
-                            [
-                              ["M", "mute", vt.mute, "bg-mute text-background"],
-                              ["S", "solo", vt.solo, "bg-solo text-background"],
-                            ] as const
-                          ).map(([label, control, on, onCls]) => (
-                            <button
-                              key={control}
-                              type="button"
-                              title={controlLabel(control, vt.name)}
-                              aria-label={controlLabel(control, vt.name)}
-                              aria-pressed={on}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onDoubleClick={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onVideoToggle(vt.id, control);
-                                blurOnClick(e);
-                              }}
-                              className={cn(
-                                "flex h-4 w-4 items-center justify-center rounded-sm font-bold text-[9px] leading-none",
-                                on
-                                  ? onCls
-                                  : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
-                              )}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {/* ARM: a picture lane records its camera in the BROWSER, so a lane DRAWING shapes — which has no input — gets no button. */}
-                      {onVideoArm && !shownTimeline && !vt.shapes.length && (
-                        <button
-                          type="button"
-                          title={m["tl.armVideoTitle"]({ name: vt.name })}
-                          aria-label={controlLabel("arm", vt.name)}
-                          aria-pressed={videoArmed === vt.id}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onDoubleClick={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onVideoArm(vt.id);
-                            blurOnClick(e);
-                          }}
+                      {/* [m]ute and [s]olo, the audio lane's two, meaning HIDDEN and hides-the-rest; ARM records the camera in the BROWSER, so a lane drawing shapes gets none. */}
+                      {!shownTimeline && (msaLine || !isMobile) && (
+                        <div
                           className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm font-bold text-[9px] leading-none",
-                            videoArmed === vt.id
-                              ? "bg-arm text-background"
-                              : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
-                            // Pulsing while the camera is actually rolling: armed and recording are two states.
-                            videoArmed === vt.id &&
-                              videoRecording &&
-                              "animate-pulse",
+                            "flex items-center",
+                            msaLine ? "w-full gap-0.5" : "shrink-0 gap-1",
                           )}
                         >
-                          A
-                        </button>
+                          {onVideoToggle &&
+                            (
+                              [
+                                [
+                                  "M",
+                                  "mute",
+                                  vt.mute,
+                                  "bg-mute text-background",
+                                ],
+                                [
+                                  "S",
+                                  "solo",
+                                  vt.solo,
+                                  "bg-solo text-background",
+                                ],
+                              ] as const
+                            ).map(([label, control, on, onCls]) => (
+                              <LaneToggle
+                                key={control}
+                                label={label}
+                                on={on}
+                                onCls={onCls}
+                                title={controlLabel(control, vt.name)}
+                                ariaLabel={controlLabel(control, vt.name)}
+                                touch={msaLine}
+                                onToggle={() => onVideoToggle(vt.id, control)}
+                              />
+                            ))}
+                          {onVideoArm && !vt.shapes.length && (
+                            <LaneToggle
+                              label="A"
+                              on={videoArmed === vt.id}
+                              onCls={cn(
+                                "bg-arm text-background",
+                                // Pulsing while the camera is actually rolling: armed and recording are two states.
+                                videoRecording && "animate-pulse",
+                              )}
+                              title={m["tl.armVideoTitle"]({ name: vt.name })}
+                              ariaLabel={controlLabel("arm", vt.name)}
+                              touch={msaLine}
+                              onToggle={() => onVideoArm(vt.id)}
+                            />
+                          )}
+                        </div>
                       )}
                     </div>
                     <div
@@ -3136,7 +3140,10 @@ function TimelineTabView({
                     {...gutterProps(row)}
                     className={cn(
                       // No `relative`: GUTTER_STICKY positions it, and two position classes would fight in `cn`.
-                      "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
+                      "flex shrink-0 cursor-pointer select-none overflow-hidden border-r border-border",
+                      msaLine
+                        ? "flex-col justify-center gap-2 px-1"
+                        : "items-center gap-1 px-2",
                       GUTTER_STICKY,
                       onReorder && !t.generated && GRAB_ROW,
                       // On the row: a faint tint. Label selected: the full caret mark.
@@ -3159,7 +3166,8 @@ function TimelineTabView({
                         .filter(Boolean)
                         .join(" — ")}
                       className={cn(
-                        "relative flex min-w-0 flex-1 items-center gap-1 truncate",
+                        "relative flex min-w-0 items-center gap-1 truncate",
+                        msaLine ? "flex-none" : "flex-1",
                         row.grouped && "pl-3",
                         // Armed red, soloed yellow. A ternary, not two classes: both can be true, and armed is about to write to disk.
                         armed ? "text-arm" : eff.solo && "text-solo",
@@ -3198,36 +3206,30 @@ function TimelineTabView({
                         waiting={laneNodes?.autoFreezeWaiting?.[t.id]}
                       />
                     </span>
-                    {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
-                    {onTrackToggle && !shownTimeline && (
-                      <div className="relative flex shrink-0 items-center gap-0.5">
-                        {msa.map(([label, control, on, onCls]) => (
-                          <button
-                            key={control}
-                            title={controlLabel(control, t.name)}
-                            aria-label={controlLabel(control, t.name)}
-                            aria-pressed={on}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            // dblclick is its own event and bubbles past the click handler's stop.
-                            onDoubleClick={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onTrackToggle(t.id, control);
-                              // Or the next Space re-toggles this button instead of rolling the transport — see blurOnClick.
-                              blurOnClick(e);
-                            }}
-                            className={cn(
-                              "flex h-4 w-4 items-center justify-center rounded-sm text-[9px] font-bold leading-none",
-                              on
-                                ? onCls
-                                : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
-                            )}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; a collapsed phone row keeps the name, mute and solo staying in the lane menu. */}
+                    {onTrackToggle &&
+                      !shownTimeline &&
+                      (msaLine || !isMobile) && (
+                        <div
+                          className={cn(
+                            "relative flex items-center",
+                            msaLine ? "w-full gap-0.5" : "shrink-0 gap-1",
+                          )}
+                        >
+                          {msa.map(([label, control, on, onCls]) => (
+                            <LaneToggle
+                              key={control}
+                              label={label}
+                              on={on}
+                              onCls={onCls}
+                              title={controlLabel(control, t.name)}
+                              ariaLabel={controlLabel(control, t.name)}
+                              touch={msaLine}
+                              onToggle={() => onTrackToggle(t.id, control)}
+                            />
+                          ))}
+                        </div>
+                      )}
                   </div>
                   {/* overflow-hidden because a zoom puts out-of-view clips at negative offsets, which would spill across the gutter. */}
                   <div

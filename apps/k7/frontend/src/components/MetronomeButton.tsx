@@ -24,8 +24,11 @@ export function MetronomeButton({
   level,
   onToggle,
   onLevel,
+  size = "icon-xs",
 }: {
   on: boolean;
+  /** The footer's button size: a phone's is finger-sized. */
+  size?: "icon-xs" | "icon-lg";
   /** 0.2 … 1, from the compiled doc. */
   level: number;
   onToggle: () => void;
@@ -54,7 +57,7 @@ export function MetronomeButton({
       {/* The trigger ANCHORS the menu and never opens it — `onContextMenu` does, so a left click is the toggle and nothing else. */}
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon-xs"
+          size={size}
           variant={on ? "default" : "ghost"}
           aria-pressed={on}
           onClick={onToggle}

@@ -264,6 +264,13 @@ everything else collapses into is under a thumb, and a 24-pixel target there is 
 reason `toolSize` reads the breakpoint instead of being a constant. Both phone popovers open upward,
 the bar being at the foot (`components/MobileChrome.tsx`).
 
+**On a phone the hamburger and the info icon each own a 44 px slot**, side by side and never
+shrinking: two icons sharing one finger's width make the way home a few pixels wide, and that is the
+control a phone needs most from a project. The hamburger's slot reaches into the bar's left padding,
+and below 640 px the bar's gaps narrow, which pays for the two slots without taking width from the
+transport. The transport, the menu and the engine stay at 36 px (`icon`): a 360 px bar holding eight
+44 px targets has no room left for the clock, and those three are a row apart from the lead.
+
 The **way back to the home page** is a hamburger at the left edge of the project bar, before the k7
 logo and the project's name: it opens the home page's own sidebar as a drawer over the project (`HomeDrawer`, `projects.md`), and the name links
 home too. Projects open in the home page's tab rather than a new one, so a drawer entry is the
@@ -483,7 +490,13 @@ truncated to a few characters says nothing — while the mode badges, the waitin
 error count stay, since each is a state you would otherwise leave by surprise. The tempo and meter
 move into the same info popover (`shell/TempoMeter.tsx`, drawn by both): read rarely, still editable
 on a tap. What is left starts at the left edge with the metronome, the logo gone, and the states sit at
-the right end, so one appearing never moves a control from under a thumb.
+the right end, so one appearing never moves a control from under a thumb. **Its buttons are 40 px**
+(`icon-lg`, the panel tabs `min-w-10`) where the desktop's are 24: seven of them fit a 360 px phone at
+that size, and a footer a few pixels taller costs less than a mis-tap that opens a panel over the song.
+
+**The panes' tool rails grow to 44 px under a coarse pointer** (`stripButton` and `ModeStrip` in
+`modeIcons.tsx`), on any screen width, since a touch laptop's finger is no smaller than a phone's.
+The rail has few buttons and a whole column of height, so only its width is paid for.
 
 **There is ONE layout**, and no project chooses a second one. `project.k7x`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
