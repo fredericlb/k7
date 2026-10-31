@@ -103,6 +103,7 @@ matches before changing it:
 | `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
 | `pairing.md` | a LAN device asking an engine to trust it — the card on the device, the prompt and the settings section on the machine |
 | `serverPicker.md` | on the tray, which server the Libraries, Media and Rehearsal pages read: this computer or the paired one |
+| `serverEngines.md` | on a machine's own backend, the main server's engines beside this machine's, driven through that server |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |

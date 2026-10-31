@@ -138,6 +138,29 @@ export interface PublicEngine {
   access?: EngineAccessRole;
   /** For `shared`: the account that shared it. */
   ownedBy?: string;
+  /** Listed by another server and driven through that server's relay — packages/engine-browser/docs/access.md. */
+  via?: EngineVia;
+}
+
+/** The server an engine is reached through, for a machine's own backend that lists its main link's engines. */
+export interface EngineVia {
+  /** Where its relay answers: `https://app.k7.rocks`. */
+  origin: string;
+  /** What a picker names it by: `app.k7.rocks`. */
+  host: string;
+  /** The account on that server the engines are listed for. */
+  account?: string;
+}
+
+/** Where a machine's own backend answers its main server's engines (apps/k7/backend/docs/serverEngines.md). */
+export const SERVER_ENGINES_PATH = "/api/server-engines";
+
+/** What that route answers: the server, whether it answered, and its engines, each with `via`. */
+export interface ServerEngines {
+  /** Null when the account has no main link. */
+  server: EngineVia | null;
+  reachable: boolean;
+  engines: PublicEngine[];
 }
 
 /** `owner` enrolled it, `shared` was given it, `server` is the deployment's own, `unowned` waits for its first direct open. */

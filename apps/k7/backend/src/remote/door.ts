@@ -1,6 +1,7 @@
 // door.ts — the server's side of a paired machine browsing it: a request under DOOR_PATH carrying a device token in
 // DEVICE_HEADER is signed in, for itself alone, as the person the token names, then served by the ordinary routes.
-// Only ALLOWED prefixes pass: an account's tokens, pairings and keys stay behind a real session. ../../docs/serverPicker.md.
+// Only ALLOWED prefixes, and the registry's ALLOWED_EXACT routes, pass: tokens, pairings and keys stay behind a real
+// session. ../../docs/serverPicker.md, and ../../docs/serverEngines.md for the engines.
 
 import type { SessionUser } from "@frediverse/oidc";
 import type { Request, RequestHandler } from "express";
@@ -35,11 +36,19 @@ export const ALLOWED = [
   "/api/files",
 ];
 
-/** Whether `path` (query included) is one of ALLOWED or below it. */
-export function allowedPath(path: string): boolean {
+/** The registry's three routes a page drives an engine through, exactly: never the ownership routes below `/api/engines`. */
+export const ALLOWED_EXACT: readonly (readonly [string, string])[] = [
+  ["GET", "/api/engines"],
+  ["POST", "/api/engine/select"],
+  ["POST", "/api/engine/release"],
+];
+
+/** Whether `path` (query included) is one of ALLOWED or below it, or one of ALLOWED_EXACT for `method`. */
+export function allowedPath(path: string, method = "GET"): boolean {
   const bare = path.split("?")[0];
   // A dot segment, plain or encoded, could climb out of the prefix it names.
   if (/(^|\/)(\.|%2e){2}(\/|$)/i.test(bare)) return false;
+  if (ALLOWED_EXACT.some(([m, p]) => m === method && bare === p)) return true;
   return ALLOWED.some((p) => bare === p || bare.startsWith(`${p}/`));
 }
 
@@ -58,7 +67,7 @@ export function deviceDoor(opts: {
         reason: "repair",
       });
     const rest = req.url.slice(DOOR_PATH.length);
-    if (!allowedPath(rest))
+    if (!allowedPath(rest, req.method))
       return void res
         .status(403)
         .json({ error: "not reachable from a paired machine" });

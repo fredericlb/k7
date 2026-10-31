@@ -17,6 +17,7 @@ import { setupAuth } from "@frediverse/oidc";
 import { mountRehearsal } from "@studio/rehearsal-server";
 import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
+import { SERVER_ENGINES_PATH } from "@studio/web-protocol";
 import { isLegacyHost, serviceUrl } from "@studio/web-protocol/services";
 import express from "express";
 import { z } from "zod";
@@ -56,6 +57,7 @@ import { mediaTokens, mountMedia } from "./media/mount.ts";
 import { readinessRoute, volumesFromEnv } from "./readiness.ts";
 import { deviceDoor } from "./remote/door.ts";
 import { forwardToPairedServer, SERVER_PATH } from "./remote/forward.ts";
+import { serverEnginesRoute } from "./remote/serverEngines.ts";
 import { siteHostsFromEnv, sitePage } from "./sitePage.ts";
 import { guardUpgrades } from "./upgradeGuard.ts";
 import { BUILD, VERSION } from "./version.ts";
@@ -183,13 +185,19 @@ mountHandoff(app, {
 const PREFS_DIR =
   process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "k7");
 // Ahead of every route they reach: a paired machine browsing this server, and on that machine its page reaching it (../docs/serverPicker.md).
-if (LOCAL_USER)
+if (LOCAL_USER) {
   app.use(
     SERVER_PATH,
     requireAuth,
     forwardToPairedServer((req) => media.pairedServer(req)),
   );
-else
+  // The main server's engines beside this machine's own (../docs/serverEngines.md).
+  app.get(
+    SERVER_ENGINES_PATH,
+    requireAuth,
+    serverEnginesRoute((req) => media.pairedServer(req)),
+  );
+} else
   app.use(
     deviceDoor({
       deviceUser: (token) => media.deviceUser(token),

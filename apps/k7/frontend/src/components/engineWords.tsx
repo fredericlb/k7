@@ -22,8 +22,18 @@ export interface EngineSelectorProps {
   stats?: ReactNode;
 }
 
-const nameOf = (r: RankedEngine): string =>
-  r.engine.hostname || r.engine.id.slice(0, 8);
+/** An engine's name as every picker says it: its machine, and the server it is reached through when it is. */
+export function engineName(r: RankedEngine): string {
+  const name = r.engine.hostname || r.engine.id.slice(0, 8);
+  const via = r.engine.via?.host;
+  return via ? m["engines.via"]({ engine: name, server: via }) : name;
+}
+
+/** The tooltip of an engine reached through a server, or undefined for this origin's own. */
+export const engineViaHint = (r: RankedEngine): string | undefined =>
+  r.engine.via
+    ? m["engines.viaHint"]({ server: r.engine.via.host })
+    : undefined;
 
 /** What the selector says and shows, for the bar's engine slot (BarEngine.tsx). */
 export function engineWords({
@@ -39,14 +49,14 @@ export function engineWords({
   const label = current
     ? audioToBrowser
       ? m["engineSwitch.soundHere"]()
-      : m["engineSwitch.soundOn"]({ engine: nameOf(current) })
+      : m["engineSwitch.soundOn"]({ engine: engineName(current) })
     : searching
       ? m["engines.searching"]()
       : m["engineSwitch.noSound"]();
   const hint = current
     ? audioToBrowser
-      ? m["engineSwitch.hintHere"]({ engine: nameOf(current) })
-      : m["engineSwitch.hint"]({ engine: nameOf(current) })
+      ? m["engineSwitch.hintHere"]({ engine: engineName(current) })
+      : m["engineSwitch.hint"]({ engine: engineName(current) })
     : m["engineSwitch.noSoundHint"]();
   const incompatible =
     compat && compat.score < 100

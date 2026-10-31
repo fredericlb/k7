@@ -68,6 +68,7 @@ export function serverOf(hub: FileHub, req: Request): PairedServer | null {
   return {
     base: new URL(remote.url.replace(/^ws/, "http")).origin,
     token: remote.token,
+    ...(remote.as ? { account: remote.as } : {}),
   };
 }
 

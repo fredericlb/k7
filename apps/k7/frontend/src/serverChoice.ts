@@ -5,13 +5,10 @@
 import { configureLibrary } from "@studio/ui-library/config";
 import { configureRehearsal } from "@studio/ui-rehearsal/config";
 import { useSyncExternalStore } from "react";
-import { BASE } from "./api";
+import { BASE, SERVER_BASE } from "./api";
 import { inAndroidApp } from "./tabs/bridge";
 
 export type ServerChoice = "local" | "server";
-
-/** The backend's forward to the paired server (backend/src/remote/forward.ts). */
-export const SERVER_BASE = `${BASE}/api/server`;
 
 const KEY = "k7.serverChoice";
 

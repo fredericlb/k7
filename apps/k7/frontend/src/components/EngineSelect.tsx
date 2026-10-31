@@ -15,6 +15,7 @@ import { formatLatency } from "@studio/web-protocol/quality";
 import { needingPairing, PairThisDevice } from "../pairing/PairThisDevice";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
+import { engineName, engineViaHint } from "./engineWords";
 
 /** Q1 plays, Q2 works, Q3 is for listening — so the badge reads green, plain, amber. */
 export const QUALITY_VARIANT: Record<
@@ -104,8 +105,11 @@ export function EngineSelect({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">
-                        {r.engine.hostname || r.engine.id.slice(0, 8)}
+                      <span
+                        className="truncate font-medium"
+                        title={engineViaHint(r)}
+                      >
+                        {engineName(r)}
                       </span>
                       {r.latency ? (
                         <Badge
