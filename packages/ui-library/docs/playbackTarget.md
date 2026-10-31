@@ -14,7 +14,13 @@ calls it in `start`, so no caller decides where a song goes; a caller hands it w
 (`Playable`), and the provider stamps where.
 
 The browser is the fallback rather than an error because an engine is a machine somebody turns
-off, and "the song does not play" would be the wrong answer to it. The song page's footer says so
+off, and "the song does not play" would be the wrong answer to it.
+
+**A song not on this machine yet plays in the browser too**, engine or not: on the phone a server
+song opens before its copy lands, and its `Playable` carries the base it streams from, the forward to
+the server ([songSource.md](songSource.md)). The engine plays files of its own machine, and handing it
+a song first means downloading it whole, which the copy coming down in the background already does;
+the next start after it lands plays on the engine. The song page's footer says so
 when it happens: the engine's label, then "fallback", so the browser playing is never mistaken for
 the engine.
 

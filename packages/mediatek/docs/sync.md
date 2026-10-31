@@ -14,6 +14,15 @@ timestamps never enter a comparison with what another library said.
 No content hash: reading every file to decide whether to read every file costs more than the
 thing it guards — the same trade `workspace.ts` makes, written down in index.md.
 
+## A copy remembers the owner's rows, not its own stat
+
+So a copy that must later know whether it is still current keeps what the OWNER said: a song that
+follows its server holds the server's manifest rows for it, and the songs revision they were read at,
+in `.synced.json` inside its folder (`src/synced.ts`). The next check compares the owner's next
+manifest with those rows — owner against owner — and the revision first, which spares the manifest
+when nothing moved. Dot-named, the sidecar is skipped by the manifest walk, the scan and the change
+token alike, so it never travels and never looks like an edit.
+
 ## A download goes through `.part`
 
 `download()` writes to `<dest>.<uuid>.part` and renames at the end. A truncated master installed
