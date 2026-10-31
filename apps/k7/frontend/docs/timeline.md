@@ -1155,6 +1155,29 @@ not drift is this app's own idea of it — the caret's "left of the first beat" 
 `useHZoom`'s anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
 click landing one column off, which reads as a rounding bug and is not one.
 
+### On a phone it grows with the pane
+
+A phone's column is `mobileGutter(paneWidth)` (`@studio/ui-timeline/lanes`): 22% of the pane,
+between 96 and 160 px. A fixed width sized for a phone held upright left a landscape phone and a
+tablet with nameless lanes and room to spare; a width that only grows keeps the lanes the space a
+portrait phone needs. It is computed from the measured pane, so the same one `GUTTER` still feeds the
+caret test and the zoom maths.
+
+### M/S/A in the gutter
+
+**On a desktop the toggles are 20 px with 11 px letters and a 4 px gap**, solid when on (mute,
+solo, and arm in the record red), a muted chip when off. Smaller, they read as decoration and the
+arm sits close enough to solo to be pressed for it — and arm is the one that writes to disk.
+
+**On a phone they take a line of their own under the name**, sharing the column's width, each with
+an invisible box reaching 44 px tall (`components/timeline/LaneToggle.tsx`). Beside the name they
+squeezed it to nothing, and a lane whose name you cannot read makes every toggle a guess. Three 44 px
+squares do not fit a 96 px column, so the boxes reach full height and touch each other edge to edge:
+no dead strip between two of them, and no press that lands on a neighbour's lane.
+
+The second line needs a tall row, so a phone with Expand off draws the name alone: `track mute` and
+`track solo` stay in the lane's menu and the command bar, and the name's colour still says armed or soloed.
+
 ### …and it STAYS, while the lanes pan under it
 
 `sticky left-0` on every gutter cell (`GUTTER_STICKY`), as the piano roll's key column does —
