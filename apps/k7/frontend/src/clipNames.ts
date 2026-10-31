@@ -56,10 +56,13 @@ export function clipShownName(
   ref: string,
   laneName: (token: string) => string,
   words: ClipNameWords,
+  // The label of the lane the clip sits on, for an id whose lane token names no lane any more (a lane renamed since the take).
+  ownLane?: string,
 ): string {
   const p = clipNameParts(ref);
   if (p.kind === "named") return p.name;
-  const lane = laneName(p.lane);
+  const known = laneName(p.lane);
+  const lane = known === p.lane && ownLane ? ownLane : known;
   if (p.kind === "sequence") return words.sequence({ lane, n: p.n });
   const base = words.take({ lane, bar: p.bar });
   return p.copy ? `${base} (${p.copy})` : base;

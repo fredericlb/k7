@@ -511,7 +511,8 @@ export function AudioClipPanel({
         ) : (
           <>
             <span className="font-medium text-foreground" title={clip ?? ""}>
-              {clip && clipShownName(clip, laneName, CLIP_NAME_WORDS)}
+              {clip &&
+                clipShownName(clip, laneName, CLIP_NAME_WORDS, laneName(track))}
             </span>
             {/* A clip nothing places has no lane to name, and works the same: waveform, onsets and level belong to the FILE. */}
             {track ? (

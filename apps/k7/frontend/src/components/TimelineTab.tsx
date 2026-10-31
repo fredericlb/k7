@@ -3768,6 +3768,7 @@ function TimelineTabView({
                                       c.name || c.id,
                                       laneName,
                                       CLIP_NAME_WORDS,
+                                      laneName(t.id),
                                     )}
                                   </span>
                                 </div>
