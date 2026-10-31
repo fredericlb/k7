@@ -435,7 +435,9 @@ export function RecorderView({
           </div>
         </>
       ) : (
-        <span className="muted small">{sessionTitle(session.createdAt)}</span>
+        <span className="muted small">
+          {sessionTitle(session.createdAt, L.locale)}
+        </span>
       )}
     </RecorderBar>
   );

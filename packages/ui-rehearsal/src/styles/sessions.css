@@ -92,15 +92,19 @@
     line-height: 1.3;
   }
 
-  /* A detail page's title row: the back arrow, then the title. */
+  /* A detail page's title row: Back, then the title. */
   /* On the baseline, not centred: Palanquin sits low in its line box, so centred icons rode above the title. */
   .detail-head {
     display: flex;
     align-items: baseline;
     gap: 8px;
   }
+  /* The médiathèque's page title, so a recording opened from it reads as the same kind of page (packages/ui-library/src/LibraryPage.tsx). */
   .detail-head h2 {
     margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.25;
   }
   /* The line beside the title eats the slack, which pushes a ⋮ after it to the right edge. */
   .detail-head-sub {

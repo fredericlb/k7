@@ -53,6 +53,8 @@ export interface RecorderLabels {
   analyzing: string;
   removeTag: (tag: string) => string;
   mic: MicErrorTexts;
+  /** The reader's language (a BCP 47 tag), which a session's date is printed in. */
+  locale: string;
 }
 
 export const RECORDER_LABELS_EN: RecorderLabels = {
@@ -84,4 +86,5 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   analyzing: "Analyzing…",
   removeTag: (tag) => `Remove ${tag}`,
   mic: MIC_ERRORS_EN,
+  locale: "en",
 };

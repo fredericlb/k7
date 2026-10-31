@@ -78,6 +78,9 @@ export interface LibraryLabels {
     noRecordings: string;
     /** The calendar's day holds no capture. */
     noneThisDay: string;
+    /** The calendar's two arrows, for assistive technology. */
+    previousMonth: string;
+    nextMonth: string;
     /** The calendar's day holds no moment with the chosen tag. */
     noneTagged: (tag: string) => string;
     /** A capture one of the reader's own sessions recorded. */

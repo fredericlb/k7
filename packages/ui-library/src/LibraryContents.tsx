@@ -4,6 +4,7 @@
 
 import { Card } from "@frediverse/ui/card";
 import { Inbox, Loader2 } from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
 import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import type { ReactNode } from "react";
 import { useLabels } from "./host";
@@ -38,6 +39,7 @@ export function LibraryContents({
   onOpen,
   emptyActions,
   list,
+  className,
 }: {
   /** What lists the entries, in place of the plain rows — the songs' table. */
   list?: ReactNode;
@@ -49,11 +51,13 @@ export function LibraryContents({
   onOpen: (rel: string) => void;
   /** What adds the first entry of the section shown — the same acts as the tree panel's foot, offered where the eye is. */
   emptyActions?: ReactNode;
+  /** Its room around it, which the screen it sits in decides. */
+  className?: string;
 }) {
   const l = useLabels();
   const units = l.common.units;
   return (
-    <main className="min-w-0 flex-1 overflow-auto p-3 sm:p-6">
+    <main className={cn("min-w-0 flex-1 overflow-auto", className)}>
       {notice ? (
         <Card className="mb-4 p-4 text-sm text-muted-foreground">{notice}</Card>
       ) : null}

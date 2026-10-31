@@ -39,6 +39,7 @@
   "cleanup.none": "Clean up empty sessions",
   "cleanup.title": "Delete empty sessions (no moments) recorded over 24h ago",
   "common.add": "Add",
+  "common.back": "Back",
   "common.backTo": "Back to {to}",
   "common.cancel": "Cancel",
   "common.close": "Close",

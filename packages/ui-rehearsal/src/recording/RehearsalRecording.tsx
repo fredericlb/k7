@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
-import { fmtStamp } from "../format";
+import { fmtDate } from "../format";
 import { useRehearsalNav } from "../host";
 import { m } from "../paraglide/messages.js";
 import { micErrors } from "../recorderLabels";
@@ -153,7 +153,7 @@ export function RehearsalRecording({ children }: { children: ReactNode }) {
       await api
         .addRecordingMarker(recordingPath, {
           atSec: offset,
-          comment: m["rec.resumedOn"]({ at: fmtStamp() }),
+          comment: m["rec.resumedOn"]({ at: fmtDate(new Date(), "stamp") }),
         })
         .catch(() => {});
     }

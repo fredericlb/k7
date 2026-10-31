@@ -1,4 +1,4 @@
-// SongsLibrary.tsx — the songs family's screen: the table the width of the screen (SongTable.tsx),
+// SongsLibrary.tsx — the songs family's screen: the table across the page's column (SongTable.tsx),
 // or, once a song is opened from it, that song's page in its place, Back returning to the table.
 // It has no tree: the songs' shape is deduced from tags, so a folder view had nothing to say a
 // table does not say better. What it shows of the volume is MediaLibrary's. See ../docs/library.md.
@@ -11,6 +11,7 @@ import { library } from "./api";
 import { useSongLists } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
+import { LibraryPage } from "./LibraryPage";
 import { entryAt, isSong, relative } from "./libraryTree";
 import { usePlayback } from "./playback/PlaybackProvider";
 import { folderOf } from "./routes";
@@ -26,6 +27,9 @@ export function SongsLibrary(p: {
   /** The address's file: a song's sidecar opens its page. */
   file: string | null;
   openFile: (rel: string | null) => void;
+  /** The section's name and count, for the table's header. */
+  title: string;
+  count?: number;
   entries: MediatekEntry[] | null;
   /** The paired server's songs this machine lacks, filed among these. */
   remote: MediatekEntry[];
@@ -200,31 +204,32 @@ export function SongsLibrary(p: {
           manage={manage}
         />
       ) : (
-        <LibraryContents
-          notice={p.notice}
-          error={p.error}
-          present={p.present}
-          entries={entries}
-          serverCopy={p.serverCopy}
-          onOpen={openFile}
-          emptyActions={addSong}
-          list={
-            <SongTable
-              groups={shown}
-              query={query}
-              onQuery={setQuery}
-              practice={practice.favorites}
-              favorites={fav.favorites}
-              togglePractice={practice.toggle}
-              toggleFavorite={fav.toggle}
-              actions={songMenu}
-              onOpen={tapSong}
-              onDrop={(rel, files) => void dropOnSong(rel, files)}
-              onDownload={p.serverCopy.download}
-              actionsBar={addSong}
-            />
-          }
-        />
+        <LibraryPage title={p.title} count={p.count} actions={addSong}>
+          <LibraryContents
+            notice={p.notice}
+            error={p.error}
+            present={p.present}
+            entries={entries}
+            serverCopy={p.serverCopy}
+            onOpen={openFile}
+            emptyActions={addSong}
+            list={
+              <SongTable
+                groups={shown}
+                query={query}
+                onQuery={setQuery}
+                practice={practice.favorites}
+                favorites={fav.favorites}
+                togglePractice={practice.toggle}
+                toggleFavorite={fav.toggle}
+                actions={songMenu}
+                onOpen={tapSong}
+                onDrop={(rel, files) => void dropOnSong(rel, files)}
+                onDownload={p.serverCopy.download}
+              />
+            }
+          />
+        </LibraryPage>
       )}
     </div>
   );
