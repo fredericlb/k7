@@ -1,5 +1,5 @@
-// momentConsolidate.ts — the machine's side of a moment that goes to a server: which of its moments the main
-// server holds, which servers the account may consolidate on and whether each answers, and the send itself.
+// momentConsolidate.ts — the machine's side of a moment that goes to a server: which of its moments the active
+// server holds, that server and whether it answers, and the send itself.
 // What reads wrong: a local instance cuts no clip; it sends the recording's audio, and the server cuts — ../docs/momentShare.md.
 
 import { randomUUID } from "node:crypto";
@@ -18,12 +18,11 @@ import type { PairedServer, ServerOf } from "./publications.ts";
 import * as store from "./store.ts";
 import { sliceWav } from "./wavSlice.ts";
 
-/** One of the account's links to a server, with the token to call it through. */
+/** The account's active server, with the token to call it through. */
 export interface LinkedServer extends PairedServer {
   id: string;
   origin: string;
   as: string;
-  main: boolean;
 }
 
 /** A whole recording can be hours: its upload is given the time a slow uplink needs. */
@@ -86,13 +85,13 @@ async function audioOf(
     : null;
 }
 
-/** `GET /` places the moments on the main server, `GET /servers` lists where to consolidate, `POST /:id/consolidate` sends one. */
+/** `GET /` places the moments on the active server, `GET /servers` says it and whether it answers, `POST /:id/consolidate` sends one. */
 export const momentShareRouter = (opts: {
   /** Where `momentDeviceRouter` is mounted on the server. */
   deviceRoute: string;
   server: ServerOf;
-  /** Every link of the request's account, main first; none on a server. */
-  links?: (req: Request) => LinkedServer[];
+  /** The request's account's active server; none on a server. */
+  active?: (req: Request) => LinkedServer | null;
   /** Whether a server answers right now, asked with a short timeout and remembered briefly. */
   reach?: (server: PairedServer) => Promise<boolean>;
   /** Whether this instance's moments are consolidated on a server; a local instance's are. */
@@ -100,7 +99,7 @@ export const momentShareRouter = (opts: {
 }): Router => {
   const r = Router();
   r.use(express.json());
-  const links = opts.links ?? (() => []);
+  const active = opts.active ?? (() => null);
   const reach = opts.reach ?? (async () => true);
   const serverOnly = opts.serverOnly ?? env.instance === "local";
 
@@ -144,17 +143,16 @@ export const momentShareRouter = (opts: {
   r.get(
     "/servers",
     wrap(async (req, res) => {
-      const all = serverOnly ? links(req) : [];
-      const servers: ConsolidationServer[] = await Promise.all(
-        all.map(async (l) => ({
-          id: l.id,
-          origin: l.origin,
-          as: l.as,
-          main: l.main,
-          online: await reach(l).catch(() => false),
-        })),
-      );
-      const answer: ConsolidationServers = { serverOnly, servers };
+      const l = serverOnly ? active(req) : null;
+      const server: ConsolidationServer | null = l
+        ? {
+            id: l.id,
+            origin: l.origin,
+            as: l.as,
+            online: await reach(l).catch(() => false),
+          }
+        : null;
+      const answer: ConsolidationServers = { serverOnly, server };
       res.json(answer);
     }),
   );
@@ -167,11 +165,11 @@ export const momentShareRouter = (opts: {
           error: "this server consolidates its moments itself",
         });
       const linkId = String(req.body?.link ?? "");
-      const link = links(req).find((l) => l.id === linkId);
-      if (!link)
+      const link = active(req);
+      if (!link || link.id !== linkId)
         return res
           .status(404)
-          .json({ error: "this account has no link to that server" });
+          .json({ error: "that server is not this account's active one" });
       const owner = sub(req);
       const id = req.params.id;
       const moment = await store.getMoment(owner, id);

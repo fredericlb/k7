@@ -110,22 +110,21 @@ export interface Consolidation {
   at: string;
 }
 
-/** One server a local instance may consolidate a moment on: one of its account's links. */
+/** The server a local instance consolidates a moment on: its account's active one. */
 export interface ConsolidationServer {
   id: string;
   origin: string;
   as: string;
-  main: boolean;
   /** Whether it answered a short ping just now. */
   online: boolean;
 }
 
-/** Where this instance's moments are consolidated: here (`serverOnly` false), or on one of `servers`. */
+/** Where this instance's moments are consolidated: here (`serverOnly` false), or on `server`. */
 export interface ConsolidationServers {
   /** True on a local instance, whose moments are consolidated on a server and never here. */
   serverOnly: boolean;
-  /** The account's links, main first then in link order; empty on a server. */
-  servers: ConsolidationServer[];
+  /** The account's active server; null on a server, or with none saved. */
+  server: ConsolidationServer | null;
 }
 
 // A moment is a span of a recording — a session's or any capture of the médiathèque — and outlives it.

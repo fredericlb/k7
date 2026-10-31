@@ -1,51 +1,25 @@
 import { describe, expect, it } from "vitest";
-import {
-  choosable,
-  hostOf,
-  preselectServer,
-  serverLabel,
-} from "./consolidation";
+import { hostOf, sendRefusal, serverLabel } from "./consolidation";
 
-const server = (id: string, online: boolean, main = false) => ({
-  id,
-  origin: `https://${id}.test`,
-  as: `${id}@band`,
-  main,
+const server = (online: boolean) => ({
+  id: "active",
+  origin: "https://active.test",
+  as: "me@band",
   online,
 });
 
-describe("the server a consolidation preselects", () => {
-  it("is the main one when it answers", () => {
-    expect(
-      preselectServer([server("main", true, true), server("b", true)]),
-    ).toBe("main");
+describe("sending a moment to the active server", () => {
+  it("goes when the server answers and does not hold the moment", () => {
+    expect(sendRefusal(server(true))).toBeNull();
   });
 
-  it("is the first online one in link order when the main one is away", () => {
-    expect(
-      preselectServer([
-        server("main", false, true),
-        server("b", false),
-        server("c", true),
-        server("d", true),
-      ]),
-    ).toBe("c");
-  });
-
-  it("is none when no server answers, or there is none", () => {
-    expect(preselectServer([server("main", false, true)])).toBeNull();
-    expect(preselectServer([])).toBeNull();
-  });
-});
-
-describe("the servers a moment may still go to", () => {
-  it("leaves out those it was consolidated on, in their order", () => {
-    const all = [server("a", true), server("b", true), server("c", false)];
+  it("is refused with no server, with the server away, and once it holds the moment", () => {
+    expect(sendRefusal(null)).toBe("none");
+    expect(sendRefusal(server(false))).toBe("offline");
     const done = [
-      { link: "a", origin: "https://a.test", as: "a@band", at: "" },
+      { link: "active", origin: "https://active.test", as: "me@band", at: "" },
     ];
-    expect(choosable(all, done).map((s) => s.id)).toEqual(["b", "c"]);
-    expect(preselectServer(choosable(all, done))).toBe("b");
+    expect(sendRefusal(server(true), done)).toBe("already");
   });
 });
 

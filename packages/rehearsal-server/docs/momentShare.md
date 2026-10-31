@@ -15,15 +15,16 @@ nothing, a moved span drops a clip cut there before instead of cutting a new one
 `POST /moments/:id/validate` answers 409 in words (`../src/store/moments.ts`). Where a local instance
 saves its recordings is unchanged: they stay on the machine and nothing uploads them on its own.
 
-## The person chooses the server
+## The active server takes it
 
-An account on a local instance may hold several LINKS, one per server account
-(`../../file-hub/docs/syncRelay.md`). Consolidating asks which one: `GET /api/sync/moments-share/servers`
-lists every link, the main one first then in link order, each with whether it answers a short ping
-(a few seconds at most, remembered briefly, `apps/k7/backend/src/media/serverSongs/reach.ts`).
-`POST /api/sync/moments-share/:id/consolidate` (`{ link }`) sends through THAT link's device token,
-the main one or not (`../src/momentConsolidate.ts`). Which server the dialog preselects is the
-screens' choice (`../../ui-rehearsal/docs/recordings.md`).
+An account on a local instance uses ONE server at a time, its active link
+(`../../file-hub/docs/syncRelay.md`), and a moment is consolidated there: `GET
+/api/sync/moments-share/servers` names that server and whether it answers a short ping (a few seconds
+at most, remembered briefly, `apps/k7/backend/src/media/serverSongs/reach.ts`), and `POST
+/api/sync/moments-share/:id/consolidate` (`{ link }`) sends through its device token
+(`../src/momentConsolidate.ts`). The `link` must name the active link: a dialog opened before a switch
+sends nothing to a server the account no longer uses. The screens are
+`../../ui-rehearsal/docs/recordings.md`.
 
 ## What goes up: the moment's audio, and the server cuts
 
@@ -69,7 +70,7 @@ that is not JSON ([serving.md](serving.md)).
 ## Sending again replaces
 
 The copy keeps the machine's moment id, which is how the machine tells which of its moments the
-MAIN server holds (`GET /api/sync/moments-share`, the icons of the moments list). Sending a moment
+active server holds (`GET /api/sync/moments-share`, the icons of the moments list). Sending a moment
 the server already holds REPLACES the server's copy: its clip, its text and its markers. This is the
 one way an edit made on the machine reaches the server: a moment is a snapshot, never a replica, so
 there is no live sync of it.

@@ -63,14 +63,12 @@ failed. On a local instance (a desktop, a phone) no clip is cut there
 Whether the instance is one or the other is asked of its backend once per page; a backend that does
 not answer it, a server browsed from the tray, consolidates itself.
 
-- **The dropdown lists the account's links, labelled `host · account`**, the main one first then
-  in link order, each said online or offline from the backend's short ping. Asked again on each
-  opening: which servers answer is what changes between two.
-- **The first ONLINE server is preselected, not the main one** (`src/consolidation.ts`). The person
-  opened the dialog to send something now, and a main server that is away cannot take it. A server
-  the moment is already consolidated on, or one that is offline, cannot be chosen.
-- **Nothing to send is said, not hidden.** With no link the dialog explains that consolidating needs
-  a server; with none online, or the moment already on every server, it says so and Send stays off.
+- **The dialog names the account's ACTIVE server, `host · account`**, and whether it answers the
+  backend's short ping, asked again on each opening: whether it answers is what changes between two.
+  There is no choice to make: the machine uses one server at a time, switched in the settings.
+- **Nothing to send is said, not hidden** (`sendRefusal`, `src/consolidation.ts`). With no server the
+  dialog explains that consolidating needs one; with the server away, or the moment already on it, it
+  says so and Send stays off.
 - **The send is a row of the transfer manager** (`moment:<id>:<link>`,
   `packages/http-client/docs/downloads.md`), and the moment's row says where it is going while it
   runs, then the server's own sentence if it failed. A whole recording can take minutes to go up,

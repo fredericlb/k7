@@ -1,4 +1,4 @@
-// MomentServerShare.tsx — on a machine paired with a server: which moments the main server holds a copy of,
+// MomentServerShare.tsx — on a machine paired with a server: which moments the active server holds a copy of,
 // as an icon. Sending one is consolidating it (Consolidation.tsx); a session never leaves the machine.
 // Nothing at all on an unpaired machine or on the server itself. See ../../../rehearsal-server/docs/momentShare.md.
 
@@ -42,7 +42,7 @@ export function useMomentShare(active: boolean, trigger: unknown) {
   };
 }
 
-/** One icon: on the main server, or on this machine only. */
+/** One icon: on the active server, or on this machine only. */
 export function MomentStateIcon({
   state,
   host,
