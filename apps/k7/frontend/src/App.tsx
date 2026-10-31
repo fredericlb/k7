@@ -2936,15 +2936,23 @@ export default function App({
       {snapshot.manifest.name || "…"}
     </span>
   ) : (
-    <span className="flex min-w-0 items-center gap-1">
-      {/* The hamburger, first in the bar: it opens the home page's sidebar over the project. */}
+    <span
+      className={cn(
+        "flex items-center gap-1",
+        isMobile ? "shrink-0" : "min-w-0",
+      )}
+    >
+      {/* The hamburger, first in the bar: it opens the home sidebar; a phone gives it a 44 px slot reaching the bar's edge (docs/shell.md). */}
       <button
         type="button"
         onClick={() => setHomeDrawer(true)}
         title={m["common.menu"]()}
         aria-label={m["common.menu"]()}
         aria-expanded={homeDrawer}
-        className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground",
+          isMobile ? "-ml-3 size-11" : "p-0.5",
+        )}
       >
         <Menu className="h-4 w-4" />
       </button>

@@ -138,7 +138,7 @@ export function cursorOf(mode: string): string | undefined {
 
 /** One button in the column, mode or not: exported so a host's own control is the same object rather than a copy of it. */
 export const stripButton = (active: boolean) =>
-  `flex h-8 w-8 shrink-0 items-center justify-center rounded text-base ${
+  `flex h-8 w-8 shrink-0 items-center justify-center rounded text-base [@media(pointer:coarse)]:size-11 ${
     active
       ? "bg-primary/20 text-primary-text"
       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -173,7 +173,7 @@ export function ModeStrip<T extends string>({
       role="toolbar"
       aria-orientation="vertical"
       aria-label={msg["mode.label"]()}
-      className={`flex w-8 shrink-0 flex-col items-center gap-0.5 border-r border-border bg-background/60 py-1 ${className ?? ""}`}
+      className={`flex w-8 shrink-0 flex-col items-center gap-0.5 border-r [@media(pointer:coarse)]:w-11 border-border bg-background/60 py-1 ${className ?? ""}`}
     >
       {closePanel && (
         <button

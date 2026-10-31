@@ -129,7 +129,8 @@ export function MobileInfo({
       <Button
         size="icon"
         variant={open ? "default" : "ghost"}
-        className="relative"
+        // A finger-sized slot of its own, beside the hamburger's (docs/shell.md).
+        className="relative size-11"
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => onOpenChange(!open)}
