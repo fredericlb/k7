@@ -61,7 +61,7 @@ function pathsOf(body: unknown): string[] {
   ];
 }
 
-/** The paired origin of the session's account, as an http origin and the token to call it with. */
+/** The session's account's active server, as an http origin and the token to call it with. */
 export function serverOf(hub: FileHub, req: Request): PairedServer | null {
   const remote = hub.sync.remoteOf(req);
   if (!remote) return null;
@@ -72,16 +72,20 @@ export function serverOf(hub: FileHub, req: Request): PairedServer | null {
   };
 }
 
-/** Every link of the session's account, main first, each with its http origin and token: where a moment may go. */
-export function linkedServersOf(hub: FileHub, req: Request): LinkedServer[] {
-  return hub.sync.remotesOf(req).map((r) => ({
+/** The session's account's active server with its link id and account: where a moment goes. */
+export function activeServerOf(
+  hub: FileHub,
+  req: Request,
+): LinkedServer | null {
+  const r = hub.sync.remoteOf(req);
+  if (!r) return null;
+  return {
     id: r.id,
     origin: r.origin,
     as: r.as,
-    main: r.main,
     base: new URL(r.url.replace(/^ws/, "http")).origin,
     token: r.token,
-  }));
+  };
 }
 
 /** How long the server's listing may take: a few hundred songs from a busy origin take seconds. */
@@ -243,7 +247,7 @@ export function mountServerCopy(
     momentShareRouter({
       deviceRoute: DEVICE_MOMENTS_ROUTE,
       server: (req) => serverOf(hub, req),
-      links: (req) => linkedServersOf(hub, req),
+      active: (req) => activeServerOf(hub, req),
       reach: async (server) => (await reachOf(server)).reachable,
     }),
   );

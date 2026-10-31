@@ -228,23 +228,18 @@ export interface ModelDownloadJob {
   error: string | null;
 }
 
-/** `GET /workspaces/sync` — on a machine paired with a remote server, where each workspace lives: both, here only, or there only. */
+/** `GET /workspaces/sync` — on a machine with an active server, where each workspace lives: both, here only, or there only. */
 export interface WorkspaceSyncStatus {
-  /** False on the server itself and on a machine never paired: every workspace is simply here. */
+  /** False on the server itself and on a machine with no server: every workspace is simply here. */
   paired: boolean;
-  /** The MAIN server this machine syncs with, as an origin — its libraries, and where a new workspace goes. */
+  /** The ACTIVE server this machine syncs with, as an origin — its libraries, and where a new workspace goes. */
   server: string | null;
-  /** Every link it syncs with — one account on one server each, several possibly on one server — the main one first. */
-  servers?: { origin: string; main: boolean; id?: string; as?: string }[];
-  /** Each workspace, here or on a server: `server` is the origin it syncs with, `link` the link's id, `room` its name there when that differs. */
+  /** Each workspace shown, here or on that server: `server` is the origin it syncs with, `room` its name there when that differs. */
   workspaces: {
     name: string;
     state: "synced" | "local" | "server";
     server?: string;
-    link?: string;
     room?: string;
-    /** A move under way to `to` (the link `link`) — a copy when `copy`, which leaves it where it is — or why it failed (`error`). */
-    moving?: { to: string; link?: string; error?: string; copy?: boolean };
   }[];
 }
 

@@ -100,8 +100,8 @@ that failed. A start waiting longer than the hub's own timeouts allow is a hub t
 A child is ready when it answers a **gated** probe carrying its own secret. Its port is picked free
 by the hub and released before the child binds it, so another account's child starting at the same
 moment may hold it; that one answers 401 to a secret not its own, and the start fails rather than
-forwarding one account's requests to another's process. The accounts paired with a remote server —
-a tray's or a phone's main one, or a server's secondary — start with the hub and are never reaped:
+forwarding one account's requests to another's process. The accounts of a tray or a phone with an active
+server start with the hub and are never reaped:
 they are replicas that must keep syncing. For the same reason one that crashes is started again by
 the hub itself once its backoff ends, and again after each failed start: no page may be open to
 ask for it.
@@ -239,17 +239,16 @@ two copies would compile a song two ways.
   place, a husk would be the newest version, and a workspace pinning it would resolve nothing.
 - **The machine follows the names on ITS list**, which the seed provides (`k7`): the origin's relay
   does not list library rooms, so a library the origin adds reaches a machine only once that
-  machine lists it. The first paired account found is the one whose MAIN link's token is used:
-  the libraries are any account's to read, so whichever account on the origin that link is, it reads
-  the same ones.
-- **Only a tray or a phone follows a MAIN server.** `remotePairing`, which k7's backend sets from
+  machine lists it. The first account found with an active server is the one whose ACTIVE link's
+  token is used: the libraries are any account's to read, so whichever account on the origin that link
+  is, it reads the same ones.
+- **Only a tray or a phone follows a server.** `remotePairing`, which k7's backend sets from
   `STUDIO_LOCAL_USER=1` — the standalone bundle's mark (`apps/k7/backend/standalone.json`) — is what
-  lets a pairing be the main one, and only then do the libraries follow it. Since they follow the
-  FIRST paired account found, a main pairing on a server would let any signed-in user point every
-  account's libraries at a server of their choosing. A server's accounts pair SECONDARIES only
-  (`syncRelay.md`, "A server's accounts"): `POST /api/sync/remote/main` answers 403, every pairing is
-  stored and served as a secondary, the account's service keeps the server's own relay as its main
-  one, and the libraries always relay locally.
+  lets an account save servers, and only then do the libraries follow the active one. Since they follow
+  the FIRST account found, a pairing on a server would let any signed-in user point every account's
+  libraries at a server of their choosing. A server saves none (`syncRelay.md`, "A server"): its
+  pairing routes answer 403, its accounts' services sync with its own relay whatever their folders
+  hold, and the libraries always relay locally.
 - **Pairing is noticed by polling**, every 30 s: pairing restarts only the account's own service,
   and the libraries are the hub's. An unpaired hub — the origin, a desktop never paired — relays
   its folders to its own relay as above, with a head of its own (`.sync-replica/`, beside

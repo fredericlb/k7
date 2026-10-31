@@ -73,7 +73,7 @@ describe("throughServer", () => {
 });
 
 describe("serverEnginesRoute", () => {
-  it("answers no server when the account has no main link, asking nobody", async () => {
+  it("answers no server when the account has no active server, asking nobody", async () => {
     const f = answering([]);
     const body = await call(serverEnginesRoute(() => null, f));
     expect(body).toEqual({ server: null, reachable: false, engines: [] });

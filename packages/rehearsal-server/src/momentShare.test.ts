@@ -103,25 +103,14 @@ beforeAll(async () => {
       deviceRoute: "/dev",
       server: () => ({ base: server, token: "t" }),
       serverOnly: true,
-      links: () => [
-        {
-          id: "main",
-          origin: server,
-          as: "p@main",
-          main: true,
-          base: server,
-          token: "t-main",
-        },
-        {
-          id: "other",
-          origin: "http://other.test",
-          as: "p@other",
-          main: false,
-          base: server,
-          token: "t-other",
-        },
-      ],
-      reach: async (s) => s.token === "t-main",
+      active: () => ({
+        id: "active",
+        origin: "http://active.test",
+        as: "p@active",
+        base: server,
+        token: "t-active",
+      }),
+      reach: async (s) => s.token === "t-active",
     }),
   );
   local = await listen(app);
@@ -292,14 +281,11 @@ describe("sharing from this machine", () => {
     expect(p.shared).toEqual(["m-shared"]);
   });
 
-  it("lists the account's links, main first, each with whether it answers", async () => {
+  it("names the account's active server and whether it answers", async () => {
     const got = await (await fetch(`${local}/share/servers`)).json();
     expect(got).toMatchObject({
       serverOnly: true,
-      servers: [
-        { id: "main", as: "p@main", main: true, online: true },
-        { id: "other", as: "p@other", main: false, online: false },
-      ],
+      server: { id: "active", as: "p@active", online: true },
     });
   });
 
@@ -310,12 +296,12 @@ describe("sharing from this machine", () => {
       body: JSON.stringify({ link }),
     });
 
-  it("sends the moment and its recording's audio through the chosen link, and remembers where", async () => {
-    const r = await consolidate("m-local", "other");
+  it("sends the moment and its recording's audio to the active server, and remembers where", async () => {
+    const r = await consolidate("m-local", "active");
     expect(r.status).toBe(200);
     expect(received).toMatchObject({
       id: "m-local",
-      token: "Bearer t-other",
+      token: "Bearer t-active",
       // The recording is no WAV, so it goes whole, from its start.
       field: "source",
       bytes: "clip bytes",
@@ -331,13 +317,13 @@ describe("sharing from this machine", () => {
       consolidations: unknown;
     };
     expect(moment.consolidations).toMatchObject([
-      { link: "other", origin: "http://other.test", as: "p@other" },
+      { link: "active", origin: "http://active.test", as: "p@active" },
     ]);
   });
 
-  it("refuses a link the account does not have, and says what the server refused", async () => {
+  it("refuses a server that is not the active one, and says what the server refused", async () => {
     expect((await consolidate("m-local", "nope")).status).toBe(404);
-    const r = await consolidate("m-refused", "main");
+    const r = await consolidate("m-refused", "active");
     expect(r.status).toBe(502);
     expect(((await r.json()) as { error: string }).error).toContain(
       "bad moment",

@@ -9,15 +9,14 @@ import { type AccountFiles, accountFiles } from "./api";
 
 export type { AccountFiles };
 
-/** A workspace of one's own with NOTHING in it, on the link `link` names (the main one without): the editor asks for the archetype. */
+/** A workspace of one's own with NOTHING in it, synced with the active server if any: the editor asks for the archetype. */
 export async function createWorkspace(
   m: AccountFiles,
   name: string,
   onStep: (s: string) => void,
-  link?: string,
 ): Promise<{ workspace: string }> {
   onStep(msg["ops.creating"]({ name }));
-  await accountFiles.createWorkspace(m, name, link);
+  await accountFiles.createWorkspace(m, name);
   return { workspace: name };
 }
 

@@ -1,4 +1,4 @@
-// serverEngines.ts — a machine's own backend listing the engines its MAIN server lists for the link's account, through
+// serverEngines.ts — a machine's own backend listing the engines its ACTIVE server lists for the link's account, through
 // that server's device door, each marked `via` that server so the page drives it through the server's relay.
 // The one thing a reader would get wrong: nothing here relays an engine; the page dials the server's relay itself,
 // with the ticket the server minted for that account. ../../docs/serverEngines.md.
@@ -11,8 +11,8 @@ import type {
 import type { Request, RequestHandler } from "express";
 import { DEVICE_HEADER, DOOR_PATH } from "./door.ts";
 
-/** The main link of the session's account: its http origin, its device token and the remote account; null when none. */
-export type MainLinkOf = (
+/** The active link of the session's account: its http origin, its device token and the remote account; null when none. */
+export type ActiveLinkOf = (
   req: Request,
 ) => { base: string; token: string; account?: string } | null;
 
@@ -38,7 +38,7 @@ export function throughServer(
 
 /** The route's handler; `fetchImpl` and `now` are injected for the tests. */
 export function serverEnginesRoute(
-  linkOf: MainLinkOf,
+  linkOf: ActiveLinkOf,
   fetchImpl: typeof fetch = fetch,
   now: () => number = Date.now,
 ): RequestHandler {
@@ -46,7 +46,7 @@ export function serverEnginesRoute(
   const cache = new Map<string, { at: number; p: Promise<ServerEngines> }>();
 
   const ask = async (
-    link: NonNullable<ReturnType<MainLinkOf>>,
+    link: NonNullable<ReturnType<ActiveLinkOf>>,
     via: EngineVia,
   ): Promise<ServerEngines> => {
     try {

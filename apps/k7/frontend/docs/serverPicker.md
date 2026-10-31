@@ -1,7 +1,7 @@
 # The server picker
 
-On the tray, once the account is paired with a server, the home sidebar shows a picker above the
-engine selector (`components/SidebarServer.tsx`): **This computer** or the paired server. It decides
+On the tray, once the account has an active server, the home sidebar shows a picker above the
+engine selector (`components/SidebarServer.tsx`): **This computer** or the active server. It decides
 which server the **Libraries**, **Media** and **Rehearsal** pages read. The engine is not part of
 it: the selector below stays where it is, so a song from the server's médiathèque can play on this
 computer's engine.
@@ -15,7 +15,7 @@ How the tray's backend reaches the server is `apps/k7/backend/docs/serverPicker.
   no picker either: it reads its own library, and opens each of the server's songs on demand through
   the same forward (`packages/ui-library/docs/songSource.md`).
 - **Kept per browser** (`serverChoice.ts`, in `localStorage`). It is how this machine is used, not
-  a fact about the account. With no paired server it falls back to This computer.
+  a fact about the account. With no active server it falls back to This computer.
 - **One switch, two bases.** Each UI package takes `apiBase`, which follows the choice, and
   `hostBase`, which stays this backend: the engine registry, the slskd settings and the copies placed
   against the server are this machine's whatever is browsed.

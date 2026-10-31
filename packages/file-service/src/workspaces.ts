@@ -25,7 +25,7 @@ import { BENCH_WORKSPACE } from "./bench.ts";
 import { EXAMPLES_WORKSPACE, isManagedDemo } from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
 import { loadHead } from "./liveRelay.ts";
-import { isPaired } from "./liveServers.ts";
+import { isHiddenRecord, isPaired, readLinkRecord } from "./liveServers.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
   attachedAt,
@@ -66,6 +66,8 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
   }
   let ws = live.get(key);
   if (!ws) {
+    // A workspace of a saved server that is not the active one waits on disk, unopened (docs/workspaces.md).
+    if (isHidden(root)) throw new UnknownWorkspaceError(workspace);
     ws = new Workspace(root);
     live.set(key, ws);
     attachLiveCapture(ws, workspace);
@@ -274,8 +276,17 @@ export function listWorkspaces(_userEmail: string): WorkspaceSummary[] {
   return out;
 }
 
-/** The workspace folders under a user root, sorted — the one place the hidden ones are dropped, the BENCH's among them: it is opened by its address, never chosen from a list. */
+/** Whether the workspace at `root` belongs to a saved server that is not the active one. */
+const isHidden = (root: string): boolean =>
+  isHiddenRecord(readLinkRecord(liveLogFor(root)));
+
+/** The workspace folders under a user root, sorted — the one place the hidden ones are dropped: the BENCH (opened by its address), and an inactive server's. */
 export function workspaceNames(dir: string): string[] {
+  return folderNames(dir).filter((name) => !isHidden(join(dir, name)));
+}
+
+/** Every workspace folder under a user root, an inactive server's included: the names a new folder must not take. */
+export function folderNames(dir: string): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter(

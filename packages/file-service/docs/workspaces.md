@@ -192,8 +192,12 @@ Its room is emptied by one batch that says the workspace ENDS, the server's conf
 every room that holds files, and the folder comes back — EMPTY, since the history it resumed from
 had nothing new to write and the disk it diffed against had nothing left. Every other replica synced
 with that room hears the end and lets its copy go (`dropEndedWorkspace`), unless the copy holds a
-file sync never knew — a backup, a local-only file — which is kept, no longer synced. A move to another
-server ends the room it leaves the same way (`liveCapture.md`, "Several servers").
+file sync never knew — a backup, a local-only file — which is kept, no longer synced.
+
+**A machine lists only what the active server and the machine itself hold** (`workspaceNames`): a
+workspace whose record names another saved server (`liveCapture.md`, "One server at a time") is
+dropped from every list and refused by name, and `folderNames` still counts it, so a folder brought
+down later never takes its name.
 
 **A workspace still naming `@st0/…` is rewritten at start** (`migrateLegacyNamespaces`, over
 `@studio/song/namespaceMigrate`): the default library is `k7-core`, and an old spelling names a module

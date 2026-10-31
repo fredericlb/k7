@@ -1,5 +1,5 @@
-// liveSyncStatus.test.ts — where each workspace lives on a paired machine, against a fake server's room list, and
-// two accounts linked on that one server, each listing its own rooms.
+// liveSyncStatus.test.ts — where each workspace lives on a machine, against a fake server's room list: the active
+// server's rooms only, and nothing on a server.
 
 import { mkdtempSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -58,90 +58,45 @@ describe("workspaceSyncStatus", () => {
     expect(s.server).toBe(`http://127.0.0.1:${port}`);
     // Neither is captured in this test, so neither has joined its room yet: here only, until it has.
     const server = `http://127.0.0.1:${port}`;
-    const link = `127.0.0.1:${port}`;
-    expect(s.servers).toEqual([{ origin: server, main: true, id: link }]);
     expect(s.workspaces).toEqual([
-      { name: "band", state: "local", server, link },
-      { name: "solo", state: "local", server, link },
-      { name: "gig", state: "server", server, link },
+      { name: "band", state: "local", server },
+      { name: "solo", state: "local", server },
+      { name: "gig", state: "server", server },
     ]);
   });
 
-  it("with two accounts on one server, lists each one's rooms under its own link", async () => {
+  it("lists the active server's rooms only, by its token, whatever another saved server holds", async () => {
     const url = `ws://127.0.0.1:${port}/api/sync`;
     process.env.STUDIO_SYNC_URL = url;
-    process.env.STUDIO_SYNC_TOKEN = "device-token";
+    process.env.STUDIO_SYNC_TOKEN = "band-token";
     process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
-      {
-        url,
-        token: "device-token",
-        main: true,
-        id: "mine",
-        as: "me@x",
-        home: true,
-      },
-      { url, token: "band-token", main: false, id: "band", as: "band@x" },
+      { url, token: "band-token", main: true, id: "band", as: "band@x" },
     ]);
-    // The band's `gig` was brought down here: its record names the band's link.
+    process.env.STUDIO_SYNC_HIDDEN = JSON.stringify([
+      { id: "mine", url, home: true },
+    ]);
+    // The band's `gig` was brought down here as `gig.band`: its record names the band's link.
     writeLinkRecord(liveLogFor(workspaceRoot("gig.band")), {
       server: `http://127.0.0.1:${port}`,
       link: "band",
       room: "gig",
     });
-    const s = await workspaceSyncStatus(["band", "gig.band"]);
+    const s = await workspaceSyncStatus(["gig.band"]);
+    expect(auth).toBe("Bearer band-token");
     const server = `http://127.0.0.1:${port}`;
-    expect(s.servers).toEqual([
-      { origin: server, main: true, id: "mine", as: "me@x" },
-      { origin: server, main: false, id: "band", as: "band@x" },
-    ]);
     expect(s.workspaces).toEqual([
-      { name: "band", state: "local", server, link: "mine" },
-      {
-        name: "gig.band",
-        state: "local",
-        server,
-        link: "band",
-        room: "gig",
-      },
-      // The person's own `gig` is not here, whatever the band's is.
-      { name: "gig", state: "server", server, link: "mine" },
-      { name: "setlist", state: "server", server, link: "band" },
+      { name: "gig.band", state: "local", server, room: "gig" },
+      { name: "setlist", state: "server", server },
     ]);
+    delete process.env.STUDIO_SYNC_HIDDEN;
   });
 
-  it("on a server, says nothing until another server is added beside its own relay, then names itself as the page does", async () => {
+  it("says nothing on a server: it is the server", async () => {
     const own = `ws://127.0.0.1:${port}/api/sync`;
     delete process.env.STUDIO_SYNC_TOKEN;
     process.env.STUDIO_SYNC_URL = own;
     process.env.STUDIO_HUB_SECRET = "hs";
     delete process.env.STUDIO_SYNC_SERVERS;
-    expect(
-      (await workspaceSyncStatus(["band"], "https://home.test")).paired,
-    ).toBe(false);
-    // The same fake answers the secondary, under another host.
-    const band = `ws://localhost:${port}/api/sync`;
-    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
-      { url: own, own: true, main: true, id: "own", home: true },
-      { url: band, token: "tb", main: false, id: "b", home: true },
-    ]);
-    const s = await workspaceSyncStatus(["band"], "https://home.test");
-    expect(s.paired).toBe(true);
-    expect(s.server).toBe("https://home.test");
-    expect(s.servers).toEqual([
-      { origin: "https://home.test", main: true, id: "own" },
-      { origin: `http://localhost:${port}`, main: false, id: "b" },
-    ]);
-    expect(s.workspaces).toContainEqual({
-      name: "band",
-      state: "local",
-      server: "https://home.test",
-      link: "own",
-    });
-    expect(s.workspaces).toContainEqual({
-      name: "gig",
-      state: "server",
-      server: `http://localhost:${port}`,
-      link: "b",
-    });
+    expect((await workspaceSyncStatus(["band"])).paired).toBe(false);
   });
 });

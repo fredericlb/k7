@@ -178,27 +178,28 @@ The devices allowed to drive this machine's engine over the LAN, and the request
 setting only in the sense that a browser on the machine draws it: anywhere else the engine refuses,
 and the section says so. `pairing.md` is the page.
 
-## Sync — the pairing, from either end
+## Servers — a machine's saved servers, one active
 
-`SyncDevicesSection.tsx`. Live sync pairs a MACHINE with the origin for one account
-(`packages/file-hub/docs/syncRelay.md`), and a pairing has two ends, each answered by the hub that
-serves this page:
+`ServersSection.tsx`, on the tray and the phones only (`GET /api/local`, `localApp.md`, or the Android
+bridge). The account saves servers and syncs with ONE, the active one
+(`packages/file-hub/docs/syncRelay.md`), so the section lists them `host · account`, the active one
+marked **Active**, the others with **Use this server**, and each with **Remove**. **Add a server** pairs
+through the browser (`tabs/browserAccount.ts`) and makes the new server active; a server already listed
+asks its page which other account to add. It is here, not in the account bar, because switching moves
+the whole home page: the workspaces of the server left are hidden until it is used again
+(`packages/file-service/docs/liveCapture.md`, "One server at a time"). It is not behind the sign-out
+either: signing out does not stop a machine syncing, and a phone handed over must not stop every time.
+A phone's page adds none, its app offering its first server at sign-in (`engine/k7-runtime/docs/android.md`).
+A server's page has no such section: it is the server, and adds none.
 
-- **On the tray or the phone**, which run their own backend, the section says which account
-  this machine syncs and with which origin, and offers Unpair. It is here because signing out does
-  NOT unpair: the page's sign-in is not the machine's sync, and an Unpair hidden behind the
-  sign-out would stop a phone syncing every time someone handed it over. Unpaired, it says that
-  pairing follows a sign-in, which is where it happens.
-- **On the origin**, the account's devices, each with Remove: a lost phone is stopped from the
-  machine you still have. A device is also created here by name, for a machine that pairs through
-  no browser — a command-line engine, a server's container — which takes the token as
-  `$STUDIO_DEVICE_TOKEN` and is then listed as the account's engine
-  (`packages/engine-registry/docs/heartbeat.md`). The token is signed, not stored, so it is shown
-  once.
+## Sync — the devices of an account
 
-Which end this page is on is not a route's answer, since every hub answers both routes: it is the
-backend's own probe (`GET /api/local`, `localApp.md`) or the Android bridge (`tabs/bridge.ts`). A local backend lists its devices too, and the list is shown there only when
-it holds one.
+`SyncDevicesSection.tsx`: the devices that sync this account with the hub serving the page, each with
+Remove — a lost phone is stopped from the machine you still have. On the origin a device is also
+created here by name, for a machine that pairs through no browser — a command-line engine, a server's
+container — which takes the token as `$STUDIO_DEVICE_TOKEN` and is then listed as the account's engine
+(`packages/engine-registry/docs/heartbeat.md`). The token is signed, not stored, so it is shown once. A
+local backend lists its devices too, and the list is shown there only when it holds one.
 
 ## Rehearsal — the recorder's own section
 

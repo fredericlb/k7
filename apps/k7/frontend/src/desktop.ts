@@ -6,9 +6,9 @@ import { localApp } from "./localApp";
 import { inAndroidApp } from "./tabs/bridge";
 
 export interface DesktopState {
-  /** The k7 server this machine syncs with, as an https origin; null until one is paired. */
+  /** The active k7 server this machine syncs with, as an https origin; null while none is saved. */
   server: string | null;
-  /** The account its MAIN link is on that server, when the backend says. */
+  /** The account its active server link is for there, when the backend says. */
   account?: string;
   /** Addresses another device on the LAN could open; a loopback-only backend offers none. */
   lanUrls: string[];

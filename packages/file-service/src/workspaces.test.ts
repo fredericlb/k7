@@ -12,15 +12,19 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { liveLogFor } from "./liveLog.ts";
+import { readLinkRecord, writeLinkRecord } from "./liveServers.ts";
 import { attachedAt, detachLiveCapture } from "./liveSync.ts";
 import { claimRoot } from "./owner.ts";
 // STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
 import { rootDir } from "./slug.ts";
 import {
   createWorkspace,
+  folderNames,
   getWorkspace,
   joinWorkspace,
   listMachineWorkspaces,
+  workspaceNames,
 } from "./workspaces.ts";
 
 let home: string;
@@ -165,5 +169,68 @@ describe("joinWorkspace", () => {
     joinWorkspace("band");
     expect(readdirSync(root)).toContain("band");
     delete process.env.STUDIO_LIVE_SYNC;
+  });
+});
+
+describe("the workspaces of a saved server that is not the active one", () => {
+  const record = (name: string, link: string) =>
+    writeLinkRecord(liveLogFor(join(rootDir(), name)), {
+      server: "https://a.test",
+      link,
+      room: name,
+    });
+
+  afterEach(() => {
+    delete process.env.STUDIO_SYNC_HIDDEN;
+    delete process.env.STUDIO_LIVE_SYNC;
+  });
+
+  it("are hidden from every list and refused by name while another is active, and come back once theirs is", async () => {
+    const root = myRoot();
+    for (const n of ["band", "solo", "mine"]) mkdirSync(join(root, n));
+    record("band", "l-band");
+    record("mine", "l-mine");
+    // Switched to l-mine: the hub names l-band among the hidden links.
+    process.env.STUDIO_SYNC_HIDDEN = JSON.stringify([
+      { id: "l-band", url: "wss://a.test/api/sync" },
+    ]);
+    expect(workspaceNames(root)).toEqual(["mine", "solo"]);
+    expect(folderNames(root)).toEqual(["band", "mine", "solo"]);
+    expect((await listMachineWorkspaces(USER)).map((w) => w.name)).toEqual([
+      "mine",
+      "solo",
+    ]);
+    expect(() => getWorkspace(USER, "band")).toThrow(/unknown workspace/);
+    // Switched back to l-band: l-mine is the hidden one, and band is listed and opened again.
+    process.env.STUDIO_SYNC_HIDDEN = JSON.stringify([
+      { id: "l-mine", url: "wss://a.test/api/sync" },
+    ]);
+    expect(workspaceNames(root)).toEqual(["band", "solo"]);
+    process.env.STUDIO_LIVE_SYNC = "0";
+    expect(getWorkspace(USER, "band").root).toBe(join(root, "band"));
+    expect(existsSync(join(root, "mine"))).toBe(true);
+  });
+
+  it("is what a workspace becomes on a machine from its first link: its record names the active server", () => {
+    const root = myRoot();
+    mkdirSync(join(root, "fresh"));
+    const url = "ws://127.0.0.1:9/api/sync";
+    process.env.STUDIO_SYNC_URL = url;
+    process.env.STUDIO_SYNC_TOKEN = "t";
+    process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
+      { url, token: "t", main: true, id: "l-active", as: "me@x" },
+    ]);
+    try {
+      const ws = getWorkspace(USER, "fresh");
+      expect(readLinkRecord(liveLogFor(ws.root))).toMatchObject({
+        link: "l-active",
+        room: "fresh",
+      });
+      detachLiveCapture(ws.root);
+    } finally {
+      delete process.env.STUDIO_SYNC_URL;
+      delete process.env.STUDIO_SYNC_TOKEN;
+      delete process.env.STUDIO_SYNC_SERVERS;
+    }
   });
 });

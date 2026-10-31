@@ -86,7 +86,7 @@ export interface FileHubOptions
   ticketKey?: string;
   /** An instance nobody used for this long is stopped; default IDLE_MS. */
   idleMs?: number;
-  /** An account pairs with a MAIN remote server, which the libraries follow: the tray and the phones. A server pairs secondaries only. */
+  /** A machine's hub (the tray, the phones): an account saves servers, uses the active one, and the libraries follow it. A server saves none. */
   remotePairing?: boolean;
   /** The machine's local user, signed in nowhere: a link it makes names its remote account itself. */
   isLocal?: (req: Request) => boolean;
@@ -179,7 +179,7 @@ export class FileHub {
         ...syncTarget(
           `ws://127.0.0.1:${opts.selfPort()}${SYNC_PATH}`,
           this.remotesOf(slug),
-          opts.remotePairing !== true,
+          opts.remotePairing === true,
         ),
         ...this.renderTarget(slug),
       }),
@@ -201,7 +201,7 @@ export class FileHub {
       ...opts.onRemote,
     });
     // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
-    for (const r of pairedAccounts(resolve(opts.dataRoot)))
+    for (const r of this.pairedAccounts())
       void this.instances
         .get(r.user)
         .catch((e: Error) => log(`paired ${r.user}: ${e.message}`));
@@ -429,12 +429,14 @@ export class FileHub {
     };
   }
 
-  /** The servers account `slug` is paired with; on a server, secondaries beside its own relay. */
+  /** The servers account `slug` saved, the active one first; none on a server, which syncs with its own relay alone. */
   private remotesOf(slug: string): SyncRemote[] {
-    return readRemotes(this.sync.accountDir(slug));
+    return this.opts.remotePairing
+      ? readRemotes(this.sync.accountDir(slug))
+      : [];
   }
 
-  /** The accounts paired with a MAIN remote server, which the libraries follow: none on a server. */
+  /** The accounts with an active server, which the libraries follow: none on a server. */
   private pairedAccounts(): ReturnType<typeof pairedAccounts> {
     return this.opts.remotePairing
       ? pairedAccounts(resolve(this.opts.dataRoot))

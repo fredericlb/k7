@@ -70,16 +70,15 @@ stamped. A ticket may carry `~<engineId>` to bind that engine to the account fir
 | `GET /api/public/libraries[/<name>/<v>[/file?path=]]` | none | Published library versions, for machines that fetch them. Never the draft. |
 | `WS /api/sync` | device token or hub secret | The live-sync relay ([live-sync](./38-live-sync.md)). |
 | `/api/sync/devices` (`GET`, `POST`, `DELETE /:id`), `GET`/`POST /api/sync/devices/pair` | session | Device tokens, and the browser pairing flow that hands one to a machine's own backend, or to another server once the person allowed it. |
-| `/api/sync/remote` (`GET`, `PUT`, `POST /main`, `DELETE`) | session | The account's pairings with remote servers; on a server `POST /main` is refused (403), the server staying the main one. |
+| `/api/sync/remote` (`GET`, `PUT`, `POST /active`, `DELETE`), `/api/sync/remote/pair` | session | A machine account's saved servers, one active: list, add (it becomes active), switch, forget. On a server every write and the pairing answer 403: it adds no server. |
 | `/api/sync/blobs/:hash` | device token or hub secret | Binary blobs: GET with ranges, resumable PUT verified against the hash, 2 GiB max. |
 | `GET /api/sync/rooms` | token or secret | Workspaces that have a room. |
 | `/api/sync/history/:workspace` (`GET`, `POST /checkpoints`, `GET /diff`, `POST /restore`) | session | The server log as history; a restore is submitted to the room as a batch. |
 | `GET /api/sync/events` | session | Server-sent change notices, 20 s heartbeat. |
 
-**A main remote** is followed only where `STUDIO_LOCAL_USER=1` (the tray's and the phone's backends,
-option `remotePairing`), since the libraries follow the first paired account. On a server an account
-pairs secondaries only: the server stays its main one, and the other server mints the token only
-after the person allowed it on its own page.
+**A remote server** is followed only where `STUDIO_LOCAL_USER=1` (the tray's and the phone's backends,
+option `remotePairing`), since the libraries follow the first account with an active server. A server
+adds none: its accounts sync with its own relay whatever their folders hold.
 
 ## Libraries
 
@@ -118,5 +117,5 @@ fetches published versions from `$STUDIO_LIBRARY_ORIGIN/api/public/libraries` (`
 ## Tests
 
 The tests sit beside the sources in `packages/file-hub/` (`fileHub.test.ts`, `libraries.test.ts`,
-`syncRelay.test.ts`, `syncRelayFrames.test.ts`, `syncPairing.test.ts`, `syncMove.test.ts`,
+`syncRelay.test.ts`, `syncRelayFrames.test.ts`, `syncPairing.test.ts`,
 `blobStore.test.ts`, `history.test.ts`…) and exercise the hub, its relay and its stores over loopback ports and temporary data roots.

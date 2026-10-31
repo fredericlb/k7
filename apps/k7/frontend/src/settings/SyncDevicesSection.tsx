@@ -1,6 +1,6 @@
-// SyncDevicesSection.tsx — live sync's pairings, from both ends: on the tray's backend or the phone, whether this
-// machine syncs the account with an origin and the Unpair that stops it; on the origin, the account's
-// devices, each removable, and a token minted for one that pairs by no browser. Both are session routes of the hub this page is served by. See ../../docs/settings.md.
+// SyncDevicesSection.tsx — the devices that sync this account with the hub this page is served by, each removable,
+// and on a server a token minted for one that pairs by no browser. A machine's own saved servers are ServersSection's.
+// See ../../docs/settings.md.
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocalApp } from "../localApp";
@@ -10,25 +10,11 @@ import { onAndroid } from "./androidEngine";
 import { NewDeviceToken } from "./NewDeviceToken";
 import { Action, Row, Section } from "./Section";
 
-interface Remote {
-  paired: boolean;
-  url: string | null;
-  /** The account the MAIN link is on its server, which may differ from the one signed in here. */
-  as?: string | null;
-}
-
 interface Device {
   id: string;
   name: string;
   created: number;
   lastSeen?: number;
-}
-
-interface Me {
-  email?: string | null;
-  name?: string;
-  /** The machine's signed-out user, which has no account at any origin. */
-  local?: boolean;
 }
 
 /** The tray's backend and the phone app's both run on the machine: a hub that pairs with an origin. */
@@ -40,15 +26,6 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** The origin a relay URL names, as a person reads it: `wss://app.k7.rocks/api/sync` → `app.k7.rocks`. */
-const originOf = (url: string | null): string => {
-  try {
-    return url ? new URL(url).host : "";
-  } catch {
-    return url ?? "";
-  }
-};
-
 const when = (ms?: number): string =>
   ms
     ? new Date(ms).toLocaleString(getLocale(), {
@@ -59,24 +36,15 @@ const when = (ms?: number): string =>
 
 export function SyncDevicesSection() {
   const local = useLocal();
-  const [me, setMe] = useState<Me | null>(null);
-  const [remote, setRemote] = useState<Remote | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    void json<{ user: Me }>("/auth/me")
-      .then((r) => setMe(r.user))
-      .catch(() => setMe(null));
-    if (local)
-      void json<Remote>("/api/sync/remote")
-        .then(setRemote)
-        .catch(() => setRemote(null));
     void json<{ devices: Device[] }>("/api/sync/devices")
       .then((r) => setDevices(r.devices))
       .catch(() => setDevices([]));
-  }, [local]);
+  }, []);
 
   useEffect(load, [load]);
 
@@ -91,63 +59,36 @@ export function SyncDevicesSection() {
       });
   };
 
-  const showMachine = local && remote !== null;
-  const showDevices = !local || devices.length > 0;
-  if (!showMachine && !showDevices) return null;
-  const account = remote?.as || me?.email || me?.name || "";
+  if (local && devices.length === 0) return null;
 
   return (
     <Section title={m["syncdev.title"]()} hint={m["syncdev.hint"]()}>
-      {showMachine &&
-        (remote.paired ? (
+      <Row label={m["syncdev.devices"]()} />
+      {devices.length === 0 ? (
+        <Row label={m["syncdev.noDevices"]()} />
+      ) : (
+        devices.map((d) => (
           <Row
-            label={m["syncdev.paired"]({
-              account,
-              origin: originOf(remote.url),
+            key={d.id}
+            label={d.name}
+            detail={m["syncdev.deviceDetail"]({
+              paired: when(d.created),
+              seen: when(d.lastSeen),
             })}
-            detail={m["syncdev.pairedDetail"]()}
           >
             <Action
               danger
               disabled={busy}
-              onClick={() => act("/api/sync/remote")}
+              onClick={() =>
+                act(`/api/sync/devices/${encodeURIComponent(d.id)}`)
+              }
             >
-              {m["syncdev.unpair"]()}
+              {m["syncdev.remove"]()}
             </Action>
           </Row>
-        ) : (
-          <Row label={m["syncdev.unpaired"]()} />
-        ))}
-      {showDevices && (
-        <>
-          <Row label={m["syncdev.devices"]()} />
-          {devices.length === 0 ? (
-            <Row label={m["syncdev.noDevices"]()} />
-          ) : (
-            devices.map((d) => (
-              <Row
-                key={d.id}
-                label={d.name}
-                detail={m["syncdev.deviceDetail"]({
-                  paired: when(d.created),
-                  seen: when(d.lastSeen),
-                })}
-              >
-                <Action
-                  danger
-                  disabled={busy}
-                  onClick={() =>
-                    act(`/api/sync/devices/${encodeURIComponent(d.id)}`)
-                  }
-                >
-                  {m["syncdev.remove"]()}
-                </Action>
-              </Row>
-            ))
-          )}
-          {!local && <NewDeviceToken onCreated={load} />}
-        </>
+        ))
       )}
+      {!local && <NewDeviceToken onCreated={load} />}
       {error && <Row label={m["syncdev.failed"]({ error })} />}
     </Section>
   );

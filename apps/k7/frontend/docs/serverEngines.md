@@ -1,7 +1,7 @@
-# Engines through the main server
+# Engines through the active server
 
 On a machine's own backend (the tray, the phone and iPhone apps — `localApp.md`), the engine lists show
-this machine's engines and, after them, the ones the account's MAIN server lists for that link's
+this machine's engines and, after them, the ones the account's ACTIVE server lists for that link's
 account, each named `<machine> · via <server>`: a tablet in the app finds the desktop that is the same
 account's on `app.k7.rocks`. How the backend gets the list is `apps/k7/backend/docs/serverEngines.md`;
 the merge, the probe and the claim are `@studio/engine-browser`'s `server` option
@@ -29,11 +29,10 @@ that copy; the live-sync relay brings every edit back to this machine's copy.
 
 What follows from it:
 
-- **Only a workspace the main link syncs, under its own name, opens there.** A workspace kept on this
-  machine alone, one on a secondary link, or one brought down as `<room>.<host>` because two links hold
-  that name, is not on the server under the name the address gives: the gate says the project is not
-  found, and choosing this machine's engine (the home page's selector) opens it here again. Moving the workspace to the main link
-  (`packages/file-service/docs/liveCapture.md`, "Several servers") is what makes it playable there.
+- **Only a workspace the active server syncs, under its own name, opens there.** A workspace kept on this
+  machine alone, or one brought down as `<room>.<host>` because a folder here held that name, is not on the
+  server under the name the address gives: the gate says the project is not found, and choosing this
+  machine's engine (the home page's selector) opens it here again.
 - **A new file reaches this machine through sync, not at once.** The editor writes the server's copy; the
   local copy follows as the relay delivers.
 - **Nothing is ever sent from this machine to that engine.** This machine's file service has no tunnel to
@@ -43,4 +42,4 @@ What follows from it:
 
 - **The médiathèque's player** (`@studio/ui-library`) keeps its own engine list, this machine's.
 - **The bench** (`/@banc/…`) takes the engine its account already holds a claim on, in this registry.
-- **Secondary links** list nothing: only the main link's server is asked.
+- **The other saved servers** list nothing: only the active one is asked.

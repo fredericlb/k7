@@ -1,7 +1,7 @@
 // liveSync.ts — turns live capture on for each open workspace, unless `STUDIO_LIVE_SYNC=0`, and links each to the
-// relay of the link it belongs to (liveServers.ts): the hub's own relay with the hub's secret, or one account on a
-// paired server with its device token. A workspace's batches go to whichever link it has NOW, which is what lets a
-// move switch it underneath (liveMove.ts). See docs/liveCapture.md.
+// relay of the link it belongs to (liveServers.ts): the hub's own relay with the hub's secret, or the machine's
+// active server with its device token. On a machine a workspace is its server's from its first link, so switching
+// servers leaves it with that one. See docs/liveCapture.md.
 
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
@@ -30,13 +30,12 @@ import {
   listRooms,
   localNameFor,
   mainServer,
+  originOf,
   readLinkRecord,
   recordFor,
   type SyncServer,
   serverForRecord,
-  serverOf,
   syncServers,
-  toPage,
   writeLinkRecord,
 } from "./liveServers.ts";
 import { workspaceRoot } from "./slug.ts";
@@ -44,7 +43,7 @@ import { isBinary, isProjectDir, skip, type Workspace } from "./workspace.ts";
 
 export { ACCOUNT_LIBRARY_ROOM };
 
-/** One captured workspace: where it syncs, by which link, and — while a move runs — the batches held back. */
+/** One captured workspace: where it syncs, by which link. */
 export interface Attached {
   ws: Workspace;
   capture: LiveCapture;
@@ -57,15 +56,13 @@ export interface Attached {
   server?: SyncServer;
   link?: RelayLink;
   replica?: Replica;
-  /** Set during a move: edits made meanwhile wait here and go to the server it lands on. */
-  held?: Batch[];
 }
 
 const attached = new Map<string, Attached>();
 
 const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC !== "0";
 
-/** The captured workspace at `root`, for the move and the routes that look at its sync. */
+/** The captured workspace at `root`, for the routes that look at its sync. */
 export const attachedAt = (root: string): Attached | undefined =>
   attached.get(root);
 
@@ -81,7 +78,6 @@ export async function joinServerRooms(
   if (isPaired() || !liveSyncOn()) return;
   // Imported late: workspaces.ts loads this module to attach what it opens.
   const { joinWorkspace } = await import("./workspaces.ts");
-  // A server it is paired with beside its own is like a paired machine's: its rooms come down when asked.
   for (const server of syncServers().filter((s) => s.own)) {
     const names = fromRequest
       ? await listRooms(server, 30_000, true)
@@ -98,88 +94,60 @@ function onOpen(server: SyncServer): void {
   roomsTimer.unref?.();
 }
 
-/** The move or copy a workspace is under, told by liveMove.ts — set there so this module does not import it back. */
-let moving: (
-  root: string,
-) => { to: string; link?: string; error?: string; copy?: boolean } | undefined =
-  () => undefined;
-export const reportMoves = (f: typeof moving): void => {
-  moving = f;
-};
-
-/** Where each workspace lives, for an account paired with remote servers: synced, here only, or on a server only; `self` names this one. */
+/** Where each workspace lives, on a machine with an active server: synced, here only, or on that server only. */
 export async function workspaceSyncStatus(
   local: string[],
-  self?: string,
 ): Promise<WorkspaceSyncStatus> {
-  const servers = syncServers();
-  // A server alone with its own relay is not paired: it shows nothing until another server is added beside it.
-  const paired = isPaired() ? servers.length > 0 : servers.length > 1;
-  if (!paired || !liveSyncOn())
+  const server = isPaired() ? mainServer() : undefined;
+  if (!server || !liveSyncOn())
     return { paired: false, server: null, workspaces: [] };
-  const shown = (url: string) => toPage(url, self);
-  // Every server asked at once, each bounded: the page must not hang on one that is away.
-  const lists = await Promise.all(servers.map((s) => listRooms(s)));
+  const origin = originOf(server.url);
+  // Bounded: the page must not hang on a server that is away.
+  const rooms = await listRooms(server);
   const mine = local.filter((n) => n !== EXAMPLES_WORKSPACE);
-  // What each local workspace is on its link: recorded, or the main one's under its own name.
   const here = mine.map((name) => {
     const a = attached.get(workspaceRoot(name));
     const rec = readLinkRecord(liveLogFor(workspaceRoot(name)));
-    // A record whose link was let go names its server still, and no link.
-    const link = a?.server ?? (rec ? serverForRecord(rec) : servers[0]);
+    // A record whose link was let go names its server still, and syncs with none.
+    const link = a?.server ?? (rec ? serverForRecord(rec) : server);
     return {
       name,
       room: a?.room ?? rec?.room ?? name,
-      server: shown(link?.url ?? rec?.server ?? servers[0].url),
-      link: link?.id,
+      server: link ? origin : (rec?.server ?? origin),
+      linked: link?.id === server.id,
       synced: (a?.replica?.head ?? 0) > 0,
     };
   });
-  const held = new Set(here.map((h) => `${h.link}\n${h.room}`));
+  const held = new Set(here.filter((h) => h.linked).map((h) => h.room));
   return {
     paired: true,
-    server: shown(servers[0].url),
-    servers: servers.map((s) => ({
-      origin: shown(s.url),
-      main: s.main,
-      id: s.id,
-      ...(s.as ? { as: s.as } : {}),
-    })),
+    server: origin,
     workspaces: [
-      ...here.map((h) => {
-        const move = moving(workspaceRoot(h.name));
-        return {
-          name: h.name,
-          state: h.synced ? ("synced" as const) : ("local" as const),
-          server: h.server,
-          ...(h.link ? { link: h.link } : {}),
-          ...(h.room !== h.name ? { room: h.room } : {}),
-          ...(move ? { moving: { ...move, to: shown(move.to) } } : {}),
-        };
-      }),
-      ...servers.flatMap((s, i) =>
-        lists[i]
-          .filter((room) => !held.has(`${s.id}\n${room}`))
-          .map((room) => ({
-            name: room,
-            state: "server" as const,
-            server: shown(s.url),
-            link: s.id,
-          })),
-      ),
+      ...here.map((h) => ({
+        name: h.name,
+        state: h.synced ? ("synced" as const) : ("local" as const),
+        server: h.server,
+        ...(h.room !== h.name ? { room: h.room } : {}),
+      })),
+      ...rooms
+        .filter((room) => !held.has(room))
+        .map((room) => ({
+          name: room,
+          state: "server" as const,
+          server: origin,
+        })),
     ],
   };
 }
 
-/** Bring workspace `room` of the link `server` names (an id or an origin; the main one when absent) down here, synced from then on. */
+/** Bring workspace `room` of the active server down here, synced from then on; `taken` names every folder here, hidden ones too. */
 export async function downloadWorkspace(
   room: string,
-  server?: string,
   taken: (name: string) => boolean = () => false,
 ): Promise<string | null> {
-  const s = server ? serverOf(server) : mainServer();
+  const s = mainServer();
   if (!s || !(await listRooms(s)).includes(room)) return null;
-  // Its folder here: the room's name, or `room.host` (with the account when two share the host) when that is taken.
+  // Its folder here: the room's name, or `room.host` when that is taken.
   const name = localNameFor(room, s, taken);
   writeLinkRecord(liveLogFor(workspaceRoot(name)), recordFor(s, room));
   const { joinWorkspace } = await import("./workspaces.ts");
@@ -230,7 +198,7 @@ function replicaOf(a: Attached, logDir: string): Linked {
 }
 
 /** Link `a` to `server` under its room, over the history in its log folder; answers the replica it got. */
-export function linkUp(a: Attached, server: SyncServer): Replica {
+function linkUp(a: Attached, server: SyncServer): Replica {
   const link = linkFor(server, onOpen);
   const linked = replicaOf(a, a.logDir);
   a.server = server;
@@ -257,8 +225,7 @@ export function attachLiveCapture(ws: Workspace, name: string): void {
     onBatch: (b: Batch) => {
       log.append(b);
       const a = attached.get(root);
-      if (a?.held) a.held.push(b);
-      else a?.link?.local(a.room, b);
+      a?.link?.local(a.room, b);
     },
     blobDir: join(logDir, "blobs"),
     onMissingBlob: (blob) => {
@@ -282,13 +249,16 @@ export function attachLiveCapture(ws: Workspace, name: string): void {
     capture.start();
     return;
   }
+  // Pinned on a machine: switching the active server then hides it rather than seeding it to the next one.
+  if (!rec && isPaired() && name !== ACCOUNT_LIBRARY_ROOM)
+    writeLinkRecord(logDir, recordFor(server, a.room));
   const replica = linkUp(a, server);
   // With a history, what moved while this service was down is diffed against the confirmed text and sent.
   capture.start(replica.head > 0 ? replica.confirmed : undefined);
 }
 
-/** One batch removing every file of `a` and saying the workspace ENDS: what a deletion and a move both send. */
-export function endBatch(a: Attached, label: string): Batch {
+/** One batch removing every file of `a` and saying the workspace ENDS: what a deletion sends. */
+function endBatch(a: Attached, label: string): Batch {
   const ops = a.capture.textFiles().flatMap((file) => {
     const op = fileOpFor(file, a.capture.read(file), null);
     return op ? [op] : [];
@@ -345,7 +315,6 @@ export async function settledSeq(
   const a = attached.get(root);
   if (!a?.link || !a.replica)
     throw new Error("this workspace does not sync with a server");
-  if (a.held) throw new Error("this workspace is moving to another server");
   a.capture.flushNow({ full: true });
   const end = Date.now() + timeoutMs;
   const settled = () =>

@@ -88,8 +88,8 @@ object SyncPairing {
             return settle(context, it, cookie)
         }
         if (synchronized(this) { !asked.add(email) }) return
-        // Already a server of this account, main or not, as on desktop: another one chosen is paired as the main.
-        if (offer.optBoolean("paired")) return
+        // Offered only while no server is saved: adding and switching servers is the settings' (android.md).
+        if (offer.optInt("links") > 0) return
         if (!ask(context, "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one.", "Sync")) return
         val body = JSONObject().put("origin", origin(context)).put("name", deviceName())
         val started = local("POST", PAIR_API, cookie, body)

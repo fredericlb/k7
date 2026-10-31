@@ -381,7 +381,9 @@ phone's supervisor is handed the token of the link its engine is owned by on tha
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and
   that return is the backend's own fixed port; a second rule for phones would be a second hole to keep shut.
 - **It starts when k7's view says who is signed in** (`assets/account.js`) on the phone's own
-  studio, and the backend says that account is unpaired. The app talks to the backend with the view's
+  studio, and the backend says that account has saved no server (`links`). Once one is saved the app
+  offers nothing at start: switching servers, and removing one, are the settings' (Settings → Devices,
+  `apps/k7/frontend/docs/localApp.md`). The app talks to the backend with the view's
   session cookie, read from the `CookieManager`, so the backend knows which account it is for. The
   device is named after the phone's maker and model.
 - **A process killed behind the browser loses nothing.** Android may freeze or kill a process whose
@@ -393,18 +395,20 @@ phone's supervisor is handed the token of the link its engine is owned by on tha
   (`ServerDialog.tsx`), and the address rides on the `/auth/login` the shell already intercepts, as
   `?server=`: the page has no other way to the shell that both phones share. The shell keeps it
   (`SyncPairing.choose`, `SharedPreferences` here, `UserDefaults` on iOS) and pairs with it,
-  `app.k7.rocks` until then. The page keeps a copy only to prefill the popin. A server the account
-  is already paired with is not asked again; another one is paired as the main. A phone connected
+  `app.k7.rocks` until then. The page keeps a copy only to prefill the popin. A phone connected
   to another studio uses that studio's own session and has nothing to pair.
+- **The phone's supervisor takes the token of the pairing's answer**, the new active server's. A switch
+  made later in the settings reaches the phone's backend alone, which runs no supervisor: the engine
+  stays listed where the last pairing put it.
 
 ## The account's other engines, through its server
 
 The phone's registry lists the phone's own engine: the backend's registry hears only what heartbeats to
-it. Once the account is paired, the page also lists the engines its MAIN server lists for that account —
+it. Once the account has an active server, the page also lists the engines that server lists for that account —
 the desktop it added there, an engine shared with it, the server's own — named `<machine> · via <server>`
 (`apps/k7/frontend/docs/serverEngines.md`). The phone drives one through the server's relay, as a browser
 signed in there would, and never reaches the engine's machine itself; the project plays from the server's
-copy of the workspace, so a workspace the main link does not sync is not found there.
+copy of the workspace, so a workspace the active server does not sync is not found there.
 
 ## A library in the app, not a process it spawns
 

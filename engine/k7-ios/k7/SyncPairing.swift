@@ -79,8 +79,8 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
             _ = local("DELETE", "\(Self.pairApi)/\(state)", cookie: cookie)
         }
         if !fresh { return }
-        // Already a server of this account, main or not, as on desktop: another one chosen is paired as the main.
-        if offer["paired"] as? Bool == true { return }
+        // Offered only while no server is saved: adding and switching servers is the settings' (ios.md).
+        if (offer["links"] as? Int ?? 0) > 0 { return }
         if !Dialogs.ask(
             "Sync",
             "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one.",

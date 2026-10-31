@@ -1,5 +1,5 @@
 // SidebarServer.tsx — the server picker, above the engine selector on the tray: whether the Libraries, Media and
-// Rehearsal pages read this computer or the account's MAIN link, named `host · account`. The engine is not chosen here.
+// Rehearsal pages read this computer or the account's ACTIVE server, named `host · account`. The engine is not chosen here.
 // See ../../docs/serverPicker.md.
 
 import { Laptop, Server } from "@frediverse/ui/icons";
@@ -25,9 +25,9 @@ export function SidebarServer({
   account,
   folds = false,
 }: {
-  /** The main link's server, as an origin. */
+  /** The active server, as an origin. */
   server: string;
-  /** …and the account it is there: several may share a server, and the main one is the one read. */
+  /** …and the account it is there: several may share a server, and the active one is the one read. */
   account?: string;
   /** On the sidebar's icon rail the block is one button that switches the server instead. */
   folds?: boolean;

@@ -1,4 +1,4 @@
-// useWorkspaceSync.ts — where each workspace lives, on a machine paired with a remote server: synced,
+// useWorkspaceSync.ts — where each workspace lives, on a machine with an active server: synced,
 // here only, or there only. Read on open, when the list changes, and every half minute while the tab is visible; nothing when unpaired.
 // See ../../docs/projects.md.
 
@@ -14,7 +14,6 @@ import type { AccountFiles } from "./workspaceOps";
 
 const EVERY_MS = 30_000;
 const RETRY_MS = 3_000;
-const MOVING_MS = 3_000;
 
 export function useWorkspaceSync(
   fileService: AccountFiles | null,
@@ -46,13 +45,6 @@ export function useWorkspaceSync(
 
   // A hidden tab asks nothing: the answer is for a row on screen, and the return asks once at once.
   useEffect(() => pollWhileVisible(reload, EVERY_MS), [reload]);
-
-  // A move under way is watched closely: it ends on its own, and the row should say so when it does.
-  const moving = sync?.workspaces.some((w) => w.moving && !w.moving.error);
-  useEffect(() => {
-    if (!moving) return;
-    return pollWhileVisible(reload, MOVING_MS);
-  }, [moving, reload]);
 
   return { sync, reload };
 }

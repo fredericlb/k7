@@ -31,7 +31,8 @@ prefetch and the idle-link pruning.
 | `STUDIO_HOME` | `~/.k7` | The account's state root; workspaces live in `<STUDIO_HOME>/workspace`. |
 | `STUDIO_HUB_URL` | none | The hub's internal endpoint, for library sync and shares; without it those calls do nothing. |
 | `STUDIO_LIBRARIES_HOME` | `<STUDIO_HOME>/libraries` | Where the account's libraries are read from (the hub points every account at one shared folder). |
-| `STUDIO_SYNC_URL`, `STUDIO_SYNC_TOKEN`, `STUDIO_SYNC_SERVERS` | none | The live-sync relay(s); a token means this is a paired machine. |
+| `STUDIO_SYNC_URL`, `STUDIO_SYNC_TOKEN`, `STUDIO_SYNC_SERVERS` | none | The live-sync relay; a token means this is a machine syncing with its active server. |
+| `STUDIO_SYNC_HIDDEN` | none | A machine's other saved servers, whose workspaces are hidden and not synced. |
 | `STUDIO_LIVE_SYNC` | on | `0` turns live capture off. |
 | `STUDIO_DEMOS` | a `demos/` folder found upwards | The demo songs mirrored into Examples. |
 | `STUDIO_MEDIATEK`, `MEDIATEK_URL`, `MEDIATEK_TOKEN` | none | The media library's folder and HTTP endpoint. |
@@ -73,7 +74,7 @@ engine machine's jobs socket, and of the sync relay.
 | GET, POST | `/workspaces` | List; create `{ name }` (pins the libraries). |
 | POST | `/workspaces/remove`, `/workspaces/copy-project`, `/workspaces/bench` | Remove a workspace; copy a project between workspaces; open the bench. |
 | GET | `/workspaces/projects`, `/workspaces/surfaces`, `/workspaces/sync` | Every project (home page); projects a second device can open; where each workspace lives. |
-| POST | `/workspaces/sync/download`, `/move`, `/copy` | Move or copy a workspace between servers. |
+| POST | `/workspaces/sync/download` | Bring a workspace that is only on the active server down here. |
 | GET | `/engine/served` | The project the engine holds for this user. |
 | GET | `/plugin-params`, `/plugin-native-ui` | A scanned plugin's parameters; its native window. |
 | GET, PUT, POST | `/account/live-chains`, `/account/cold-chains[/:which]`, `/account/cold-chains/download`, `/account/models/:id` | Account-level chain choices and model downloads. |
@@ -134,8 +135,8 @@ live-sync capture has its own recursive watcher.
 | `src/liveSync.ts` | Attaches capture to each workspace and links it to its server's room through a `Replica`. |
 | `src/liveCapture.ts` | Watches the workspace (100 ms quiet window, 5 s sweep) and turns changes into batches of file operations; writes arriving from the room are recorded first so they are not echoed. |
 | `src/liveRelay.ts` | One WebSocket per server for all workspaces: `hello`, `batch` out; `welcome`, `seq`, `error` in; resends unconfirmed batches after reconnecting, and sends a batch only once its blobs are uploaded. |
-| `src/liveServers.ts` | The list of sync servers from the environment, main first. |
-| `src/liveLedger.ts`, `liveBlobs.ts`, `liveBlobTransfer.ts`, `liveConfirmed.ts`, `liveLog.ts`, `liveMove.ts` | What is known about each file, binary blobs in flight and their transfer, the confirmed mirror, the per-batch log, moving a workspace between servers. |
+| `src/liveServers.ts` | The one link this service syncs with, from the environment, and the other saved servers whose workspaces it hides. |
+| `src/liveLedger.ts`, `liveBlobs.ts`, `liveBlobTransfer.ts`, `liveConfirmed.ts`, `liveLog.ts` | What is known about each file, binary blobs in flight and their transfer, the confirmed mirror, the per-batch log. |
 
 ## Tests
 

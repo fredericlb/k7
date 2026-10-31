@@ -1,5 +1,5 @@
-// syncRoutes.ts — the hub's live-sync routes beside the relay: devices and their pairing, an account's pairing with
-// remote servers (the main one on a machine, secondaries beside its own relay on a server), the rooms, blobs, history.
+// syncRoutes.ts — the hub's live-sync routes beside the relay: devices and their pairing, a machine account's saved
+// servers (one of them active; a server adds none), the rooms, blobs, history.
 // Split from index.ts, which keeps the file services and the relay itself. See docs/syncRelay.md.
 
 import { mkdirSync } from "node:fs";
@@ -13,20 +13,23 @@ import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
 import { consentPage, sameOriginPost } from "./pairConsent.ts";
 import { PairingStore } from "./pairingStore.ts";
-import { pairReturnHandler, pairRouter } from "./pairRoutes.ts";
-import { publicHost, publicOrigin } from "./publicOrigin.ts";
+import {
+  pairReturnHandler,
+  pairRouter,
+  SERVER_ADDS_NONE,
+} from "./pairRoutes.ts";
+import { publicHost } from "./publicOrigin.ts";
 import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
 import { SYNC_PATH } from "./syncRelay.ts";
 import {
-  engineLinkOf,
+  engineMoves,
   forgetRemote,
-  OWN_LINK,
   readRemote,
   readRemotes,
   type SyncRemote,
-  setMainRemote,
+  setActiveRemote,
   writeRemote,
 } from "./syncRemote.ts";
 
@@ -50,7 +53,7 @@ export interface SyncContext {
   subjectOf: (req: Request) => string;
   /** The running relay, once `serveSync` has attached it. */
   relay: () => ReturnType<typeof attachSyncRelay> | null;
-  /** Whether an account here pairs with a MAIN remote server (the tray, the phones); a server pairs secondaries only. */
+  /** Whether this is a machine's hub (the tray, the phones), whose accounts save servers; a server saves none. */
   remotePairing: boolean;
   /** The machine's local user, signed in nowhere; absent, nobody is. */
   isLocal?: (req: Request) => boolean;
@@ -79,14 +82,12 @@ export class SyncRoutes {
       isLocal: this.c.isLocal ?? (() => false),
       accountDir: (slug: string) => this.accountDir(slug),
       restart: (user: string) => this.c.instances.restart(user),
-      // A machine's browser comes back to its loopback port; a server's, to the origin it is reached at.
-      returnTo: (req: Request) =>
-        this.c.remotePairing
-          ? `http://127.0.0.1:${this.c.selfPort?.() ?? 0}`
-          : publicOrigin(req),
-      ownMain: !this.c.remotePairing,
+      // The browser comes back to the machine's loopback port.
+      returnTo: () => `http://127.0.0.1:${this.c.selfPort?.() ?? 0}`,
+      machine: this.c.remotePairing,
       selfHost: publicHost,
-      onPaired: this.c.onPaired,
+      engineFollows: (before: SyncRemote[], after: SyncRemote[]) =>
+        this.engineFollows(before, after),
     };
   }
 
@@ -238,18 +239,14 @@ export class SyncRoutes {
     };
   }
 
-  /** The engine follows the links: per origin, the token it is owned by there changed or went (docs/syncRelay.md). */
+  /** The engine follows the active link: off the server it left, onto the one now active with its token (docs/syncRelay.md). */
   private engineFollows(before: SyncRemote[], after: SyncRemote[]): void {
-    for (const origin of new Set(before.map((r) => r.origin))) {
-      if (!origin) continue;
-      const was = engineLinkOf(before, origin);
-      const now = engineLinkOf(after, origin);
-      if (!now) this.c.onForgotten?.(origin);
-      else if (now.token !== was?.token) this.c.onPaired?.(origin, now.token);
-    }
+    const { forget, pair } = engineMoves(before, after);
+    if (forget) this.c.onForgotten?.(forget);
+    if (pair) this.c.onPaired?.(pair.origin, pair.token);
   }
 
-  /** This account's links to remote servers, behind the session: PUT links one, POST /main picks the main one, DELETE unlinks. */
+  /** A machine account's saved servers, behind the session: PUT saves one and makes it active, POST /active switches, DELETE forgets. */
   remoteRouter(): Router {
     const r = Router();
     r.use(express.json());
@@ -257,38 +254,26 @@ export class SyncRoutes {
       const user = this.c.userOf(req);
       return user ? { user, home: this.accountDir(accountKey(user)) } : null;
     };
-    // On a server its own relay is the main one, which no pairing replaces (docs/fileHub.md).
-    r.use("/main", (_req, res, next) => {
-      if (this.c.remotePairing) return next();
-      res.status(403).json({ error: "this server is always the main one" });
+    // A server is the remote itself: it saves no server, and lists none.
+    r.use((req, res, next) => {
+      if (this.c.remotePairing || req.method === "GET") return next();
+      res.status(403).json({ error: SERVER_ADDS_NONE });
     });
     r.get("/", (req, res) => {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const remotes = readRemotes(w.home).map((r) => ({
-        id: r.id,
-        url: r.url,
-        origin: r.origin,
-        as: r.as,
-        main: this.c.remotePairing && r.main,
-      }));
-      // A server lists itself first: the main one, never let go.
-      const own = this.c.remotePairing
-        ? []
-        : [
-            {
-              id: OWN_LINK,
-              url: `${publicOrigin(req).replace(/^http/, "ws")}${SYNC_PATH}`,
-              origin: publicOrigin(req),
-              as: w.user,
-              main: true,
-              own: true,
-            },
-          ];
-      const servers = [...own, ...remotes];
+      const servers = this.c.remotePairing
+        ? readRemotes(w.home).map((r) => ({
+            id: r.id,
+            url: r.url,
+            origin: r.origin,
+            as: r.as,
+            active: r.active,
+          }))
+        : [];
       res.json({
-        paired: remotes.length > 0,
+        paired: servers.length > 0,
         url: servers[0]?.url ?? null,
         as: servers[0]?.as ?? null,
         servers,
@@ -309,13 +294,11 @@ export class SyncRoutes {
           .json({ error: "expected { url: ws(s)://…, token }" });
       mkdirSync(w.home, { recursive: true });
       const before = readRemotes(w.home);
-      // Main unless said otherwise: a pairing made at sign-in is the main one, a server added beside it is not.
       const link = writeRemote(w.home, {
         url,
         token,
         user: w.user,
         as: as || w.user,
-        main: this.c.remotePairing && req.body?.main !== false,
       });
       this.engineFollows(before, readRemotes(w.home));
       void this.c.instances.restart(w.user).then(
@@ -332,14 +315,14 @@ export class SyncRoutes {
       }
       return undefined;
     };
-    r.post("/main", (req, res) => {
+    r.post("/active", (req, res) => {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
       const before = readRemotes(w.home);
-      if (!setMainRemote(w.home, refOf(req.body, undefined) ?? ""))
+      if (!setActiveRemote(w.home, refOf(req.body, undefined) ?? ""))
         return void res.status(404).json({ error: "no such link" });
-      // Two accounts on one server: the main one's token is the one its engine is owned by there.
+      // The service restarts on the new link, and the engine moves to its server.
       this.engineFollows(before, readRemotes(w.home));
       void this.c.instances.restart(w.user).then(
         () => res.json({ ok: true }),
@@ -362,23 +345,11 @@ export class SyncRoutes {
     return r;
   }
 
-  /** The remote origin the session's account is paired with, or null: what a local surface compares itself against. */
+  /** The session's account's ACTIVE server, or null: the one remote every surface of a machine talks to. */
   remoteOf(req: Request): SyncRemote | null {
     const user = this.c.userOf(req);
     if (!user || !this.c.remotePairing) return null;
     return readRemote(this.accountDir(accountKey(user)));
-  }
-
-  /** Every link of the session's account, the main one first then in link order; empty on a server. */
-  remotesOf(req: Request): SyncRemote[] {
-    const user = this.c.userOf(req);
-    if (!user || !this.c.remotePairing) return [];
-    return readRemotes(this.accountDir(accountKey(user)));
-  }
-
-  /** The session's account's link `id`, main or not, or null: what a call to one chosen server goes through. */
-  remoteById(req: Request, id: string): SyncRemote | null {
-    return this.remotesOf(req).find((r) => r.id === id) ?? null;
   }
 
   /** Let through a caller that proves an account by device token or hub secret; `res.locals.syncCaller` says who. */
