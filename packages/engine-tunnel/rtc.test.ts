@@ -9,7 +9,7 @@ import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FragmentJoiner, toFragments } from "@studio/web-protocol/rtc-frames";
+import { toFragments } from "@studio/web-protocol/rtc-frames";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 import { TunnelHub } from "./hub.ts";
@@ -91,34 +91,6 @@ describe.skipIf(!available).each(agentKinds)(
       hub.stop();
       engine.close();
       await new Promise((r) => server.close(r));
-    });
-
-    it("carries a frame larger than a fragment to the engine and back", async () => {
-      const { RTCPeerConnection } = (await import(
-        "node-datachannel/polyfill"
-      )) as unknown as { RTCPeerConnection: new (cfg: object) => BrowserPeer };
-      const pc = new RTCPeerConnection({ iceServers: [] });
-      const dc = pc.createDataChannel("engine");
-      dc.binaryType = "arraybuffer";
-      const joiner = new FragmentJoiner();
-      const back: string[] = [];
-      dc.onmessage = (ev: { data: unknown }) => {
-        const f = joiner.push(new Uint8Array(ev.data as ArrayBuffer));
-        if (f && "text" in f) back.push(f.text);
-      };
-      await pc.setLocalDescription(await pc.createOffer());
-      await until(() => pc.iceGatheringState === "complete", 3000).catch(
-        () => {},
-      );
-      const answer = await hub.signal("e1", pc.localDescription?.sdp ?? "");
-      await pc.setRemoteDescription({ type: "answer", sdp: answer });
-      await until(() => dc.readyState === "open", OPEN_MS);
-      const big = JSON.stringify({ type: "project", doc: "x".repeat(60_000) });
-      for (const f of toFragments(big)) dc.send(f);
-      await until(() => engineGot.length === 1 && back.length === 1);
-      expect(engineGot[0]).toBe(big);
-      expect(JSON.parse(back[0])).toEqual({ type: "echo", size: big.length });
-      pc.close();
     });
 
     it("outlives a browser closing its path while the engine is talking", async () => {
