@@ -2,7 +2,8 @@
 // the system browser. The pairing itself is the phone's backend's (packages/file-hub/pairRoutes.ts, the desktop's
 // too): this asks it whether to offer one, asks the person, opens the URL it answers in a browser, and says how it
 // ended. The browser brings the token back to the backend's own port, and the backend keeps the pairing under way
-// on disk, so a process killed behind the browser is told the ending at its next start. See docs/android.md.
+// on disk, so a process killed behind the browser is told the ending at its next start. The link takes whichever
+// account the browser confirms on the server, the phone's own or another. See docs/android.md.
 
 package se.frediver.k7
 
@@ -35,8 +36,6 @@ object SyncPairing {
     // Accounts asked this run: a pairing the person declined is not offered again at every page load.
     private val asked = mutableSetOf<String>()
     private var busy = false
-    // Set by the account-mismatch dialog's Try again, acted on once the thread that asked has let go of `busy`.
-    @Volatile private var retry = false
     private val main = Handler(Looper.getMainLooper())
 
     /** Keep the server the sign-in popin named, when it is one: https, or http on this phone only. */
@@ -60,9 +59,7 @@ object SyncPairing {
     private fun host(context: Context): String = Uri.parse(origin(context)).host ?: origin(context)
 
     /** Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run. */
-    fun pairIfNeeded(context: Context, cookie: String?) = launch(context, cookie, again = false)
-
-    private fun launch(context: Context, cookie: String?, again: Boolean) {
+    fun pairIfNeeded(context: Context, cookie: String?) {
         if (cookie.isNullOrEmpty()) return
         synchronized(this) {
             if (busy) return
@@ -71,20 +68,16 @@ object SyncPairing {
         val app = context.applicationContext
         Thread({
             try {
-                run(app, cookie, again)
+                run(app, cookie)
             } catch (e: Exception) {
                 Log.w(TAG, "sync pairing: ${e.message}")
             } finally {
                 synchronized(this) { busy = false }
             }
-            if (retry) {
-                retry = false
-                launch(app, cookie, again = true)
-            }
         }, "k7-sync-pair").start()
     }
 
-    private fun run(context: Context, cookie: String, again: Boolean) {
+    private fun run(context: Context, cookie: String) {
         val offer = local("GET", "$PAIR_API?origin=${Uri.encode(origin(context))}", cookie) ?: return
         val email = offer.text("email").takeIf { it.isNotEmpty() } ?: return
         if (offer.optBoolean("local")) return
@@ -94,10 +87,10 @@ object SyncPairing {
             if (it.text("phase") == "waiting") tell(context, "Finishing this phone's sync pairing: if the browser shows an error page, reload it.")
             return settle(context, it, cookie)
         }
-        if (!again && synchronized(this) { !asked.add(email) }) return
+        if (synchronized(this) { !asked.add(email) }) return
         // Already a server of this account, main or not, as on desktop: another one chosen is paired as the main.
         if (offer.optBoolean("paired")) return
-        if (!again && !ask(context, "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm it as $email.", "Sync")) return
+        if (!ask(context, "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one.", "Sync")) return
         val body = JSONObject().put("origin", origin(context)).put("name", deviceName())
         val started = local("POST", PAIR_API, cookie, body)
             ?: return tell(context, "This phone's sync pairing could not start. k7 will offer it again at its next start.")
@@ -126,18 +119,11 @@ object SyncPairing {
             "paired" -> {
                 // The same token lists this phone's engine at that studio, which may admit paired machines only.
                 SupervisorHost.rememberDeviceToken(context, p.text("origin"), p.text("token"))
-                tell(context, "This phone now syncs its workspaces with $host.")
+                tell(context, "This phone now syncs its workspaces with $host as ${account(p)}.")
             }
-            "otherAccount" -> {
-                val who = p.text("browserAs").takeIf { it.isNotEmpty() }?.let { "as $it" } ?: "as another account"
-                val email = p.text("email")
-                retry = ask(
-                    context,
-                    "Nothing was paired: the browser is signed in to $host $who, and this phone is signed in as $email.\n\n" +
-                        "Sign in to $host in the browser as $email, then try again.",
-                    "Try again",
-                )
-            }
+            // That account on that server is linked already: the link it has stays.
+            "alreadyLinked", "otherAccount" ->
+                tell(context, "This phone already syncs with $host as ${account(p)}, so nothing changed.")
             "expired" -> tell(context, "The sync pairing was not finished in the browser. k7 will offer it again at its next start.")
             else -> tell(context, "The sync pairing could not be saved on this phone. k7 will offer it again at its next start.")
         }
@@ -166,6 +152,9 @@ object SyncPairing {
     private fun tell(context: Context, said: String) {
         main.post { Toast.makeText(context, said, Toast.LENGTH_LONG).show() }
     }
+
+    /** The server's account the pairing ended as: the browser's, else the phone's own. */
+    private fun account(p: JSONObject): String = p.text("browserAs").ifEmpty { p.text("email") }
 
     // A JSON null reads as "", where optString would answer "null".
     private fun JSONObject.text(name: String): String = if (isNull(name)) "" else optString(name)
