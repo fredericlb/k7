@@ -11,7 +11,9 @@ How the tray's backend reaches the server is `apps/k7/backend/docs/serverPicker.
 ## Choices
 
 - **On the tray only.** A server's own page has no other server to offer, and cannot reach a
-  machine's backend, which answers loopback alone (`apps/k7/backend/docs/standalone.md`).
+  machine's backend, which answers loopback alone (`apps/k7/backend/docs/standalone.md`). A phone has
+  no picker either: it reads its own library, and opens each of the server's songs on demand through
+  the same forward (`packages/ui-library/docs/songSource.md`).
 - **Kept per browser** (`serverChoice.ts`, in `localStorage`). It is how this machine is used, not
   a fact about the account. With no paired server it falls back to This computer.
 - **One switch, two bases.** Each UI package takes `apiBase`, which follows the choice, and

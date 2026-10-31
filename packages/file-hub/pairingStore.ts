@@ -11,6 +11,7 @@ import { join } from "node:path";
 export type PairPhase =
   | "waiting"
   | "paired"
+  | "alreadyLinked"
   | "otherAccount"
   | "notStored"
   | "expired";
@@ -18,15 +19,17 @@ export type PairPhase =
 export interface PairRecord {
   /** The nonce the browser's return must carry: the only proof that return is this pairing's. */
   state: string;
-  /** The local account it pairs: the browser must come back signed in as this one. */
+  /** The local account whose folder the link is stored in. */
   email: string;
   /** The remote origin, as `normalizeServer` spells it. */
   origin: string;
   main: boolean;
+  /** Started to add another account on a server already linked: the server's page lets the person pick one. */
+  another?: boolean;
   /** Epoch ms after which a waiting pairing is expired. */
   until: number;
   phase: PairPhase;
-  /** Who the browser was signed in as, for an `otherAccount` ending. */
+  /** The remote account the browser came back signed in as: the link's `as`. */
   browserAs?: string;
   settledAt?: number;
 }
@@ -38,9 +41,11 @@ export const PAIR_KEEP_MS = 24 * 3600_000;
 
 const FILE = ".sync-pairing.json";
 
+// `otherAccount` is no ending any more, but a record kept a day may still say it.
 const PHASES = new Set<PairPhase>([
   "waiting",
   "paired",
+  "alreadyLinked",
   "otherAccount",
   "notStored",
   "expired",
@@ -112,7 +117,12 @@ export class PairingStore {
   }
 
   /** Start a pairing for `email`, replacing any other of that account: one browser trip at a time. */
-  begin(email: string, origin: string, main: boolean): PairRecord {
+  begin(
+    email: string,
+    origin: string,
+    main: boolean,
+    another = false,
+  ): PairRecord {
     for (const old of this.records.filter((r) => r.email === email))
       this.forget(old.state);
     const record: PairRecord = {
@@ -120,6 +130,7 @@ export class PairingStore {
       email,
       origin,
       main,
+      ...(another ? { another } : {}),
       until: this.now() + PAIR_WAIT_MS,
       phase: "waiting",
     };

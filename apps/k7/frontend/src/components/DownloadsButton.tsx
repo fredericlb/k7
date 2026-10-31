@@ -1,6 +1,7 @@
 // DownloadsButton.tsx — the sidebar's download manager: an icon with "done/total" on it while anything comes
 // down (library songs, the engine's models and instruments), and the list in a popover.
-// Nothing at all while the list is empty. The list is @studio/http-client's (packages/http-client/docs/downloads.md).
+// Nothing at all while the list is empty. The list is @studio/http-client's (packages/http-client/docs/downloads.md);
+// the backend's song update checks are mirrored in by SongSyncDownloads.tsx.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
 import { useEffect, useSyncExternalStore } from "react";
 import { m } from "../paraglide/messages.js";
 import { useDesktopEngine } from "../settings/desktopEngine";
+import { SongSyncDownloads } from "./SongSyncDownloads";
 
 const KIND_ICON: Record<DownloadKind, LucideIcon> = {
   song: Disc3,
@@ -137,6 +139,7 @@ export function DownloadsButton() {
   return (
     <>
       <InstrumentDownloads />
+      <SongSyncDownloads />
       {all.length > 0 && (
         <Popover>
           <PopoverTrigger asChild>

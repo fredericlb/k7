@@ -26,7 +26,8 @@
     "./write": "./src/write.ts",
     "./playlistItems": "./src/playlistItems.ts",
     "./playlists": "./src/playlists.ts",
-    "./songMatch": "./src/songMatch.ts"
+    "./songMatch": "./src/songMatch.ts",
+    "./synced": "./src/synced.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

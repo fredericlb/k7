@@ -1,5 +1,5 @@
-// syncRemote.test.ts — an account's pairings: one MAIN server and others beside it, the file from before
-// secondaries read as the main one, and making another main or forgetting one. See docs/syncRelay.md.
+// syncRemote.test.ts — an account's links: one MAIN and others beside it, several accounts on one server, the file
+// from before secondaries read as the main one, and making another main or forgetting one. See docs/syncRelay.md.
 
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   forgetRemote,
+  linkId,
   originOfRelay,
   pairedServers,
   readRemote,
@@ -34,7 +35,15 @@ describe("an account's pairings", () => {
       JSON.stringify({ url: A, token: "t", user: "me@example.org" }),
     );
     expect(readRemotes(h)).toEqual([
-      { url: A, token: "t", user: "me@example.org", main: true },
+      {
+        id: linkId(A, "me@example.org"),
+        origin: "https://app.k7.rocks",
+        url: A,
+        token: "t",
+        user: "me@example.org",
+        as: "me@example.org",
+        main: true,
+      },
     ]);
   });
 
@@ -62,7 +71,31 @@ describe("an account's pairings", () => {
     const h = home();
     writeRemote(h, pair(A, true));
     writeRemote(h, { ...pair(A, true), token: "fresh" });
-    expect(readRemotes(h)).toEqual([{ ...pair(A, true), token: "fresh" }]);
+    expect(readRemotes(h).map((r) => [r.url, r.token])).toEqual([[A, "fresh"]]);
+  });
+
+  it("links a second account on the same server beside the first, each by its own id", () => {
+    const h = home();
+    const mine = writeRemote(h, pair(A, true));
+    const band = writeRemote(h, { ...pair(A, false), as: "band@example.org" });
+    expect(mine.id).not.toBe(band.id);
+    expect(readRemotes(h).map((r) => [r.as, r.main])).toEqual([
+      ["me@example.org", true],
+      ["band@example.org", false],
+    ]);
+    expect(setMainRemote(h, band.id)).toBe(true);
+    expect(readRemote(h)?.as).toBe("band@example.org");
+    // Forgotten by id, the other account on that server stays.
+    expect(forgetRemote(h, band.id)).toBe(true);
+    expect(readRemotes(h).map((r) => [r.as, r.main])).toEqual([
+      ["me@example.org", true],
+    ]);
+  });
+
+  it("derives a link's id from its host and account, whatever the path", () => {
+    expect(linkId(A, "x@y")).toBe(linkId("wss://app.k7.rocks/other", "x@y"));
+    expect(linkId(A, "x@y")).not.toBe(linkId(A, "z@y"));
+    expect(linkId(A, "x@y")).toMatch(/^[0-9a-f]{10}$/);
   });
 
   it("forgets one server, and a main one gone hands main to the next", () => {
@@ -83,6 +116,24 @@ describe("the servers a machine's engine is listed at", () => {
       "http://127.0.0.1:8789",
     );
     expect(originOfRelay("not a url")).toBe("");
+  });
+
+  it("lists one token per server per account: the main link's, else the first on that server", () => {
+    const root = home();
+    const ann = join(root, "ann");
+    mkdirSync(ann);
+    writeRemote(ann, { ...pair(A, false), as: "first@x", token: "first" });
+    writeRemote(ann, { ...pair(B, true), token: "b" });
+    writeRemote(ann, { ...pair(A, false), as: "second@x", token: "second" });
+    expect(pairedServers(root)).toEqual([
+      { origin: "https://k7.example.org", token: "b" },
+      { origin: "https://app.k7.rocks", token: "first" },
+    ]);
+    expect(setMainRemote(ann, linkId(A, "second@x"))).toBe(true);
+    expect(pairedServers(root)).toContainEqual({
+      origin: "https://app.k7.rocks",
+      token: "second",
+    });
   });
 
   it("lists every account's pairings with their tokens", () => {
@@ -108,10 +159,16 @@ describe("the servers a machine's engine is listed at", () => {
 
 describe("where an account's service syncs", () => {
   const own = "ws://127.0.0.1:8789/api/sync";
-  const remotes = [
-    { url: A, token: "a", user: "u", main: true },
-    { url: B, token: "b", user: "u", main: false },
-  ];
+  const link = (url: string, token: string, main: boolean, as = "u") => ({
+    id: linkId(url, as),
+    origin: originOfRelay(url),
+    url,
+    token,
+    user: "u",
+    as,
+    main,
+  });
+  const remotes = [link(A, "a", true), link(B, "b", false)];
 
   it("is this hub's own relay when nothing is paired", () => {
     expect(syncTarget(own, [], false)).toEqual({ STUDIO_SYNC_URL: own });
@@ -129,9 +186,35 @@ describe("where an account's service syncs", () => {
     expect(env.STUDIO_SYNC_URL).toBe(own);
     expect(env.STUDIO_SYNC_TOKEN).toBeUndefined();
     expect(JSON.parse(env.STUDIO_SYNC_SERVERS)).toEqual([
-      { url: own, own: true, main: true },
-      { url: A, token: "a", main: false },
-      { url: B, token: "b", main: false },
+      { url: own, own: true, main: true, id: "own", as: "u", home: true },
+      {
+        url: A,
+        token: "a",
+        main: false,
+        id: linkId(A, "u"),
+        as: "u",
+        home: true,
+      },
+      {
+        url: B,
+        token: "b",
+        main: false,
+        id: linkId(B, "u"),
+        as: "u",
+        home: true,
+      },
     ]);
+  });
+
+  it("marks, per server, the link a workspace recorded before accounts belongs to: the local account's own", () => {
+    const other = link(A, "o", true, "other@x");
+    const mine = link(A, "m", false);
+    const env = syncTarget(own, [other, mine], false);
+    const list = JSON.parse(env.STUDIO_SYNC_SERVERS) as {
+      id: string;
+      home?: boolean;
+    }[];
+    expect(list.filter((s) => s.home).map((s) => s.id)).toEqual([mine.id]);
+    expect(env.STUDIO_SYNC_TOKEN).toBe("o");
   });
 });

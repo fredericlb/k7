@@ -1,6 +1,7 @@
 // syncMove.test.ts — a workspace moved or copied between two servers a device is paired with, over two real relays
-// and blob stores: the target holds it whole, its audio's bytes included. A move empties the room it left and syncs
-// with the target from then on; a copy leaves it synced where it was. See file-service docs/liveCapture.md.
+// and blob stores, and between two accounts linked on one of them: the target holds it whole, its audio's bytes
+// included. A move empties the room it left and syncs with the target from then on; a copy leaves it synced where
+// it was. See file-service docs/liveCapture.md.
 
 // The file service's own request fields, which its liveSync.ts reaches through the modules it loads.
 /// <reference path="../file-service/src/types/express.d.ts" />
@@ -68,11 +69,15 @@ async function hub(name: string) {
   });
   const port = (server.address() as AddressInfo).port;
   const { token } = tokens.mint("acct", "laptop");
+  // A second account on the same server, which the device is linked to too.
+  const { token: token2 } = tokens.mint("acct2", "laptop");
   return {
     url: `ws://127.0.0.1:${port}${SYNC_PATH}`,
     origin: `http://127.0.0.1:${port}`,
     token,
+    token2,
     files: (ws: string) => relay.room("acct", ws).room.files,
+    files2: (ws: string) => relay.room("acct2", ws).room.files,
   };
 }
 
@@ -85,8 +90,23 @@ const servers = (async () => {
   process.env.STUDIO_SYNC_URL = a.url;
   process.env.STUDIO_SYNC_TOKEN = a.token;
   process.env.STUDIO_SYNC_SERVERS = JSON.stringify([
-    { url: a.url, token: a.token, main: true },
-    { url: b.url, token: b.token, main: false },
+    {
+      url: a.url,
+      token: a.token,
+      main: true,
+      id: "a1",
+      as: "me@x",
+      home: true,
+    },
+    {
+      url: b.url,
+      token: b.token,
+      main: false,
+      id: "b1",
+      as: "me@x",
+      home: true,
+    },
+    { url: a.url, token: a.token2, main: false, id: "a2", as: "two@x" },
   ]);
   const live = await import("@studio/file-service/src/liveSync.ts");
   const move = await import("@studio/file-service/src/liveMove.ts");
@@ -159,7 +179,7 @@ describe("moving a workspace between two servers", () => {
     expect(live.attachedAt(root)?.server?.url).toBe(b.url);
     const status = await live.workspaceSyncStatus(["band"]);
     expect(status.workspaces).toEqual([
-      { name: "band", state: "synced", server: b.origin },
+      { name: "band", state: "synced", server: b.origin, link: "b1" },
     ]);
 
     // An edit made after the move reaches B.
@@ -196,11 +216,13 @@ describe("copying a workspace between two servers", () => {
       name: "duo",
       state: "synced",
       server: a.origin,
+      link: "a1",
     });
     expect(status.workspaces).toContainEqual({
       name: "duo",
       state: "server",
       server: b.origin,
+      link: "b1",
     });
 
     // An edit made after the copy reaches A, and not B's copy.
@@ -213,5 +235,39 @@ describe("copying a workspace between two servers", () => {
     await expect(move.startCopy(root, b.origin)).rejects.toThrow(
       /already has a workspace called 'duo'/,
     );
+  }, 120_000);
+});
+
+describe("moving a workspace between two accounts on one server", () => {
+  it("lands in the other account's room, by the link's id, and leaves its own empty", async () => {
+    const { a, live, move } = await servers;
+    const { root, put } = await syncedOnA("trio");
+    // Same server, so its origin cannot say which: the link's id does.
+    await expect(move.startMove(root, "a1")).rejects.toThrow(
+      /already syncs with/,
+    );
+    await move.startMove(root, "a2");
+    await until(() => {
+      const s = move.moveState(root);
+      if (s?.error) throw new Error(`move failed: ${s.error}`);
+      return s === undefined;
+    }, 60_000);
+    expect([...a.files2("trio").keys()].sort()).toEqual([
+      "song.k7/clips/take.wav",
+      "song.k7/project.k7x",
+    ]);
+    expect(a.files("trio").size).toBe(0);
+    expect(live.attachedAt(root)?.server?.id).toBe("a2");
+    const status = await live.workspaceSyncStatus(["trio"]);
+    expect(status.workspaces).toContainEqual({
+      name: "trio",
+      state: "synced",
+      server: a.origin,
+      link: "a2",
+    });
+    // An edit made after the move reaches the other account's room only.
+    put("song.k7/notes.k7x", 'notes("after the move")\n');
+    await until(() => a.files2("trio").has("song.k7/notes.k7x"));
+    expect(a.files("trio").size).toBe(0);
   }, 120_000);
 });

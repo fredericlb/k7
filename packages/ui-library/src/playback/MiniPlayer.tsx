@@ -27,7 +27,7 @@ export function MiniPlayer() {
   // The skip the queue's own advance takes, offered to the system's controls while there is a next.
   const startNext = useStartNext();
   // The shape of the file PLAYING — the master, a variant or the instrumental — and none means the plain scrubber.
-  const shape = useSongShape(now?.path ?? null);
+  const shape = useSongShape(now?.path ?? null, now?.base);
 
   // Called before the early return: it is a hook, whatever the bar shows.
   const instrumental = useInstrumentalMenu();

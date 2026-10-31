@@ -171,26 +171,36 @@ screen, are the shell's (`packages/project-shell/docs/launch.md`, "Waiting for s
 
 ## Several servers
 
-An account may sync with several servers (`../../file-hub/docs/syncRelay.md`): one link per server
-(`../src/liveServers.ts`), and each workspace on ONE of them. Which one is the workspace's own, kept
-in its log folder (`server.json`: the server's origin and the room's name there); with none recorded
-it is the main server's under its own name, which is what every workspace synced before secondaries
-is, and a new workspace goes there too. A workspace whose server is no longer paired stays captured
-here and syncs nowhere until it is paired again.
+An account may sync with several LINKS (`../../file-hub/docs/syncRelay.md`): each is one account on one
+server, several may share a server, and each workspace is on ONE of them (`../src/liveServers.ts`).
+Everything kept per server — the relay socket, the room lists and their generations, the moves — is kept
+per link id, never per host: two accounts on one server are two sockets with two tokens, whose rooms
+never meet.
+
+Which link is the workspace's own is kept in its log folder (`server.json`: the server's origin, the
+link's id, the room's name there). With none recorded it is the main link's under its own name, which is
+what every workspace synced before secondaries is, and a new workspace goes there too unless the page
+named another link (`POST /workspaces` with `link`, recorded before anything opens it). A record with no
+link id is from before accounts: it goes to that server's `home` link, the local account's own there.
+A workspace whose link is let go stays captured here and syncs nowhere until it is linked again — never
+with another account on the same server, whose rooms are not its.
 
 On a server the main one is its OWN relay, by the hub secret (`own` in `liveServers.ts`), and the
 servers it is paired with sit beside it as on a machine: it still joins every room its own relay
 holds, and no other's. The page knows the server by the origin it reached it at, not by its loopback
 relay, so the routes translate one into the other (`toPage`, `fromPage`).
 
-Two servers may each hold a workspace of the same name, and a machine has one folder per name: the
-second brought down lands as `<room>.<host>` (`localNameFor`) — `@` would read better, and the
-workspace-name rule refuses it — and syncs with its room under its real name. It takes that name
+Two links may each hold a workspace of the same name, and a machine has one folder per name: the
+second brought down lands as `<room>.<host>` (`localNameFor`), or `<room>.<host>.<account>` when two
+links share that host, so the folder says whose it is — `@` would read better, and the workspace-name
+rule refuses it — and syncs with its room under its real name. It takes that name
 back once nothing here holds it — after a move, and at every start (`restoreRoomName`): the folder,
 its sync history and its active marker are renamed together, sync letting go first so the rename is
 not captured as every file removed and added again.
 
-**A move** (`../src/liveMove.ts`, `POST /workspaces/sync/move`) is refused unless the workspace is up
+**A move** (`../src/liveMove.ts`, `POST /workspaces/sync/move`) goes to another link, named by its id
+(an origin names that server's home link) — another server, or another account on the same one. It is
+refused unless the workspace is up
 to date here (above) with nothing of its own unconfirmed, and unless the target holds no workspace of
 that name. It then runs on its own, the list saying so (`moving`):
 

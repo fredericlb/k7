@@ -36,6 +36,8 @@ import { mountServerCopy, serverOf } from "./routes/serverCopy.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
+import { machineServers } from "./serverSongs/server.ts";
+import { startSongUpdates } from "./serverSongs/updates.ts";
 import { SharePlayer } from "./shares/player.ts";
 import { dropLegacyShares, sharesDir } from "./shares/store.ts";
 import { startStreamSweep } from "./streamSweep.ts";
@@ -165,7 +167,8 @@ export function mountMedia(
   );
 
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.
-  mountServerCopy(app, fileHub, requireAuth);
+  const servers = () => machineServers(filesRoot);
+  mountServerCopy(app, fileHub, requireAuth, servers);
   // The account's favorites: a paired machine's are its server's, read through the device door.
   app.use(
     DEVICE_FAVORITES_ROUTE,
@@ -244,6 +247,8 @@ export function mountMedia(
         startAnalysisSweep(STANDALONE);
         // …and every FLAC's Opus copy beside it, for a browser to stream — ../../docs/media/derivedStream.md.
         startStreamSweep();
+        // A machine keeps the songs that follow its server in step, at start and every half hour (../../docs/media/songUpdates.md).
+        if (STANDALONE) startSongUpdates(servers);
       } catch (e) {
         if (e instanceof MediatekTooNewError) tooNew = e;
         console.error(

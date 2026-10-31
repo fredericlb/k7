@@ -8,7 +8,6 @@ import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
 import {
   ChevronDown,
   ChevronRight,
-  Cloud,
   Disc3,
   ListMusic,
   Search,
@@ -28,8 +27,9 @@ import { type DragEvent, Fragment, useState } from "react";
 import { useLabels } from "./host";
 import { PracticeMark, StarredMark } from "./ListMarks";
 import { RowMenu, rowTarget } from "./RowMenu";
-import { RemoteDownload } from "./ServerCopy";
+import { PlacementIcon, RemoteDownload } from "./ServerCopy";
 import type { AlbumRow, GroupId, SongRow, TableGroup } from "./songRows";
+import type { SongPlace } from "./songSource";
 
 export interface SongTableProps {
   /** Already narrowed by the search (songRows.ts's `filterTable`). */
@@ -46,6 +46,12 @@ export interface SongTableProps {
   /** Audio dropped on a song of this machine, `rel` family-relative. */
   onDrop: (rel: string, files: File[]) => void;
   onDownload: (paths: string[]) => Promise<void>;
+  /** Where each song is, family-prefixed path in; null on an unpaired machine, which draws the plain glyph. */
+  placeOf?: (path: string) => SongPlace | null;
+  /** The paired server, for the icon's tooltip. */
+  server?: string | null;
+  /** The server's songs open too, read from there on demand (the phone). */
+  openRemote?: boolean;
 }
 
 const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
@@ -110,75 +116,87 @@ export function SongTable(p: SongTableProps) {
     );
   };
 
-  const songRow = (s: SongRow, inAlbum: boolean, tint: string) => (
-    <TableRow
-      key={s.rel}
-      className={`cursor-pointer ${tint} ${s.remote ? "text-muted-foreground" : ""}`}
-      onClick={() => (s.remote ? undefined : p.onOpen(s.entry))}
-      onDragOver={(e) => {
-        if (!s.remote && hasFiles(e)) e.preventDefault();
-      }}
-      onDrop={(e) => {
-        if (s.remote || !hasFiles(e)) return;
-        e.preventDefault();
-        p.onDrop(s.rel, Array.from(e.dataTransfer.files));
-      }}
-    >
-      <TableCell className={inAlbum ? "pl-10" : undefined}>
-        <span className="flex min-w-0 items-center gap-2">
-          {s.remote ? (
-            <Cloud className="h-4 w-4 shrink-0" />
-          ) : (
-            <Disc3 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
-          {/* The title is the row's keyboard way in; the row itself answers the mouse. */}
-          <button
-            type="button"
-            disabled={s.remote}
-            className="min-w-0 truncate text-left"
-            onClick={(e) => {
-              e.stopPropagation();
-              p.onOpen(s.entry);
-            }}
-          >
-            {inAlbum && typeof s.entry.meta?.track === "number"
-              ? `${String(s.entry.meta.track).padStart(2, "0")} · ${s.title}`
-              : s.title}
-          </button>
-          {s.entry.meta?.catalogued === false ? (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {l.contents.notCatalogued}
+  /** Where the song is, as the workspace list says it; the plain glyph on an unpaired machine. */
+  const glyph = (s: SongRow) => {
+    const place = p.placeOf?.(`songs/${s.rel}`) ?? (s.remote ? "server" : null);
+    return place ? (
+      <span className="inline-flex w-4 shrink-0 justify-center">
+        <PlacementIcon state={place} server={p.server ?? null} />
+      </span>
+    ) : (
+      <Disc3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+    );
+  };
+
+  const songRow = (s: SongRow, inAlbum: boolean, tint: string) => {
+    // A server song opens on the phone, read from there; elsewhere it waits for its download.
+    const closed = s.remote && !p.openRemote;
+    return (
+      <TableRow
+        key={s.rel}
+        className={`cursor-pointer ${tint} ${s.remote ? "text-muted-foreground" : ""}`}
+        onClick={() => (closed ? undefined : p.onOpen(s.entry))}
+        onDragOver={(e) => {
+          if (!s.remote && hasFiles(e)) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (s.remote || !hasFiles(e)) return;
+          e.preventDefault();
+          p.onDrop(s.rel, Array.from(e.dataTransfer.files));
+        }}
+      >
+        <TableCell className={inAlbum ? "pl-10" : undefined}>
+          <span className="flex min-w-0 items-center gap-2">
+            {glyph(s)}
+            {/* The title is the row's keyboard way in; the row itself answers the mouse. */}
+            <button
+              type="button"
+              disabled={closed}
+              className="min-w-0 truncate text-left"
+              onClick={(e) => {
+                e.stopPropagation();
+                p.onOpen(s.entry);
+              }}
+            >
+              {inAlbum && typeof s.entry.meta?.track === "number"
+                ? `${String(s.entry.meta.track).padStart(2, "0")} · ${s.title}`
+                : s.title}
+            </button>
+            {s.entry.meta?.catalogued === false ? (
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                {l.contents.notCatalogued}
+              </span>
+            ) : null}
+          </span>
+          {/* On a phone the artist goes under the title rather than in a column of its own. */}
+          {!inAlbum ? (
+            <span className="block truncate text-xs text-muted-foreground sm:hidden">
+              {s.artist}
             </span>
           ) : null}
-        </span>
-        {/* On a phone the artist goes under the title rather than in a column of its own. */}
-        {!inAlbum ? (
-          <span className="block truncate text-xs text-muted-foreground sm:hidden">
-            {s.artist}
-          </span>
-        ) : null}
-      </TableCell>
-      <TableCell className="hidden truncate text-muted-foreground sm:table-cell">
-        {inAlbum ? null : s.artist}
-      </TableCell>
-      <TableCell className="hidden truncate text-muted-foreground md:table-cell">
-        {inAlbum ? null : s.album}
-      </TableCell>
-      <TableCell className="w-20">{marks(s.rel)}</TableCell>
-      <TableCell className="w-10 text-right">
-        {s.remote ? (
-          <RemoteDownload path={`songs/${s.rel}`} onDownload={p.onDownload} />
-        ) : (
-          <RowMenu
-            target={rowTarget(s.rel, s.title)}
-            actions={p.actions}
-            label={l.tree.more}
-            cancelLabel={l.common.cancel}
-          />
-        )}
-      </TableCell>
-    </TableRow>
-  );
+        </TableCell>
+        <TableCell className="hidden truncate text-muted-foreground sm:table-cell">
+          {inAlbum ? null : s.artist}
+        </TableCell>
+        <TableCell className="hidden truncate text-muted-foreground md:table-cell">
+          {inAlbum ? null : s.album}
+        </TableCell>
+        <TableCell className="w-20">{marks(s.rel)}</TableCell>
+        <TableCell className="w-10 text-right">
+          {s.remote ? (
+            <RemoteDownload path={`songs/${s.rel}`} onDownload={p.onDownload} />
+          ) : (
+            <RowMenu
+              target={rowTarget(s.rel, s.title)}
+              actions={p.actions}
+              label={l.tree.more}
+              cancelLabel={l.common.cancel}
+            />
+          )}
+        </TableCell>
+      </TableRow>
+    );
+  };
 
   const albumRow = (a: AlbumRow, tint: string) => {
     const unfolded = isOpen(a.rel);

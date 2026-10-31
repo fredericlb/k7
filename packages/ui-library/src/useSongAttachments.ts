@@ -6,8 +6,8 @@
 import type { MediatekEntry, SongbookSong } from "@studio/mediatek/types";
 import { canonicalSheetMime } from "@studio/rehearsal-shared/sheetKind";
 import { useCallback, useEffect, useState } from "react";
-import { library } from "./api";
 import { type SongAttachmentView, useLabels } from "./host";
+import { type SongSource, useSongSource } from "./songSource";
 
 export type AttachmentKind = Exclude<SongAttachmentView["kind"], "diagrams">;
 export type SongTab = "info" | "diagrams" | AttachmentKind;
@@ -20,6 +20,8 @@ export interface SongAttachments {
   editing: Typed | null;
   looking: boolean;
   sending: boolean;
+  /** False on a read-only song: nothing may be added, typed or removed. */
+  writable: boolean;
   tab: SongTab;
   setTab: (tab: SongTab) => void;
   startTyping: (kind: Typed) => void;
@@ -35,6 +37,12 @@ export function useSongAttachments(
   onStatus: (status: string) => void,
 ): SongAttachments {
   const l = useLabels().song;
+  const { read, write: writer, readOnly } = useSongSource();
+  /** Where an edit goes; a read-only song throws the reason, which the status line says. */
+  const write = (): NonNullable<SongSource["write"]> => {
+    if (!writer) throw new Error(readOnly ?? "");
+    return writer;
+  };
   const meta = entry.meta ?? {};
   const listedId = typeof meta.uuid === "string" ? meta.uuid : "";
   // The listing's id, or the one the first text or sheet gave it before the listing caught up.
@@ -73,19 +81,19 @@ export function useSongAttachments(
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    void library
+    void read
       .songbook(id)
       .then((s) => alive && setSong(s))
       .catch((e: Error) => alive && onStatus(e.message));
     return () => {
       alive = false;
     };
-  }, [id, onStatus]);
+  }, [id, onStatus, read]);
 
   /** The song's songbook id, its own folder adopted when it has none yet. */
   const ensureId = async (): Promise<string> => {
     if (id) return id;
-    const made = await library.adoptSongbook({
+    const made = await write().adoptSongbook({
       folder: entry.path,
       artist: typeof meta.artist === "string" ? meta.artist : "",
       title: entry.name,
@@ -105,7 +113,7 @@ export function useSongAttachments(
     setLooking(true);
     onStatus(l.lookingForLyrics);
     try {
-      const after = await library.lookUpLyrics(sid);
+      const after = await write().lookUpLyrics(sid);
       setSong(after);
       onStatus(after.lyrics ? l.lyricsFound : l.lyricsNotFound);
       if (after.lyrics) onSaved();
@@ -119,7 +127,7 @@ export function useSongAttachments(
   const saveText = async (kind: Typed, text: string) => {
     try {
       const sid = await ensureId();
-      const saved = await library.patchSongbook(sid, { [kind]: text });
+      const saved = await write().patchSongbook(sid, { [kind]: text });
       setSong(saved);
       setEditing(null);
       // An emptied text is removed, and its tab with it.
@@ -151,7 +159,7 @@ export function useSongAttachments(
           continue;
         }
         sid ||= await ensureId();
-        setSong(await library.addSheet(sid, file, mime));
+        setSong(await write().addSheet(sid, file, mime));
         setTab("sheet");
       }
       if (sid) onSaved();
@@ -165,7 +173,7 @@ export function useSongAttachments(
   const removeSheet = async (sheet: string) => {
     if (!id) return;
     try {
-      const after = await library.removeSheet(id, sheet);
+      const after = await write().removeSheet(id, sheet);
       setSong(after);
       if (!after.facts.sheets.length) setTab("info");
       onSaved();
@@ -180,6 +188,7 @@ export function useSongAttachments(
     editing,
     looking,
     sending,
+    writable: writer !== null,
     tab,
     setTab,
     startTyping,

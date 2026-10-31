@@ -12,15 +12,16 @@ import { useSongLists } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
 import { LibraryPage } from "./LibraryPage";
-import { entryAt, isSong, relative } from "./libraryTree";
+import { entryAt, relative } from "./libraryTree";
 import { usePlayback } from "./playback/PlaybackProvider";
-import { folderOf } from "./routes";
+
 import type { useServerCopy } from "./ServerCopy";
-import { SongEditor } from "./SongEditor";
+import { ReadOnlyNotice, SongEditor } from "./SongEditor";
 import { SongTable } from "./SongTable";
 import { fileAsMaster, splitDrop } from "./songMaster";
 import { filterTable, songTable } from "./songRows";
 import { songActions } from "./treeActions";
+import { useOpenSong } from "./useOpenSong";
 import { useSongTap } from "./useSongTap";
 
 export function SongsLibrary(p: {
@@ -53,12 +54,13 @@ export function SongsLibrary(p: {
   // The table's search, held HERE so Back from a song's page returns to the same narrowed table.
   const [query, setQuery] = useState("");
   const shown = useMemo(() => filterTable(groups, query), [groups, query]);
-  // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
-  const editingSong = useMemo(() => {
-    const dir = folderOf(file);
-    const entry = dir ? entryAt(entries, dir) : null;
-    return entry && isSong(entry) ? entry : null;
-  }, [entries, file]);
+  // The song the address names, here or, on the phone, the server's alone (./useOpenSong.ts).
+  const { entry: editingSong, source } = useOpenSong(
+    file,
+    entries,
+    remote,
+    p.serverCopy,
+  );
   // The queue and the destination are the provider's, above this screen.
   const playback = usePlayback();
   // A song just added opens on its page: the address first, the screen once the listing has it.
@@ -196,13 +198,23 @@ export function SongsLibrary(p: {
           if (files.length) void addVariants(song, files);
         }}
       />
-      {editingSong ? (
+      {editingSong && source ? (
         <SongEditor
           entry={editingSong}
+          source={source}
           onBack={() => openFile(null)}
           onSaved={refresh}
           manage={manage}
         />
+      ) : editingSong ? (
+        // A server song with no copy here, while the server is away: said plainly rather than an empty page.
+        <LibraryPage
+          fill
+          onBack={() => openFile(null)}
+          title={labels.song.heading(editingSong.name)}
+        >
+          <ReadOnlyNotice said={labels.song.cannotOpen} />
+        </LibraryPage>
       ) : (
         <LibraryPage title={p.title} count={p.count} actions={addSong}>
           <LibraryContents
@@ -226,6 +238,9 @@ export function SongsLibrary(p: {
                 onOpen={tapSong}
                 onDrop={(rel, files) => void dropOnSong(rel, files)}
                 onDownload={p.serverCopy.download}
+                placeOf={p.serverCopy.placeOf}
+                server={p.serverCopy.placement?.server ?? null}
+                openRemote={p.serverCopy.onDemand}
               />
             }
           />

@@ -370,11 +370,12 @@ The phone runs the same backend and hub as the tray, so it is a live-sync replic
 step with the origin's, and the phone's libraries follow the origin's read-only
 (`packages/file-hub/docs/fileHub.md`). The pairing is the BACKEND's, the one the tray's backend uses too
 (`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"), with the same rules — once per
-account per run, never for the local user, refused when the browser is signed in to the origin as
-someone else. `SyncPairing.kt` keeps what only the app can do: it **asks first**, in a dialog over the
-app ("Sync this phone's workspaces with app.k7.rocks?"), since the browser coming up on its own reads
-as a bug, opens the browser, and says how it ended — paired, not stored, not finished — in a toast. A
-browser signed in as another account gets a dialog naming both accounts and a Try again.
+account per run, never offered on its own to the local user, and the link taking whichever account the
+browser confirms on the origin's page, which asks when it is not the phone's own. `SyncPairing.kt` keeps
+what only the app can do: it **asks first**, in a dialog over the app ("Sync this phone's workspaces
+with app.k7.rocks?"), since the browser coming up on its own reads as a bug, opens the browser, and says
+how it ended — paired as which account, already linked, not stored, not finished — in a toast. The
+phone's supervisor is handed the token of the link its engine is owned by on that origin.
 
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and

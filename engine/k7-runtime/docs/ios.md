@@ -74,7 +74,7 @@ Where iOS does a thing itself, the app lets it:
 | Android | iOS |
 |---|---|
 | a Custom Tab for the sign-in, the verifier kept on disk | `ASWebAuthenticationSession`, a sheet over the app: the app stays in front, so the verifier stays in memory |
-| a pairing killed behind the browser, told at the next start | the same backend routes, but a pairing still waiting at the next start is dropped: the sheet died with the app, so nothing will come back to it |
+| a pairing killed behind the browser, told at the next start | the same backend routes, but a pairing still waiting at the next start is dropped: the sheet died with the app, so nothing will come back to it. The link takes the account the sheet confirms, as on Android |
 | `download.js` fetching blobs in 512 KiB chunks | `WKDownload`, which takes a `blob:`, `data:` or same-origin URL with the session's cookies; the file lands in Documents/Downloads, which the Files app shows under k7 |
 | `back.js` and the Back button | the edge swipe, over the view's own history |
 | `CertTrust.kt` checking the leaf's name and dates | iOS's own trust evaluation with the imported CAs as anchors (`TrustedCas.swift`): a wrong name, an expired date or a certificate iOS's TLS rules refuse is refused here too. Android's rule stands: an imported non-CA is trusted as that exact leaf and never as an issuer, read from its DER since iOS has no public API for extensions (`CertTrust.swift`) |

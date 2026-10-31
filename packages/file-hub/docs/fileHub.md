@@ -239,8 +239,9 @@ two copies would compile a song two ways.
   place, a husk would be the newest version, and a workspace pinning it would resolve nothing.
 - **The machine follows the names on ITS list**, which the seed provides (`k7`): the origin's relay
   does not list library rooms, so a library the origin adds reaches a machine only once that
-  machine lists it. The first paired account found is the one whose token is used: every pairing
-  names the same origin.
+  machine lists it. The first paired account found is the one whose MAIN link's token is used:
+  the libraries are any account's to read, so whichever account on the origin that link is, it reads
+  the same ones.
 - **Only a tray or a phone follows a MAIN server.** `remotePairing`, which k7's backend sets from
   `STUDIO_LOCAL_USER=1` — the standalone bundle's mark (`apps/k7/backend/standalone.json`) — is what
   lets a pairing be the main one, and only then do the libraries follow it. Since they follow the

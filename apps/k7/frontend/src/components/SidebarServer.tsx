@@ -1,5 +1,5 @@
 // SidebarServer.tsx — the server picker, above the engine selector on the tray: whether the Libraries, Media and
-// Rehearsal pages read this computer or the account's paired server. The engine is not chosen here.
+// Rehearsal pages read this computer or the account's MAIN link, named `host · account`. The engine is not chosen here.
 // See ../../docs/serverPicker.md.
 
 import { Laptop, Server } from "@frediverse/ui/icons";
@@ -22,10 +22,13 @@ const hostOf = (origin: string): string => {
 
 export function SidebarServer({
   server,
+  account,
   folds = false,
 }: {
-  /** The paired server's origin. */
+  /** The main link's server, as an origin. */
   server: string;
+  /** …and the account it is there: several may share a server, and the main one is the one read. */
+  account?: string;
   /** On the sidebar's icon rail the block is one button that switches the server instead. */
   folds?: boolean;
 }) {
@@ -33,7 +36,11 @@ export function SidebarServer({
   const options: { value: ServerChoice; label: string; Icon: typeof Laptop }[] =
     [
       { value: "local", label: m["serverPick.local"](), Icon: Laptop },
-      { value: "server", label: hostOf(server), Icon: Server },
+      {
+        value: "server",
+        label: account ? `${hostOf(server)} · ${account}` : hostOf(server),
+        Icon: Server,
+      },
     ];
   const current = options.find((o) => o.value === choice) ?? options[0];
   return (

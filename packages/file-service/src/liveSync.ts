@@ -1,7 +1,7 @@
 // liveSync.ts — turns live capture on for each open workspace, unless `STUDIO_LIVE_SYNC=0`, and links each to the
-// relay of the server it belongs to (liveServers.ts): the hub's own relay with the hub's secret, or a paired
-// server's with a device token. A workspace's batches go to whichever link it has NOW, which is what lets a
-// move switch its server underneath it (liveMove.ts). See docs/liveCapture.md.
+// relay of the link it belongs to (liveServers.ts): the hub's own relay with the hub's secret, or one account on a
+// paired server with its device token. A workspace's batches go to whichever link it has NOW, which is what lets a
+// move switch it underneath (liveMove.ts). See docs/liveCapture.md.
 
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
@@ -25,15 +25,15 @@ import {
 } from "./liveRelay.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
-  hostOf,
   isPaired,
   linkFor,
   listRooms,
   localNameFor,
   mainServer,
-  originOf,
   readLinkRecord,
+  recordFor,
   type SyncServer,
+  serverForRecord,
   serverOf,
   syncServers,
   toPage,
@@ -101,8 +101,8 @@ function onOpen(server: SyncServer): void {
 /** The move or copy a workspace is under, told by liveMove.ts — set there so this module does not import it back. */
 let moving: (
   root: string,
-) => { to: string; error?: string; copy?: boolean } | undefined = () =>
-  undefined;
+) => { to: string; link?: string; error?: string; copy?: boolean } | undefined =
+  () => undefined;
 export const reportMoves = (f: typeof moving): void => {
   moving = f;
 };
@@ -121,24 +121,30 @@ export async function workspaceSyncStatus(
   // Every server asked at once, each bounded: the page must not hang on one that is away.
   const lists = await Promise.all(servers.map((s) => listRooms(s)));
   const mine = local.filter((n) => n !== EXAMPLES_WORKSPACE);
-  // What each local workspace is on its server: recorded, or the main one's under its own name.
+  // What each local workspace is on its link: recorded, or the main one's under its own name.
   const here = mine.map((name) => {
     const a = attached.get(workspaceRoot(name));
     const rec = readLinkRecord(liveLogFor(workspaceRoot(name)));
-    const server = a?.server?.url ?? rec?.server ?? servers[0].url;
+    // A record whose link was let go names its server still, and no link.
+    const link = a?.server ?? (rec ? serverForRecord(rec) : servers[0]);
     return {
       name,
       room: a?.room ?? rec?.room ?? name,
-      server: shown(server),
-      host: hostOf(server),
+      server: shown(link?.url ?? rec?.server ?? servers[0].url),
+      link: link?.id,
       synced: (a?.replica?.head ?? 0) > 0,
     };
   });
-  const held = new Set(here.map((h) => `${h.host}\n${h.room}`));
+  const held = new Set(here.map((h) => `${h.link}\n${h.room}`));
   return {
     paired: true,
     server: shown(servers[0].url),
-    servers: servers.map((s) => ({ origin: shown(s.url), main: s.main })),
+    servers: servers.map((s) => ({
+      origin: shown(s.url),
+      main: s.main,
+      id: s.id,
+      ...(s.as ? { as: s.as } : {}),
+    })),
     workspaces: [
       ...here.map((h) => {
         const move = moving(workspaceRoot(h.name));
@@ -146,24 +152,26 @@ export async function workspaceSyncStatus(
           name: h.name,
           state: h.synced ? ("synced" as const) : ("local" as const),
           server: h.server,
+          ...(h.link ? { link: h.link } : {}),
           ...(h.room !== h.name ? { room: h.room } : {}),
           ...(move ? { moving: { ...move, to: shown(move.to) } } : {}),
         };
       }),
       ...servers.flatMap((s, i) =>
         lists[i]
-          .filter((room) => !held.has(`${hostOf(s.url)}\n${room}`))
+          .filter((room) => !held.has(`${s.id}\n${room}`))
           .map((room) => ({
             name: room,
             state: "server" as const,
             server: shown(s.url),
+            link: s.id,
           })),
       ),
     ],
   };
 }
 
-/** Bring workspace `room` of `server` (the main one when absent) down to this machine, and keep it synced from then on. */
+/** Bring workspace `room` of the link `server` names (an id or an origin; the main one when absent) down here, synced from then on. */
 export async function downloadWorkspace(
   room: string,
   server?: string,
@@ -171,12 +179,9 @@ export async function downloadWorkspace(
 ): Promise<string | null> {
   const s = server ? serverOf(server) : mainServer();
   if (!s || !(await listRooms(s)).includes(room)) return null;
-  // Its folder here: the room's name, or `room.host` when another server's workspace already has it.
+  // Its folder here: the room's name, or `room.host` (with the account when two share the host) when that is taken.
   const name = localNameFor(room, s, taken);
-  writeLinkRecord(liveLogFor(workspaceRoot(name)), {
-    server: originOf(s.url),
-    room,
-  });
+  writeLinkRecord(liveLogFor(workspaceRoot(name)), recordFor(s, room));
   const { joinWorkspace } = await import("./workspaces.ts");
   joinWorkspace(name);
   return name;
@@ -271,8 +276,8 @@ export function attachLiveCapture(ws: Workspace, name: string): void {
     room: rec?.room ?? name,
   };
   attached.set(root, a);
-  // Its recorded server, else the main one; a server no longer paired leaves it captured here, synced nowhere.
-  const server = rec ? serverOf(rec.server) : mainServer();
+  // Its recorded link, else the main one; a link let go leaves it captured here, synced nowhere.
+  const server = rec ? serverForRecord(rec) : mainServer();
   if (!server) {
     capture.start();
     return;

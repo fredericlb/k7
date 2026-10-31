@@ -374,11 +374,15 @@ export const accountFiles = {
     workspace: string,
   ): Promise<FileNode[]> => call(m, `/workspace-tree`, "tree", { workspace }),
 
-  /** A workspace and NOTHING else: an empty folder on the server. */
-  createWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
+  /** A workspace and NOTHING else: an empty folder on the server, synced with the link `link` names (the main one without). */
+  createWorkspace: async (
+    m: AccountFiles,
+    name: string,
+    link?: string,
+  ): Promise<void> => {
     await call(m, `/workspaces`, "workspace", {
       method: "POST",
-      json: { name },
+      json: { name, ...(link ? { link } : {}) },
     });
   },
 

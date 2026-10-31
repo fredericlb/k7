@@ -20,8 +20,9 @@ import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
 import { SYNC_PATH } from "./syncRelay.ts";
 import {
+  engineLinkOf,
   forgetRemote,
-  originOfRelay,
+  OWN_LINK,
   readRemote,
   readRemotes,
   type SyncRemote,
@@ -51,8 +52,10 @@ export interface SyncContext {
   relay: () => ReturnType<typeof attachSyncRelay> | null;
   /** Whether an account here pairs with a MAIN remote server (the tray, the phones); a server pairs secondaries only. */
   remotePairing: boolean;
-  /** The machine's local user, who never pairs; absent, nobody is. */
+  /** The machine's local user, signed in nowhere; absent, nobody is. */
   isLocal?: (req: Request) => boolean;
+  /** End this origin's session, for a pairing page's "Use another account"; absent, it is not offered. */
+  signOut?: (req: Request) => void;
   /** This backend's port on 127.0.0.1, where a pairing's browser comes back. */
   selfPort?: () => number;
   /** A pairing stored: the machine's engine is listed at that server with its token (docs/syncRelay.md). */
@@ -178,18 +181,42 @@ export class SyncRoutes {
       const user = this.c.userOf(req);
       if (!user)
         return void res.status(401).json({ error: "no user on the session" });
-      if (server && !(req.method === "POST" && sameOriginPost(req))) {
+      const fields = {
+        return: back,
+        state: q("state"),
+        name: q("name"),
+        ...(q("as") ? { as: q("as") } : {}),
+        ...(q("choose") ? { choose: q("choose") } : {}),
+      };
+      const posted = req.method === "POST" && sameOriginPost(req);
+      // "Use another account": signed out here, the gate signs the browser in again and it comes back to this page.
+      if (posted && q("switch") === "1" && this.c.signOut) {
+        this.c.signOut(req);
+        const again = new URLSearchParams({ ...fields, choose: "1" });
+        return void res.redirect(
+          303,
+          `${req.originalUrl.split("?")[0]}?${again}`,
+        );
+      }
+      // Which account is a choice: always for another server, and for a machine adding one or expecting someone else.
+      const asks =
+        server || q("choose") === "1" || (!!q("as") && q("as") !== user);
+      if (asks && !(posted && q("switch") !== "1")) {
         res.setHeader("Cache-Control", "no-store");
         // Framed, the Allow button could be clicked through an overlay.
         res.setHeader("X-Frame-Options", "DENY");
         res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
-        return void res.type("html").send(
-          consentPage(new URL(back).host, user, {
-            return: back,
-            state: q("state"),
-            name: q("name"),
-          }),
-        );
+        const name = q("name").trim().slice(0, 80) || "a machine";
+        return void res
+          .type("html")
+          .send(
+            consentPage(
+              server ? { server: new URL(back).host } : { device: name },
+              user,
+              fields,
+              !!this.c.signOut,
+            ),
+          );
       }
       const name = q("name").trim().slice(0, 80) || "a machine";
       const { device, token } = this.c.devices.mint(
@@ -211,7 +238,18 @@ export class SyncRoutes {
     };
   }
 
-  /** This account's pairings with remote servers, behind the session: PUT pairs one, POST /main picks the main one, DELETE unpairs. */
+  /** The engine follows the links: per origin, the token it is owned by there changed or went (docs/syncRelay.md). */
+  private engineFollows(before: SyncRemote[], after: SyncRemote[]): void {
+    for (const origin of new Set(before.map((r) => r.origin))) {
+      if (!origin) continue;
+      const was = engineLinkOf(before, origin);
+      const now = engineLinkOf(after, origin);
+      if (!now) this.c.onForgotten?.(origin);
+      else if (now.token !== was?.token) this.c.onPaired?.(origin, now.token);
+    }
+  }
+
+  /** This account's links to remote servers, behind the session: PUT links one, POST /main picks the main one, DELETE unlinks. */
   remoteRouter(): Router {
     const r = Router();
     r.use(express.json());
@@ -229,7 +267,10 @@ export class SyncRoutes {
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
       const remotes = readRemotes(w.home).map((r) => ({
+        id: r.id,
         url: r.url,
+        origin: r.origin,
+        as: r.as,
         main: this.c.remotePairing && r.main,
       }));
       // A server lists itself first: the main one, never let go.
@@ -237,7 +278,10 @@ export class SyncRoutes {
         ? []
         : [
             {
+              id: OWN_LINK,
               url: `${publicOrigin(req).replace(/^http/, "ws")}${SYNC_PATH}`,
+              origin: publicOrigin(req),
+              as: w.user,
               main: true,
               own: true,
             },
@@ -246,6 +290,7 @@ export class SyncRoutes {
       res.json({
         paired: remotes.length > 0,
         url: servers[0]?.url ?? null,
+        as: servers[0]?.as ?? null,
         servers,
       });
     });
@@ -254,6 +299,8 @@ export class SyncRoutes {
       const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";
       const token =
         typeof req.body?.token === "string" ? req.body.token.trim() : "";
+      // The remote account when the caller knows it; a token alone names none, so it is the local account's own.
+      const as = typeof req.body?.as === "string" ? req.body.as.trim() : "";
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
       if (!/^wss?:\/\//.test(url) || !token)
@@ -261,27 +308,39 @@ export class SyncRoutes {
           .status(400)
           .json({ error: "expected { url: ws(s)://…, token }" });
       mkdirSync(w.home, { recursive: true });
+      const before = readRemotes(w.home);
       // Main unless said otherwise: a pairing made at sign-in is the main one, a server added beside it is not.
-      writeRemote(w.home, {
+      const link = writeRemote(w.home, {
         url,
         token,
         user: w.user,
+        as: as || w.user,
         main: this.c.remotePairing && req.body?.main !== false,
       });
+      this.engineFollows(before, readRemotes(w.home));
       void this.c.instances.restart(w.user).then(
-        () => res.json({ paired: true, url }),
+        () => res.json({ paired: true, url, id: link.id }),
         (e: Error) => res.status(500).json({ error: e.message }),
       );
     });
+    // The link by `id`, or the first on the server `url` names.
+    const refOf = (body: unknown, query: unknown): string | undefined => {
+      for (const v of [body, query]) {
+        const o = v as { id?: unknown; url?: unknown } | undefined;
+        if (typeof o?.id === "string" && o.id) return o.id;
+        if (typeof o?.url === "string" && o.url) return o.url;
+      }
+      return undefined;
+    };
     r.post("/main", (req, res) => {
       const w = who(req);
-      const url = typeof req.body?.url === "string" ? req.body.url : "";
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      if (!setMainRemote(w.home, url))
-        return void res
-          .status(404)
-          .json({ error: "no pairing with that server" });
+      const before = readRemotes(w.home);
+      if (!setMainRemote(w.home, refOf(req.body, undefined) ?? ""))
+        return void res.status(404).json({ error: "no such link" });
+      // Two accounts on one server: the main one's token is the one its engine is owned by there.
+      this.engineFollows(before, readRemotes(w.home));
       void this.c.instances.restart(w.user).then(
         () => res.json({ ok: true }),
         (e: Error) => res.status(500).json({ error: e.message }),
@@ -291,15 +350,12 @@ export class SyncRoutes {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      // One server by `?url=`, else every one.
-      const url = typeof req.query.url === "string" ? req.query.url : undefined;
+      // One link by `?id=`, every link on a server by `?url=`, else every one.
       const before = readRemotes(w.home);
-      const was = forgetRemote(w.home, url);
-      const after = new Set(readRemotes(w.home).map((r) => r.url));
-      for (const r of before)
-        if (!after.has(r.url)) this.c.onForgotten?.(originOfRelay(r.url));
+      const was = forgetRemote(w.home, refOf(undefined, req.query));
+      this.engineFollows(before, readRemotes(w.home));
       void this.c.instances.restart(w.user).then(
-        () => res.json({ paired: false, was }),
+        () => res.json({ paired: readRemotes(w.home).length > 0, was }),
         (e: Error) => res.status(500).json({ error: e.message }),
       );
     });

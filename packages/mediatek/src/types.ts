@@ -156,4 +156,30 @@ export interface LibraryPlacement {
   synced: string[];
   /** The server's entries this machine lacks — what a download brings down. */
   serverOnly: MediatekEntry[];
+  /** The server did not answer: this is the last listing it gave, kept on disk. */
+  stale?: boolean;
+}
+
+/** Whether this machine's backend reached its paired server just now — see docs/serverCopy.md. */
+export interface ServerReach {
+  paired: boolean;
+  server: string | null;
+  /** Null while it has not been asked yet. */
+  reachable: boolean | null;
+  /** ms since epoch of the last answer, or none. */
+  checkedAt: number | null;
+}
+
+/** One of the backend's own jobs over the followed songs: the update check, or one song coming down again. */
+export interface SongSyncJob {
+  /** Unique per run, so a page mirroring the list tells a new run from one it already saw end. */
+  key: string;
+  kind: "check" | "song";
+  /** The song's family-prefixed path, for a `song` job. */
+  path?: string;
+  phase: "running" | "done" | "failed";
+  /** For a finished check: how many songs came down again, and how many the server no longer has. */
+  updated?: number;
+  gone?: number;
+  error?: string;
 }

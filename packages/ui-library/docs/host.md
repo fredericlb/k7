@@ -11,7 +11,9 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
 - **`configureLibrary`** (`src/config.ts`) — the fetch layer's settings: `apiBase`, where the
   library's `/api/*` answers; `hostBase`, where the MACHINE's own routes answer when `apiBase` is
   another server's — the engine registry, the hunt, the slskd settings, the copies placed against a
-  server — unset meaning `apiBase`; and `noAnswer`, the sentence a timed-out call throws. Module
+  server — unset meaning `apiBase`; `serverBase`, the paired server's library through this machine,
+  set only where that server's songs open on demand ([songSource.md](songSource.md));
+  and `noAnswer`, the sentence a timed-out call throws. Module
   state, read at call time, because `api.ts` and `enginePlayback.ts` are not components and a React
   context cannot reach them.
 - **`LibraryHostProvider`** (`src/host.tsx`) — what the COMPONENTS read: the labels, the route
