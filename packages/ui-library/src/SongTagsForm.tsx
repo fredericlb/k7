@@ -17,9 +17,9 @@ import {
 import type { MasterTags, OtherTags } from "@studio/mediatek/types";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { library } from "./api";
 import { useLabels } from "./host";
 import { SaveState } from "./SaveState";
+import { useSongSource } from "./songSource";
 
 /** The form's buffer: every field a string, so an emptied one is `""` — which clears the tag. */
 interface TagForm {
@@ -73,13 +73,18 @@ export function SongTagsForm({
   const [saved, setSaved] = useState("");
   // Read-only until asked: a click on a song is to look at it, not to type into it.
   const [editing, setEditing] = useState(false);
+  // Read where the song is read; written only where it may be (songSource.ts).
+  const { read, write: writer, readOnly } = useSongSource();
+  // A ref: the copy landing, or the server going away, must not reload a form being typed into.
+  const reader = useRef(read);
+  reader.current = read;
 
   useEffect(() => {
     let alive = true;
     setForm(null);
     setOthers({});
     setEditing(false);
-    void library
+    void reader.current
       .songTags(folder)
       .then(({ tags, others: rest }) => {
         if (!alive) return;
@@ -113,13 +118,14 @@ export function SongTagsForm({
       for (const k of Object.keys(f) as (keyof TagForm)[])
         if (f[k] !== was[k])
           patch[k] = k === "bpm" || k === "track" ? f[k].trim() : f[k];
-      await library.setSongTags(folder, patch);
+      if (!writer) throw new Error(readOnly ?? "");
+      await writer.setSongTags(folder, patch);
       // What was SENT, not what came back: a trimmed echo would read as a new edit and write again.
       setSaved(text);
       onStatus(said.current.saved(folder));
       onSaved();
     },
-    [folder, onSaved, onStatus],
+    [folder, onSaved, onStatus, writer, readOnly],
   );
   const text = form ? JSON.stringify(form) : "";
   const autosave = useAutosave({
@@ -187,6 +193,8 @@ export function SongTagsForm({
           <Button
             size="sm"
             variant="secondary"
+            disabled={!writer}
+            title={writer ? undefined : (readOnly ?? undefined)}
             onClick={() => setEditing(true)}
           >
             <Pencil className="mr-1 h-4 w-4" /> {l.edit}

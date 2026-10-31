@@ -6,6 +6,7 @@ import { configureLibrary } from "@studio/ui-library/config";
 import { configureRehearsal } from "@studio/ui-rehearsal/config";
 import { useSyncExternalStore } from "react";
 import { BASE } from "./api";
+import { inAndroidApp } from "./tabs/bridge";
 
 export type ServerChoice = "local" | "server";
 
@@ -31,7 +32,12 @@ export const pagesBase = (): string =>
 
 /** Point both packages' fetch layers at the chosen server, this machine's own routes left on BASE. */
 function apply(): void {
-  configureLibrary({ apiBase: pagesBase(), hostBase: BASE });
+  // On a phone the server's songs open on demand through the forward (packages/ui-library/docs/songSource.md).
+  configureLibrary({
+    apiBase: pagesBase(),
+    hostBase: BASE,
+    serverBase: inAndroidApp() ? SERVER_BASE : undefined,
+  });
   configureRehearsal({ apiBase: pagesBase(), hostBase: BASE });
 }
 apply();

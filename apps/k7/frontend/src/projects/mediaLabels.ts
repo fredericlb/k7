@@ -100,6 +100,7 @@ export function mediaLabels(): LibraryLabels {
         m["media.contents.deleteRecordingConfirm"]({ name }),
       synced: (server) => m["wsync.synced"]({ server }),
       localOnly: m["wsync.local"](),
+      serverOnly: (server) => m["wsync.server"]({ server }),
       download: m["wsync.download"](),
       downloadMissing: plural(
         m["wsync.downloadMissingOne"],
@@ -164,6 +165,8 @@ export function mediaLabels(): LibraryLabels {
       noKey: m["media.song.noKey"](),
       bpmInvalid: m["media.song.bpmInvalid"](),
       tagsHint: m["media.song.tagsHint"](),
+      readOnly: m["media.song.readOnly"](),
+      cannotOpen: m["media.song.cannotOpen"](),
       tabInfo: m["media.song.tabInfo"](),
       tabLyrics: m["media.song.tabLyrics"](),
       tabTablature: m["media.song.tabTablature"](),

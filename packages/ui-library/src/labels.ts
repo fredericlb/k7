@@ -94,6 +94,8 @@ export interface LibraryLabels {
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;
+    /** On the server alone, `host` being the server's. */
+    serverOnly: (host: string) => string;
     download: string;
     /** The songs an album or a playlist names that only the server holds. */
     downloadMissing: (count: number) => string;
@@ -162,6 +164,10 @@ export interface LibraryLabels {
     bpmInvalid: string;
     /** Under the tag form: the tags are the master's, and changing them moves no folder. */
     tagsHint: string;
+    /** On the phone, a server song while the server is away: nothing of it can be changed. */
+    readOnly: string;
+    /** …and one with no copy here, which cannot be opened at all then. */
+    cannotOpen: string;
     /** The song screen's tabs: its tags, then each attachment it carries. */
     tabInfo: string;
     tabLyrics: string;

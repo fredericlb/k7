@@ -17,9 +17,12 @@ const TARGETS: Record<PlaybackTarget, PlaybackTargetInfo> = {
   engine: { id: "engine", icon: Radio },
 };
 
-/** The destination ACTUALLY used: the engine once one answers, else the browser, which needs nothing. */
-export function effectiveTarget(engineAvailable: boolean): PlaybackTarget {
-  return engineAvailable ? "engine" : "browser";
+/** The destination ACTUALLY used: the engine once one answers, else the browser; a song not on this machine yet streams in the browser. */
+export function effectiveTarget(
+  engineAvailable: boolean,
+  remote = false,
+): PlaybackTarget {
+  return engineAvailable && !remote ? "engine" : "browser";
 }
 
 /** A destination's row, for drawing it. */
