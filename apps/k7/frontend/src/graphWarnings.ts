@@ -31,6 +31,8 @@ const WORDS: Record<GraphWarningCode, (p: P) => string> = {
       ...p,
       outputs: p.outputs || m["graphWarn.none"](),
     }),
+  outRenderPort: say(m["graphWarn.outRenderPort"]),
+  outRenderSoundNotMix: say(m["graphWarn.outRenderSoundNotMix"]),
   chainDeadEnd: say(m["graphWarn.chainDeadEnd"]),
   trackClipMissing: say(m["graphWarn.trackClipMissing"]),
   moduleAssetMissing: say(m["graphWarn.moduleAssetMissing"]),

@@ -6,6 +6,8 @@ import type { GraphIssue } from "@studio/graph-model";
 import {
   MIX_NODE,
   portRef,
+  RENDER_AUDIO_PORT,
+  RENDER_INPUTS,
   RENDER_NODE,
   splitPort,
   TRANSITION_CATEGORY,
@@ -239,6 +241,14 @@ export function validateIssues(g: GraphDoc): GraphIssue[] {
       // A camera may land on no picture lane, since it draws a layer of its own — docs/camera.md.
       else if (!isNode(g, o.to) && !carriesCamera(g, c))
         w.push(issue("outUnknown", { chain: name, out: o.to }));
+      // RENDER takes the picture on `in` and the export's sound on `audio`, which only the mix may feed for now (docs/videoOutputs.md).
+      const { port: toPort } = splitPort(o.to);
+      if (to === RENDER_NODE && toPort) {
+        if (!RENDER_INPUTS.some((p) => p.name === toPort))
+          w.push(issue("outRenderPort", { chain: name, out: o.to }));
+        else if (toPort === RENDER_AUDIO_PORT && c.from !== MIX_NODE)
+          w.push(issue("outRenderSoundNotMix", { chain: name, out: o.to }));
+      }
       if (o.gain < 0)
         w.push(issue("outNegativeGain", { chain: name, out: o.to }));
       // …and which output it LEFT from — see docs/graphModel.md.

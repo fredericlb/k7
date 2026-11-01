@@ -14,6 +14,8 @@ import {
 } from "@studio/song/graph";
 import {
   CAMERA_IO,
+  MIX_NODE,
+  RENDER_AUDIO_IN,
   RENDER_NODE,
   SHADER_CATEGORY,
   SHADER_PARAMS,
@@ -30,6 +32,8 @@ export interface VideoChainDocs {
   byLane: Record<string, VideoPluginDoc[]>;
   /** The `RENDER -> VIDEO_OUT` run, over everything the lanes composited into. */
   frame: VideoPluginDoc[];
+  /** What feeds RENDER's `audio` input: the mix, or nothing (song docs/videoOutputs.md). */
+  sound: "mix" | null;
   /** Which CAMERA feeds each lane, by the LABEL its node names — a lane with none is absent.
    *  Empty string means "whichever camera this machine calls default" (docs/camera.md). */
   cameraByLane: Record<string, string>;
@@ -190,6 +194,7 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const stretches: Record<string, VideoPluginDoc[]> = {};
   const stretchLanes: Record<string, string[]> = {};
   let frame: VideoPluginDoc[] = [];
+  let sound: VideoChainDocs["sound"] = null;
   // A CAMERA is a source rather than a pass: its run lands ON a picture lane, and what the lane
   // gets from it is which lens to open. The first one wins, and `validate()` reports the second.
   for (const c of Object.values(g.chains)) {
@@ -264,6 +269,11 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
         frame = runDocs(dir, g, RENDER_NODE, c);
       continue;
     }
+    // The mix wired into RENDER's sound input is what the export leaves with (song docs/videoOutputs.md).
+    if (c.from === MIX_NODE) {
+      if (c.out.some((o) => o.to === RENDER_AUDIO_IN)) sound = "mix";
+      continue;
+    }
     if (!g.videoTracks[c.from]) continue;
     const docs = runDocs(dir, g, c.from, c);
     if (docs.length) byLane[c.from] = docs;
@@ -271,6 +281,7 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   return {
     byLane,
     frame,
+    sound,
     cameraByLane,
     cameraMonitorByLane,
     cameras,

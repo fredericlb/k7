@@ -378,6 +378,8 @@ export type GraphWarningCode =
   | "outUnknown"
   | "outNegativeGain"
   | "outBadPort"
+  | "outRenderPort"
+  | "outRenderSoundNotMix"
   | "chainDeadEnd"
   | "trackClipMissing"
   | "moduleAssetMissing"

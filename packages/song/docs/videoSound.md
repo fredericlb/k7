@@ -65,8 +65,9 @@ A shot's sound goes through the engine like every other sound in the song, for t
   long before a picture's is visible.
 - **The mixer.** A dialogue needs a fader, an EQ, a send. A sound half has them all; a `<video>`'s
   volume is one number outside the graph.
-- **The render.** The export muxes the ENGINE's mixdown (`packages/ui-eyes/src/export.ts`), so
-  sound the engine never played would be missing from every file the song produces.
+- **The render.** The export muxes the ENGINE's mixdown (`packages/ui-eyes/src/export.ts`) when
+  the mix feeds RENDER's sound input ([videoOutputs.md](videoOutputs.md)), so sound the engine never
+  played would be missing from every file the song produces.
 
 ## The sound is an extracted WAV, never the container
 

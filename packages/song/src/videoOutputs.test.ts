@@ -218,13 +218,13 @@ describe("where it is added from", () => {
     expect(starts(arr)).not.toContain("RENDER");
   });
 
-  it("the scaffolded video graph still parses, and still declares the audio run", () => {
+  it("the scaffolded video graph still parses, declares the audio run, and wires the mix into RENDER's sound", () => {
     // The archetype ADDS to the song's map, so the sound's run must survive the picture's splice.
     const vid = join(root, "both.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "both", "video");
     const g = loadGraph(vid);
-    expect(g.chains.MIX?.out.map((o) => o.to)).toEqual(["OUT"]);
+    expect(g.chains.MIX?.out.map((o) => o.to)).toEqual(["OUT", "RENDER#audio"]);
     expect(g.chains.RENDER?.out.map((o) => o.to)).toEqual(["VIDEO_OUT"]);
     expect(validate(g)).toEqual([]);
   });

@@ -104,7 +104,8 @@ export function toSegments(
   const targetsOf = (from: ChainUnit, l: Link, seen: Set<string>): string[] => {
     const key = resolveLink(cp.chains, from, l.chain);
     const u = key ? byKey.get(key) : undefined;
-    if (key && !u) return [key];
+    // A built-in end keeps the port it names too: `RENDER#audio` is not `RENDER`.
+    if (key && !u) return [l.port ? `${key}#${l.port}` : key];
     if (!u || seen.has(u.key)) return [];
     const first = u.chain.steps[0];
     if (!first || isEndStep(first)) {

@@ -28,6 +28,11 @@ export const OUT_NODE = "OUT";
 export const RENDER_NODE = "RENDER";
 export const VIDEO_OUT_NODE = "VIDEO_OUT";
 
+/** RENDER's second input: the sound the picture leaves with, the export's audio — packages/song/docs/videoOutputs.md. */
+export const RENDER_AUDIO_PORT = "audio";
+/** …as an arrow names it, `MIX: ["OUT", "RENDER#audio"]`. */
+export const RENDER_AUDIO_IN = `${RENDER_NODE}#${RENDER_AUDIO_PORT}`;
+
 /** The HEADPHONE bus — the one built-in output that leaves the mixer's sum entirely, see packages/song/docs/cue.md. */
 export const CUE_NODE = "CUE";
 
@@ -149,6 +154,12 @@ export interface PortDef {
   type: "audio" | "midi" | "video";
   mandatory?: boolean;
 }
+
+/** RENDER's two inputs: the composited picture, and the sound the export leaves with — packages/song/docs/videoOutputs.md. */
+export const RENDER_INPUTS: PortDef[] = [
+  { name: "in", type: "video" },
+  { name: RENDER_AUDIO_PORT, type: "audio" },
+];
 
 /** What a module IS at the coarsest level — four, not two, and the wire treats each differently: docs/moduleTypes.md. */
 export type ModuleKind = "io" | "plugin" | "doc" | "track";

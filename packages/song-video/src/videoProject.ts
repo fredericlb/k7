@@ -112,6 +112,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
         shapesByLane: {},
         stretches: {},
         stretchLanes: {},
+        sound: null,
         warnings: [],
       } satisfies VideoChainDocs;
     }
@@ -202,6 +203,7 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     ],
     markers: parseVideoMarkers(root.markers),
     framePlugins: chains.frame,
+    sound: chains.sound,
     transitions,
     stretches,
     ...(Object.keys(pictures).length ? { timelines: pictures } : {}),

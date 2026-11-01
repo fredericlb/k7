@@ -17,6 +17,8 @@ const NAMES: Record<GraphWarningCode, string[]> = {
   outUnknown: ["chain", "out"],
   outNegativeGain: ["chain", "out"],
   outBadPort: ["chain", "out", "source", "port", "outputs"],
+  outRenderPort: ["chain", "out"],
+  outRenderSoundNotMix: ["chain", "out"],
   chainDeadEnd: ["chain"],
   trackClipMissing: ["track", "ref"],
   moduleAssetMissing: ["module", "param", "ref"],
