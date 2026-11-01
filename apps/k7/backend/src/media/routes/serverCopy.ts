@@ -6,7 +6,7 @@ import { wrap } from "@frediverse/http/route";
 import type { FileHub } from "@studio/file-hub";
 import { listFamilyFresh } from "@studio/mediatek/catalogue";
 import { safePath } from "@studio/mediatek/layout";
-import { hasLeft } from "@studio/mediatek/synced";
+import { hasLeft, readSynced } from "@studio/mediatek/synced";
 import {
   asFamily,
   FAMILY_ERROR,
@@ -150,10 +150,14 @@ export function serverCopyRouter(
           .filter((e) => here.has(e.path))
           .map((e) => e.path),
         serverOnly: theirs.entries.filter((e) => !here.has(e.path)),
-        // The songs the server removed stay here and are not sent back: the rest of this machine's alone are waiting to go up.
+        // A song the server removed, marked or still following it, stays here and is not sent back: the rest are waiting to go up.
         kept:
           family === "songs"
-            ? mine.filter((p) => !there.has(p) && hasLeft(safePath(p)))
+            ? mine.filter(
+                (p) =>
+                  !there.has(p) &&
+                  (hasLeft(safePath(p)) || !!readSynced(safePath(p))),
+              )
             : [],
         ...(stale ? { stale } : {}),
       };
@@ -197,8 +201,10 @@ export function serverCopyRouter(
       if (!server)
         return res.status(409).json({ error: "this account is not paired" });
       try {
+        // A page refreshing its copy after an edit leaves the copy whose it was; any other download is by hand, and kept.
         const got = await downloadEntries(server, family, paths, {
           follow: req.body?.follow === true,
+          ...(req.body?.refresh === true ? {} : { by: "hand" as const }),
         });
         // A list partly there is a success that names what was not; nothing there at all is a 404.
         if (got.missing.length === paths.length)

@@ -20,14 +20,14 @@ row that started a download reads its spinner from it.
   a second song still overlaps the first one's round trips.
 - **What others run is mirrored, not queued.** A model job runs on the file service and is polled
   (`trackDownload`); the supervisor keeps its own instrument queue and pushes it whole (`syncDownloads`,
-  where a row that leaves the list while running has landed). The backend's update check of the
-  songs that follow their server is mirrored the same way, under `songs-sync:` — the check as one row
-  saying what it found, each song it brings down again as its own (`apps/k7/backend/docs/media/songUpdates.md`).
+  where a row that leaves the list while running has landed). The backend's keeping of the songs on
+  the account's lists is mirrored the same way, under `songs-sync:` — the update check as one row
+  saying what it found, each song it brings down as its own (`apps/k7/backend/docs/media/songUpdates.md`).
 - **A finished mirrored row is handed over once.** A backend keeps an ended job listed a few seconds so
   a poll sees it end; the mirror then stops passing it, or the next poll would draw a row the manager
   had already let go of after its linger.
-- **A song opened on the phone queues the same `library:<path>` as its download button**, so the
-  background copy of a first look and a click on the button are one job.
+- **One `library:<path>` per song**, whichever button queued it — its cloud button, its album's, its
+  playlist's — so two clicks on one song are one job.
 - **A moment sent to a server to be consolidated is a row too** (`moment:<id>:<link>`), though it goes
   UP: it is the one long transfer a rehearsal page starts, and a second place to watch transfers
   would be a second place to look (`packages/ui-rehearsal/docs/recordings.md`).

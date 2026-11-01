@@ -15,12 +15,16 @@ import { readSynced } from "@studio/mediatek/synced";
 import { removeLibrary } from "@studio/mediatek/testLibrary";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  DEVICE_FAVORITES_ROUTE,
+  DEVICE_PRACTICE_ROUTE,
+} from "../routes/favorites.ts";
 import { downloadEntries } from "./download.ts";
 import { songSyncJobs } from "./jobs.ts";
 import { keepListing, lastListing } from "./listings.ts";
 import { reachOf } from "./reach.ts";
 import { DEVICE_LIBRARY_ROUTE, type PairedServer } from "./server.ts";
-import { checkSongUpdates } from "./updates.ts";
+import { checkSongUpdates, keepListedSongs } from "./updates.ts";
 
 // The local volume is this process's; the "server" is a stub whose songs a test edits between calls.
 const SONG = "songs/A/B/S";
@@ -30,6 +34,8 @@ let files: Record<string, { body: string; mtime: number }>;
 let rev: string;
 let asked: string[];
 let server: PairedServer;
+let lists: { favorites: string[]; practice: string[] };
+let listsDown: boolean;
 
 const manifestOf = (): ManifestEntry[] =>
   Object.entries(files).map(([path, f]) => ({
@@ -51,6 +57,25 @@ async function stub(): Promise<PairedServer> {
   );
   app.get(`${DEVICE_LIBRARY_ROUTE}/manifest`, (_req, res) =>
     res.json({ family: "songs", rev, files: manifestOf() }),
+  );
+  app.get(`${DEVICE_LIBRARY_ROUTE}/list`, (_req, res) => {
+    const songs = new Set(
+      Object.keys(files).map((p) => p.split("/").slice(0, 4).join("/")),
+    );
+    res.json({
+      family: "songs",
+      rev,
+      entries: [...songs].map((path) => ({ path })),
+      unlisted: [],
+    });
+  });
+  app.get(DEVICE_FAVORITES_ROUTE, (_req, res) =>
+    listsDown
+      ? res.status(503).end()
+      : res.json({ favorites: lists.favorites }),
+  );
+  app.get(DEVICE_PRACTICE_ROUTE, (_req, res) =>
+    res.json({ practice: lists.practice }),
   );
   app.get(`${DEVICE_LIBRARY_ROUTE}/file`, (req, res) => {
     const f = files[String(req.query.path)];
@@ -77,6 +102,8 @@ beforeEach(async () => {
   };
   rev = "1";
   asked = [];
+  lists = { favorites: [SONG], practice: [] };
+  listsDown = false;
   server = await stub();
 });
 
@@ -123,7 +150,7 @@ describe("the update check", () => {
 
   it("stops at the revision when nothing moved on the server", async () => {
     await checkSongUpdates(() => [server]);
-    expect(asked).toEqual(["/revision"]);
+    expect(asked).toEqual(["/list", "/revision"]);
     expect(songSyncJobs().slice(-1)).toEqual([
       expect.objectContaining({ kind: "check", phase: "done", updated: 0 }),
     ]);
@@ -161,6 +188,73 @@ describe("the update check", () => {
     const before = songSyncJobs().length;
     await checkSongUpdates(() => [server]);
     expect(songSyncJobs().length).toBe(before);
+  });
+});
+
+describe("the songs on the account's lists", () => {
+  it("come down on their own, marked the lists', and go once both lists let them go", async () => {
+    lists = { favorites: [], practice: ["songs/A"] };
+    await keepListedSongs(() => [server]);
+    expect(readSynced(local(SONG))).toMatchObject({ kept: "lists" });
+    lists = { favorites: [], practice: [] };
+    await keepListedSongs(() => [server]);
+    expect(existsSync(local(SONG))).toBe(false);
+    expect(existsSync(local("songs/A"))).toBe(false);
+  });
+
+  it("keep a copy downloaded by hand once off the lists", async () => {
+    await downloadEntries(server, "songs", [SONG], {
+      follow: true,
+      by: "hand",
+    });
+    lists = { favorites: [], practice: [] };
+    await keepListedSongs(() => [server]);
+    expect(existsSync(local(`${SONG}/lyrics.txt`))).toBe(true);
+  });
+
+  it("keep a copy the lists brought that a hand downloaded since", async () => {
+    await keepListedSongs(() => [server]);
+    await downloadEntries(server, "songs", [SONG], {
+      follow: true,
+      by: "hand",
+    });
+    expect(readSynced(local(SONG))?.kept).toBeUndefined();
+    lists = { favorites: [], practice: [] };
+    await keepListedSongs(() => [server]);
+    expect(existsSync(local(`${SONG}/lyrics.txt`))).toBe(true);
+  });
+
+  it("delete nothing when a list could not be read", async () => {
+    await keepListedSongs(() => [server]);
+    lists = { favorites: [], practice: [] };
+    listsDown = true;
+    await keepListedSongs(() => [server]);
+    expect(existsSync(local(`${SONG}/lyrics.txt`))).toBe(true);
+  });
+
+  it("keep a copy holding a file the server never sent", async () => {
+    await keepListedSongs(() => [server]);
+    writeFileSync(local(`${SONG}/mine.txt`), "mine");
+    lists = { favorites: [], practice: [] };
+    await keepListedSongs(() => [server]);
+    expect(existsSync(local(`${SONG}/mine.txt`))).toBe(true);
+  });
+
+  it("are not checked for updates once off the lists", async () => {
+    await downloadEntries(server, "songs", [SONG], { follow: true });
+    lists = { favorites: [], practice: [] };
+    rev = "2";
+    files[`${SONG}/lyrics.txt`] = { body: "new", mtime: 3 };
+    asked = [];
+    await checkSongUpdates(() => [server]);
+    expect(asked).not.toContain("/revision");
+    expect(readFileSync(local(`${SONG}/lyrics.txt`), "utf8")).toBe("la la");
+  });
+
+  it("do nothing at all signed out", async () => {
+    await checkSongUpdates(() => []);
+    expect(asked).toEqual([]);
+    expect(existsSync(local(SONG))).toBe(false);
   });
 });
 

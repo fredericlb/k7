@@ -44,14 +44,15 @@ On a server, and on a machine with none, every song reads and writes the pages' 
 
 ## Its audio
 
-A song not copied yet streams from the server through the forward (`Playable.base`), and so plays in
+A song with no copy here streams from the server through the forward (`Playable.base`), and so plays in
 the browser even when an engine answers: the engine plays files of its own machine
-([playbackTarget.md](playbackTarget.md)). Once the copy is here, the next start plays it on the engine.
+([playbackTarget.md](playbackTarget.md)). Once a copy is here — the lists brought it, or a hand did —
+the next start plays it on the engine.
 
-## The first look copies it
+## Opening copies nothing
 
-Opening a server song with no copy queues its download (`useOpenSong`), the same download-manager job
-as its cloud button, so a second look or a click on the button fetches nothing twice. The whole song
-comes down, audio included, on any network: a song consulted is a song about to be rehearsed, and the
-engine plays only the files of its own machine ([playbackTarget.md](playbackTarget.md)). The copy
-follows the server (`../../mediatek/docs/serverCopy.md`).
+Opening a server song reads and plays it from the server, and downloads nothing: what a machine keeps
+is what the account's favorites and practice lists hold, brought down by its backend, and what a
+person downloads by hand (`../../mediatek/docs/serverCopy.md`). A song looked at once is not one to
+fill a phone's disk with. An edit refreshes the copy only when there is one; a song the server alone
+holds has nothing to bring in step.

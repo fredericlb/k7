@@ -184,11 +184,12 @@ const serverCopy = {
       "placement",
     ),
 
-  /** Bring entries down — one, an album, a playlist's; `follow` keeps each song in step with the server; unbounded, a master is long. */
+  /** Bring entries down — one, an album, a playlist's; `follow` keeps each song in step, `refresh` is no download by hand; unbounded, a master is long. */
   download: async (
     family: string,
     paths: string[],
     follow = false,
+    refresh = false,
   ): Promise<void> => {
     await json(
       await request(
@@ -196,7 +197,7 @@ const serverCopy = {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ family, paths, follow }),
+          body: JSON.stringify({ family, paths, follow, refresh }),
         },
         null,
       ),

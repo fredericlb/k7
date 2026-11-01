@@ -247,6 +247,12 @@ they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
 
 A star names a path, so a song moved or renamed loses it.
 
+**On a machine signed in to a server, the lists are what it keeps.** A song on the favorites or the
+practice list — itself or through its album — is downloaded by the machine's backend and kept in step;
+once it has left both, the copy the lists brought is deleted, while one downloaded by hand stays
+(`../../mediatek/docs/serverCopy.md`, `apps/k7/backend/docs/media/songUpdates.md`). The lists decide
+because they are the account's own words for "I want this at hand", the same on every device.
+
 ## Practice
 
 The **practice list** is a second list of the same kind: a song or an album is added from its menu

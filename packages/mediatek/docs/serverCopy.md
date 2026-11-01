@@ -23,22 +23,30 @@ held by that backend and never reaches a page. The server answers a device on
 and limited to reads. A device that may sync the account's workspaces may read the library every
 account reads anyway. It may not write it through that route.
 
-## The server's songs come down when opened, never all at once
+## Only the lists' songs come down on their own
 
-A machine reads its server's songs on demand, through the forward, without a download
-(`../../ui-library/docs/songSource.md`), and the first look at one copies it down in the background, as
-a download-manager job: a song somebody opened is the one they are about to play, and the engine
-plays only files of its own machine. Nothing else comes down on its own: a server's library can be
-far larger than a laptop's disk or a phone's. A download copies every file the server's manifest
-lists at or under the entry's path (a song is a folder, a sample a file).
+A machine reads its server's songs on demand, through the forward, and plays them from there
+(`../../ui-library/docs/songSource.md`); opening one copies nothing. What comes down on its own is
+what the account's **favorites and practice lists** hold: those are the songs a person said they want
+at hand, and the lists are the account's, so every machine signed in to the server keeps the same
+ones. The machine's backend keeps them here, downloads a song as it enters a list, and deletes the copy
+once it has left both (`../../../apps/k7/backend/docs/media/songUpdates.md`). Everything else comes
+down only by hand: a server's library can be far larger than a laptop's disk or a phone's, and a song
+merely looked at is not one to fill it with. A download copies every file the server's manifest lists
+at or under the entry's path (a song is a folder, a sample a file).
 
 Its edits go to the server's version, never to the copy, so a copy refreshed from the server loses
 nothing. Such a copy **follows** its server: the download asks for it (`follow`), the server's rows
-for that song are kept in its folder, and this machine's backend keeps it in step on its own
-(`../../../apps/k7/backend/docs/media/songUpdates.md`).
+for that song are kept in its folder, and while the song is on a list this machine's backend keeps it
+in step on its own.
 
-There is no cap on what comes down this way, and nothing is evicted: which rehearsal's songs to drop
-is not a choice this code can make, so for now none is made.
+**A copy the lists brought is theirs; one downloaded by hand is the person's.** The sidecar of a song
+the lists brought down says so (`kept: "lists"`), and only such a copy is deleted when the lists let
+the song go. A download by hand — the cloud button, an album's or a playlist's — writes no mark, and
+clears the mark of a copy the lists brought: someone asked for that song, and leaving a list is not
+asking to lose it. A refresh after an edit is no download by hand (`refresh`), and leaves the mark as
+it was. Nothing else is evicted, and there is no cap: which rehearsal's songs to drop is not a choice
+this code can make.
 
 ## Whether the server answers
 
@@ -77,7 +85,9 @@ placement it was given rather than clearing it: cleared, every server-only song 
 page each time the server is slow, and come back thirty seconds later.
 
 **A song the server removed stays the machine's**, listed as on this machine only (`kept` in the
-placement) rather than waiting to go up: sending it back would undo the server's deletion.
+placement) rather than waiting to go up: sending it back would undo the server's deletion. A copy
+that still follows the server but is no longer in its listing — off the lists, so no check has marked
+it yet — is listed the same way, since the upload never sends a song with a sidecar.
 
 **The last listing is kept on disk** (`.server-listings.json` at the library's root, dot-named so no
 scan sees it), written only when the server's revision moved. A phone restarted in a tunnel still

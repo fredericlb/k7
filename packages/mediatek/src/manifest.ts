@@ -54,6 +54,9 @@ async function walk(root: string): Promise<Manifest> {
   return out.filter((e): e is ManifestEntry => e !== null);
 }
 
+/** Every file under one folder of the library, `abs`, as the manifest would list it: what a copy holds. */
+export const manifestUnder = (abs: string): Promise<Manifest> => walk(abs);
+
 /** Every file in a FAMILY, sorted; the capture zone is no family, so it never syncs (docs/recordings.md). */
 export async function manifest(family: Family): Promise<Manifest> {
   const out = await walk(familyDir(family));

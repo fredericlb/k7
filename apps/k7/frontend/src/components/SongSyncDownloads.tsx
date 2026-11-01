@@ -1,4 +1,4 @@
-// SongSyncDownloads.tsx — the backend's update check of the songs that follow the server, each song it brings down
+// SongSyncDownloads.tsx — the backend's update check of the songs on the account's lists, each song it brings down
 // again and each it sends up, mirrored into the download manager as the supervisor's instruments are; and the moments
 // sent up from here. On a machine's own backend only (a phone, the tray); nothing on a server.
 // See ../../../backend/docs/media/songUpdates.md and songUploads.md.

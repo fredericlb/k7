@@ -28,5 +28,9 @@ there, or waiting to be. The page lists them as waiting while they are (`waiting
   only the files whose size differs there, and removed once its sidecar is written.
 - **One server takes a song**: the first one paired, the active one of the machine's account. A song
   follows one server only.
+- **An uploaded song is the machine's to keep.** Its sidecar carries no `kept` mark, so leaving the
+  account's lists never deletes it ([songUpdates.md](songUpdates.md)); only a copy the lists brought
+  down is theirs to take back. And a copy they took back is gone from the disk, while the server still
+  holds it by path: nothing is left to send.
 - **Away, everything waits.** The server's manifest is read first; a server that does not answer
   stops the run before a file is sent, and one that stops answering mid-run stops it there.
