@@ -5,7 +5,7 @@ A song opens beside the tree as one column: a header, then tabs.
 ```
 ┌────────┬──────────────────────────────────────────────┐
 │ tree   │ ← Back  ▶ 1:02   Song · title          ⋮    │
-│        │ Info · Lyrics · Chords · …                   │
+│        │ Chords · Lyrics · … · ⓘ                      │
 │        │ tags                                         │
 │        │ ════════ divider ════════                    │
 │        │ Original · instrumental · …   (versions)     │
@@ -23,7 +23,11 @@ the arrow keys once focused, and its share of the column is kept per browser, si
 the waveform gets is a habit of the screen, not of a song. Neither half shrinks under 120 px. What
 kept the lyrics beside the waveform, correcting a song while hearing it, survives without them: the
 play button is in the HEADER, above every tab, so the song plays on whatever tab is open, and the
-lyrics follow it on theirs. The page opens on Info.
+lyrics follow it on theirs.
+
+**A song opens on what is played from**: its chords, else its lyrics, else its sheets, and Info only
+when it carries none of them. Opening a song is going to play it far more often than to tag it, so
+Info is the last of the tabs, an icon (ⓘ) rather than a word, and the page lands on the music.
 
 **The header holds what belongs to the whole song**: Back, the play button and its clock, the title,
 and at the far right a ⋮ (`src/SongMenu.tsx`) holding, in this order, the date the song was added,
@@ -34,7 +38,7 @@ metronome's click and the sheet picker live outside the popover, so closing it s
 ## A song's attachments are tabs beside its tags
 
 A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
-each after **Info**, its tags and its waveform (`src/SongInfoTabs.tsx`). The listing already says which it carries (`meta.lyrics`,
+each before **Info**, its tags and its waveform (`src/SongInfoTabs.tsx`). The listing already says which it carries (`meta.lyrics`,
 `meta.chords`, `meta.tabs`, `meta.sheets`), so the tabs are drawn at once and the texts are read with
 `GET /api/mediatek/songbook/:id` behind them, again whenever the folder changes.
 
