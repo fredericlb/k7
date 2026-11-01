@@ -88,32 +88,50 @@ export function useOutputRecording(opts: {
     spool: Spool | null;
     takes: number;
     from: number;
+    /** The engine's recorder was started: with a picture, only once the picture's recorder has. */
+    sounding: boolean;
   } | null>(null);
   const live = useRef({ engine, project, setStatus, hasAudio, hasPicture });
   live.current = { engine, project, setStatus, hasAudio, hasPicture };
 
-  /** The off-screen frame is drawing: its canvas becomes the take's picture. */
-  const onPictureDriver = useCallback((driver: RealtimeDriver | null) => {
-    const take = rec.current;
-    if (!driver || !take || take.media) return;
-    const stream = driver.captureStream(CAPTURE_FPS);
-    if (!stream) return live.current.setStatus(m["record.noPicture"]());
-    const mimeType = pickVideoMime((t) => MediaRecorder.isTypeSupported(t));
-    void openSpool(extForMime(mimeType || undefined)).then((spool) => {
-      // Stopped while the spool was opening: nothing to record, nothing to recover.
-      if (rec.current !== take) return spool.discard();
-      const media = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        videoBitsPerSecond: 4_000_000,
-      });
-      media.ondataavailable = (e) => {
-        if (e.data.size) spool.add(e.data);
-      };
-      take.media = media;
-      take.spool = spool;
-      media.start(1000);
-    });
+  /** The sound starts with the picture, so the two begin together in the file they are joined into. */
+  const startSound = useCallback((take: NonNullable<typeof rec.current>) => {
+    const { engine: eng, hasAudio: audio } = live.current;
+    take.from = performance.now();
+    if (!audio || take.sounding) return;
+    eng()?.recorder(OUTPUT_RECORDER_ID, "record", true);
+    take.sounding = true;
   }, []);
+
+  /** The off-screen frame is drawing: its canvas becomes the take's picture. */
+  const onPictureDriver = useCallback(
+    (driver: RealtimeDriver | null) => {
+      const take = rec.current;
+      if (!driver || !take || take.media) return;
+      const stream = driver.captureStream(CAPTURE_FPS);
+      if (!stream) {
+        live.current.setStatus(m["record.noPicture"]());
+        return startSound(take);
+      }
+      const mimeType = pickVideoMime((t) => MediaRecorder.isTypeSupported(t));
+      void openSpool(extForMime(mimeType || undefined)).then((spool) => {
+        // Stopped while the spool was opening: nothing to record, nothing to recover.
+        if (rec.current !== take) return spool.discard();
+        const media = new MediaRecorder(stream, {
+          ...(mimeType ? { mimeType } : {}),
+          videoBitsPerSecond: 4_000_000,
+        });
+        media.ondataavailable = (e) => {
+          if (e.data.size) spool.add(e.data);
+        };
+        take.media = media;
+        take.spool = spool;
+        media.onstart = () => startSound(take);
+        media.start(1000);
+      });
+    },
+    [startSound],
+  );
 
   /** The engine's take once it is closed: the newest one, past the count there was at the start. */
   const closedTake = useCallback(
@@ -141,7 +159,7 @@ export function useOutputRecording(opts: {
       setStatus: say,
       hasAudio: audio,
     } = live.current;
-    if (audio) eng()?.recorder(OUTPUT_RECORDER_ID, "record", false);
+    if (take.sounding) eng()?.recorder(OUTPUT_RECORDER_ID, "record", false);
     setFiling(true);
     try {
       const picture =
@@ -149,7 +167,7 @@ export function useOutputRecording(opts: {
           ? await pictureOf(take.media, take.spool, take.from)
           : null;
       setDrawPicture(false);
-      const wav = audio ? await closedTake(take.takes) : null;
+      const wav = audio && take.sounding ? await closedTake(take.takes) : null;
       if (!wav && !picture) return say(m["record.nothing"]());
       let video: string | null = null;
       if (picture) {
@@ -185,18 +203,20 @@ export function useOutputRecording(opts: {
   }, [closedTake]);
 
   const start = useCallback(() => {
-    const { engine: eng, hasAudio: audio, hasPicture: picture } = live.current;
-    rec.current = {
+    const take = {
       media: null,
       spool: null,
       takes:
         store.getSnapshot().recorders?.[OUTPUT_RECORDER_ID]?.takes.length ?? 0,
       from: performance.now(),
+      sounding: false,
     };
-    if (audio) eng()?.recorder(OUTPUT_RECORDER_ID, "record", true);
-    if (picture) setDrawPicture(true);
+    rec.current = take;
+    // With a picture the sound waits for it (`startSound`); without one it starts now.
+    if (live.current.hasPicture) setDrawPicture(true);
+    else startSound(take);
     setRecording(true);
-  }, [store]);
+  }, [store, startSound]);
 
   // A project closed mid-take still files what it has.
   useEffect(

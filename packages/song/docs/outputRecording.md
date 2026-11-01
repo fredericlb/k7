@@ -42,9 +42,11 @@ draws the project's frame a second time, **off screen**, on a driver that never 
   nothing otherwise.
 - **The page that pressed record records the picture.** With no page open there is no picture to
   record — a camera is opened by a browser, and so is every lane's video.
-- **It starts with the button**, and so does the sound, one message down the socket: the two are
-  aligned to within that message's trip, which is short on the machine and a frame or so across a
-  network.
+- **The sound waits for the picture.** With a picture, the engine's recorder is started when the
+  `MediaRecorder` says it has started, not at the press: drawing the frame and opening its recorder
+  take a moment, and a sound begun at the press would run ahead of its picture in the joined file.
+  The two are then aligned to within one message down the socket. The picture's code is fetched
+  with the project, so the moment is short; a take stopped before the picture began records nothing.
 
 ## Filing it
 
