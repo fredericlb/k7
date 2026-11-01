@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./addresses": "./src/addresses.ts",
     "./config": "./src/config.ts",
+    "./momentUploads": "./src/components/MomentUploads.tsx",
     "./sections": "./src/sections.ts",
     "./pages": "./src/pages.ts",
     "./public": "./src/public.ts",

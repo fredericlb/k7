@@ -5,11 +5,14 @@ variants. `src/songSource.ts` decides through which library client each goes, an
 read that `SongSource` from context instead of the global `library`. `src/useOpenSong.ts` builds it
 for the song the address names.
 
-## On the phone, a server song is the server's
+## On a machine with a server, a server song is the server's
 
-The phone's own médiathèque is small and its server's is the account's, so the songs of the server
-open on demand (`configureLibrary`'s `serverBase`, set by k7 on the phone only —
-`apps/k7/frontend/src/serverChoice.ts`). `songSide` is the whole rule:
+A phone and a paired tray read their own médiathèque, and the songs of the server open on demand
+beside it (`configureLibrary`'s `serverBase`, set by k7 on a machine with a server —
+`apps/k7/frontend/src/pagesConfig.ts`): one list, never a switch between two. Everything of the
+machine's alone goes up to the server on its own (`apps/k7/backend/docs/media/songUploads.md`), so
+a song on both is the usual case, and the server's version is the one edited. `songSide` is the
+whole rule:
 
 | the song is | server answers | reads | writes |
 |---|---|---|---|
@@ -32,10 +35,10 @@ open on demand (`configureLibrary`'s `serverBase`, set by k7 on the phone only �
   (`onServerUnreachable`), rather than an edit failing for half a minute until the next poll.
 - **Not known yet reads the copy**: a phone started offline opens its songs at once rather than after
   a ping's timeout.
-- **A song of the phone alone stays the phone's**, read and written locally, as anywhere else.
+- **A song of the machine alone stays the machine's** until it has gone up, read and written
+  locally, as anywhere else.
 
-Everywhere else — the tray, a server — every song reads and writes the pages' library, as before:
-the tray chooses its server with the picker instead (`apps/k7/frontend/docs/serverPicker.md`).
+On a server, and on a machine with none, every song reads and writes the pages' library.
 
 ## Its audio
 
@@ -48,5 +51,5 @@ the browser even when an engine answers: the engine plays files of its own machi
 Opening a server song with no copy queues its download (`useOpenSong`), the same download-manager job
 as its cloud button, so a second look or a click on the button fetches nothing twice. The whole song
 comes down, audio included, on any network: a song consulted is a song about to be rehearsed, and the
-rehearsal room is where the network is worst. Why that is the phone's rule and not the tray's is
-`../../mediatek/docs/serverCopy.md`.
+engine plays only the files of its own machine ([playbackTarget.md](playbackTarget.md)). The copy
+follows the server (`../../mediatek/docs/serverCopy.md`).

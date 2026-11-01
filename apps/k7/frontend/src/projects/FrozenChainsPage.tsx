@@ -22,7 +22,7 @@ import { BENCH_REPO, benchProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
 import { AskHostK7 } from "../AskHostK7";
 import { m } from "../paraglide/messages.js";
-import { findLibraryFiles } from "../settings/accountFiles";
+import { findAccountFiles } from "../settings/accountFiles";
 import { type AccountFiles, accountFiles } from "./api";
 import { HomeShell } from "./HomeFrame";
 import { PageFrame } from "./PageFrame";
@@ -185,7 +185,7 @@ export function FrozenChainsPage() {
 
   useEffect(() => {
     let live = true;
-    void findLibraryFiles().then((f) => {
+    void findAccountFiles(false).then((f) => {
       if (!live) return;
       setFiles(f);
       if (f) void reload(f);

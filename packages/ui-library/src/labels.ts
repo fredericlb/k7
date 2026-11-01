@@ -95,6 +95,8 @@ export interface LibraryLabels {
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;
+    /** On this machine alone and about to go up to `host`'s server: pending while it is away. */
+    waiting: (host: string) => string;
     /** On the server alone, `host` being the server's. */
     serverOnly: (host: string) => string;
     download: string;

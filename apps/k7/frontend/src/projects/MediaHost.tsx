@@ -1,7 +1,7 @@
 // MediaHost.tsx — k7 as the media library's host: the fetch layer configured once, on this
 // module's import, and the labels, prefix, user, the home bar's engine choice and the way lyrics,
 // tablature and sheets are drawn handed to the screens.
-// The API is this backend's, or on the tray the paired server's through it (../serverChoice.ts).
+// The API is this backend's, the paired server's songs opening through it (../pagesConfig.ts).
 // See packages/ui-library/docs/host.md.
 
 import type { EngineWarning } from "@studio/engine-browser";
@@ -25,11 +25,11 @@ import { useHomeEngineId } from "../homeEngine";
 import { useLocale } from "../i18n";
 import { useListenHere } from "../listenHere";
 import { m } from "../paraglide/messages.js";
-import "../serverChoice";
+import "../pagesConfig";
 import { MEDIA_ROUTE, REHEARSAL_ROUTE } from "./api";
 import { mediaLabels } from "./mediaLabels";
 
-// The API base is the server picker's (../serverChoice.ts), set when that module loads.
+// The API base is this machine's backend (../pagesConfig.ts), set when that module loads.
 configureLibrary({
   noAnswer: (seconds) => m["media.noAnswer"]({ seconds }),
 });

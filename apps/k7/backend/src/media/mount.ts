@@ -38,6 +38,7 @@ import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
 import { machineServers } from "./serverSongs/server.ts";
 import { startSongUpdates } from "./serverSongs/updates.ts";
+import { startSongUploads } from "./serverSongs/uploads.ts";
 import { SharePlayer } from "./shares/player.ts";
 import { dropLegacyShares, sharesDir } from "./shares/store.ts";
 import { startStreamSweep } from "./streamSweep.ts";
@@ -254,6 +255,8 @@ export function mountMedia(
         startStreamSweep();
         // A machine keeps the songs that follow its server in step, at start and every half hour (../../docs/media/songUpdates.md).
         if (STANDALONE) startSongUpdates(servers);
+        // …and sends up every song the server lacks, pending while it is away (../../docs/media/songUploads.md).
+        if (STANDALONE) startSongUploads(servers);
       } catch (e) {
         if (e instanceof MediatekTooNewError) tooNew = e;
         console.error(

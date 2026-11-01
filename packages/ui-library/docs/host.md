@@ -29,10 +29,10 @@ with a contract of their own, and a contract kept in one app's tree is one nobod
   `onEngineWarning` is how the host tells an engine warning the player is not failing on — k7 toasts
   it — since a warning is the host's to word and the bar is no place for it ([playback.md](playback.md)).
 
-k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases through its server
-picker (`apps/k7/frontend/docs/serverPicker.md`). Either base is its own backend, on the same
-origin — the paired server is reached through that backend — so nothing here needs CORS or a
-second credential.
+k7 sets both in `apps/k7/frontend/src/projects/MediaHost.tsx`, the bases in
+`apps/k7/frontend/src/pagesConfig.ts`. Every base is its own backend, on the same origin — the
+paired server is reached through that backend (`serverBase`, [songSource.md](songSource.md)) — so
+nothing here needs CORS or a second credential.
 
 ## Every sentence is the host's
 

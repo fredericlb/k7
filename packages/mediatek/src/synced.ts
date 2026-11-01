@@ -85,3 +85,42 @@ export function songsToRefresh(
   }
   return { changed, gone };
 }
+
+/** The marker of a song its server removed: kept here, and never uploaded to that server again. */
+export const LEFT_FILE = ".left-server.json";
+
+/** Mark the song at `abs` as one `server` removed, so the upload leaves it this machine's (../docs/serverCopy.md). */
+export function markLeft(abs: string, server: string): void {
+  writeFileSync(join(abs, LEFT_FILE), JSON.stringify({ server }));
+}
+
+/** Whether the song at `abs` is one its server removed. */
+export function hasLeft(abs: string): boolean {
+  try {
+    readFileSync(join(abs, LEFT_FILE));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The marker of an upload under way: a song half sent is finished at the next run, not taken for the server's. */
+export const UPLOADING_FILE = ".uploading.json";
+
+/** The server an upload of the song at `abs` was started to, or null. */
+export function readUploading(abs: string): string | null {
+  try {
+    const raw = JSON.parse(readFileSync(join(abs, UPLOADING_FILE), "utf8"));
+    return typeof raw?.server === "string" ? raw.server : null;
+  } catch {
+    return null;
+  }
+}
+
+export function markUploading(abs: string, server: string): void {
+  writeFileSync(join(abs, UPLOADING_FILE), JSON.stringify({ server }));
+}
+
+export function clearUploading(abs: string): void {
+  rmSync(join(abs, UPLOADING_FILE), { force: true });
+}

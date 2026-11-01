@@ -95,6 +95,7 @@ export function LibraryContents({
               <PlacementIcon
                 state={serverCopy.stateOf(e.path)}
                 server={serverCopy.placement?.server ?? null}
+                waiting={serverCopy.waitingOf(e.path)}
               />
               {/* A song's name is the row's keyboard way in; the row itself answers the mouse. */}
               {isSong(e) ? (

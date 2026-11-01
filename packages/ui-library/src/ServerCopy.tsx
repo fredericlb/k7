@@ -7,6 +7,7 @@ import {
   Cloud,
   CloudCheck,
   CloudDownload,
+  CloudUpload,
   HardDrive,
   Loader2,
 } from "@frediverse/ui/icons";
@@ -159,6 +160,7 @@ export function useServerCopy(
     () => new Set((placement?.serverOnly ?? []).map((e) => e.path)),
     [placement],
   );
+  const kept = useMemo(() => new Set(placement?.kept ?? []), [placement]);
   return {
     placement,
     onDemand,
@@ -178,6 +180,13 @@ export function useServerCopy(
           : synced.has(path)
             ? "synced"
             : "local",
+    /** Whether a song of this machine alone is waiting to go up: this backend sends every one but those the server removed. */
+    waitingOf: (path: string): boolean =>
+      !!placement &&
+      family === "songs" &&
+      !synced.has(path) &&
+      !serverOnly.has(path) &&
+      !kept.has(path),
     /** The server-only paths under a family-prefixed folder — what an album's download takes. */
     missingUnder: (folder: string): string[] =>
       placement ? missingUnder(placement.serverOnly, folder) : [],
@@ -186,25 +195,37 @@ export function useServerCopy(
   };
 }
 
-/** One icon: synced with the server, on this machine only, or on the server only. */
+/** One icon: synced with the server, on the server only, on this machine only, or waiting to go up to the server. */
 export function PlacementIcon({
   state,
   server,
+  waiting = false,
 }: {
   state: SongPlace | null;
   server: string | null;
+  /** A song of this machine alone that this backend will send up ../../mediatek/docs/serverCopy.md. */
+  waiting?: boolean;
 }) {
   const l = useLabels();
   if (!state) return null;
   const host = server ? new URL(server).host : "";
+  const up = state === "local" && waiting;
   const said =
     state === "synced"
       ? l.contents.synced(host)
       : state === "server"
         ? l.contents.serverOnly(host)
-        : l.contents.localOnly;
+        : up
+          ? l.contents.waiting(host)
+          : l.contents.localOnly;
   const Icon =
-    state === "synced" ? CloudCheck : state === "server" ? Cloud : HardDrive;
+    state === "synced"
+      ? CloudCheck
+      : state === "server"
+        ? Cloud
+        : up
+          ? CloudUpload
+          : HardDrive;
   return (
     <span
       title={said}

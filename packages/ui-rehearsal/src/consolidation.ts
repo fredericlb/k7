@@ -26,3 +26,23 @@ export function sendRefusal(
   if (done.some((c) => c.link === server.id)) return "already";
   return server.online ? null : "offline";
 }
+
+/** The moments that go up on their own to `server`: this machine's, with audio to send, and never sent there. */
+export function momentsToSend<
+  M extends {
+    id: string;
+    sharedFrom: string;
+    recordingAvailable: boolean;
+    validated: boolean;
+    consolidations?: Consolidation[];
+  },
+>(moments: readonly M[], server: ConsolidationServer | null): M[] {
+  if (!server?.online) return [];
+  // A moment whose recording is gone and was never cut has nothing to send: offered, it would fail at every pass.
+  return moments.filter(
+    (m) =>
+      !m.sharedFrom &&
+      (m.recordingAvailable || m.validated) &&
+      sendRefusal(server, m.consolidations) === null,
+  );
+}

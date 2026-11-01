@@ -1,5 +1,5 @@
-// songSyncRows.ts — the backend's jobs over the songs that follow the server, as download-manager rows: the update
-// check, then each song it brings down again. A finished job is handed over once only, so a row the manager already
+// songSyncRows.ts — the backend's jobs over the songs it shares with the server, as download-manager rows: the update
+// check, each song it brings down again, each song it sends up. A finished job is handed over once only, so a row the manager already
 // let go of after its linger is not drawn again by the next poll. See ../../../backend/docs/media/songUpdates.md.
 
 import type { Download } from "@studio/http-client/downloads";
@@ -41,7 +41,7 @@ export function songSyncRows(
     }
     rows.push({
       key,
-      kind: "song",
+      kind: j.kind === "upload" ? "upload" : "song",
       label:
         j.kind === "check"
           ? checkLabel(j, words)

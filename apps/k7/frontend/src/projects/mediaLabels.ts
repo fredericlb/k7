@@ -100,6 +100,7 @@ export function mediaLabels(): LibraryLabels {
         m["media.contents.deleteRecordingConfirm"]({ name }),
       synced: (server) => m["wsync.synced"]({ server }),
       localOnly: m["wsync.local"](),
+      waiting: (server) => m["wsync.waiting"]({ server }),
       serverOnly: (server) => m["wsync.server"]({ server }),
       download: m["wsync.download"](),
       downloadMissing: plural(

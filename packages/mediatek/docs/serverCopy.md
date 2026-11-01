@@ -1,10 +1,11 @@
 # A paired machine's library against its server's
 
-A desktop paired with a server has a médiathèque of its own: a folder on its disk, seeded on first
-run, that its own backend serves. The server has another. Each song and sample can therefore be on
+A machine paired with a server — the tray, a phone — has a médiathèque of its own: a folder on its
+disk that its own backend serves. The server has another. Each song and sample can therefore be on
 the machine only, on the server only, or on both. The library screen says which, with the same
-three icons k7's home page uses for a workspace, and offers a **Download** for what the server
-alone holds (`../../ui-library/src/ServerCopy.tsx`).
+icons k7's home page uses for a workspace, and offers a **Download** for what the server alone
+holds (`../../ui-library/src/ServerCopy.tsx`). A song of the machine alone is waiting to go up:
+the machine's backend sends every one ([songUploads.md](../../../apps/k7/backend/docs/media/songUploads.md)).
 
 ## Matched by path
 
@@ -22,25 +23,19 @@ held by that backend and never reaches a page. The server answers a device on
 and limited to reads. A device that may sync the account's workspaces may read the library every
 account reads anyway. It may not write it through that route.
 
-## On a computer, a download is the person's choice
+## The server's songs come down when opened, never all at once
 
-On the tray nothing comes down on its own. The same rule applies to workspaces: a server's library
-can be far larger than a laptop's disk. A download copies every file the server's manifest lists at
-or under the entry's path (a song is a folder, a sample a file) into the local library, and the local
-listing picks it up on its next poll. Uploading the other way is not offered here.
-
-## On a phone, a song consulted comes down by itself
-
-A phone reads its server's songs on demand, through the forward, without a download
+A machine reads its server's songs on demand, through the forward, without a download
 (`../../ui-library/docs/songSource.md`), and the first look at one copies it down in the background, as
-a download-manager job. The rule differs from the tray's because the uses do: a phone is carried to
-the rehearsal room, where the network is worst, and a song somebody opened is the one they are about
-to play. Its edits go to the server's version, never to the copy, so a copy refreshed from the server
-loses nothing — on the tray, where a copy is edited in place, that same refresh would erase work.
+a download-manager job: a song somebody opened is the one they are about to play, and the engine
+plays only files of its own machine. Nothing else comes down on its own: a server's library can be
+far larger than a laptop's disk or a phone's. A download copies every file the server's manifest
+lists at or under the entry's path (a song is a folder, a sample a file).
 
-Such a copy **follows** its server: the download asks for it (`follow`), the server's rows for that
-song are kept in its folder, and this machine's backend keeps it in step on its own
-(`../../../apps/k7/backend/docs/media/songUpdates.md`). A copy the tray made does not follow.
+Its edits go to the server's version, never to the copy, so a copy refreshed from the server loses
+nothing. Such a copy **follows** its server: the download asks for it (`follow`), the server's rows
+for that song are kept in its folder, and this machine's backend keeps it in step on its own
+(`../../../apps/k7/backend/docs/media/songUpdates.md`).
 
 There is no cap on what comes down this way, and nothing is evicted: which rehearsal's songs to drop
 is not a choice this code can make, so for now none is made.
@@ -80,6 +75,9 @@ origin take seconds to list, so the backend waits up to twenty, and when the ser
 it serves the last listing it had of that family, marked `stale`; the page, likewise, keeps the last
 placement it was given rather than clearing it: cleared, every server-only song would vanish from the
 page each time the server is slow, and come back thirty seconds later.
+
+**A song the server removed stays the machine's**, listed as on this machine only (`kept` in the
+placement) rather than waiting to go up: sending it back would undo the server's deletion.
 
 **The last listing is kept on disk** (`.server-listings.json` at the library's root, dot-named so no
 scan sees it), written only when the server's revision moved. A phone restarted in a tunnel still

@@ -1,7 +1,7 @@
 // door.ts — the server's side of a paired machine browsing it: a request under DOOR_PATH carrying a device token in
 // DEVICE_HEADER is signed in, for itself alone, as the person the token names, then served by the ordinary routes.
 // Only ALLOWED prefixes, and the registry's ALLOWED_EXACT routes, pass: tokens, pairings and keys stay behind a real
-// session. ../../docs/serverPicker.md, and ../../docs/serverEngines.md for the engines.
+// session. ../../docs/serverDoor.md, and ../../docs/serverEngines.md for the engines.
 
 import type { SessionUser } from "@frediverse/oidc";
 import type { Request, RequestHandler } from "express";

@@ -1,13 +1,16 @@
-// SongSyncDownloads.tsx — the backend's update check of the songs that follow the server, and each song it brings
-// down again, mirrored into the download manager as the supervisor's instruments are. Polled on a machine's own
-// backend only (a phone, the tray); nothing on a server. See ../../../backend/docs/media/songUpdates.md.
+// SongSyncDownloads.tsx — the backend's update check of the songs that follow the server, each song it brings down
+// again and each it sends up, mirrored into the download manager as the supervisor's instruments are; and the moments
+// sent up from here. On a machine's own backend only (a phone, the tray); nothing on a server.
+// See ../../../backend/docs/media/songUpdates.md and songUploads.md.
 
 import { syncDownloads } from "@studio/http-client/downloads";
 import type { SongSyncJob } from "@studio/mediatek/types";
+import { MomentUploads } from "@studio/ui-rehearsal/momentUploads";
 import { useEffect, useRef } from "react";
 import { BASE } from "../api";
 import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
+import "../pagesConfig";
 import { inAndroidApp } from "../tabs/bridge";
 import { SONG_SYNC_PREFIX, songSyncRows } from "./songSyncRows";
 
@@ -58,5 +61,6 @@ export function SongSyncDownloads() {
       clearTimeout(timer);
     };
   }, [machine]);
-  return null;
+  // The moments go up from the page, which knows whose they are: the backend's job list covers the songs alone.
+  return <MomentUploads enabled={machine} />;
 }

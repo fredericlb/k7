@@ -48,6 +48,8 @@ export interface SongTableProps {
   onDownload: (paths: string[]) => Promise<void>;
   /** Where each song is, family-prefixed path in; null on an unpaired machine, which draws the plain glyph. */
   placeOf?: (path: string) => SongPlace | null;
+  /** Whether a song of this machine alone is waiting to go up to the server. */
+  waitingOf?: (path: string) => boolean;
   /** The paired server, for the icon's tooltip. */
   server?: string | null;
   /** The server's songs open too, read from there on demand (the phone). */
@@ -121,7 +123,11 @@ export function SongTable(p: SongTableProps) {
     const place = p.placeOf?.(`songs/${s.rel}`) ?? (s.remote ? "server" : null);
     return place ? (
       <span className="inline-flex w-4 shrink-0 justify-center">
-        <PlacementIcon state={place} server={p.server ?? null} />
+        <PlacementIcon
+          state={place}
+          server={p.server ?? null}
+          waiting={p.waitingOf?.(`songs/${s.rel}`)}
+        />
       </span>
     ) : (
       <Disc3 className="h-4 w-4 shrink-0 text-muted-foreground" />

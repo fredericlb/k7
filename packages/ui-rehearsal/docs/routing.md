@@ -15,7 +15,8 @@ context cannot reach them. Every navigation goes through `useRehearsalNav`, and 
 
 The API answers on the same origin as the pages — `/api/*`, served by k7's backend
 (`packages/rehearsal-server`) — so every call is relative to `apiBase`, which k7 sets to its own
-backend or, on the tray, to its forward to the paired server (`apps/k7/frontend/docs/serverPicker.md`).
+backend (`apps/k7/frontend/src/pagesConfig.ts`): a machine's rehearsals are its own, and its moments
+go up to its server on their own ([recordings.md](recordings.md)).
 `hostBase` stays the machine's: the bench opens its engines there. Every request carries the session cookie (`credentials: "include"`). Signing in and out is
 k7's, on the same origin; the pages draw no login screen of their own.
 

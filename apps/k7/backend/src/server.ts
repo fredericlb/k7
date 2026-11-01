@@ -188,7 +188,7 @@ mountHandoff(app, {
 // Under the home directory so a dev run needs no volume (packages/user-prefs/docs/store.md).
 const PREFS_DIR =
   process.env.STUDIO_PREFS_DIR || join(homedir(), ".studio", "prefs", "k7");
-// Ahead of every route they reach: a paired machine browsing this server, and on that machine its page reaching it (../docs/serverPicker.md).
+// Ahead of every route they reach: a paired machine browsing this server, and on that machine its page reaching it (../docs/serverDoor.md).
 if (LOCAL_USER) {
   app.use(
     SERVER_PATH,

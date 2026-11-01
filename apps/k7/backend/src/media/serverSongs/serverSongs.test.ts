@@ -16,10 +16,11 @@ import { removeLibrary } from "@studio/mediatek/testLibrary";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { downloadEntries } from "./download.ts";
+import { songSyncJobs } from "./jobs.ts";
 import { keepListing, lastListing } from "./listings.ts";
 import { reachOf } from "./reach.ts";
 import { DEVICE_LIBRARY_ROUTE, type PairedServer } from "./server.ts";
-import { checkSongUpdates, songSyncJobs } from "./updates.ts";
+import { checkSongUpdates } from "./updates.ts";
 
 // The local volume is this process's; the "server" is a stub whose songs a test edits between calls.
 const SONG = "songs/A/B/S";
