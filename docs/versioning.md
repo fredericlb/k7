@@ -176,7 +176,7 @@ and no location list to keep in step with the SPA's `base`.
 ## The submodule, and why CI needs a credential
 
 On GitHub, `commons` is a checkout of its own read with `COMMONS_TOKEN`
-([release.md](release.md)). On OneDev, whose jobs run by hand,
+([release.md](release.md)). On OneDev,
 `.gitmodules`' `url = ../commons.git` is relative to whatever origin the clone has.
 On a developer machine that resolves against the SSH remote; on the OneDev agent it
 resolves against the project's HTTP origin. This is why every `CheckoutStep` uses

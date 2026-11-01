@@ -143,7 +143,7 @@ they replace.
 the images `images.yml` publishes. The three packages are public, so the deploy host pulls them
 without a `docker login`; making one private means that host needs a login to `ghcr.io` with a token
 holding `read:packages`. `.onedev-buildspec.yml` keeps the same jobs pushing to OneDev's registry,
-with no trigger: nothing deploys from it.
+on every push to `main`: nothing deploys from it.
 
 ## Deploying, and rolling back
 
