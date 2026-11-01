@@ -87,8 +87,13 @@ The table's **⋮ on each row is the tree's menu**: the same `songActions` (`tre
 by `RowMenu.tsx`, so adding a version, queueing, starring, practising and removing are offered the
 same way they were. A removal asks first in a dialog. Audio dropped on a song's row files it as the
 tree's drop did (Filing a dropped track, below). The paired server's songs are rows like the others,
-muted, with their download in place of the menu. The unfolded albums are this screen's state, not
-the address's: they are forgotten on leaving, like a tree's expansion.
+muted. On a wide screen their download is in place of the menu; below `md` (a phone) they get the ⋮
+too, with Download as one of its entries, since a lone cloud there offered nothing but a copy where
+starring, practising and queueing a song are what a phone is for ([responsive.md](responsive.md)). A
+server song is starred, practised and queued like one here — the lists name either, and the queue
+streams it from the server (`queueRows.ts`, [miniPlayer.md](miniPlayer.md)) — and so is an album,
+its songs queued in track order. The unfolded albums are this screen's state, not the address's: they
+are forgotten on leaving, like a tree's expansion.
 
 **One search box at the table's head**, and it narrows rather than ranks: a row stays when every
 word typed is found in its artist, album or title, case and accents folded by the same `normalize`

@@ -9,17 +9,23 @@ export interface QueueItem {
   /** The row's identity, and what prevents a duplicate: the song's path. */
   id: string;
   entry: MediatekEntry;
+  /** Where its bytes stream from when it is not on this machine (the server); unset is the pages' library. */
+  base?: string;
 }
 
 /** Queue up next without duplicates: adding twice is almost always a second click on one row. */
 export function enqueue(
   queue: QueueItem[],
   entries: MediatekEntry[],
+  baseOf: (entry: MediatekEntry) => string | undefined = () => undefined,
 ): QueueItem[] {
   const held = new Set(queue.map((q) => q.id));
   const added = entries
     .filter((e) => !held.has(e.path))
-    .map((e) => ({ id: e.path, entry: e }));
+    .map((e) => {
+      const base = baseOf(e);
+      return base ? { id: e.path, entry: e, base } : { id: e.path, entry: e };
+    });
   return added.length ? [...queue, ...added] : queue;
 }
 

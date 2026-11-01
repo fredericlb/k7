@@ -96,6 +96,9 @@ socket is a second client on the same session, driving the same project.
 
 Open a song's ⋮ menu in the songs' table and pick "Add to the play queue" — in French « Ajouter à la file d'attente », since « liste de lecture » is the word French uses for a playlist. A song that ends chains into
 the next. The queue button the host draws above its engine selector opens it: rows can be moved and removed there.
+An album's ⋮ queues its songs in track order. A song only the server holds is queued with where it
+streams from (`QueueItem.base`), the server, as its own page plays it; while that is not known it is
+not offered, since a row playback would skip in silence is worse than none (`../src/queueRows.ts`).
 
 The system's skip button — a lock screen's, a headset's — is offered while the queue holds
 something, and starts the next track exactly as an ending does: `useStartNext` is the one step
