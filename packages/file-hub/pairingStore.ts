@@ -28,6 +28,8 @@ export interface PairRecord {
   /** Epoch ms after which a waiting pairing is expired. */
   until: number;
   phase: PairPhase;
+  /** Made by the sign-in itself, before k7's page loaded: the app has no page to reload for it. */
+  atSignIn?: boolean;
   /** The remote account the browser came back signed in as: the link's `as`. */
   browserAs?: string;
   settledAt?: number;
@@ -113,7 +115,12 @@ export class PairingStore {
   }
 
   /** Start a pairing for `email`, replacing any other of that account: one browser trip at a time. */
-  begin(email: string, origin: string, another = false): PairRecord {
+  begin(
+    email: string,
+    origin: string,
+    another = false,
+    atSignIn = false,
+  ): PairRecord {
     for (const old of this.records.filter((r) => r.email === email))
       this.forget(old.state);
     const record: PairRecord = {
@@ -121,6 +128,7 @@ export class PairingStore {
       email,
       origin,
       ...(another ? { another } : {}),
+      ...(atSignIn ? { atSignIn } : {}),
       until: this.now() + PAIR_WAIT_MS,
       phase: "waiting",
     };

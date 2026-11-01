@@ -48,10 +48,12 @@ final class AuthHandoff: NSObject, ASWebAuthenticationPresentationContextProvidi
                   let code = parts.queryItems?.first(where: { $0.name == "code" })?.value,
                   var back = URLComponents(string: studio) else { return }
             back.path = redeem
-            back.queryItems = [
-                URLQueryItem(name: "code", value: code),
-                URLQueryItem(name: "verifier", value: verifier),
-                URLQueryItem(name: "return_to", value: returnTo()),
+            // Percent-encoded by hand: URLQueryItem leaves `&` and `=` bare, and the return carries a query of its own.
+            let strict = { (v: String) in v.addingPercentEncoding(withAllowedCharacters: SyncPairing.unreserved) ?? "" }
+            back.percentEncodedQueryItems = [
+                URLQueryItem(name: "code", value: strict(code)),
+                URLQueryItem(name: "verifier", value: strict(verifier)),
+                URLQueryItem(name: "return_to", value: strict(returnTo())),
             ]
             if let to = back.url { DispatchQueue.main.async { redeemed(to) } }
         }

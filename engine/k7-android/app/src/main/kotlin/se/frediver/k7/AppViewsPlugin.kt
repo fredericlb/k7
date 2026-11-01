@@ -140,7 +140,7 @@ class AppViewsPlugin : Plugin() {
         BackendHost.watch(onBackend)
 
         // Launched BY the browser's answer: no new intent will carry it.
-        activity.intent?.data?.let { answer -> AuthHandoff.redeemUrl(context, answer, "/")?.let { pendingRedeem = it } }
+        activity.intent?.data?.let { answer -> AuthHandoff.redeemUrl(context, answer, SyncPairing.signInReturn(context, "/"))?.let { pendingRedeem = it } }
 
         pickFiles = activity.activityResultRegistry.register("k7-app-files", ActivityResultContracts.StartActivityForResult()) {
             chooser?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(it.resultCode, it.data))
@@ -252,7 +252,8 @@ class AppViewsPlugin : Plugin() {
         val answer = intent.data ?: return
         // Back where k7 was: the sign-in is carried into its view, which stays on the page it showed.
         val returnTo = views["k7"]?.url?.let(Uri::parse)?.let { u -> (u.path ?: "/") + (u.query?.let { "?$it" } ?: "") } ?: "/"
-        val redeem = AuthHandoff.redeemUrl(context, answer, returnTo) ?: return
+        // The sign-in and the server's pairing are one act: the redeem returns through the pairing (SyncPairing.signInReturn).
+        val redeem = AuthHandoff.redeemUrl(context, answer, SyncPairing.signInReturn(context, returnTo)) ?: return
         // Straight into the view: a `navigate` to the app already shown changes nothing on the page, and loads nothing.
         val view = views["k7"]
         if (view == null) pendingRedeem = redeem else bridge.executeOnMainThread { view.loadUrl(redeem) }
