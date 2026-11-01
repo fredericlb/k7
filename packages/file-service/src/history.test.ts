@@ -153,25 +153,26 @@ describe("ProjectHistory", () => {
     expect(list[0]).not.toHaveProperty("changes");
   });
 
-  it("keeps at most 1000 entries, evicting the oldest", () => {
-    const h = new ProjectHistory(store(), dir);
-    for (let n = 0; n < 1005; n++)
+  it("keeps at most its ring's size, evicting the oldest", () => {
+    // A ring of 20: the same eviction as the shipped 1000, without a thousand whole-journal writes.
+    const h = new ProjectHistory(store(), dir, undefined, 20);
+    for (let n = 0; n < 25; n++)
       h.push({
         label: `e${n}`,
         changes: [{ path: `f${n}.k7x`, before: null, after: `${n}` }],
         blobs: [],
       });
-    // Read the journal off disk rather than undoing 1000× (each undo is a filesystem write).
+    // Read the journal off disk rather than undoing 20× (each undo is a filesystem write).
     const j = JSON.parse(
       readFileSync(join(store(), "journal.json"), "utf8"),
     ) as {
       cursor: number;
       entries: { label: string }[];
     };
-    expect(j.entries.length).toBe(1000);
-    expect(j.cursor).toBe(1000);
+    expect(j.entries.length).toBe(20);
+    expect(j.cursor).toBe(20);
     expect(j.entries[0].label).toBe("e5"); // e0..e4 evicted from the front
-    expect(j.entries.at(-1)?.label).toBe("e1004");
+    expect(j.entries.at(-1)?.label).toBe("e24");
   });
 
   // One gesture written by two commands — a node created, then spliced — is ONE step to undo.

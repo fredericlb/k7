@@ -129,6 +129,8 @@ export class ProjectHistory {
     private readonly storeDir: string,
     private readonly baseDir: string,
     private readonly keeper: BlobKeeper = LOCAL_KEEPER,
+    /** The ring's size; a test's own, smaller, checks the eviction without a thousand journal writes. */
+    private readonly maxEntries: number = MAX_ENTRIES,
   ) {}
 
   private get blobsDir(): string {
@@ -279,8 +281,8 @@ export class ProjectHistory {
     });
     this.j.cursor = this.j.entries.length;
     // Evict from the front past the cap, discarding those entries' blobs.
-    if (this.j.entries.length > MAX_ENTRIES) {
-      const drop = this.j.entries.length - MAX_ENTRIES;
+    if (this.j.entries.length > this.maxEntries) {
+      const drop = this.j.entries.length - this.maxEntries;
       this.dropBlobs(this.j.entries.slice(0, drop));
       this.j.entries.splice(0, drop);
       this.j.cursor -= drop;
