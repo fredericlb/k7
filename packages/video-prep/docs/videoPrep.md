@@ -1,8 +1,8 @@
 # Getting a video ready — the probe, the plan, the copies
 
 What a picture clip's copies are FOR is [../../song-video/docs/media.md](../../song-video/docs/media.md).
-This page covers the modules that make them: `probe.ts` asks ffprobe, `mp4Probe.ts` reads the
-boxes where there is none, `plan.ts` decides, and `transcode.ts` runs ffmpeg.
+This page covers the modules that make them: `probe.ts` asks ffprobe, `mp4Probe.ts` and
+`matroskaProbe.ts` read the file where there is none, `plan.ts` decides, and `transcode.ts` runs ffmpeg.
 
 ## ffmpeg makes every copy
 
@@ -11,14 +11,18 @@ fallback: the engine decodes audio only. Without ffmpeg there is nothing to make
 so rather than guessing. The hosted image has ffmpeg (`docs/images.md`). A desktop needs it
 installed. The phone has none (`engine/k7-runtime/docs/android.md`).
 
-## Without ffmpeg, an mp4 or a .mov is still read
+## Without ffmpeg, an mp4, a .mov, a WebM or an mkv is still read
 
 Knowing what a file IS is what lets a host with no ffmpeg say "ready as it is" rather than refuse,
 and a phone's own camera files are mp4. So `probeVideo` falls back to `mp4Probe.ts`, which reads
 `moov` for the first video track and answers in ffprobe's own names: the codec from the sample
 entry, the pixel format from `avcC`/`hvcC`/`av1C`/`vpcC` (ProRes from its fourcc), the size from
 the sample entry, the rate from `stts`. `mp4Probe.test.ts` holds it to ffprobe on H.264, HEVC, AV1,
-VP9 and ProRes encodes. Any other container is still a `NoFfmpegError`. Facts read this way carry
+VP9 and ProRes encodes. A WebM or an mkv — a browser's own recordings, a picture lane's take —
+is read by mediabunny's demuxer instead (`matroskaProbe.ts`), the library the browser side already
+muxes with: the codec and size off the track, the pixel format from the codec string's profile and
+bit depth, the rate averaged over its first packets. Any other container is still a
+`NoFfmpegError`. Facts read this way carry
 `noFfmpeg`, and `picture prepare` then asks for nothing it cannot make: a source too tall to
 preview is previewed as it is, and one that needs a copy is named, with what it is.
 

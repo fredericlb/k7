@@ -59,6 +59,8 @@ process.stdout.write(Buffer.from("${Buffer.from(samples.buffer).toString("base64
     );
     chmodSync(bin, 0o755);
     const dest = join(dir, "fallback.wav");
+    // A file the WebAssembly decoder cannot open, as a container it does not read is: ffmpeg next, then the engine.
+    writeFileSync(join(dir, "any.mp4"), new Uint8Array(64));
     const facts = await extractSound(join(dir, "any.mp4"), dest, {
       engineBin: bin,
     });

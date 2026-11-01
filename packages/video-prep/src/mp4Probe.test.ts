@@ -104,6 +104,14 @@ describe.runIf(hasFfmpeg)("probeMp4 against ffprobe", () => {
       codec: "h264",
       noFfmpeg: true,
     });
-    await expect(probeVideo(webm)).rejects.toBeInstanceOf(NoFfmpegError);
+    // …and a browser's WebM through mediabunny's demuxer, which the boxes cannot open (matroskaProbe.ts).
+    expect(await probeVideo(webm)).toMatchObject({
+      codec: "vp9",
+      container: "matroska,webm",
+      noFfmpeg: true,
+    });
+    const other = join(dir, "clip.avi");
+    writeFileSync(other, new Uint8Array(64));
+    await expect(probeVideo(other)).rejects.toBeInstanceOf(NoFfmpegError);
   });
 });

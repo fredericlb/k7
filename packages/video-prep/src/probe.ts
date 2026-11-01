@@ -1,9 +1,11 @@
 // probe.ts — what a video file IS, asked of ffprobe: its first video stream's codec, size, pixel
 // format and frame rate, and the file's duration. ffmpeg is the only thing here that opens every
-// container a camera writes; without it an mp4 or a .mov is read from its boxes (mp4Probe.ts), and
-// anything else is a NoFfmpegError, never a guess. See docs/videoPrep.md.
+// container a camera writes; without it an mp4 or a .mov is read from its boxes (mp4Probe.ts), a
+// WebM or an mkv by mediabunny's demuxer (matroskaProbe.ts), and anything else is a NoFfmpegError,
+// never a guess. See docs/videoPrep.md.
 
 import { ffprobeBin, input, NoFfmpegError, run } from "@studio/ffmpeg";
+import { probeMatroska } from "./matroskaProbe";
 import { probeMp4 } from "./mp4Probe";
 
 export { NoFfmpegError };
@@ -66,7 +68,9 @@ export async function probeVideo(source: string): Promise<VideoFacts | null> {
     out = await run(ffprobeBin(), probeArgs(source), { why: WHY });
   } catch (e) {
     if (!(e instanceof NoFfmpegError)) throw e;
-    const read = probeMp4(source);
+    // `null` is an answer, a file with no video; only `undefined` — not this family — asks the next reader.
+    const box = probeMp4(source);
+    const read = box === undefined ? await probeMatroska(source) : box;
     if (read === undefined) throw e;
     return read && { ...read, noFfmpeg: true };
   }
