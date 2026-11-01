@@ -1,5 +1,5 @@
-// AccountStatusNote.tsx — beside the account button: a sign-in or a pairing waiting on the browser, with Cancel, an offer to
-// pair after a sign-in, or how it ended. The wording is here, in the person's language. See ../../docs/localApp.md.
+// AccountStatusNote.tsx — under a Connect or an Add: a pairing waiting on the browser, with Cancel, or how it ended.
+// The wording is here, in the person's language. See ../../docs/localApp.md.
 
 import { X } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
@@ -11,8 +11,6 @@ const SHOWN_MS = 8_000;
 
 function words(s: AccountStatus): string | null {
   const detail = "detail" in s ? (s.detail ?? "") : "";
-  if (s.state === "offer")
-    return m["account.status.offerPair"]({ server: new URL(s.server).host });
   if (s.state === "waiting")
     return s.what === "pair"
       ? m["account.status.waitingPair"]()
@@ -71,15 +69,6 @@ export function AccountStatusNote() {
       <span className="truncate" title={text}>
         {text}
       </span>
-      {status.state === "offer" && (
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-foreground hover:bg-secondary/50"
-          onClick={() => void accountBridge()?.pair?.(status.server)}
-        >
-          {m["account.status.pair"]()}
-        </button>
-      )}
       {status.state === "waiting" && (
         <button
           type="button"

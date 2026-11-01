@@ -497,9 +497,10 @@ on one server — but it syncs with one at a time (`packages/file-hub/docs/syncR
 holds the workspaces of this machine alone and of the active server, with no label naming a server, and
 **New workspace** makes one that syncs there. The workspaces of the other saved servers are on disk but
 not listed: switching to that server in the settings (`../src/settings/ServersSection.tsx`) brings them
-back, syncing again (`packages/file-service/docs/liveCapture.md`, "One server at a time"). The account
-bar names the active server `host · account` as a link to those settings (`ActiveServer.tsx`); on a
-server the bar names none, since it is the server.
+back, syncing again (`packages/file-service/docs/liveCapture.md`, "One server at a time"). No bar over
+the list names or connects a server: the user menu's heading is the active server's account, or
+"Local" (`menuAccount.ts`), and a machine with no server is asked once per launch whether to connect
+(`ServerPrompt.tsx`, `localApp.md`).
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,

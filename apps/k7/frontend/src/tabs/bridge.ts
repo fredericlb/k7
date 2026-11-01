@@ -2,14 +2,11 @@
 // page served by the tray's backend or a server does them itself (./browserAccount.ts). A server's page signs in elsewhere.
 // See ../../docs/localApp.md.
 
-import { useLocalApp } from "../localApp";
 import { browserAccount } from "./browserAccount";
 
 /** Where a sign-in or a pairing stands, as the account bar words it (./AccountStatusNote.tsx). */
 export type AccountStatus =
   | { state: "idle" }
-  /** Back from a sign-in in a browser: pairing with `server` waits on a click (./browserAccount.ts). */
-  | { state: "offer"; server: string }
   | { state: "waiting"; what: "signIn" | "pair" }
   /** `as` and `local` name the two accounts of a link: the server's, and k7's here. */
   | {
@@ -30,9 +27,3 @@ export const inAndroidApp = (): boolean => {
 /** The page's own sign-in and pairing, except in a phone app, whose shell does both. */
 export const accountBridge = (): typeof browserAccount | undefined =>
   inAndroidApp() ? undefined : browserAccount;
-
-/** Where the account's sign-in control belongs on the home page: wherever this machine runs its own backend, never on a server. */
-export function useHasAccountControl(): boolean {
-  const local = useLocalApp();
-  return inAndroidApp() || !!local;
-}

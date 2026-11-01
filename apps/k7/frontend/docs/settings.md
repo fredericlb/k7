@@ -184,8 +184,9 @@ and the section says so. `pairing.md` is the page.
 bridge). The account saves servers and syncs with ONE, the active one
 (`packages/file-hub/docs/syncRelay.md`), so the section lists them `host · account`, the active one
 marked **Active**, the others with **Use this server**, and each with **Remove**. **Add a server** pairs
-through the browser (`tabs/browserAccount.ts`) and makes the new server active; a server already listed
-asks its page which other account to add. It is here, not in the account bar, because switching moves
+through the browser (`tabs/connectServer.ts`), a phone by signing in to it, and makes the new server active;
+a server already listed asks its page which other account to add. It is here, and in the first-launch
+prompt (`projects/ServerPrompt.tsx`), not over the workspaces, because switching moves
 the whole home page: the workspaces of the server left are hidden until it is used again
 (`packages/file-service/docs/liveCapture.md`, "One server at a time"). It is not behind the sign-out
 either: signing out does not stop a machine syncing, and a phone handed over must not stop every time.

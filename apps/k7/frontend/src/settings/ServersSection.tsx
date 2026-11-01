@@ -1,6 +1,6 @@
 // ServersSection.tsx — on a machine (the tray, a phone app), the servers its account has saved: the ACTIVE one marked,
 // "Use this server" on the others, Remove on each, and Add, which makes the new one active: at once when the account's
-// sign-in is proof enough for that server, else through the browser.
+// sign-in is proof enough for that server, else through the browser; a phone app signs in to it (../tabs/connectServer.ts).
 // A server's page draws nothing here: it is the server. See ../../docs/settings.md and ../../docs/localApp.md.
 
 import { Check, Plus, X } from "@frediverse/ui/icons";
@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { hostLabel } from "../projects/WorkspaceSyncIcon";
-import { accountBridge } from "../tabs/bridge";
+import { AccountStatusNote } from "../tabs/AccountStatusNote";
+import { connectServer, prepareConnect } from "../tabs/connectServer";
 import { onAndroid } from "./androidEngine";
 import { Action, Row, Section } from "./Section";
 import {
@@ -34,9 +35,8 @@ function Servers() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
-  const bridge = accountBridge();
   // Which servers Add pairs with at once, known before the click that must open a tab for the others.
-  useEffect(() => void bridge?.prepare?.(), [bridge]);
+  useEffect(prepareConnect, []);
 
   const act = (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -69,9 +69,7 @@ function Servers() {
       (s) => hostLabel(s.origin) === hostLabel(origin),
     );
     setAdding(null);
-    const asked = known
-      ? await bridge?.addAccount?.(origin)
-      : await bridge?.addServer?.(origin);
+    const asked = await connectServer(origin, known);
     if (!asked) return;
     // A pairing made at once is listed now; one that went through the browser shows a moment later.
     reload();
@@ -97,47 +95,47 @@ function Servers() {
           </Action>
         </Row>
       ))}
-      {bridge?.addServer &&
-        (adding === null ? (
-          <Row label={m["servers.add"]()} detail={m["servers.addHint"]()}>
-            <Action disabled={busy} onClick={() => setAdding("")}>
-              <span className="flex items-center gap-1">
-                <Plus className="size-3" /> {m["servers.add"]()}
-              </span>
-            </Action>
-          </Row>
-        ) : (
-          <form
-            className="flex items-center gap-2 px-4 py-2.5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void add();
-            }}
+      {adding === null ? (
+        <Row label={m["servers.add"]()} detail={m["servers.addHint"]()}>
+          <Action disabled={busy} onClick={() => setAdding("")}>
+            <span className="flex items-center gap-1">
+              <Plus className="size-3" /> {m["servers.add"]()}
+            </span>
+          </Action>
+        </Row>
+      ) : (
+        <form
+          className="flex items-center gap-2 px-4 py-2.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void add();
+          }}
+        >
+          <input
+            // biome-ignore lint/a11y/noAutofocus: the field exists only because the person just asked for it.
+            autoFocus
+            className={`min-w-0 flex-1 rounded-md border bg-secondary px-2 py-1 text-xs outline-none focus:border-primary ${origin || !adding ? "border-border" : "border-red-400"}`}
+            value={adding}
+            onChange={(e) => setAdding(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setAdding(null)}
+            placeholder="k7.example.org"
+            aria-label={m["servers.add"]()}
+            spellCheck={false}
+          />
+          <Action disabled={!origin} onClick={() => void add()}>
+            {m["servers.addConfirm"]()}
+          </Action>
+          <button
+            type="button"
+            className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            onClick={() => setAdding(null)}
+            aria-label={m["common.cancel"]()}
           >
-            <input
-              // biome-ignore lint/a11y/noAutofocus: the field exists only because the person just asked for it.
-              autoFocus
-              className={`min-w-0 flex-1 rounded-md border bg-secondary px-2 py-1 text-xs outline-none focus:border-primary ${origin || !adding ? "border-border" : "border-red-400"}`}
-              value={adding}
-              onChange={(e) => setAdding(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && setAdding(null)}
-              placeholder="k7.example.org"
-              aria-label={m["servers.add"]()}
-              spellCheck={false}
-            />
-            <Action disabled={!origin} onClick={() => void add()}>
-              {m["servers.addConfirm"]()}
-            </Action>
-            <button
-              type="button"
-              className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              onClick={() => setAdding(null)}
-              aria-label={m["common.cancel"]()}
-            >
-              <X className="size-3.5" />
-            </button>
-          </form>
-        ))}
+            <X className="size-3.5" />
+          </button>
+        </form>
+      )}
+      <AccountStatusNote />
       {error && <Row label={m["servers.failed"]({ error })} />}
     </Section>
   );

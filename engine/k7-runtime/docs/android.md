@@ -344,10 +344,10 @@ just do nothing.
 The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
 register at the identity provider for the phone.
 
-**The account is on k7's home page**, as in a browser (`apps/k7/frontend/src/projects/AccountBar.tsx`):
-not in a native bar over the views, because an account is chosen where its workspaces are listed, and
-a bar over every page is height taken from all of them. The page tells it is in the app by
-`window.k7Android`; its Sign in only goes to `/auth/login`, which the plugin catches as above, and its
+**The account is k7's page's**, as in a browser: the first-launch prompt and the settings' Add
+(`apps/k7/frontend/src/tabs/connectServer.ts`), not a native bar over the views, since a bar over
+every page is height taken from all of them. The page tells it is in the app by
+`window.k7Android`; its Connect only goes to `/auth/login`, which the plugin catches as above, and its
 Sign out reloads, so the plugin hears nobody and falls back to the local user. Who is signed in still
 reaches the native half (`assets/account.js`), asked on every load and whenever the page comes back
 to the front: that is what pairs an account and restores the local user.
@@ -377,7 +377,7 @@ linked, not stored, not finished — in a toast. The phone's supervisor is hande
 its engine is owned by on that origin.
 
 - **Signing in is the pairing — one authorization, not two.** The person named the server in the
-  sign-in popin and proved who they are to its provider; asking again whether to sync with it, then
+  page's Connect and proved who they are to its provider; asking again whether to sync with it, then
   loading k7 a second time once it did, is a second consent for the same act. So the handoff's redeem
   returns through the backend's `GET /api/sync/remote/pair/sign-in` (`SyncPairing.signInReturn`),
   which pairs by the server's direct route (`packages/file-hub/docs/syncRelay.md`, "Pairing without
@@ -402,11 +402,11 @@ its engine is owned by on that origin.
   the app is back in front; killed, the backend finds the pairing on disk at the next start, the
   browser's page reloaded delivers the answer, and the app says the ending — and hands a paired
   token to the supervisor — whenever it next asks.
-- **The server is the person's choice, as on a computer.** Sign in opens the same popin
-  (`ServerDialog.tsx`), and the address rides on the `/auth/login` the shell already intercepts, as
-  `?server=`: the page has no other way to the shell that both phones share. The shell keeps it
-  (`SyncPairing.choose`, `SharedPreferences` here, `UserDefaults` on iOS) and pairs with it,
-  `app.k7.rocks` until then. The page keeps a copy only to prefill the popin. A phone connected
+- **The server is the person's choice, as on a computer.** The first-launch prompt and the settings'
+  Add ask its address (`ServerPrompt.tsx`, `ServersSection.tsx`), and the address rides on the
+  `/auth/login` the shell already intercepts, as `?server=`: the page has no other way to the shell
+  that both phones share. The shell keeps it (`SyncPairing.choose`, `SharedPreferences` here,
+  `UserDefaults` on iOS) and pairs with it, `app.k7.rocks` until then. A phone connected
   to another studio uses that studio's own session and has nothing to pair.
 - **The phone's supervisor takes the token of the pairing's answer**, the new active server's. A switch
   made later in the settings reaches the phone's backend alone, which runs no supervisor: the engine
