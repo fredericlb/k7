@@ -178,20 +178,16 @@ The devices allowed to drive this machine's engine over the LAN, and the request
 setting only in the sense that a browser on the machine draws it: anywhere else the engine refuses,
 and the section says so. `pairing.md` is the page.
 
-## Servers — a machine's saved servers, one active
+## Server — the one server a machine is signed in to
 
 `ServersSection.tsx`, on the tray and the phones only (`GET /api/local`, `localApp.md`, or the Android
-bridge). The account saves servers and syncs with ONE, the active one
-(`packages/file-hub/docs/syncRelay.md`), so the section lists them `host · account`, the active one
-marked **Active**, the others with **Use this server**, and each with **Remove**. **Add a server** pairs
-through the browser (`tabs/connectServer.ts`), a phone by signing in to it, and makes the new server active;
-a server already listed asks its page which other account to add. It is here, and in the first-launch
-prompt (`projects/ServerPrompt.tsx`), not over the workspaces, because switching moves
-the whole home page: the workspaces of the server left are hidden until it is used again
-(`packages/file-service/docs/liveCapture.md`, "One server at a time"). It is not behind the sign-out
-either: signing out does not stop a machine syncing, and a phone handed over must not stop every time.
-A phone's page adds none, its app offering its first server at sign-in (`engine/k7-runtime/docs/android.md`).
-A server's page has no such section: it is the server, and adds none.
+bridge). A machine is signed in to ONE server or to none (`packages/file-hub/docs/syncRelay.md`, "A
+machine signs in to ONE server"), so the section is that server as `host · account` with **Sign out**,
+or, signed in nowhere, the address to sign in to. Signing in is linking (`tabs/connectServer.ts`): the
+server's own page, then back. **Sign out** is here rather than in the user menu, whose entry leads here,
+because it asks first and says what stays: the workspaces, the downloaded songs and the recordings are
+the machine's; the server forgets the device, and sync stops. It is also offered at a first launch
+(`projects/ServerPrompt.tsx`). A server's page has no such section: it is the server, and adds none.
 
 ## Sync — the devices of an account
 
@@ -242,12 +238,10 @@ and the hunt's slskd access (`packages/ui-library/docs/settings.md`). The menu a
 That answer only hides an entry: each card asks its own admin-only route and draws nothing on a 403,
 and the page reached by its address without being an admin says whose it is.
 
-Its list of servers has no address form of its own: **Add** pairs the signed-in account with the
-server through the browser, as the home page's "Add a server" does, because the engine is the
-account's on a server only through the device token that pairing brings back
-(`packages/file-hub/docs/syncRelay.md`, "The engine follows the account"). Signed out, the machine's
-local user has no account to pair, and the section says to sign in. **Remove** there unlists the
-engine alone; the home page's "Stop syncing" lets go of both.
+Its list of servers has no address form of its own: **Add** signs the machine in to that server, as the
+Server section does, because the engine is the account's on a server only through the device token
+that sign-in brings back (`packages/file-hub/docs/syncRelay.md`, "The engine follows the account").
+**Remove** there unlists the engine alone; the Server section's Sign out lets go of both.
 
 ## About is beside it, not in it
 

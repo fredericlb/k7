@@ -155,10 +155,14 @@ const auth = await setupAuth(app, {
   service: "k7-backend",
   // Dropping `groups` would 403 every admin surface — see ../../AGENTS.md, § The backend in detail.
   scopes,
-  // A machine keeps its provider token in memory, to pair with its server without the browser (./media/directPair.ts).
-  keepAccessToken: LOCAL_USER,
-  keepRefreshToken: LOCAL_USER,
 });
+// A machine has ONE account, its local user: who it is at its server is the link's (packages/file-hub/docs/syncRelay.md).
+if (LOCAL_USER)
+  app.use((req, _res, next) => {
+    const user = auth.sessionUser(req);
+    if (user && !user.local) auth.startSession(req, LOCAL_SESSION_USER);
+    next();
+  });
 // A local dev session's stub user is an admin, nobody else's is (./devAdmin.ts).
 const requireAuth = withDevAdmin(auth.requireAuth);
 // Under the tray: the machine's supervisor, run by this backend, for k7's pages and the tray (./localEngine/).

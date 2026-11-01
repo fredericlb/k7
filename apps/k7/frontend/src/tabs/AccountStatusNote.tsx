@@ -27,12 +27,6 @@ function words(s: AccountStatus): string | null {
       return m["account.status.signInTimeout"]();
     case "pairTimeout":
       return m["account.status.pairTimeout"]();
-    case "alreadyLinked":
-      return m["account.status.alreadyLinked"]({
-        server: detail,
-        as: s.as ?? "",
-        local: s.local ?? "",
-      });
     case "pairNotStored":
       return m["account.status.pairNotStored"]();
     case "pairBlocked":

@@ -80,10 +80,18 @@ export const SYNC_PAIR_ROUTE = "/api/sync/devices/pair";
 /** The server's route that mints the same token for a provider access token, called by a machine's backend, no browser. */
 export const SYNC_PAIR_DIRECT_ROUTE = "/api/sync/pair/direct";
 
+/** Where a machine trades the one-use code a sign-in sent back, and its verifier, for the device token: no session. */
+export const SYNC_PAIR_REDEEM_ROUTE = "/api/sync/devices/redeem";
+
+/** Where a device lets go of its own token, by that token: a machine signing out. */
+export const SYNC_DEVICE_SELF_ROUTE = "/api/sync/device";
+
 /** How the origin's page may ask which account to link: `as` is the one expected, `choose` always asks. */
 export interface SyncPairAccount {
   as?: string;
   choose?: boolean;
+  /** A machine's sign-in: S256 of its verifier. The origin signs the person in afresh and sends back a code, never a token. */
+  challenge?: string;
 }
 
 /** The URL the machine opens in the browser to pair itself with the origin's relay; `name` labels the device. */
@@ -100,6 +108,7 @@ export function syncPairUrl(
   u.searchParams.set("name", name);
   if (account.as) u.searchParams.set("as", account.as);
   if (account.choose) u.searchParams.set("choose", "1");
+  if (account.challenge) u.searchParams.set("challenge", account.challenge);
   return u.toString();
 }
 

@@ -44,6 +44,7 @@ import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { DownloadsButton } from "../components/DownloadsButton";
 import { desktop } from "../desktop";
+import { useLocalApp } from "../localApp";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
 import { useIsAdmin } from "../settings/useIsAdmin";
@@ -242,6 +243,7 @@ export function HomeSidebar({
 
   // The menu's heading: the login on the server, or "Local" on a machine with none (menuAccount.ts).
   const email = useMenuAccount();
+  const local = !!useLocalApp();
 
   const items: Entry[] = [
     { label: m["home.projects"](), icon: Folders, route: "/" },
@@ -348,8 +350,11 @@ export function HomeSidebar({
         <UserMenu
           self="k7"
           email={email}
+          // On a machine, signing out is the settings' Server section, which says what stays (../settings/ServersSection.tsx).
           onLogout={() =>
-            void api.logout().then(() => window.location.reload())
+            local
+              ? navigate(`${SETTINGS_ROUTE}?tab=devices`)
+              : void api.logout().then(() => window.location.reload())
           }
           onSettings={() => navigate(SETTINGS_ROUTE)}
           settingsLabel={m["home.settings"]()}

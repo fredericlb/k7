@@ -75,16 +75,14 @@ describe("directPairFromEnv", () => {
     ).toBeUndefined();
   });
 
-  it("opens the machine's side on a local instance, the server's on a server", () => {
+  it("opens nothing on a local instance, the server's side on a server", () => {
     const local = directPairFromEnv(provider(null, null), true, {
-      STUDIO_DIRECT_PAIR_SERVERS: "app.k7.rocks, https://k7.example.org",
+      STUDIO_PAIR_CLIENTS: "st0-desktop",
     });
-    expect(local?.client?.servers).toEqual(["app.k7.rocks", "k7.example.org"]);
-    expect(local?.server).toBeUndefined();
+    expect(local).toBeUndefined();
     const server = directPairFromEnv(provider(null, null), false, {
       STUDIO_PAIR_CLIENTS: "st0-desktop,k7-phone",
     });
     expect(server?.server?.clients).toEqual(["st0-desktop", "k7-phone"]);
-    expect(server?.client).toBeUndefined();
   });
 });

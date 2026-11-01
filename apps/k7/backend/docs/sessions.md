@@ -35,14 +35,14 @@ The token k7 hands the rehearsal recorder (`service:k7`) and the one each accoun
 started with are **ephemeral**: held in this process's memory, never listed, and dead when it
 stops — which is also when those holders stop.
 
-## The provider's token, on a machine only
+## A machine's session is its local user
 
-Under `STUDIO_LOCAL_USER` (the tray, the phones) the backend keeps each sign-in's provider access
-token, and its refresh token when the provider hands one (`keepAccessToken`, `keepRefreshToken`):
-it is what pairs the machine with its server with no browser
-(`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser"). In memory only, so a restart
-loses it and the next pairing takes the browser. A hosted server keeps none: nothing there needs to
-speak for the person at the provider.
+Under `STUDIO_LOCAL_USER` (the tray, the phones) every session is the machine's local user: the backend
+turns any other one into it (`src/server.ts`). Who the person is at their server is the link's, minted
+by the server's own sign-in (`packages/file-hub/docs/syncRelay.md`, "A machine signs in to ONE
+server"). A session that expires, or a cookie left from another sign-in, would otherwise move the
+machine to another account folder, and its workspaces and its link with it. The machine keeps no
+provider token: nothing on it speaks for the person at the provider.
 
 ## The token routes
 

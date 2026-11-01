@@ -323,94 +323,32 @@ and every app view together (`RendererLoss.kt`).
 | the shell made again more than three times in a minute is offered Restart k7 instead | the shell page itself dying would loop forever |
 | the throwaway view behind `window.open` (`WindowProbe.kt`) claims its loss too | it shares the renderer, and one view left unclaimed is enough to end the process |
 
-## Signing in happens in the browser
+## Signing in happens in the browser, and signing in is the pairing
 
 An identity provider refuses a WebView, and RFC 8252 §8.12 says it should: a page inside an app
 can read what is typed into it. So the views never show one. A navigation to the studio's
-`/auth/login` — k7's Sign in button, a redirect, a script — is cancelled in `AppViewsPlugin.kt` and
-the sign-in opens in the system browser instead, through the studio's handoff
-(`apps/k7/backend/docs/handoff.md`). The browser comes back to `se.frediver.k7://auth` with a
-one-use code, `MainActivity` (`singleTask`, so the intent reaches the running one) hands it to the
-plugin, and `AuthHandoff.kt` turns it into a session in k7's view with the verifier only this app
-holds. The verifier is kept on disk: the process may be killed while the browser is in front.
+`/auth/login` (k7's Connect, a redirect, a script) is cancelled in `AppViewsPlugin.kt` and the
+sign-in opens in a **Custom Tab** (`androidx.browser`) over the app instead. It is still the system
+browser, with its cookies and its password manager, as RFC 8252 asks. A phone whose browser has no
+Custom Tabs gets a plain view intent, and one with no browser at all gets a native dialog saying so:
+the Connect a page cannot complete must not just do nothing.
 
-The browser is a **Custom Tab** (`androidx.browser`), launched in the app's own task: the answer
-reaching the `singleTask` activity clears it off the top, so the user lands back in k7 rather than in
-a browser left open behind it. It is still the system browser, with its cookies and its password
-manager, as RFC 8252 asks. A phone whose browser has no Custom Tabs gets a plain view intent, and one
-with no browser at all gets a native dialog saying so — the Sign in a page cannot complete must not
-just do nothing.
+| choice | why |
+|---|---|
+| on the phone's own studio, signing in is signing the phone in to its ONE server (`SyncPairing.kt`), the tray's way (`packages/file-hub/docs/syncRelay.md`, "A machine signs in to ONE server") | one authorization, not two: the server's fresh sign-in is the consent, and the link follows it with no page to confirm. The phone's session stays its local user, so its workspaces never change folder |
+| the page names the server on `/auth/login?server=` (`apps/k7/frontend/src/tabs/connectServer.ts`), from the first-launch prompt or the settings | the page has no other way to the shell that both phones share; `app.k7.rocks` when it names none |
+| the backend gives the URL (`POST /api/sync/remote/pair` with `scheme`), the server's code comes back to `<app id>://pair`, and the app hands it to the backend's own return (`/desktop/sync-pair`) | the trade with the verifier is the backend's, as on the tray; the scheme is the application id, so an e2e build beside the shipped app gets its own answer |
+| the Custom Tab is launched in the app's own task, and `MainActivity` is `singleTask` | the answer reaching the activity clears the tab off the top: the person lands back in k7, not in a browser left open behind it |
+| the app is held in front while the browser is (`AuthService.kt`, a `shortService`) | Android 15 cuts a backgrounded app off the network, its DNS included; it is released when the app is back in front, and Android ends a short service on its own after a few minutes |
+| a sign-in under way is the backend's, on disk | a process killed behind the browser gets the answer as its launch intent, and the backend still has the verifier; an ending nobody was there to see is said at the next page load (`SyncPairing.resume`) |
+| a toast says how it ended, and a paired ending hands the token to the phone's supervisor (`SupervisorHost.rememberDeviceToken`) | the toast reaches the person whether the app or the browser is in front; the engine is listed at the server with that token |
+| signing out is the settings' (`apps/k7/frontend/docs/settings.md`, "Server"): the link is forgotten and its token handed back | what came down stays on the phone |
+| a phone connected to ANOTHER studio signs in to that studio's own session through the handoff (`AuthHandoff.kt`, `apps/k7/backend/docs/handoff.md`) | that studio is the server itself, with nothing to pair; its code comes back to `<app id>://auth` and is redeemed in k7's view |
 
-The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
-register at the identity provider for the phone.
-
-**The account is k7's page's**, as in a browser: the first-launch prompt and the settings' Add
-(`apps/k7/frontend/src/tabs/connectServer.ts`), not a native bar over the views, since a bar over
-every page is height taken from all of them. The page tells it is in the app by
-`window.k7Android`; its Connect only goes to `/auth/login`, which the plugin catches as above, and its
-Sign out reloads, so the plugin hears nobody and falls back to the local user. Who is signed in still
-reaches the native half (`assets/account.js`), asked on every load and whenever the page comes back
-to the front: that is what pairs an account and restores the local user.
-
-**The code is loaded straight into k7's view**, never through the shell page: k7 is the one app
-shown, and a page switch to the app already shown loads nothing. When Android killed the process
-while the browser was in front, the answer is the intent that launches the next one, and it is the
-view's first load.
-
-**The app is held in front while the browser signs in** (`AuthService.kt`, a `shortService`). The
-backend trades the provider's code while the browser is in front, and Android 15 cuts a backgrounded
-app off the network, its DNS included: without the hold the sign-in fails with `ENOTFOUND` on the
-provider's host. It is released when the app is back in front, answered or not, and Android ends a
-short service on its own after a few minutes.
-
-## Pairing with the origin, as a computer does
-
-The phone runs the same backend and hub as the tray, so it is a live-sync replica the same way
-(`apps/k7/frontend/docs/localApp.md`): an account PAIRED with the origin has its workspaces kept in
-step with the origin's, and the phone's libraries follow the origin's read-only
-(`packages/file-hub/docs/fileHub.md`). The pairing is the BACKEND's, the one the tray's backend uses too
-(`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"), with the same rules — once per
-account per run, never offered on its own to the local user, and the link taking whichever account the
-browser confirms on the origin's page, which asks when it is not the phone's own. `SyncPairing.kt` keeps
-what only the app can do: open the browser, and say how it ended — paired as which account, already
-linked, not stored, not finished — in a toast. The phone's supervisor is handed the token of the link
-its engine is owned by on that origin.
-
-- **Signing in is the pairing — one authorization, not two.** The person named the server in the
-  page's Connect and proved who they are to its provider; asking again whether to sync with it, then
-  loading k7 a second time once it did, is a second consent for the same act. So the handoff's redeem
-  returns through the backend's `GET /api/sync/remote/pair/sign-in` (`SyncPairing.signInReturn`),
-  which pairs by the server's direct route (`packages/file-hub/docs/syncRelay.md`, "Pairing without
-  the browser") before k7's page loads: the page reads a server list that already holds the link, and
-  the pairing, marked `atSignIn`, reloads nothing. The view's session shares the browser sign-in's
-  provider token through the handoff (`apps/k7/backend/docs/handoff.md`).
-- **Only a browser coming up on its own is asked first.** A server that refuses the sign-in's token
-  pairs through its own page, and the app asks before opening it ("Sync this phone's workspaces with
-  app.k7.rocks?"), since a browser appearing unasked reads as a bug. That pairing lands after the
-  page read the server list, so it reloads k7's view.
-- **The token comes back on loopback, not through the app's scheme.** The origin hands a device
-  token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and
-  that return is the backend's own fixed port; a second rule for phones would be a second hole to keep shut.
-- **It starts when k7's view says who is signed in** (`assets/account.js`) on the phone's own
-  studio, and the backend says that account has saved no server (`links`). Once one is saved the app
-  offers nothing at start: switching servers, and removing one, are the settings' (Settings → Devices,
-  `apps/k7/frontend/docs/localApp.md`). The app talks to the backend with the view's
-  session cookie, read from the `CookieManager`, so the backend knows which account it is for. The
-  device is named after the phone's maker and model.
-- **A process killed behind the browser loses nothing.** Android may freeze or kill a process whose
-  activity is behind the browser, and the backend with it: frozen, the browser's redirect waits until
-  the app is back in front; killed, the backend finds the pairing on disk at the next start, the
-  browser's page reloaded delivers the answer, and the app says the ending — and hands a paired
-  token to the supervisor — whenever it next asks.
-- **The server is the person's choice, as on a computer.** The first-launch prompt and the settings'
-  Add ask its address (`ServerPrompt.tsx`, `ServersSection.tsx`), and the address rides on the
-  `/auth/login` the shell already intercepts, as `?server=`: the page has no other way to the shell
-  that both phones share. The shell keeps it (`SyncPairing.choose`, `SharedPreferences` here,
-  `UserDefaults` on iOS) and pairs with it, `app.k7.rocks` until then. A phone connected
-  to another studio uses that studio's own session and has nothing to pair.
-- **The phone's supervisor takes the token of the pairing's answer**, the new active server's. A switch
-  made later in the settings reaches the phone's backend alone, which runs no supervisor: the engine
-  stays listed where the last pairing put it.
+**The account is k7's page's**, as in a browser, not a native bar over the views: a bar over every
+page is height taken from all of them. Who is signed in still reaches the native half
+(`assets/account.js`), asked on every load and whenever the page comes back to the front: nobody
+means back to the local user.
 
 ## The account's other engines, through its server
 

@@ -1,7 +1,7 @@
-// directPair.ts — k7's choices for pairing without the browser (packages/file-hub/directPair.ts): which servers a
-// machine trusts with its provider token, which clients' tokens a server takes, and how the provider is asked.
-// What a reader gets wrong: no env, no route. A server takes tokens only once STUDIO_PAIR_CLIENTS names the clients,
-// and a machine sends its token only to STUDIO_DIRECT_PAIR_SERVERS. See packages/file-hub/docs/syncRelay.md.
+// directPair.ts — k7's choices for a server's pairing without the browser (packages/file-hub/directPair.ts), which
+// machines on an older k7 call: which clients' tokens a server takes, and how the provider is asked.
+// What a reader gets wrong: no env, no route. A server takes tokens only once STUDIO_PAIR_CLIENTS names the clients.
+// See packages/file-hub/docs/syncRelay.md.
 
 import type { AuthHandle } from "@frediverse/oidc";
 import type {
@@ -9,7 +9,6 @@ import type {
   FileHubOptions,
   ProviderWord,
 } from "@studio/file-hub";
-import { normalizeServer } from "@studio/web-protocol/pairing";
 
 type Provider = Pick<
   AuthHandle,
@@ -56,17 +55,8 @@ export function directPairFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): FileHubOptions["directPair"] {
   const issuer = auth.issuer;
-  if (!issuer) return undefined;
-  if (local) {
-    const servers = list(env.STUDIO_DIRECT_PAIR_SERVERS)
-      .map((s) => normalizeServer(s))
-      .filter((s): s is string => !!s)
-      .map((s) => new URL(s).host);
-    if (!servers.length) return undefined;
-    return {
-      client: { issuer, servers, tokenOf: (req) => auth.accessToken(req) },
-    };
-  }
+  // A machine signs in through its server's browser page (packages/file-hub/pairSignIn.ts): it sends no token.
+  if (!issuer || local) return undefined;
   const clients = list(env.STUDIO_PAIR_CLIENTS);
   if (!clients.length) return undefined;
   const server: DirectPairServer = {

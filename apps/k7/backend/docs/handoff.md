@@ -2,9 +2,10 @@
 
 An app signs in through the **system browser** — an identity provider refuses an embedded view,
 and RFC 8252 §8.12 is why. The browser then holds the session, and the app's own views need it.
-`src/handoff.ts` carries it across. The phone apps use it (`engine/k7-runtime/docs/android.md`,
-`engine/k7-runtime/docs/ios.md`). On a computer k7 already runs in the browser, which signs in through
-`/auth/login` and needs no handoff (`apps/k7/frontend/docs/localApp.md`).
+`src/handoff.ts` carries it across. A phone app uses it for a studio it is connected to other than
+its own backend (`engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`); its own backend
+signs in to its server by the pairing instead (`packages/file-hub/docs/syncRelay.md`, "A machine signs
+in to ONE server"), and k7 in a computer's browser does the same (`apps/k7/frontend/docs/localApp.md`).
 
 | route | opened in | does |
 |---|---|---|
@@ -22,10 +23,7 @@ stored** — the session's own secret with a suffix of its own, so a code can ne
 cookie or an API token — dead after two minutes, long enough for a phone to switch apps, and
 redeemed **once**: this process remembers the hash of every code redeemed until it would have
 expired anyway. It carries the browser session's `iat` and `exp`, so the app's session ends when the
-browser's would have, and a revocation of the account reaches it. It also carries the KEY of the
-provider token that session kept, never the token (commons `packages/oidc/docs/session.md`), so the
-app's view pairs with its server as the browser could (`packages/file-hub/docs/syncRelay.md`, "Pairing
-without the browser"); the key opens nothing without a session cookie this process signed.
+browser's would have, and a revocation of the account reaches it.
 
 ## Issue asks first
 

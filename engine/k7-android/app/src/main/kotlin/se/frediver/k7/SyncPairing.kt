@@ -1,15 +1,12 @@
-// SyncPairing.kt — pair the account signed in on the phone's own studio with the ORIGIN's relay. Signing in IS the
-// pairing: the sign-in returns through the backend (`signInReturn`), which pairs the server the popin named before
-// k7's page loads, when that server takes the sign-in's token. Otherwise this asks the person, opens the browser on
-// the URL the backend answers, and says how it ended; the backend keeps a pairing under way on disk, so a process
-// killed behind the browser is told the ending at its next start. The pairing itself is packages/file-hub/pairRoutes.ts,
-// the desktop's too. See docs/android.md.
+// SyncPairing.kt — sign the phone in to its ONE server: signing in IS the pairing. The phone's backend gives the
+// server's sign-in URL (packages/file-hub/pairRoutes.ts, the tray's too), opened in a Custom Tab over the app; the server
+// sends a one-use code back to this app's scheme, and the backend trades it for the link. The backend keeps a sign-in
+// under way on disk, so a process killed behind the browser is told the ending at its next start. See docs/android.md.
 
 package se.frediver.k7
 
-import android.content.ActivityNotFoundException
+import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -21,28 +18,21 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.CountDownLatch
 
 object SyncPairing {
-    /** web-protocol's STUDIO_ORIGIN: the server a phone syncs with until the sign-in popin names another. */
+    /** web-protocol's STUDIO_ORIGIN: the server a phone signs in to when the page names none. */
     private const val DEFAULT_ORIGIN = "https://app.k7.rocks"
-    private const val SERVER_PREFS = "k7-sync-server"
-    /** The phone's backend's pairing routes (packages/file-hub/pairRoutes.ts). */
+    /** The app's own scheme, its application id: the server sends its code to `<scheme>://pair`. */
+    private val SCHEME: String = BuildConfig.APPLICATION_ID
+    private const val HOST = "pair"
+    /** The phone's backend's sign-in routes, and the return that trades the server's code (packages/file-hub/pairRoutes.ts). */
     private const val PAIR_API = "/api/sync/remote/pair"
-    /** One long poll of the backend while the browser is in front. */
+    private const val RETURN = "/desktop/sync-pair"
+    /** One long poll of the backend while the trade finishes. */
     private const val POLL_MS = 25_000
     private const val TAG = "k7-sync"
 
-    // Accounts asked this run: a pairing the person declined is not offered again at every page load.
-    private val asked = mutableSetOf<String>()
-    private var busy = false
     private val main = Handler(Looper.getMainLooper())
-
-    /** Keep the server the sign-in popin named, when it is one: https, or http on this phone only. */
-    fun choose(context: Context, input: String?) {
-        val origin = normalize(input) ?: return
-        context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE).edit().putString("origin", origin).apply()
-    }
 
     private fun normalize(input: String?): String? {
         val u = input?.trim()?.takeIf { it.isNotEmpty() }?.let(Uri::parse) ?: return null
@@ -53,113 +43,79 @@ object SyncPairing {
         return if (u.port > 0) "${u.scheme}://$host:${u.port}" else "${u.scheme}://$host"
     }
 
-    private fun origin(context: Context): String =
-        context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE).getString("origin", null) ?: DEFAULT_ORIGIN
+    /** Is this intent the server's answer to a sign-in started here? */
+    fun isAnswer(answer: Uri): Boolean = answer.scheme == SCHEME && answer.host == HOST
 
-    private fun host(context: Context): String = Uri.parse(origin(context)).host ?: origin(context)
+    /** Start a sign-in to `input` from the page's `/auth/login?server=`: the server's page opens over the app. */
+    fun start(activity: Activity, input: String?, cookie: String?) {
+        val origin = normalize(input) ?: DEFAULT_ORIGIN
+        Thread({
+            val body = JSONObject().put("origin", origin).put("name", deviceName()).put("scheme", SCHEME)
+            val started = local("POST", PAIR_API, cookie, body)
+            main.post {
+                val url = started?.optString("url")?.takeIf { it.isNotEmpty() }
+                    ?: return@post tell(activity, "The sign-in to ${Uri.parse(origin).host} could not start. Try again.")
+                if (AuthHandoff.openTab(activity, Uri.parse(url)) || activity.isFinishing) return@post
+                // Not even a plain browser: said in a native dialog, since the page that asked is the one that cannot go on.
+                AlertDialog.Builder(activity)
+                    .setTitle("k7")
+                    .setMessage("No web browser to sign in with. Install or enable one, then sign in again.")
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            }
+        }, "k7-sync-sign-in").start()
+    }
 
-    /** Where the sign-in's redeem sends the view: through the backend, which pairs the server named at sign-in before `returnTo` loads. */
-    fun signInReturn(context: Context, returnTo: String): String =
-        Uri.parse("$PAIR_API/sign-in").buildUpon()
-            .appendQueryParameter("origin", origin(context))
-            .appendQueryParameter("name", deviceName())
-            .appendQueryParameter("next", returnTo)
-            .build().toString()
-
-    /** Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run. */
-    fun pairIfNeeded(context: Context, cookie: String?, onPaired: () -> Unit) {
-        if (cookie.isNullOrEmpty()) return
-        synchronized(this) {
-            if (busy) return
-            busy = true
-        }
+    /** The server's answer came back: the backend trades its code, then the ending is said; `onPaired` runs on the main thread. */
+    fun finish(context: Context, answer: Uri, cookie: String?, onPaired: () -> Unit) {
         val app = context.applicationContext
         Thread({
             try {
-                run(app, cookie, onPaired)
+                val state = answer.getQueryParameter("state").orEmpty()
+                val code = answer.getQueryParameter("code").orEmpty()
+                // The return the tray's browser lands on: no session, the state is the gate.
+                trade("$RETURN?code=${Uri.encode(code)}&state=${Uri.encode(state)}")
+                val pairing = local("GET", "$PAIR_API/${Uri.encode(state)}", cookie)?.optJSONObject("pairing")
+                    ?: return@Thread tell(app, "The sign-in was interrupted. Sign in again from the settings.")
+                settle(app, pairing, cookie, onPaired)
             } catch (e: Exception) {
-                Log.w(TAG, "sync pairing: ${e.message}")
-            } finally {
-                synchronized(this) { busy = false }
+                Log.w(TAG, "sign-in: ${e.message}")
             }
-        }, "k7-sync-pair").start()
+        }, "k7-sync-finish").start()
     }
 
-    private fun run(context: Context, cookie: String, onPaired: () -> Unit) {
-        val offer = local("GET", "$PAIR_API?origin=${Uri.encode(origin(context))}", cookie) ?: return
-        val email = offer.text("email").takeIf { it.isNotEmpty() } ?: return
-        if (offer.optBoolean("local")) return
-        // A pairing this process was killed behind: still waited for, or ended while nobody was here to say so.
-        offer.optJSONObject("pairing")?.let {
-            synchronized(this) { asked.add(email) }
-            if (it.text("phase") == "waiting") tell(context, "Finishing this phone's sync pairing: if the browser shows an error page, reload it.")
-            return settle(context, it, cookie, onPaired)
-        }
-        if (synchronized(this) { !asked.add(email) }) return
-        // Offered only while no server is saved: adding and switching servers is the settings' (android.md).
-        if (offer.optInt("links") > 0) return
-        // Signing in was the yes: only a browser coming up on its own is asked first (packages/file-hub/docs/syncRelay.md).
-        val question = "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one."
-        if (!offer.optBoolean("direct") && !ask(context, question, "Sync")) return
-        val body = JSONObject().put("origin", origin(context)).put("name", deviceName())
-        val started = local("POST", PAIR_API, cookie, body)
-            ?: return tell(context, "This phone's sync pairing could not start. k7 will offer it again at its next start.")
-        val pairing = started.getJSONObject("pairing")
-        // Paired already, with no browser: said at once.
-        if (pairing.text("phase") != "waiting") return settle(context, pairing, cookie, onPaired)
-        try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(started.getString("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: ActivityNotFoundException) {
-            local("DELETE", "$PAIR_API/${pairing.text("state")}", cookie)
-            return tell(context, "There is no browser on this phone to pair it with ${host(context)} in.")
-        }
-        settle(context, pairing, cookie, onPaired)
+    /** At a page load: a sign-in that ended while nobody was here to say so is said now. */
+    fun resume(context: Context, cookie: String?, onPaired: () -> Unit) {
+        if (cookie.isNullOrEmpty()) return
+        val app = context.applicationContext
+        Thread({
+            val p = local("GET", PAIR_API, cookie)?.optJSONObject("pairing") ?: return@Thread
+            if (p.text("phase") != "waiting") settle(app, p, cookie, onPaired)
+        }, "k7-sync-resume").start()
     }
 
-    /** Wait on the backend for the pairing's ending, say it, and let the backend drop it; `onPaired` runs on the main thread. */
-    private fun settle(context: Context, first: JSONObject, cookie: String, onPaired: () -> Unit) {
+    /** Wait on the backend for the ending, say it, and let the backend drop it. */
+    private fun settle(context: Context, first: JSONObject, cookie: String?, onPaired: () -> Unit) {
         val state = first.text("state")
         var p = first
         while (p.text("phase") == "waiting") {
             p = local("GET", "$PAIR_API/$state?wait=$POLL_MS", cookie)?.optJSONObject("pairing")
-                ?: return tell(context, "The sync pairing was interrupted. k7 will offer it again at its next start.")
+                ?: return tell(context, "The sign-in was interrupted. Sign in again from the settings.")
         }
         local("DELETE", "$PAIR_API/$state", cookie)
         val host = p.text("host")
-        Log.i(TAG, "sync pairing with $host: ${p.text("phase")}")
+        Log.i(TAG, "sign-in to $host: ${p.text("phase")}")
         when (p.text("phase")) {
             "paired" -> {
-                // The same token lists this phone's engine at that studio, which may admit paired machines only.
+                // The same token lists this phone's engine at that server, which may admit paired machines only.
                 SupervisorHost.rememberDeviceToken(context, p.text("origin"), p.text("token"))
-                tell(context, "This phone now syncs its workspaces with $host as ${account(p)}.")
-                // The page read the server list before the link existed: it reads it again, unless the sign-in paired before it loaded.
-                if (!p.optBoolean("atSignIn")) main.post(onPaired)
+                tell(context, "Signed in to $host as ${p.text("browserAs")}.")
+                // The page read the server list before the link existed: it reads it again.
+                main.post(onPaired)
             }
-            // That account on that server is linked already: the link it has stays.
-            "alreadyLinked", "otherAccount" ->
-                tell(context, "This phone already syncs with $host as ${account(p)}, so nothing changed.")
-            "expired" -> tell(context, "The sync pairing was not finished in the browser. k7 will offer it again at its next start.")
-            else -> tell(context, "The sync pairing could not be saved on this phone. k7 will offer it again at its next start.")
+            "expired" -> tell(context, "The sign-in was not finished in the browser. Sign in again from the settings.")
+            else -> tell(context, "The sign-in could not be saved on this phone. Sign in again from the settings.")
         }
-    }
-
-    /** A yes or no in a dialog over the app, waited for on this thread; no activity to draw it is a no. */
-    private fun ask(context: Context, question: String, yes: String): Boolean {
-        val done = CountDownLatch(1)
-        var said = false
-        main.post {
-            val activity = MainActivity.current() ?: return@post done.countDown()
-            AlertDialog.Builder(activity)
-                .setTitle("Sync")
-                .setMessage(question)
-                .setPositiveButton(yes) { _, _ -> said = true }
-                .setNegativeButton("Not now", null)
-                .setOnDismissListener { done.countDown() }
-                .show()
-        }
-        done.await()
-        if (!said) Log.i(TAG, "sync pairing declined")
-        return said
     }
 
     // A toast is what reaches the person whether the app or the browser is in front.
@@ -167,21 +123,33 @@ object SyncPairing {
         main.post { Toast.makeText(context, said, Toast.LENGTH_LONG).show() }
     }
 
-    /** The server's account the pairing ended as: the browser's, else the phone's own. */
-    private fun account(p: JSONObject): String = p.text("browserAs").ifEmpty { p.text("email") }
-
     // A JSON null reads as "", where optString would answer "null".
     private fun JSONObject.text(name: String): String = if (isNull(name)) "" else optString(name)
 
-    /** The phone's backend, as the signed-in account: its session cookie, read from the views' CookieManager. */
-    private fun local(method: String, path: String, cookie: String, body: JSONObject? = null): JSONObject? {
+    /** The backend's return, which answers a page rather than JSON: only its having answered matters. */
+    private fun trade(path: String) {
+        val c = URL(BackendHost.ORIGIN + path).openConnection() as HttpURLConnection
+        try {
+            c.connectTimeout = 5_000
+            // The backend asks the server meanwhile, which may be slow.
+            c.readTimeout = 60_000
+            c.responseCode
+        } catch (_: IOException) {
+            // The ending is read from the pairing itself.
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    /** The phone's backend, as the view's session: its cookie, read from the views' CookieManager. */
+    private fun local(method: String, path: String, cookie: String?, body: JSONObject? = null): JSONObject? {
         val c = URL(BackendHost.ORIGIN + path).openConnection() as HttpURLConnection
         return try {
             c.requestMethod = method
             c.connectTimeout = 5_000
-            // Longer than one long poll of a pairing under way.
+            // Longer than one long poll of a sign-in under way.
             c.readTimeout = 60_000
-            c.setRequestProperty("Cookie", cookie)
+            if (!cookie.isNullOrEmpty()) c.setRequestProperty("Cookie", cookie)
             if (body != null) {
                 c.doOutput = true
                 c.setRequestProperty("Content-Type", "application/json")
@@ -195,7 +163,7 @@ object SyncPairing {
         }
     }
 
-    /** What the origin's device list shows: the phone's maker and model. */
+    /** What the server's device list shows: the phone's maker and model. */
     private fun deviceName(): String {
         val model = Build.MODEL.orEmpty()
         val maker = Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }

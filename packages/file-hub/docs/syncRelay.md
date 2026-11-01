@@ -17,159 +17,44 @@ service dials it unless `STUDIO_LIVE_SYNC=0`. A machine proves its account with 
 A file service serves all of an account's workspaces, so one socket carries them and each message
 names its workspace. The relay keeps one Room per account and workspace, loaded on its first hello.
 
-## A machine pairs with the origin, per account
+## A machine signs in to ONE server, and signing in is pairing
 
-A machine's hub serves several accounts at once — a computer's local user beside the signed-in one —
-so where an account syncs is the ACCOUNT's, never the process's: `<account folder>/.sync-remote.json`
-(`../syncRemote.ts`) holds the origin's relay URL and the device token, and the hub hands them to that
-account's service alone. The local user's workspaces would otherwise land in the signed-in
-account's rooms.
+A machine (the tray, a phone) has one account of its own, its local user, and syncs with at most one
+server. `<local user's folder>/.sync-remote.json` (`../syncRemote.ts`) holds that server's relay URL,
+the device token and the account it was minted for (`as`); the hub hands them to the local user's
+service alone. Who the person is at the server is the link's, never the machine's session: the
+machine's backend turns any other session into the local user (`apps/k7/backend/src/server.ts`), since
+a session that expires would otherwise take the link, and the workspaces, with it.
 
-The token comes from the origin's `GET /api/sync/devices/pair`, which a computer or a phone opens in
-the browser: it signs the browser in when it must, mints a device token named after the
-machine, and redirects to a loopback `return` (`isLoopbackReturn`, the same rule as the API
-token's pairing) — or to another server's, once the person allowed it (below). A machine whose
-account is signed in to the origin's own identity provider gets the same token with no browser, from
-`POST /api/sync/pair/direct` (below, "Pairing without the browser"). A paired account's service starts with the hub and is never stopped for idleness,
-and pairing restarts it so it dials the new relay.
+| choice | why |
+|---|---|
+| the server signs the person in, on its own page in the system browser | the machine needs no client at any identity provider, so any server works, whatever provider it uses; and identity providers refuse a WebView (RFC 8252 §8.12) |
+| a FRESH sign-in there is the consent: the pairing URL carries a `challenge`, and the server's gate sends a session older than five minutes through `/auth/login?prompt=login` first (`apps/k7/backend/src/media/fileHub.ts`) | the person typing their password now is the yes; a page to confirm after it is a second click for one act. Without the fresh sign-in, any program on the machine could open the URL in a browser already signed in and get a token silently |
+| the server sends back a one-use code, never the token (`../pairCodes.ts`, `../pairSignIn.ts`) | a code read off the redirect, the browser's history or another app catching the scheme is worth nothing without the verifier |
+| the machine's backend trades it with its verifier, PKCE S256, at `POST /api/sync/devices/redeem` | the verifier never leaves the backend: it is made there, kept with the sign-in under way (`.sync-pairing.json`), and sent only to the server the sign-in started at |
+| the code lands on the backend's loopback port (`SYNC_PAIR_RETURN_PATH`), or on a phone app's scheme (`<app id>://pair`), which hands it to the backend | the tray's browser tab and a phone's browser sheet each come back where they can; the trade is the backend's either way (`engine/k7-runtime/docs/android.md`, `ios.md`) |
+| the return carries no session, and the 128-bit state is its gate | the system browser holds no cookie of the machine's backend |
+| a new sign-in REPLACES the link, and each token let go is handed back (`DELETE /api/sync/device`, by that token) | one server at a time; a token kept on the server for a link the machine forgot is a device listed for nothing |
+| signing out is forgetting the link (`DELETE /api/sync/remote`): its token is handed back, the engine leaves the server, sync stops; the files stay | what came down is the person's, on their machine |
+| a sign-in under way is on disk, one per account, kept a day once ended | Android may kill an app behind the browser, and the backend with it: the return still lands at the next start, and the ending is said then |
+| the page waits by long poll (`GET /api/sync/remote/pair/<state>?wait=`) and drops the record once told (`DELETE`), which is also the Cancel | ten minutes without a return is `expired` |
+| the relay is reached where the person named the server (`wss://<server>/api/sync`), not at the host the server reported | a proxy in front of it may show the server another host |
+
+The link names one server, and everything that talks to a server talks to it: live sync
+(`STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN`), the libraries, the surfaces that compare themselves with "the"
+remote (`remoteOf`: the médiathèque's server copy, the page forward, favorites, practice and rehearsal
+publications, a moment's consolidation), the server engines listed beside the machine's own, and the
+machine's engine itself (below). A file holding several links reads as its active one first;
+`POST /api/sync/remote/active` and `PUT /api/sync/remote` remain for a link made by hand.
 
 ## Pairing without the browser
 
-An account signed in on the machine through the provider the server signs in with has proved who it
-is already: sending the person through the server's page to prove it again is a tab, a redirect and a
-click for nothing. So the machine's backend keeps the provider's access token of that sign-in
-(commons `packages/oidc/docs/session.md`, "Keeping the provider's token") and, when "Add a server" is
-pressed, tries the server's direct route before the browser (`../directPair.ts`). The token the
-server mints, the device record and its name, and the link stored on the machine are the browser
-pairing's, through the same code (`devices.mint`, `storeLink` in `../pairRoutes.ts`): the two ways
-differ only in how the account is proved.
-
-| case | way |
-|---|---|
-| a signed-in account, a server in the machine's `STUDIO_DIRECT_PAIR_SERVERS`, a kept token | direct; on any refusal, the browser, transparently |
-| the local user, "Add another account", a server not in the list, a backend restarted since the sign-in | the browser, always |
-
-**What the server trusts** is its own provider's word, and nothing the caller says about itself:
-
-- the token is checked by the server's provider, never one the caller names: an `issuer` other than
-  the server's is refused before the token is sent anywhere;
-- the email is UserInfo's, as at the server's own sign-in, and one the provider says it never verified
-  (`email_verified: false`) is refused; the person is UserInfo's `sub`;
-- the token must have been issued to a client in `STUDIO_PAIR_CLIENTS` (the machine's public client,
-  `st0-desktop`). The client comes from the provider's introspection when the server's own client may
-  introspect (it needs a secret, and the provider an endpoint), and introspection says `active` and the
-  same `sub`; otherwise from UserInfo's `azp` (or `client_id`), else its `aud` when it names one
-  client alone — Authelia's UserInfo names the client only there. A provider that says none of these
-  cannot have its client checked, and every token is then refused. **Without `STUDIO_PAIR_CLIENTS` the route is
-  not mounted at all**: a server never takes a provider token by default, and a provider token issued
-  to an unrelated app on the same provider buys nothing. The hosted stack sets it from `PAIR_CLIENTS`
-  in its `.env` (`docker/docker-compose.yml`); a server without it answers the route with its session
-  guard's `401`, and every machine pairs through the browser.
-
-**What it does not take**: no session cookie (the call is server to server, from the machine's backend,
-so no CORS and no `Origin`), and no detail on a refusal — every one is `401` with the same sentence,
-the reason staying in the server's log (`direct pairing refused: …`). Five attempts a minute per address (`req.ip`, behind the
-proxy the session already trusts), then `429`.
-
-**What the machine trusts the server with**: the token is a bearer for the person at the provider, and
-a server that received it could replay it at another server on the same provider to mint itself a
-device of that account. So the machine sends it only to the servers its env names
-(`STUDIO_DIRECT_PAIR_SERVERS`, `app.k7.rocks` in `standalone.json`), never to an address merely typed,
-never through a redirect, and over https (`normalizeServer` admits http only on loopback).
-
-**Where the token lives**: in the machine's backend's memory, never in its session cookie, which is
-signed and readable, nor on disk; it dies with the process, and a pairing after a restart takes the
-browser. A phone's view, signed in from the system browser through the handoff, shares that browser
-session's token by its key (`apps/k7/backend/docs/handoff.md`). An access token lasts what the
-provider gives it (`expires_in`, typically an hour). The machines ask for `offline_access`
-(`OIDC_SCOPES` in `apps/k7/backend/standalone.json`), so the provider also gives a refresh token, kept
-beside it in memory, and an expired access token is renewed rather than sending the pairing to the
-browser. The provider's `st0-desktop` client must allow that scope and the `refresh_token` grant: a
-client that does not refuses the sign-in itself, so the provider is changed first.
-
-**The page opens no tab for it.** A browser lets a page open a tab only inside the click, so the page
-asks ahead which servers pair at once (`directHosts` on `GET /api/sync/remote/pair`) and opens none for
-them; a direct attempt refused afterwards opens the server's page then, and a browser that blocks that
-late tab is told so (`account.status.pairBlocked`), the next click opening it first. The answer to the
-POST is the pairing already ended (`url: null`), so the phones skip their browser the same way.
-
-**A phone pairs as it signs in.** Its sign-in names the server, so the handoff's redeem returns through
-`GET /api/sync/remote/pair/sign-in?origin=&name=&next=`, which pairs directly and then sends the view on
-to `next` — a path on this backend, never another site. It never fails the sign-in: refused, or with no
-direct route, it only redirects, and the phone offers the browser's way once the page is up. The record
-it leaves is marked `atSignIn`, so the app says the ending without reloading a page that loaded after
-the link (`engine/k7-runtime/docs/android.md`, "Signing in is the pairing").
-
-## Pairing through the browser is the machine's backend's
-
-A computer under the tray, the Android app and the iPhone app pair the same way, and the way is written once, in
-the backend they all run (`../pairRoutes.ts`, `../pairingStore.ts`). What stays in each host is what
-only it can do: open the browser (a Custom Tab, an `ASWebAuthenticationSession`, or on a computer a
-new tab opened from a click on k7's Connect or Add), ask the person first, and say how it ended
-(`apps/k7/frontend/docs/localApp.md`, `engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`).
-
-- **The browser comes back to the backend's own port**, `SYNC_PAIR_RETURN_PATH` on `127.0.0.1`. No
-  app opens a listener of its own: the backend is already a loopback HTTP server, and the phone's port
-  is fixed (`apps/k7/backend/docs/standalone.md`), so a return still lands after the app was killed
-  behind the browser and started again.
-- **The return carries no session, and the state is its gate.** The system browser holds no cookie of
-  this backend. A 128-bit state, minted when the app starts the pairing, names the pairing and through
-  it the account; a return without a waiting pairing of that state is answered 404.
-- **The link takes the account the browser comes back as.** The origin says whose token it minted
-  (`identity`), and that is the link's remote account (`as`), whoever it is: syncing as another account
-  is a choice, never a mismatch. The choice is made on the origin's page (below), not here. The one
-  refusal is that account on that server linked already: the pairing ends `alreadyLinked`, and the link
-  it has is kept as it is — re-pairing would swap a working token for a new one for nothing.
-- **The origin asks which account whenever it is a choice** (`../pairConsent.ts`): k7 passes the
-  account it expects (`as`), and the origin's page shows itself when the browser is signed in as someone
-  else, when the person is adding another account (`choose`), and always for the local user, who has no
-  account anywhere. The page names the account the token would be for, and offers "Use another account":
-  a same-origin POST that ends the origin's session (the backend's `signOut`) and sends the browser back
-  to the same pairing through the sign-in. That sign-in carries `prompt=login`, so an identity provider
-  that keeps its own session still shows its sign-in page instead of handing back the same account
-  (commons `packages/oidc/docs/session.md`). The person expected, already signed in, goes straight
-  through, as before.
-- **The machine's local user pairs too.** A link names its remote account itself, so the local user's
-  workspaces sync into the account the person picked on the origin's page, in the local user's own
-  folder, and no signed-in account's rooms are involved.
-- **The relay is reached where the person named the server** (`wss://<server>/api/sync`), not at the
-  host the origin reported: a proxy in front of it may show the origin another host, and a pairing
-  stored with that host would be redone at every sign-in.
-- **A pairing under way is on disk**, `<data root>/.sync-pairing.json`, one per account, replaced by
-  the next one started. Android may kill an app whose activity is behind the browser; the backend
-  dies with it, and finds the pairing again at its next start. An ending nobody was there to see is
-  kept a day, so the app says it at its next start and, once paired, hands the token to the phone's
-  supervisor. The token itself is in `.sync-remote.json` only.
-- **The app waits by long poll** (`GET /api/sync/remote/pair/<state>?wait=`), on the session it already
-  has, and drops the pairing once it has said the ending (`DELETE`), which is also the Cancel under k7's Connect.
-  Ten minutes without a return is `expired`.
-
-**A machine's account SAVES servers, and uses ONE: the active one.** Each saved server is a LINK, one
-account on one server: the relay, the device token, and the remote account `as`; `.sync-remote.json`
-is their list (`{ servers: [...] }`, each entry marked `active`). A file holding one pairing rather
-than a list reads as that pairing, active; an entry marked `main` reads as marked `active`; an entry
-with no `as` is the local account's own on that server.
-
-- **A link is (host, account), and its id is derived from both** (`linkId`: the first 10 hex of a
-  sha256), never stored: a server renamed under `currentStudioUrl` keeps every id in step, and the pages,
-  the workspace records and the routes all name a link by it. Two accounts on one server are two links;
-  the same account again replaces its own link's token.
-- **Exactly one link is active while the list is not empty**, and everything that talks to a server talks
-  to it: live sync (`STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN`, and the one entry of `STUDIO_SYNC_SERVERS`
-  with its id and `as`), the libraries, the surfaces that compare themselves with "the" remote
-  (`remoteOf`: the médiathèque's server copy, the page forward, favorites, practice and rehearsal
-  publications, a moment's consolidation), the server engines listed beside the machine's own, and the
-  machine's engine itself (below). One source of "the server" is what keeps a page from opening one
-  server's files under another account's identity.
-- **The other saved links are named, not used** (`STUDIO_SYNC_HIDDEN`): their workspaces stay on disk,
-  hidden and not syncing, and come back when their server is active again
-  (`packages/file-service/docs/liveCapture.md`, "One server at a time"). Each link is marked `home` when
-  it is its host's local-account link, which is the link a workspace recorded before accounts belongs to.
-- **Adding a server makes it the active one** — a pairing, or `PUT /api/sync/remote` — and keeps the
-  others saved. `POST /api/sync/remote/active` (`{ id }`, or a `url` naming that server's first link)
-  switches; `DELETE /api/sync/remote?id=` forgets one link, `?url=` every link on a server, and nothing
-  every one. Forgetting the active link makes the next saved one active. Each of them restarts the
-  account's service, which is how sync moves to the new link.
+Machines on an older k7 pair by sending their provider access token to `POST /api/sync/pair/direct`
+(`../directPair.ts`), which a server mounts only when `STUDIO_PAIR_CLIENTS` names the clients it takes
+tokens from (`PAIR_CLIENTS` in the hosted stack's `.env`). The server trusts its own provider's word and
+nothing the caller says: the issuer must be its own, the email UserInfo's and verified, the client one
+of the list (introspection's, else UserInfo's `azp`, `client_id` or sole `aud`). Every refusal is the
+same `401`, the reason in the server's log; five attempts a minute per address, then `429`.
 
 ## The engine follows the account
 
@@ -179,11 +64,9 @@ The supervisor keeps one token per origin, and the engine is listed at the ACTIV
 change of the saved servers is compared before and after (`engineMoves` in `../syncRemote.ts`): the
 server the active link left is unlisted (`onForgotten(origin)`, `weburi.remove`), and the active link's
 server is listed with its token when that token changed (`onPaired(origin, token)`, `weburi.pair`,
-`apps/k7/backend/src/localEngine/followPairings.ts`). Another account on the same server hands the
-engine that account's token; forgetting a server that is not active moves nothing. A second add of the
-active server answers 409 and lists the engine back there with its token — what re-adding a server from
-the engine page means after the engine was removed from it alone. The phone's supervisor is handed the
-token by the pairing's answer (`token`, the active link's).
+`apps/k7/backend/src/localEngine/followPairings.ts`). A sign-in as another account hands the engine
+that account's token, and signing out unlists it. The phone's supervisor is handed the token by the
+sign-in's answer (`token`, the link's).
 
 The token is the sync's: one device of the account's list, so revoking that device on the server ends
 both the sync and the ownership. The active servers are listed once, when the backend first starts (a
@@ -201,6 +84,8 @@ its file is left in place, as are the workspaces it brought down, which stay lis
 nothing. The engines that heartbeat to the server are its accounts' to drive as they always are
 (`packages/engine-registry/docs/ownership.md`). What a server does take is a device's pairing:
 
+- **A machine's sign-in is sent a code, with no page to confirm**, once the person signed in there in the
+  last five minutes (above). A return that is neither loopback nor a phone app's scheme is refused.
 - **The token is minted on a click of the server's own page when the return is another server's https**
   (`../pairConsent.ts`, `isServerReturn`). A loopback return reaches the machine that asked, but an
   https one reaches whoever wrote the link: without the click, a link sent to someone signed in there
