@@ -1500,6 +1500,7 @@
   "record.nothing": "nothing was recorded",
   "record.pictureKept": "the picture was not uploaded ({message}) — saved to your downloads as {name}",
   "record.saved": "recording filed",
+  "record.apart": "this browser cannot join the picture to the sound: they are filed apart, side by side",
   "record.failed": "the recording could not be filed: {message}",
   "status.usage": "usage: {syntax}",
   "status.videoSilent": "nothing feeds RENDER's audio input, so the video is exported silent — wire MIX into RENDER#audio for its sound",

@@ -53,23 +53,33 @@ draws the project's frame a second time, **off screen**, on a driver that never 
 
 ## Filing it
 
-On stop the page waits for the engine to close its take, uploads its picture into the project's
+On stop the page waits for the engine to close its take, then **joins the two itself**
+(`packages/ui-eyes/src/joinTake.ts`): the picture's packets copied as its `MediaRecorder` encoded
+them, the engine's wav read through the project's media route and encoded to Opus by WebCodecs,
+one WebM streamed to a scratch file on disk as it is made. It uploads that into the project's
 `clips/` — the record directory the engine writes its takes into — and runs
-`project record save <take.wav|none> [<picture.webm>]` (`packages/commands/commands.yaml`). The file
-service, which runs on the engine's machine and holds both files, files them
+`project record save <take.wav|none> [<picture.webm>]` (`packages/commands/commands.yaml`). The
+file service, which runs on the engine's machine, files what it is handed
 (`packages/file-service/src/recorderSave.ts`):
 
 | what was recorded | what is filed |
 |---|---|
 | the sound | the engine's wav |
-| the sound and a picture | one `.webm`: the picture copied, the sound encoded to Opus by ffmpeg |
+| the sound and a picture | one `.webm`, joined by the page |
 | a picture, with nothing reaching `OUT` | the picture as recorded |
+| both, in a browser that cannot encode Opus | the wav and the picture, two recordings side by side |
 
+- **Joined in the browser, not with ffmpeg.** The page already holds the picture and already ships
+  the muxer the video export uses (mediabunny); the machine running the file service — a laptop, a
+  phone — is not guaranteed a binary it would need for this one job. The picture is copied, never
+  re-encoded: only the sound is, which costs a few seconds per hour of take.
+- **The join is streamed to disk**, in the origin's private file system as a picture lane's take
+  is: an hour of picture is gigabytes a tab should not hold.
 - **Both paths are CHECKED** against the project's record directory before anything is opened:
   they come from a browser, and a browser naming any file on the machine is what the check is for.
 - **The take is stamped with its own time**, the wav's mtime, not with now: the médiathèque files by
   day, and a take filed an hour later belongs to the hour it was played.
-- **The engine's take is cleared only once filed.** A refused save — no médiathèque on this machine,
-  no ffmpeg for a take with a picture — leaves the take where it is and says why; the uploaded
-  picture is removed only with a filed recording.
+- **The engine's take is cleared only once filed.** A refused save — no médiathèque on this machine —
+  leaves the take where it is and says why; the uploaded picture is removed only with a filed
+  recording.
 - **A picture that could not be uploaded goes to the downloads**, since it cannot be recorded again.

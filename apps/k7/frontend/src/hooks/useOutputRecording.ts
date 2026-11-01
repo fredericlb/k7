@@ -5,6 +5,7 @@
 // See packages/song/docs/outputRecording.md.
 
 import type { EngineStore } from "@studio/engine-browser/store";
+import { mediaUrl } from "@studio/project-shell/fileApi";
 import { OUTPUT_RECORDER_ID } from "@studio/song-schema/moduleTypes";
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import type { RealtimeDriver } from "@studio/ui-eyes/realtime";
@@ -19,7 +20,7 @@ import { api } from "../api";
 import { downloadBlob } from "../downloadBlob";
 import { m } from "../paraglide/messages.js";
 import { projectDir } from "../projectPaths";
-import { openSpool, type Spool } from "../takeSpool";
+import { openScratch, openSpool, type Spool } from "../takeSpool";
 import { extForMime, fileStamp, pickVideoMime } from "../videoTake";
 
 /** The frame rate the picture is captured at: the viewport's own would be the compositor's, which follows the screen. */
@@ -63,6 +64,32 @@ async function pictureOf(
         .then((x) => x.default(blob, ms, { logger: false }))
         .catch(() => blob)
     : blob;
+}
+
+/** The picture with the engine's take joined under it, written to disk as it is made; null when this browser cannot. */
+async function joinedTake(
+  picture: Blob,
+  wav: string,
+  project: string | null,
+): Promise<{ blob: Blob; discard: () => void } | null> {
+  // Fetched at the stop, with the muxer: the one moment it is needed.
+  const { canJoinTake, joinTake } = await import("@studio/ui-eyes/joinTake");
+  if (!(await canJoinTake())) return null;
+  const base = projectDir(project);
+  // The take is in the project's `clips/`, its record directory, under the name the engine gave it.
+  const name = wav.split(/[\\/]/).pop() ?? "";
+  const scratch = await openScratch();
+  try {
+    await joinTake({
+      picture,
+      sound: mediaUrl(`${base ? `${base}/` : ""}clips/${name}`),
+      writable: scratch.writable,
+    });
+    return { blob: await scratch.file("video/webm"), discard: scratch.discard };
+  } catch {
+    scratch.discard();
+    return null;
+  }
 }
 
 export function useOutputRecording(opts: {
@@ -169,25 +196,34 @@ export function useOutputRecording(opts: {
       setDrawPicture(false);
       const wav = audio && take.sounding ? await closedTake(take.takes) : null;
       if (!wav && !picture) return say(m["record.nothing"]());
+      // Joined here, in the browser: the file service files one video, and needs no ffmpeg to.
+      const joined =
+        picture && wav ? await joinedTake(picture, wav, dir) : null;
+      if (picture && wav && !joined) say(m["record.apart"]());
+      const filed = joined?.blob ?? picture;
       let video: string | null = null;
-      if (picture) {
-        const name = `output-${fileStamp(new Date())}${extForMime(picture.type || undefined)}`;
+      if (filed) {
+        const name = `output-${fileStamp(new Date())}${extForMime(filed.type || undefined)}`;
         const base = projectDir(dir);
         try {
           await api.uploadWithProgress(
             `${base ? `${base}/` : ""}clips`,
             name,
-            picture,
+            filed,
           );
           video = `clips/${name}`;
         } catch (e) {
           // A picture cannot be played again: unfiled, it goes to the disk rather than nowhere.
-          downloadBlob(picture, name);
+          downloadBlob(filed, name);
           say(m["record.pictureKept"]({ message: (e as Error).message, name }));
         }
       }
-      const line = `project record save ${JSON.stringify(wav ?? "none")}${video ? ` ${JSON.stringify(video)}` : ""}`;
+      // The take rides along only when it was not joined into the picture.
+      const sound = joined ? null : wav;
+      if (!sound && !video) return say(m["record.nothing"]());
+      const line = `project record save ${JSON.stringify(sound ?? "none")}${video ? ` ${JSON.stringify(video)}` : ""}`;
       const { output, refused } = await api.command(line, { want: [] });
+      joined?.discard();
       const said = output.join("  ·  ");
       if (refused) return say(said);
       take.spool?.discard();
