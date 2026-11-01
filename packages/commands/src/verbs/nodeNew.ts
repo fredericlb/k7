@@ -1,7 +1,7 @@
 // nodeNew.ts — making nodes and modules: `node new`, `node insert` on an arrow, and the
 // module verbs (create, own, fork, clone). See docs/verbs.md.
 
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { forkIntoAccount } from "@studio/song/accountFork";
 import { chainNodeName } from "@studio/song/chainGraphEdit";
 import {
@@ -41,6 +41,7 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import type { SidHandler } from "../commands.ts";
+import { canonicalTarget } from "./moduleCase.ts";
 import { splitWords, takeSpawnAt } from "./shared.ts";
 
 const isMasterRun = (before: string, after: string): boolean =>
@@ -194,7 +195,14 @@ export const NODE_NEW_VERBS: Record<string, SidHandler> = {
       h.refuse([usage]);
       return;
     }
-    const [target, ...rest] = parts;
+    // Case never picks the module: `io/MiDi` is `io/MIDI`, and the ref riding on the line is read the same way.
+    const folderOf = (c: string) =>
+      dirname(localModuleFolder(h.songPath, c, "_"));
+    const [target, ...rest] = parts.map((p, i) =>
+      i === 0 || p.includes("/")
+        ? canonicalTarget(p, h.baseModules, folderOf)
+        : p,
+    );
     // A whole ref: the node extends it as it stands, with no workspace module scaffolded over it.
     if (target.startsWith("@")) {
       if (rest.length > 1 || rest.some((p) => p.includes("/"))) {
