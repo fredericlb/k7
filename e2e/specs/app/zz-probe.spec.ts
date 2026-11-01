@@ -32,6 +32,7 @@ test("probe live-video recording", async ({ k7 }) => {
   await page.getByRole("button", { name: "Record the output", exact: true }).click({ timeout: 60_000 });
   await page.waitForTimeout(4_000);
   console.log("during:", await page.evaluate(() => JSON.stringify((window as never as Record<string, unknown>).__log)));
+  console.log("offscreen:", await page.evaluate(() => [...document.querySelectorAll("div")].filter((d) => d.style.position === "fixed" && Number.parseFloat(d.style.left) < -1000).map((d) => `${d.style.left} ${d.style.width} html=${d.innerHTML.slice(0, 300)}`).join(" || ")));
   console.log("canvases:", await page.evaluate(() => [...document.querySelectorAll("canvas")].map((c) => `${c.width}x${c.height} ${c.getBoundingClientRect().left}`).join(" | ")));
   await page.getByRole("button", { name: "Stop and file the recording", exact: true }).click();
   await page.waitForTimeout(8_000);
