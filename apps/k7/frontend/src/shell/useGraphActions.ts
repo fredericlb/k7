@@ -184,23 +184,15 @@ export function useGraphActions({
     },
     [baseModules, prewriteCommand, offerSpawnAt, setModulePicker],
   );
-  // Right-click on empty canvas: the same picker, but the pick has nowhere to be spliced.
+  // Right-click on empty canvas: the same picker, opened even before the catalogue lands — its inputs and curves need none.
   const placeInGraph = useCallback(
     (
       x: number,
       y: number,
       at: { x: number; y: number } | undefined,
       nameFor: (module: string) => string,
-    ) => {
-      if (!baseModules.length) {
-        // No catalogue to pick from: the person names what to create, and `node new` puts it in the graph.
-        prewriteCommand("node new ");
-        offerSpawnAt(at);
-        return;
-      }
-      setModulePicker({ info: null, x, y, at, nameFor });
-    },
-    [baseModules, prewriteCommand, offerSpawnAt, setModulePicker],
+    ) => setModulePicker({ info: null, x, y, at, nameFor }),
+    [setModulePicker],
   );
   const onModulePick = useCallback(
     (pick: ModulePick) => {

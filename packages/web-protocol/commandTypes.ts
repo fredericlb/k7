@@ -22,6 +22,7 @@ export type ArgProvider =
   | "baseModules"
   | "engineModules"
   | "categories"
+  | "moduleTargets"
   | "chains"
   | "clipTargets"
   // One of the origin's libraries, by name — what `library upgrade` moves the pin of.

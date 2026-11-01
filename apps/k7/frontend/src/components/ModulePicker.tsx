@@ -279,6 +279,19 @@ export function searchModules(
     }));
 }
 
+/** The picker's own entries a search reaches too — an input is found by `midi` as a catalogue module is by its name. */
+export function searchBuiltins(query: string): TreeNode<ModulePick>[] {
+  const ql = query.trim().toLowerCase();
+  if (!ql) return [];
+  return [...(INPUT_BRANCH.children ?? []), ...(CURVE_BRANCH.children ?? [])]
+    .filter((n) =>
+      [n.label, n.entry?.ref ?? "", n.entry?.name ?? ""].some((s) =>
+        s.toLowerCase().includes(ql),
+      ),
+    )
+    .map((n) => ({ ...n, key: `s:${n.key}` }));
+}
+
 /** The `+` on a graph arrow: browse namespace → type → category → module, or search. */
 export function ModulePicker({
   x,
@@ -298,7 +311,7 @@ export function ModulePicker({
       x={x}
       y={y}
       tree={[...buildTree(baseModules), INPUT_BRANCH, CURVE_BRANCH]}
-      search={(q) => searchModules(baseModules, q)}
+      search={(q) => [...searchBuiltins(q), ...searchModules(baseModules, q)]}
       searchLimit={SEARCH_LIMIT}
       placeholder={msg["module.search"]()}
       emptyLabel={msg["module.noMatch"]()}

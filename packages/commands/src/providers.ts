@@ -23,7 +23,9 @@ import { alternativesOf } from "@studio/song-schema/alternatives";
 import { stripDocExt } from "@studio/song-schema/docExt";
 import {
   completionOrder,
+  IO_MODULES,
   isEngineRef,
+  isIoSource,
   type ModuleStatus,
   moduleStatusOf,
 } from "@studio/song-schema/moduleTypes";
@@ -75,6 +77,16 @@ export const PROVIDERS = {
     h.songPath ? libraryAssemblies(h.songPath).map((a) => a.ref) : [],
   // The module category folders, each with a trailing "/" so completing leaves you at the name.
   categories: () => Object.keys(MODULE_TYPES).map((c) => `${c}/`),
+  /** What `node new` makes a node OF: this project's modules and the io sources whole, then the folders for a new name. */
+  moduleTargets: (h) => [
+    ...h.baseModules.filter(
+      (r) => !r.startsWith("@") && r.split("/")[0] in MODULE_TYPES,
+    ),
+    ...Object.entries(IO_MODULES)
+      .filter(([, m]) => isIoSource(m.io))
+      .map(([name]) => `io/${name}`),
+    ...Object.keys(MODULE_TYPES).map((c) => `${c}/`),
+  ],
   /** The project's blocks plus the INHERITED refs, minus `@engine` — see docs/completions.md. */
   modules: (h) =>
     completionOrder(
@@ -281,6 +293,7 @@ export const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   baseModules: "module",
   engineModules: "module",
   categories: "module",
+  moduleTargets: "module",
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
@@ -326,6 +339,8 @@ export const PROVIDER_HINT: Record<ProviderName, string> = {
     "a plugin the engine scanned (@engine/<slug>) — it has no folder until one is given",
   categories:
     "<category>/<name> — the category decides the module's kind and its ports",
+  moduleTargets:
+    "a module of this project or an io source (io/MIDI), or <category>/ to name a new one",
   markerNames: "a marker of this project",
   sequenceFiles: "a sequence of this project (sequences/<name>.k7x)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
