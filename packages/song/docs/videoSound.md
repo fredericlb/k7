@@ -78,9 +78,11 @@ the phone is Android, so a clip pointing the engine at an `.mp4` would play on a
 silent on both of those, without an error that says why.
 
 So the sound is decoded ONCE, into a float WAV beside the video, and that is what the engine is
-handed. `@studio/audio-analysis`'s `extractSound` does it with **ffmpeg first**, because a
-browser's own recordings are WebM, which neither CoreAudio nor Media Foundation reads. The
-engine's `--decode` is the fallback, for a desktop with no ffmpeg (`packages/audio-analysis/docs/analysis.md`).
+handed. `@studio/audio-analysis`'s `extractSound` does it with **k7's WebAssembly decoder
+first**, which reads the sound of a camera's mp4 or .mov and of a browser's WebM on every host —
+neither CoreAudio nor Media Foundation reads WebM, and Linux reads no container at all. ffmpeg
+is asked only for a file the module cannot open, and the engine's `--decode` after it, for a
+desktop with neither (`packages/audio-analysis/docs/analysis.md`).
 
 ## `sound:` is written on the clip, not derived from its name
 

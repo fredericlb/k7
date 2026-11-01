@@ -1,7 +1,7 @@
 // extract.ts — a media file's first audio stream, written out as a 32-bit float WAV at its own
-// rate and channel count. ffmpeg first, since it opens every container a browser records; the
-// engine's `--decode` when there is no ffmpeg, which reads video containers on macOS and Windows
-// only. Nothing is resampled or mixed down. See docs/analysis.md.
+// rate and channel count. The WebAssembly decoder first, which reads a camera's mp4 or .mov and a
+// browser's webm on every host; ffmpeg only for a file it cannot open; the engine's `--decode`
+// last, when there is no ffmpeg either. Nothing is resampled or mixed down. See docs/analysis.md.
 
 import { closeSync, openSync, renameSync, rmSync, writeSync } from "node:fs";
 import {
@@ -10,6 +10,7 @@ import {
   NoFfmpegError,
   type StreamFacts,
 } from "./decode";
+import { WasmOpenError } from "./decodeWasm";
 
 const HEADER = 44;
 
@@ -77,15 +78,17 @@ export async function extractSound(
   { engineBin = null, signal }: DecodeOptions = {},
 ): Promise<StreamFacts | null> {
   try {
-    // With an engine at hand it is the fallback, since it reads the video containers WebAssembly does not.
+    // WebAssembly first on every host: the engine reads video containers on macOS and Windows only.
     return await extractWith(source, dest, {
       engineBin: null,
-      wasm: !engineBin,
+      wasm: true,
       signal,
     });
   } catch (e) {
     if (/no audio stream/.test((e as Error).message)) return null;
-    if (!(e instanceof NoFfmpegError) || !engineBin) throw e;
+    // A file neither decoder here opened — WebAssembly could not, and there is no ffmpeg — goes to the engine.
+    const unopened = e instanceof NoFfmpegError || e instanceof WasmOpenError;
+    if (!unopened || !engineBin) throw e;
   }
   return extractWith(source, dest, { engineBin, signal });
 }
