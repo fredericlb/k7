@@ -372,18 +372,22 @@ step with the origin's, and the phone's libraries follow the origin's read-only
 (`packages/file-hub/docs/syncRelay.md`, "Pairing through the browser"), with the same rules — once per
 account per run, never offered on its own to the local user, and the link taking whichever account the
 browser confirms on the origin's page, which asks when it is not the phone's own. `SyncPairing.kt` keeps
-what only the app can do: it **asks first**, in a dialog over the app ("Sync this phone's workspaces
-with app.k7.rocks?"), since the browser coming up on its own reads as a bug, opens the browser, and says
-how it ended — paired as which account, already linked, not stored, not finished — in a toast. The
-phone's supervisor is handed the token of the link its engine is owned by on that origin. A pairing
-that lands reloads k7's view: the page read the server list before the link existed, and nothing else
-tells it.
+what only the app can do: open the browser, and say how it ended — paired as which account, already
+linked, not stored, not finished — in a toast. The phone's supervisor is handed the token of the link
+its engine is owned by on that origin.
 
-- **No browser when the phone's sign-in is proof enough.** The backend's POST tries the server's
-  direct route first (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser"); an answer
-  that has already ended is said at once, and the question names the account rather than the browser
-  (`direct` in the offer). The view's session shares the browser sign-in's provider token through the
-  handoff (`apps/k7/backend/docs/handoff.md`).
+- **Signing in is the pairing — one authorization, not two.** The person named the server in the
+  sign-in popin and proved who they are to its provider; asking again whether to sync with it, then
+  loading k7 a second time once it did, is a second consent for the same act. So the handoff's redeem
+  returns through the backend's `GET /api/sync/remote/pair/sign-in` (`SyncPairing.signInReturn`),
+  which pairs by the server's direct route (`packages/file-hub/docs/syncRelay.md`, "Pairing without
+  the browser") before k7's page loads: the page reads a server list that already holds the link, and
+  the pairing, marked `atSignIn`, reloads nothing. The view's session shares the browser sign-in's
+  provider token through the handoff (`apps/k7/backend/docs/handoff.md`).
+- **Only a browser coming up on its own is asked first.** A server that refuses the sign-in's token
+  pairs through its own page, and the app asks before opening it ("Sync this phone's workspaces with
+  app.k7.rocks?"), since a browser appearing unasked reads as a bug. That pairing lands after the
+  page read the server list, so it reloads k7's view.
 - **The token comes back on loopback, not through the app's scheme.** The origin hands a device
   token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), and
   that return is the backend's own fixed port; a second rule for phones would be a second hole to keep shut.

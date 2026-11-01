@@ -91,6 +91,13 @@ them; a direct attempt refused afterwards opens the server's page then, and a br
 late tab is told so (`account.status.pairBlocked`), the next click opening it first. The answer to the
 POST is the pairing already ended (`url: null`), so the phones skip their browser the same way.
 
+**A phone pairs as it signs in.** Its sign-in names the server, so the handoff's redeem returns through
+`GET /api/sync/remote/pair/sign-in?origin=&name=&next=`, which pairs directly and then sends the view on
+to `next` — a path on this backend, never another site. It never fails the sign-in: refused, or with no
+direct route, it only redirects, and the phone offers the browser's way once the page is up. The record
+it leaves is marked `atSignIn`, so the app says the ending without reloading a page that loaded after
+the link (`engine/k7-runtime/docs/android.md`, "Signing in is the pairing").
+
 ## Pairing through the browser is the machine's backend's
 
 A computer under the tray, the Android app and the iPhone app pair the same way, and the way is written once, in

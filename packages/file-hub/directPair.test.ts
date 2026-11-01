@@ -206,9 +206,23 @@ async function machine(serverUrl: string, token: string | null) {
         headers: { "x-test-session": EVE },
       })
     ).json()) as { direct: boolean; directHosts: string[] };
+  // The phone's sign-in coming back through the pairing, as its view follows the redeem's redirect.
+  const signIn = async (query: string) => {
+    const r = await fetch(`${url}/api/sync/remote/pair/sign-in?${query}`, {
+      headers: { "x-test-session": EVE },
+      redirect: "manual",
+    });
+    const offered = (await (
+      await fetch(`${url}/api/sync/remote/pair`, {
+        headers: { "x-test-session": EVE },
+      })
+    ).json()) as { pairing: { phase: string; atSignIn: boolean } | null };
+    return { status: r.status, to: r.headers.get("location"), offered };
+  };
   return {
     post,
     offer,
+    signIn,
     restarted,
     paired,
     home: join(dataRoot, accountKey(EVE)),
@@ -281,6 +295,28 @@ describe("the machine's side", () => {
     expect(
       (await m.post({ origin: "o.test", another: true })).url,
     ).toBeTruthy();
+    expect(readRemotes(m.home)).toEqual([]);
+  });
+});
+
+describe("pairing as the phone signs in", () => {
+  it("pairs the server the sign-in named before the page loads, and leaves the ending for the app", async () => {
+    const s = await server({ good: EVE_WORD });
+    const m = await machine(s.url, "good");
+    const a = await m.signIn("origin=o.test&name=Pixel&next=%2Fworkspaces");
+    expect(a).toMatchObject({ status: 303, to: "/workspaces" });
+    expect(readRemotes(m.home)).toMatchObject([{ as: EVE, active: true }]);
+    expect(a.offered.pairing).toMatchObject({
+      phase: "paired",
+      atSignIn: true,
+    });
+  });
+
+  it("goes on to the page whatever the pairing did, and never to another site", async () => {
+    const s = await server();
+    const m = await machine(s.url, "expired");
+    const a = await m.signIn("origin=o.test&next=%2F%2Fevil.test");
+    expect(a).toMatchObject({ status: 303, to: "/" });
     expect(readRemotes(m.home)).toEqual([]);
   });
 });

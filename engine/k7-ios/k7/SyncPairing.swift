@@ -1,9 +1,9 @@
-// SyncPairing.swift — pair the account signed in on the phone's own studio with the ORIGIN's relay, once. The pairing
-// itself is the phone's backend's (packages/file-hub/pairRoutes.ts, Android's and the desktop's too): this asks it
-// whether to offer one, asks the person, opens the URL it answers when it answers one (the backend pairs at once when
-// the phone's sign-in is proof enough), and says how it ended. The browser is an ASWebAuthenticationSession over the app; the token comes back to the backend's own port,
-// and the app closes the sheet itself once the backend says the pairing ended. The link takes whichever account the
-// browser confirms on the server, the phone's own or another. See engine/k7-runtime/docs/ios.md.
+// SyncPairing.swift — pair the account signed in on the phone's own studio with the ORIGIN's relay. Signing in IS the
+// pairing: the sign-in returns through the backend (`signInReturn`), which pairs the server the popin named before k7's
+// page loads, when that server takes the sign-in's token. Otherwise this asks the person, opens the URL the backend
+// answers in an ASWebAuthenticationSession over the app, and says how it ended; the token comes back to the backend's
+// own port, and the app closes the sheet once the backend says the pairing ended. The pairing itself is
+// packages/file-hub/pairRoutes.ts, Android's and the desktop's too. See engine/k7-runtime/docs/ios.md.
 
 import AuthenticationServices
 import Foundation
@@ -37,6 +37,15 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         guard u.scheme == "https" || (u.scheme == "http" && loopback) else { return }
         let origin = u.port.map { "\(u.scheme!)://\(host):\($0)" } ?? "\(u.scheme!)://\(host)"
         UserDefaults.standard.set(origin, forKey: serverKey)
+    }
+
+    /// RFC 3986's unreserved characters, ASCII only: everything else in a query value is percent-encoded.
+    static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+
+    /// Where the sign-in's redeem sends the view: through the backend, which pairs the server named at sign-in before `returnTo` loads.
+    static func signInReturn(_ returnTo: String) -> String {
+        let q = { (v: String) in v.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "" }
+        return "\(pairApi)/sign-in?origin=\(q(syncOrigin))&name=\(q(deviceName()))&next=\(q(returnTo))"
     }
 
     /// Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run.
@@ -81,11 +90,9 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         if !fresh { return }
         // Offered only while no server is saved: adding and switching servers is the settings' (ios.md).
         if (offer["links"] as? Int ?? 0) > 0 { return }
-        // The backend pairs at once when the phone's sign-in is proof enough for that server (packages/file-hub/docs/syncRelay.md).
-        let question = offer["direct"] as? Bool == true
-            ? "Sync this phone's workspaces with \(Self.syncHost) as \(email)?"
-            : "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one."
-        if !Dialogs.ask("Sync", question, yes: "Sync", no: "Not now") { return }
+        // Signing in was the yes: only a browser coming up on its own is asked first (packages/file-hub/docs/syncRelay.md).
+        let question = "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one."
+        if offer["direct"] as? Bool != true && !Dialogs.ask("Sync", question, yes: "Sync", no: "Not now") { return }
         let body: [String: Any] = ["origin": Self.syncOrigin, "name": Self.deviceName()]
         guard let started = local("POST", Self.pairApi, cookie: cookie, body: body),
               let pairing = started["pairing"] as? [String: Any] else {

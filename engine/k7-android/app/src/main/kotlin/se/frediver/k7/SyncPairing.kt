@@ -1,9 +1,9 @@
-// SyncPairing.kt — pair the account signed in on the phone's own studio with the ORIGIN's relay, once. The pairing
-// itself is the phone's backend's (packages/file-hub/pairRoutes.ts, the desktop's too): this asks it whether to offer
-// one, asks the person, opens the URL it answers in a browser when it answers one (the backend pairs at once when the
-// phone's sign-in is proof enough), and says how it ended. The browser brings the token back to the backend's own
-// port, and the backend keeps the pairing under way on disk, so a process killed behind the browser is told the
-// ending at its next start. The link takes whichever account the browser confirms on the server. See docs/android.md.
+// SyncPairing.kt — pair the account signed in on the phone's own studio with the ORIGIN's relay. Signing in IS the
+// pairing: the sign-in returns through the backend (`signInReturn`), which pairs the server the popin named before
+// k7's page loads, when that server takes the sign-in's token. Otherwise this asks the person, opens the browser on
+// the URL the backend answers, and says how it ended; the backend keeps a pairing under way on disk, so a process
+// killed behind the browser is told the ending at its next start. The pairing itself is packages/file-hub/pairRoutes.ts,
+// the desktop's too. See docs/android.md.
 
 package se.frediver.k7
 
@@ -58,6 +58,14 @@ object SyncPairing {
 
     private fun host(context: Context): String = Uri.parse(origin(context)).host ?: origin(context)
 
+    /** Where the sign-in's redeem sends the view: through the backend, which pairs the server named at sign-in before `returnTo` loads. */
+    fun signInReturn(context: Context, returnTo: String): String =
+        Uri.parse("$PAIR_API/sign-in").buildUpon()
+            .appendQueryParameter("origin", origin(context))
+            .appendQueryParameter("name", deviceName())
+            .appendQueryParameter("next", returnTo)
+            .build().toString()
+
     /** Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run. */
     fun pairIfNeeded(context: Context, cookie: String?, onPaired: () -> Unit) {
         if (cookie.isNullOrEmpty()) return
@@ -90,10 +98,9 @@ object SyncPairing {
         if (synchronized(this) { !asked.add(email) }) return
         // Offered only while no server is saved: adding and switching servers is the settings' (android.md).
         if (offer.optInt("links") > 0) return
-        // The backend pairs at once when the phone's sign-in is proof enough for that server (packages/file-hub/docs/syncRelay.md).
-        val question = if (offer.optBoolean("direct")) "Sync this phone's workspaces with ${host(context)} as $email?"
-            else "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one."
-        if (!ask(context, question, "Sync")) return
+        // Signing in was the yes: only a browser coming up on its own is asked first (packages/file-hub/docs/syncRelay.md).
+        val question = "Sync this phone's workspaces with ${host(context)}?\n\nThe browser opens to confirm the account there: $email, or another one."
+        if (!offer.optBoolean("direct") && !ask(context, question, "Sync")) return
         val body = JSONObject().put("origin", origin(context)).put("name", deviceName())
         val started = local("POST", PAIR_API, cookie, body)
             ?: return tell(context, "This phone's sync pairing could not start. k7 will offer it again at its next start.")
@@ -125,8 +132,8 @@ object SyncPairing {
                 // The same token lists this phone's engine at that studio, which may admit paired machines only.
                 SupervisorHost.rememberDeviceToken(context, p.text("origin"), p.text("token"))
                 tell(context, "This phone now syncs its workspaces with $host as ${account(p)}.")
-                // The page read the server list before the link existed: it reads it again.
-                main.post(onPaired)
+                // The page read the server list before the link existed: it reads it again, unless the sign-in paired before it loaded.
+                if (!p.optBoolean("atSignIn")) main.post(onPaired)
             }
             // That account on that server is linked already: the link it has stays.
             "alreadyLinked", "otherAccount" ->

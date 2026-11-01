@@ -185,9 +185,10 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
     /// In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12).
     private func signIn() {
         guard let at = studio else { return }
+        // The sign-in and the server's pairing are one act: the redeem returns through the pairing (SyncPairing.signInReturn).
         AuthHandoff.start(studio: at, returnTo: { [weak self] in
-            guard let u = self?.views["k7"]?.url, let parts = URLComponents(url: u, resolvingAgainstBaseURL: false) else { return "/" }
-            return parts.path + (parts.query.map { "?\($0)" } ?? "")
+            guard let u = self?.views["k7"]?.url, let parts = URLComponents(url: u, resolvingAgainstBaseURL: false) else { return SyncPairing.signInReturn("/") }
+            return SyncPairing.signInReturn(parts.path + (parts.query.map { "?\($0)" } ?? ""))
         }, redeemed: { [weak self] to in
             // Straight into the view: a `navigate` to the app already shown changes nothing on the page.
             self?.views["k7"]?.load(URLRequest(url: to))

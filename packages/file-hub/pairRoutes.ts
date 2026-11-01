@@ -113,6 +113,7 @@ function viewOf(c: PairContext, r: PairRecord) {
     origin: r.origin,
     host: hostOf(r.origin),
     another: r.another === true,
+    atSignIn: r.atSignIn === true,
     phase: r.phase,
     until: r.until,
     browserAs: r.browserAs ?? null,
@@ -121,6 +122,32 @@ function viewOf(c: PairContext, r: PairRecord) {
     token: link?.active ? link.token : null,
   };
 }
+
+/** Pair `email` with `origin` by the server's direct route and store the link; null when the route refused or is absent. */
+async function pairAtOnce(
+  c: PairContext,
+  req: Request,
+  email: string,
+  origin: string,
+  name: string,
+  atSignIn = false,
+): Promise<PairRecord | null> {
+  const direct = await pairDirect(c.direct, req, origin, name);
+  if (!direct) return null;
+  const p = c.store.begin(email, origin, false, atSignIn);
+  const phase = await storeLink(
+    c,
+    email,
+    origin,
+    direct.identity,
+    direct.token,
+  );
+  return c.store.settle(p.state, phase, direct.identity) ?? p;
+}
+
+/** A path on this backend, never another site: where the sign-in's own pairing sends the view on. */
+const localPath = (next: unknown): string =>
+  typeof next === "string" && /^\/(?![/\\])/.test(next) ? next : "/";
 
 export function pairRouter(c: PairContext): Router {
   const r = Router();
@@ -179,21 +206,8 @@ export function pairRouter(c: PairContext): Router {
     // The local user has no account anywhere, so whichever it links is a choice the server's page asks for.
     const choose = another || c.isLocal(req);
     // A signed-in account proves itself to the server with its provider token: no browser, unless refused.
-    const direct = choose
-      ? null
-      : await pairDirect(c.direct, req, origin, name);
-    if (direct) {
-      const p = c.store.begin(email, origin);
-      const phase = await storeLink(
-        c,
-        email,
-        origin,
-        direct.identity,
-        direct.token,
-      );
-      const ended = c.store.settle(p.state, phase, direct.identity) ?? p;
-      return void res.json({ pairing: viewOf(c, ended), url: null });
-    }
+    const ended = choose ? null : await pairAtOnce(c, req, email, origin, name);
+    if (ended) return void res.json({ pairing: viewOf(c, ended), url: null });
     const p = c.store.begin(email, origin, another);
     const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
     res.json({
@@ -206,6 +220,26 @@ export function pairRouter(c: PairContext): Router {
         choose ? { choose } : { as: email },
       ),
     });
+  });
+  // The phone's sign-in returns through here: the server it named is paired before k7's page loads (docs/syncRelay.md).
+  r.get("/sign-in", async (req, res) => {
+    const next = localPath(req.query.next);
+    const email = c.userOf(req);
+    const origin = normalizeServer(String(req.query.origin ?? ""));
+    const name = String(req.query.name ?? "").trim() || "a machine";
+    try {
+      if (
+        email &&
+        origin &&
+        !c.isLocal(req) &&
+        hostOf(origin) !== c.selfHost(req) &&
+        !hostsOf(email).has(hostOf(origin))
+      )
+        await pairAtOnce(c, req, email, origin, name, true);
+    } catch {
+      // A sign-in never fails for its pairing: the app offers the browser's way once the page is up.
+    }
+    res.redirect(303, next);
   });
   const ownedBy = (req: Request, state: string): PairRecord | null => {
     const p = c.store.get(state);
