@@ -36,6 +36,14 @@ describe("providerWord", () => {
     expect((await providerWord(provider(EVE, null), "t"))?.clientId).toBeNull();
   });
 
+  it("takes UserInfo's sole audience when it names no azp, as Authelia's does", async () => {
+    const word = (aud: unknown) =>
+      providerWord(provider({ ...EVE, aud }, null), "t");
+    expect((await word(["desktop"]))?.clientId).toBe("desktop");
+    expect((await word("desktop"))?.clientId).toBe("desktop");
+    expect((await word(["desktop", "other"]))?.clientId).toBeNull();
+  });
+
   it("refuses an inactive token, another subject, an unverified email, a refused token", async () => {
     expect(
       await providerWord(provider(EVE, { active: false }), "t"),

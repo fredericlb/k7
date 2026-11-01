@@ -25,7 +25,11 @@ const list = (raw: string | undefined): string[] =>
 const text = (v: unknown): string | null =>
   typeof v === "string" && v !== "" ? v : null;
 
-/** What the provider says of a token: introspection names its client when this server may ask, else UserInfo's `azp`. */
+/** The one client an `aud` names, as a string or a one-entry list; null for none or several. */
+const soleAudience = (aud: unknown): string | null =>
+  Array.isArray(aud) ? (aud.length === 1 ? text(aud[0]) : null) : text(aud);
+
+/** What the provider says of a token: introspection names its client when this server may ask, else UserInfo's `azp` or sole `aud`. */
 export async function providerWord(
   auth: Provider,
   token: string,
@@ -41,7 +45,7 @@ export async function providerWord(
   if (intro && text(intro.sub) && intro.sub !== sub) return null;
   const clientId = intro
     ? text(intro.client_id)
-    : (text(info.azp) ?? text(info.client_id));
+    : (text(info.azp) ?? text(info.client_id) ?? soleAudience(info.aud));
   return { email, sub, clientId };
 }
 

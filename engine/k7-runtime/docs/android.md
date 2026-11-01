@@ -375,7 +375,9 @@ browser confirms on the origin's page, which asks when it is not the phone's own
 what only the app can do: it **asks first**, in a dialog over the app ("Sync this phone's workspaces
 with app.k7.rocks?"), since the browser coming up on its own reads as a bug, opens the browser, and says
 how it ended — paired as which account, already linked, not stored, not finished — in a toast. The
-phone's supervisor is handed the token of the link its engine is owned by on that origin.
+phone's supervisor is handed the token of the link its engine is owned by on that origin. A pairing
+that lands reloads k7's view: the page read the server list before the link existed, and nothing else
+tells it.
 
 - **No browser when the phone's sign-in is proof enough.** The backend's POST tries the server's
   direct route first (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser"); an answer
