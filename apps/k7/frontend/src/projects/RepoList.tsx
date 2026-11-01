@@ -110,6 +110,7 @@ export function RepoList({
   onChanged,
   sync = null,
   onDownload,
+  importing,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -171,13 +172,19 @@ export function RepoList({
   sync?: WorkspaceSyncStatus | null;
   /** Bring a workspace that is only on the active server down here. */
   onDownload?: (name: string) => Promise<void>;
+  /** Workspaces being imported from the server: listed with the server's, not here, until synced. */
+  importing?: ReadonlySet<string>;
 }) {
   // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
   const [over, setOver] = useState<string | null>(null);
   const now = useMinuteClock();
   const { locale } = useLocale();
   const projectTotal = workspaces.reduce((n, w) => n + w.projects.length, 0);
-  const ordered = examplesLast(workspaces);
+  const ordered = examplesLast(
+    importing?.size
+      ? workspaces.filter((w) => !importing.has(w.name))
+      : workspaces,
+  );
   // Folded unless it is all there is: a new account's page would otherwise open on nothing.
   const [examplesOpen, setExamplesOpen] = useState(false);
   const foldable = workspaces.length > 1;
@@ -391,7 +398,11 @@ export function RepoList({
           ))}
         </ul>
       )}
-      <ServerOnlyList sync={sync} onDownload={onDownload} />
+      <ServerOnlyList
+        sync={sync}
+        onDownload={onDownload}
+        importing={importing}
+      />
     </div>
   );
 }

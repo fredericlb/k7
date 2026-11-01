@@ -13,6 +13,7 @@ import type {
   ProjectSyncState,
   WorkspaceSyncStatus,
 } from "@studio/web-protocol";
+import { BENCH_WORKSPACE } from "./bench.ts";
 import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { LiveCapture } from "./liveCapture.ts";
 import { ConfirmedDir } from "./liveConfirmed.ts";
@@ -130,7 +131,8 @@ export async function workspaceSyncStatus(
         ...(h.room !== h.name ? { room: h.room } : {}),
       })),
       ...rooms
-        .filter((room) => !held.has(room))
+        // The server's bench is hidden as this machine's is: it opens by its address, never from a list.
+        .filter((room) => !held.has(room) && room !== BENCH_WORKSPACE)
         .map((room) => ({
           name: room,
           state: "server" as const,

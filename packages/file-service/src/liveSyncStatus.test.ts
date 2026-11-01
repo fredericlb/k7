@@ -25,7 +25,7 @@ beforeAll(async () => {
     // The band's account on this server holds other rooms than the person's own.
     const workspaces = auth.endsWith("band-token")
       ? ["gig", "setlist"]
-      : ["band", "gig", "Examples"];
+      : ["band", "gig", "Examples", "Banc"];
     res.end(JSON.stringify({ workspaces }));
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -48,7 +48,7 @@ describe("workspaceSyncStatus", () => {
     });
   });
 
-  it("on a paired machine, lists the server's workspaces it lacks, and never Examples", async () => {
+  it("on a paired machine, lists the server's workspaces it lacks, and never Examples nor the bench", async () => {
     process.env.STUDIO_SYNC_URL = `ws://127.0.0.1:${port}/api/sync`;
     process.env.STUDIO_SYNC_TOKEN = "device-token";
     delete process.env.STUDIO_SYNC_SERVERS;

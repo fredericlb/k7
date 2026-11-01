@@ -478,6 +478,8 @@
   "wsync.synced": "Synced with {server}",
   "wsync.local": "On this machine only",
   "wsync.server": "On {server} only",
+  "wsync.importing": "Importing…",
+  "wsync.importSlow": "The workspace is still coming down after half an hour; it keeps syncing in the background.",
   "wsync.download": "Download",
   "wsync.onServerOnly": "on {server} only",
   "downloads.title": "Downloads: {done} of {total} done",
