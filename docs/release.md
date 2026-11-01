@@ -327,15 +327,17 @@ for nothing. It reads the builds through OneDev's API with the job secret `onede
 token of a user who may run k7's jobs.
 
 **The Windows jobs run on a Windows agent through a Remote Shell Executor** — `engine windows` and
-`android` — so nothing is installed per run: Node, Git, CMake, Ninja, the Visual Studio Build Tools,
+`android` — so nothing is installed per run: Node, Git, CMake, Ninja, Rust (rustup's `cargo`, for the
+supervisor), the Visual Studio Build Tools,
 the Android SDK (platform 36, NDK 29.0.14206865, and build tools, whose newest `apksigner` and
 `aapt2` check the APK) and Android Studio's JDK 21 are
 the agent's, under the account its service logs on as. A container would buy isolation at the price of
 MSVC in a Windows container, which is heavier than the machine it would run on, and the APK needs MSVC
 too: JUCE compiles its `juceaide` for the host while cross-compiling, which under Ninja takes `cl.exe`
 on the path (`vcvars64`, found through `vswhere`). The APK job checks the SDK's folders and the JDK
-before it starts, and says which one the agent lacks; `ANDROID_HOME` and `JAVA_HOME` default to Android
-Studio's places when the agent names none.
+before it starts, and says which one the agent lacks. `ANDROID_HOME` defaults to Android Studio's place
+when the agent names none; the JDK is Android Studio's whatever `JAVA_HOME` says, since a machine's own
+may be newer than Gradle takes, and `K7_ANDROID_JDK` names another.
 
 The dependency sources stay on that disk, in `$STUDIO_FETCHCONTENT_DIR` — `%LOCALAPPDATA%\k7-ci\fetch`
 for the engine, `fetch-android` beside it for the APK, so one job never deletes the other's builds while
