@@ -19,6 +19,7 @@ import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import { useWorkspaceImport } from "./useWorkspaceImport";
 import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
@@ -91,6 +92,13 @@ export function ProjectsPane({
     },
     [chosen, onChanged],
   );
+
+  // A server's workspace comes down as a visible job, done once synced (useWorkspaceImport.ts).
+  const importDone = useCallback(() => {
+    onChanged();
+    reloadSync();
+  }, [onChanged, reloadSync]);
+  const imports = useWorkspaceImport(chosen, importDone, setError);
 
   /** A workspace made HERE, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
@@ -277,15 +285,8 @@ export function ProjectsPane({
           shares={shares}
           onChanged={onChanged}
           sync={sync}
-          onDownload={async (name) => {
-            try {
-              await accountFiles.downloadWorkspace(chosen(), name);
-            } catch (e) {
-              setError((e as Error).message);
-            }
-            onChanged();
-            reloadSync();
-          }}
+          onDownload={imports.start}
+          importing={imports.importing}
         />
       )}
     </div>

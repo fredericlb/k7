@@ -478,6 +478,8 @@
   "wsync.synced": "Synchronisé avec {server}",
   "wsync.local": "Sur cette machine seulement",
   "wsync.server": "Sur {server} seulement",
+  "wsync.importing": "Importation…",
+  "wsync.importSlow": "L'espace de travail n'est toujours pas arrivé après une demi-heure ; il continue de se synchroniser en arrière-plan.",
   "wsync.download": "Télécharger",
   "wsync.onServerOnly": "uniquement sur {server}",
   "downloads.title": "Téléchargements : {done} sur {total} terminés",

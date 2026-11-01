@@ -485,6 +485,13 @@ last listed below the others with a Download, since bringing gigabytes of takes 
 person's choice. A machine with no server, and a server, draw no icon: there, every workspace is
 simply here.
 
+**An import is a job you can see** (`useWorkspaceImport.ts`). The Download only links the folder; the
+workspace's history then comes down in the background, which for a big one takes minutes. So the row
+keeps its spinner and says "Importing…", the download manager carries a `workspace` row, and the
+workspace joins the list above only once the status calls it synced: listed earlier, it would open
+half there. The server's bench is never offered, as this machine's is never listed: a bench opens by its
+address.
+
 **The page knows ONE server, the active one.** A machine may have saved several — servers, or accounts
 on one server — but it syncs with one at a time (`packages/file-hub/docs/syncRelay.md`), so the list
 holds the workspaces of this machine alone and of the active server, with no label naming a server, and

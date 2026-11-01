@@ -12,6 +12,7 @@ import {
   CloudUpload,
   Disc3,
   Download as DownloadIcon,
+  FolderDown,
   Loader2,
   type LucideIcon,
 } from "@frediverse/ui/icons";
@@ -39,6 +40,7 @@ const KIND_ICON: Record<DownloadKind, LucideIcon> = {
   engine: AudioLines,
   // A moment going UP to a server to be consolidated there: the one row that is an upload.
   moment: CloudUpload,
+  workspace: FolderDown,
 };
 
 const MB = 1e6;
