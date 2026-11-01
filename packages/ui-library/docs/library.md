@@ -228,6 +228,10 @@ they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
   pairing's token, which names the person. An unpaired backend, the server among them, answers
   from its own store. A server out of reach is an error on the star, not a local list that would
   drift from the others.
+- **…but the paired backend keeps the last lists the server gave**, and answers them, marked
+  `stale`, while the server is away (`kept`, `<prefs>/favorites-kept` and `practice-kept`). A phone
+  in a rehearsal room, or started before its network is up, still sorts its songs into practice and
+  favorites; a star made then fails, since the copy is not the list.
 - **A store of their own, not the preferences file.** The page rewrites the preferences wholesale
   from the copy it read at load, so a list kept there would be put back as it was by any other
   setting changed in the same page. The preferences' old `favorites` field only seeds an account
@@ -237,7 +241,9 @@ they live on its SERVER (`apps/k7/backend/src/media/routes/favorites.ts`):
 - **Stars made on a machine before it was paired go up once**, merged into the server's list, and
   the machine keeps none from then on.
 - The page reads the list again whenever its tab comes back into view, which is when a star made
-  on another device matters. No star is offered before the first read.
+  on another device matters, and retries a read that failed — 5 s, then twice as long each time up
+  to a minute — rather than staying on an empty list until the next. No star is offered before the
+  first read.
 
 A star names a path, so a song moved or renamed loses it.
 

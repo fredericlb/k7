@@ -28,6 +28,8 @@ export interface FavoriteStores {
   key?: ListKey;
   /** Where the server's door for this list is — the favorites' when absent. */
   deviceRoute?: string;
+  /** On a paired machine, the last list its server gave, answered while the server is away. */
+  kept?: PrefsStore<{ list?: string[] }>;
 }
 
 const keyOf = (s: FavoriteStores): ListKey => s.key ?? "favorites";
@@ -163,8 +165,14 @@ export function favoritesRouter(
           if (up.ok) s.own.write(sub, { [keyOf(s)]: [] });
         }
         const got = await callServer(s, server, body?.data);
-        res.status(got.status).json(await got.json());
+        const answer = (await got.json()) as Partial<Record<ListKey, unknown>>;
+        const list = answer[keyOf(s)];
+        // Kept for when the server is away: a phone in a rehearsal room still sorts its songs by the lists.
+        if (got.ok && Array.isArray(list)) s.kept?.write(sub, { list });
+        res.status(got.status).json(answer);
       } catch (e) {
+        const kept = req.method === "GET" ? s.kept?.read(sub)?.list : undefined;
+        if (kept) return res.json({ [keyOf(s)]: kept, stale: true });
         res.status(502).json({
           error: `could not reach ${server.base} for the ${keyOf(s)}: ${(e as Error).message}`,
         });

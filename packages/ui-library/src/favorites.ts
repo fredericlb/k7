@@ -33,6 +33,9 @@ export function isAlbumFolder(
 
 /** What a list call may take: on a paired machine it waits on the server. */
 const FAVORITES_MS = 15_000;
+/** The first retry of a read that failed, doubled each time up to the last. */
+const RETRY_FIRST_MS = 5_000;
+const RETRY_MAX_MS = 60_000;
 
 /** An account's lists of songs and albums: the stars, and what it is practising. */
 export type PathList = "favorites" | "practice";
@@ -81,14 +84,24 @@ function usePathList(kind: PathList, onError: (message: string) => void) {
     setFavorites(current.current);
     setReady(true);
   }, []);
+  // A read that failed is tried again, further apart each time: a phone's network comes up after its page does.
+  const retry = useRef<{ timer?: ReturnType<typeof setTimeout>; wait: number }>(
+    { wait: RETRY_FIRST_MS },
+  );
   // Read again whenever the tab comes back, so a star made on another device shows; never over a write in flight.
   const reload = useCallback(() => {
     if (pending.current) return;
+    clearTimeout(retry.current.timer);
     listCall(kind)
       .then((list) => {
+        retry.current.wait = RETRY_FIRST_MS;
         if (!pending.current) adopt(list);
       })
-      .catch(() => {});
+      .catch(() => {
+        const r = retry.current;
+        r.timer = setTimeout(reload, r.wait);
+        r.wait = Math.min(r.wait * 2, RETRY_MAX_MS);
+      });
   }, [adopt, kind]);
   useEffect(() => {
     reload();
@@ -96,7 +109,11 @@ function usePathList(kind: PathList, onError: (message: string) => void) {
       if (document.visibilityState === "visible") reload();
     };
     document.addEventListener("visibilitychange", onShow);
-    return () => document.removeEventListener("visibilitychange", onShow);
+    const r = retry.current;
+    return () => {
+      document.removeEventListener("visibilitychange", onShow);
+      clearTimeout(r.timer);
+    };
   }, [reload]);
   const toggle = useCallback(
     (path: string) => {

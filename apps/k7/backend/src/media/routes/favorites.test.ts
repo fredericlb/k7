@@ -176,4 +176,33 @@ describe("the routes", () => {
     });
     expect((await fetch(`${base}/api/favorites`)).status).toBe(502);
   });
+
+  it("…unless the server answered once: its last list is kept and served while it is away", async () => {
+    const server = storesAt(join(root, "server"));
+    star(server, "person", { paths: ["songs/S"], favorite: true });
+    const serverBase = await backend(server, "nobody");
+    const machine = {
+      ...storesAt(join(root, "machine")),
+      kept: prefsStore<{ list?: string[] }>(join(root, "machine", "kept")),
+    };
+    const at = await backend(machine, "u", {
+      base: serverBase,
+      token: "person",
+    });
+    expect(await (await fetch(`${at}/api/favorites`)).json()).toEqual({
+      favorites: ["songs/S"],
+    });
+    const away = await backend(machine, "u", {
+      base: "http://127.0.0.1:1",
+      token: "person",
+    });
+    expect(await (await fetch(`${away}/api/favorites`)).json()).toEqual({
+      favorites: ["songs/S"],
+      stale: true,
+    });
+    // A change cannot be made while it is away: the kept list is a copy, not the list.
+    expect(
+      (await post(`${away}/api/favorites`, ["songs/T"], true)).status,
+    ).toBe(502);
+  });
 });
