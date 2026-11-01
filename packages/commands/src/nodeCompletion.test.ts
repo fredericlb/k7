@@ -51,3 +51,16 @@ describe("the nodes provider", () => {
     ]);
   });
 });
+
+describe("node new's first argument", () => {
+  it("offers a module whole, not only its folder, and ignores case", () => {
+    const h = testHost({ baseModules: ["audio/amp", "@k7-core/audio/adt"] });
+    expect(completions("node new io/mi", h, "cli")).toEqual([
+      "node new io/MIDI",
+    ]);
+    expect(completions("Node New AUDIO/a", h, "cli")).toEqual([
+      "node new audio/amp",
+    ]);
+    expect(completions("node new ", h, "cli")).toContain("node new io/");
+  });
+});

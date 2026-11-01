@@ -330,8 +330,10 @@ supply and stopping at the bar would be asking them to press Enter on a line the
 
 Two picks pre-write instead, and for the mirror reason — there is a name left to supply. A **new
 curve** is not an instance of anything: there is no module to be named after, and it drives
-nothing until a param binds it. And any pick made while the module catalogue has not arrived
-falls back to the bar, since there is no module to derive a name from either.
+nothing until a param binds it. And a `+` on an arrow clicked while the module catalogue has not
+arrived falls back to the bar, since there is no module to derive a name from either. The
+right-click on bare canvas opens the picker anyway: its inputs and its new curve need no
+catalogue, and an input is only ever placed, never spliced, so the canvas is where it is made.
 
 The first level is where a module COMES FROM:
 
@@ -372,3 +374,7 @@ The nesting is a good way to BROWSE and a bad way to find one module you can alr
 — a 250-plugin catalogue is four hovers deep. So the root level also carries a search
 field: type, and the tree is replaced by a flat ranked list of every module in every
 namespace, whatever its type or category. ↑/↓ walk it, Enter picks.
+
+The search reaches the picker's own entries too — the inputs and the new curve, matched by their
+label or their `io/` ref, listed first. An entry only the tree could reach would be one a person
+who types instead of browsing never finds: `midi` has to find the MIDI input.

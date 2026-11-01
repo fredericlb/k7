@@ -286,10 +286,12 @@ export function completionItems(
   surface: Surface,
 ): CompletionItem[] {
   const s = line.replace(/^\s+/, "");
+  // Case never decides a completion: `Node new io/m` offers what `node new io/m` does.
+  const sl = s.toLowerCase();
   const specs = forSurface(surface);
   // Pick the command the way runCommand does — LONGEST prefix — so completion offers args for what will run.
   const spec = specs
-    .filter((c) => s.startsWith(`${c.command} `))
+    .filter((c) => sl.startsWith(`${c.command} `))
     .sort((a, b) => b.command.length - a.command.length)[0];
   if (spec) {
     // A trailing space starts a new empty token, which split keeps as a final "" and completes to every next value.
@@ -314,7 +316,7 @@ export function completionItems(
       }));
   }
   return specs
-    .filter((c) => c.command.startsWith(s) && c.command !== s)
+    .filter((c) => c.command.startsWith(sl) && c.command !== sl)
     .map((c) => ({ line: c.command }));
 }
 

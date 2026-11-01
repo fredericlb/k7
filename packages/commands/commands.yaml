@@ -1880,7 +1880,7 @@
   surfaces: [cli]
   args:
     [
-      { name: "category/name", complete: categories },
+      { name: "category/name", complete: moduleTargets },
       {
         name: "node-name",
         optional: true,

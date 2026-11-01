@@ -4,6 +4,7 @@ import {
   type PickerModule,
   parseBaseRef,
   SEARCH_LIMIT,
+  searchBuiltins,
   searchModules,
 } from "./ModulePicker";
 
@@ -245,5 +246,24 @@ describe("searchModules", () => {
       (_, i) => `@k7-core/audio/delay/echo${i}`,
     );
     expect(searchModules(many, "echo")).toHaveLength(SEARCH_LIMIT);
+  });
+});
+
+describe("searchBuiltins", () => {
+  it("finds an input by its label or its io ref, whatever the case", () => {
+    expect(searchBuiltins("MIDI").map((n) => n.entry?.ref)).toEqual([
+      "io/MIDI",
+    ]);
+    expect(searchBuiltins("io/cam").map((n) => n.entry?.ref)).toEqual([
+      "io/CAM",
+      "io/CAM",
+    ]);
+  });
+
+  it("finds the new curve, and nothing on an empty query", () => {
+    expect(searchBuiltins("curve").map((n) => n.entry?.newCurve)).toEqual([
+      true,
+    ]);
+    expect(searchBuiltins("  ")).toEqual([]);
   });
 });

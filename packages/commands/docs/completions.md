@@ -75,6 +75,10 @@ the uuid, and names the label beside it.
   know which module was just named. The handler checks against the real module, which is where a
   wrong name has to be caught. Read off `loadModules` rather than `loadGraph`, which would also
   read every clip, sequence and curve to answer a question about names.
+- **`moduleTargets`** is `node new`'s first argument: the project's own modules and the io sources
+  WHOLE (`io/MIDI`), then every category folder with its trailing `/` for a name not made yet. A
+  folder alone would stop the completion at `io/` on exactly the nodes that have no module file to
+  find — an io node is only its role.
 - **`playlists`** walks `_playlists/` off `repoDir` and never `songPath`: a playlist belongs to
   the workspace, so a project folder is the one place it cannot be. Names are the extension
   stripped, subfolders kept — `live/repet` is one name.
