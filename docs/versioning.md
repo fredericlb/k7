@@ -11,7 +11,7 @@ noted below.
 The root `package.json`'s `version` is the release version of everything this repository ships:
 the hosted image, the server's engine, the tray, the command-line engine, the APK, the
 iPhone app. A `vX.Y.Z` tag is a release of exactly that version, and CI refuses any other tag —
-`release.yml`'s and `tray.yml`'s `decide` and `images.yml`'s `version` job run `scripts/check-version.mjs --tag`
+`release.yml`'s and `tray.yml`'s `decide` and `.github/actions/image-version` (`images.yml`, `pi-image.yml`) run `scripts/check-version.mjs --tag`
 before anything is built. So a release is two steps: `node scripts/check-version.mjs --set X.Y.Z`
 in a commit on `main`, then the tag on that commit.
 

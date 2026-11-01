@@ -1,0 +1,32 @@
+# The version an image carries, read the same way by images.yml and pi-image.yml (docs/images.md, docs/versioning.md).
+# A tag names the version the tree holds, or the step fails and nothing is built. Needs the repository checked out.
+name: image version
+description: The stamp, the release a tag names, and the image's version label.
+outputs:
+  stamp:
+    description: YY.MMDDHHmm in Europe/Paris, the stamp the SPAs show.
+    value: ${{ steps.stamp.outputs.stamp }}
+  release:
+    description: X.Y.Z for a vX.Y.Z tag, empty otherwise.
+    value: ${{ steps.release.outputs.release }}
+  label:
+    description: The release on a tag, the version and the commit otherwise.
+    value: ${{ steps.label.outputs.label }}
+runs:
+  using: composite
+  steps:
+    - id: stamp
+      shell: bash
+      run: echo "stamp=$(TZ=Europe/Paris date +%y.%m%d%H%M)" >> "$GITHUB_OUTPUT"
+    - id: release
+      if: startsWith(github.ref, 'refs/tags/')
+      shell: bash
+      run: |
+        node scripts/check-version.mjs --tag "$GITHUB_REF_NAME"
+        echo "release=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+    - id: label
+      shell: bash
+      run: |
+        version=$(node -p 'require("./package.json").version')
+        if [ -n "${{ steps.release.outputs.release }}" ]; then echo "label=$version" >> "$GITHUB_OUTPUT"
+        else echo "label=$version-snapshot-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi

@@ -1,0 +1,9 @@
+# The engine build's context, read in place of the root .dockerignore (docs/images.md, "The engine compiles only on a source change").
+# A page or a note is no input of the compile: leaving it out keeps the compiled layer cached across a docs-only push.
+**/docs
+**/*.md
+**/node_modules
+**/.git
+engine/k7-runtime/build
+engine/k7-supervisor/build
+**/rust/target
