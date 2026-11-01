@@ -161,3 +161,28 @@ test("a live rig records its output from the bar and files it in the recordings"
   });
   watch.assertClean();
 });
+
+test("a live-video rig files its picture joined to its sound", async ({
+  k7,
+}) => {
+  const files = await workspace(k7);
+  const { project } = await files.createProject(
+    WORKSPACE,
+    "live-video",
+    "live-video.k7",
+  );
+  const page = await openProject(k7, project);
+  const watch = watchPage(page);
+  await page
+    .getByRole("button", { name: "Record the output", exact: true })
+    .click({ timeout: 60_000 });
+  await page.waitForTimeout(3_000);
+  await page
+    .getByRole("button", { name: "Stop and file the recording", exact: true })
+    .click();
+  // One video, the faked camera's picture under the rig's sound, muxed by the file service.
+  await expect(
+    page.getByText(/saved recordings\/\S+\.webm/).first(),
+  ).toBeVisible({ timeout: 60_000 });
+  watch.assertClean();
+});
