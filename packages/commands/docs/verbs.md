@@ -815,6 +815,12 @@ second input is `node new io/IN IN2`: the NAME is the node's, the ROLE the arg's
 refused — MIX, OUT, CUE, RENDER and VIDEO_OUT are built into every graph and take no node — and so
 is any name outside the vocabulary, `module new io/…` held to the same rule.
 
+**Case never decides which module a line means.** `node new IO/MiDi` is `node new io/MIDI`, and
+`audio/AMP` is the project's `audio/amp`: the target and the ref riding on the line are read back
+in the spelling of the category, the io role, a known ref or the folder on disk
+(`src/verbs/moduleCase.ts`). Only a name that matches nothing keeps the typed case — the folder
+`node new` then creates is spelled as it was typed.
+
 **Where it lands is answered here too, never left to the layout.** With the trailing `x,y` — the
 click, which the graph's create flows carry through unclamped — it is pinned there. Without one it
 is pinned at `0,-30`, just above the origin: this node is wired to nothing, which is precisely the

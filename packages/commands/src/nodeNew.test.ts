@@ -50,6 +50,13 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("node new", () => {
+  it("reads a module named in any case as the project spells it", async () => {
+    await runCommand("node new IO/MiDi pads", host(), "cli");
+    expect(wsData(join(dir, "nodes", "pads.k7x")).io).toBe("midi");
+    await runCommand("node new Audio/AMP hall", host(), "cli");
+    expect(extendsOf("hall")).toBe(AMP);
+  });
+
   it("writes the node file AND names it in the chains", async () => {
     await runCommand("node new audio/amp hall", host(), "cli");
     expect(existsSync(join(dir, "nodes", "hall.k7x"))).toBe(true);
