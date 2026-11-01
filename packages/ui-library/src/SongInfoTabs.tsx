@@ -1,9 +1,10 @@
-// SongInfoTabs.tsx — the song page's one column of tabs: its info (the tags, over a pane of the waveform
-// and its versions), then a tab per attachment it carries — lyrics, chords, their diagrams, tablature, sheets —
-// drawn by the host exactly as the songbook draws them. The lyrics and chords follow the track.
+// SongInfoTabs.tsx — the song page's one column of tabs: a tab per attachment it carries — lyrics, chords, their
+// diagrams, tablature, sheets — drawn by the host exactly as the songbook draws them, then its info as an icon (the
+// tags, over a pane of the waveform and its versions). A song opens on its chords, else lyrics, else sheets, else info.
 // What adds an attachment is the header's menu (SongMenu.tsx). See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
+import { Info } from "@frediverse/ui/icons";
 import { Tabs, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { useMemo } from "react";
@@ -57,7 +58,7 @@ export function SongInfoTabs({
     () => songChords(song?.chords ?? "", song?.lyrics ?? "", transpose),
     [song?.chords, song?.lyrics, transpose],
   );
-  const tabs: SongTab[] = ["info"];
+  const tabs: SongTab[] = [];
   for (const k of carried) {
     tabs.push(k);
     if (k === "chords" && chords.length) tabs.push("diagrams");
@@ -65,7 +66,12 @@ export function SongInfoTabs({
   // Inline chords with no chords.txt still earn the diagrams, placed after the lyrics.
   if (songAttachment && chords.length && !tabs.includes("diagrams"))
     tabs.splice(tabs.indexOf("lyrics") + 1 || tabs.length, 0, "diagrams");
-  const current: SongTab = tabs.includes(tab) ? tab : "info";
+  // Info closes the row, as an icon: a song opens on what is played from — chords, else lyrics, else sheets.
+  tabs.push("info");
+  const opening: SongTab =
+    (["chords", "lyrics", "sheet"] as const).find((k) => tabs.includes(k)) ??
+    "info";
+  const current: SongTab = tab && tabs.includes(tab) ? tab : opening;
 
   const label: Record<SongTab, string> = {
     info: l.tabInfo,
@@ -198,11 +204,23 @@ export function SongInfoTabs({
       <Tabs value={current} onValueChange={(v) => a.setTab(v as SongTab)}>
         {/* Scrolls sideways on a phone rather than wrapping into a second row. */}
         <TabsList className="mx-3 mt-2 max-w-[calc(100%-1.5rem)] justify-start overflow-x-auto">
-          {tabs.map((t) => (
-            <TabsTrigger key={t} value={t} className="flex-none">
-              {label[t]}
-            </TabsTrigger>
-          ))}
+          {tabs.map((t) =>
+            t === "info" ? (
+              <TabsTrigger
+                key={t}
+                value={t}
+                className="flex-none"
+                title={label[t]}
+                aria-label={label[t]}
+              >
+                <Info className="size-4" />
+              </TabsTrigger>
+            ) : (
+              <TabsTrigger key={t} value={t} className="flex-none">
+                {label[t]}
+              </TabsTrigger>
+            ),
+          )}
         </TabsList>
       </Tabs>
       <div

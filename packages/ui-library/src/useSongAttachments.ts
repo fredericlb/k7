@@ -22,8 +22,9 @@ export interface SongAttachments {
   sending: boolean;
   /** False on a read-only song: nothing may be added, typed or removed. */
   writable: boolean;
-  tab: SongTab;
-  setTab: (tab: SongTab) => void;
+  /** The tab asked for; null when none was, and the page opens the song's own first (SongInfoTabs.tsx). */
+  tab: SongTab | null;
+  setTab: (tab: SongTab | null) => void;
   startTyping: (kind: Typed) => void;
   saveText: (kind: Typed, text: string) => Promise<void>;
   cancelTyping: () => void;
@@ -48,7 +49,7 @@ export function useSongAttachments(
   // The listing's id, or the one the first text or sheet gave it before the listing caught up.
   const [adopted, setAdopted] = useState("");
   const id = listedId || adopted;
-  const [tab, setTab] = useState<SongTab>("info");
+  const [tab, setTab] = useState<SongTab | null>(null);
   const [song, setSong] = useState<SongbookSong | null>(null);
   const [editing, setEditing] = useState<Typed | null>(null);
   const [sending, setSending] = useState(false);
@@ -69,10 +70,10 @@ export function useSongAttachments(
         sheet: typeof meta.sheets === "number" && meta.sheets > 0,
       };
 
-  // Another song opens on its info and waveform, with nothing of the last one's held.
+  // Another song opens on its own first tab, with nothing of the last one's held.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the song's path is the trigger, read by nothing inside.
   useEffect(() => {
-    setTab("info");
+    setTab(null);
     setEditing(null);
     setAdopted("");
     setSong(null);
@@ -131,7 +132,7 @@ export function useSongAttachments(
       setSong(saved);
       setEditing(null);
       // An emptied text is removed, and its tab with it.
-      if (!text.trim()) setTab("info");
+      if (!text.trim()) setTab(null);
       onSaved();
       // Chords with no lyrics to take their times from: the lyrics are asked for, if there is audio to name them.
       if (kind === "chords" && text.trim() && !saved.lyrics && saved.master)
@@ -143,7 +144,7 @@ export function useSongAttachments(
   };
 
   const cancelTyping = () => {
-    if (editing && !has[editing]) setTab("info");
+    if (editing && !has[editing]) setTab(null);
     setEditing(null);
   };
 
@@ -175,7 +176,7 @@ export function useSongAttachments(
     try {
       const after = await write().removeSheet(id, sheet);
       setSong(after);
-      if (!after.facts.sheets.length) setTab("info");
+      if (!after.facts.sheets.length) setTab(null);
       onSaved();
     } catch (e) {
       onStatus((e as Error).message);
