@@ -71,7 +71,6 @@ function ChainsTabView({
   noteLanes,
   project,
   onBypassModule,
-  onRecorder,
   onProjectField,
   onAlternative,
   onEngine,
@@ -126,10 +125,6 @@ function ChainsTabView({
   /** A RECORDER's button — record and clear go to the engine, save is a command (recorder.md). */
   /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
   onProjectField?: (field: string, value: string) => void;
-  onRecorder?: (
-    verb: "record" | "clear" | "save",
-    node: { module: string; pluginId?: string },
-  ) => void;
   /** A node's alternative badge: switch to a set, or copy the one on (null) — straight through, the command being the SHELL's. */
   onAlternative?: (module: string, name: string | null) => void;
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
@@ -792,7 +787,6 @@ function ChainsTabView({
             onStack={onStack}
             stacked={!!stack}
             organizeKey={organizeKey}
-            onRecorder={onRecorder}
             onProjectField={onProjectField}
             onAlternative={onAlternative}
             onEngine={onEngine}

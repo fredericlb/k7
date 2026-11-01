@@ -99,7 +99,7 @@ export function rendererOf(h: Pick<CommandHost, "renderer">): Renderer | null {
   return bin ? localRenderer(bin) : null;
 }
 
-/** The first argument, JSON-quoted or bare, and the rest: JSON is what a Windows path survives — packages/song/docs/recorderNode.md. */
+/** The first argument, JSON-quoted or bare, and the rest: JSON is what a Windows path survives — packages/song/docs/outputRecording.md. */
 export function firstArg(a: string): { head: string; rest: string } | null {
   const quoted = /^"(?:[^"\\]|\\.)*"/.exec(a);
   if (quoted) {

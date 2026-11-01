@@ -33,6 +33,9 @@ export const RENDER_AUDIO_PORT = "audio";
 /** …as an arrow names it, `MIX: ["OUT", "RENDER#audio"]`. */
 export const RENDER_AUDIO_IN = `${RENDER_NODE}#${RENDER_AUDIO_PORT}`;
 
+/** The recorder a project with no timeline gets on its master run, by plugin id: what its record button drives — packages/song/docs/outputRecording.md. */
+export const OUTPUT_RECORDER_ID = `${MIX_NODE}:@record`;
+
 /** The HEADPHONE bus — the one built-in output that leaves the mixer's sum entirely, see packages/song/docs/cue.md. */
 export const CUE_NODE = "CUE";
 

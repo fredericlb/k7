@@ -8,7 +8,6 @@ import type {
   EdgeInsert,
   GraphNode,
   LaidOutGraph,
-  RecVerb,
   TrackControlValues,
 } from "@studio/ui-chains/graph";
 import type { LcdSounds } from "@studio/ui-chains/lcdScreen";
@@ -155,11 +154,6 @@ export interface DomChainsProps {
   onTriggerRack?: (module: string, symbol: string) => void;
   /** Set a PROJECT setting — `project <field> <value>`. Absent means the dropdown reads only. */
   onProjectField?: (field: string, value: string) => void;
-  /** A RECORDER's button: the engine keys a node by `pluginId`, a verb names `module` — engine/k7-runtime/docs/recorder.md. */
-  onRecorder?: (
-    verb: RecVerb,
-    node: { module: string; pluginId?: string },
-  ) => void;
   /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
   rackLit?: RackLitStore;
   /** Which MIDI devices just sent something: a midi-in card's LED. See `MidiActivityStore`. */
@@ -240,7 +234,6 @@ export type ChainsCallbacks = Pick<
   | "onPresets"
   | "onPresetStep"
   | "onTriggerRack"
-  | "onRecorder"
   | "onProjectField"
   | "onSetModuleAsset"
   | "onAssetBrowse"

@@ -98,7 +98,7 @@ export function decodeState(m: StateFrame): EngineState {
     masterClipped: !!m.masterClipped,
     waveform: m.waveform ?? {},
     platters: m.platters ?? {},
-    // Dropped here, a recorder never lights, never draws and never saves — packages/song/docs/recorderNode.md.
+    // Dropped here, the bar's record button never knows the output is recording — packages/song/docs/outputRecording.md.
     recorders: m.recorders ?? {},
     // Left absent when the frame carries none: a store keeps the last one.
     ...(m.load ? { load: m.load } : {}),

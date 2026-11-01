@@ -2051,21 +2051,20 @@
 # they are written `node param <node> @channel 1,2` / `@monitor auto`, beside `@gain`. One
 # vocabulary: what a widget binds (`@channel`) is what you type.
 # See `INTRINSICS` in commands.ts and packages/song/docs/intrinsics.md.
-# A RECORDER node captures free-running: record, clear, and this one. The first two go straight
-# down the engine's socket and write nothing, so they are NOT verbs — nothing to journal, and no
-# file changes. Saving does move bytes, so it is a verb like everything else that does.
-# Named by the FILE rather than the node: a node holds a stack of takes and the card knows which
-# is on top. See packages/song/docs/recorderNode.md.
-- command: "node record save"
-  sid: node.record.save
+# A project with no timeline RECORDS ITS OUTPUT from the bar: record and stop go down the engine's
+# socket and write nothing, so they are not verbs. Filing the take moves bytes, so it is one.
+# Named by the FILES: the engine's take and the page's picture, both in the project's record
+# directory. See packages/song/docs/outputRecording.md.
+- command: "project record save"
+  sid: project.record.save
   readable:
-    en: "Save a recorder's take"
-    fr: "Enregistrer une prise"
-  help: "send a recorder node's take to the médiathèque's recordings"
+    en: "File a recording of the output"
+    fr: "Classer un enregistrement de la sortie"
+  help: "send the output's recorded take — its sound, its picture, or both joined — to the médiathèque's recordings"
   surfaces: [cli]
   args:
-    - { name: file, hint: "the take's own .wav, as the card knows it" }
-    - { name: name, hint: "an optional name, which files it as a moment" }
+    - { name: take, hint: "the engine's .wav take, or none for a picture alone" }
+    - { name: video, optional: true, hint: "the picture of RENDER the page recorded, beside the takes" }
 - command: "node bypass"
   sid: node.bypass
   readable:

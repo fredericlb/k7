@@ -3,7 +3,6 @@
 // moves and nothing else — docs/widgets.md.
 
 import { usePluginParamValue } from "@studio/engine-browser/params";
-import { useEngineStoreOrNull } from "@studio/engine-browser/store";
 import type { WebWidget } from "@studio/graph-model";
 import { decodeDepth, depthSpan } from "@studio/ui-chains/automationDepth";
 import {
@@ -23,7 +22,6 @@ import {
   useOverride,
   useOverrideMap,
   useRackLit,
-  useRecorderState,
 } from "../chainsStores";
 import { onEnter } from "../keyActivate";
 import { LcdScreenWidget } from "../LcdScreenWidget";
@@ -148,9 +146,6 @@ function WidgetInner({
       : null,
   );
 
-  // …and a RECORDER's, lit by the engine saying it is rolling, never by the click — docs/widgets.md.
-  const recNode = tgt?.kind === "recorder" ? (tgt.pluginId ?? null) : null;
-  const recState = useRecorderState(useEngineStoreOrNull(), recNode);
   // …and a midi-in card's device dropdown, whose LED lights while that keyboard is sending.
   const midiLit = useMidiActivity(
     ch.midiActivity,
@@ -224,18 +219,15 @@ function WidgetInner({
       : // …and a PROJECT setting a host that runs a verb, which a preview card has not got.
         tgt.kind === "project"
         ? ch.projectWritable
-        : // …and a recorder's button a host wired to an ENGINE that holds the node, or the press is refused.
-          tgt.kind === "recorder"
-          ? ch.recorderWired && recState !== undefined
-          : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
-            ch.rehearsal ||
-            (tgt.kind === "offline"
-              ? tgt.shader
-                ? ch.shaderWritable
-                : ch.offlineWritable
-              : tgt.kind === "track"
-                ? ch.trackWritable
-                : ch.pluginWritable));
+        : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
+          ch.rehearsal ||
+          (tgt.kind === "offline"
+            ? tgt.shader
+              ? ch.shaderWritable
+              : ch.offlineWritable
+            : tgt.kind === "track"
+              ? ch.trackWritable
+              : ch.pluginWritable));
   const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -293,7 +285,7 @@ function WidgetInner({
               // A button to assistive technology and the keyboard too, named by what it does.
               role: "button",
               tabIndex: 0,
-              "aria-label": tapName(w, tgt, padSymbol),
+              "aria-label": tapName(w, padSymbol),
               onKeyDown: onEnter(() => onTap(n, w)),
               onClick: (e) => {
                 e.stopPropagation();
@@ -331,7 +323,6 @@ function WidgetInner({
     knobPx,
     padSymbol,
     padLit,
-    recState,
     midiLit,
     actuable,
     onPick,

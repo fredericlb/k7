@@ -74,8 +74,8 @@ const PortSchema = z
   })
   .strict();
 
-/** What a waveform widget draws: the live signal either side, or the recorder's growing TAKE (engine/k7-runtime/docs/recorder.md). */
-export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
+/** What a waveform widget draws: the live signal either side of its module. */
+export const WAVEFORM_SOURCES = ["input", "output"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
 export const IO_KINDS = [

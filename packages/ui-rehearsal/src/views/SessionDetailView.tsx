@@ -91,6 +91,8 @@ export function SessionDetailView({
 }: Props) {
   const playback = useSessionPlayback(session, seekTo);
   const [selection, setSelection] = useState<Selection | null>(null);
+  // A recording of a project's output may carry a picture: shown once the file says it has one (packages/song/docs/outputRecording.md).
+  const [picture, setPicture] = useState(false);
   // Detection runs when asked for, never on its own: a page opens on the recording alone (../docs/recordings.md).
   const [detecting, setDetecting] = useState(false);
   // The moment whose range is being adjusted, as a live draft committed on Apply.
@@ -159,11 +161,20 @@ export function SessionDetailView({
         <p className="muted">{m["session.empty"]()}</p>
       ) : (
         <>
-          <audio
+          <video
             {...playback.audioProps}
+            onLoadedMetadata={(e) => {
+              playback.audioProps.onLoadedMetadata(e);
+              setPicture(e.currentTarget.videoWidth > 0);
+            }}
             src={audioSrc}
             crossOrigin="use-credentials"
-            style={{ display: "none" }}
+            playsInline
+            style={
+              picture
+                ? { display: "block", width: "100%", maxHeight: "60vh" }
+                : { display: "none" }
+            }
           />
 
           <SessionWaveformPanel

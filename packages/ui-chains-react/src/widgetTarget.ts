@@ -1,5 +1,5 @@
 // widgetTarget.ts — what a widget actuates and what it shows: a plugin param, a lane control,
-// a module field, a pad, a recorder verb or a project setting, and the value read off the
+// a module field, a pad or a project setting, and the value read off the
 // override, the engine or the file in that order. The rules are docs/widgets.md.
 
 import type { WebWidget } from "@studio/graph-model";
@@ -9,9 +9,7 @@ import {
   MIX_PARAM,
   OUTPUT_VOLUME_PARAM,
   projectBindField,
-  type RecVerb,
   rackBindSymbol,
-  recBindVerb,
   type TrackControlValues,
 } from "@studio/ui-chains/graph";
 import type { Channels } from "./chainsStores";
@@ -26,8 +24,6 @@ export type WidgetTarget =
   | { kind: "offline"; module: string; name: string; shader?: true }
   // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string }
-  // …and a RECORDER's button, the second of that family — engine/k7-runtime/docs/recorder.md.
-  | { kind: "recorder"; module: string; verb: RecVerb; pluginId?: string }
   // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
   | { kind: "project"; field: string };
 
@@ -94,12 +90,6 @@ export function widgetTarget(
   const symbol = rackBindSymbol(w.bind);
   if (symbol)
     return n.module ? { kind: "rack", module: n.module, symbol } : null;
-  // …and a recorder's, before the `@` arm would make `@rec:record` a FIELD to write — docs/widgets.md.
-  const verb = recBindVerb(w.bind);
-  if (verb)
-    return n.module
-      ? { kind: "recorder", module: n.module, verb, pluginId: n.pluginId }
-      : null;
   // …and a PROJECT setting, which lives in project.k7x, before the `@` arm for the same reason.
   const setting = projectBindField(w.bind);
   if (setting) return { kind: "project", field: setting };
@@ -155,8 +145,6 @@ export function hasChannel(o: Record<string, number>, prefix: string): boolean {
 export function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
-  // A recorder's button holds no value: the state frame says whether it is rolling, at 20 Hz.
-  if (t.kind === "recorder") return `r:${t.module}:${t.verb}`;
   if (t.kind === "project") return `p:${t.field}`;
   if (t.kind === "offline") return `o:${t.module}:${t.name}`;
   // A pad holds no value, so nothing ever writes under this key — it only covers the union.
@@ -175,8 +163,6 @@ export function widgetValue(
   if (!tgt) return undefined;
   // A pad has no value to show; whether it is LIT is `useRackLit`'s separate question.
   if (tgt.kind === "rack") return undefined;
-  // …nor has a recorder's button: the record light comes off the state frame, not off a value.
-  if (tgt.kind === "recorder") return undefined;
   // A project setting reads off the CARD, which `buildGraph` put the host's answer on.
   if (tgt.kind === "project") return projectFieldValue(n, tgt.field);
   const key = targetKey(tgt);
@@ -202,20 +188,8 @@ export function widgetValue(
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
-/** A recorder's buttons by what they do, since their faces are glyphs (`●`). */
-const REC_NAMES: Record<RecVerb, string> = {
-  record: "Record",
-  clear: "Clear",
-  save: "Save",
-};
-
-/** A tapped widget's accessible name: a recorder's verb, a pad's symbol, else its face or its bind. */
-export function tapName(
-  w: WebWidget,
-  tgt: WidgetTarget | null,
-  padSymbol: string | null,
-): string {
-  if (tgt?.kind === "recorder") return REC_NAMES[tgt.verb];
+/** A tapped widget's accessible name: a pad's symbol, else its face or its bind. */
+export function tapName(w: WebWidget, padSymbol: string | null): string {
   if (padSymbol) return padSymbol;
   return w.label ?? (typeof w.bind === "string" ? w.bind : w.type);
 }

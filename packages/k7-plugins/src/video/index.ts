@@ -17,6 +17,11 @@ export const ViewportTab = memo(
   lazyDrawer(() => import("./ViewportTab").then((m) => m.ViewportTab)),
 );
 
+/** The output's picture, drawn off screen for a recording; fetched with the compositor, on the first take. */
+export const OutputPicture = lazyDrawer(() =>
+  import("./OutputPicture").then((m) => m.OutputPicture),
+);
+
 export const videoPlugin: K7Plugin = definePlugin({
   id: "video",
   panes: [{ type: "viewport", drawer: ViewportPane }],

@@ -49,7 +49,6 @@ export function useWidgetDrag({
   onModuleParam,
   onShaderParam,
   onProjectField,
-  onRecorder,
   onTrackSet,
   onTrackToggle,
   onTriggerRack,
@@ -70,7 +69,6 @@ export function useWidgetDrag({
   onModuleParam: DomChainsProps["onModuleParam"];
   onShaderParam: DomChainsProps["onShaderParam"];
   onProjectField: DomChainsProps["onProjectField"];
-  onRecorder: DomChainsProps["onRecorder"];
   onTrackSet: DomChainsProps["onTrackSet"];
   onTrackToggle: DomChainsProps["onTrackToggle"];
   onTriggerRack: DomChainsProps["onTriggerRack"];
@@ -167,7 +165,6 @@ export function useWidgetDrag({
   const offlineWritable = onModuleParam !== undefined;
   const shaderWritable = onShaderParam !== undefined;
   const rackTriggerable = onTriggerRack !== undefined;
-  const recorderWired = onRecorder !== undefined;
   const projectWritable = onProjectField !== undefined;
   // Memoised on VALUES, never on the host's callbacks, which are often inline lambdas.
   const ch = useMemo<Channels>(
@@ -183,7 +180,6 @@ export function useWidgetDrag({
       offlineWritable,
       shaderWritable,
       rackTriggerable,
-      recorderWired,
       projectWritable,
       rehearsal: !!rehearsal,
       rackLit,
@@ -201,7 +197,6 @@ export function useWidgetDrag({
       offlineWritable,
       shaderWritable,
       rackTriggerable,
-      recorderWired,
       projectWritable,
       rehearsal,
       rackLit,

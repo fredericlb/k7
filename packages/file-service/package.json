@@ -23,6 +23,7 @@
     "@studio/commands": "*",
     "@studio/engine-client": "*",
     "@studio/engine-tunnel": "*",
+    "@studio/ffmpeg": "*",
     "@studio/graph-model": "*",
     "@studio/live-sync": "*",
     "@studio/mediatek": "*",

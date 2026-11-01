@@ -1,7 +1,8 @@
-# The recorder node
+# The recorder
 
-A **tape machine you drop in a chain**: one audio in, one audio out, and what passes through it
-is unchanged. `RecorderPlugin` is transparent, exactly as `BroadcastTapPlugin` is, and for the
+A **tape machine on the master run**: one audio in, one audio out, and what passes through it
+is unchanged. The compile places it, last on the master run of a project with no timeline, as
+`MIX:@record`; no node of the graph names it. `RecorderPlugin` is transparent, exactly as `BroadcastTapPlugin` is, and for the
 same reason — the capture is a side effect, not a detour the signal takes.
 
 It is **free-running**. Press record and it captures; press again and it stops. The transport is
@@ -9,7 +10,7 @@ never consulted, and that is the whole point: a `live` rig has no arrangement an
 play (`packages/song/docs/liveProject.md`). This is what track-and-transport recording
 (`Recording.cpp`) has no answer for.
 
-The browser half is `packages/song/docs/recorderNode.md`; this page is the engine's.
+The browser half is `packages/song/docs/outputRecording.md`; this page is the engine's.
 
 ## Where the audio is copied, and by whom
 
@@ -156,9 +157,8 @@ recorders: { "<chain>:<module>": { recording, seconds, takes: [{file, seconds, d
 ```
 
 `envelope` is the points made **since the last frame** — the same drain contract the waveform tap
-has, at a coarser bucket (4096 samples, ~12 points a second). The client appends;
-`packages/engine-browser/src/takeEnvelope.ts` is what knows when to throw the total away — and it
-sits beside the STORE rather than beside the card, for the reason the next section gives.
+has, at a coarser bucket (4096 samples, ~12 points a second). The bar's record button draws no
+waveform, so the browser reads `recording` and `takes` from it and leaves the envelope unread.
 
 ### …and `from`, which is what makes a RELOAD work
 

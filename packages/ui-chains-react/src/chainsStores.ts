@@ -1,5 +1,5 @@
 // chainsStores.ts — the live values a card reads WITHOUT re-rendering the graph: optimistic
-// overrides, MIDI and rack activity, recorder state, plugin load, the song clock. Each is a
+// overrides, MIDI and rack activity, plugin load, the song clock. Each is a
 // subscription of the one control that shows it, never of the graph — docs/liveCables.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
@@ -7,15 +7,8 @@ import {
   type EngineStore,
   useEngineStoreOrNull,
 } from "@studio/engine-browser/store";
-import type { RecorderState } from "@studio/engine-protocol";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
-import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
-import {
-  createContext,
-  useCallback,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { createContext, useCallback, useSyncExternalStore } from "react";
 import { loadBadge } from "./nodeLoad";
 
 /** The optimistic overrides, held OUTSIDE React state: a drag re-renders the widget it moves, not every card. */
@@ -105,8 +98,6 @@ export interface Channels {
   trackWritable: boolean;
   // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
-  // …and whether one can drive a RECORDER: with no engine behind it the buttons draw inert (docs/widgets.md).
-  recorderWired: boolean;
   projectWritable: boolean;
   // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
   rehearsal: boolean;
@@ -163,22 +154,6 @@ export function useRackLit(
   return useSyncExternalStore(subscribe, read, read);
 }
 
-/** One recorder's state, subscribed here so a 20 Hz frame moves one light (docs/liveCables.md); null watches nothing. */
-export function useRecorderState(
-  store: EngineStore | null,
-  node: string | null,
-): RecorderState | undefined {
-  const subscribe = useCallback(
-    (cb: () => void) => (store ? store.subscribe(cb) : () => {}),
-    [store],
-  );
-  const read = useCallback(
-    () => (store && node ? store.getSnapshot().recorders?.[node] : undefined),
-    [store, node],
-  );
-  return useSyncExternalStore(subscribe, read, read);
-}
-
 /** One plugin's cost badge off the store, as a STRING key, so a frame that rounds the same re-renders nothing. */
 export function usePluginLoadBadge(
   store: EngineStore | null,
@@ -197,30 +172,6 @@ export function usePluginLoadBadge(
   if (!key) return null;
   const [text, title] = key.split("\n");
   return { text, title };
-}
-
-const NO_READOUT: TakeReadout = {};
-
-/** What a recorder card draws over its waveform, compared on the TEXT so only a clock tick re-renders. */
-export function useTakeReadout(
-  store: EngineStore | null,
-  node: string | null,
-): TakeReadout {
-  const cache = useRef<TakeReadout>(NO_READOUT);
-  const subscribe = useCallback(
-    (cb: () => void) => (store ? store.subscribe(cb) : () => {}),
-    [store],
-  );
-  const read = useCallback(() => {
-    if (!store || !node) return NO_READOUT;
-    const next = takeReadout(store.getSnapshot().recorders?.[node]);
-    const had = cache.current;
-    if (next.message === had.message && next.elapsed === had.elapsed)
-      return had;
-    cache.current = next;
-    return next;
-  }, [store, node]);
-  return useSyncExternalStore(subscribe, read, read);
 }
 
 /** The song's clock as the host knows it: what turns the engine's seconds into the beats a curve is written in. */

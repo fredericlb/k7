@@ -470,7 +470,6 @@ const CSS = `
 /* An OFF group greys its section: a veil over the widgets it frames, which stay usable underneath it. */
 .dgx-gveil { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:inherit;
   background:var(--ground)8c; backdrop-filter:grayscale(1); -webkit-backdrop-filter:grayscale(1); }
-/* A RECORDER's waveform box: the canvas fills it, the two labels sit on top — docs/nodeCard.md. */
 /* No position on .dgx-wave or .dgx-lcd: .dgx-w's absolute must win, or a 2nd box flows under the 1st. */
 .dgx-lcd { padding:3px; border-radius:4px; background:#0f1a10;
   box-shadow: inset 0 0 0 1px #2b3a2c, inset 0 2px 6px rgba(0,0,0,.6); }
@@ -478,12 +477,6 @@ const CSS = `
 .dgx-lcd.live canvas { cursor:crosshair; touch-action:none; }
 .dgx-lcd-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   padding:4px; text-align:center; font:8px ui-monospace,monospace; color:rgba(184,240,160,.6); }
-/* "no record" — CENTRED and alone, the canvas having drawn nothing beside it (takeClock.ts). */
-.dgx-wave-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font:8px ui-monospace,monospace; color:var(--faint); letter-spacing:.06em; pointer-events:none; }
-/* …and the clock, OVER the picture: top-right, where a growing envelope reaches last. */
-.dgx-wave-clock { position:absolute; top:2px; right:3px; font:8px ui-monospace,monospace;
-  color:var(--text); text-shadow:0 0 3px #000, 0 0 3px #000; pointer-events:none; }
 .dgx-slider { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid var(--line); overflow:hidden; }
 .dgx-slider i { display:block; height:100%; background:var(--sand); }
 

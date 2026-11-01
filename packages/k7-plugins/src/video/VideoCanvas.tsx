@@ -55,9 +55,15 @@ export function VideoCanvas({
   trackIds,
   onDebug,
   onFit,
+  alwaysDraw = false,
+  onDriver,
   children,
 }: {
   scene: VideoScene;
+  /** Draw even out of sight — the output's recording, which nobody watches (packages/song/docs/outputRecording.md). */
+  alwaysDraw?: boolean;
+  /** The driver once built, and null when it goes: what a recording captures the frame from. */
+  onDriver?: (driver: RealtimeDriver | null) => void;
   /** Drawn OVER the canvas, inside the same centring host — see ViewportOverlay. */
   children?: React.ReactNode;
   /** Which lane drives each shader pass's `uAudio`, by pass id (shaderAudio.ts) — empty for every song that shades nothing. */
@@ -76,6 +82,10 @@ export function VideoCanvas({
   onDebugRef.current = onDebug;
   const onFitRef = useRef(onFit);
   onFitRef.current = onFit;
+  const onDriverRef = useRef(onDriver);
+  onDriverRef.current = onDriver;
+  // Read once, when the driver is built: switching it would mean a new GL context.
+  const alwaysDrawRef = useRef(alwaysDraw);
   // In a ref for the same reason the debug callback is: the subscription must read a fresh map without losing the GL context.
   const sourcesRef = useRef(audioSources);
   sourcesRef.current = audioSources;
@@ -108,6 +118,7 @@ export function VideoCanvas({
         sceneRef.current,
         clock,
         lensOpener(),
+        { alwaysDraw: alwaysDrawRef.current },
       );
     } catch (e) {
       // No WebGL2 (a blocklisted GPU, an old tablet, contexts refused): said here, not a blank app.
@@ -120,6 +131,7 @@ export function VideoCanvas({
       return;
     }
     driverRef.current = driver;
+    onDriverRef.current?.(driver);
     // A GPU reset or a sleep LOSES the context: kept restorable, and rebuilt when the browser restores it — not black for good.
     const canvas = host.querySelector("canvas");
     const onLost = (e: Event) => e.preventDefault();
@@ -143,6 +155,7 @@ export function VideoCanvas({
       canvas?.removeEventListener("webglcontextrestored", onRestored);
       driver.destroy();
       driverRef.current = null;
+      onDriverRef.current?.(null);
       clockRef.current = null;
     };
   }, [store, rebuild]);

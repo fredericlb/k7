@@ -30,7 +30,7 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
-import { ViewportTab } from "@studio/k7-plugins/video";
+import { OutputPicture, ViewportTab } from "@studio/k7-plugins/video";
 import { askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
@@ -152,6 +152,7 @@ import { type SetStatus, useLogs } from "./hooks/useLogs";
 import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
 import { useNodePresets } from "./hooks/useNodePresets";
+import { useOutputRecording } from "./hooks/useOutputRecording";
 import { usePaneCallbacks } from "./hooks/usePaneCallbacks";
 import {
   useActiveProjectFollow,
@@ -228,6 +229,7 @@ import { type RollMode, rollCondition } from "./rollMode";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import { pictureRowId, placementOf, type RowKey, type RowTarget } from "./rows";
 import { saveLabel } from "./saveLabel";
+import { OutputRecordButton } from "./shell/OutputRecordButton";
 import { ProjectBar } from "./shell/ProjectBar";
 import { ShellFooter } from "./shell/ShellFooter";
 import { ShellOverlays } from "./shell/ShellOverlays";
@@ -1332,46 +1334,6 @@ export default function App({
   // …and the NOTES' half, since nothing meters MIDI either: when each lane's notes sound, and how hard (noteSpans.ts).
   const noteLanes = useMemo(() => noteSpans(projectDoc), [projectDoc]);
 
-  // A RECORDER's button: two go down the socket, `save` is a verb — packages/song/docs/recorderNode.md.
-  const onRecorder = useCallback(
-    (
-      verb: "record" | "clear" | "save",
-      node: { module: string; pluginId?: string },
-    ) => {
-      if (!node.pluginId) return; // in the document but not in the running graph
-      if (verb !== "save") {
-        engineRef.current?.recorder(node.pluginId, verb);
-        return;
-      }
-      const takes = store.getSnapshot().recorders?.[node.pluginId]?.takes ?? [];
-      const last = takes[takes.length - 1];
-      if (!last) return; // the button draws faint with no take; this is the race, not the state
-      const id = node.pluginId;
-      const line = `node record save ${JSON.stringify(last.file)}`;
-      // Not through `runCommand`, which does not RETURN a refusal: the take is dropped after this, so a failed save would lose it.
-      void (async () => {
-        pushLog("cmd", `› ${line}`);
-        try {
-          const { output, refused } = await api.command(line, { want: [] });
-          const said = output.length
-            ? output.join("  ·  ")
-            : m["status.ran"]({ line });
-          for (const o of output) pushLog(refused ? "refused" : "info", o);
-          if (refused) return void setRefusal(said);
-          setStatus(said);
-          // Filed, so the local take goes: its bytes are in the médiathèque now (packages/song/docs/recorderNode.md).
-          engineRef.current?.recorder(id, "clear");
-        } catch (e) {
-          setStatus(
-            m["status.commandFailed"]({ message: (e as Error).message }),
-            "error",
-          );
-        }
-      })();
-    },
-    [store, pushLog, setRefusal],
-  );
-
   /** A PROJECT setting off a card — the RENDER node's frame shape, written to project.k7x (packages/song-video/docs/picture.md). */
   const onProjectField = useCallback(
     (field: string, value: string) =>
@@ -2036,6 +1998,14 @@ export default function App({
     setStatus,
     bumpReload,
   });
+  // A project with no timeline records what it sends out — OUT's sound, RENDER's picture — from the bar's one button.
+  const output = useOutputRecording({
+    store,
+    engine: () => engineRef.current ?? null,
+    project: ws?.activeProject ?? null,
+    hasPicture: noArrangement && !!videoDoc,
+    setStatus,
+  });
 
   // --- following a track across the panes ------------------------------------------
 
@@ -2239,7 +2209,6 @@ export default function App({
       trackOrder,
       project: projectDoc,
       onBypassModule: (mod: string) => void bypassModule(mod),
-      onRecorder,
       onProjectField,
       onAlternative: runAlternative,
       onAssetBrowse: browseAssets,
@@ -2261,7 +2230,6 @@ export default function App({
       trackOrder,
       projectDoc,
       bypassModule,
-      onRecorder,
       onProjectField,
       runAlternative,
       browseAssets,
@@ -3026,6 +2994,10 @@ export default function App({
   // The project bar, built once: it is drawn under the panes, or over the editor popin (docs/shell.md, "The project bar").
   const projectBar = (
     <div ref={barRef} className="shrink-0">
+      {/* The output's picture, off screen while a take rolls: what the recording captures (useOutputRecording.ts). */}
+      {output.drawPicture && videoDoc && (
+        <OutputPicture doc={videoDoc} onDriver={output.onPictureDriver} />
+      )}
       <ProjectBar
         lead={
           <>
@@ -3037,6 +3009,16 @@ export default function App({
         engine={barEngine}
         meter={masterMeter}
         recInfo={recInfo}
+        record={
+          noArrangement && output.available ? (
+            <OutputRecordButton
+              recording={output.recording}
+              filing={output.filing}
+              onToggle={output.toggle}
+              size={toolSize}
+            />
+          ) : undefined
+        }
         transport={
           showTransport
             ? {

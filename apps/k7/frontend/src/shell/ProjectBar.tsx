@@ -21,6 +21,7 @@ export function ProjectBar({
   transport,
   map,
   recInfo,
+  record,
 }: {
   /** The hamburger, the logo and the project's name — the bar's left slot, and the way home. */
   lead: ReactNode;
@@ -35,6 +36,8 @@ export function ProjectBar({
   /** The minimap, or null for a project with no arrangement to map. */
   map: ComponentProps<typeof Minimap> | null;
   recInfo: RecInfo;
+  /** The output's record button, on a project with no timeline, whose bar has no transport (docs/shell.md). */
+  record?: ReactNode;
 }) {
   const playing = !!transport?.playing;
   return (
@@ -59,7 +62,9 @@ export function ProjectBar({
       }}
       onToggle={() => transport?.transport(playing ? "stop" : "play")}
       onSeek={(s) => map?.onSeek(s)}
-      transport={transport ? <ShellTransport {...transport} /> : null}
+      transport={
+        transport ? <ShellTransport {...transport} /> : (record ?? null)
+      }
       track={
         map ? (
           <>

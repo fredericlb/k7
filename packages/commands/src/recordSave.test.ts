@@ -1,9 +1,6 @@
-// `node record save` and the ARGUMENT it is given: an absolute path the card read off a state
-// frame, JSON-quoted by the caller because on Windows it is full of backslashes.
-//
-// It is here rather than beside recorderSave.ts because the failure was neither end's: the file
-// service checked a path that had already lost its meaning between the browser and this handler,
-// and refused it as "not one of this project's takes". See packages/song/docs/recorderNode.md.
+// `project record save` and the ARGUMENTS it is given: the engine's take, an absolute path off a state frame,
+// JSON-quoted because on Windows it is full of backslashes, then the page's picture beside it, or `none` for a
+// picture alone. See packages/song/docs/outputRecording.md.
 
 import { describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -11,83 +8,77 @@ import { runCommand } from "./commandSpec";
 const WIN = "C:\\Users\\flb\\.studio\\root\\me\\live.k7\\clips\\rec-1.wav";
 
 /** A host that saves nothing and only remembers what it was asked to save. */
-function host(): {
+function host(saves = true): {
   h: never;
-  seen: { file?: string; label?: string };
+  seen: { file?: string; video?: string } | null;
   logs: string[];
 } {
-  const seen: { file?: string; label?: string } = {};
-  const logs: string[] = [];
+  const out = {
+    seen: null as { file?: string; video?: string } | null,
+    logs: [] as string[],
+  };
   return {
-    seen,
-    logs,
+    ...out,
+    get seen() {
+      return out.seen;
+    },
     h: {
       songPath: "/nowhere",
-      log: (l: string[]) => logs.push(...l),
-      refuse: (l: string[]) => logs.push(...l),
-      saveTake: async (file: string, label?: string) => {
-        seen.file = file;
-        seen.label = label;
-        return "recordings/2026-08-27/20-18-10.wav";
-      },
+      log: (l: string[]) => out.logs.push(...l),
+      refuse: (l: string[]) => out.logs.push(...l),
+      ...(saves
+        ? {
+            saveTake: async (take: { file?: string; video?: string }) => {
+              out.seen = take;
+              return "recordings/2026-08-27/20-18-10.webm";
+            },
+          }
+        : {}),
     } as never,
   };
 }
 
-describe("node record save", () => {
-  it("hands the file service the path the caller meant, backslashes and all", async () => {
-    const { h, seen } = host();
-    // Exactly what the card sends — `JSON.stringify` of the take's own path.
-    await runCommand(`node record save ${JSON.stringify(WIN)}`, h, "cli");
-    expect(seen.file).toBe(WIN);
-    expect(seen.label).toBeUndefined();
+describe("project record save", () => {
+  it("hands the file service the take the caller meant, backslashes and all", async () => {
+    const t = host();
+    await runCommand(`project record save ${JSON.stringify(WIN)}`, t.h, "cli");
+    expect(t.seen).toEqual({ file: WIN });
   });
 
-  it("keeps a path with spaces whole, which is what the quoting is for", async () => {
-    const { h, seen } = host();
-    const spaced = "C:\\Users\\flb\\My Rig\\live.k7\\clips\\rec-1.wav";
-    await runCommand(`node record save ${JSON.stringify(spaced)}`, h, "cli");
-    expect(seen.file).toBe(spaced);
-  });
-
-  it("reads whatever follows the path as the take's name", async () => {
-    const { h, seen } = host();
+  it("carries the picture beside the take, and a picture alone with `none`", async () => {
+    const t = host();
+    const video = "clips/output-260827-201810.webm";
     await runCommand(
-      `node record save ${JSON.stringify(WIN)} the second solo`,
-      h,
+      `project record save ${JSON.stringify(WIN)} ${JSON.stringify(video)}`,
+      t.h,
       "cli",
     );
-    expect(seen.file).toBe(WIN);
-    expect(seen.label).toBe("the second solo");
-  });
-
-  it("still takes a bare path, which is what a CLI user types", async () => {
-    const { h, seen } = host();
+    expect(t.seen).toEqual({ file: WIN, video });
+    const alone = host();
     await runCommand(
-      "node record save /home/flb/live.k7/clips/rec-1.wav",
-      h,
+      `project record save none ${JSON.stringify(video)}`,
+      alone.h,
       "cli",
     );
-    expect(seen.file).toBe("/home/flb/live.k7/clips/rec-1.wav");
+    expect(alone.seen).toEqual({ video });
   });
 
   it("says where it landed", async () => {
-    const { h, logs } = host();
-    await runCommand(`node record save ${JSON.stringify(WIN)}`, h, "cli");
-    expect(logs).toEqual(["saved recordings/2026-08-27/20-18-10.wav"]);
+    const t = host();
+    await runCommand(`project record save ${JSON.stringify(WIN)}`, t.h, "cli");
+    expect(t.logs).toEqual(["saved recordings/2026-08-27/20-18-10.webm"]);
   });
 
-  it("refuses a host with no médiathèque behind it rather than failing quietly", async () => {
-    const logs: string[] = [];
+  it("refuses nothing to save, and a host with no médiathèque behind it", async () => {
+    const empty = host();
+    await runCommand("project record save none", empty.h, "cli");
+    expect(empty.seen).toBeNull();
+    const far = host(false);
     await runCommand(
-      `node record save ${JSON.stringify(WIN)}`,
-      {
-        songPath: "/nowhere",
-        log: (l: string[]) => logs.push(...l),
-        refuse: (l: string[]) => logs.push(...l),
-      } as never,
+      `project record save ${JSON.stringify(WIN)}`,
+      far.h,
       "cli",
     );
-    expect(logs.join(" ")).toContain("nowhere near the recording");
+    expect(far.logs.join(" ")).toMatch(/cannot save a take/);
   });
 });

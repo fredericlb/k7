@@ -62,7 +62,6 @@ export function TrackModulesPane({
   cameras,
   inputDevices,
   midiDevices,
-  onRecorder,
   onProjectField,
   trackOrder,
   pluginParamsStore,
@@ -107,10 +106,6 @@ export function TrackModulesPane({
   /** A RECORDER's button, straight through — see DomChains' prop. */
   /** Set a PROJECT setting — the RENDER card's frame dropdown. */
   onProjectField?: (field: string, value: string) => void;
-  onRecorder?: (
-    verb: "record" | "clear" | "save",
-    node: { module: string; pluginId?: string },
-  ) => void;
   trackOrder: string[];
   pluginParamsStore: PluginParamsStore;
   requestPluginParams: (id: string) => void;
@@ -359,7 +354,6 @@ export function TrackModulesPane({
     row: true,
     command,
     onModuleField,
-    onRecorder,
     onProjectField,
     onContextMenu,
     onBypassModule: bypassModule,

@@ -1,15 +1,14 @@
-// WaveformWidget.tsx — a live min/max envelope on a canvas, or a recorder's take growing as it
-// rolls. Painted off refs fed by a raw store subscription, never by React state, so a 30 Hz
+// WaveformWidget.tsx — a live min/max envelope on a canvas, off a tap the engine inserts on demand.
+// Painted off refs fed by a raw store subscription, never by React state, so a 30 Hz
 // frame re-renders nothing — docs/waveformWidget.md.
 
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import { useEngineStoreOrNull } from "@studio/engine-browser/store";
 import type { WebWidget } from "@studio/graph-model";
 import { WOBBLE_FPS } from "@studio/ui-chains/cableCanvas";
-import { GrowingDecimate } from "@studio/ui-chains/decimate";
 import type { GraphNode } from "@studio/ui-chains/graph";
 import { useEffect, useRef } from "react";
-import { NOOP, useTakeReadout } from "../chainsStores";
+import { NOOP } from "../chainsStores";
 
 // Module-level so "no envelope" is one identity: a fresh [] per read would look like a change every frame.
 const NO_ENVELOPE: WaveformEnvelope[] = [];
@@ -27,25 +26,13 @@ export function WaveformWidget({
   onWatch?: (pluginId: string, side: "input" | "output", on: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // A recorder node draws its TAKE, whole and growing, not a live tap — engine/k7-runtime/docs/recorder.md.
-  const isTake = w.source === "take";
   // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
   // The waveform key is pluginId:side (e.g. "chain:module:output").
-  const key = isTake
-    ? null
-    : tap?.id && tap.side
-      ? `${tap.id}:${tap.side}`
-      : null;
-  const takeKey = isTake ? (n.pluginId ?? null) : null;
+  const key = tap?.id && tap.side ? `${tap.id}:${tap.side}` : null;
 
   // The envelope reaches the canvas through a REF off a RAW subscription — docs/waveformWidget.md.
   const store = useEngineStoreOrNull();
-  // …and what a RECORDER's card says: a message when it holds nothing, else the take's clock.
-  const readout = useTakeReadout(store, takeKey);
-  // The message REPLACES the waveform rather than sitting over it, so the paint is told to stop.
-  const blankRef = useRef(false);
-  blankRef.current = readout.message !== undefined;
   const envelopeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
   const dirtyRef = useRef(true);
   // Set by the draw effect; the subscription below pokes it to restart a stopped loop.
@@ -67,25 +54,8 @@ export function WaveformWidget({
     return store.subscribe(read);
   }, [store, key]);
 
-  // …and the take's, which the STORE accumulates, since it may all arrive before this card exists — docs/waveformWidget.md.
-  const takeRef = useRef<unknown>(null);
-  useEffect(() => {
-    if (!store || !takeKey) return;
-    const read = (): void => {
-      const view = store.takeOf(takeKey);
-      // The store hands back the SAME view while nothing moves, which is most frames; an append is a new view over the same, grown array.
-      if (view === takeRef.current) return;
-      takeRef.current = view;
-      envelopeRef.current = view?.points ?? NO_ENVELOPE;
-      dirtyRef.current = true;
-      wakeRef.current();
-    };
-    read();
-    return store.subscribe(read);
-  }, [store, takeKey]);
-
-  // The tap costs the ENGINE a plugin, so it lives with this widget; a take needs none — docs/waveformWidget.md.
-  const id = isTake ? undefined : tap?.id;
+  // The tap costs the ENGINE a plugin, so it lives with this widget — docs/waveformWidget.md.
+  const id = tap?.id;
   const side = tap?.side === "input" ? "input" : "output";
   useEffect(() => {
     if (!id || !onWatch) return;
@@ -106,8 +76,6 @@ export function WaveformWidget({
     let raf = 0;
     let last = 0;
     const minDt = 1000 / WOBBLE_FPS;
-    // A rolling take paints up to 30 times a second: only the points appended since the last paint are folded.
-    const folded = new GrowingDecimate();
 
     const paint = (): void => {
       const dpr = window.devicePixelRatio || 1;
@@ -123,12 +91,7 @@ export function WaveformWidget({
         appliedDpr = dpr;
       }
       ctx.clearRect(0, 0, W, H);
-      // Nothing to show and the card SAYS so: an empty waveform there would read as a broken meter.
-      if (blankRef.current) return;
-      // A take is decimated to the card's width keeping the EXTREMES, or it draws quiet (decimate.ts).
-      const env = isTake
-        ? folded.of(envelopeRef.current, Math.max(1, Math.round(W)))
-        : envelopeRef.current;
+      const env = envelopeRef.current;
       const mid = H / 2;
       if (env.length === 0) {
         // No data — draw a flat center line.
@@ -201,15 +164,7 @@ export function WaveformWidget({
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
     };
-    // `isTake` is the WIDGET's, fixed under a mounted canvas; the list is the loop's — docs/waveformWidget.md.
-  }, [isTake]);
-
-  // The canvas is painted off refs, so the message appearing has to ask for a frame itself.
-  const blank = readout.message !== undefined;
-  useEffect(() => {
-    dirtyRef.current = true;
-    wakeRef.current();
-  }, [blank]);
+  }, []);
 
   return (
     <div className="dgx-w dgx-wave" style={style}>
@@ -217,12 +172,6 @@ export function WaveformWidget({
         ref={canvasRef}
         style={{ width: "100%", height: "100%", display: "block" }}
       />
-      {readout.message !== undefined && (
-        <span className="dgx-wave-msg">{readout.message}</span>
-      )}
-      {readout.elapsed !== undefined && (
-        <span className="dgx-wave-clock">{readout.elapsed}</span>
-      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// recording.spec.ts — arming a lane and recording a take, in the browser (a picture lane) and in the engine (an audio lane, a recorder node).
+// recording.spec.ts — arming a lane and recording a take, in the browser (a picture lane) and in the engine (an audio lane), and a rig's output from the bar.
 // A picture lane records the BROWSER's camera, faked by Chromium's launch flags; audio is the ENGINE's input device, which no flag fakes.
 import type { Page } from "@playwright/test";
 import type { FileService, TreeNode } from "../../src/files.ts";
@@ -139,30 +139,24 @@ test("an audio lane armed in the engine records a take from its input", async ({
   watch.assertClean();
 });
 
-test("a live rig's recorder node takes, times and clears a take", async ({
+test("a live rig records its output from the bar and files it in the recordings", async ({
   k7,
 }) => {
   const files = await workspace(k7);
   const { project } = await files.createProject(WORKSPACE, "live", "live.k7");
   const page = await openProject(k7, project);
   const watch = watchPage(page);
-  // A card is named after its node, then its module: `recorder · step 1 (recorder)`.
-  const card = page.getByRole("group", { name: /^recorder\b/ });
-  // Framed, the card is drawn at the zoom that shows its face.
-  await page.getByRole("button", { name: /^recorder\b/ }).dblclick();
-  await expect(card.getByText("no record", { exact: true })).toBeVisible();
-  // The engine holds the node once its load report says the node's ring is held: before that, Record is refused.
-  await expect(card.getByTitle(/ · holds \d/)).toBeVisible({ timeout: 60_000 });
-  const record = card.getByRole("button", { name: "Record", exact: true });
-  await record.click();
-  await expect(card.getByText("no record", { exact: true })).toBeHidden();
+  // The button is there once the engine runs the document carrying the hidden recorder (outputRecording.md).
+  await page
+    .getByRole("button", { name: "Record the output", exact: true })
+    .click({ timeout: 60_000 });
   await page.waitForTimeout(2_000);
-  await record.click();
-  // Stopped, the card shows the finished take's length, at least the two seconds held.
-  await expect(card.getByText(/^0:0[2-9]\.\d$/)).toBeVisible({
-    timeout: 5_000,
+  await page
+    .getByRole("button", { name: "Stop and file the recording", exact: true })
+    .click();
+  // Filed by the file service, which says where it landed.
+  await expect(page.getByText(/saved recordings\//).first()).toBeVisible({
+    timeout: 30_000,
   });
-  await card.getByRole("button", { name: "Clear", exact: true }).click();
-  await expect(card.getByText("no record", { exact: true })).toBeVisible();
   watch.assertClean();
 });

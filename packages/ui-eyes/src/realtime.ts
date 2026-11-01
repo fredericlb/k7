@@ -87,12 +87,23 @@ export class RealtimeDriver {
     clock: SeekingClock,
     /** Where a live lane's picture comes from; the default is this browser's own camera. */
     openLens: LensOpener = localLens,
+    /** Draw even out of sight: a picture being RECORDED is drawn for the recording, not for a screen. */
+    opts: { alwaysDraw?: boolean } = {},
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
     const driver = new RealtimeDriver(comp, host, clock, openLens, scene);
-    driver.watchSight(host);
+    if (!opts.alwaysDraw) driver.watchSight(host);
     driver.loop();
     return driver;
+  }
+
+  /** The drawn frame as a live stream at `fps`, for a MediaRecorder; null when the canvas cannot give one. */
+  captureStream(fps: number): MediaStream | null {
+    const c = this.comp.canvas;
+    return typeof HTMLCanvasElement !== "undefined" &&
+      c instanceof HTMLCanvasElement
+      ? c.captureStream(fps)
+      : null;
   }
 
   /** The scene being drawn — a host compares it to skip a setScene that would change nothing. */

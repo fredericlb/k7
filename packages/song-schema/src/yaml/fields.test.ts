@@ -188,11 +188,10 @@ describe("derived values", () => {
       "camera",
       "midi",
     ]);
-    // …and the recorder node's own picture, beside the two live taps — docs/recorder.md.
+    // …and the two live taps a waveform draws.
     expect(valuesAt("module", ["ui", "widgets", "w1"], "source")).toEqual([
       "input",
       "output",
-      "take",
     ]);
     expect(valuesAt("module", ["ui", "widgets", "w1"], "type")).toContain(
       "dropdown",
