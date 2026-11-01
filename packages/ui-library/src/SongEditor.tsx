@@ -4,10 +4,11 @@
 // which a server song on the phone points at the server, or makes read-only. See ../docs/songPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
-import { CloudOff, Disc3, Pause, Play } from "@frediverse/ui/icons";
+import { CloudOff, Pause, Play } from "@frediverse/ui/icons";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { clock } from "@studio/ui-mini-player";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FitText } from "./FitText";
 import { useLabels } from "./host";
 import { LibraryPage } from "./LibraryPage";
 import { usePlaybackPosition } from "./playback/position";
@@ -113,12 +114,8 @@ function SongPage({
     <LibraryPage
       fill
       onBack={onBack}
-      title={
-        <span className="flex min-w-0 items-center gap-2">
-          <Disc3 className="size-5 shrink-0" />
-          <span className="truncate">{l.heading(entry.name)}</span>
-        </span>
-      }
+      // The song's name alone, fitted to the header on a phone (FitText.tsx).
+      title={<FitText text={entry.name} />}
       sub={master ? `${folder}/${master}` : folder}
       actions={
         <>

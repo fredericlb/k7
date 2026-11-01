@@ -1230,7 +1230,6 @@
   "media.save.saving": "saving…",
   "media.save.held": "not saved",
   "media.save.error": "saving failed",
-  "media.song.heading": "Song · {name}",
   "media.song.saved": "saved {path}",
   "media.song.tagTitle": "Title",
   "media.song.tagArtist": "Artist",

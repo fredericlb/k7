@@ -160,7 +160,6 @@ export function mediaLabels(): LibraryLabels {
       error: m["media.save.error"](),
     },
     song: {
-      heading: (name) => m["media.song.heading"]({ name }),
       saved: (path) => m["media.song.saved"]({ path }),
       tagTitle: m["media.song.tagTitle"](),
       tagArtist: m["media.song.tagArtist"](),

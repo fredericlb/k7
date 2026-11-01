@@ -1230,7 +1230,6 @@
   "media.save.saving": "enregistrement…",
   "media.save.held": "non enregistré",
   "media.save.error": "échec de l'enregistrement",
-  "media.song.heading": "Morceau · {name}",
   "media.song.saved": "enregistré {path}",
   "media.song.tagTitle": "Titre",
   "media.song.tagArtist": "Artiste",

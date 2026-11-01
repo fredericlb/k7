@@ -158,7 +158,6 @@ export interface LibraryLabels {
     error: string;
   };
   song: {
-    heading: (name: string) => string;
     saved: (path: string) => string;
     tagTitle: string;
     tagArtist: string;

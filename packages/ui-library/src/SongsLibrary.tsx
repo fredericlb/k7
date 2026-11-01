@@ -8,6 +8,7 @@ import { type MediatekEntry, SONG_FILE } from "@studio/mediatek/types";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AddSong } from "./AddSong";
 import { library } from "./api";
+import { FitText } from "./FitText";
 import { useSongLists } from "./favorites";
 import { useLibraryHost } from "./host";
 import { LibraryContents } from "./LibraryContents";
@@ -211,7 +212,7 @@ export function SongsLibrary(p: {
         <LibraryPage
           fill
           onBack={() => openFile(null)}
-          title={labels.song.heading(editingSong.name)}
+          title={<FitText text={editingSong.name} />}
         >
           <ReadOnlyNotice said={labels.song.cannotOpen} />
         </LibraryPage>

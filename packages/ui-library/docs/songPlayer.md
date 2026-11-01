@@ -35,6 +35,11 @@ a metronome, the transposition, and the buttons that add lyrics, chords, a tab o
 popover, not a menu: its controls are used in place, and a menu closes on the first press. The
 metronome's click and the sheet picker live outside the popover, so closing it stops neither.
 
+**The title is the song's name alone**, with no glyph or "Song ·" before it: the page is a song's
+already, and on a phone that prefix took the room of the name. There it shrinks to the header's
+width before it is cut (`src/FitText.tsx`, down to 14 px), since the end of a name is often what
+tells two takes of a song apart; on a wider screen it truncates like any title.
+
 ## A song's attachments are tabs beside its tags
 
 A song carrying lyrics, a tablature or sheets (`packages/mediatek/docs/songbook.md`) shows a tab for
