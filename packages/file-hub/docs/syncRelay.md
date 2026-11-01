@@ -62,7 +62,9 @@ differ only in how the account is proved.
   client alone — Authelia's UserInfo names the client only there. A provider that says none of these
   cannot have its client checked, and every token is then refused. **Without `STUDIO_PAIR_CLIENTS` the route is
   not mounted at all**: a server never takes a provider token by default, and a provider token issued
-  to an unrelated app on the same provider buys nothing.
+  to an unrelated app on the same provider buys nothing. The hosted stack sets it from `PAIR_CLIENTS`
+  in its `.env` (`docker/docker-compose.yml`); a server without it answers the route with its session
+  guard's `401`, and every machine pairs through the browser.
 
 **What it does not take**: no session cookie (the call is server to server, from the machine's backend,
 so no CORS and no `Origin`), and no detail on a refusal — every one is `401` with the same sentence,
