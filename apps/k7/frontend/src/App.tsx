@@ -30,7 +30,11 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo } from "@studio/engine-protocol";
-import { OutputPicture, ViewportTab } from "@studio/k7-plugins/video";
+import {
+  OutputPicture,
+  preloadOutputPicture,
+  ViewportTab,
+} from "@studio/k7-plugins/video";
 import { askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
@@ -2006,6 +2010,11 @@ export default function App({
     hasPicture: noArrangement && !!videoDoc,
     setStatus,
   });
+  // …its picture's code fetched with the project, so a take's picture starts at the press.
+  const recordsPicture = noArrangement && !!videoDoc;
+  useEffect(() => {
+    if (recordsPicture) preloadOutputPicture();
+  }, [recordsPicture]);
 
   // --- following a track across the panes ------------------------------------------
 

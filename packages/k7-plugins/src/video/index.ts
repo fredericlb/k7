@@ -17,10 +17,14 @@ export const ViewportTab = memo(
   lazyDrawer(() => import("./ViewportTab").then((m) => m.ViewportTab)),
 );
 
-/** The output's picture, drawn off screen for a recording; fetched with the compositor, on the first take. */
+/** The output's picture, drawn off screen for a recording; its code fetched by `preloadOutputPicture`, or on the first take. */
 export const OutputPicture = lazyDrawer(() =>
   import("./OutputPicture").then((m) => m.OutputPicture),
 );
+
+/** Fetch it ahead, with the project: a take's picture must start at the press, not after a download. */
+export const preloadOutputPicture = (): void =>
+  void import("./OutputPicture").catch(() => {});
 
 export const videoPlugin: K7Plugin = definePlugin({
   id: "video",
