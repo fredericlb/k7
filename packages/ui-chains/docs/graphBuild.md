@@ -312,24 +312,6 @@ intrinsic with no arm in that list is the exact shape the list guards against.
 A camera's `""` reads back as **`default`** — the empty string is a lens, the machine's own, and
 showing it as nothing would say the node is not a camera. Only an *absent* `camera` means that.
 
-## `source: take` — the same canvas, a different series
-
-A waveform widget normally draws a tap: `input` or `output`, a rolling window the engine captures
-through a plugin it inserts for as long as the widget is mounted. `source: take` is the RECORDER
-node's own picture — the whole take, growing — and differs in three ways that all follow from that
-one:
-
-- **it places no tap.** The recorder is already in the chain; asking for a second plugin to watch it
-  would be watching the watcher;
-- **it reads `recorders[pluginId]`, not `waveform[pluginId:side]`**, since the take is not a live
-  signal and has no side;
-- **it accumulates.** Each frame carries only the points made since the last, so `foldTake` keeps
-  the total and decides when to drop it (`src/takeEnvelope.ts`).
-
-It is DECIMATED to the canvas width, keeping the extremes: a five-minute take is ~3500 points
-against a card's ~120 pixels, and averaging them would draw a quiet take — a waveform's whole job is
-the peaks.
-
 ## A REHEARSAL moves, and writes nothing
 
 `rehearsal` on `DomChains` says this graph is a card being **tried out** rather than a song being

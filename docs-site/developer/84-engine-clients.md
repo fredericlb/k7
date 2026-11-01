@@ -47,7 +47,7 @@ Senders: `transport`, `seek`, `loop`, `sendProject`, `flush`, `previewNote`, `li
 
 ### The state store
 
-A 20 Hz frame held in React state re-rendered the whole tree on every frame. `EngineStore` is an external store; components subscribe to the slice they draw with `useEngineState(selector)` (`useSyncExternalStore`), so the editor itself never re-renders on a frame. Recorder takes are accumulated in the store (`takeEnvelope.ts`) because the engine sends only the points made since the last frame, and resends the whole picture in one frame when a socket connects, before any component that draws it exists.
+A 20 Hz frame held in React state re-rendered the whole tree on every frame. `EngineStore` is an external store; components subscribe to the slice they draw with `useEngineState(selector)` (`useSyncExternalStore`), so the editor itself never re-renders on a frame.
 
 ### Access, probe, choice and lease
 

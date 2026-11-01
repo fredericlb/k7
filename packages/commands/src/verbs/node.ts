@@ -35,7 +35,7 @@ import { MASTER_OWNER } from "@studio/song-schema/moduleTypes";
 import { freezeUpstreamRender } from "@studio/take-render/render";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { withModuleParams } from "../moduleValues";
-import { firstArg, rendererOf, splitWords } from "./shared.ts";
+import { rendererOf, splitWords } from "./shared.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
@@ -172,29 +172,6 @@ export const NODE_VERBS: Record<string, SidHandler> = {
     }
     await h.showNativePluginUI(match.id);
     h.log([`opening ${match.module} (${match.type}) on ${match.track}…`]);
-  },
-  /** `node record save <file> [name]` — send a take FILE, not a node, to the recordings — packages/song/docs/recorderNode.md. */
-  "node.record.save": async (a, h) => {
-    // The path comes JSON-quoted, since a take's is absolute and on Windows full of backslashes.
-    const m = firstArg(a.trim());
-    if (!m) {
-      h.refuse(["usage: node record save <take-file> [name]"]);
-      return;
-    }
-    const { head: file, rest: label } = m;
-    if (!h.saveTake) {
-      // Never silent: this host has no médiathèque, a fact about where the command ran, not about the take.
-      h.refuse([
-        "this surface cannot save a take — it runs nowhere near the recording",
-      ]);
-      return;
-    }
-    try {
-      const at = await h.saveTake(file, label || undefined);
-      h.log([`saved ${at}`]);
-    } catch (e) {
-      h.refuse([`could not save the take: ${(e as Error).message}`]);
-    }
   },
   // `node bypass` writes into graph.k7x's `bypassed` list, not the module file — docs/verbs.md.
   "node.bypass": async (a, h) => {

@@ -65,6 +65,7 @@ import {
 import { hasPicture, projectSurfaces } from "@studio/song/surfaces";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
 import { wsData } from "@studio/song/yaml/workspaceDoc";
+import { dropRecorderNodes } from "@studio/song-edit/recorderNodes";
 import { SECONDS_START_LEVEL } from "@studio/song-schema/formatLevel";
 import { ACCOUNT_LIBRARY } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
@@ -411,6 +412,7 @@ export class Workspace {
     this.writeActiveMarker(abs);
     this.migratePictureLanes(abs);
     this.repairVideoOutputs(abs);
+    this.dropRecorders(abs);
     stampFormatForSeconds(abs);
     this.invalidateProjectDoc();
     guard("waveform prewarm", this.prewarmWaveforms());
@@ -441,6 +443,21 @@ export class Workspace {
     } catch (e) {
       console.warn(
         `picture sound of ${this.toRel(abs)} not folded: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** A recorder node is taken out at open: the bar records the output now (packages/song/docs/outputRecording.md). */
+  private dropRecorders(abs: string): void {
+    try {
+      const gone = dropRecorderNodes(abs);
+      if (gone.length)
+        console.log(
+          `${this.toRel(abs)}: recorder node${gone.length > 1 ? "s" : ""} ${gone.join(", ")} removed — the bar records the output`,
+        );
+    } catch (e) {
+      console.warn(
+        `recorder nodes of ${this.toRel(abs)} not removed: ${(e as Error).message}`,
       );
     }
   }

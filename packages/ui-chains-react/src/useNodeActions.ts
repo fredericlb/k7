@@ -232,14 +232,8 @@ export function useNodeActions({
   const pickOne = useCallback(
     (n: GraphNode, w: WebWidget, value: number) => {
       const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
-      // A track intrinsic has no named settings, a pad and a recorder button no value: none can be SET here.
-      if (
-        !tgt ||
-        tgt.kind === "track" ||
-        tgt.kind === "rack" ||
-        tgt.kind === "recorder"
-      )
-        return;
+      // A track intrinsic has no named settings, a pad no value: neither can be SET here.
+      if (!tgt || tgt.kind === "track" || tgt.kind === "rack") return;
       if (tgt.kind === "module") {
         setModuleField(w, tgt, value);
         return;
@@ -316,14 +310,6 @@ export function useNodeActions({
           tgt.control === "highlight"
         )
           cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
-        return;
-      }
-      // A RECORDER's button fires and is done, as a pad does: the 20 Hz state frame is its only light — docs/widgets.md.
-      if (tgt.kind === "recorder") {
-        cb.current.onRecorder?.(tgt.verb, {
-          module: tgt.module,
-          pluginId: tgt.pluginId,
-        });
         return;
       }
       // A RACK pad fires its sound and is done: no override to place, nothing to commit.

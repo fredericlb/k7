@@ -5,7 +5,6 @@
 
 import type { EngineState, RecorderState } from "@studio/engine-protocol";
 import { createContext, useContext, useRef, useSyncExternalStore } from "react";
-import { EMPTY_TAKE, foldTake, type TakeView } from "./takeEnvelope";
 
 const INITIAL: EngineState = {
   playing: false,
@@ -27,9 +26,6 @@ export const LINK_GRACE_MS = 30_000;
 export class EngineStore {
   private state: EngineState = INITIAL;
   private listeners = new Set<() => void>();
-  // Each recorder's picture so far, accumulated HERE because the engine resends it whole in one
-  // frame when the socket connects — a second before any card exists. See takeEnvelope.ts.
-  private takes: Record<string, TakeView> = {};
   // When a stop was last pressed in this page, null once a play is: not engine state, a gesture the playhead answers first.
   private halt: number | null = null;
   // No link carries frames: before the first one, and from a drop until the next frame.
@@ -39,9 +35,6 @@ export class EngineStore {
   private graceTimer?: ReturnType<typeof setTimeout>;
 
   getSnapshot = (): EngineState => this.state;
-
-  /** One recorder node's accumulated take, or undefined for a node that has made none. */
-  takeOf = (node: string): TakeView | undefined => this.takes[node];
 
   /** The `performance.now()` of the last stop pressed here, or null since a play — what the drawn playhead freezes on (apps/k7/frontend/docs/playhead.md). */
   haltedAt = (): number | null => this.halt;
@@ -98,7 +91,6 @@ export class EngineStore {
       s0.load || !this.state.load ? s0 : { ...s0, load: this.state.load };
     if (!force && sameFrame(this.state, s)) return;
     this.state = s;
-    this.takes = foldedTakes(this.takes, s.recorders);
     for (const l of this.listeners) l();
   }
 }
@@ -175,24 +167,6 @@ function recordersEq(
     if (x.envelope !== y.envelope && y.envelope.length > 0) return false;
   }
   return true;
-}
-
-/** Every node's picture grown by one frame — the SAME map when no node moved, so a reader may
- *  compare by identity. A node the frame stops mentioning is dropped: its take left with it. */
-function foldedTakes(
-  prev: Record<string, TakeView>,
-  frames: Record<string, RecorderState> | undefined,
-): Record<string, TakeView> {
-  if (!frames) return Object.keys(prev).length ? {} : prev;
-  const next: Record<string, TakeView> = {};
-  let moved = Object.keys(prev).length !== Object.keys(frames).length;
-  for (const id in frames) {
-    const was = prev[id] ?? EMPTY_TAKE;
-    const now = foldTake(was, frames[id]);
-    if (now !== was) moved = true;
-    next[id] = now;
-  }
-  return moved ? next : prev;
 }
 
 const EngineStoreContext = createContext<EngineStore | null>(null);

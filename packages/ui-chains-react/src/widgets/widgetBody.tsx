@@ -2,7 +2,6 @@
 // fader's throw, a toggle, a button or pad, a number, a label, a file picker, a dropdown. Drawing
 // only: the gestures and the value are Widget.tsx's — docs/widgets.md.
 
-import type { RecorderState } from "@studio/engine-protocol";
 import type { WebWidget } from "@studio/graph-model";
 import { type GraphNode, isMixKnob, widgetText } from "@studio/ui-chains/graph";
 import { CTRL, RING } from "../chainsCss";
@@ -25,7 +24,6 @@ export function widgetBody({
   knobPx,
   padSymbol,
   padLit,
-  recState,
   midiLit,
   actuable,
   onPick,
@@ -43,7 +41,6 @@ export function widgetBody({
   knobPx: number | undefined;
   padSymbol: string | null;
   padLit: boolean;
-  recState: RecorderState | undefined;
   midiLit: boolean;
   actuable: boolean;
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
@@ -105,26 +102,12 @@ export function widgetBody({
       </div>
     );
   } else if (w.type === "button") {
-    // A pad is lit by its own note, a recorder's `record` while the ENGINE says it rolls — never by `t`.
-    const on = padSymbol
-      ? padLit
-      : tgt?.kind === "recorder"
-        ? tgt.verb === "record" && (recState?.recording ?? false)
-        : known && t >= 0.5;
+    // A pad is lit by its own note, never by `t`.
+    const on = padSymbol ? padLit : known && t >= 0.5;
     const c = (w.bind && CTRL[w.bind]) ?? RING;
-    // `clear` needs a take, rolling or not, and `save` a FINISHED one; faint when not — docs/widgets.md.
-    const none =
-      (recState?.takes.length ?? 0) === 0 && !(recState?.recording ?? false);
-    // All three draw faint until the engine's frame lists the node: a press before that is refused.
-    const idle =
-      tgt?.kind === "recorder" &&
-      (recState === undefined ||
-        (tgt.verb === "save"
-          ? recState.takes.length === 0 || recState.recording
-          : tgt.verb === "clear" && none));
     body = (
       <b
-        className={`dgx-btn${on ? " on" : ""}${idle ? " unknown" : ""}`}
+        className={`dgx-btn${on ? " on" : ""}`}
         style={{ ["--c" as string]: c }}
       >
         {/* A rack PAD draws bare, its symbol left to the tooltip; see docs/widgets.md. */}

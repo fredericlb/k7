@@ -29,6 +29,7 @@ import { confineToProject } from "./confine";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, readsAsPicture } from "./loader";
 import { compileWithAutoFreezes } from "./nodeProject";
+import { withOutputRecorder } from "./outputRecorder";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { wsData } from "./yaml/workspaceDoc";
 import { isDocName, wsExists } from "./yaml/workspaceFile";
@@ -55,6 +56,12 @@ export function parseMarkers(raw: unknown, num: number, den: number): Marker[] {
 
 /** Bars of count-in a project gets when settings.k7x does not say. See parseSettings. */
 export const DEFAULT_COUNT_IN = 1;
+/** A node or chain project — the graph model, which nodeProject.ts compiles. */
+const isGraphProject = (dir: string): boolean =>
+  wsExists(join(dir, GRAPH_FILE)) ||
+  wsExists(join(dir, "modules")) ||
+  isChainProject(dir);
+
 /** The click's default and floor live on the WIRE side; imported as well as re-exported, as MIXER_PLUGIN below. */
 export {
   DEFAULT_METRONOME_LEVEL,
@@ -144,14 +151,16 @@ export function loadProjectWithFreezes(sourcePath: string): {
   if (isFolderProject(abs)) {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
     // A node project (graph.k7x / modules/) is the graph model — compile it down (nodeProject.ts).
-    const { doc, freezes } =
-      wsExists(join(dir, GRAPH_FILE)) ||
-      wsExists(join(dir, "modules")) ||
-      isChainProject(dir)
-        ? compileWithAutoFreezes(dir)
-        : { doc: mapDoc(assembleFolder(dir), dir), freezes: [] };
+    const { doc, freezes } = isGraphProject(dir)
+      ? compileWithAutoFreezes(dir)
+      : { doc: mapDoc(assembleFolder(dir), dir), freezes: [] };
     // Set here, not in the two compilers, so both agree by not each deciding.
-    return { doc: { ...doc, recordDir: join(dir, "clips") }, freezes };
+    const out = { ...doc, recordDir: join(dir, "clips") };
+    // A project with no timeline records its OUTPUT, with a recorder no graph names (outputRecorder.ts).
+    return {
+      doc: isGraphProject(dir) ? withOutputRecorder(out, dir) : out,
+      freezes,
+    };
   }
   return { doc: mapDoc(readSource(sourcePath), dirname(abs)), freezes: [] };
 }

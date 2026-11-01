@@ -21,9 +21,8 @@ const button = (page: Page, name: string) =>
   page.getByRole("button", { name, exact: true });
 const lane = (page: Page, name: string) => button(page, `mute ${name}`);
 const viewport = (page: Page) => page.getByRole("dialog", { name: "Viewport" });
-// A card is named "node (module)", so the rig's recorder node reads "recorder (…)".
-const recorderCard = (page: Page) =>
-  page.getByRole("button", { name: /^recorder\b/ }).first();
+// A project with no timeline records its output from the bar (packages/song/docs/outputRecording.md).
+const recordButton = (page: Page) => button(page, "Record the output");
 
 /** What each archetype draws on opening, and whether its bar offers a transport to roll. */
 const ARCHETYPES: Record<
@@ -60,14 +59,14 @@ const ARCHETYPES: Record<
   live: {
     transport: false,
     draws: async (p) => {
-      await expect(recorderCard(p)).toBeVisible({ timeout: 30_000 });
+      await expect(recordButton(p)).toBeVisible({ timeout: 30_000 });
       await expect(await navControl(p, "Timeline")).toHaveCount(0);
     },
   },
   "live-video": {
     transport: false,
     draws: async (p) => {
-      await expect(recorderCard(p)).toBeVisible({ timeout: 30_000 });
+      await expect(recordButton(p)).toBeVisible({ timeout: 30_000 });
       await expect(viewport(p)).toBeVisible();
     },
   },

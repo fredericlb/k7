@@ -627,12 +627,16 @@ function makeHost(
       out.refused = true;
       out.push(...lines);
     },
-    // The take's bytes are on THIS machine — the engine wrote them — so this host is the only
-    // one that can answer `node record save`. The record directory is the document's, which is
-    // what the path is checked against (recorderSave.ts).
-    saveTake: async (file, label) => {
+    // The take's bytes are on THIS machine — the engine wrote them, the page uploaded its picture beside them — so this
+    // host is the only one that can answer `project record save`; both paths are checked against the record directory.
+    saveTake: async ({ file, video }) => {
       const dir = ws.cachedProjectDoc(requireDir()).recordDir;
-      const res = await saveTake({ recordDir: dir, file, label });
+      const res = await saveTake({
+        recordDir: dir,
+        file,
+        // The page names its picture under the project; the take, as the engine wrote it.
+        ...(video ? { video: resolve(requireDir(), video) } : {}),
+      });
       return res.path;
     },
     reload: () => {

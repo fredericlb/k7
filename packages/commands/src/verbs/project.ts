@@ -23,7 +23,7 @@ import { allSurfaceTypes } from "@studio/song-schema/yaml/surfaceRegistry";
 import { isSurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { writeMasterVolume } from "./intrinsics.ts";
-import { splitWords } from "./shared.ts";
+import { firstArg, splitWords } from "./shared.ts";
 
 /** The tempo range `project tempo` takes: wide enough for any music, narrow enough to catch a typo. */
 const MIN_BPM = 20;
@@ -104,7 +104,34 @@ async function projectTimeCommand(
   }
 }
 
+/** The take and the picture `project record save` names, JSON-quoted since a take's path is absolute; `none` for no sound. */
+function recordedFiles(a: string): { file?: string; video?: string } | null {
+  const take = firstArg(a.trim());
+  if (!take) return null;
+  const video = take.rest ? firstArg(take.rest) : null;
+  if (take.rest && (!video || video.rest)) return null;
+  return {
+    ...(take.head !== "none" ? { file: take.head } : {}),
+    ...(video ? { video: video.head } : {}),
+  };
+}
+
 export const PROJECT_VERBS: Record<string, SidHandler> = {
+  /** `project record save <take|none> [video]` — file the output's recording, sound and picture — docs/outputRecording.md. */
+  "project.record.save": async (a, h) => {
+    const usage = "usage: project record save <take.wav|none> [<picture.webm>]";
+    const files = recordedFiles(a);
+    if (!files || (!files.file && !files.video)) return h.refuse([usage]);
+    if (!h.saveTake)
+      return h.refuse([
+        "this surface cannot save a take — it runs nowhere near the recording",
+      ]);
+    try {
+      h.log([`saved ${await h.saveTake(files)}`]);
+    } catch (e) {
+      h.refuse([`could not save the take: ${(e as Error).message}`]);
+    }
+  },
   "project.time.add": (a, h) => projectTimeCommand(a, h, "insert"),
   "project.time.remove": (a, h) => projectTimeCommand(a, h, "delete"),
   /** project master <dB> — the SAME write as `node param "OUT" Volume <dB>`, kept as its own verb; docs/verbs.md. */

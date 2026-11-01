@@ -136,7 +136,7 @@ Other files point at things by name or by **reference**. A reference starts with
 
 | Reference | Resolves to |
 |---|---|
-| `@meta/<name>` | A module built into k7: `@meta/track`, `@meta/strudel-track`, `@meta/group-track`, `@meta/doc`, `@meta/IN`, `@meta/audio/mixer`, `@meta/audio/recorder`… |
+| `@meta/<name>` | A module built into k7: `@meta/track`, `@meta/strudel-track`, `@meta/group-track`, `@meta/doc`, `@meta/IN`, `@meta/audio/mixer`… |
 | `@workspace/<type>/<name>` | A module in the workspace's `_modules/` folder |
 | `@k7-core/<type>/<name>` | A module in the shared `k7-core` library (other libraries answer to their own name, `@<library>/…`) |
 | `@account/<type>/<name>` | Your account's own library: copies of library modules you have forked |

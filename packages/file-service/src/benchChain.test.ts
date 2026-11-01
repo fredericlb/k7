@@ -101,7 +101,7 @@ describe("the bench, on a library chain", () => {
     expect(graph?.modules).toMatchObject({
       IN: ["comp"],
       eq: ["fader"],
-      MIX: ["rec"],
+      MIX: ["OUT"],
     });
     expect(text).not.toContain("@in");
     expect(chainSteps(text)).toEqual(

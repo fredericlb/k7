@@ -89,36 +89,16 @@ widget holding its own subscription. An event handler passes none and the store 
 time, which for a handler is the RIGHT reading: the value as of the click rather than as of the
 last paint.
 
-## The binds that FIRE rather than set
+## The bind that FIRES rather than sets
 
-Two families, and both are resolved **before** the general `@` case in `widgetTarget`:
+A rack pad's `@rack:<symbol>` auditions that sound, and is resolved **before** the general `@`
+case in `widgetTarget`. The ordering is not tidiness: a bare `@field` is what the arm below turns
+into a module FIELD to write, so a pad reaching it would write `node param <node> @rack:BD …` into
+the node's file — a control that looks wired, does something, and does the wrong thing.
 
-| bind | target | what it does |
-|---|---|---|
-| `@rack:<symbol>` | `rack` | auditions that sound |
-| `@rec:<verb>` | `recorder` | record, clear or save on a recorder node |
-
-The ordering is not tidiness. A bare `@field` is what the arm below turns into a module FIELD to
-write, so `@record` reaching it would resolve to a field called `record` and pressing the button
-would write `node param rec @record …` into the node's file — a control that looks wired, does
-something, and does the wrong thing. `recBindVerb` answers null for a verb it does not have, so
-`@rec:play` draws inert instead of sending the engine a message it will not understand.
-
-Neither carries a VALUE. `widgetValue` returns undefined for both, and what lights them comes from
-elsewhere: a pad from `useRackLit`, a recorder's `record` from the state frame's `recorders` —
-subscribed in the widget through `useRecorderState`, never passed as a prop, for the reason
-`liveCables.md` gives about a 20 Hz frame and three thousand lines of hooks.
-
-`clear` and `save` draw faint with no take to act on, and `save` while a take is still rolling.
-Faint rather than hidden: a card that changes shape as you use it is a card you have to re-read.
-
-All three are faint and inert — not buttons at all — until the engine's state frame lists the
-node. A project is drawn before the engine holds it, and a press in that window is answered
-"no recorder node in this project": a control that takes the click and then does nothing.
-
-Neither places an optimistic override either, and here the reason is sharper than for a dropdown:
-the light must say what the ENGINE is doing. Lighting on the click would light on a refusal too —
-`"has not carried audio yet"` comes back as an `error` and the button would already be red.
+A pad carries no VALUE. `widgetValue` returns undefined for it, and what lights it is `useRackLit`,
+subscribed in the widget rather than passed as a prop, for the reason `liveCables.md` gives about a
+20 Hz frame. Nor does it place an optimistic override: the light must say what the engine plays.
 
 ## Committing a module FIELD
 

@@ -11,7 +11,6 @@ rig.k7/
   graph.k7x               four lines, six in live-video
   nodes/IN.k7x            the live input — OUT is a built-in sink, no file needed
   nodes/fader.k7x         the fader — a use of the library's shared strip
-  nodes/rec.k7x           the recorder, on the master run — a rig is something you keep
   nodes/CAM.k7x           live-video ONLY: the webcam
   surfaces/viewport.k7x   live-video ONLY: the frame it fills
 ```
@@ -33,8 +32,7 @@ to do was **ask for one**.
 modules({
   IN: ["fader"], // the input runs into the fader…
   fader: ["MIX"], // …and the fader into the mixer's sum
-  MIX: ["rec"], // …through the RECORDER, on the master run…
-  rec: ["OUT"], // …and out to the interface
+  MIX: ["OUT"], // …and the master run out to the interface
 })
 ```
 
@@ -62,30 +60,13 @@ graph still drew the cable, which is the worst version of being wrong.
 Put a module between the two — `IN: [ amp ]`, `amp: [ fader ]` — and you have an effects chain.
 That is what the shape is for: it is the smallest project that makes a sound you are making.
 
-### The recorder is ON the master run, not on the track
+### Recording it is the project bar's
 
 A rig you play through is a rig you want to KEEP, and the transport-and-take shape cannot do it
-here — there is no transport to press. So the scaffold wires a recorder node
-([recorderNode.md](recorderNode.md)) between the sum and the interface.
-
-**On the master run** rather than on the input's own track, and the difference is what a take
-holds: `MIX -> rec -> OUT` captures the whole mix, post-fader — *what you would have heard* —
-where the same node between `IN` and `fader` would capture one voice of it, before the level you
-set. Compiled, that reads:
-
-```
-tracks:        [ IN plugins=[IN:fader] ]
-masterPlugins: [ MIX:rec:Recorder ]
-```
-
-It passes the sound through untouched, so its being there changes nothing you hear, and deleting
-it changes nothing either — it is the one node in this shape you can take out and still have a rig.
-
-That placement had a consequence in the engine: `populateMasterChain` did not record its plugins
-in `pluginsById`, so a module on the master run was invisible to everything keyed by id — a
-recorder's ring included, which would have left the node refusing to record with *"no recorder
-node in this project"*. It registers them now, which also lets a master module carry a waveform
-tap and a param watch, as any other node does.
+here — there is no transport to press. So a project with no timeline gets one RECORD button in the
+bar, which records what reaches `OUT` (and `RENDER`'s picture in `live-video`) and files it in the
+médiathèque's recordings: [outputRecording.md](outputRecording.md). Nothing in the graph records,
+so nothing in it has to be placed right for a take to hold the whole mix.
 
 ### The fader is the SHARED strip — the same one every project's mixer node is
 
@@ -166,8 +147,7 @@ The picture's half is the sound's half again, sentence for sentence, and that is
 modules({
   IN: ["fader"], // the input runs into the fader…
   fader: ["MIX"], // …and the fader into the mixer's sum
-  MIX: ["rec"],
-  rec: ["OUT"],
+  MIX: ["OUT"],
   CAM: ["RENDER"], // …and the lens composites into the frame
   RENDER: ["VIDEO_OUT"],
 })

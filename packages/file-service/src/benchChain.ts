@@ -18,11 +18,7 @@ import {
 } from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
 import { resolveModule } from "@studio/song/moduleResolve";
-import {
-  LIVE_FADER,
-  LIVE_INPUT,
-  LIVE_RECORDER,
-} from "@studio/song/scaffoldLive";
+import { LIVE_FADER, LIVE_INPUT } from "@studio/song/scaffoldLive";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { wsWriteData, wsWriteText } from "@studio/song/yaml/workspaceDoc";
 import { wsCopy, wsRead } from "@studio/song/yaml/workspaceFile";
@@ -34,7 +30,6 @@ import type { LiveChain } from "@studio/web-protocol";
 export const RIG_NODES: ReadonlySet<string> = new Set([
   LIVE_INPUT,
   LIVE_FADER,
-  LIVE_RECORDER,
   "MIX",
   "OUT",
 ]);

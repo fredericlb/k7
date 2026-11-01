@@ -90,7 +90,7 @@ describe("saveTake", () => {
     expect(res.bytes).toBe(4);
     const [, opts] = pushRecording.mock.calls[0];
     expect(opts.filename).toBe("rec-260827T143208.wav");
-    expect(opts.bytes).toHaveLength(4);
+    expect((opts.bytes as Blob).size).toBe(4);
     expect(opts.at.getTime()).toBe(then.getTime());
     expect(opts.label).toBe("the solo");
     vi.doUnmock("@studio/mediatek/remote");
@@ -108,5 +108,21 @@ describe("saveTake", () => {
       /no médiathèque/,
     );
     vi.doUnmock("./mediatekLink.ts");
+  });
+});
+
+describe("a take with a picture", () => {
+  it("is joined to its sound: the picture copied, the sound encoded", async () => {
+    const { muxArgs } = await import("./recorderSave.ts");
+    const args = muxArgs("/t/p.webm", "/t/a.wav", "/t/a.webm").join(" ");
+    expect(args).toContain("-map 0:v:0 -map 1:a:0 -c:v copy -c:a libopus");
+    expect(args.endsWith(" /t/a.webm")).toBe(true);
+  });
+
+  it("refuses a picture from outside the record directory too", async () => {
+    const { saveTake } = await import("./recorderSave.ts");
+    await expect(
+      saveTake({ recordDir: takes, video: join(root, "elsewhere.webm") }),
+    ).rejects.toThrow(/not one of this project's takes/);
   });
 });

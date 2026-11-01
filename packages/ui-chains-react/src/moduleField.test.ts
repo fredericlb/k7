@@ -4,12 +4,7 @@
 
 import type { WebWidget } from "@studio/graph-model";
 import type { GraphNode } from "@studio/ui-chains/graph";
-import {
-  cameraUI,
-  inputUI,
-  midiInUI,
-  recBindVerb,
-} from "@studio/ui-chains/graph";
+import { cameraUI, inputUI, midiInUI } from "@studio/ui-chains/graph";
 import { describe, expect, it } from "vitest";
 import { moduleFieldValue } from "./moduleField";
 
@@ -113,46 +108,6 @@ describe("the folder-backed two", () => {
     expect(shown(node({ shader: "blur" }), w(["none", "blur"]), "shader")).toBe(
       "blur",
     );
-  });
-});
-
-// A recorder's controls are `@rec:record` and friends — intrinsics that FIRE. The prefix is not
-// `@record` on purpose: a bare `@field` is what the general case tries to WRITE, so the three
-// buttons would silently become field sets. See packages/ui-chains-react/docs/widgets.md.
-describe("the recorder's binds", () => {
-  it("names its three verbs, and nothing else", () => {
-    expect(recBindVerb("@rec:record")).toBe("record");
-    expect(recBindVerb("@rec:clear")).toBe("clear");
-    expect(recBindVerb("@rec:save")).toBe("save");
-  });
-
-  it("refuses a verb it does not have", () => {
-    // Answering "play" would send the engine a message it will not understand, and the button
-    // would look wired. Null means the widget draws inert, which is the honest picture.
-    expect(recBindVerb("@rec:play")).toBeNull();
-    expect(recBindVerb("@rec:")).toBeNull();
-  });
-
-  it("is not confused with a module FIELD, or with a rack pad", () => {
-    expect(recBindVerb("@monitor")).toBeNull();
-    expect(recBindVerb("@camera")).toBeNull();
-    expect(recBindVerb("@rack:BD")).toBeNull();
-    expect(recBindVerb("Volume")).toBeNull();
-    expect(recBindVerb(undefined)).toBeNull();
-  });
-
-  it("resolves as a FIRING target rather than a field to write", () => {
-    // The bug this guards: `@rec:record` reaching the general `@` arm would resolve to a module
-    // field called "rec:record", and pressing the button would write it into the node's file.
-    const n = node({ module: "rec", kind: "module" });
-    const w = {
-      type: "button",
-      col: 0,
-      row: 0,
-      bind: "@rec:record",
-    } as WebWidget;
-    expect(moduleFieldValue(n, w, "rec:record")).toBeUndefined();
-    expect(recBindVerb(w.bind)).toBe("record");
   });
 });
 

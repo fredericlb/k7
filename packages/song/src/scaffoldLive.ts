@@ -22,10 +22,6 @@ export const LIVE_FADER = "fader";
 /** The shared strip every mixer node names, this scaffold's and an import's alike (`packages/translator/docs/import.md`). */
 export const SHARED_STRIP = "@meta/audio/mixer";
 
-/** …and the RECORDER on the master run, which is what makes a rig something you KEEP. */
-export const LIVE_RECORDER = "rec";
-export const LIVE_RECORDER_REF = "@meta/audio/recorder";
-
 /** The lens, owned the way the input is: a built-in io name, so the graph can say it bare. */
 export const LIVE_CAMERA = CAMERA_NODE;
 
@@ -78,10 +74,9 @@ function liveGraph(picture: boolean): string {
     `  // straight to OUT: the engine sums a track into the master either way, so OUT would\n` +
     `  // DRAW a bypass of the master run below that does not exist.\n` +
     `  ${LIVE_FADER}: ["MIX"],\n` +
-    `  // The master run, which every project has — with the RECORDER on it, so what a take\n` +
-    `  // holds is the whole mix rather than one voice of it.\n` +
-    `  MIX: [${q(LIVE_RECORDER)}],\n` +
-    `  ${LIVE_RECORDER}: ["OUT"],\n` +
+    `  // The master run, which every project has: what the bar's record button captures is\n` +
+    `  // what reaches OUT, the whole mix (packages/song/docs/outputRecording.md).\n` +
+    `  MIX: ["OUT"],\n` +
     (picture
       ? `  // …and the picture's half: the lens composites into the frame, as the fader lands on\n` +
         `  // the sum. It needs NO video lane — a camera reaching none draws a layer of its own,\n` +
@@ -136,18 +131,6 @@ export function liveProjectFiles(name: string): Record<string, string> {
       `  // it worked and send half a dB for half a fader.\n` +
       `  Volume: 0,\n` +
       `})\n`,
-
-    [`nodes/${LIVE_RECORDER}.k7x`]:
-      `// The rig's TAPE MACHINE, on the master run: it captures the whole mix, post-fader —\n` +
-      `// what you would hear, which is what a recording of a rig should be.\n` +
-      `//\n` +
-      `// FREE-RUNNING. Its round button starts a take and stops it; the transport is never\n` +
-      `// consulted, which is the only kind of recording a project with no arrangement can do.\n` +
-      `// Clear drops the last take, Save sends it to the médiathèque's recordings.\n` +
-      `//\n` +
-      `// It passes the sound through untouched, so taking it out changes nothing you hear.\n` +
-      `// See packages/song/docs/recorderNode.md.\n` +
-      `extends(${q(LIVE_RECORDER_REF)})\n`,
 
     [GRAPH_FILE]: liveGraph(false),
   };

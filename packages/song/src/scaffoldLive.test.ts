@@ -11,16 +11,17 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
+import { RECORDER_PLUGIN } from "@studio/engine-protocol/build";
+import { OUTPUT_RECORDER_ID } from "@studio/song-schema/moduleTypes";
 import { describe, expect, it } from "vitest";
 import { carriesCamera, loadGraph, validate } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { MIXER_PLUGIN, RECORDER_PLUGIN, trackMixer } from "./project";
+import { loadProject, MIXER_PLUGIN, trackMixer } from "./project";
 import { writeProjectFiles } from "./scaffold";
 import {
   LIVE_CAMERA,
   LIVE_FADER,
   LIVE_INPUT,
-  LIVE_RECORDER,
   liveProjectFiles,
   liveVideoProjectFiles,
   SHARED_STRIP,
@@ -60,10 +61,7 @@ function tree(dir: string): string[] {
 const made = (write: (dir: string, name: string) => unknown): string => {
   const ws = mkdtempSync(join(tmpdir(), "live-"));
   const lib = join(librariesFixture(ws), "modules", "audio", "utility");
-  for (const [name, plugin] of [
-    ["mixer", MIXER_PLUGIN],
-    ["recorder", RECORDER_PLUGIN],
-  ] as const)
+  for (const [name, plugin] of [["mixer", MIXER_PLUGIN]] as const)
     writeDoc(join(lib, name, "module.k7x"), {
       plugin: { type: "internal", name: plugin },
     });
@@ -136,34 +134,22 @@ describe("what it writes", () => {
 describe("the graph it writes", () => {
   it("is INPUT -> FADER -> MIX -> REC -> OUT", () =>
     on((dir) => {
-      expect(graphKeys(dir)).toEqual([
-        LIVE_INPUT,
-        LIVE_FADER,
-        "MIX",
-        LIVE_RECORDER,
-      ]);
+      expect(graphKeys(dir)).toEqual([LIVE_INPUT, LIVE_FADER, "MIX"]);
       const modules = graphModules(dir);
       // The fader lands on the SUM, not on the interface: the two compile the same, and only
       // this one draws where the signal goes. See docs/liveProject.md.
       expect(modules[LIVE_FADER]).toEqual(["MIX"]);
-      // …and the recorder sits ON the master run, so a take is the whole mix.
-      expect(modules.MIX).toEqual([LIVE_RECORDER]);
-      expect(modules[LIVE_RECORDER]).toEqual(["OUT"]);
+      // …and the master run goes straight out: what the bar records is what reaches OUT.
+      expect(modules.MIX).toEqual(["OUT"]);
     }));
 
-  it("authors NO track file — its nodes are the input, the fader and the recorder", () =>
+  it("authors NO track file — its nodes are the input and the fader", () =>
     on((dir) => {
       expect(
         tree(dir)
           .filter((f) => f.startsWith("nodes/"))
           .sort(),
-      ).toEqual(
-        [
-          `nodes/${LIVE_INPUT}.k7x`,
-          `nodes/${LIVE_FADER}.k7x`,
-          `nodes/${LIVE_RECORDER}.k7x`,
-        ].sort(),
-      );
+      ).toEqual([`nodes/${LIVE_INPUT}.k7x`, `nodes/${LIVE_FADER}.k7x`].sort());
     }));
 
   it("borrows the SHARED strip, which is what carries the face", () =>
@@ -176,7 +162,7 @@ describe("the graph it writes", () => {
     // A library repository is attached rather than seeded, and an unresolved `@k7-core/…` ref does
     // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
     // text, which is how the new-project screen owes it before anything is written.
-    // The strip and the recorder are k7's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
+    // The strip is k7's own `@meta` module, so a rig owes a library nothing (docs/metaModules.md).
     expect(neededRefs(liveProjectFiles("rig"))).toEqual([]);
   });
 });
@@ -221,18 +207,17 @@ describe("and it PLAYS", () => {
       ).toEqual([`${LIVE_INPUT}:${LIVE_FADER}`]);
     }));
 
-  it("puts the RECORDER on the master run, so a take is the whole mix", () =>
+  it("records its OUTPUT with a recorder no node names, on the master run", () =>
     on((dir) => {
-      // Not on the input's track: what a rig should keep is what came out of it, post-fader.
-      // A master-run module compiles onto `masterPlugins`, keyed `<chain>:<module>`.
-      const doc = compileNodeProject(dir);
-      expect(doc.masterPlugins.map((p) => `${p.id}:${p.type}`)).toEqual([
-        `MIX:${LIVE_RECORDER}:${RECORDER_PLUGIN}`,
-      ]);
+      // The graph holds none: the compile places the engine's own, last, once the project has no timeline.
+      expect(compileNodeProject(dir).masterPlugins).toEqual([]);
+      expect(
+        loadProject(dir).masterPlugins.map((p) => `${p.id}:${p.type}`),
+      ).toEqual([`${OUTPUT_RECORDER_ID}:${RECORDER_PLUGIN}`]);
       // …and it is NOT on the track, which would capture one voice of the mix instead.
-      expect(doc.tracks[0].plugins.map((p) => p.id)).toEqual([
-        `${LIVE_INPUT}:${LIVE_FADER}`,
-      ]);
+      expect(
+        compileNodeProject(dir).tracks[0].plugins.map((p) => p.id),
+      ).toEqual([`${LIVE_INPUT}:${LIVE_FADER}`]);
     }));
 
   it("makes that fader the app's OWN strip, so a level on screen moves it", () =>
@@ -272,7 +257,6 @@ describe("the live-video archetype", () => {
         [
           `nodes/${LIVE_INPUT}.k7x`,
           `nodes/${LIVE_FADER}.k7x`,
-          `nodes/${LIVE_RECORDER}.k7x`,
           `nodes/${LIVE_CAMERA}.k7x`,
         ].sort(),
       );
@@ -284,7 +268,6 @@ describe("the live-video archetype", () => {
         LIVE_INPUT,
         LIVE_FADER,
         "MIX",
-        LIVE_RECORDER,
         LIVE_CAMERA,
         "RENDER",
       ]);
@@ -342,7 +325,10 @@ describe("born as chain files", () => {
       expect(doc.tracks[0].name).toBe(LIVE_INPUT);
       expect(doc.tracks[0].monitor).toBe("on");
       expect(trackMixer(doc.tracks[0])?.type).toBe(MIXER_PLUGIN);
-      expect(doc.masterPlugins.map((p) => p.type)).toEqual([RECORDER_PLUGIN]);
+      // The chain form records its output too, with the recorder the compile places.
+      expect(loadProject(dir).masterPlugins.map((p) => p.type)).toEqual([
+        RECORDER_PLUGIN,
+      ]);
     }));
 
   it("says the one thing a fresh rig says: pick a channel", () =>

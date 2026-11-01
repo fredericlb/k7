@@ -74,20 +74,9 @@ describe("the preset dropdown", () => {
 });
 
 describe("tapName", () => {
-  it("names a recorder's buttons by their verb, not their glyph", () => {
-    const w = { type: "button", label: "●", bind: "@rec:record" } as never;
-    const rec = (verb: "record" | "clear" | "save") =>
-      tapName(w, { kind: "recorder", module: "rec", verb }, null);
-    expect([rec("record"), rec("clear"), rec("save")]).toEqual([
-      "Record",
-      "Clear",
-      "Save",
-    ]);
-  });
-
   it("names a pad by its symbol and anything else by its face", () => {
     const w = { type: "button", label: "go" } as never;
-    expect(tapName(w, null, "kick")).toBe("kick");
-    expect(tapName(w, null, null)).toBe("go");
+    expect(tapName(w, "kick")).toBe("kick");
+    expect(tapName(w, null)).toBe("go");
   });
 });

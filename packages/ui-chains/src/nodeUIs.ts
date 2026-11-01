@@ -115,22 +115,6 @@ export {
   rackBindSymbol,
 };
 
-/** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set (packages/song/docs/recorderNode.md). */
-export const REC_BIND = "@rec:";
-
-/** What a recorder node can be told to do. `save` is the file service's; the other two the engine's. */
-export const REC_VERBS = ["record", "clear", "save"] as const;
-export type RecVerb = (typeof REC_VERBS)[number];
-
-/** The verb a recorder bind names, or null for any other bind — an unknown one is NOT a verb. */
-export const recBindVerb = (bind: string | undefined): RecVerb | null => {
-  if (!bind?.startsWith(REC_BIND)) return null;
-  const verb = bind.slice(REC_BIND.length);
-  return (REC_VERBS as readonly string[]).includes(verb)
-    ? (verb as RecVerb)
-    : null;
-};
-
 /** The widest a pad grid gets — four, the shape a drum grid already has. */
 const RACK_COLS = 4;
 /** …and the smallest, so a one-sound rack still reads as a rack. See docs/graphBuild.md. */

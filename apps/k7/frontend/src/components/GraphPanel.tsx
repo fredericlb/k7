@@ -54,7 +54,6 @@ export function GraphPanel({
   viewport,
   project,
   onBypassModule,
-  onRecorder,
   onProjectField,
   onAlternative,
   onAssetBrowse,
@@ -97,10 +96,6 @@ export function GraphPanel({
   /** A RECORDER's button, straight through — see DomChains' prop. */
   /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
   onProjectField?: (field: string, value: string) => void;
-  onRecorder?: (
-    verb: "record" | "clear" | "save",
-    node: { module: string; pluginId?: string },
-  ) => void;
   /** A node's alternative badge → the shell switches to that set, or copies the one on (null). */
   onAlternative?: (module: string, name: string | null) => void;
   /** A file-valued param's browser: the same cards are drawn here, so the same button has to open. */
@@ -288,7 +283,6 @@ export function GraphPanel({
         onBypassModule={bypassModule}
         onThawAutoFreeze={thawAutoFreeze}
         onModuleField={onModuleField}
-        onRecorder={onRecorder}
         onProjectField={onProjectField}
         onAlternative={onAlternative}
         onAssetBrowse={onAssetBrowse}

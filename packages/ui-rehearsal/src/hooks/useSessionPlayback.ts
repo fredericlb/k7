@@ -15,7 +15,7 @@ interface Range {
   end: number;
 }
 
-/** The take's transport; `audioProps` go on the page's one `<audio>`. */
+/** The take's transport; `audioProps` go on the page's one `<video>`, which plays a sound-only take as well. */
 export function useSessionPlayback(
   session: { id: string; gain: number },
   seekTo: number | undefined,
@@ -26,7 +26,7 @@ export function useSessionPlayback(
   // The range playRange last started, so its own button can read as Pause while it plays.
   const [playingRange, setPlayingRange] = useState<Range | null>(null);
 
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLVideoElement>(null);
   const seekApplied = useRef(false);
   const playCtx = useRef<AudioContext | null>(null);
   const gainNode = useRef<GainNode | null>(null);
@@ -46,7 +46,7 @@ export function useSessionPlayback(
   }, [seekTo, session.id, clock]);
 
   // The element the graph was built on: an element is routed into ONE context for its life, so the graph follows it.
-  const graphOf = useRef<HTMLAudioElement | null>(null);
+  const graphOf = useRef<HTMLVideoElement | null>(null);
 
   const ensurePlaybackGain = useCallback(() => {
     const a = audioRef.current;
@@ -135,9 +135,9 @@ export function useSessionPlayback(
     ref: audioRef,
     onPlay: () => setPlaying(true),
     onPause: () => setPlaying(false),
-    onTimeUpdate: (e: SyntheticEvent<HTMLAudioElement>) =>
+    onTimeUpdate: (e: SyntheticEvent<HTMLVideoElement>) =>
       clock.set(e.currentTarget.currentTime),
-    onLoadedMetadata: (e: SyntheticEvent<HTMLAudioElement>) => {
+    onLoadedMetadata: (e: SyntheticEvent<HTMLVideoElement>) => {
       if (seekTo != null && !seekApplied.current) {
         e.currentTarget.currentTime = seekTo;
         clock.set(seekTo);

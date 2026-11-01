@@ -12,7 +12,6 @@
     "./cables": "./src/cables.ts",
     "./automationDepth": "./src/automationDepth.ts",
     "./curvePlacement": "./src/curvePlacement.ts",
-    "./decimate": "./src/decimate.ts",
     "./flow": "./src/flow.ts",
     "./graph": "./src/graph.ts",
     "./gridFit": "./src/gridFit.ts",
@@ -27,7 +26,6 @@
     "./patchGesture": "./src/patchGesture.ts",
     "./rowSeams": "./src/rowSeams.ts",
     "./shownName": "./src/shownName.ts",
-    "./takeClock": "./src/takeClock.ts",
     "./zoomGesture": "./src/zoomGesture.ts"
   },
   "scripts": {

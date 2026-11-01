@@ -343,7 +343,7 @@ The RENDER node's card carries the list. Three things hold it together:
 - **It reads as a field and writes as a verb.** The current value is put on the card by
   `buildGraph` (`renderCard`), so the menu ticks the right line without asking anyone; but what
   it writes is in `project.k7x`, and the RENDER node has no file — hence `@project:aspect`,
-  which runs `project aspect <value>`. Same family as `@rack:` and `@rec:`: an intrinsic that
+  which runs `project aspect <value>`. Same family as `@rack:`: an intrinsic that
   TRIGGERS instead of writing a module field.
 - **The ticked line is decided by the RATIO, not the size.** A project writing `[1280, 720]` ticks
   16:9 as a `[1920, 1080]` does. A shape on neither list ticks nothing — hand-written 4:3 is

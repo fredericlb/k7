@@ -116,8 +116,8 @@ export interface CommandHost {
   repoDir?: string;
   // Back up a file the command is about to overwrite, so undo can restore it — docs/verbs.md.
   snapshot?(absPath: string): void;
-  /** Send one recorder take to the médiathèque, from the engine's machine — packages/song/docs/recorderNode.md. */
-  saveTake?(file: string, label?: string): Promise<string>;
+  /** File one recording of the output — its take, its picture, or both — from the engine's machine (packages/song/docs/outputRecording.md). */
+  saveTake?(take: { file?: string; video?: string }): Promise<string>;
   /** Bring version `version` of library `name` onto this machine; a reason when it cannot — ../../../docs/library-versions-plan.md. */
   fetchLibraryVersion?(name: string, version: number): Promise<string | null>;
   /** …and the versions the origin publishes of it, for a machine choosing an upgrade it has not fetched. */
