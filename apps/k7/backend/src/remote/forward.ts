@@ -1,6 +1,6 @@
 // forward.ts — the paired machine's side: what its page asks under SERVER_PATH goes to the account's paired server,
 // through that server's device door, with the device token beside the page's own headers. Bodies and answers stream,
-// so a track plays and an upload lands as they would on the server. Whose server is the SESSION's: ../../docs/serverPicker.md.
+// so a track plays and an upload lands as they would on the server. Whose server is the SESSION's: ../../docs/serverDoor.md.
 
 import { Readable } from "node:stream";
 import type { Request, RequestHandler } from "express";

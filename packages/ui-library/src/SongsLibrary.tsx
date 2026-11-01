@@ -239,6 +239,7 @@ export function SongsLibrary(p: {
                 onDrop={(rel, files) => void dropOnSong(rel, files)}
                 onDownload={p.serverCopy.download}
                 placeOf={p.serverCopy.placeOf}
+                waitingOf={p.serverCopy.waitingOf}
                 server={p.serverCopy.placement?.server ?? null}
                 openRemote={p.serverCopy.onDemand}
               />

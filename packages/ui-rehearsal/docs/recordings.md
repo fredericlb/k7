@@ -58,10 +58,18 @@ nobody asked for bury the moments already saved. The choice is not kept: each pa
 
 On a server, a moment saved is consolidated at once and **Validate** only retries a cut that
 failed. On a local instance (a desktop, a phone) no clip is cut there
-(`packages/rehearsal-server/docs/momentShare.md`): each moment, on its row and on its page, offers
-**Consolidate on a server…** instead, which opens a dialog (`src/components/ConsolidateDialog.tsx`).
+(`packages/rehearsal-server/docs/momentShare.md`): every moment goes up to the account's active server
+on its own, and each one, on its row and on its page, also offers **Consolidate on a server…**, which
+opens a dialog (`src/components/ConsolidateDialog.tsx`) — the way to send an edited moment again.
 Whether the instance is one or the other is asked of its backend once per page; a backend that does
-not answer it, a server browsed from the tray, consolidates itself.
+not answer it consolidates itself.
+
+- **Moments go up on their own** while k7 is open on the machine (`src/components/MomentUploads.tsx`,
+  mounted by k7's shell): ten seconds after start and every three minutes, every moment of the
+  machine that the active server does not hold, has audio to send, and was never sent there
+  (`momentsToSend`, `src/consolidation.ts`). The page runs it, not the backend, because the page's
+  session is what says whose moments they are and which server is that account's: the store keeps a
+  moment's owner, not the account. A moment the server refused is not sent again until the next start.
 
 - **The dialog names the account's ACTIVE server, `host · account`**, and whether it answers the
   backend's short ping, asked again on each opening: whether it answers is what changes between two.

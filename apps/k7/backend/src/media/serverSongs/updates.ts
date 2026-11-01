@@ -6,13 +6,14 @@ import { listFamilyFresh } from "@studio/mediatek/catalogue";
 import { safePath } from "@studio/mediatek/layout";
 import {
   dropSynced,
+  markLeft,
   readSynced,
   type SyncedSong,
   songsToRefresh,
   writeSynced,
 } from "@studio/mediatek/synced";
-import type { SongSyncJob } from "@studio/mediatek/types";
 import { downloadEntries } from "./download.ts";
+import { beginJob as begin } from "./jobs.ts";
 import { noteReach } from "./reach.ts";
 import { deviceGet, type PairedServer, serverManifest } from "./server.ts";
 
@@ -20,26 +21,8 @@ import { deviceGet, type PairedServer, serverManifest } from "./server.ts";
 export const CHECK_EVERY_MS = 30 * 60_000;
 /** After a start, so the first pages and the library's own boot go first. */
 const FIRST_CHECK_MS = 15_000;
-/** How long a finished job stays listed, so a page polling every few seconds sees it end. */
-const LINGER_MS = 6_000;
 
-let jobs: { job: SongSyncJob; ended: number | null }[] = [];
 let runs = 0;
-
-/** What the backend is doing for the followed songs, and what it just finished. */
-export function songSyncJobs(now = Date.now()): SongSyncJob[] {
-  jobs = jobs.filter((j) => j.ended === null || now - j.ended < LINGER_MS);
-  return jobs.map((j) => j.job);
-}
-
-function begin(job: SongSyncJob): (end: Partial<SongSyncJob>) => void {
-  const held = { job, ended: null as number | null };
-  jobs.push(held);
-  return (end) => {
-    held.job = { ...held.job, phase: "done", ...end };
-    held.ended = Date.now();
-  };
-}
 
 interface Followed {
   path: string;
@@ -77,7 +60,11 @@ async function checkServer(
     return { updated: 0, gone: 0 };
   const manifest = await serverManifest(server, "songs");
   const { changed, gone } = songsToRefresh(manifest.files, songs);
-  for (const path of gone) dropSynced(safePath(path));
+  // Marked, not only dropped: the upload must not send back a song its server removed.
+  for (const path of gone) {
+    dropSynced(safePath(path));
+    markLeft(safePath(path), server.base);
+  }
   const moved = new Set([...changed, ...gone]);
   // The unchanged ones are stamped with the new token, so the next check stops at the revision.
   for (const s of songs)

@@ -4,7 +4,8 @@ A **consolidated** moment is one with a clip of its own: its span cut out of its
 to the clip loudness, and filed in the médiathèque as a `moment-…` entry ([audio.md](audio.md)).
 A server consolidates its own moments as soon as they are saved. A LOCAL instance (a desktop, a
 phone: `K7_INSTANCE=local`) consolidates none: it keeps its recordings and its moments, and a
-consolidated moment is made on a server, one at a time and only when someone asks for it.
+consolidated moment is made on a server: every moment goes up there on its own while k7 is open
+(`packages/ui-rehearsal/docs/recordings.md`), and one is sent again when someone asks.
 
 ## Why a local instance cuts no clip
 

@@ -156,6 +156,8 @@ export interface LibraryPlacement {
   synced: string[];
   /** The server's entries this machine lacks — what a download brings down. */
   serverOnly: MediatekEntry[];
+  /** This family's local paths that stay this machine's: songs the server removed, which are never sent back. */
+  kept?: string[];
   /** The server did not answer: this is the last listing it gave, kept on disk. */
   stale?: boolean;
 }
@@ -170,12 +172,12 @@ export interface ServerReach {
   checkedAt: number | null;
 }
 
-/** One of the backend's own jobs over the followed songs: the update check, or one song coming down again. */
+/** One of the backend's own jobs over the songs it shares with its server: the update check, one song coming down again, one going up. */
 export interface SongSyncJob {
   /** Unique per run, so a page mirroring the list tells a new run from one it already saw end. */
   key: string;
-  kind: "check" | "song";
-  /** The song's family-prefixed path, for a `song` job. */
+  kind: "check" | "song" | "upload";
+  /** The song's family-prefixed path, for a `song` or `upload` job. */
   path?: string;
   phase: "running" | "done" | "failed";
   /** For a finished check: how many songs came down again, and how many the server no longer has. */

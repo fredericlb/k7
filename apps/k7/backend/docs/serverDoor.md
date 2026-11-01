@@ -1,9 +1,10 @@
-# A paired machine browsing its server
+# A paired machine reaching its server
 
-On the tray, the sidebar's server picker (`apps/k7/frontend/docs/serverPicker.md`) lets the
-Libraries, Media and Rehearsal pages read the account's active server instead of this machine.
-Two halves make it: the tray's backend forwards (`src/remote/forward.ts`), the server lets the
-forward in (`src/remote/door.ts`).
+A machine's pages always read the machine's own backend, and reach the account's active server
+through it: the server's songs opened on demand and written there
+(`packages/ui-library/docs/songSource.md`), its engines listed (`serverEngines.md`), and this
+backend's own jobs that send songs up (`media/songUploads.md`). Two halves make it: the machine's
+backend forwards (`src/remote/forward.ts`), the server lets the forward in (`src/remote/door.ts`).
 
 ## The page never talks to the server itself
 

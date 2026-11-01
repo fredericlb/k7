@@ -7,7 +7,7 @@ to the server they added (`packages/engine-registry/docs/ownership.md`), so a ta
 its account's ACTIVE server which engines that server lists for the link's account, and the page offers
 them next to its own, each named `<machine> · via <server>` (`../../frontend/docs/serverEngines.md`).
 
-Two halves, as for the server picker (`serverPicker.md`): this backend lists (`src/remote/serverEngines.ts`,
+Two halves, as for every call a machine makes to its server (`serverDoor.md`): this backend lists (`src/remote/serverEngines.ts`,
 `GET /api/server-engines`), and the server's device door lets the registry's driving routes in
 (`src/remote/door.ts`, `ALLOWED_EXACT`).
 
@@ -15,7 +15,7 @@ Two halves, as for the server picker (`serverPicker.md`): this backend lists (`s
 
 | choice | why |
 |---|---|
-| the list asked by this backend, through the device door with the link's token | the page has no session on the server (`serverPicker.md`, "The page never talks to the server itself"); the door turns the token into the link's account for one request, and the server's own `/engines` answers as it does for that account's browser |
+| the list asked by this backend, through the device door with the link's token | the page has no session on the server (`serverDoor.md`, "The page never talks to the server itself"); the door turns the token into the link's account for one request, and the server's own `/engines` answers as it does for that account's browser |
 | only the ACTIVE server | it is the one server the account talks to: the forward, the libraries and the médiathèque's server copy follow it too (`packages/file-hub/docs/syncRelay.md`). Switching servers in the settings switches the list |
 | only `owner`, `shared` and `server` engines | what the account may claim there; an `unowned` engine is a stranger's machine the server lists to everyone, and from another server it is noise nobody can select |
 | `via` on each entry, `rtc` dropped | `via` is what tells the page to dial that server's relay and claim there; a WebRTC offer goes to the relay's origin behind its session, which the page does not hold |

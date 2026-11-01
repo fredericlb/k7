@@ -5,7 +5,6 @@
 import { RehearsalRecording } from "@studio/ui-rehearsal";
 import { lazy, type ReactNode, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
-import { useServerChoice } from "../serverChoice";
 import {
   ABOUT_ROUTE,
   ENGINE_SETTINGS_ROUTE,
@@ -59,7 +58,6 @@ const AboutPage = lazy(() =>
 );
 
 export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
-  const serverChoice = useServerChoice();
   return (
     <RehearsalHost>
       {/* The sidebar's fold and the bar's dock, shared by every page below (HomeFrame.tsx). */}
@@ -67,8 +65,7 @@ export function HomeRoutes({ fallback }: { fallback: ReactNode }) {
         <RehearsalRecording>
           {/* Inside the take's holder, so a page arriving never hides the take in progress. */}
           <Suspense fallback={fallback}>
-            {/* Keyed by the server picker: a page read from one server keeps nothing of it on the other. */}
-            <Routes key={serverChoice}>
+            <Routes>
               <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
               <Route
                 path={FROZEN_CHAINS_ROUTE}

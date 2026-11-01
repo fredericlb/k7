@@ -1,6 +1,6 @@
 // deviceIdentity.ts — who a device token names, as the rest of the server needs it: the account's email, which the
 // token cannot carry since its slug is one-way, and the person who paired. Read by the engine registry's owner check
-// and by the device door a paired machine browses this server through (apps/k7/backend/docs/serverPicker.md).
+// and by the device door a paired machine browses this server through (apps/k7/backend/docs/serverDoor.md).
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

@@ -38,8 +38,9 @@ import { SongSyncDownloads } from "./SongSyncDownloads";
 const KIND_ICON: Record<DownloadKind, LucideIcon> = {
   song: Disc3,
   engine: AudioLines,
-  // A moment going UP to a server to be consolidated there: the one row that is an upload.
+  // The two rows that go UP: a moment to be consolidated there, and a song of this machine the server lacks.
   moment: CloudUpload,
+  upload: CloudUpload,
   workspace: FolderDown,
 };
 

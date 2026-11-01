@@ -43,11 +43,9 @@ import { api } from "../api";
 import { go } from "../appNav";
 import { canCheckForUpdates, checkForUpdates } from "../appUpdates";
 import { DownloadsButton } from "../components/DownloadsButton";
-import { SidebarServer } from "../components/SidebarServer";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { usePopin } from "../popins";
-import { setServerChoice } from "../serverChoice";
 import { useIsAdmin } from "../settings/useIsAdmin";
 import { VERSION } from "../version";
 import {
@@ -234,14 +232,10 @@ export function HomeSidebar({
   // Null off the tray's backend; on it, the SERVER is whose apps the menu lists (../desktop.ts).
   const [isDesktop, setIsDesktop] = useState(false);
   const [server, setServer] = useState<string | null>(null);
-  const [account, setAccount] = useState<string | undefined>(undefined);
   useEffect(() => {
     void desktop.state().then((d) => {
       setIsDesktop(d !== null);
       setServer(d?.server ?? null);
-      setAccount(d?.account);
-      // A choice left from a pairing since undone would point every page at no server.
-      if (!d?.server) setServerChoice("local");
     });
   }, []);
 
@@ -343,11 +337,6 @@ export function HomeSidebar({
 
         <SidebarGroup title={m["home.media"]()} entries={media} away={away} />
       </div>
-
-      {/* The server the pages read, on the tray once paired: a server's own page has no other to offer. */}
-      {isDesktop && server && (
-        <SidebarServer server={server} account={account} folds={!away} />
-      )}
 
       <div
         className={cn(

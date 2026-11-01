@@ -479,6 +479,7 @@
   "libs.engineTooOld": "@{name} v{version} demande le niveau {need} ; la machine de ce moteur est au niveau {level} — mettez k7 à jour là-bas",
   "wsync.synced": "Synchronisé avec {server}",
   "wsync.local": "Sur cette machine seulement",
+  "wsync.waiting": "En attente d'envoi vers {server}",
   "wsync.server": "Sur {server} seulement",
   "wsync.importing": "Importation…",
   "wsync.importSlow": "L'espace de travail n'est toujours pas arrivé après une demi-heure ; il continue de se synchroniser en arrière-plan.",

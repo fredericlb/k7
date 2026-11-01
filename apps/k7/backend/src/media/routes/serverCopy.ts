@@ -5,6 +5,8 @@
 import { wrap } from "@frediverse/http/route";
 import type { FileHub } from "@studio/file-hub";
 import { listFamilyFresh } from "@studio/mediatek/catalogue";
+import { safePath } from "@studio/mediatek/layout";
+import { hasLeft } from "@studio/mediatek/synced";
 import {
   asFamily,
   FAMILY_ERROR,
@@ -26,6 +28,7 @@ import {
   Router,
 } from "express";
 import { downloadEntries } from "../serverSongs/download.ts";
+import { songSyncJobs } from "../serverSongs/jobs.ts";
 import { keepListing, lastListing } from "../serverSongs/listings.ts";
 import { noteReach, reachOf } from "../serverSongs/reach.ts";
 import {
@@ -33,7 +36,8 @@ import {
   deviceGet,
   type PairedServer,
 } from "../serverSongs/server.ts";
-import { checkSongUpdates, songSyncJobs } from "../serverSongs/updates.ts";
+import { checkSongUpdates } from "../serverSongs/updates.ts";
+import { uploadSongs } from "../serverSongs/uploads.ts";
 import { libraryRouter } from "./library.ts";
 
 export { DEVICE_LIBRARY_ROUTE };
@@ -136,9 +140,9 @@ export function serverCopyRouter(
         theirs = known;
         stale = true;
       }
-      const here = new Set(
-        (await listFamilyFresh(family)).entries.map((e) => e.path),
-      );
+      const mine = (await listFamilyFresh(family)).entries.map((e) => e.path);
+      const here = new Set(mine);
+      const there = new Set(theirs.entries.map((e) => e.path));
       const placement: LibraryPlacement = {
         paired: true,
         server: server.base,
@@ -146,6 +150,11 @@ export function serverCopyRouter(
           .filter((e) => here.has(e.path))
           .map((e) => e.path),
         serverOnly: theirs.entries.filter((e) => !here.has(e.path)),
+        // The songs the server removed stay here and are not sent back: the rest of this machine's alone are waiting to go up.
+        kept:
+          family === "songs"
+            ? mine.filter((p) => !there.has(p) && hasLeft(safePath(p)))
+            : [],
         ...(stale ? { stale } : {}),
       };
       res.json(placement);
@@ -208,14 +217,17 @@ export function serverCopyRouter(
     res.json({ jobs: songSyncJobs() });
   });
 
-  // A check now, answered at once: its progress is the job list's.
+  // A check now, answered at once: its progress is the job list's. The uploads go too, behind it.
   r.post("/check", (_req, res) => {
     // A server, or a machine paired with none, follows nothing: no scan for anyone to start.
     if (!servers().length)
       return void res
         .status(409)
         .json({ error: "this machine is paired with no server" });
-    void checkSongUpdates(servers).catch(() => {});
+    void checkSongUpdates(servers)
+      .catch(() => {})
+      .then(() => uploadSongs(servers))
+      .catch(() => {});
     res.status(202).json({ ok: true });
   });
 

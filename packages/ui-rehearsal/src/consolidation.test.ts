@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { hostOf, sendRefusal, serverLabel } from "./consolidation";
+import {
+  hostOf,
+  momentsToSend,
+  sendRefusal,
+  serverLabel,
+} from "./consolidation";
 
 const server = (online: boolean) => ({
   id: "active",
@@ -29,5 +34,40 @@ describe("a server's label", () => {
       "app.k7.rocks · fred",
     );
     expect(hostOf("not a url")).toBe("not a url");
+  });
+});
+
+describe("the moments that go up on their own", () => {
+  const moment = (id: string, over: object = {}) => ({
+    id,
+    sharedFrom: "",
+    recordingAvailable: true,
+    validated: false,
+    ...over,
+  });
+  const sent = {
+    link: "active",
+    origin: "https://active.test",
+    as: "me@band",
+    at: "",
+  };
+
+  it("are this machine's, with audio, never sent to the active server", () => {
+    const all = [
+      moment("new"),
+      moment("cut", { recordingAvailable: false, validated: true }),
+      moment("sent", { consolidations: [sent] }),
+      moment("theirs", { sharedFrom: "Laptop" }),
+      moment("silent", { recordingAvailable: false }),
+    ];
+    expect(momentsToSend(all, server(true)).map((m) => m.id)).toEqual([
+      "new",
+      "cut",
+    ]);
+  });
+
+  it("wait while the server is away, or when there is none", () => {
+    expect(momentsToSend([moment("new")], server(false))).toEqual([]);
+    expect(momentsToSend([moment("new")], null)).toEqual([]);
   });
 });

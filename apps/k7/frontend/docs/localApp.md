@@ -16,7 +16,6 @@ flag (`src/localApp.ts`).
 | the account bar names the active server, `host · account`, as a link to the settings (`src/projects/ActiveServer.tsx`) | several accounts may be saved on one server; the bar says which one the page is reading, and where to change it |
 | the engine page over HTTP (`src/settings/desktopEngine.ts`) | the backend runs the supervisor (`apps/k7/backend/docs/localEngine.md`); the page reads its snapshot as events and sends allowed commands |
 | the server this machine syncs with read from `/api/sync/remote` (`src/desktop.ts`) | the user menu's apps and the catalogue's link are that server's, not this backend's |
-| the tray's server picker names the active server `host · account` (`src/components/SidebarServer.tsx`) | several accounts may be saved on one server, and the pages it switches to read the active one's |
 | the active server's engines listed beside this machine's, `· via <server>` (`serverEngines.md`) | the person's other machines heartbeat to the server they added; the page drives them through that server, its files that server's copy |
 | a server already saved, added again, is a pairing that asks which account (`addAccount`, `src/settings/ServersSection.tsx`) | the server's page then names who the browser is signed in as and offers another account; an account already saved there is told, naming both k7's account here and the server's (`account.status.alreadyLinked`) |
 | the local user saves servers too | a link names its remote account itself, so signed out is no reason to sync nowhere |

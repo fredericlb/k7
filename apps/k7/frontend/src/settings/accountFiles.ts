@@ -3,35 +3,9 @@
 // module-level file transport is unconfigured there. An engine only rides along in the ticket.
 
 import { fileTokenOf } from "@studio/engine-browser/probe";
-import {
-  type AccountWorkspace,
-  FILE_HUB_HELLO,
-  type FileHubHello,
-} from "@studio/web-protocol";
-import { api, engines, SERVER_BASE } from "../api";
+import type { AccountWorkspace } from "@studio/web-protocol";
+import { api, engines } from "../api";
 import { type AccountFiles, accountFiles } from "../projects/api";
-import { serverChoice } from "../serverChoice";
-
-/** The file service the Libraries page edits: this machine's, or the paired server's through the forward (../serverChoice.ts). */
-export async function findLibraryFiles(): Promise<AccountFiles | null> {
-  if (serverChoice() !== "server") return findAccountFiles(false);
-  try {
-    const me = await api.getMe().catch(() => null);
-    const res = await fetch(`${SERVER_BASE}${FILE_HUB_HELLO}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const hello = (await res.json()) as FileHubHello;
-    return {
-      fileBase: `${SERVER_BASE}${hello.path}`,
-      token: hello.ticket,
-      userEmail: me?.email || me?.sub || "unknown",
-      admin: hello.admin,
-    };
-  } catch {
-    return null;
-  }
-}
 
 /** The account's file service and the token its gate takes, or null when nothing answers; `bindEngine` waits for the probe so the chosen engine's machine is bound. */
 export async function findAccountFiles(

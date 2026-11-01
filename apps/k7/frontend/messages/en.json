@@ -479,6 +479,7 @@
   "libs.engineTooOld": "@{name} v{version} needs level {need}; this engine's machine runs level {level} — update k7 there",
   "wsync.synced": "Synced with {server}",
   "wsync.local": "On this machine only",
+  "wsync.waiting": "Waiting to go up to {server}",
   "wsync.server": "On {server} only",
   "wsync.importing": "Importing…",
   "wsync.importSlow": "The workspace is still coming down after half an hour; it keeps syncing in the background.",
