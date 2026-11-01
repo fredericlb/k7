@@ -10,6 +10,7 @@
     "./clock": "./src/clock.ts",
     "./realtime": "./src/realtime.ts",
     "./export": "./src/export.ts",
+    "./joinTake": "./src/joinTake.ts",
     "./exportSupport": "./src/exportSupport.ts",
     "./camera": "./src/camera.ts",
     "./exportQuality": "./src/exportQuality.ts",

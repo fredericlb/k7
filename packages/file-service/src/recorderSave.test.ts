@@ -112,13 +112,6 @@ describe("saveTake", () => {
 });
 
 describe("a take with a picture", () => {
-  it("is joined to its sound: the picture copied, the sound encoded", async () => {
-    const { muxArgs } = await import("./recorderSave.ts");
-    const args = muxArgs("/t/p.webm", "/t/a.wav", "/t/a.webm").join(" ");
-    expect(args).toContain("-map 0:v:0 -map 1:a:0 -c:v copy -c:a libopus");
-    expect(args.endsWith(" /t/a.webm")).toBe(true);
-  });
-
   it("refuses a picture from outside the record directory too", async () => {
     const { saveTake } = await import("./recorderSave.ts");
     await expect(

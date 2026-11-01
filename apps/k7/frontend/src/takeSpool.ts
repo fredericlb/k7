@@ -98,3 +98,59 @@ export async function dropSpool(name: string): Promise<void> {
   const dir = await opfs();
   await dir?.removeEntry(name).catch(() => undefined);
 }
+
+/** A file written at positions — what a muxer streams the joined take into — and read back whole once closed. */
+export interface Scratch {
+  writable: WritableStream<{
+    type: "write";
+    data: Uint8Array;
+    position: number;
+  }>;
+  /** The bytes written, once the muxer closed the stream. */
+  file: (type: string) => Promise<Blob>;
+  discard: () => void;
+}
+
+/** Grow `buf` to hold `n` bytes, doubling, so a stream of small writes stays linear. */
+const grown = (
+  buf: Uint8Array<ArrayBuffer>,
+  n: number,
+): Uint8Array<ArrayBuffer> => {
+  if (n <= buf.length) return buf;
+  const next = new Uint8Array(Math.max(n, buf.length * 2));
+  next.set(buf);
+  return next;
+};
+
+/** On disk when the browser has one, as a spool is; in memory otherwise. Never recovered: it is rebuilt from its inputs. */
+export async function openScratch(): Promise<Scratch> {
+  const dir = await opfs();
+  const name = `k7-join-${Date.now()}`;
+  if (dir)
+    try {
+      const handle = await dir.getFileHandle(name, { create: true });
+      const writable = await handle.createWritable();
+      return {
+        writable: writable as unknown as Scratch["writable"],
+        file: async (type) => new Blob([await handle.getFile()], { type }),
+        discard: () => void dir.removeEntry(name).catch(() => undefined),
+      };
+    } catch {
+      // A disk that refuses the file: the memory one below still joins the take.
+    }
+  let buf: Uint8Array<ArrayBuffer> = new Uint8Array(0);
+  let size = 0;
+  return {
+    writable: new WritableStream({
+      write: ({ data, position }) => {
+        buf = grown(buf, position + data.length);
+        buf.set(data, position);
+        size = Math.max(size, position + data.length);
+      },
+    }),
+    file: async (type) => new Blob([buf.slice(0, size)], { type }),
+    discard: () => {
+      buf = new Uint8Array(0);
+    },
+  };
+}
