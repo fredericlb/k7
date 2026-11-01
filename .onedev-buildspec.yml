@@ -33,9 +33,10 @@ jobs:
         apk add --no-cache git ffmpeg
         # 14s from the npm cache above; a cached node_modules (1.2 GB) would cost more to move than that.
         npm ci
-        # The four checks at once, each one's output grouped, and red if any one is — docs/tests.md.
+        # The four checks at once, each one's output grouped, and red if any one is — docs/tests.md. Two test
+        # workspaces at a time, not four: the image builds compile on the same host meanwhile, and starve disk tests past 30 s.
         npx concurrently --group --names lint,bytes,typecheck,test \
-          "npm run lint" "npm run lint:bytes" "npm run typecheck -- --jobs 2" "npm run test -- --jobs 4"
+          "npm run lint" "npm run lint:bytes" "npm run typecheck -- --jobs 2" "npm run test -- --jobs 2"
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
