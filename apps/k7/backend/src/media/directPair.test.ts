@@ -77,7 +77,7 @@ describe("directPairFromEnv", () => {
 
   it("opens nothing on a local instance, the server's side on a server", () => {
     const local = directPairFromEnv(provider(null, null), true, {
-      STUDIO_DIRECT_PAIR_SERVERS: "app.k7.rocks, https://k7.example.org",
+      STUDIO_PAIR_CLIENTS: "st0-desktop",
     });
     expect(local).toBeUndefined();
     const server = directPairFromEnv(provider(null, null), false, {

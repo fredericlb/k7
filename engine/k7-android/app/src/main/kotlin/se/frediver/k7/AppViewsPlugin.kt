@@ -140,7 +140,10 @@ class AppViewsPlugin : Plugin() {
         BackendHost.watch(onBackend)
 
         // Launched BY the browser's answer: no new intent will carry it.
-        activity.intent?.data?.let { answer -> AuthHandoff.redeemUrl(context, answer, SyncPairing.signInReturn(context, "/"))?.let { pendingRedeem = it } }
+        activity.intent?.data?.let { answer ->
+            if (SyncPairing.isAnswer(answer)) SyncPairing.finish(context, answer, ownCookie()) { views["k7"]?.reload() }
+            else AuthHandoff.redeemUrl(context, answer, "/")?.let { pendingRedeem = it }
+        }
 
         pickFiles = activity.activityResultRegistry.register("k7-app-files", ActivityResultContracts.StartActivityForResult()) {
             chooser?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(it.resultCode, it.data))
@@ -250,18 +253,25 @@ class AppViewsPlugin : Plugin() {
     override fun handleOnNewIntent(intent: Intent) {
         super.handleOnNewIntent(intent)
         val answer = intent.data ?: return
-        // Back where k7 was: the sign-in is carried into its view, which stays on the page it showed.
+        // The server's answer to a sign-in on the phone's own studio: the backend trades it for the link (SyncPairing.kt).
+        if (SyncPairing.isAnswer(answer))
+            return SyncPairing.finish(context, answer, ownCookie()) { views["k7"]?.reload() }
+        // Back where k7 was, on another studio: the sign-in is carried into its view, which stays on the page it showed.
         val returnTo = views["k7"]?.url?.let(Uri::parse)?.let { u -> (u.path ?: "/") + (u.query?.let { "?$it" } ?: "") } ?: "/"
-        // The sign-in and the server's pairing are one act: the redeem returns through the pairing (SyncPairing.signInReturn).
-        val redeem = AuthHandoff.redeemUrl(context, answer, SyncPairing.signInReturn(context, returnTo)) ?: return
+        val redeem = AuthHandoff.redeemUrl(context, answer, returnTo) ?: return
         // Straight into the view: a `navigate` to the app already shown changes nothing on the page, and loads nothing.
         val view = views["k7"]
         if (view == null) pendingRedeem = redeem else bridge.executeOnMainThread { view.loadUrl(redeem) }
     }
 
+    /** The phone's own studio's session cookie, which the backend's sign-in routes are behind. */
+    private fun ownCookie(): String? = CookieManager.getInstance().getCookie(BackendHost.ORIGIN)
+
     /** In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12). */
-    private fun signIn() {
+    private fun signIn(server: String?) {
         val at = studio ?: return
+        // The phone's own studio signs in to its server, and that sign-in is the link (SyncPairing.kt).
+        if (at == BackendHost.ORIGIN) return SyncPairing.start(activity, server, ownCookie())
         if (AuthHandoff.start(activity, at) || activity.isFinishing) return
         // Not even a plain browser: said in a native dialog, since the page that asked is the one that cannot go on.
         AlertDialog.Builder(activity)
@@ -273,8 +283,8 @@ class AppViewsPlugin : Plugin() {
 
     /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop, and an account pairs. */
     private fun onAccount(name: String?) {
-        // A real account on the phone's own studio is paired with the origin, once (SyncPairing.kt).
-        if (name != null && studio == BackendHost.ORIGIN) SyncPairing.pairIfNeeded(context, CookieManager.getInstance().getCookie(BackendHost.ORIGIN)) { views["k7"]?.reload() }
+        // A sign-in that ended while the app was away is said now (SyncPairing.kt).
+        if (name != null && studio == BackendHost.ORIGIN) SyncPairing.resume(context, ownCookie()) { views["k7"]?.reload() }
         if (name != null || studio != BackendHost.ORIGIN) return
         val now = System.currentTimeMillis()
         // Once in a while at most: a local sign-in that keeps failing must not reload forever.
@@ -411,9 +421,8 @@ class AppViewsPlugin : Plugin() {
             }
             // The studio's sign-in, however it was reached — a click, a script, a redirect: it goes to the browser.
             if (appOf(url) != null && url.path == "/auth/login") {
-                // The server the page's popin named is where the account will sync once signed in.
-                SyncPairing.choose(context, url.getQueryParameter("server"))
-                signIn()
+                // The server the page named is the one signed in to.
+                signIn(url.getQueryParameter("server"))
                 return true
             }
             // Only a link the user followed moves tabs. A redirect or a script's navigation stays put: the

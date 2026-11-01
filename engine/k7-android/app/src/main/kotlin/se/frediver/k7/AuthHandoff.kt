@@ -38,9 +38,14 @@ object AuthHandoff {
             .appendQueryParameter("challenge", challenge)
             .appendQueryParameter("state", state)
             .build()
+        return openTab(context, url)
+    }
+
+    /** Open `url` in a Custom Tab over the app, else any browser; false when there is none. Its answer comes back as an intent. */
+    fun openTab(context: Context, url: Uri): Boolean {
         // A Custom Tab in this task, so the answer reaching the singleTask activity closes it; outside an activity, a task of its own.
         val tab = CustomTabsIntent.Builder().setShowTitle(true).build()
-        // Held in front while the browser is: the backend trades the code with the provider meanwhile (AuthService.kt).
+        // Held in front while the browser is: the backend talks to the server meanwhile (AuthService.kt).
         AuthService.hold(context)
         if (context !is Activity) tab.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {

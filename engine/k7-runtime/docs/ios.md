@@ -73,10 +73,8 @@ Where iOS does a thing itself, the app lets it:
 
 | Android | iOS |
 |---|---|
-| a Custom Tab for the sign-in, the verifier kept on disk | `ASWebAuthenticationSession`, a sheet over the app: the app stays in front, so the verifier stays in memory |
-| the sign-in's redeem returning through the pairing, so signing in pairs the server named in the popin before k7's page loads | the same, through `SyncPairing.signInReturn` (`engine/k7-runtime/docs/android.md`, "Signing in is the pairing"). `AuthHandoff.swift` percent-encodes the return by hand, since `URLQueryItem` leaves the `&` of the return's own query bare |
-| a pairing answered already ended, with no sheet and no question | the backend paired at once through the server's direct route, as on Android (`packages/file-hub/docs/syncRelay.md`, "Pairing without the browser") |
-| a pairing killed behind the browser, told at the next start | the same backend routes, but a pairing still waiting at the next start is dropped: the sheet died with the app, so nothing will come back to it. The link takes the account the sheet confirms, and it is offered only while no server is saved, as on Android |
+| a Custom Tab for the sign-in to the server, its code back through the `pair` intent | `ASWebAuthenticationSession`, a sheet over the app whose callback hands `se.frediver.k7://pair` straight to `SyncPairing.swift`, which gives it to the backend's return as Android does (`engine/k7-runtime/docs/android.md`, "Signing in happens in the browser") |
+| a studio other than the phone's own signed in through the handoff, the verifier on disk | the same handoff, the verifier in memory: the sheet keeps the app in front. `AuthHandoff.swift` percent-encodes the return by hand, since `URLQueryItem` leaves the `&` of the return's own query bare |
 | `download.js` fetching blobs in 512 KiB chunks | `WKDownload`, which takes a `blob:`, `data:` or same-origin URL with the session's cookies; the file lands in Documents/Downloads, which the Files app shows under k7 |
 | `back.js` and the Back button | the edge swipe, over the view's own history |
 | `CertTrust.kt` checking the leaf's name and dates | iOS's own trust evaluation with the imported CAs as anchors (`TrustedCas.swift`): a wrong name, an expired date or a certificate iOS's TLS rules refuse is refused here too. Android's rule stands: an imported non-CA is trusted as that exact leaf and never as an issuer, read from its DER since iOS has no public API for extensions (`CertTrust.swift`) |
@@ -133,7 +131,7 @@ shell page and lays it out as `cap copy` would, and bundles the backend with `ap
   screen's controls may need the category changed.
 - **Not run on a phone**, only on the simulator (below). Sign-in through the browser, the private CA,
   downloads, the microphone flow and the local-network prompt are compiled, not driven; pairing over the
-  backend's routes (`SyncPairing.swift`) is neither compiled nor driven.
+  backend's routes (`SyncPairing.swift`) is neither compiled nor driven here: GitHub's `ios.yml` is its only build.
 - **No release signing.** `.github/workflows/ios.yml` builds an UNSIGNED `.ipa` for a device as an artifact,
   attached to a version's release but never to the snapshot (`docs/release.md`); signing it is the
   developer's own team, as for a local build.

@@ -1,9 +1,7 @@
-// SyncPairing.swift — pair the account signed in on the phone's own studio with the ORIGIN's relay. Signing in IS the
-// pairing: the sign-in returns through the backend (`signInReturn`), which pairs the server the popin named before k7's
-// page loads, when that server takes the sign-in's token. Otherwise this asks the person, opens the URL the backend
-// answers in an ASWebAuthenticationSession over the app, and says how it ended; the token comes back to the backend's
-// own port, and the app closes the sheet once the backend says the pairing ended. The pairing itself is
-// packages/file-hub/pairRoutes.ts, Android's and the desktop's too. See engine/k7-runtime/docs/ios.md.
+// SyncPairing.swift — sign the phone in to its ONE server: signing in IS the pairing. The phone's backend gives the
+// server's sign-in URL (packages/file-hub/pairRoutes.ts, Android's and the tray's too), opened in an
+// ASWebAuthenticationSession over the app; the server sends a one-use code back to this app's scheme, which the sheet
+// hands here, and the backend trades it for the link. See engine/k7-runtime/docs/ios.md.
 
 import AuthenticationServices
 import Foundation
@@ -11,163 +9,104 @@ import os
 import UIKit
 
 final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProviding {
-    /// web-protocol's STUDIO_ORIGIN: the server a phone syncs with until the sign-in popin names another.
+    /// web-protocol's STUDIO_ORIGIN: the server a phone signs in to when the page names none.
     private static let defaultOrigin = "https://app.k7.rocks"
-    private static let serverKey = "k7.syncServer"
-    private static var syncOrigin: String { UserDefaults.standard.string(forKey: serverKey) ?? defaultOrigin }
-    private static var syncHost: String { URLComponents(string: syncOrigin)?.host ?? syncOrigin }
-    /// The phone's backend's pairing routes (packages/file-hub/pairRoutes.ts).
+    /// The app's scheme, where the server sends its code: `se.frediver.k7://pair`.
+    private static let scheme = "se.frediver.k7"
+    /// The phone's backend's sign-in routes, and the return that trades the server's code (packages/file-hub/pairRoutes.ts).
     private static let pairApi = "/api/sync/remote/pair"
-    /// One long poll of the backend while the browser is in front, in ms.
+    private static let returnPath = "/desktop/sync-pair"
+    /// One long poll of the backend while the trade finishes, in ms.
     private static let pollMs = 25_000
 
     private static let shared = SyncPairing()
     private let log = Logger(subsystem: "se.frediver.k7", category: "k7-sync")
-    private let lock = NSLock()
-    // Accounts asked this run: a pairing the person declined is not offered again at every page load.
-    private var asked = Set<String>()
-    private var busy = false
     private var session: ASWebAuthenticationSession?
-
-    /// Keep the server the sign-in popin named, when it is one: https, or http on this phone only.
-    static func choose(_ input: String?) {
-        guard let raw = input?.trimmingCharacters(in: .whitespaces), !raw.isEmpty,
-              let u = URLComponents(string: raw), let host = u.host?.lowercased(), u.user == nil, u.password == nil else { return }
-        let loopback = ["127.0.0.1", "localhost", "::1"].contains(host)
-        guard u.scheme == "https" || (u.scheme == "http" && loopback) else { return }
-        let origin = u.port.map { "\(u.scheme!)://\(host):\($0)" } ?? "\(u.scheme!)://\(host)"
-        UserDefaults.standard.set(origin, forKey: serverKey)
-    }
 
     /// RFC 3986's unreserved characters, ASCII only: everything else in a query value is percent-encoded.
     static let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
-    /// Where the sign-in's redeem sends the view: through the backend, which pairs the server named at sign-in before `returnTo` loads.
-    static func signInReturn(_ returnTo: String) -> String {
-        let q = { (v: String) in v.addingPercentEncoding(withAllowedCharacters: unreserved) ?? "" }
-        return "\(pairApi)/sign-in?origin=\(q(syncOrigin))&name=\(q(deviceName()))&next=\(q(returnTo))"
+    /// The server the page named, when it is one: https, or http on this phone only.
+    private static func normalize(_ input: String?) -> String? {
+        guard let raw = input?.trimmingCharacters(in: .whitespaces), !raw.isEmpty,
+              let u = URLComponents(string: raw), let host = u.host?.lowercased(), u.user == nil, u.password == nil else { return nil }
+        let loopback = ["127.0.0.1", "localhost", "::1"].contains(host)
+        guard u.scheme == "https" || (u.scheme == "http" && loopback) else { return nil }
+        return u.port.map { "\(u.scheme!)://\(host):\($0)" } ?? "\(u.scheme!)://\(host)"
     }
 
-    /// Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run.
-    static func pairIfNeeded(cookie: String) {
-        shared.launch(cookie: cookie)
-    }
-
-    private func launch(cookie: String) {
-        if cookie.isEmpty { return }
-        lock.lock()
-        if busy {
-            lock.unlock()
-            return
-        }
-        busy = true
-        lock.unlock()
-        Thread { [self] in
-            run(cookie: cookie)
-            lock.lock()
-            busy = false
-            lock.unlock()
+    /// Sign in to `input` from the page's `/auth/login?server=`; `onPaired` runs on the main thread once linked.
+    static func start(_ input: String?, cookie: String, onPaired: @escaping () -> Void) {
+        let origin = normalize(input) ?? defaultOrigin
+        let name = deviceName()
+        Thread {
+            let body: [String: Any] = ["origin": origin, "name": name, "scheme": scheme]
+            guard let started = shared.local("POST", pairApi, cookie: cookie, body: body),
+                  let link = (started["url"] as? String).flatMap(URL.init(string:)) else {
+                Dialogs.tell("The sign-in could not start. Try again.")
+                return
+            }
+            DispatchQueue.main.async { shared.open(link, cookie: cookie, onPaired: onPaired) }
         }.start()
     }
 
-    /// One pairing, start to end, on this thread.
-    private func run(cookie: String) {
-        let query = Self.syncOrigin.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
-        guard let offer = local("GET", "\(Self.pairApi)?origin=\(query)", cookie: cookie),
-              let email = offer["email"] as? String, !email.isEmpty,
-              offer["local"] as? Bool != true else { return }
-        lock.lock()
-        let fresh = asked.insert(email).inserted
-        lock.unlock()
-        if let pairing = offer["pairing"] as? [String: Any], let state = pairing["state"] as? String {
-            // Ended while nobody was here to say so: said now. Still waiting, its sheet died with the app: dropped.
-            if pairing["phase"] as? String != "waiting" {
-                settle(pairing, cookie: cookie)
-                return
-            }
-            _ = local("DELETE", "\(Self.pairApi)/\(state)", cookie: cookie)
-        }
-        if !fresh { return }
-        // Offered only while no server is saved: adding and switching servers is the settings' (ios.md).
-        if (offer["links"] as? Int ?? 0) > 0 { return }
-        // Signing in was the yes: only a browser coming up on its own is asked first (packages/file-hub/docs/syncRelay.md).
-        let question = "Sync this phone's workspaces with \(Self.syncHost)?\n\nThe browser opens to confirm the account there: \(email), or another one."
-        if offer["direct"] as? Bool != true && !Dialogs.ask("Sync", question, yes: "Sync", no: "Not now") { return }
-        let body: [String: Any] = ["origin": Self.syncOrigin, "name": Self.deviceName()]
-        guard let started = local("POST", Self.pairApi, cookie: cookie, body: body),
-              let pairing = started["pairing"] as? [String: Any] else {
-            Dialogs.tell("This phone's sync pairing could not start. k7 will offer it again at its next start.")
-            return
-        }
-        // Paired already, with no browser: said at once.
-        if pairing["phase"] as? String != "waiting" {
-            settle(pairing, cookie: cookie)
-            return
-        }
-        guard let link = (started["url"] as? String).flatMap(URL.init(string:)) else {
-            Dialogs.tell("This phone's sync pairing could not start. k7 will offer it again at its next start.")
-            return
-        }
-        DispatchQueue.main.async { self.openBrowser(link) }
-        settle(pairing, cookie: cookie)
-        DispatchQueue.main.async {
-            self.session?.cancel()
+    private func open(_ url: URL, cookie: String, onPaired: @escaping () -> Void) {
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: Self.scheme) { [self] answer, _ in
             self.session = nil
+            guard let answer, let parts = URLComponents(url: answer, resolvingAgainstBaseURL: false) else { return }
+            let item = { (name: String) in parts.queryItems?.first { $0.name == name }?.value ?? "" }
+            Thread { self.finish(code: item("code"), state: item("state"), cookie: cookie, onPaired: onPaired) }.start()
         }
-    }
-
-    private func openBrowser(_ url: URL) {
-        // No callback scheme: the answer comes to the backend's port, and this app closes the sheet when it has.
-        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: nil) { _, _ in }
         session.presentationContextProvider = self
         session.prefersEphemeralWebBrowserSession = false
         self.session = session
-        if !session.start() { log.warning("the pairing browser did not open") }
+        if !session.start() { log.warning("the sign-in sheet did not open") }
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         Dialogs.top()?.view.window ?? ASPresentationAnchor()
     }
 
-    /// Wait on the backend for the pairing's ending, say it, and let the backend drop it.
-    private func settle(_ first: [String: Any], cookie: String) {
-        let state = first["state"] as? String ?? ""
+    /// The backend trades the server's code at its return, then the ending is said; on this thread.
+    private func finish(code: String, state: String, cookie: String, onPaired: @escaping () -> Void) {
+        let q = { (v: String) in v.addingPercentEncoding(withAllowedCharacters: Self.unreserved) ?? "" }
+        // The return answers a page, not JSON: only its having answered matters, the ending is read from the pairing.
+        _ = local("GET", "\(Self.returnPath)?code=\(q(code))&state=\(q(state))", cookie: "", json: false)
+        guard let first = local("GET", "\(Self.pairApi)/\(q(state))", cookie: cookie)?["pairing"] as? [String: Any] else {
+            Dialogs.tell("The sign-in was interrupted. Sign in again from the settings.")
+            return
+        }
         var p = first
         while p["phase"] as? String == "waiting" {
-            guard let next = local("GET", "\(Self.pairApi)/\(state)?wait=\(Self.pollMs)", cookie: cookie)?["pairing"] as? [String: Any] else {
-                Dialogs.tell("The sync pairing was interrupted. k7 will offer it again at its next start.")
+            guard let next = local("GET", "\(Self.pairApi)/\(q(state))?wait=\(Self.pollMs)", cookie: cookie)?["pairing"] as? [String: Any] else {
+                Dialogs.tell("The sign-in was interrupted. Sign in again from the settings.")
                 return
             }
             p = next
         }
-        _ = local("DELETE", "\(Self.pairApi)/\(state)", cookie: cookie)
-        let host = p["host"] as? String ?? Self.syncHost
-        log.info("sync pairing with \(host, privacy: .public): \(p["phase"] as? String ?? "", privacy: .public)")
-        // The server's account it ended as: the browser's, else the phone's own.
-        let browserAs = p["browserAs"] as? String ?? ""
-        let account = browserAs.isEmpty ? (p["email"] as? String ?? "") : browserAs
+        _ = local("DELETE", "\(Self.pairApi)/\(q(state))", cookie: cookie)
+        let host = p["host"] as? String ?? ""
+        log.info("sign-in to \(host, privacy: .public): \(p["phase"] as? String ?? "", privacy: .public)")
         switch p["phase"] as? String {
         case "paired":
-            // The same token lists this phone's engine at that studio, which may admit paired machines only.
+            // The same token lists this phone's engine at that server, which may admit paired machines only.
             SupervisorHost.shared.rememberDeviceToken(origin: p["origin"] as? String ?? "", token: p["token"] as? String ?? "")
-            Dialogs.tell("This phone now syncs its workspaces with \(host) as \(account).")
-        // That account on that server is linked already: the link it has stays.
-        case "alreadyLinked", "otherAccount":
-            Dialogs.tell("This phone already syncs with \(host) as \(account), so nothing changed.")
+            Dialogs.tell("Signed in to \(host) as \(p["browserAs"] as? String ?? "").")
+            DispatchQueue.main.async(execute: onPaired)
         case "expired":
-            Dialogs.tell("The sync pairing was not finished in the browser. k7 will offer it again at its next start.")
+            Dialogs.tell("The sign-in was not finished in the browser. Sign in again from the settings.")
         default:
-            Dialogs.tell("The sync pairing could not be saved on this phone. k7 will offer it again at its next start.")
+            Dialogs.tell("The sign-in could not be saved on this phone. Sign in again from the settings.")
         }
     }
 
-    /// The phone's backend, as the signed-in account: its session cookie, read from the views' cookie store.
-    private func local(_ method: String, _ path: String, cookie: String, body: [String: Any]? = nil) -> [String: Any]? {
+    /// The phone's backend, as the view's session: its cookie, read from the views' cookie store.
+    private func local(_ method: String, _ path: String, cookie: String, body: [String: Any]? = nil, json: Bool = true) -> [String: Any]? {
         var request = URLRequest(url: URL(string: BackendHost.origin + path)!)
         request.httpMethod = method
-        // Longer than one long poll of a pairing under way.
+        // Longer than one long poll of a sign-in under way.
         request.timeoutInterval = 60
-        request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        if !cookie.isEmpty { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -175,7 +114,7 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         let done = DispatchSemaphore(value: 0)
         var out: [String: Any]?
         URLSession.shared.dataTask(with: request) { data, response, _ in
-            if let code = (response as? HTTPURLResponse)?.statusCode, (200..<300).contains(code), let data {
+            if json, let code = (response as? HTTPURLResponse)?.statusCode, (200..<300).contains(code), let data {
                 out = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             }
             done.signal()
@@ -184,8 +123,8 @@ final class SyncPairing: NSObject, ASWebAuthenticationPresentationContextProvidi
         return out
     }
 
-    /// What the origin's device list shows: the phone's model as iOS names it to an app.
+    /// What the server's device list shows: the phone's model as iOS names it to an app.
     private static func deviceName() -> String {
-        DispatchQueue.main.sync { UIDevice.current.model }
+        Thread.isMainThread ? UIDevice.current.model : DispatchQueue.main.sync { UIDevice.current.model }
     }
 }

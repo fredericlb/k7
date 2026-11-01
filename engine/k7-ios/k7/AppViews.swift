@@ -183,26 +183,27 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
     }
 
     /// In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12).
-    private func signIn() {
+    private func signIn(_ server: String?) {
         guard let at = studio else { return }
-        // The sign-in and the server's pairing are one act: the redeem returns through the pairing (SyncPairing.signInReturn).
+        // The phone's own studio signs in to its server, and that sign-in is the link (SyncPairing.swift).
+        if at == BackendHost.origin {
+            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+                let header = cookies.filter { $0.domain == "127.0.0.1" }.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+                SyncPairing.start(server, cookie: header) { self?.views["k7"]?.reload() }
+            }
+            return
+        }
         AuthHandoff.start(studio: at, returnTo: { [weak self] in
-            guard let u = self?.views["k7"]?.url, let parts = URLComponents(url: u, resolvingAgainstBaseURL: false) else { return SyncPairing.signInReturn("/") }
-            return SyncPairing.signInReturn(parts.path + (parts.query.map { "?\($0)" } ?? ""))
+            guard let u = self?.views["k7"]?.url, let parts = URLComponents(url: u, resolvingAgainstBaseURL: false) else { return "/" }
+            return parts.path + (parts.query.map { "?\($0)" } ?? "")
         }, redeemed: { [weak self] to in
             // Straight into the view: a `navigate` to the app already shown changes nothing on the page.
             self?.views["k7"]?.load(URLRequest(url: to))
         })
     }
 
-    /// Who the studio says is signed in; on the phone's own studio nobody means back to the local user, and an account pairs.
+    /// Who the studio says is signed in; on the phone's own studio nobody means back to the local user.
     private func onAccount(_ name: String?) {
-        if name != nil && studio == BackendHost.origin {
-            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-                let header = cookies.filter { $0.domain == "127.0.0.1" }.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
-                SyncPairing.pairIfNeeded(cookie: header)
-            }
-        }
         guard name == nil, studio == BackendHost.origin else { return }
         // Once in a while at most: a local sign-in that keeps failing must not reload forever.
         if Date().timeIntervalSince(localSignInAt) < Self.localSignInGap { return }
@@ -298,9 +299,8 @@ public class AppViewsPlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, 
         }
         // The studio's sign-in, however it was reached — a click, a script, a redirect: it goes to the browser.
         if appOf(url) != nil && url.path == "/auth/login" {
-            // The server the page's popin named is where the account will sync once signed in.
-            SyncPairing.choose(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "server" }?.value)
-            signIn()
+            // The server the page named is the one signed in to.
+            signIn(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "server" }?.value)
             return decisionHandler(.cancel)
         }
         // Only a link the user followed moves tabs; a redirect or a script's navigation stays put.

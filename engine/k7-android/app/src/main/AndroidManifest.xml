@@ -43,12 +43,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- The browser's answer to a sign-in (AuthHandoff.kt); singleTask, so it reaches the running activity. -->
+            <!-- The browser's answer to a sign-in: a studio's (auth, AuthHandoff.kt) or the server's code (pair, SyncPairing.kt); singleTask, so it reaches the running activity. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${applicationId}" android:host="auth" />
+                <data android:scheme="${applicationId}" android:host="pair" />
             </intent-filter>
         </activity>
         <!-- k7 opened again once the old process is gone, from a process of its own that only waits (Relaunch.kt). -->
