@@ -105,7 +105,7 @@ the link (`engine/k7-runtime/docs/android.md`, "Signing in is the pairing").
 A computer under the tray, the Android app and the iPhone app pair the same way, and the way is written once, in
 the backend they all run (`../pairRoutes.ts`, `../pairingStore.ts`). What stays in each host is what
 only it can do: open the browser (a Custom Tab, an `ASWebAuthenticationSession`, or on a computer a
-new tab opened from a click in k7's account bar), ask the person first, and say how it ended
+new tab opened from a click on k7's Connect or Add), ask the person first, and say how it ended
 (`apps/k7/frontend/docs/localApp.md`, `engine/k7-runtime/docs/android.md`, `engine/k7-runtime/docs/ios.md`).
 
 - **The browser comes back to the backend's own port**, `SYNC_PAIR_RETURN_PATH` on `127.0.0.1`. No
@@ -141,7 +141,7 @@ new tab opened from a click in k7's account bar), ask the person first, and say 
   kept a day, so the app says it at its next start and, once paired, hands the token to the phone's
   supervisor. The token itself is in `.sync-remote.json` only.
 - **The app waits by long poll** (`GET /api/sync/remote/pair/<state>?wait=`), on the session it already
-  has, and drops the pairing once it has said the ending (`DELETE`), which is also the account bar's Cancel.
+  has, and drops the pairing once it has said the ending (`DELETE`), which is also the Cancel under k7's Connect.
   Ten minutes without a return is `expired`.
 
 **A machine's account SAVES servers, and uses ONE: the active one.** Each saved server is a LINK, one

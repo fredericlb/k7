@@ -19,13 +19,13 @@ import {
   takePrefetchedWorkspaces,
 } from "../settings/accountFiles";
 import { pollWhileVisible } from "../visiblePoll";
-import { AccountBar } from "./AccountBar";
 import { accountFiles, shares as sharesApi } from "./api";
 import { useHomeCommandsChanged } from "./HomeCommandBar";
 import { HomeShell } from "./HomeFrame";
 import { WS_PARAM } from "./homeCommands";
 import { PluginScanBar } from "./PluginScanBar";
 import { ProjectsPane } from "./ProjectsPane";
+import { ServerPrompt } from "./ServerPrompt";
 import type { AccountFiles } from "./workspaceOps";
 
 /** The médiathèque's own: brisk enough that a change from another replica shows, slow enough to cost nothing on a ten-row list. */
@@ -181,8 +181,8 @@ export function Home() {
       {/* Where the page's passing notices are drawn. */}
       <Toaster dismissLabel={m["common.dismiss"]()} />
 
-      {/* The desktop and Android apps' account, at the top of the page rather than in a title or native bar (projects/AccountBar.tsx). */}
-      <AccountBar />
+      {/* On a machine with no server saved, the first-launch question: connect to one or stay offline (ServerPrompt.tsx). */}
+      <ServerPrompt />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {error && (

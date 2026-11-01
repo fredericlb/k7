@@ -60,6 +60,7 @@ import {
   TASKS_ROUTE,
 } from "./api";
 import { mediaSectionLabel } from "./mediaLabels";
+import { useMenuAccount } from "./menuAccount";
 
 /** A home route as a full address, which appNav draws in place, for a sidebar drawn outside the home router. */
 const homeHref = (route: string): string =>
@@ -239,14 +240,8 @@ export function HomeSidebar({
     });
   }, []);
 
-  // Who is signed in, for the user menu: AuthGate asked already, but hands nothing down.
-  const [email, setEmail] = useState<string | null>(null);
-  useEffect(() => {
-    void api
-      .getMe()
-      .then((u) => setEmail(u?.email || u?.name || u?.sub || null))
-      .catch(() => {});
-  }, []);
+  // The menu's heading: the login on the server, or "Local" on a machine with none (menuAccount.ts).
+  const email = useMenuAccount();
 
   const items: Entry[] = [
     { label: m["home.projects"](), icon: Folders, route: "/" },

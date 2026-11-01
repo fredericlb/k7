@@ -1,14 +1,9 @@
-// browserAccount.ts — signing in and pairing from the page itself, served in a browser by the tray's backend or a server.
-// Sign-in is the backend's own /auth/login, the address bar being right there; pairing is the backend's
+// browserAccount.ts — pairing from the page itself, served in a browser by the tray's backend: the backend's
 // /api/sync/remote/pair, its trip to the server opened in a tab of its own from a click, which a browser allows, or no
 // tab at all when the backend pairs with that server at once from the account's sign-in (`directHosts`).
 // See ../../docs/localApp.md and packages/file-hub/docs/syncRelay.md, "Pairing without the browser".
 
 import type { AccountStatus } from "./bridge";
-
-const SERVER_KEY = "k7.syncServer";
-// Set by a sign-in, read once back on the page: the server to offer pairing with.
-const PAIR_KEY = "k7.pairAfterSignIn";
 
 interface Pairing {
   state: string;
@@ -53,23 +48,7 @@ async function prepare(): Promise<void> {
   directHosts = new Set(a?.directHosts ?? []);
 }
 
-const store = (k: Storage | undefined, key: string, v: string | null) => {
-  try {
-    if (v === null) k?.removeItem(key);
-    else k?.setItem(key, v);
-  } catch {
-    // A private window keeps nothing; the next sign-in asks again.
-  }
-};
-const read = (k: Storage | undefined, key: string): string | null => {
-  try {
-    return k?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-};
-
-/** How a pairing that left `waiting` reads in the account bar: both accounts named, k7's here and the server's. */
+/** How a pairing that left `waiting` reads under its button: both accounts named, k7's here and the server's. */
 function ending(p: Pairing): AccountStatus {
   const as = p.browserAs ?? p.email;
   if (p.phase === "paired")
@@ -149,34 +128,12 @@ async function pair(server: string, another = false): Promise<boolean> {
   return follow(pairing.state);
 }
 
-/** The account controls' sign-in and pairing in a browser (./bridge.ts). */
+/** The page's pairing in a browser (./bridge.ts). */
 export const browserAccount = {
-  signIn(server?: string): void {
-    if (server) {
-      store(globalThis.localStorage, SERVER_KEY, server);
-      store(globalThis.sessionStorage, PAIR_KEY, server);
-    }
-    const back = encodeURIComponent(location.pathname + location.search);
-    location.assign(`/auth/login?return_to=${back}`);
-  },
-  server: async (): Promise<string | null> =>
-    read(globalThis.localStorage, SERVER_KEY),
-  /** Ask ahead which servers pair with no tab, for a page that offers Add. */
+  /** Ask ahead which servers pair with no tab, for a page that offers Connect or Add. */
   prepare: (): Promise<void> => prepare(),
   authStatus: async (): Promise<AccountStatus | null> => {
     void prepare();
-    const server = read(globalThis.sessionStorage, PAIR_KEY);
-    if (status.state !== "idle" || !server) return status;
-    // Back from a sign-in: offered once, unless the account already syncs with it.
-    store(globalThis.sessionStorage, PAIR_KEY, null);
-    const r = await fetch(
-      `/api/sync/remote/pair?origin=${encodeURIComponent(server)}`,
-      { cache: "no-store" },
-    ).catch(() => null);
-    const asked = r?.ok
-      ? ((await r.json()) as { local: boolean; paired: boolean })
-      : null;
-    if (asked && !asked.local && !asked.paired) set({ state: "offer", server });
     return status;
   },
   onAuthStatus(cb: (s: AccountStatus) => void): () => void {
@@ -189,8 +146,6 @@ export const browserAccount = {
     current = null;
     set({ state: "idle" });
   },
-  /** The offer's button after a sign-in. */
-  pair: (server: string): Promise<boolean> => pair(server),
   addServer: (server: string): Promise<boolean> => pair(server),
   /** Another account on a server already saved: its page asks which one. */
   addAccount: (server: string): Promise<boolean> => pair(server, true),
