@@ -194,166 +194,13 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 600
-# The release graph, GitHub's (.github/workflows/release.yml) minus Linux, which only GitHub builds (docs/release.md):
-# an ENGINE job — engine/k7-runtime and engine/k7-supervisor compiled and archived as the command-line engine —
-# beside it the APK; the tray is GitHub's alone (.github/workflows/tray.yml);
-# and "release", which the triggers name and which gathers every file into one build.
-# The engine and the APK wait for "lint and test": a release must not ship what the tests refuse.
-# The phone: engine/k7-android's release APK, signed with the key in the android-* job secrets — the engine as
-# libk7runtime.so, built by its android-arm64 preset, with the supervisor and the Capacitor page (web/) — as
-# GitHub's android job builds it. Gradle builds the
-# engine itself with the SDK's pinned NDK (engine/k7-runtime/docs/android.md). The SDK is fetched and pinned like
-# every other dependency, in a cache keyed by its versions, so a bump of any of them is a new key.
-- name: android
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up android sdk cache
-    key: android-sdk-cmdline23.0-platform36-build36.0.0-ndk29.0.14206865
-    paths:
-    - /opt/android-sdk
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetupCacheStep
-    name: set up gradle cache
-    key: gradle-cache
-    paths:
-    - /root/.gradle
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # Its own key: these sources compile to arm64 objects, which no other preset may reuse.
-  - type: SetupCacheStep
-    name: set up ccache
-    key: ccache-android
-    paths:
-    - /root/.ccache
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  # The dependency SOURCES — Tracktion and JUCE, Faust, Eigen, NAM, QuickJS, the supervisor's stacks —
-  # kept in STUDIO_FETCHCONTENT_DIR, so a run clones nothing; what gets built there is deleted at exit.
-  - type: SetupCacheStep
-    name: set up dependency sources cache
-    key: fetch-android
-    paths:
-    - /root/.cache/k7-fetch
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: build apk
-    runInContainer: true
-    # trixie, not bookworm: it carries JDK 21, which the command-line tools and AGP run on.
-    image: node:24-trixie
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        git config --global --add safe.directory '*'
-
-        set -e
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        # The C++ toolchain and the X11 and font headers are for the HOST half of the build: JUCE
-        # compiles juceaide, its GUI module included, for the machine running the build, whatever the target.
-        apt-get install -y --no-install-recommends \
-          openjdk-21-jdk-headless build-essential cmake ninja-build ccache pkg-config \
-          git curl ca-certificates unzip \
-          libfreetype-dev libfontconfig-dev libx11-dev libxcomposite-dev libxcursor-dev \
-          libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
-
-        # Gradle hands its environment to the engine's CMake, whose presets read this, so it reaches the NDK's clang too.
-        export STUDIO_COMPILER_LAUNCHER=ccache
-        # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
-        export STUDIO_FETCHCONTENT_DIR=/root/.cache/k7-fetch
-        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
-        export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
-        ccache --zero-stats
-
-        # A UTF-8 locale for the JVM: without one Gradle reads file names as ASCII and loses k7-core's µcomputer.fxp.
-        export LANG=C.UTF-8 LC_ALL=C.UTF-8
-        export ANDROID_HOME=/opt/android-sdk
-        SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-        if [ ! -x "$SDKMANAGER" ]; then
-          curl -sfL -o /tmp/cmdline-tools.zip \
-            https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip
-          echo "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8  /tmp/cmdline-tools.zip" \
-            | sha256sum -c -
-          rm -rf /tmp/cmdline-tools && unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
-          mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
-        fi
-        yes | "$SDKMANAGER" --licenses > /dev/null
-        # The versions engine/k7-android/app/build.gradle.kts names: compileSdk and ndkVersion.
-        "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
-
-        # The release's name, as GitHub's names it: the tag on a tag, snapshot-<commit> on main.
-        STAMP=$(git describe --tags --exact-match --match 'v*' 2>/dev/null || echo "snapshot-$(git rev-parse --short HEAD)")
-
-        # The app's page (engine/k7-android/web) is a workspace, and Capacitor's Android runtime,
-        # which settings.gradle.kts includes, is one of its packages: both come from the root install.
-        npm ci
-
-        # The release key from the job secrets, read through quoted heredocs so no character of them reaches the shell.
-        trap 'rm -rf /tmp/k7-signing; find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/k7-runtime/faust-src/build/lib' EXIT
-        umask 077
-        mkdir -p /tmp/k7-signing
-        cat > /tmp/k7-signing/keystore.b64 <<'K7_SECRET'
-        @secret:android-keystore-b64@
-        K7_SECRET
-        base64 -d /tmp/k7-signing/keystore.b64 > /tmp/k7-signing/release.jks
-        export K7_ANDROID_KEYSTORE_FILE=/tmp/k7-signing/release.jks
-        export K7_ANDROID_KEYSTORE_PASSWORD="$(cat <<'K7_SECRET'
-        @secret:android-keystore-password@
-        K7_SECRET
-        )"
-        export K7_ANDROID_KEY_ALIAS="$(cat <<'K7_SECRET'
-        @secret:android-key-alias@
-        K7_SECRET
-        )"
-        export K7_ANDROID_KEY_PASSWORD="$(cat <<'K7_SECRET'
-        @secret:android-key-password@
-        K7_SECRET
-        )"
-        umask 022
-
-        cd engine/k7-android
-        ./gradlew --no-daemon assembleRelease
-        APK=app/build/outputs/apk/release/app-release.apk
-        # Refuses an unsigned or debuggable APK before it can reach the release.
-        "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
-        BADGING=$("$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK")
-        if printf '%s\n' "$BADGING" | grep -q application-debuggable; then echo "the release APK is debuggable"; exit 1; fi
-        mkdir -p ../../dist/release
-        cp "$APK" "../../dist/release/k7-android_${STAMP}_arm64.apk"
-        ccache --show-stats
-    runAs: 0:0
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: PublishArtifactStep
-    name: publish android apk
-    artifacts: dist/release/*.apk
-    condition: SUCCESSFUL
-    optional: false
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 5400
-# The Windows pair, on the Windows AGENT — a Remote Shell Executor, so no container: the steps run in cmd on the
-# machine itself, with what it has installed (Node, Git, CMake, Ninja, Visual Studio Build Tools). Neither job names
+# The release graph, GitHub's (.github/workflows/release.yml) minus Linux and macOS, which only GitHub builds
+# (docs/release.md): the command-line engine — engine/k7-runtime and engine/k7-supervisor compiled and archived — and
+# the APK, both on the Windows agent; the tray is GitHub's alone (.github/workflows/tray.yml); and "release", which the
+# triggers name and which gathers every file into one build. Both wait for "lint and test": a release must not ship
+# what the tests refuse.
+# The Windows jobs, on the Windows AGENT — a Remote Shell Executor, so no container: the steps run in cmd on the
+# machine itself, with what it has installed (Node, Git, CMake, Ninja, Visual Studio Build Tools). No job names
 # an executor: the shell executor whose JOB MATCH takes them runs them, on an agent its AGENT SELECTOR picks by OS
 # (docs/release.md). cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`,
 # and npm is `call`ed because it is npm.cmd. commons by hand: the checkout takes no submodule.
@@ -407,6 +254,96 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 7200
+# The phone: engine/k7-android's release APK, signed with the key in the android-* job secrets — the engine as
+# libk7runtime.so, built by its android-arm64 preset, with the supervisor and the Capacitor page (web/) — as GitHub's
+# android job builds it, on the Windows agent with what it has installed: the Android SDK (platform 36, some build
+# tools, NDK 29.0.14206865), Android Studio's JDK 21, and the Visual Studio Build Tools, whose vcvars64 puts cl.exe on
+# the path for juceaide, which JUCE compiles for the HOST under Ninja (engine/k7-runtime/docs/android.md).
+# A secret is set in cmd between quotes, so it must hold no `"` and no `%`.
+- name: android
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: HttpCredential
+      accessTokenSecret: submodule-token
+    withLfs: false
+    withSubmodules: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: build apk
+    runInContainer: false
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        rem Its own sources folder: the engine job deletes its builds there while this one may be building.
+        if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\k7-ci\fetch-android"
+        for /d %%P in ("%STUDIO_FETCHCONTENT_DIR%\*") do for /d %%B in ("%%P\*-build") do rmdir /s /q "%%B"
+        if exist "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\k7-runtime\faust-src\build\lib"
+        git config core.longpaths true || exit /b 1
+        rem The token in the environment, not on the command line, where any process listing would show it.
+        set "GIT_CONFIG_COUNT=1"
+        set "GIT_CONFIG_KEY_0=http.extraHeader"
+        set "GIT_CONFIG_VALUE_0=OneDevAuthorization: Bearer @secret:submodule-token@"
+        git submodule update --init commons || exit /b 1
+        set "GIT_CONFIG_COUNT="
+        set "GIT_CONFIG_KEY_0="
+        set "GIT_CONFIG_VALUE_0="
+        rem The app's page (engine/k7-android/web) and Capacitor's Android runtime come from the root install.
+        call npm ci || exit /b 1
+        rem The release's name, as GitHub's names it: the tag on a tag, snapshot-<commit> on main.
+        git describe --tags --exact-match --match "v*" > build_version 2>nul || (for /f %%H in ('git rev-parse --short HEAD') do echo snapshot-%%H> build_version)
+        set /p STAMP=<build_version
+        if not defined ANDROID_HOME set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
+        if not defined JAVA_HOME set "JAVA_HOME=%ProgramFiles%\Android\Android Studio\jbr"
+        rem The versions engine/k7-android/app/build.gradle.kts names: compileSdk and ndkVersion.
+        for %%D in ("platforms\android-36" "ndk\29.0.14206865") do if not exist "%ANDROID_HOME%\%%~D" (echo the agent's Android SDK has no %%~D & exit /b 1)
+        rem apksigner and aapt2 from the newest build tools the agent has: only they are read here, AGP picks its own.
+        set "TOOLS="
+        for /f "delims=" %%T in ('dir /b /ad /o:n "%ANDROID_HOME%\build-tools" 2^>nul') do set "TOOLS=%ANDROID_HOME%\build-tools\%%T"
+        if not defined TOOLS (echo the agent's Android SDK has no build tools & exit /b 1)
+        if not exist "%JAVA_HOME%\bin\java.exe" (echo no JDK 21 at %JAVA_HOME% & exit /b 1)
+        for /f "usebackq delims=" %%V in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath`) do set "VSDIR=%%V"
+        call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" > nul || exit /b 1
+        rem Windows' own tar first: the Termux tools step runs tar on C:\ paths, which GNU tar reads as a host.
+        set "PATH=%SystemRoot%\System32;%PATH%"
+        rem The release key, written to a folder of this run's own and deleted whatever Gradle answers.
+        set "SIGN=%TEMP%\k7-signing-@build_number@"
+        if exist "%SIGN%" rmdir /s /q "%SIGN%"
+        mkdir "%SIGN%" || exit /b 1
+        > "%SIGN%\keystore.b64" echo @secret:android-keystore-b64@
+        certutil -f -decode "%SIGN%\keystore.b64" "%SIGN%\release.jks" > nul || (rmdir /s /q "%SIGN%" & exit /b 1)
+        set "K7_ANDROID_KEYSTORE_FILE=%SIGN%\release.jks"
+        set "K7_ANDROID_KEYSTORE_PASSWORD=@secret:android-keystore-password@"
+        set "K7_ANDROID_KEY_ALIAS=@secret:android-key-alias@"
+        set "K7_ANDROID_KEY_PASSWORD=@secret:android-key-password@"
+        cd engine\k7-android
+        call gradlew.bat --no-daemon assembleRelease
+        set "BUILT=%ERRORLEVEL%"
+        rmdir /s /q "%SIGN%"
+        if not "%BUILT%"=="0" exit /b %BUILT%
+        set "APK=app\build\outputs\apk\release\app-release.apk"
+        rem Refuses an unsigned or debuggable APK before it can reach the release.
+        call "%TOOLS%\apksigner.bat" verify --print-certs "%APK%" || exit /b 1
+        "%TOOLS%\aapt2.exe" dump badging "%APK%" | findstr /c:"application-debuggable" > nul && (echo the release APK is debuggable & exit /b 1)
+        if not exist ..\..\dist\release mkdir ..\..\dist\release
+        copy /y "%APK%" "..\..\dist\release\k7-android_%STAMP%_arm64.apk" > nul || exit /b 1
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: PublishArtifactStep
+    name: publish android apk
+    artifacts: dist/release/*.apk
+    condition: SUCCESSFUL
+    optional: false
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 5400
 # What a push or a tag starts: the Windows engine and the APK, run through the dependencies below, and their
 # files gathered into this one build — OneDev's release page. Red when any of them is. The paths are GitHub's gate:
 # a push that touched only docs builds nothing (docs/release.md).
