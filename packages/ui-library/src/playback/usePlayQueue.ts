@@ -15,7 +15,11 @@ import {
 
 export interface PlayQueue {
   queue: QueueItem[];
-  enqueue: (entries: MediatekEntry[]) => void;
+  /** `baseOf` names where a song not on this machine streams from: the server. */
+  enqueue: (
+    entries: MediatekEntry[],
+    baseOf?: (entry: MediatekEntry) => string | undefined,
+  ) => void;
   removeFromQueue: (i: number) => void;
   moveInQueue: (from: number, to: number) => void;
   /** Take the head and remove it, or `null`. */
@@ -25,9 +29,15 @@ export interface PlayQueue {
 export function usePlayQueue(): PlayQueue {
   const [queue, setQueue] = useState<QueueItem[]>([]);
 
-  const enqueue = useCallback((list: MediatekEntry[]) => {
-    setQueue((q) => enqueueInto(q, list));
-  }, []);
+  const enqueue = useCallback(
+    (
+      list: MediatekEntry[],
+      baseOf?: (entry: MediatekEntry) => string | undefined,
+    ) => {
+      setQueue((q) => enqueueInto(q, list, baseOf));
+    },
+    [],
+  );
   const removeFromQueue = useCallback((i: number) => {
     setQueue((q) => removeAt(q, i));
   }, []);

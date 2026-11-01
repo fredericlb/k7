@@ -22,6 +22,8 @@ export function useStartNext(): () => void {
       playback.start({
         entry: next.entry,
         path: `${next.entry.path}/${file}`,
+        // A song the server alone holds streams from there, as its page plays it.
+        ...(next.base ? { base: next.base } : {}),
       });
       return;
     }

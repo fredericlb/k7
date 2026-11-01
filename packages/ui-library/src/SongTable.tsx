@@ -189,16 +189,23 @@ export function SongTable(p: SongTableProps) {
         </TableCell>
         <TableCell className="w-20">{marks(s.rel)}</TableCell>
         <TableCell className="w-10 text-right">
+          {/* A server song's cloud on a wide screen; on a phone its ⋮, whose Download is one entry among the lists and the queue. */}
           {s.remote ? (
-            <RemoteDownload path={`songs/${s.rel}`} onDownload={p.onDownload} />
-          ) : (
+            <span className="hidden md:inline-flex">
+              <RemoteDownload
+                path={`songs/${s.rel}`}
+                onDownload={p.onDownload}
+              />
+            </span>
+          ) : null}
+          <span className={s.remote ? "md:hidden" : undefined}>
             <RowMenu
               target={rowTarget(s.rel, s.title)}
               actions={p.actions}
               label={l.tree.more}
               cancelLabel={l.common.cancel}
             />
-          )}
+          </span>
         </TableCell>
       </TableRow>
     );

@@ -60,7 +60,11 @@ export interface Playback {
 
   /** What plays next, beside the transport because a queue outlives the screen that filled it. */
   queue: QueueItem[];
-  enqueue: (entries: MediatekEntry[]) => void;
+  /** `baseOf` names where a song not on this machine streams from: the server. */
+  enqueue: (
+    entries: MediatekEntry[],
+    baseOf?: (entry: MediatekEntry) => string | undefined,
+  ) => void;
   removeFromQueue: (i: number) => void;
   moveInQueue: (from: number, to: number) => void;
   takeNext: () => QueueItem | null;

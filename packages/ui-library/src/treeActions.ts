@@ -3,12 +3,13 @@
 // The one thing a reader would get wrong: a SONG is a folder on disk though a leaf in the tree, so it is removed as a tree (../docs/library.md).
 
 import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
-import { takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { library } from "./api";
+import { serverBase } from "./config";
 import { isAlbumFolder } from "./favorites";
 import type { LibraryLabels } from "./labels";
 import { entryAt, isSongFolder } from "./libraryTree";
+import { queueable } from "./queueRows";
 import { folderOf } from "./routes";
 import { missingUnder } from "./serverSets";
 
@@ -21,7 +22,10 @@ export function songActions(d: {
   file: string | null;
   openFile: (rel: string | null) => void;
   pickVariant: (song: string) => void;
-  enqueue: (entries: MediatekEntry[]) => void;
+  enqueue: (
+    entries: MediatekEntry[],
+    baseOf?: (entry: MediatekEntry) => string | undefined,
+  ) => void;
   /** The paired server's songs this machine lacks; empty when unpaired. */
   serverOnly: MediatekEntry[];
   download: (paths: string[]) => Promise<void>;
@@ -41,10 +45,16 @@ export function songActions(d: {
   const l = d.labels.tree;
   const missing = (t: TreeNode) =>
     missingUnder(d.serverOnly, `${section}/${t.path}`);
-  // A song, or the album holding it — never an artist, nor a row only the server holds.
-  const starrable = (t: TreeNode) =>
-    !!favorites &&
-    (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path));
+  // The songs here and the server's alone: a list names either, and the queue streams the second from there.
+  const known = [...(entries ?? []), ...d.serverOnly];
+  const onServer = new Set(d.serverOnly.map((e) => e.path));
+  const base = serverBase() ?? undefined;
+  const baseOf = (e: MediatekEntry) =>
+    onServer.has(e.path) ? base : undefined;
+  // A song, or the album holding it — never an artist.
+  const listable = (t: TreeNode) =>
+    isSongFolder(known, t.path) || isAlbumFolder(known, t.path);
+  const starrable = (t: TreeNode) => !!favorites && listable(t);
   const starred = (t: TreeNode) => !!favorites?.has(`${section}/${t.path}`);
   const practised = (t: TreeNode) => !!d.practice?.has(`${section}/${t.path}`);
   // The song's title as the listing reads it, the folder's name only when the listing has none.
@@ -60,15 +70,16 @@ export function songActions(d: {
       key: "practice",
       label: (t) => (practised(t) ? l.unpractice : l.practice),
       // What may be starred may be practised: a song, or the album holding it.
-      when: (t) =>
-        !!d.practice &&
-        (isSongFolder(entries, t.path) || isAlbumFolder(entries, t.path)),
+      when: (t) => !!d.practice && listable(t),
       run: (t) => d.togglePractice(`${section}/${t.path}`),
     },
     {
       key: "download-missing",
       // An album or an artist half here: what the server holds under it, and only that (../../mediatek/docs/serverCopy.md).
-      label: (t) => d.labels.contents.downloadMissing(missing(t).length),
+      label: (t) =>
+        missing(t).join() === `${section}/${t.path}`
+          ? d.labels.contents.download
+          : d.labels.contents.downloadMissing(missing(t).length),
       // A folder half here, or one song only the server holds: the same download.
       when: (t) => !t.root && missing(t).length > 0,
       run: (t) => void d.download(missing(t)),
@@ -84,15 +95,9 @@ export function songActions(d: {
       key: "queue-song",
       // The bottom bar's queue, not a playlist — see ../docs/miniPlayer.md.
       label: l.queue,
-      // Only what actually has a master: an empty folder would make a row playback skips in silence.
-      when: (t) => {
-        const e = entryAt(entries, t.path);
-        return !!e && takesOf(e).some((k) => k.kind === "master");
-      },
-      run: (t) => {
-        const e = entryAt(entries, t.path);
-        if (e) d.enqueue([e]);
-      },
+      // A song, or an album's songs in track order; only what has a master, and the server's only while it streams.
+      when: (t) => queueable(known, t.path, baseOf, base).length > 0,
+      run: (t) => d.enqueue(queueable(known, t.path, baseOf, base), baseOf),
     },
     {
       key: "delete-song",
