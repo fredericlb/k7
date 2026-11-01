@@ -15,12 +15,15 @@ const clock = (ms: number): string => {
 export function OutputRecordButton({
   recording,
   filing,
+  ready,
   onToggle,
   size,
 }: {
   recording: boolean;
   /** The take is being filed: the button waits, so a press does not start another over it. */
   filing: boolean;
+  /** The engine runs this project's document: before that, a press would reach the last project's recorder. */
+  ready: boolean;
   onToggle: () => void;
   size: "icon" | "icon-xs";
 }) {
@@ -41,7 +44,7 @@ export function OutputRecordButton({
         size={size}
         variant={recording ? "default" : "secondary"}
         aria-pressed={recording}
-        disabled={filing}
+        disabled={filing || !ready}
         onClick={onToggle}
         title={label}
         aria-label={label}

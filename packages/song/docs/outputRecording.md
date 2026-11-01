@@ -25,6 +25,9 @@ post-master-chain — what `OUT` receives.
 - **A project's recorder node is taken out when it opens** (`packages/song-edit/src/recorderNodes.ts`):
   the node is deleted as `node delete` deletes it, its run spliced shut, so `MIX → rec → OUT` reads
   `MIX → OUT` and sounds the same.
+- **One id for every project's recorder**, so the button waits for the engine to run THIS
+  project's document, as play does: the last project's recorder state is still in the store a
+  moment after a switch, and a press then would be refused as "no recorder node".
 - **No timeline, and something reaching `OUT`**, decides it. A rig whose graph sends nothing out
   has nothing to record; a project with a timeline already records on its lanes.
 

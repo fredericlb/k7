@@ -3023,6 +3023,8 @@ export default function App({
             <OutputRecordButton
               recording={output.recording}
               filing={output.filing}
+              // Dead while the engine loads the project, as play is: every project's recorder has one id (outputRecording.md).
+              ready={!transportWaiting || output.recording}
               onToggle={output.toggle}
               size={toolSize}
             />
