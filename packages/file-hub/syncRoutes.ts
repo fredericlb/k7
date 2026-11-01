@@ -9,7 +9,6 @@ import express, { type Request, type RequestHandler, Router } from "express";
 import { blobsRouter } from "./blobStore.ts";
 import type { DeviceTokens } from "./deviceTokens.ts";
 import {
-  type DirectPairClient,
   type DirectPairServer,
   directPairHandler,
   relayUrlOf,
@@ -17,13 +16,16 @@ import {
 import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
+import { PairCodes } from "./pairCodes.ts";
 import { consentPage, sameOriginPost } from "./pairConsent.ts";
 import { PairingStore } from "./pairingStore.ts";
 import {
   pairReturnHandler,
   pairRouter,
+  revokeLink,
   SERVER_ADDS_NONE,
 } from "./pairRoutes.ts";
+import { redeemRouter, selfRevokeHandler, sendPairCode } from "./pairSignIn.ts";
 import { publicHost } from "./publicOrigin.ts";
 import { roomsRouter, syncCredential } from "./roomsRoute.ts";
 import { eventsRouter } from "./syncEvents.ts";
@@ -70,23 +72,35 @@ export interface SyncContext {
   onPaired?: (origin: string, token: string) => void;
   /** A pairing let go: the machine's engine leaves that server too. */
   onForgotten?: (origin: string) => void;
-  /** Pairing without the browser: a machine's side (`client`) or a server's (`server`) — directPair.ts. */
-  direct?: { client?: DirectPairClient; server?: DirectPairServer };
+  /** A server's pairing without the browser, for machines on an older k7 — directPair.ts. */
+  direct?: { server?: DirectPairServer };
 }
 
 export class SyncRoutes {
   /** The pairings under way through the browser, kept under the data root — pairingStore.ts. */
   private readonly pairings: PairingStore;
 
+  /** A server's one-use codes for the machines signing in through it — pairCodes.ts. */
+  private readonly pairCodes = new PairCodes();
+
   constructor(private readonly c: SyncContext) {
     this.pairings = new PairingStore(c.dataRoot);
+  }
+
+  /** A machine's backend trading its sign-in's code for the device token — NO session: the verifier is the gate. */
+  redeemRouter(): Router {
+    return redeemRouter(this.pairCodes, this.c.devices);
+  }
+
+  /** A machine signing out hands its token back — NO session: the token is the gate. */
+  selfRevokeHandler(): RequestHandler {
+    return selfRevokeHandler(this.c.devices);
   }
 
   private pairContext() {
     return {
       store: this.pairings,
       userOf: this.c.userOf,
-      isLocal: this.c.isLocal ?? (() => false),
       accountDir: (slug: string) => this.accountDir(slug),
       restart: (user: string) => this.c.instances.restart(user),
       // The browser comes back to the machine's loopback port.
@@ -95,7 +109,6 @@ export class SyncRoutes {
       selfHost: publicHost,
       engineFollows: (before: SyncRemote[], after: SyncRemote[]) =>
         this.engineFollows(before, after),
-      direct: this.c.remotePairing ? this.c.direct?.client : undefined,
     };
   }
 
@@ -188,13 +201,28 @@ export class SyncRoutes {
       const back = q("return");
       // The predicates are shared with the backend that builds this address: one rule, two sides.
       const server = isServerReturn(back);
-      if (!isLoopbackReturn(back) && !server)
+      // A sign-in's return is checked by sendPairCode, which also takes the phone apps' schemes.
+      if (!q("challenge") && !isLoopbackReturn(back) && !server)
         return void res.status(400).json({
           error: "return must be an http loopback or a server's sync return",
         });
       const user = this.c.userOf(req);
       if (!user)
         return void res.status(401).json({ error: "no user on the session" });
+      // A machine's sign-in: the person just signed in here, so a code goes back with no page to confirm.
+      if (q("challenge")) {
+        const sent = sendPairCode(
+          this.pairCodes,
+          {
+            user,
+            sub: this.c.subjectOf(req),
+            name: q("name").trim().slice(0, 80) || "a machine",
+          },
+          { return: back, state: q("state"), challenge: q("challenge") },
+        );
+        if (sent.location) return void res.redirect(303, sent.location);
+        return void res.status(sent.status).json({ error: sent.error });
+      }
       const fields = {
         return: back,
         state: q("state"),
@@ -345,7 +373,13 @@ export class SyncRoutes {
       // One link by `?id=`, every link on a server by `?url=`, else every one.
       const before = readRemotes(w.home);
       const was = forgetRemote(w.home, refOf(undefined, req.query));
-      this.engineFollows(before, readRemotes(w.home));
+      const after = readRemotes(w.home);
+      // Signing out: each link let go hands its token back, so the server lists this device no more.
+      for (const gone of before.filter(
+        (b) => !after.some((a) => a.id === b.id),
+      ))
+        void revokeLink(gone);
+      this.engineFollows(before, after);
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: readRemotes(w.home).length > 0, was }),
         (e: Error) => res.status(500).json({ error: e.message }),

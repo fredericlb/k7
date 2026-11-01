@@ -1,28 +1,25 @@
-// pairRoutes.ts — saving a server for an account of a machine (the tray, the phones): the page asks here whether to
-// offer it, starts it, opens the URL it gets in the browser, and waits here for the ending; a server refuses them all.
-// The browser comes back to THIS backend's loopback port (`pairReturnHandler`) with no session: the state is the gate.
-// The link takes the remote account the browser came back as, and becomes the active one. A signed-in account tries
-// the server's direct route first (directPair.ts), and only opens the browser when it is refused.
-// See docs/syncRelay.md, "Pairing through the browser" and "Pairing without the browser".
+// pairRoutes.ts — signing a machine (the tray, the phones) in to its ONE server: the page starts it here, opens the URL
+// it gets in the system browser, and waits here for the ending; a server refuses them all. The server signs the person
+// in and sends a one-use code back to `pairReturnHandler`, which trades it with the verifier kept here for the token.
+// The link replaces any other, whose token is handed back to its server. See docs/syncRelay.md, "Signing in is pairing".
 
 import { mkdirSync } from "node:fs";
+import { APP_SCHEMES } from "@studio/web-protocol/handoff";
 import {
   normalizeServer,
+  SYNC_DEVICE_SELF_ROUTE,
+  SYNC_PAIR_REDEEM_ROUTE,
   SYNC_PAIR_RETURN_PATH,
   SYNC_RELAY_PATH,
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
 import express, { type Request, type RequestHandler, Router } from "express";
-import {
-  canPairDirect,
-  type DirectPairClient,
-  pairDirect,
-} from "./directPair.ts";
 import { accountKey } from "./instances.ts";
+import { challengeOf, newVerifier } from "./pairCodes.ts";
 import type { PairingStore, PairRecord } from "./pairingStore.ts";
 import {
-  linkId,
-  linkOf,
+  forgetRemote,
+  originOfRelay,
   readRemotes,
   type SyncRemote,
   writeRemote,
@@ -36,8 +33,6 @@ export const SERVER_ADDS_NONE =
 export interface PairContext {
   store: PairingStore;
   userOf: (req: Request) => string;
-  /** The machine's local user, signed in nowhere: any account it links is one the server's page asks for. */
-  isLocal: (req: Request) => boolean;
   accountDir: (slug: string) => string;
   /** Restart the account's file service, so it dials the relay just paired. */
   restart: (user: string) => Promise<unknown>;
@@ -49,12 +44,14 @@ export interface PairContext {
   selfHost: (req: Request) => string;
   /** The saved servers changed: the engine follows the active one (docs/syncRelay.md, "The engine follows the account"). */
   engineFollows?: (before: SyncRemote[], after: SyncRemote[]) => void;
-  /** The server's direct route, tried before the browser for a signed-in account; absent, the browser always. */
-  direct?: DirectPairClient;
+  /** How this backend reaches a server; the global fetch unless a test hands one in. */
+  fetch?: typeof fetch;
 }
 
 /** The longest one GET /:state holds before answering a pairing still waiting. */
 const LONG_POLL_MS = 25_000;
+/** How long a server has to answer a trade or a revoke. */
+const SERVER_MS = 15_000;
 
 /** The relay at a server's origin, where the person named it: `https://app.k7.rocks` → `wss://app.k7.rocks/api/sync`. */
 export const relayOf = (origin: string): string =>
@@ -68,22 +65,32 @@ const hostOf = (url: string): string => {
   }
 };
 
-/** Store the token the origin minted for `identity` as the account's active link, as the browser's return does. */
+/** Hand a link's token back to its server, so the device is listed there no more; a server away keeps it, harmlessly. */
+export async function revokeLink(
+  link: SyncRemote,
+  f: typeof fetch = fetch,
+): Promise<void> {
+  await f(`${originOfRelay(link.url)}${SYNC_DEVICE_SELF_ROUTE}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${link.token}` },
+    signal: AbortSignal.timeout(SERVER_MS),
+  }).catch(() => {});
+}
+
+/** Store `token` as the account's one link, the others forgotten and handed back to their servers. */
 async function storeLink(
   c: PairContext,
   email: string,
   origin: string,
   identity: string,
   token: string,
-): Promise<"paired" | "alreadyLinked" | "notStored"> {
+): Promise<"paired" | "notStored"> {
   const home = c.accountDir(accountKey(email));
-  // That account on that server is linked already: the link it has stays as it is.
-  if (linkOf(readRemotes(home), relayOf(origin), identity))
-    return "alreadyLinked";
   try {
     if (!token) throw new Error("no token");
     mkdirSync(home, { recursive: true });
     const before = readRemotes(home);
+    forgetRemote(home);
     // The relay is reached where the person named the server, whatever host a proxy showed the origin.
     writeRemote(home, {
       url: relayOf(origin),
@@ -91,6 +98,7 @@ async function storeLink(
       user: email,
       as: identity,
     });
+    for (const old of before) void revokeLink(old, c.fetch);
     await c.restart(email);
     // The new server is the active one: the engine leaves the one it was on for it.
     c.engineFollows?.(before, readRemotes(home));
@@ -100,54 +108,29 @@ async function storeLink(
   }
 }
 
-/** What an app is told of a pairing; the token rides along once paired, for the phone's supervisor. */
+/** What an app is told of a sign-in; the token rides along once paired, for the phone's supervisor. */
 function viewOf(c: PairContext, r: PairRecord) {
-  const list =
+  const [link] =
     r.phase === "paired" ? readRemotes(c.accountDir(accountKey(r.email))) : [];
-  const link = list.find(
-    (s) => s.id === linkId(relayOf(r.origin), r.browserAs ?? r.email),
-  );
   return {
     state: r.state,
     email: r.email,
     origin: r.origin,
     host: hostOf(r.origin),
-    another: r.another === true,
-    atSignIn: r.atSignIn === true,
     phase: r.phase,
     until: r.until,
     browserAs: r.browserAs ?? null,
-    link: link?.id ?? null,
-    // For the phone's supervisor, whose engine is listed at the active server with its token.
-    token: link?.active ? link.token : null,
+    // For the phone's supervisor, whose engine is listed at the server with its token.
+    token: link?.token ?? null,
   };
 }
 
-/** Pair `email` with `origin` by the server's direct route and store the link; null when the route refused or is absent. */
-async function pairAtOnce(
-  c: PairContext,
-  req: Request,
-  email: string,
-  origin: string,
-  name: string,
-  atSignIn = false,
-): Promise<PairRecord | null> {
-  const direct = await pairDirect(c.direct, req, origin, name);
-  if (!direct) return null;
-  const p = c.store.begin(email, origin, false, atSignIn);
-  const phase = await storeLink(
-    c,
-    email,
-    origin,
-    direct.identity,
-    direct.token,
-  );
-  return c.store.settle(p.state, phase, direct.identity) ?? p;
+/** Where the server sends its code: this machine's loopback port, or a phone app's own scheme when it asks for one. */
+function backOf(c: PairContext, req: Request): string {
+  const scheme = String(req.body?.scheme ?? "");
+  if (APP_SCHEMES.includes(scheme)) return `${scheme}://pair`;
+  return `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
 }
-
-/** A path on this backend, never another site: where the sign-in's own pairing sends the view on. */
-const localPath = (next: unknown): string =>
-  typeof next === "string" && /^\/(?![/\\])/.test(next) ? next : "/";
 
 export function pairRouter(c: PairContext): Router {
   const r = Router();
@@ -157,95 +140,42 @@ export function pairRouter(c: PairContext): Router {
     if (c.machine) return next();
     res.status(403).json({ error: SERVER_ADDS_NONE });
   });
-  const linksOf = (email: string) =>
-    readRemotes(c.accountDir(accountKey(email)));
-  const hostsOf = (email: string) =>
-    new Set(linksOf(email).map((s) => hostOf(s.url)));
-  // Whether to offer a pairing with `?origin=`, and the account's pairing under way or ended unseen.
-  r.get("/", async (req, res) => {
+  r.get("/", (req, res) => {
     const email = c.userOf(req);
     if (!email)
       return void res.status(401).json({ error: "no user on the session" });
-    const origin = normalizeServer(String(req.query.origin ?? ""));
     const mine = c.store.ofAccount(email);
-    const local = c.isLocal(req);
-    // The servers a click pairs with at once, so the page opens no tab for them (docs/syncRelay.md).
-    const silent =
-      !local && !!c.direct && (await c.direct.tokenOf(req)) !== null;
     res.json({
       email,
-      local,
-      paired: origin ? hostsOf(email).has(hostOf(origin)) : false,
-      servers: hostsOf(email).size,
-      links: linksOf(email).length,
+      links: readRemotes(c.accountDir(accountKey(email))).length,
       pairing: mine ? viewOf(c, mine) : null,
-      direct:
-        !!origin && !local && (await canPairDirect(c.direct, req, origin)),
-      directHosts: silent ? (c.direct?.servers ?? []) : [],
     });
   });
-  r.post("/", async (req, res) => {
+  // Start a sign-in: the URL to open in the system browser, from a click.
+  r.post("/", (req, res) => {
     const email = c.userOf(req);
     if (!email)
       return void res.status(401).json({ error: "no user on the session" });
-    // Another account on a server already linked: the server's page asks which one.
-    const another = req.body?.another === true;
     const origin = normalizeServer(String(req.body?.origin ?? ""));
     if (!origin)
       return void res.status(400).json({ error: "origin is no k7 server" });
     if (hostOf(origin) === c.selfHost(req))
       return void res.status(400).json({ error: "that is this server" });
-    if (!another && hostsOf(email).has(hostOf(origin))) {
-      // Saved already: asked again for the active server, the engine is listed back there with its token.
-      const [active] = linksOf(email);
-      if (active && hostOf(active.url) === hostOf(origin))
-        c.engineFollows?.([], [active]);
-      return void res.status(409).json({ error: "already paired there" });
-    }
     const name = String(req.body?.name ?? "").trim() || "a machine";
-    // The local user has no account anywhere, so whichever it links is a choice the server's page asks for.
-    const choose = another || c.isLocal(req);
-    // A signed-in account proves itself to the server with its provider token: no browser, unless refused.
-    const ended = choose ? null : await pairAtOnce(c, req, email, origin, name);
-    if (ended) return void res.json({ pairing: viewOf(c, ended), url: null });
-    const p = c.store.begin(email, origin, another);
-    const back = `${c.returnTo(req)}${SYNC_PAIR_RETURN_PATH}`;
+    const verifier = newVerifier();
+    const p = c.store.begin(email, origin, verifier);
     res.json({
       pairing: viewOf(c, p),
-      url: syncPairUrl(
-        origin,
-        back,
-        p.state,
-        name,
-        choose ? { choose } : { as: email },
-      ),
+      url: syncPairUrl(origin, backOf(c, req), p.state, name, {
+        challenge: challengeOf(verifier),
+      }),
     });
-  });
-  // The phone's sign-in returns through here: the server it named is paired before k7's page loads (docs/syncRelay.md).
-  r.get("/sign-in", async (req, res) => {
-    const next = localPath(req.query.next);
-    const email = c.userOf(req);
-    const origin = normalizeServer(String(req.query.origin ?? ""));
-    const name = String(req.query.name ?? "").trim() || "a machine";
-    try {
-      if (
-        email &&
-        origin &&
-        !c.isLocal(req) &&
-        hostOf(origin) !== c.selfHost(req) &&
-        !hostsOf(email).has(hostOf(origin))
-      )
-        await pairAtOnce(c, req, email, origin, name, true);
-    } catch {
-      // A sign-in never fails for its pairing: the app offers the browser's way once the page is up.
-    }
-    res.redirect(303, next);
   });
   const ownedBy = (req: Request, state: string): PairRecord | null => {
     const p = c.store.get(state);
     return p && p.email === c.userOf(req) ? p : null;
   };
-  // Held until the pairing ends, or `?wait=` ms (at most LONG_POLL_MS); 404 once it is forgotten.
+  // Held until the sign-in ends, or `?wait=` ms (at most LONG_POLL_MS); 404 once it is forgotten.
   r.get("/:state", (req, res) => {
     if (!ownedBy(req, req.params.state))
       return void res.status(404).json({ error: "no such pairing" });
@@ -255,7 +185,7 @@ export function pairRouter(c: PairContext): Router {
       else res.json({ pairing: viewOf(c, p) });
     });
   });
-  // Cancel a pairing still waiting, or say its ending was told.
+  // Cancel a sign-in still waiting, or say its ending was told.
   r.delete("/:state", (req, res) => {
     if (!ownedBy(req, req.params.state))
       return void res.status(404).json({ error: "no such pairing" });
@@ -272,48 +202,64 @@ const page = (said: string): string =>
     (ch) => `&#${ch.charCodeAt(0)};`,
   )}</p>`;
 
-/** The page for a pairing that has ended, served again on a reload. */
+/** The page for a sign-in that has ended, served again on a reload. */
 function ending(r: PairRecord): { status: number; said: string } {
   const host = hostOf(r.origin);
-  const as = r.browserAs || r.email;
   switch (r.phase) {
     case "paired":
       return {
         status: 200,
-        said: `k7 here now syncs your workspaces with ${host} as ${as}. You can go back to k7.`,
-      };
-    case "alreadyLinked":
-    case "otherAccount":
-      return {
-        status: 409,
-        said: `k7 here already syncs with ${host} as ${as}, so nothing changed. To add another account, sign in to ${host} as that one. Go back to k7.`,
+        said: `k7 here is signed in to ${host} as ${r.browserAs || r.email}. You can go back to k7.`,
       };
     case "expired":
       return {
         status: 410,
-        said: "This pairing waited too long. Go back to k7 to start it again.",
+        said: "This sign-in waited too long. Go back to k7 to start it again.",
       };
     default:
       return {
         status: 500,
-        said: "The pairing could not be stored on this device. Go back to k7.",
+        said: "The sign-in could not be stored on this device. Go back to k7.",
       };
   }
 }
 
-/** The return the origin redirects the browser to, mounted at SYNC_PAIR_RETURN_PATH with no session guard. */
+/** Trade the server's code with the record's verifier; null when the server refused or could not be reached. */
+async function redeem(
+  c: PairContext,
+  p: PairRecord,
+  code: string,
+): Promise<{ token: string; identity: string } | null> {
+  const r = await (c.fetch ?? fetch)(`${p.origin}${SYNC_PAIR_REDEEM_ROUTE}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, verifier: p.verifier }),
+    redirect: "error",
+    signal: AbortSignal.timeout(SERVER_MS),
+  }).catch(() => null);
+  if (!r?.ok) return null;
+  const a = (await r.json().catch(() => null)) as {
+    token?: unknown;
+    identity?: unknown;
+  } | null;
+  if (typeof a?.token !== "string" || typeof a.identity !== "string")
+    return null;
+  return { token: a.token, identity: a.identity };
+}
+
+/** The return the server redirects the browser to, mounted at SYNC_PAIR_RETURN_PATH with no session guard. */
 export function pairReturnHandler(c: PairContext): RequestHandler {
-  // One store per state at a time: a reload during the restart gets the same answer.
+  // One trade per state at a time: a reload during the restart gets the same answer.
   const inflight = new Map<string, Promise<{ status: number; said: string }>>();
   const settle = async (
     p: PairRecord,
-    q: URLSearchParams,
+    code: string,
   ): Promise<{ status: number; said: string }> => {
-    // The account the origin minted for, which its page let the person pick: the link's remote account.
-    const identity = q.get("identity")?.trim() || p.email;
-    const token = q.get("token")?.trim() ?? "";
-    const phase = await storeLink(c, p.email, p.origin, identity, token);
-    const as = phase === "notStored" ? undefined : identity;
+    const got = code ? await redeem(c, p, code) : null;
+    const phase = got
+      ? await storeLink(c, p.email, p.origin, got.identity, got.token)
+      : "notStored";
+    const as = phase === "paired" ? got?.identity : undefined;
     return ending(
       c.store.settle(p.state, phase, as) ?? { ...p, phase, browserAs: as },
     );
@@ -330,7 +276,9 @@ export function pairReturnHandler(c: PairContext): RequestHandler {
     if (p.phase !== "waiting") return void send(ending(p));
     let answer = inflight.get(state);
     if (!answer) {
-      answer = settle(p, q).finally(() => inflight.delete(state));
+      answer = settle(p, q.get("code") ?? "").finally(() =>
+        inflight.delete(state),
+      );
       inflight.set(state, answer);
     }
     void answer.then(send);

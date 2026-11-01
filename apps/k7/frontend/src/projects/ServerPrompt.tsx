@@ -22,7 +22,7 @@ import { m } from "../paraglide/messages.js";
 import { useSavedServers } from "../settings/savedServers";
 import { AccountStatusNote } from "../tabs/AccountStatusNote";
 import { inAndroidApp } from "../tabs/bridge";
-import { connectServer, prepareConnect } from "../tabs/connectServer";
+import { connectServer } from "../tabs/connectServer";
 import { promptAnswered, promptDue } from "./serverPrompt";
 
 export function ServerPrompt() {
@@ -46,7 +46,6 @@ function Prompt() {
     setDecided(true);
     if (!promptDue(servers.length)) return;
     setOpen(true);
-    prepareConnect();
   }, [servers, decided]);
 
   const origin = normalizeServer(server);

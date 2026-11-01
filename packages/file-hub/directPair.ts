@@ -1,10 +1,7 @@
-// directPair.ts — a machine signed in to the server's own identity provider pairs with no browser: its backend
-// sends the provider's access token to the server's POST SYNC_PAIR_DIRECT_ROUTE, which asks the provider whose it
-// is and mints a device token for that account, as the browser pairing does. Both halves are here.
-// What a reader gets wrong: the token is a bearer for the PERSON at the provider, so the machine sends it only to
-// the servers it trusts with it (`servers`), never to whatever address was typed. See docs/syncRelay.md.
+// directPair.ts — a server's POST SYNC_PAIR_DIRECT_ROUTE: a provider access token in, a device token out, for the
+// account the provider says it is. Only machines running an older k7 call it: today's sign in through the browser
+// (pairSignIn.ts). Mounted only when PAIR_CLIENTS names a client. See docs/syncRelay.md, "Pairing without the browser".
 
-import { SYNC_PAIR_DIRECT_ROUTE } from "@studio/web-protocol/pairing";
 import type { Request, RequestHandler } from "express";
 import type { DeviceTokens } from "./deviceTokens.ts";
 import { accountKey } from "./instances.ts";
@@ -32,21 +29,9 @@ export interface DirectPairServer {
   now?: () => number;
 }
 
-/** The machine's half: the session's token, and the servers it may be sent to. */
-export interface DirectPairClient {
-  /** The session's provider access token, or null: the local user, or a backend restarted since the sign-in. */
-  tokenOf: (req: Request) => Promise<string | null>;
-  issuer: string;
-  /** Hosts trusted with the token. */
-  servers: string[];
-  fetch?: typeof fetch;
-}
-
 /** How many direct pairings one address may try in a window. */
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60_000;
-/** How long the machine waits on the server before it falls back to the browser. */
-const DIRECT_TIMEOUT_MS = 15_000;
 
 /** The relay of the origin a request reached, as a WebSocket URL. */
 export function relayUrlOf(req: Request): string {
@@ -115,70 +100,4 @@ export function directPairHandler(
       () => refuse("the provider could not be asked"),
     );
   };
-}
-
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).host;
-  } catch {
-    return "";
-  }
-};
-
-/** Whether this session would try the direct route with `origin`: a trusted server, and a kept token. */
-export async function canPairDirect(
-  d: DirectPairClient | undefined,
-  req: Request,
-  origin: string,
-): Promise<boolean> {
-  if (!d?.servers.includes(hostOf(origin))) return false;
-  return (await d.tokenOf(req)) !== null;
-}
-
-/** The machine's attempt: the device token and the account it is for, or null for the browser to take over. */
-export async function pairDirect(
-  d: DirectPairClient | undefined,
-  req: Request,
-  origin: string,
-  name: string,
-): Promise<{ token: string; identity: string } | null> {
-  if (!d?.servers.includes(hostOf(origin))) return null;
-  const accessToken = await d.tokenOf(req);
-  if (!accessToken) {
-    console.log(
-      "sync | no provider token kept for this session: the browser pairs",
-    );
-    return null;
-  }
-  try {
-    const r = await (d.fetch ?? fetch)(
-      `${origin.replace(/\/+$/, "")}${SYNC_PAIR_DIRECT_ROUTE}`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ name, issuer: d.issuer }),
-        // A redirect would carry the bearer to wherever it points.
-        redirect: "error",
-        signal: AbortSignal.timeout(DIRECT_TIMEOUT_MS),
-      },
-    );
-    if (!r.ok) {
-      console.log(
-        `sync | ${hostOf(origin)} refused direct pairing (${r.status}): the browser takes over`,
-      );
-      return null;
-    }
-    const a = (await r.json()) as { token?: unknown; identity?: unknown };
-    if (typeof a.token !== "string" || !a.token) return null;
-    if (typeof a.identity !== "string" || !a.identity) return null;
-    return { token: a.token, identity: a.identity };
-  } catch (e) {
-    console.log(
-      `sync | direct pairing with ${hostOf(origin)} failed: ${(e as Error).message}`,
-    );
-    return null;
-  }
 }

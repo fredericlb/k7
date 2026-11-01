@@ -1,37 +1,59 @@
-// pairRoutes.test.ts — a pairing driven as an app drives it: offered, started, ended by the browser's return on
-// this backend's own port, waited for, told; one that outlives its process; the engine following the active server.
+// pairRoutes.test.ts — a machine's sign-in driven end to end: a real server half (code, trade, self-revoke) and a real
+// machine half (start, return, link), the browser between them a fetch that follows the server's redirect by hand.
 
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
+import { DeviceTokens } from "./deviceTokens.ts";
 import { accountKey } from "./instances.ts";
-import { readRemotes, writeRemote } from "./syncRemote.ts";
+import { readRemotes } from "./syncRemote.ts";
 import { type SyncContext, SyncRoutes } from "./syncRoutes.ts";
 
 const EVE = "eve@example.com";
-
-/** What the routes answer, as far as these tests read it. */
-interface Answer {
-  paired?: boolean;
-  pairing: { state: string; phase: string } | null;
-  [key: string]: unknown;
-}
-const read = async (r: Response | Promise<Response>): Promise<Answer> =>
-  (await (await r).json()) as Answer;
+const LOCAL = "dev@example.com";
 const servers: Server[] = [];
 
-async function start(opts: {
-  dataRoot?: string;
-  remotePairing?: boolean;
-  restart?: (u: string) => Promise<void>;
-}) {
-  const dataRoot = opts.dataRoot ?? mkdtempSync(join(tmpdir(), "pair-routes-"));
-  const restarted: string[] = [];
-  // What the machine's engine was told: listed at a server with a token, or let go of one.
+async function listen(app: express.Express): Promise<string> {
+  const server = createServer(app);
+  servers.push(server);
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+}
+
+/** A server: its pairing page behind a test session (`x-test-session`), the trade and the self-revoke with none. */
+async function origin() {
+  const dataRoot = mkdtempSync(join(tmpdir(), "pair-origin-"));
+  const devices = new DeviceTokens(Buffer.from("key"), (slug) =>
+    join(dataRoot, slug),
+  );
+  const routes = new SyncRoutes({
+    dataRoot,
+    librariesHome: join(dataRoot, "_libraries"),
+    librarySecret: "s",
+    devices,
+    instances: {} as SyncContext["instances"],
+    userOf: (req) => String(req.headers["x-test-session"] ?? ""),
+    subjectOf: () => "sub-eve",
+    relay: () => null,
+    remotePairing: false,
+  });
+  const app = express();
+  app.use("/api/sync/devices/redeem", routes.redeemRouter());
+  app.delete("/api/sync/device", routes.selfRevokeHandler());
+  app.get("/api/sync/devices/pair", routes.syncPairHandler());
+  app.use("/api/sync/remote/pair", routes.pairRouter());
+  const base = await listen(app);
+  return { base, listed: () => devices.list(accountKey(EVE)) };
+}
+
+/** A machine, signed in nowhere: its local user is the one account it has. */
+async function machine(
+  dataRoot = mkdtempSync(join(tmpdir(), "pair-machine-")),
+) {
   const paired: [string, string][] = [];
   const forgotten: string[] = [];
   let port = 0;
@@ -41,73 +63,45 @@ async function start(opts: {
     librarySecret: "s",
     devices: {} as SyncContext["devices"],
     instances: {
-      restart: opts.restart ?? (async (u: string) => void restarted.push(u)),
+      restart: async () => {},
     } as unknown as SyncContext["instances"],
-    userOf: (req) => String(req.headers["x-test-session"] ?? ""),
-    isLocal: (req) => req.headers["x-test-local"] === "1",
+    userOf: () => LOCAL,
     subjectOf: () => "",
     relay: () => null,
-    remotePairing: opts.remotePairing ?? true,
+    remotePairing: true,
     selfPort: () => port,
-    onPaired: (origin, token) => paired.push([origin, token]),
-    onForgotten: (origin) => forgotten.push(origin),
+    onPaired: (o, token) => paired.push([o, token]),
+    onForgotten: (o) => forgotten.push(o),
   });
   const app = express();
   app.use("/api/sync/remote/pair", routes.pairRouter());
   app.use("/api/sync/remote", routes.remoteRouter());
   app.get("/desktop/sync-pair", routes.pairReturnHandler());
-  const server = createServer(app);
-  servers.push(server);
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
-  port = (server.address() as AddressInfo).port;
-  const base = `http://127.0.0.1:${port}`;
-  // A server behind its proxy: the host and scheme the browser reached it at.
-  const proxied: Record<string, string> =
-    opts.remotePairing === false
-      ? { "x-forwarded-host": "home.test", "x-forwarded-proto": "https" }
-      : {};
-  const api = (path: string, init: RequestInit = {}, who = EVE) =>
-    fetch(`${base}/api/sync/remote/pair${path}`, {
+  const base = await listen(app);
+  port = Number(new URL(base).port);
+  const api = (path: string, init: RequestInit = {}) =>
+    fetch(`${base}/api/sync/remote${path}`, {
       ...init,
-      headers: {
-        "x-test-session": who,
-        "content-type": "application/json",
-        ...proxied,
-      },
+      headers: { "content-type": "application/json" },
     });
-  const post = (body: object) =>
-    api("", { method: "POST", body: JSON.stringify(body) });
-  const begin = async (body: object = { origin: "o.test", name: "Pixel" }) =>
-    (await (await post(body)).json()) as {
-      url: string;
-      pairing: { state: string };
-    };
-  // What the origin does with the pairing URL: redirect to its `return`, with a token and whose it is.
-  const browser = (url: string, identity = EVE, token = "tok") => {
-    const u = new URL(url);
-    const back = new URL(u.searchParams.get("return") ?? "");
-    // A server's return is its public origin; the test reaches it where it listens.
-    if (back.protocol === "https:") back.href = `${base}${back.pathname}`;
-    back.searchParams.set("token", token);
-    back.searchParams.set("url", "wss://proxy-host.test/api/sync");
-    back.searchParams.set("identity", identity);
-    back.searchParams.set("state", u.searchParams.get("state") ?? "");
-    return fetch(back);
-  };
-  const home = join(dataRoot, accountKey(EVE));
-  mkdirSync(home, { recursive: true });
-  return {
-    dataRoot,
-    base,
-    api,
-    post,
-    begin,
-    browser,
-    home,
-    restarted,
-    paired,
-    forgotten,
-  };
+  const begin = async (server: string, extra: object = {}) =>
+    (await (
+      await api("/pair", {
+        method: "POST",
+        body: JSON.stringify({ origin: server, name: "laptop", ...extra }),
+      })
+    ).json()) as { url: string; pairing: { state: string } };
+  const links = () => readRemotes(join(dataRoot, accountKey(LOCAL)));
+  return { dataRoot, base, api, begin, links, paired, forgotten };
+}
+
+/** The browser: signed in at the server as `who`, it opens the URL and follows the redirect to the return. */
+async function browse(url: string, who = EVE): Promise<Response> {
+  const there = await fetch(url, {
+    headers: { "x-test-session": who },
+    redirect: "manual",
+  });
+  return fetch(there.headers.get("location") ?? "");
 }
 
 afterEach(async () => {
@@ -115,340 +109,107 @@ afterEach(async () => {
     await new Promise((r) => s.close(() => r(null)));
 });
 
-describe("the machine's engine follows the pairings", () => {
-  it("is listed at a server once paired, again when asked to add it twice, and let go with the sync", async () => {
-    const t = await start({});
-    const { url } = await t.begin();
-    await t.browser(url, EVE, "tok-o");
-    expect(t.paired).toEqual([["https://o.test", "tok-o"]]);
-    // Synced already: the 409 lists the engine back, as a person re-adding it from the engine page means.
-    expect((await t.post({ origin: "o.test" })).status).toBe(409);
-    expect(t.paired.at(-1)).toEqual(["https://o.test", "tok-o"]);
-    const gone = await fetch(
-      `${t.base}/api/sync/remote?url=${encodeURIComponent("wss://o.test/api/sync")}`,
-      { method: "DELETE", headers: { "x-test-session": EVE } },
+describe("signing a machine in to its server", () => {
+  it("links the account the person signed in as, and lists the engine there", async () => {
+    const o = await origin();
+    const m = await machine();
+    const { url, pairing } = await m.begin(o.base);
+    expect(new URL(url).searchParams.get("challenge")).toMatch(/^.{43}$/);
+    const back = await browse(url);
+    expect(back.status).toBe(200);
+    expect(await back.text()).toContain(`as ${EVE}`);
+    const [link] = m.links();
+    expect(link.as).toBe(EVE);
+    expect(o.listed()).toHaveLength(1);
+    expect(m.paired).toEqual([[o.base, link.token]]);
+    const ended = (await (await m.api(`/pair/${pairing.state}`)).json()) as {
+      pairing: { phase: string; token: string };
+    };
+    expect(ended.pairing).toMatchObject({ phase: "paired", token: link.token });
+  });
+
+  it("keeps one server: a new sign-in replaces the link and hands the old token back", async () => {
+    const o = await origin();
+    const m = await machine();
+    await browse((await m.begin(o.base)).url);
+    await browse((await m.begin(o.base)).url);
+    expect(m.links()).toHaveLength(1);
+    // The revoke is not awaited by the return: give it its round trip.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(o.listed()).toHaveLength(1);
+  });
+
+  it("stores nothing for a code it cannot trade", async () => {
+    const o = await origin();
+    const m = await machine();
+    const { pairing } = await m.begin(o.base);
+    const back = await fetch(
+      `${m.base}/desktop/sync-pair?code=forged&state=${pairing.state}`,
     );
-    expect(gone.ok).toBe(true);
-    expect(t.forgotten).toEqual(["https://o.test"]);
+    expect(back.status).toBe(500);
+    expect(m.links()).toHaveLength(0);
+    expect(o.listed()).toHaveLength(0);
   });
 
-  it("names nothing for a pairing that came back as an account already linked", async () => {
-    const t = await start({});
-    writeRemote(t.home, {
-      url: "wss://o.test/api/sync",
-      token: "held",
-      user: EVE,
-    });
-    const { url } = await t.begin({ origin: "o.test", another: true });
-    await t.browser(url, EVE, "new");
-    expect(t.paired).toEqual([]);
-    expect(readRemotes(t.home).map((r) => r.token)).toEqual(["held"]);
+  it("signing out forgets the link, revokes the device and lets the engine go", async () => {
+    const o = await origin();
+    const m = await machine();
+    await browse((await m.begin(o.base)).url);
+    await m.api("", { method: "DELETE" });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(m.links()).toHaveLength(0);
+    expect(o.listed()).toHaveLength(0);
+    expect(m.forgotten).toEqual([o.base]);
   });
 
-  it("hands the engine the token of the account just added on its server, and of the one switched back to", async () => {
-    const t = await start({});
-    const { url } = await t.begin();
-    await t.browser(url, EVE, "tok-eve");
-    const second = await t.begin({ origin: "o.test", another: true });
-    await t.browser(second.url, "band@example.com", "tok-band");
-    expect(t.paired).toEqual([
-      ["https://o.test", "tok-eve"],
-      ["https://o.test", "tok-band"],
-    ]);
-    const mine = readRemotes(t.home).find((r) => r.as === EVE);
-    const made = await fetch(`${t.base}/api/sync/remote/active`, {
-      method: "POST",
-      headers: { "x-test-session": EVE, "content-type": "application/json" },
-      body: JSON.stringify({ id: mine?.id }),
-    });
-    expect(made.ok).toBe(true);
-    expect(t.paired.at(-1)).toEqual(["https://o.test", "tok-eve"]);
-    // Forgetting the inactive one moves nothing.
-    const band = readRemotes(t.home).find((r) => r.as === "band@example.com");
-    await fetch(`${t.base}/api/sync/remote?id=${band?.id}`, {
-      method: "DELETE",
+  it("finishes a sign-in that outlived its process, and serves a reload the same ending", async () => {
+    const o = await origin();
+    const first = await machine();
+    const { url } = await first.begin(o.base);
+    const there = await fetch(url, {
       headers: { "x-test-session": EVE },
+      redirect: "manual",
     });
-    expect(t.paired).toHaveLength(3);
-    expect(t.forgotten).toEqual([]);
-  });
-
-  it("leaves the server switched away from, and is listed at the one switched to", async () => {
-    const t = await start({});
-    const first = await t.begin({ origin: "o.test", name: "Mac" });
-    await t.browser(first.url, EVE, "tok-o");
-    const second = await t.begin({ origin: "band.test", name: "Mac" });
-    await t.browser(second.url, EVE, "tok-band");
-    expect(t.forgotten).toEqual(["https://o.test"]);
-    expect(t.paired.at(-1)).toEqual(["https://band.test", "tok-band"]);
-    const back = await fetch(`${t.base}/api/sync/remote/active`, {
-      method: "POST",
-      headers: { "x-test-session": EVE, "content-type": "application/json" },
-      body: JSON.stringify({ url: "https://o.test" }),
-    });
-    expect(back.ok).toBe(true);
-    expect(t.forgotten.at(-1)).toBe("https://band.test");
-    expect(t.paired.at(-1)).toEqual(["https://o.test", "tok-o"]);
-    expect(t.restarted).toEqual([EVE, EVE, EVE]);
-  });
-});
-
-describe("pairing through the browser", () => {
-  it("offers, starts, and pairs on the browser's return to this backend", async () => {
-    const t = await start({});
-    const offer = await read(t.api("?origin=o.test"));
-    expect(offer).toMatchObject({ email: EVE, local: false, paired: false });
-    const { url, pairing } = await t.begin();
-    const u = new URL(url);
-    expect(u.origin + u.pathname).toBe("https://o.test/api/sync/devices/pair");
-    expect(u.searchParams.get("return")).toBe(`${t.base}/desktop/sync-pair`);
-    expect(u.searchParams.get("name")).toBe("Pixel");
-    const waited = t.api(`/${pairing.state}?wait=5000`);
-    const tab = await t.browser(url);
-    expect(tab.status).toBe(200);
-    expect(await tab.text()).toContain("now syncs your workspaces");
-    // k7 expects the browser signed in as its own account: the server asks only when it is not.
-    expect(u.searchParams.get("as")).toBe(EVE);
-    expect(u.searchParams.get("choose")).toBeNull();
-    const { pairing: ended } = await read(waited);
-    expect(ended).toMatchObject({
-      phase: "paired",
-      host: "o.test",
-      token: "tok",
-    });
-    // The relay is the named server's, not the host the origin reported.
-    expect(
-      readRemotes(t.home).map(({ url, token, user, as, active }) => ({
-        url,
-        token,
-        user,
-        as,
-        active,
-      })),
-    ).toEqual([
-      {
-        url: "wss://o.test/api/sync",
-        token: "tok",
-        user: EVE,
-        as: EVE,
-        active: true,
-      },
-    ]);
-    expect(t.restarted).toEqual([EVE]);
-    expect(
-      (await t.api(`/${pairing.state}`, { method: "DELETE" })).status,
-    ).toBe(200);
-    expect((await read(t.api("?origin=o.test"))).paired).toBe(true);
-  });
-
-  it("links the account the browser came back as, which the server's page let the person pick", async () => {
-    const t = await start({});
-    const { url, pairing } = await t.begin();
-    const tab = await t.browser(url, "bob@example.com");
-    expect(tab.status).toBe(200);
-    expect(await tab.text()).toContain("as bob@example.com");
-    const { pairing: ended } = await read(t.api(`/${pairing.state}`));
-    expect(ended).toMatchObject({
-      phase: "paired",
-      browserAs: "bob@example.com",
-      token: "tok",
-    });
-    expect(readRemotes(t.home).map((r) => [r.as, r.user])).toEqual([
-      ["bob@example.com", EVE],
-    ]);
-  });
-
-  it("adds another account on a server already linked, and refuses one already linked there", async () => {
-    const t = await start({});
-    writeRemote(t.home, {
-      url: "wss://o.test/api/sync",
-      token: "t",
-      user: EVE,
-    });
-    const { url, pairing } = await t.begin({
-      origin: "o.test",
-      another: true,
-    });
-    // The server's page asks which account, whoever the browser is signed in as.
-    expect(new URL(url).searchParams.get("choose")).toBe("1");
-    expect((await t.browser(url, "band@example.com", "tb")).status).toBe(200);
-    const { pairing: ended } = await read(t.api(`/${pairing.state}`));
-    expect(ended).toMatchObject({ phase: "paired", another: true });
-    expect(readRemotes(t.home).map((r) => [r.as, r.active])).toEqual([
-      ["band@example.com", true],
-      [EVE, false],
-    ]);
-    // The same account again: told, and the link it has kept.
-    const again = await t.begin({ origin: "o.test", another: true });
-    const tab = await t.browser(again.url, "band@example.com", "other");
-    expect(tab.status).toBe(409);
-    expect(await tab.text()).toContain(
-      "already syncs with o.test as band@example.com",
-    );
-    const { pairing: told } = await read(t.api(`/${again.pairing.state}`));
-    expect(told).toMatchObject({
-      phase: "alreadyLinked",
-      browserAs: "band@example.com",
-    });
-    expect(
-      readRemotes(t.home).find((r) => r.as === "band@example.com")?.token,
-    ).toBe("tb");
-  });
-
-  it("pairs the machine's local user too, the server's page asking which account", async () => {
-    const t = await start({});
-    const r = await fetch(`${t.base}/api/sync/remote/pair`, {
-      method: "POST",
-      headers: {
-        "x-test-session": EVE,
-        "x-test-local": "1",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ origin: "o.test" }),
-    });
-    expect(r.status).toBe(200);
-    const { url } = (await r.json()) as { url: string };
-    expect(new URL(url).searchParams.get("choose")).toBe("1");
-    await t.browser(url, "me@k7.test");
-    expect(readRemotes(t.home).map((l) => [l.as, l.active])).toEqual([
-      ["me@k7.test", true],
-    ]);
-  });
-
-  it("ends a pairing that outlived its process: the backend started anew takes the return", async () => {
-    const first = await start({});
-    const { url, pairing } = await first.begin();
-    // The app and its backend die behind the browser; the next start serves the same data root.
-    const again = await start({ dataRoot: first.dataRoot });
-    const back = new URL(new URL(url).searchParams.get("return") ?? "");
+    // The backend started anew on the same data takes the return the browser was sent to.
+    const again = await machine(first.dataRoot);
+    const back = new URL(there.headers.get("location") ?? "");
     back.port = new URL(again.base).port;
-    const u = new URL(url);
-    u.searchParams.set("return", back.toString());
-    expect((await again.browser(u.toString())).status).toBe(200);
-    const offer = await read(again.api("?origin=o.test"));
-    expect(offer.pairing).toMatchObject({
-      state: pairing.state,
-      phase: "paired",
-      token: "tok",
-    });
-    expect(again.restarted).toEqual([EVE]);
-  });
-
-  it("serves a reload the same ending, and a state it does not know a 404", async () => {
-    const t = await start({});
-    const { url } = await t.begin();
-    expect((await t.browser(url)).status).toBe(200);
-    expect((await t.browser(url, EVE, "other")).status).toBe(200);
-    expect(readRemotes(t.home)[0]?.token).toBe("tok");
-    const stray = await fetch(`${t.base}/desktop/sync-pair?state=nope`);
-    expect(stray.status).toBe(404);
-  });
-
-  it("says not stored when the account's service cannot restart", async () => {
-    const t = await start({
-      restart: async () => {
-        throw new Error("down");
-      },
-    });
-    const { url, pairing } = await t.begin();
-    expect((await t.browser(url)).status).toBe(500);
-    const { pairing: ended } = await read(t.api(`/${pairing.state}`));
-    expect(ended?.phase).toBe("notStored");
-  });
-
-  it("is cancelled by its account only", async () => {
-    const t = await start({});
-    const { url, pairing } = await t.begin();
-    const del = (who: string) =>
-      t.api(`/${pairing.state}`, { method: "DELETE" }, who);
-    expect((await del("bob@example.com")).status).toBe(404);
-    expect((await del(EVE)).status).toBe(200);
-    expect((await t.browser(url)).status).toBe(404);
-    expect(readRemotes(t.home)).toEqual([]);
-  });
-
-  it("starts nothing for a server already paired, unless asked for another account, or what is no server", async () => {
-    const t = await start({});
-    const post = (body: object, headers: Record<string, string> = {}) =>
-      fetch(`${t.base}/api/sync/remote/pair`, {
-        method: "POST",
-        headers: {
-          "x-test-session": EVE,
-          "content-type": "application/json",
-          ...headers,
-        },
-        body: JSON.stringify(body),
-      });
+    expect((await fetch(back)).status).toBe(200);
+    expect((await fetch(back)).status).toBe(200);
+    expect(again.links()).toHaveLength(1);
     expect(
-      (await post({ origin: "o.test" }, { "x-test-session": "" })).status,
-    ).toBe(401);
-    expect((await post({ origin: "http://lan.test" })).status).toBe(400);
-    writeRemote(t.home, {
-      url: "wss://o.test/api/sync",
-      token: "t",
-      user: EVE,
-    });
-    expect((await post({ origin: "https://o.test" })).status).toBe(409);
-    expect(
-      (await post({ origin: "https://o.test", another: true })).status,
-    ).toBe(200);
+      (await fetch(`${again.base}/desktop/sync-pair?state=x`)).status,
+    ).toBe(404);
   });
 
-  it("makes a server added beside a saved one the active one", async () => {
-    const t = await start({});
-    writeRemote(t.home, {
-      url: "wss://o.test/api/sync",
-      token: "t",
-      user: EVE,
-    });
-    const { url } = await t.begin({ origin: "band.test", name: "Mac" });
-    await t.browser(url);
-    expect(readRemotes(t.home).map((r) => [r.url, r.active])).toEqual([
-      ["wss://band.test/api/sync", true],
-      ["wss://o.test/api/sync", false],
-    ]);
-  });
-});
-
-describe("a server adds no server", () => {
-  it("refuses every pairing route and every write of a server, with a sentence", async () => {
-    const t = await start({ remotePairing: false });
-    const offer = await t.api("?origin=band.test");
-    expect(offer.status).toBe(403);
-    expect(((await offer.json()) as { error: string }).error).toMatch(
-      /does not connect to other servers/,
+  it("sends a phone's code to the app's own scheme", async () => {
+    const o = await origin();
+    const m = await machine();
+    const { url } = await m.begin(o.base, { scheme: "se.frediver.k7" });
+    expect(new URL(url).searchParams.get("return")).toBe(
+      "se.frediver.k7://pair",
     );
-    expect((await t.post({ origin: "band.test" })).status).toBe(403);
-    const remote = (method: string, path = "", body?: object) =>
-      fetch(`${t.base}/api/sync/remote${path}`, {
-        method,
-        headers: { "x-test-session": EVE, "content-type": "application/json" },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-    const put = await remote("PUT", "", {
-      url: "wss://band.test/api/sync",
-      token: "t",
+    const there = await fetch(url, {
+      headers: { "x-test-session": EVE },
+      redirect: "manual",
     });
-    expect(put.status).toBe(403);
-    expect((await remote("POST", "/active", { id: "x" })).status).toBe(403);
-    expect(readRemotes(t.home)).toEqual([]);
+    expect(there.headers.get("location")).toMatch(
+      /^se\.frediver\.k7:\/\/pair\?code=.+&state=/,
+    );
   });
 
-  it("lists no server, whatever pairings its folder holds", async () => {
-    const t = await start({ remotePairing: false });
-    writeRemote(t.home, {
-      url: "wss://band.test/api/sync",
-      token: "t",
-      user: EVE,
+  it("a server adds no server, and sends a sign-in's code nowhere but the machine", async () => {
+    const o = await origin();
+    const refused = await fetch(`${o.base}/api/sync/remote/pair`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-session": EVE },
+      body: JSON.stringify({ origin: "https://other.test" }),
     });
-    const r = await fetch(`${t.base}/api/sync/remote`, {
-      headers: { "x-test-session": EVE },
-    });
-    expect(await r.json()).toEqual({
-      paired: false,
-      url: null,
-      as: null,
-      servers: [],
-    });
+    expect(refused.status).toBe(403);
+    const elsewhere = await fetch(
+      `${o.base}/api/sync/devices/pair?return=https://evil.test/x&state=s&challenge=${"a".repeat(43)}`,
+      { headers: { "x-test-session": EVE }, redirect: "manual" },
+    );
+    expect(elsewhere.status).toBe(400);
   });
 });

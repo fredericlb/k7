@@ -1,7 +1,8 @@
-// pairingStore.ts — the pairings of this machine's accounts with a remote origin that are under way or just ended,
+// pairingStore.ts — the sign-ins of this machine's accounts at a remote origin that are under way or just ended,
 // kept in one file under the data root: a process killed behind the system browser finds its pairing again, and an
-// ending nobody was there to see is still told once the app comes back. The token itself is never kept here.
-// See docs/syncRelay.md, "Pairing through the browser".
+// ending nobody was there to see is still told once the app comes back. The token itself is never kept here, only the
+// verifier that trades the server's code for it.
+// See docs/syncRelay.md, "Signing in is pairing".
 
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -23,13 +24,11 @@ export interface PairRecord {
   email: string;
   /** The remote origin, as `normalizeServer` spells it. */
   origin: string;
-  /** Started to add another account on a server already linked: the server's page lets the person pick one. */
-  another?: boolean;
+  /** What trades the server's code for the token (pairCodes.ts); kept on disk for a process killed behind the browser. */
+  verifier: string;
   /** Epoch ms after which a waiting pairing is expired. */
   until: number;
   phase: PairPhase;
-  /** Made by the sign-in itself, before k7's page loaded: the app has no page to reload for it. */
-  atSignIn?: boolean;
   /** The remote account the browser came back signed in as: the link's `as`. */
   browserAs?: string;
   settledAt?: number;
@@ -56,6 +55,7 @@ const valid = (r: Partial<PairRecord>): r is PairRecord =>
   typeof r?.state === "string" &&
   typeof r.email === "string" &&
   typeof r.origin === "string" &&
+  typeof r.verifier === "string" &&
   typeof r.until === "number" &&
   PHASES.has(r.phase as PairPhase);
 
@@ -114,21 +114,15 @@ export class PairingStore {
       : { ...r };
   }
 
-  /** Start a pairing for `email`, replacing any other of that account: one browser trip at a time. */
-  begin(
-    email: string,
-    origin: string,
-    another = false,
-    atSignIn = false,
-  ): PairRecord {
+  /** Start a sign-in for `email`, replacing any other of that account: one browser trip at a time. */
+  begin(email: string, origin: string, verifier: string): PairRecord {
     for (const old of this.records.filter((r) => r.email === email))
       this.forget(old.state);
     const record: PairRecord = {
       state: randomBytes(16).toString("base64url"),
       email,
       origin,
-      ...(another ? { another } : {}),
-      ...(atSignIn ? { atSignIn } : {}),
+      verifier,
       until: this.now() + PAIR_WAIT_MS,
       phase: "waiting",
     };

@@ -15,13 +15,18 @@ import {
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
 import {
+  SYNC_DEVICE_SELF_ROUTE,
   SYNC_PAIR_DIRECT_ROUTE,
+  SYNC_PAIR_REDEEM_ROUTE,
   SYNC_PAIR_RETURN_PATH,
   SYNC_PAIR_ROUTE,
 } from "@studio/web-protocol/pairing";
 import express, { type Express, type RequestHandler } from "express";
 import { emailOf, subOf } from "../who.ts";
 import { isAdminRequest } from "./admin.ts";
+
+/** How recent the sign-in must be for a machine's sign-in to link it with no page to confirm. */
+const FRESH_SIGN_IN_MS = 5 * 60_000;
 
 /** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
 export function requireFilesRoot(): string {
@@ -88,10 +93,13 @@ export function mountFileHub(
   // A machine or another server pairing with this one: its browser lands here, signs in if it must, and leaves with a device token.
   const pairGate: RequestHandler = (req, res, next) => {
     const user = req.session?.user as SessionUser | undefined;
-    if (!user || user.local)
+    // A machine's sign-in needs the person's password typed now: that sign-in is the consent (packages/file-hub/docs/syncRelay.md).
+    const iat = Number((req.session as { iat?: unknown } | null)?.iat) || 0;
+    const stale = !!req.query.challenge && Date.now() - iat > FRESH_SIGN_IN_MS;
+    if (!user || user.local || stale)
       return res.redirect(
         // A pairing that lets the person choose the account asks the provider for its sign-in page, not its session's account.
-        `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}${req.query.choose === "1" ? "&prompt=login" : ""}`,
+        `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}${req.query.choose === "1" || req.query.challenge ? "&prompt=login" : ""}`,
       );
     (req as { user?: SessionUser }).user = user;
     next();
@@ -104,6 +112,9 @@ export function mountFileHub(
     pairGate,
     hub.sync.syncPairHandler(),
   );
+  // A machine's backend trading its sign-in's code, and a machine signing out: no session, the verifier or the token is the gate.
+  app.use(SYNC_PAIR_REDEEM_ROUTE, hub.sync.redeemRouter());
+  app.delete(SYNC_DEVICE_SELF_ROUTE, hub.sync.selfRevokeHandler());
   // A machine's backend with its provider token, server to server: no session, the provider's word is the gate.
   const direct = hub.sync.directPairHandler();
   if (direct)
