@@ -59,7 +59,7 @@ object SyncPairing {
     private fun host(context: Context): String = Uri.parse(origin(context)).host ?: origin(context)
 
     /** Pair the account signed in to the phone's studio, unless it is the local user, already paired, or asked this run. */
-    fun pairIfNeeded(context: Context, cookie: String?) {
+    fun pairIfNeeded(context: Context, cookie: String?, onPaired: () -> Unit) {
         if (cookie.isNullOrEmpty()) return
         synchronized(this) {
             if (busy) return
@@ -68,7 +68,7 @@ object SyncPairing {
         val app = context.applicationContext
         Thread({
             try {
-                run(app, cookie)
+                run(app, cookie, onPaired)
             } catch (e: Exception) {
                 Log.w(TAG, "sync pairing: ${e.message}")
             } finally {
@@ -77,7 +77,7 @@ object SyncPairing {
         }, "k7-sync-pair").start()
     }
 
-    private fun run(context: Context, cookie: String) {
+    private fun run(context: Context, cookie: String, onPaired: () -> Unit) {
         val offer = local("GET", "$PAIR_API?origin=${Uri.encode(origin(context))}", cookie) ?: return
         val email = offer.text("email").takeIf { it.isNotEmpty() } ?: return
         if (offer.optBoolean("local")) return
@@ -85,7 +85,7 @@ object SyncPairing {
         offer.optJSONObject("pairing")?.let {
             synchronized(this) { asked.add(email) }
             if (it.text("phase") == "waiting") tell(context, "Finishing this phone's sync pairing: if the browser shows an error page, reload it.")
-            return settle(context, it, cookie)
+            return settle(context, it, cookie, onPaired)
         }
         if (synchronized(this) { !asked.add(email) }) return
         // Offered only while no server is saved: adding and switching servers is the settings' (android.md).
@@ -99,18 +99,18 @@ object SyncPairing {
             ?: return tell(context, "This phone's sync pairing could not start. k7 will offer it again at its next start.")
         val pairing = started.getJSONObject("pairing")
         // Paired already, with no browser: said at once.
-        if (pairing.text("phase") != "waiting") return settle(context, pairing, cookie)
+        if (pairing.text("phase") != "waiting") return settle(context, pairing, cookie, onPaired)
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(started.getString("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {
             local("DELETE", "$PAIR_API/${pairing.text("state")}", cookie)
             return tell(context, "There is no browser on this phone to pair it with ${host(context)} in.")
         }
-        settle(context, pairing, cookie)
+        settle(context, pairing, cookie, onPaired)
     }
 
-    /** Wait on the backend for the pairing's ending, say it, and let the backend drop it. */
-    private fun settle(context: Context, first: JSONObject, cookie: String) {
+    /** Wait on the backend for the pairing's ending, say it, and let the backend drop it; `onPaired` runs on the main thread. */
+    private fun settle(context: Context, first: JSONObject, cookie: String, onPaired: () -> Unit) {
         val state = first.text("state")
         var p = first
         while (p.text("phase") == "waiting") {
@@ -125,6 +125,8 @@ object SyncPairing {
                 // The same token lists this phone's engine at that studio, which may admit paired machines only.
                 SupervisorHost.rememberDeviceToken(context, p.text("origin"), p.text("token"))
                 tell(context, "This phone now syncs its workspaces with $host as ${account(p)}.")
+                // The page read the server list before the link existed: it reads it again.
+                main.post(onPaired)
             }
             // That account on that server is linked already: the link it has stays.
             "alreadyLinked", "otherAccount" ->

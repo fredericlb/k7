@@ -80,22 +80,24 @@ export function directPairHandler(
   const allow = rateLimiter(RATE_LIMIT, RATE_WINDOW_MS, s.now ?? Date.now);
   return (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    const refuse = () => void res.status(401).json({ error: NOT_ACCEPTED });
+    const refuse = (why: string) => {
+      console.log(`sync | direct pairing refused: ${why}`);
+      res.status(401).json({ error: NOT_ACCEPTED });
+    };
     if (!allow(req.ip ?? ""))
       return void res
         .status(429)
         .json({ error: "Too many pairing attempts. Try again in a minute." });
     const bearer = /^Bearer\s+(\S+)$/i.exec(req.get("authorization") ?? "");
     // The machine names its provider: a token from another one is not even sent on.
-    if (!bearer || req.body?.issuer !== s.issuer) return refuse();
+    if (!bearer) return refuse("no bearer");
+    if (req.body?.issuer !== s.issuer)
+      return refuse(`issuer ${String(req.body?.issuer)} is not ${s.issuer}`);
     void s.verify(bearer[1]).then(
       (word) => {
-        if (
-          !word?.email ||
-          !word.clientId ||
-          !s.clients.includes(word.clientId)
-        )
-          return refuse();
+        if (!word?.email) return refuse("the provider did not vouch for it");
+        if (!word.clientId || !s.clients.includes(word.clientId))
+          return refuse(`client ${word.clientId ?? "unnamed"} not allowed`);
         const raw = typeof req.body?.name === "string" ? req.body.name : "";
         const name = raw.trim().slice(0, 80) || "a machine";
         const { device, token } = devices.mint(
@@ -110,7 +112,7 @@ export function directPairHandler(
           identity: word.email,
         });
       },
-      () => refuse(),
+      () => refuse("the provider could not be asked"),
     );
   };
 }
@@ -142,7 +144,12 @@ export async function pairDirect(
 ): Promise<{ token: string; identity: string } | null> {
   if (!d?.servers.includes(hostOf(origin))) return null;
   const accessToken = await d.tokenOf(req);
-  if (!accessToken) return null;
+  if (!accessToken) {
+    console.log(
+      "sync | no provider token kept for this session: the browser pairs",
+    );
+    return null;
+  }
   try {
     const r = await (d.fetch ?? fetch)(
       `${origin.replace(/\/+$/, "")}${SYNC_PAIR_DIRECT_ROUTE}`,
@@ -158,12 +165,20 @@ export async function pairDirect(
         signal: AbortSignal.timeout(DIRECT_TIMEOUT_MS),
       },
     );
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.log(
+        `sync | ${hostOf(origin)} refused direct pairing (${r.status}): the browser takes over`,
+      );
+      return null;
+    }
     const a = (await r.json()) as { token?: unknown; identity?: unknown };
     if (typeof a.token !== "string" || !a.token) return null;
     if (typeof a.identity !== "string" || !a.identity) return null;
     return { token: a.token, identity: a.identity };
-  } catch {
+  } catch (e) {
+    console.log(
+      `sync | direct pairing with ${hostOf(origin)} failed: ${(e as Error).message}`,
+    );
     return null;
   }
 }

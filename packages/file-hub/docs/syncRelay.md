@@ -58,14 +58,15 @@ differ only in how the account is proved.
 - the token must have been issued to a client in `STUDIO_PAIR_CLIENTS` (the machine's public client,
   `st0-desktop`). The client comes from the provider's introspection when the server's own client may
   introspect (it needs a secret, and the provider an endpoint), and introspection says `active` and the
-  same `sub`; otherwise from UserInfo's `azp` (or `client_id`). A provider that says neither cannot
-  have its client checked, and every token is then refused. **Without `STUDIO_PAIR_CLIENTS` the route is
+  same `sub`; otherwise from UserInfo's `azp` (or `client_id`), else its `aud` when it names one
+  client alone — Authelia's UserInfo names the client only there. A provider that says none of these
+  cannot have its client checked, and every token is then refused. **Without `STUDIO_PAIR_CLIENTS` the route is
   not mounted at all**: a server never takes a provider token by default, and a provider token issued
   to an unrelated app on the same provider buys nothing.
 
 **What it does not take**: no session cookie (the call is server to server, from the machine's backend,
 so no CORS and no `Origin`), and no detail on a refusal — every one is `401` with the same sentence,
-the reason staying in the server's knowledge. Five attempts a minute per address (`req.ip`, behind the
+the reason staying in the server's log (`direct pairing refused: …`). Five attempts a minute per address (`req.ip`, behind the
 proxy the session already trusts), then `429`.
 
 **What the machine trusts the server with**: the token is a bearer for the person at the provider, and
