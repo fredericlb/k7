@@ -1,4 +1,4 @@
-// serverPrompt.ts — whether the first-launch prompt (./ServerPrompt.tsx) is due: once per launch, on a machine with no
+// promptDue.ts — whether the first-launch prompt (./ServerPrompt.tsx) is due: once per launch, on a machine with no
 // server saved, until the person unticks "remind me". A launch is a browser session. See ../../docs/localApp.md.
 
 const OFF_KEY = "k7.serverPrompt.off";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { promptAnswered, promptDue } from "./serverPrompt";
+import { promptAnswered, promptDue } from "./promptDue";
 
 /** A Storage held in a Map: the suite runs in node, which has none. */
 function memoryStorage(): Storage {

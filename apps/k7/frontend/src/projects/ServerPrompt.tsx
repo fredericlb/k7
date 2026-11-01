@@ -23,7 +23,7 @@ import { useSavedServers } from "../settings/savedServers";
 import { AccountStatusNote } from "../tabs/AccountStatusNote";
 import { inAndroidApp } from "../tabs/bridge";
 import { connectServer } from "../tabs/connectServer";
-import { promptAnswered, promptDue } from "./serverPrompt";
+import { promptAnswered, promptDue } from "./promptDue";
 
 export function ServerPrompt() {
   const local = useLocalApp();
