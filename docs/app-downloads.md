@@ -47,6 +47,15 @@ Both need `Authorization: Bearer <APP_RELEASE_TOKEN>`, a value only the reposito
 server, every upload answers 401; unset in the repository, the step warns and skips, and the page
 keeps its last build. To set it up, generate one value (`openssl rand -hex 32`) and put it in both.
 
+OneDev's `publish on /app_downloads` job sends its own `release` build the same way, with the same
+script, on the same pushes and tags ([release.md](release.md), "On OneDev"); there the value is the
+project's job secret `app-release-token`. Its builds carry the Windows engine and the APK alone.
+
+| choice | why |
+|---|---|
+| OneDev sends nothing when the channel already serves the same stamp | both pipelines name a commit's build alike, and a publish replaces the stamp's whole folder: sent after GitHub's, OneDev's would drop the Linux and macOS engines. Sent first, it is replaced by GitHub's when that one lands |
+| its stamp is read from the APK's name | the file names are the release's; OneDev's container computes it as GitHub does, the tag or `snapshot-<commit>` |
+
 A file is at most `APP_RELEASE_MAX_MB` (2048); its name is letters, digits, `.`, `_` and `-`, which
 is why `engine/scripts/package-release.mjs` names every release file for its stamp — `latest.json`
 must name the very file the server holds. The builds live under `STUDIO_APP_RELEASES_DIR`,

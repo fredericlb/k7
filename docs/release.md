@@ -16,7 +16,7 @@ archive through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). S
 runs from the command line and the one under the tray are the same sources and the same presets.
 One platform's failure costs that platform only: GitHub cannot make one matrix leg wait for the same
 leg of another, so each platform's tray is one call that depends on its own engine job and no other.
-`.onedev-buildspec.yml` draws the engine and the APK for OneDev, with no trigger: its jobs run by hand.
+`.onedev-buildspec.yml` draws the engine and the APK for OneDev, on every push to `main` and every `v*` tag.
 
 | choice | why |
 |---|---|
@@ -308,11 +308,23 @@ through, and it must be minutes rather than hours.
 ## On OneDev
 
 `.onedev-buildspec.yml` names jobs by what they make — `engine windows`, `android` —
-and builds no Linux leg and no tray: those are GitHub's alone, and OneDev's container runs would only duplicate it. No job carries a trigger: **`release`**, run by hand, is
-the one to start. Its dependencies run the rest, and it gathers every file into its own build: that build's artifacts are the release. The file names
-are GitHub's — the tag, or `snapshot-<commit>`. The engine job and the APK wait for `lint and test`: a release
-should not ship what the tests refuse, and the APK shares its machine, where a C++ compile beside it times
-its slower tests out.
+and builds no Linux leg, no macOS leg and no tray: those are GitHub's alone, and OneDev's runs would only
+duplicate them. The triggers are GitHub's:
+
+| job | runs on |
+|---|---|
+| `lint and test`, `publish studio images` (which runs both image builds), `cancel superseded builds` | every push to `main` |
+| `release`, `publish on /app_downloads` | a push to `main` touching `engine/`, `apps/`, `packages/`, `commons`, the lockfile or this file, and every `v*` tag |
+
+`release`'s dependencies run the rest, and it gathers every file into its own build: that build's
+artifacts are the release. The file names are GitHub's — the tag, or `snapshot-<commit>`. The engine
+job and the APK wait for `lint and test`: a release should not ship what the tests refuse, and the APK
+shares its machine, where a C++ compile beside it times its slower tests out. `publish on
+/app_downloads` sends that release to the page ([app-downloads.md](app-downloads.md)), and `cancel
+superseded builds` cancels `main`'s builds of older commits still waiting or running, as GitHub's
+`cancel-in-progress` does: the engine build is long, and a superseded one would hold the Windows agent
+for nothing. It reads the builds through OneDev's API with the job secret `onedev-api-token`, an access
+token of a user who may run k7's jobs.
 
 **The APK runs in a container** and installs its toolchain on every run. It keeps a ccache, Gradle's
 cache and the dependency SOURCES between runs in OneDev caches — the last through

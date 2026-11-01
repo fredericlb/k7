@@ -40,6 +40,10 @@ jobs:
     useTTY: true
     condition: SUCCESSFUL
     optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    userMatch: anyone
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -145,6 +149,10 @@ jobs:
     arguments: create -t dev.frediver.se/frediverse/k7/k7-runtime:latest -t dev.frediver.se/frediverse/k7/k7-runtime:@build_version@ dev.frediver.se/frediverse/k7/k7-runtime:@commit_hash@
     condition: SUCCESSFUL
     optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    userMatch: anyone
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
@@ -426,6 +434,13 @@ jobs:
     artifacts: dist/release/*
     condition: SUCCESSFUL
     optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    paths: engine/** apps/** packages/** commons package-lock.json .onedev-buildspec.yml
+    userMatch: anyone
+  - type: TagCreateTrigger
+    tags: v*
   jobDependencies:
   - jobName: engine windows
     requireSuccessful: true
@@ -433,6 +448,103 @@ jobs:
   - jobName: android
     requireSuccessful: true
     artifacts: dist/release/*
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 600
+# The files "release" gathered, sent to k7.rocks/app_downloads by the script GitHub's release.yml runs
+# (.github/scripts/publish-app-release.sh): one PUT per file, then publish switches the stamp's channel at once
+# (docs/app-downloads.md). Its dependency is the "release" build of THIS build's commit, which OneDev reuses when
+# the push or the tag already started it; a hand-run republishes its commit. No macOS or Linux leg runs here, so a
+# build sent from OneDev carries the Windows engine and the APK only, and it is not sent over the same stamp's
+# build already served, which GitHub's is when it got there first.
+# The token is the project's job secret app-release-token, the value of the server's APP_RELEASE_TOKEN.
+- name: publish on /app_downloads
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: HttpCredential
+      accessTokenSecret: submodule-token
+    withLfs: false
+    withSubmodules: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: upload and publish
+    runInContainer: true
+    image: alpine:3
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        set -e
+        apk add --no-cache bash curl coreutils > /dev/null
+        # The stamp the APK was named with, the tag on a tag and snapshot-<commit> on main, as GitHub's.
+        APK=$(ls dist/release/k7-android_*_arm64.apk | head -1)
+        STAMP=$(basename "$APK" | sed 's/^k7-android_//; s/_arm64\.apk$//')
+        # A publish replaces its stamp's whole folder: GitHub's build of this commit, with every platform, stays.
+        case "$STAMP" in v*) CHANNEL=release ;; *) CHANNEL=snapshot ;; esac
+        SERVED=$(curl -fsS --max-time 20 "https://app.k7.rocks/app_downloads/$CHANNEL.json" | grep -o '"stamp":"[^"]*"' || true)
+        if [ "$SERVED" = "\"stamp\":\"$STAMP\"" ]; then
+          echo "$STAMP is published already - the page keeps that build"
+          exit 0
+        fi
+        echo "publishing $STAMP:"
+        ls dist/release
+        APP_RELEASE_TOKEN="@secret:app-release-token@" bash .github/scripts/publish-app-release.sh \
+          https://app.k7.rocks/api/app-releases "$STAMP" dist/release
+    runAs: 0:0
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    paths: engine/** apps/** packages/** commons package-lock.json .onedev-buildspec.yml
+    userMatch: anyone
+  - type: TagCreateTrigger
+    tags: v*
+  jobDependencies:
+  - jobName: release
+    requireSuccessful: true
+    artifacts: dist/release/*
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 1800
+# On every push to main: cancels the builds of older commits still waiting or running, as GitHub's
+# cancel-in-progress does. The engine build is long, and a superseded one would hold the Windows agent for
+# nothing. The token is the project's job secret onedev-api-token: an access token of a user who may run k7's jobs.
+- name: cancel superseded builds
+  steps:
+  - type: CommandStep
+    name: cancel older builds of main
+    runInContainer: true
+    image: alpine:3
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        set -e
+        apk add --no-cache curl jq > /dev/null
+        API="@server_url@/~api"
+        TOKEN="@secret:onedev-api-token@"
+        QUERY='"Project" is "@project_path@" and "Branch" is "main" and (running or pending or waiting)'
+        curl -fsS -G -H "Authorization: Bearer $TOKEN" --data-urlencode "query=$QUERY" -d offset=0 -d count=100 "$API/builds" > builds.json
+        # Older pushes only: a lower number and another commit, so this push's builds and any newer one's stay.
+        jq -r --argjson n "@build_number@" --arg c "@commit_hash@" \
+          '.[] | select(.number < $n and .commitHash != $c) | "\(.id) #\(.number) \(.jobName)"' builds.json |
+        while read -r id what; do
+          echo "cancelling $what"
+          curl -fsS -X DELETE -H "Authorization: Bearer $TOKEN" "$API/job-runs/$id"
+        done
+    runAs: 0:0
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: main
+    userMatch: anyone
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
