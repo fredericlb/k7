@@ -3,11 +3,11 @@
 // background, as a download-manager job. See ../docs/songSource.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { type LibraryClient, library, serverLibrary } from "./api";
 import { serverBase } from "./config";
 import { useLabels } from "./host";
-import { entryAt, isSong } from "./libraryTree";
+import { entryAt, isSong, relative } from "./libraryTree";
 import { folderOf } from "./routes";
 import type { useServerCopy } from "./ServerCopy";
 import { type SongSource, songSide } from "./songSource";
@@ -22,7 +22,7 @@ export function useOpenSong(
   const readOnly = useLabels().song.readOnly;
   const { onDemand, reachable, placeOf, refreshCopy, download } = serverCopy;
   // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
-  const entry = useMemo(() => {
+  const found = useMemo(() => {
     const dir = folderOf(file);
     if (!dir) return null;
     const here = entryAt(entries, dir);
@@ -31,6 +31,17 @@ export function useOpenSong(
     const there = onDemand ? entryAt(remote, dir) : null;
     return there && isSong(there) ? there : null;
   }, [entries, remote, file, onDemand]);
+  // A copy that just landed is no longer the server's alone, and not yet in the local listing: the song stays open meanwhile.
+  const last = useRef<MediatekEntry | null>(null);
+  const dir = folderOf(file);
+  if (found) last.current = found;
+  else if (
+    !last.current ||
+    relative(last.current.path) !== dir ||
+    placeOf(last.current.path) !== "synced"
+  )
+    last.current = null;
+  const entry = found ?? last.current;
 
   const path = entry?.path ?? null;
   const place = path ? placeOf(path) : null;

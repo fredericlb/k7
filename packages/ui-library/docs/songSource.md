@@ -27,7 +27,9 @@ whole rule:
   refreshed in the background, once a burst of edits settles (`refreshCopy`). Two copies edited apart
   would need a merge nobody can do on a phone; one version edited, and copies of it, need none.
 - **While the server answers, a copied song is read there too**, so what was just written is what is
-  read back. The copy landing changes nothing on the open page: no reload, no edit lost.
+  read back. The copy landing changes nothing on the open page: no reload, no edit lost. Nor does
+  the moment after it, when the placement already says the song is on both and the local listing
+  has not polled it in yet: the page keeps the song it opened rather than finding it nowhere.
 - **Away, everything is read-only, and the page says why** (`ReadOnlyNotice`): every edit control is
   disabled rather than left to fail. Whether the server answers is the backend's
   `/api/sync/library/status`, polled with the placement; a stale placement says away too
