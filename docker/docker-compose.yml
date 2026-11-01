@@ -74,6 +74,8 @@ services:
       STUDIO_RENDER_KEY: ${RENDER_KEY:-}
       # 1: list only machines paired with an account, or the render machine (packages/engine-registry/docs/heartbeat.md).
       STUDIO_REGISTRY_REQUIRE_DEVICE: ${REGISTRY_REQUIRE_DEVICE:-0}
+      # The provider clients whose sign-in pairs a machine with no browser; empty mounts no such route (packages/file-hub/docs/syncRelay.md).
+      STUDIO_PAIR_CLIENTS: ${PAIR_CLIENTS:-}
       # The bearer release.yml publishes the apps' builds with; empty refuses every upload (docs/app-downloads.md).
       APP_RELEASE_TOKEN: ${APP_RELEASE_TOKEN:-}
       # The hosts that show the coming-soon page rather than the app — the k7-site router below.
