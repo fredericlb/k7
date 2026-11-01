@@ -326,31 +326,39 @@ superseded builds` cancels `main`'s builds of older commits still waiting or run
 for nothing. It reads the builds through OneDev's API with the job secret `onedev-api-token`, an access
 token of a user who may run k7's jobs.
 
-**The APK runs in a container** and installs its toolchain on every run. It keeps a ccache, Gradle's
-cache and the dependency SOURCES between runs in OneDev caches — the last through
-`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache
-holds sources only: what CMake builds inside it depends on the preset, and the job deletes it on its
-way out, failed or not. Its release key comes from the four `android-*` job secrets above, read
-through quoted heredocs into a folder the job deletes on exit. OneDev runs on an instance with no
-forks, so the job has no unsigned path: without the secrets it fails, on a snapshot as on a tag.
+**The Windows jobs run on a Windows agent through a Remote Shell Executor** — `engine windows` and
+`android` — so nothing is installed per run: Node, Git, CMake, Ninja, the Visual Studio Build Tools,
+the Android SDK (platform 36, NDK 29.0.14206865, and build tools, whose newest `apksigner` and
+`aapt2` check the APK) and Android Studio's JDK 21 are
+the agent's, under the account its service logs on as. A container would buy isolation at the price of
+MSVC in a Windows container, which is heavier than the machine it would run on, and the APK needs MSVC
+too: JUCE compiles its `juceaide` for the host while cross-compiling, which under Ninja takes `cl.exe`
+on the path (`vcvars64`, found through `vswhere`). The APK job checks the SDK's folders and the JDK
+before it starts, and says which one the agent lacks; `ANDROID_HOME` and `JAVA_HOME` default to Android
+Studio's places when the agent names none.
 
-**The Windows jobs run on a Windows agent through a Remote Shell Executor**, so nothing is installed
-per run: Node, Git, CMake, Ninja and the Visual Studio Build Tools are the agent's, under the account
-its service logs on as. A container would buy isolation at the price of MSVC in a Windows container,
-which is heavier than the machine it would run on. The dependency sources stay on that disk, in
-`$STUDIO_FETCHCONTENT_DIR` (`%LOCALAPPDATA%\k7-ci\fetch` unless the agent names another): the machine
-already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the last run built
-there is deleted before a run instead of after it. They fetch `commons` themselves — the checkout takes
-no submodule — with the same `submodule-token` secret the checkout uses, handed to git through
-`GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` rather than `-c`, which would put the
-token in the process's command line, readable by anything listing the agent's processes. They override no preset, so
-the agent builds with the host default, `windows-msvc` (Visual Studio 2026, its own generator), exactly
-as the machine does by hand, and with no compiler cache: that generator ignores a launcher.
+The dependency sources stay on that disk, in `$STUDIO_FETCHCONTENT_DIR` — `%LOCALAPPDATA%\k7-ci\fetch`
+for the engine, `fetch-android` beside it for the APK, so one job never deletes the other's builds while
+it runs — unless the agent names another: the machine already keeps them, so nothing crosses the
+network. `cmd` has no exit trap, so what the last run built there is deleted before a run instead of
+after it. They fetch `commons` themselves — the checkout takes no submodule — with the same
+`submodule-token` secret the checkout uses, handed to git through
+`GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` rather than `-c`, which would put the token
+in the process's command line, readable by anything listing the agent's processes. The engine overrides
+no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio 2026, its own
+generator), exactly as the machine does by hand, and with no compiler cache: that generator ignores a
+launcher.
+
+The APK's release key comes from the four `android-*` job secrets above: the keystore is decoded by
+`certutil` into a folder of the run's own, deleted whatever Gradle answers. A secret is set in `cmd`
+between quotes, so a password must hold no `"` and no `%`. OneDev runs on an instance with no forks,
+so the job has no unsigned path: without the secrets it fails, on a snapshot as on a tag. Windows' own
+`tar` is put first on the path: the Termux tools step hands it `C:\` paths, which GNU tar reads as a host.
 
 A job on a shell executor names no executor and no agent, so neither has to be called anything. The
 executor's **agent selector** picks by OS (an agent query on `Os`, checked on the Agents page first),
-and its **job match** takes that platform's jobs and nothing else: every other job in the file is a
-container job and must never land on it. OneDev tries executors in the order they are listed and uses
+and its **job match** takes that platform's jobs and nothing else — `engine windows` and `android` —
+since every other job in the file is a container job and must never land on it. OneDev tries executors in the order they are listed and uses
 the first whose job match accepts the job, so the Docker executor must not accept these either — list
 the shell executors first, or narrow the Docker one's match.
 

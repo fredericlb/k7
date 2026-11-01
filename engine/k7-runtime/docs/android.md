@@ -528,8 +528,9 @@ copy a Termux package's symlinks, which Windows' tar cannot create.
 
 ## In CI
 
-OneDev's **android** job builds the APK for every release, beside the engine archives, from a cold SDK install
-pinned by version and checksum (`.onedev-buildspec.yml`), and GitHub's `android` job does the same.
+OneDev's **android** job builds the APK for every release, beside the engine archives, on the Windows agent
+as above, with that machine's SDK, JDK and Visual Studio (`.onedev-buildspec.yml`, `docs/release.md`, "On
+OneDev"); GitHub's `android` job builds it from a cold SDK install pinned by version and checksum.
 Both build the RELEASE type, not debuggable, signed with the release key from their secrets
 (`docs/release.md`); a debug build is for a developer's own phone, and replacing one with the
 other needs the app uninstalled first. The `e2e` build type is the exception: its own id and port put it
