@@ -119,11 +119,23 @@ stamp onto that manifest with `docker buildx imagetools create`, a copy inside t
 `k7.yml` has passed for that commit — and never when it has not run, which
 `.github/actions/k7-passed` counts as a failure, since a tag that moves untested is the hazard the
 wait exists for. The stamp is computed once, in the `version` job, because it is baked into the SPA
-and a second clock reading could disagree with it. The Pi image builds on an arm64 runner, natively.
+and a second clock reading could disagree with it (`.github/actions/image-version`).
+
+The Pi's image has a workflow of its own, `pi-image.yml`, built natively on an arm64 runner and
+gated by the same `k7-passed` wait. A cold arm64 compile outlasts everything else here, and inside
+`images.yml` the webapp's and the server engine's tags would wait for it. Its stamp is read by its
+own run, so it can differ from the webapp's by the minutes between the two starts.
+
+## The engine compiles only on a source change
 
 The engine's compile lives in cache mounts, which a registry cache does not carry and a fresh runner
-starts without: a push that changes no native source reuses the compiled layer whole, and one that
-does compiles cold.
+starts without: a push that changes no input of the compile reuses the compiled layer whole, and one
+that does compiles cold. So the engine Dockerfiles read a context of their own,
+`engine/docker/Dockerfile.dockerignore` and `Dockerfile.pi.dockerignore`, which BuildKit takes in
+place of the root `.dockerignore`: every `docs/` folder and every `.md` is left out, since the
+engine folders' notes change about as often as their sources and each such push would otherwise
+compile the whole engine for nothing. The two files repeat the root's build-output exclusions, which
+they replace.
 
 ## The deployment pulls from GHCR, anonymously
 

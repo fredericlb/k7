@@ -1,0 +1,97 @@
+# k7-runtime-pi, the Raspberry Pi's engine image on GHCR (engine/docker/Dockerfile.pi, docs/pi-engine.md).
+#
+# Its own workflow because a cold arm64 compile outlasts everything in images.yml, whose tags would otherwise
+# wait for it. Built under the commit, then tagged with its version stamp and `:latest` — or `:X.Y.Z` for a
+# `vX.Y.Z` tag — once k7.yml has passed for the same commit (docs/images.md). Native, on an arm64 runner.
+
+name: pi-image
+
+# No path filter: a tag must always run.
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+# A cancelled engine build exports no cache at all: the next push waits rather than throws a compile away.
+concurrency:
+  group: pi-image-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/fredericlb
+  IMAGE: k7-runtime-pi
+
+jobs:
+  build:
+    name: k7-runtime-pi
+    runs-on: ubuntu-24.04-arm
+    # A cold build compiles Tracktion, JUCE, sfizz, Surge and Faust; a push that touches no native source finds it in the cache.
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      stamp: ${{ steps.v.outputs.stamp }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      # A cold engine build outgrows a stock runner's free disk: drop the toolchains it never uses.
+      - name: free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL && df -h /
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: v
+        uses: ./.github/actions/image-version
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: engine/docker/Dockerfile.pi
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+          # The runners have 4 cores and 16 GB: every core compiles, a unity file taking about a gigabyte.
+          build-args: BUILD_JOBS=4
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.label }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ env.IMAGE }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/k7-cache:${{ env.IMAGE }},mode=max,image-manifest=true,oci-mediatypes=true
+
+  publish:
+    name: tag latest
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      # The tests of this same commit gate the tags; no run, or a red one, and nothing moves.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/k7-passed
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # A copy of the manifest inside the registry: nothing is built or pulled here.
+      - name: tag the stamp, and latest or a release's version
+        env:
+          STAMP: ${{ needs.build.outputs.stamp }}
+          RELEASE: ${{ needs.build.outputs.release }}
+        run: |
+          # A tag may name an older commit than main's: it adds its version and leaves `:latest` to main.
+          tags=(-t "$REGISTRY/$IMAGE:$STAMP")
+          if [ -n "$RELEASE" ]; then tags+=(-t "$REGISTRY/$IMAGE:$RELEASE"); else tags+=(-t "$REGISTRY/$IMAGE:latest"); fi
+          docker buildx imagetools create "${tags[@]}" "$REGISTRY/$IMAGE:$GITHUB_SHA"

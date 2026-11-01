@@ -31,7 +31,7 @@ OS must be the 64-bit Pi OS — the image is arm64 only.
 
 ## Build and install
 
-GitHub builds the image on every push to `main` (`.github/workflows/images.yml`), so a
+GitHub builds the image on every push to `main` (`.github/workflows/pi-image.yml`), so a
 Pi can pull `ghcr.io/fredericlb/k7-runtime-pi:latest` instead, named by `ENGINE_IMAGE` for the compose file.
 To build it yourself:
 
