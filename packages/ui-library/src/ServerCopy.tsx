@@ -105,13 +105,13 @@ export function useServerCopy(
 
   // One queued entry per song, so the manager counts songs and each row spins alone (../../http-client/docs/downloads.md).
   const download = useCallback(
-    async (paths: string[]) => {
+    async (paths: string[], refresh = false) => {
       if (!family || !paths.length) return;
       const runs = paths.map((path) =>
         queueDownload(
           { key: downloadKey(path), kind: "song", label: songLabel(path) },
           // On demand a copy follows the server, whose edits it is then kept in step with.
-          () => library.download(family, [path], onDemand),
+          () => library.download(family, [path], onDemand, refresh),
         )
           // The local poll lists the new entry on its own; the placement is asked again at once.
           .then(() => reload()),
@@ -142,7 +142,7 @@ export function useServerCopy(
         setTimeout(() => {
           settling.current.delete(path);
           const key = downloadKey(path);
-          const again = () => void download([path]);
+          const again = () => void download([path], true);
           // The same key while one runs answers that run: the edit may have missed it, so another follows.
           if (isDownloading(downloadsSnapshot(), key))
             void queueDownload({ key, kind: "song", label: "" }, async () => {})

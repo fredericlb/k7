@@ -132,10 +132,11 @@ const callServer = (
     signal: AbortSignal.timeout(SERVER_TIMEOUT_MS),
   });
 
-/** The session's side: its server's list when the account is paired, else this backend's own. */
+/** The session's side: its server's list when the account is paired, else this backend's own; `changed` hears a paired change land. */
 export function favoritesRouter(
   s: FavoriteStores,
   serverOf: (req: Request) => PairedServer | null,
+  changed: () => void = () => undefined,
 ): Router {
   const r = Router();
   r.all(
@@ -169,6 +170,8 @@ export function favoritesRouter(
         const list = answer[keyOf(s)];
         // Kept for when the server is away: a phone in a rehearsal room still sorts its songs by the lists.
         if (got.ok && Array.isArray(list)) s.kept?.write(sub, { list });
+        // A song on or off the list comes down or goes now, not at the next check (../../../docs/media/songUpdates.md).
+        if (got.ok && (body || mine.length)) changed();
         res.status(got.status).json(answer);
       } catch (e) {
         const kept = req.method === "GET" ? s.kept?.read(sub)?.list : undefined;

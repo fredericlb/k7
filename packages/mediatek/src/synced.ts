@@ -16,6 +16,8 @@ export interface SyncedSong {
   /** The server's songs revision token the rows were read at. */
   rev: string;
   files: ManifestEntry[];
+  /** "lists" when the copy came down because the account's lists hold the song: it goes when they let it go. */
+  kept?: "lists";
 }
 
 /** The sidecar of the song folder at `abs`, or null: none, or not one this code wrote. */
@@ -26,7 +28,12 @@ export function readSynced(abs: string): SyncedSong | null {
     ) as Partial<SyncedSong>;
     if (typeof raw.server !== "string" || !Array.isArray(raw.files))
       return null;
-    return { server: raw.server, rev: String(raw.rev ?? ""), files: raw.files };
+    return {
+      server: raw.server,
+      rev: String(raw.rev ?? ""),
+      files: raw.files,
+      ...(raw.kept === "lists" ? { kept: "lists" as const } : {}),
+    };
   } catch {
     return null;
   }

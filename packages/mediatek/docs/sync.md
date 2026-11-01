@@ -23,6 +23,10 @@ manifest with those rows — owner against owner — and the revision first, whi
 when nothing moved. Dot-named, the sidecar is skipped by the manifest walk, the scan and the change
 token alike, so it never travels and never looks like an edit.
 
+The same sidecar says why the copy is here: `kept: "lists"` when the account's lists brought it down,
+nothing when a hand did. It sits in the sidecar because it describes that copy and goes with it; a
+register beside the library could name a folder that is no longer there.
+
 ## A download goes through `.part`
 
 `download()` writes to `<dest>.<uuid>.part` and renames at the end. A truncated master installed

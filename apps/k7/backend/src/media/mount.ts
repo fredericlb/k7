@@ -37,7 +37,7 @@ import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
 import { machineServers } from "./serverSongs/server.ts";
-import { startSongUpdates } from "./serverSongs/updates.ts";
+import { keepListedSongs, startSongUpdates } from "./serverSongs/updates.ts";
 import { startSongUploads } from "./serverSongs/uploads.ts";
 import { SharePlayer } from "./shares/player.ts";
 import { dropLegacyShares, sharesDir } from "./shares/store.ts";
@@ -175,6 +175,13 @@ export function mountMedia(
   // A paired device reads this library and songbook by its token; its own backend places its copies against ours.
   const servers = () => machineServers(filesRoot);
   mountServerCopy(app, fileHub, requireAuth, servers);
+  // A machine keeps the songs on the account's lists: a change to one brings its songs down, or lets them go, at once.
+  const listsChanged = () => {
+    if (STANDALONE)
+      void keepListedSongs(servers).catch((e: Error) =>
+        console.error(`listed songs: ${e.message}`),
+      );
+  };
   // The account's favorites: a paired machine's are its server's, read through the device door.
   app.use(
     DEVICE_FAVORITES_ROUTE,
@@ -183,7 +190,11 @@ export function mountMedia(
   app.use(
     "/api/favorites",
     requireAuth,
-    favoritesRouter(opts.favorites, (req) => serverOf(fileHub, req)),
+    favoritesRouter(
+      opts.favorites,
+      (req) => serverOf(fileHub, req),
+      listsChanged,
+    ),
   );
   // The practice list: the same list, the same doors, its own name — ../../docs/media/practice.md.
   const practice: FavoriteStores = {
@@ -198,7 +209,7 @@ export function mountMedia(
   app.use(
     "/api/practice",
     requireAuth,
-    favoritesRouter(practice, (req) => serverOf(fileHub, req)),
+    favoritesRouter(practice, (req) => serverOf(fileHub, req), listsChanged),
   );
 
   // Guards every `/api` route mounted after it, so the unguarded ones above must stay above.
@@ -253,7 +264,7 @@ export function mountMedia(
         startAnalysisSweep(STANDALONE);
         // …and every FLAC's Opus copy beside it, for a browser to stream — ../../docs/media/derivedStream.md.
         startStreamSweep();
-        // A machine keeps the songs that follow its server in step, at start and every half hour (../../docs/media/songUpdates.md).
+        // A machine keeps the songs on the account's lists here and in step, at start and every half hour (../../docs/media/songUpdates.md).
         if (STANDALONE) startSongUpdates(servers);
         // …and sends up every song the server lacks, pending while it is away (../../docs/media/songUploads.md).
         if (STANDALONE) startSongUploads(servers);
