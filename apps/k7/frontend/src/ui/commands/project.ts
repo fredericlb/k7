@@ -104,14 +104,18 @@ export const PROJECT_COMMANDS: LocalCommand[] = [
           name ?? "cut",
           ctx.runCommand,
         );
-      else
+      else {
+        const silent = ctx.videoDoc?.sound === null;
+        if (silent && ask.audio) ctx.setStatus(m["status.videoSilent"]());
         void ctx.share.exportVideo(
           ctx.videoDoc ? videoSceneOf(ctx.videoDoc, null, "export") : null,
           ask.format,
-          ask.audio,
+          // The sound is what RENDER's audio input carries; an older backend says nothing and means the mix.
+          silent ? null : ask.audio,
           name ?? "video",
           ask.settings,
         );
+      }
       return true;
     },
   },

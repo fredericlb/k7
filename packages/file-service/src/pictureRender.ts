@@ -156,7 +156,9 @@ export async function renderPicture(
     : "width" in opts.size
       ? [opts.size.width, opts.size.height]
       : [Math.round((opts.size.height * vw) / vh), opts.size.height];
-  const mix = opts.audio ? await ws.exportMix("wav") : null;
+  // The sound is what RENDER's audio input carries: unwired, the video is silent (song docs/videoOutputs.md).
+  const mix =
+    opts.audio && doc.sound === "mix" ? await ws.exportMix("wav") : null;
   let settle: {
     done: (b: Buffer, type: string) => void;
     fail: (e: Error) => void;

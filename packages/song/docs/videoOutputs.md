@@ -41,6 +41,36 @@ the `VideoProjectDoc` the compositor reads ([picture.md](../../song-video/docs/p
 video run therefore has **no owner** in `nodeProject.ts`, and what it carries cannot land on an
 audio bus by accident.
 
+## RENDER's sound input
+
+`RENDER` has two inputs, the picture and the sound it leaves with: `in`, where every video lane
+arrives, and `audio`, which the export muxes. The graph draws both sockets on the RENDER card.
+
+```k7x
+modules({
+  MIX: ["OUT", "RENDER#audio"], // the mix is the video's sound
+  RENDER: ["VIDEO_OUT"],
+})
+```
+
+- **The wire is what puts sound in the file.** A video whose `audio` input nothing feeds exports
+  silent: a sound that reaches the export without a cable saying so is a sound nobody can take out,
+  or see is there. The browser export and the server render both read the compiled picture's
+  `sound` (`VideoProjectDoc`, `src/videoChains.ts` in `@studio/song-video`) and fetch the mixdown
+  only when it says `mix`.
+- **Only the mix feeds it, for now.** The export renders the engine's whole mixdown and nothing
+  else: rendering one bus is engine work that does not exist. A lane or a bus wired there is told,
+  by name, that it is not in the export (`outRenderSoundNotMix`); a port RENDER does not have is
+  `outRenderPort`. The audio compile ignores the arrow: it is not a bus, and the master still goes
+  to `OUT`.
+- **Wired once, never back-filled.** A project reaching level 5 (`song-schema/docs/formatLevel.md`)
+  gets `MIX → RENDER#audio` written the first time: the `video` scaffold writes it, and
+  `ensureRenderSound` runs where the video run is ensured, at open and at
+  `project surface new viewport`. The level is the marker that the wiring was made, so a person who
+  unwires it to export a silent video keeps that choice at every later open. Level 5 is a narrowed
+  meaning, which is why it is a level at all: a level-4 build would export the mix of a project
+  that says it has no sound.
+
 ## No parameter, and that is not an oversight
 
 `OUT` is the only one of the four names that carries anything: its `Volume` is the song's output
@@ -110,7 +140,7 @@ must not lose its card in the meantime.
 | added | `src/videoOutputs.ts` — `ensureVideoRun`, called at surface creation and at open |
 | derived | `src/chainsGraph.ts`: `RENDER` starts a run, like `@in`, like `MIX`, like a track |
 | validated | `src/graph.ts`: `isSink` takes all four names at their word, `validate()` exempts `from: RENDER` |
-| compiled | **nowhere** — and `nodeProject.ts` says so where it compiles the other pair |
+| compiled | **nowhere** for the sound — and `nodeProject.ts` says so where it compiles the other pair; the picture's compile records what feeds `RENDER#audio` (`sound`) |
 | drawn | the `RENDER` and `VIDEO_OUT` cards (`@studio/ui-chains`), the second without a fader |
 | refused | `@studio/commands`' `setBuiltinOutParam` — both, by name |
 

@@ -361,6 +361,8 @@ export interface WebVideoProject {
   videoTracks: WebVideoTrack[];
   /** The `RENDER -> VIDEO_OUT` run over the composited frame — the picture's `masterPlugins`, empty by default. */
   framePlugins: WebVideoPlugin[];
+  /** What RENDER's `audio` input carries, the export's sound: the mix, or null for a silent video; absent from an older backend, which exports the mix. */
+  sound?: "mix" | null;
   /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
   transitions: Record<string, WebVideoTransition>;
   /** Every stretch a fade NAMES, by its head node — the passes a shot runs through on its way in or out. */

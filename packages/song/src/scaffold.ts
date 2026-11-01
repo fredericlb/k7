@@ -16,7 +16,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { K7Document } from "@studio/k7x/document";
 import { isDocFile } from "@studio/song-schema/docExt";
-import { PICTURE_LANE_LEVEL } from "@studio/song-schema/formatLevel";
+import { RENDER_AUDIO_LEVEL } from "@studio/song-schema/formatLevel";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { writeFileAtomic } from "./atomicWrite";
@@ -24,7 +24,7 @@ import { migrateToChainFiles } from "./chainsMigrateFiles";
 import { forgetModuleReads } from "./moduleCache";
 import { DEFAULT_COUNT_IN } from "./project";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
-import { addVideoRun } from "./videoOutputs";
+import { addRenderSound, addVideoRun } from "./videoOutputs";
 import { wsWriteText } from "./yaml/workspaceDoc";
 
 /** The two archetypes with a TIMELINE, by `Extract` so a shape with its own scaffold cannot be passed here. */
@@ -62,8 +62,8 @@ function projectText(name: string, picture: boolean): string {
     `  timeSignature: "4/4",\n` +
     (picture ? PICTURE_HEADER : "") +
     `})\n` +
-    // A picture lane is a format an older k7 cannot read, so it is told to update (song-schema docs/formatLevel.md).
-    (picture ? `format(${PICTURE_LANE_LEVEL})\n` : "")
+    // A picture lane, and a sound wired into RENDER, are a format an older k7 cannot read (song-schema docs/formatLevel.md).
+    (picture ? `format(${RENDER_AUDIO_LEVEL})\n` : "")
   );
 }
 
@@ -193,9 +193,10 @@ function videoGraph(base: string): string {
     "…and the same pair for the PICTURE, which this project has: `RENDER` is where the video",
     "lanes composite — every one of them arrives there, as every audio lane arrives at `MIX` —",
     "and `VIDEO_OUT` is the frame that leaves. Put a video_effects module on the run between",
-    "them and it works the whole composited frame. See packages/song/docs/videoOutputs.md.",
+    "them and it works the whole composited frame. `RENDER#audio` is the sound the picture",
+    "leaves with: the mix, here; unwire it and the export is silent. See packages/song/docs/videoOutputs.md.",
   ]);
-  if (!addVideoRun(doc.at([])))
+  if (!addVideoRun(doc.at([])) || !addRenderSound(doc.at([])))
     throw new Error(
       "scaffold: the base graph has no `modules` map to add RENDER to",
     );

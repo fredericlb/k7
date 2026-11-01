@@ -43,7 +43,8 @@ nothing outside the machine can reach it, and nothing outside that path is serve
 scene builder, taking the URL scheme as a parameter, so both sides build the same scene.
 
 The sound is the engine's own mixdown (`exportMix`), decoded in the page, as the browser export
-takes it.
+takes it — when the mix feeds RENDER's `audio` input. Unwired, the video is rendered silent
+(`packages/song/docs/videoOutputs.md`, "RENDER's sound input").
 
 ## What it cannot draw
 

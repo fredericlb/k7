@@ -12,6 +12,7 @@ import {
   type WebModuleUI,
 } from "@studio/graph-model";
 import { panelWidgets } from "@studio/graph-model/panel";
+import { RENDER_INPUTS } from "@studio/song-schema/moduleTypes";
 import { depthOf } from "./automationDepth";
 import { type Build, PLAIN_FLAGS } from "./buildContext";
 import {
@@ -300,7 +301,9 @@ export function addSums(b: Build): void {
   }
   // The RENDER sink wears the FRAME's shape wherever it came from: `add` is first-write-wins, so it is applied here (docs/graphBuild.md).
   const renderSink = b.nodes.get(b.renderId);
-  if (renderSink) Object.assign(renderSink, b.renderCard());
+  // …and its two sockets, the picture's and the sound's, whatever reached it so far (song docs/videoOutputs.md).
+  if (renderSink)
+    Object.assign(renderSink, { inputs: RENDER_INPUTS }, b.renderCard());
 }
 
 // Tracks (and video lanes) no chain mentions, drawn as ORPHANS — the missing cable IS the mark. See docs/graphBuild.md.

@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "@studio/k7x/document";
-import { PICTURE_LANE_LEVEL } from "@studio/song-schema/formatLevel";
+import { RENDER_AUDIO_LEVEL } from "@studio/song-schema/formatLevel";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
@@ -131,12 +131,13 @@ describe("arrangement vs video", () => {
         ...(a.project as object),
         viewport: [1280, 720, 30],
       },
-      format: PICTURE_LANE_LEVEL,
+      format: RENDER_AUDIO_LEVEL,
     });
-    // The graph differs by the run the picture adds; every song segment stays, in order.
+    // The graph differs by the run the picture adds and the mix wired into its sound; every song segment stays, in order.
     const kept = parse(audio[GRAPH_FILE]).modules as Record<string, string[]>;
     expect(parse(video[GRAPH_FILE]).modules).toEqual({
       ...kept,
+      MIX: [...(kept.MIX ?? []), "RENDER#audio"],
       RENDER: ["VIDEO_OUT"],
     });
     expect(

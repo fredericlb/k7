@@ -217,6 +217,40 @@ describe("buildGraph", () => {
       ]);
     });
 
+    it("gives RENDER a picture socket and a sound socket, the mix's cable landing on the second", () => {
+      const g = film();
+      g.chains.MIX = {
+        from: "MIX",
+        use: [],
+        out: [
+          { to: "OUT", gain: 1 },
+          { to: "RENDER#audio", gain: 1 },
+        ],
+      };
+      const { nodes, edges } = buildGraph(g);
+      const render = nodes.find((n) => n.id === "snk:RENDER");
+      expect(render?.jacks?.in.map((j) => [j.name, j.type, j.free])).toEqual([
+        ["in", "video", false],
+        ["audio", "audio", false],
+      ]);
+      const sound = edges.find((e) => e.targetPort === "audio");
+      expect([sound?.source, sound?.target, sound?.signal]).toEqual([
+        "snk:MIX",
+        "snk:RENDER",
+        "audio",
+      ]);
+    });
+
+    it("shows RENDER's sound socket free when nothing feeds it", () => {
+      const render = buildGraph(film()).nodes.find(
+        (n) => n.id === "snk:RENDER",
+      );
+      expect(render?.jacks?.in.map((j) => [j.name, j.free])).toEqual([
+        ["in", false],
+        ["audio", true],
+      ]);
+    });
+
     it("draws RENDER once, as a sink, with the video master run leaving it", () => {
       const { nodes } = buildGraph(film());
       expect(

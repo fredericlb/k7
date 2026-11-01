@@ -227,3 +227,22 @@ describe("the document it lands in", () => {
     expect(doc.framePlugins).toEqual([]);
   });
 });
+
+describe("RENDER's sound input", () => {
+  it("carries the mix when MIX feeds RENDER#audio, and nothing when nothing does", () => {
+    graph({
+      modules: {
+        main: ["RENDER"],
+        MIX: ["OUT", "RENDER#audio"],
+        RENDER: ["VIDEO_OUT"],
+      },
+    });
+    expect(compile().sound).toBe("mix");
+    expect(validate(loadGraph(dir))).toEqual([]);
+    graph({
+      modules: { main: ["RENDER"], MIX: ["OUT"], RENDER: ["VIDEO_OUT"] },
+    });
+    expect(compile().sound).toBeNull();
+    expect(loadVideoProject(dir).sound).toBeNull();
+  });
+});

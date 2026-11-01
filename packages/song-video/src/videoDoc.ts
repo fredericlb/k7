@@ -173,6 +173,8 @@ export interface VideoProjectDoc {
   markers: VideoMarker[]; // sorted by second
   /** The `RENDER -> VIDEO_OUT` run — the picture's `masterPlugins`, always present; docs/shaders.md. */
   framePlugins: VideoPluginDoc[];
+  /** What RENDER's `audio` input carries, the export's sound: the mix, or nothing — a silent video (song docs/videoOutputs.md). */
+  sound: "mix" | null;
   /** Every transition a placement NAMES, by name; the built-in dissolve is absent — the renderer owns it. */
   transitions: Record<string, VideoTransitionDoc>;
   /** Every stretch a fade NAMES, by its head node: the passes a shot runs through on its way in or out. */

@@ -122,6 +122,7 @@ export function emptyVideoProject(dir: string): WebVideoProject {
     markers: [],
     videoTracks: [],
     framePlugins: [],
+    sound: null,
     transitions: {},
     stretches: {},
   };
@@ -141,6 +142,7 @@ export function webVideoProjectOf(
     markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
     videoTracks: toWebVideoTracks(p.videoTracks, toRel),
     framePlugins: p.framePlugins.map((pl) => webPlugin(pl, toRel)),
+    sound: p.sound,
     transitions: Object.fromEntries(
       Object.entries(p.transitions).map(([k, t]) => [
         k,

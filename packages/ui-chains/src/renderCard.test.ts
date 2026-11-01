@@ -99,10 +99,13 @@ describe("the picture reaches the compositor", () => {
     );
   });
 
-  it("types RENDER's socket by what arrives — a PICTURE, not audio", () => {
+  it("gives RENDER a PICTURE socket, fed, and a sound socket beside it", () => {
     const { nodes } = buildGraph(rig, { drawMainOut: true });
     const card = nodes.find((n) => n.id === SINK);
-    expect(card?.jacks?.in).toEqual([{ type: "video", free: false }]);
+    expect(card?.jacks?.in).toEqual([
+      { name: "in", type: "video", free: false },
+      { name: "audio", type: "audio", free: true },
+    ]);
   });
 
   it("still draws NO cable into MIX — that rule is the mixer's and stands", () => {

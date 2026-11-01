@@ -35,6 +35,10 @@ const TEXT: Record<GraphWarningCode, (p: P) => string> = {
   outBadPort: (p) =>
     `chain '${p.chain}': out '${p.out}' leaves '${p.source}' through '${p.port}', which is ` +
     `not one of its outputs (${p.outputs || "none"})`,
+  outRenderPort: (p) =>
+    `chain '${p.chain}': out '${p.out}' is no input of RENDER — it takes the picture on 'in' and the sound on 'audio'`,
+  outRenderSoundNotMix: (p) =>
+    `chain '${p.chain}': out '${p.out}' — only the mix can be the video's sound for now (MIX: ["RENDER#audio"]); this one is not in the export`,
   chainDeadEnd: (p) => `chain '${p.chain}': has no out (dead end)`,
   trackClipMissing: (p) =>
     `track '${p.track}': clip/sequence '${p.ref}' not found`,
