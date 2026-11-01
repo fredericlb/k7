@@ -204,11 +204,10 @@ async function openProject(
   project: string,
 ): Promise<Page> {
   const page = await k7.open(`/@local/${workspace}/${project}`);
-  await expect(page.getByRole("img", { name: "engine connected" })).toBeVisible(
-    {
-      timeout: 30_000,
-    },
-  );
+  // The engine's light is in the bar's engine menu now; its button's title says the same, closed.
+  await expect(
+    page.getByRole("button", { name: "Engine", exact: true }),
+  ).toHaveAttribute("title", /Engine connected/, { timeout: 30_000 });
   return page;
 }
 
